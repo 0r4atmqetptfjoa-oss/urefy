@@ -1,5 +1,7 @@
 # 🌌 Platforma Aetheris (Sovereign Zero-Knowledge Network)
 
+[![CI Matrix](https://github.com/aetheris/aetheris/actions/workflows/ci.yml/badge.svg)](https://github.com/aetheris/aetheris/actions)
+
 > **Platformă hibridă unificată de comunicație E2EE în timp real, forum de resurse verificate și microblogging liber, orientată spre confidențialitate absolută și suveranitatea datelor.**
 
 ---
@@ -69,3 +71,29 @@ Acest script va deschide automat:
    ```bash
    npm test
    ```
+
+### Metoda 3 — Docker Containerization (Local Development & Self-Hosting):
+
+Pentru dezvoltare locală cross-platform (Linux/macOS/Windows) sau scenarii de auto-găzduire suverană (self-hosting), întreaga platformă Aetheris este complet containerizată prin Docker și Docker Compose.
+
+> **Infrastructură & Deployment:**  
+> Docker este destinat dezvoltării locale omogene pe orice sistem de operare (Linux/macOS/Windows) și auto-găzduirii (on-premises sau VPS dedicat), în timp ce arhitectura de producție globală utilizează capabilitățile edge serverless oferite de **Cloudflare Pages** și **Workers Edge**.
+
+1. **Construire imagini Docker:**
+   ```bash
+   docker compose build
+   ```
+2. **Pornire servicii în mod detached:**
+   ```bash
+   docker compose up -d
+   ```
+3. **Oprire containere:**
+   ```bash
+   docker compose down
+   ```
+
+Servicii orchestrate:
+- **`server-edge`**: expus pe `http://localhost:4000` (WebSocket: `ws://localhost:4000`)
+- **`daemon-archivist`**: worker de arhivare și indexare automată conectat la server
+- **`client-ui`**: container de dezvoltare live-reload expus pe `http://localhost:3000`
+
