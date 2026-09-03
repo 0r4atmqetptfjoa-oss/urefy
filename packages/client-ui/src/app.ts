@@ -1208,6 +1208,7 @@ export function initApp(): void {
     ${keyboardNavigator.renderModal()}
     ${transparencyMode.renderInspectorModal()}
     ${sovereignWebPush.renderPushOptInBanner()}
+    ${onboardingWizard.renderWizardModal(clientStore.keypair?.fingerprint)}
   `;
 
   const patchRender = (event?: string, data?: any) => {

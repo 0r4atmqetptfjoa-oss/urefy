@@ -255,6 +255,28 @@ export interface TranslationDictionary {
     advancedTools: string;
     switchMode: string;
   };
+  onboardingNarrative?: {
+    step1Title: string;
+    step1Subtitle: string;
+    step1Body: string;
+    step2Title: string;
+    step2Subtitle: string;
+    step2Body: string;
+    step3Title: string;
+    step3Subtitle: string;
+    step3Body: string;
+    step4Title: string;
+    step4Subtitle: string;
+    step4Body: string;
+    step4Warning: string;
+    step4SavedWords: string;
+    step4DownloadBackup: string;
+    skip: string;
+    continue: string;
+    back: string;
+    finish: string;
+    stepOf: string;
+  };
 }
 
 const enDict: TranslationDictionary = {
@@ -411,6 +433,28 @@ const enDict: TranslationDictionary = {
     sovereign: 'Sovereign',
     advancedTools: 'Advanced Tools',
     switchMode: 'Switch Interface Mode',
+  },
+  onboardingNarrative: {
+    step1Title: 'Your Identity Belongs to You',
+    step1Subtitle: 'Self-sovereignty from the very first second',
+    step1Body: 'No central server owns your account. No email, no phone number, no passwords stored in vulnerable foreign databases. Your cryptographic keys exist exclusively on your device.',
+    step2Title: 'Your Content is Fully Protected',
+    step2Subtitle: 'End-to-end zero-knowledge security',
+    step2Body: 'Everything you write or share is encrypted directly in your browser before ever touching the network. Only the recipients you explicitly authorize hold the keys to read it.',
+    step3Title: 'The Network Belongs to Everyone',
+    step3Subtitle: 'Decentralized peer-to-peer distribution',
+    step3Body: 'Every participant helps relay and preserve knowledge across the mesh. Zero opaque algorithms designed to exploit attention, and zero centralized choke points for censorship.',
+    step4Title: 'Save Your Recovery Key',
+    step4Subtitle: 'Your 12-word master seed phrase',
+    step4Body: 'Write down or back up these 12 secret words. They represent your complete sovereign identity and all your cryptographic credentials.',
+    step4Warning: 'This 12-word phrase is the only way to recover your account. Aetheris never holds your keys.',
+    step4SavedWords: 'I have safely saved my seed words',
+    step4DownloadBackup: 'Download Encrypted Backup',
+    skip: 'Skip',
+    continue: 'Continue',
+    back: 'Back',
+    finish: 'Enter Sovereign Network',
+    stepOf: 'Step {step} of 4',
   },
 };
 
@@ -1021,6 +1065,28 @@ const roDict: TranslationDictionary = {
     sovereign: 'Suveran',
     advancedTools: 'Unelte avansate',
     switchMode: 'Comută modul interfeței',
+  },
+  onboardingNarrative: {
+    step1Title: 'Identitatea ta îți aparține',
+    step1Subtitle: 'Suveranitate din prima secundă',
+    step1Body: 'Niciun server nu-ți deține contul. Fără email, fără număr de telefon, fără parole pe servere străine. Cheile tale criptografice există exclusiv pe dispozitivul tău.',
+    step2Title: 'Conținutul tău e protejat',
+    step2Subtitle: 'Securitate zero-knowledge de la cap la coadă',
+    step2Body: 'Criptat direct în browserul tău înainte să plece oriunde. Doar cei cărora le permiți au cheia pentru a citi ce trimiți.',
+    step3Title: 'Rețeaua e a tuturor',
+    step3Subtitle: 'Distribuire descentralizată peer-to-peer',
+    step3Body: 'Fiecare participant ajută la distribuirea conținutului. Fără algoritmi ascunși pentru a exploata atenția, fără cenzură centralizată.',
+    step4Title: 'Salvează-ți cheia de salvare',
+    step4Subtitle: 'Fraza ta secretă de 12 cuvinte',
+    step4Body: 'Notează aceste 12 cuvinte secrete. Ele reprezintă întreaga ta identitate suverană și datele tale de acces.',
+    step4Warning: 'Această frază este singura cale de recuperare a contului tău. Aetheris nu stochează chei pe servere.',
+    step4SavedWords: 'Am salvat cuvintele în siguranță',
+    step4DownloadBackup: 'Descarcă copie de siguranță',
+    skip: 'Sari peste',
+    continue: 'Continuă',
+    back: 'Înapoi',
+    finish: 'Gata, intră în rețea',
+    stepOf: 'Pasul {step} din 4',
   },
 };
 
