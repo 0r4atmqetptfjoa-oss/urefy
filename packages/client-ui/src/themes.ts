@@ -789,6 +789,71 @@ export class ThemeEngine {
               </div>
             </div>
 
+            <!-- SECTION 5: SOVEREIGN WEB-OF-TRUST BADGES & FEED TRUST RANKING -->
+            <div class="p-4 rounded-xl bg-surface-raised/40 border border-white/5 space-y-3">
+              <div class="flex items-center justify-between">
+                <label class="text-xs font-semibold uppercase tracking-wider text-slate-300 font-mono flex items-center space-x-1.5">
+                  <span class="text-signal">🛡️</span>
+                  <span>Web-of-Trust Badges & Feed Ranking</span>
+                </label>
+                <span class="text-[10px] font-mono text-emerald-400">Zero-Knowledge WoT</span>
+              </div>
+
+              <div class="space-y-2.5 text-xs">
+                <!-- Toggle 1: Show Trust Badges -->
+                <label class="flex items-center justify-between p-2.5 rounded-xl bg-surface-base/60 border border-white/5 cursor-pointer hover:bg-surface-overlay transition-colors">
+                  <div class="space-y-0.5">
+                    <span class="font-medium text-slate-200">Show Web-of-Trust Badges on Posts</span>
+                    <p class="text-[10px] text-slate-400">Displays inline cryptographic trust tiers and merit score next to authors</p>
+                  </div>
+                  <input 
+                    type="checkbox" 
+                    id="checkbox-show-trust-badges"
+                    ${(typeof window !== 'undefined' && (window as any).clientStore?.showTrustBadges !== false) ? 'checked' : ''}
+                    onchange="if(window.clientStore) { window.clientStore.setShowTrustBadges(this.checked); }"
+                    class="w-4 h-4 rounded text-emerald-500 focus:ring-0 cursor-pointer"
+                  />
+                </label>
+
+                <!-- Toggle 2: Demote Low-Trust Posts -->
+                <label class="flex items-center justify-between p-2.5 rounded-xl bg-surface-base/60 border border-white/5 cursor-pointer hover:bg-surface-overlay transition-colors">
+                  <div class="space-y-0.5">
+                    <span class="font-medium text-slate-200">Demote Low-Trust Publications</span>
+                    <p class="text-[10px] text-slate-400">Softly moves posts below trust threshold to the bottom with 70% opacity (no shadowbanning)</p>
+                  </div>
+                  <input 
+                    type="checkbox" 
+                    id="checkbox-demote-low-trust"
+                    ${(typeof window !== 'undefined' && (window as any).clientStore?.demoteLowTrustPosts) ? 'checked' : ''}
+                    onchange="if(window.clientStore) { window.clientStore.setDemoteLowTrustPosts(this.checked); }"
+                    class="w-4 h-4 rounded text-emerald-500 focus:ring-0 cursor-pointer"
+                  />
+                </label>
+
+                <!-- Threshold Slider -->
+                <div class="p-2.5 rounded-xl bg-surface-base/60 border border-white/5 space-y-1.5">
+                  <div class="flex items-center justify-between text-[11px] font-mono">
+                    <span class="text-slate-400">Minimum Trust Score Ceiling</span>
+                    <span id="label-trust-threshold" class="text-cyan-300 font-bold">${(typeof window !== 'undefined' && (window as any).clientStore?.minFeedTrustThreshold) || 50} Merit</span>
+                  </div>
+                  <input 
+                    type="range" 
+                    min="10" 
+                    max="500" 
+                    step="10" 
+                    value="${(typeof window !== 'undefined' && (window as any).clientStore?.minFeedTrustThreshold) || 50}"
+                    oninput="const lbl = document.getElementById('label-trust-threshold'); if(lbl) lbl.textContent = this.value + ' Merit'; if(window.clientStore) window.clientStore.setMinFeedTrustThreshold(parseInt(this.value, 10));"
+                    class="w-full h-1.5 bg-surface-overlay rounded-lg appearance-none cursor-pointer accent-emerald-400"
+                  />
+                  <div class="flex justify-between text-[9px] font-mono text-slate-500">
+                    <span>10 (Citizen)</span>
+                    <span>100 (Sentinel)</span>
+                    <span>500 (Archon)</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
           </div>
 
           <!-- MODAL FOOTER -->

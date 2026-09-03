@@ -130,6 +130,9 @@ export class AetherisClientStore {
   public viewMode: ViewMode = 'card';
   public isDualHorizon: boolean = false;
   public uiMode: 'simple' | 'sovereign' = 'simple';
+  public showTrustBadges: boolean = true;
+  public minFeedTrustThreshold: number = 0;
+  public demoteLowTrustPosts: boolean = false;
   public isCommandRailOpen: boolean = false;
   public isComposerOpen: boolean = false;
   public isQuarantined: boolean = false;
@@ -213,6 +216,22 @@ export class AetherisClientStore {
       const savedUiMode = localStorage.getItem('aetheris_ui_mode');
       if (savedUiMode === 'sovereign' || savedUiMode === 'simple') {
         this.uiMode = savedUiMode;
+      }
+
+      const savedShowTrust = localStorage.getItem('aetheris_show_trust_badges');
+      if (savedShowTrust !== null) {
+        this.showTrustBadges = savedShowTrust === 'true';
+      }
+
+      const savedMinThreshold = localStorage.getItem('aetheris_min_feed_trust_threshold');
+      if (savedMinThreshold !== null) {
+        const parsed = parseInt(savedMinThreshold, 10);
+        if (!isNaN(parsed)) this.minFeedTrustThreshold = parsed;
+      }
+
+      const savedDemote = localStorage.getItem('aetheris_demote_low_trust_posts');
+      if (savedDemote !== null) {
+        this.demoteLowTrustPosts = savedDemote === 'true';
       }
     } else {
       this.mnemonic = generateMnemonic(128);
@@ -1253,6 +1272,30 @@ export class AetherisClientStore {
 
   public toggleUiMode(): void {
     this.setUiMode(this.uiMode === 'simple' ? 'sovereign' : 'simple');
+  }
+
+  public setShowTrustBadges(show: boolean): void {
+    this.showTrustBadges = show;
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('aetheris_show_trust_badges', String(show));
+    }
+    this.notify('TRUST_SETTINGS_CHANGED', { showTrustBadges: show });
+  }
+
+  public setMinFeedTrustThreshold(threshold: number): void {
+    this.minFeedTrustThreshold = threshold;
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('aetheris_min_feed_trust_threshold', String(threshold));
+    }
+    this.notify('TRUST_SETTINGS_CHANGED', { minFeedTrustThreshold: threshold });
+  }
+
+  public setDemoteLowTrustPosts(demote: boolean): void {
+    this.demoteLowTrustPosts = demote;
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('aetheris_demote_low_trust_posts', String(demote));
+    }
+    this.notify('TRUST_SETTINGS_CHANGED', { demoteLowTrustPosts: demote });
   }
 
   public likePost(postId: string): void {

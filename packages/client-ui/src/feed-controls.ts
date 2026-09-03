@@ -117,13 +117,32 @@ export class FeedControlsEngine {
     }
 
     // Default: 'hot' ranking algorithm
-    return list.sort((a, b) => {
+    const sorted = list.sort((a, b) => {
       const ageHoursA = (now - a.createdAt) / 3600000;
       const ageHoursB = (now - b.createdAt) / 3600000;
       const scoreA = (a.meritVotes * 2) + ((a.replyCount || 0) * 3) + ((a.boostCount || 0) * 2) - (ageHoursA * 1.5);
       const scoreB = (b.meritVotes * 2) + ((b.replyCount || 0) * 3) + ((b.boostCount || 0) * 2) - (ageHoursB * 1.5);
       return scoreB - scoreA;
     });
+
+    // Softly demote publications below trust threshold to the bottom if enabled
+    try {
+      const store = (typeof window !== 'undefined' ? (window as any).clientStore : null) || clientStore;
+      if (store?.demoteLowTrustPosts && (store?.minFeedTrustThreshold || 0) > 0) {
+        const threshold = store.minFeedTrustThreshold;
+        sorted.sort((a, b) => {
+          const scoreA = zkReputation.getScoreForFingerprint(a.authorFingerprint);
+          const scoreB = zkReputation.getScoreForFingerprint(b.authorFingerprint);
+          const isLowA = scoreA < threshold;
+          const isLowB = scoreB < threshold;
+          if (isLowA && !isLowB) return 1;
+          if (!isLowA && isLowB) return -1;
+          return 0;
+        });
+      }
+    } catch (_) {}
+
+    return sorted;
   }
 
   // ─── Rendering Feed Controls Toolbar ──────────────────────────────────────
@@ -302,11 +321,15 @@ export class FeedControlsEngine {
     const time = new Date(p.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const circleName = p.channelId.startsWith('vault-') ? (p.channelId === 'vault-releases' ? 'c/clean-releases' : 'c/security-guides') :
                        p.channelId.startsWith('relays-') ? 'c/p2p-mesh' : 'c/zeroknowledge';
+    const store = (typeof window !== 'undefined' ? (window as any).clientStore : null) || clientStore;
+    const authorScore = zkReputation.getScoreForFingerprint(p.authorFingerprint);
+    const isDemoted = store?.demoteLowTrustPosts && (store?.minFeedTrustThreshold || 0) > 0 && authorScore < store.minFeedTrustThreshold;
+    const demoteClass = isDemoted ? 'opacity-70' : '';
 
     return `
       <article 
         id="post-compact-${p.id}"
-        class="group/compact flex items-center justify-between gap-3 px-3.5 py-2.5 bg-surface-raised hover:bg-surface-highlight border border-white/5 hover:border-indigo-500/30 rounded-xl transition-all cursor-pointer select-none text-slate-200"
+        class="group/compact flex items-center justify-between gap-3 px-3.5 py-2.5 bg-surface-raised hover:bg-surface-highlight border border-white/5 hover:border-indigo-500/30 rounded-xl transition-all cursor-pointer select-none text-slate-200 ${demoteClass}"
         data-open-detail="${p.id}"
       >
         <!-- VOTE PILL (HORIZONTAL) -->
@@ -343,6 +366,7 @@ export class FeedControlsEngine {
             <span class="font-mono text-[10px] font-bold text-indigo-400">${circleName}</span>
             <span class="text-slate-600 text-[10px]">•</span>
             <span class="font-mono text-[10px] text-slate-400">@id:${p.authorFingerprint.substring(0, 8)}</span>
+            ${store?.showTrustBadges !== false ? zkReputation.renderInlineTrustBadge(p.authorFingerprint) : ''}
             <span class="text-slate-600 text-[10px]">•</span>
             <span class="text-[10px] font-mono text-slate-500">${time}</span>
             <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-surface-overlay text-slate-400 border border-white/5">${p.flair}</span>
@@ -371,11 +395,15 @@ export class FeedControlsEngine {
     const time = new Date(p.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const circleName = p.channelId.startsWith('vault-') ? (p.channelId === 'vault-releases' ? 'c/clean-releases' : 'c/security-guides') :
                        p.channelId.startsWith('relays-') ? 'c/p2p-mesh' : 'c/zeroknowledge';
+    const store = (typeof window !== 'undefined' ? (window as any).clientStore : null) || clientStore;
+    const authorScore = zkReputation.getScoreForFingerprint(p.authorFingerprint);
+    const isDemoted = store?.demoteLowTrustPosts && (store?.minFeedTrustThreshold || 0) > 0 && authorScore < store.minFeedTrustThreshold;
+    const demoteClass = isDemoted ? 'opacity-70' : '';
 
     return `
       <article 
         id="post-classic-${p.id}"
-        class="group/classic flex space-x-3 p-3.5 bg-surface-raised hover:bg-surface-highlight border border-white/5 hover:border-indigo-500/40 rounded-2xl transition-all shadow-sm cursor-pointer select-none text-slate-200"
+        class="group/classic flex space-x-3 p-3.5 bg-surface-raised hover:bg-surface-highlight border border-white/5 hover:border-indigo-500/40 rounded-2xl transition-all shadow-sm cursor-pointer select-none text-slate-200 ${demoteClass}"
         data-open-detail="${p.id}"
       >
         <!-- LEFT COLUMN: VOTES PILL -->
@@ -420,6 +448,7 @@ export class FeedControlsEngine {
               <span class="font-mono text-[11px] font-bold text-indigo-400">${circleName}</span>
               <span class="text-slate-600 text-xs">•</span>
               <span class="font-mono text-[11px] text-slate-400">by @id:${p.authorFingerprint.substring(0, 8)}</span>
+              ${store?.showTrustBadges !== false ? zkReputation.renderInlineTrustBadge(p.authorFingerprint) : ''}
               <span class="text-slate-600 text-xs">•</span>
               <span class="text-[10px] font-mono text-slate-500">${time}</span>
               <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-surface-overlay text-slate-400 border border-white/5">${p.flair}</span>
@@ -475,9 +504,13 @@ export class FeedControlsEngine {
     const rootComments = threadManager.getRootComments();
     const circleName = p.channelId.startsWith('vault-') ? (p.channelId === 'vault-releases' ? 'c/clean-releases' : 'c/security-guides') :
                        p.channelId.startsWith('relays-') ? 'c/p2p-mesh' : 'c/zeroknowledge';
+    const store = (typeof window !== 'undefined' ? (window as any).clientStore : null) || clientStore;
+    const authorScore = zkReputation.getScoreForFingerprint(p.authorFingerprint);
+    const isDemoted = store?.demoteLowTrustPosts && (store?.minFeedTrustThreshold || 0) > 0 && authorScore < store.minFeedTrustThreshold;
+    const demoteClass = isDemoted ? 'opacity-70' : '';
 
     return `
-      <article class="p-3 sm:p-4 md:p-5 rounded-2xl bg-surface-raised border border-white/5 hover:border-white/10 transition-all shadow-sm flex space-x-2.5 sm:space-x-3.5 group select-text">
+      <article class="p-3 sm:p-4 md:p-5 rounded-2xl bg-surface-raised border border-white/5 hover:border-white/10 transition-all shadow-sm flex space-x-2.5 sm:space-x-3.5 group select-text ${demoteClass}">
         
         <!-- MERIT VOTING COLUMN -->
         <div class="flex flex-col items-center justify-start space-y-1 shrink-0 pt-0.5 select-none" onclick="event.stopPropagation();">
@@ -508,7 +541,7 @@ export class FeedControlsEngine {
                   ${p.authorFingerprint.substring(0, 2).toUpperCase()}
                 </div>
                 <span class="font-mono text-xs font-semibold text-slate-200">@id:${p.authorFingerprint.substring(0, 8)}</span>
-                ${zkReputation.renderReputationBadge(p.meritVotes || 100)}
+                ${store?.showTrustBadges !== false ? zkReputation.renderInlineTrustBadge(p.authorFingerprint) : ''}
                 <span class="text-[9px] font-mono px-2 py-0.5 rounded-md border ${flairStyle}">${p.flair}</span>
               </div>
             </div>

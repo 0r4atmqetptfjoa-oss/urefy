@@ -2064,6 +2064,7 @@ function renderMessageItem(m: ClientMessage): string {
           </div>
           <span class="font-mono text-xs font-semibold text-cyphr">id:${m.authorFingerprint.substring(0, 12)}...</span>
           ${m.isMine ? '<span class="text-[9px] font-mono font-bold bg-cyphr/15 text-cyphr border border-cyphr/30 px-1.5 py-0.2 rounded-md">YOU</span>' : '<span class="text-[9px] font-mono bg-emerald-950 text-signal border border-signal/20 px-1.5 py-0.2 rounded-md">ZK-Verified</span>'}
+          ${clientStore.showTrustBadges ? zkReputation.renderInlineTrustBadge(m.authorFingerprint) : ''}
         </div>
         <span class="text-[10px] font-mono text-slate-500">${time}</span>
       </div>

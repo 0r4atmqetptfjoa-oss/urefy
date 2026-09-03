@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Aetheris Anonymous ZK-Rollup Merit Reputation Aggregator & Credential Engine.
  * Allows sovereign nodes to cryptographically prove their community standing, 
  * trust tier, and governance voting weight via Zero-Knowledge Membership Proofs (ZK-SNARK/RLN)
@@ -98,6 +98,93 @@ export class ZKReputationAggregator {
   constructor() {
     // Seed initial demo proof
     this.createProof('c3dc28cb705e', 342, 412);
+  }
+
+  private memberScores: Map<string, number> = new Map([
+    ['genesis-core', 1250],
+    ['archon-lead', 650],
+    ['c3dc28cb705e', 550],
+    ['a89104fa2211', 250],
+    ['f40019bc88a2', 85],
+    ['9b22a011cd44', 35],
+    ['bad-actor-001', 5],
+  ]);
+
+  /**
+   * Resolves the numeric reputation / merit score for a given author fingerprint.
+   */
+  public getScoreForFingerprint(fingerprint: string): number {
+    if (!fingerprint) return 0;
+    const fp = fingerprint.trim().toLowerCase();
+
+    // Check direct or substring match in local memberScores cache
+    for (const [key, score] of this.memberScores.entries()) {
+      if (fp.includes(key.toLowerCase()) || key.toLowerCase().includes(fp)) {
+        return score;
+      }
+    }
+
+    // Inspect window.clientStore or service registry if available
+    try {
+      const store = typeof window !== 'undefined' ? (window as any).clientStore : null;
+      if (store && Array.isArray(store.members)) {
+        const m = store.members.find((mem: any) => mem.fingerprint && mem.fingerprint.toLowerCase().includes(fp));
+        if (m) {
+          if (m.role === 'GUARDIAN') return 1200;
+          if (m.role === 'ARCHIVIST') return 350;
+          if (m.role === 'MODERATOR') return 180;
+          return Math.max(10, (m.messagesCount || 0) * 2 + (m.postsCount || 0) * 10);
+        }
+      }
+    } catch (_) {}
+
+    // Deterministic fallback score based on fingerprint characters
+    let hash = 0;
+    for (let i = 0; i < fp.length; i++) hash = ((hash << 5) - hash) + fp.charCodeAt(i);
+    return Math.abs(hash % 90);
+  }
+
+  /**
+   * Resolves the reputation tier based on author fingerprint.
+   */
+  public getTierForFingerprint(fingerprint: string): ZKTierInfo {
+    const score = this.getScoreForFingerprint(fingerprint);
+    return this.getTierForScore(score);
+  }
+
+  /**
+   * Sets or updates member score in the aggregator.
+   */
+  public setMemberScore(fingerprint: string, score: number): void {
+    if (fingerprint) {
+      this.memberScores.set(fingerprint.trim().toLowerCase(), score);
+    }
+  }
+
+  /**
+   * Renders an inline Web-of-Trust trust badge with signal green for >= SENTINEL and crimson/neutral for lower tiers.
+   */
+  public renderInlineTrustBadge(fingerprint: string): string {
+    const score = this.getScoreForFingerprint(fingerprint);
+    const tier = this.getTierForScore(score);
+    const isHighTrust = tier.tier === 'SENTINEL' || tier.tier === 'ARCHON' || tier.tier === 'GENESIS_GUARDIAN';
+    
+    // Design tokens: signal (green) for tier >= SENTINEL, crimson/muted for lower
+    const badgeClass = isHighTrust
+      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+      : score >= REPUTATION_TIERS.CONTRIBUTOR.minScore
+        ? 'bg-cyan-500/10 text-cyan-300 border-cyan-500/30'
+        : 'bg-surface-overlay text-slate-400 border-white/10';
+
+    return `
+      <span 
+        class="inline-flex items-center space-x-1 px-1.5 py-0.2 rounded text-[9px] font-mono border ${badgeClass} transition-all select-none"
+        title="Web-of-Trust Reputation: ${tier.label} (Score: ${score} Merit)"
+      >
+        <span>${isHighTrust ? '🛡️' : '🔰'}</span>
+        <span class="font-semibold">Trust ${score}</span>
+      </span>
+    `;
   }
 
   /**
