@@ -9,10 +9,23 @@
  */
 
 import './window-augmentation.js';
+import { clientStore } from './client-state.js';
 
 // ---------------------------------------------------------------------------
 // 1. Interfaces & Type Definitions
 // ---------------------------------------------------------------------------
+
+export type ProactiveSuggestionType = 'low_vault_entropy' | 'dao_quorum_near' | 'guardian_inactive';
+
+export interface ProactiveSuggestion {
+  id: string;
+  type: ProactiveSuggestionType;
+  title: string;
+  message: string;
+  actionLabel?: string;
+  actionCallback?: () => void;
+  timestamp: number;
+}
 
 export type AICodeLevel = 'beginner' | 'intermediate' | 'advanced';
 export type AIAssistantTab = 'summary' | 'code' | 'security' | 'draft';
@@ -255,11 +268,249 @@ export class LocalAIAssistant {
   public isProcessing: boolean = false;
   public modelId: string = 'Xenova/LaMini-Flan-T5-783M';
 
+  // Proactive Observer & Assistant Suggestions
+  public proactiveEnabled: boolean = true;
+  public dismissedSuggestionTypes: Set<ProactiveSuggestionType> = new Set();
+  public activeSuggestions: ProactiveSuggestion[] = [];
+  public suggestionCooldownMs: number = 5 * 60 * 1000; // 5 minutes rate limit
+  private lastSuggestionTime: number = 0;
+  private observerTimer: any = null;
+
   // Internal active states per post
   private panelStates: Map<string, PanelState> = new Map();
 
   constructor() {
+    if (typeof localStorage !== 'undefined') {
+      const storedDismissed = localStorage.getItem('aetheris_dismissed_suggestions');
+      if (storedDismissed) {
+        try {
+          const parsed = JSON.parse(storedDismissed);
+          if (Array.isArray(parsed)) {
+            this.dismissedSuggestionTypes = new Set(parsed);
+          }
+        } catch (_) {}
+      }
+      const storedProactive = localStorage.getItem('aetheris_proactive_ai_enabled');
+      if (storedProactive !== null) {
+        this.proactiveEnabled = storedProactive === 'true';
+      }
+    }
+
+    if (typeof window !== 'undefined') {
+      (window as any).aiAssistant = this;
+    }
+
     this.initTransformersCDN();
+  }
+
+  // -------------------------------------------------------------------------
+  // Proactive Observer System
+  // -------------------------------------------------------------------------
+
+  /**
+   * Starts periodic observation of client state to emit helpful, non-intrusive suggestions
+   */
+  public startObserver(intervalMs: number = 30000): void {
+    this.stopObserver();
+    this.observerTimer = setInterval(() => {
+      this.checkAndEmitSuggestions();
+    }, intervalMs);
+    // Perform initial check
+    this.checkAndEmitSuggestions();
+  }
+
+  /**
+   * Stops the proactive observer timer and frees resources
+   */
+  public stopObserver(): void {
+    if (this.observerTimer) {
+      clearInterval(this.observerTimer);
+      this.observerTimer = null;
+    }
+  }
+
+  /**
+   * Enables or disables proactive suggestions and updates localStorage
+   */
+  public setProactiveEnabled(enabled: boolean): void {
+    this.proactiveEnabled = enabled;
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('aetheris_proactive_ai_enabled', String(enabled));
+    }
+  }
+
+  /**
+   * Configures cooldown duration between proactive suggestions (in ms)
+   */
+  public setCooldownMs(ms: number): void {
+    this.suggestionCooldownMs = ms;
+  }
+
+  /**
+   * Dismisses a specific active suggestion toast
+   */
+  public dismissSuggestion(id: string): void {
+    const idx = this.activeSuggestions.findIndex(s => s.id === id);
+    if (idx !== -1) {
+      this.activeSuggestions.splice(idx, 1);
+    }
+    if (typeof document !== 'undefined') {
+      const el = document.getElementById(id);
+      if (el) {
+        el.classList.add('opacity-0', 'translate-y-2');
+        setTimeout(() => el.remove(), 200);
+      }
+    }
+  }
+
+  /**
+   * Dismisses and permanently silences all suggestions of a given type
+   */
+  public dismissSuggestionType(type: ProactiveSuggestionType): void {
+    this.dismissedSuggestionTypes.add(type);
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('aetheris_dismissed_suggestions', JSON.stringify(Array.from(this.dismissedSuggestionTypes)));
+    }
+    const toRemove = this.activeSuggestions.filter(s => s.type === type);
+    for (const s of toRemove) {
+      this.dismissSuggestion(s.id);
+    }
+  }
+
+  /**
+   * Evaluates store conditions and emits at most one rate-limited proactive suggestion
+   */
+  public checkAndEmitSuggestions(): ProactiveSuggestion | null {
+    if (!this.proactiveEnabled) return null;
+    const now = Date.now();
+    if (this.lastSuggestionTime > 0 && now - this.lastSuggestionTime < this.suggestionCooldownMs) {
+      return null;
+    }
+
+    const store = (typeof window !== 'undefined' ? (window as any).clientStore : null) || clientStore;
+
+    // 1. Check: low_vault_entropy
+    if (!this.dismissedSuggestionTypes.has('low_vault_entropy')) {
+      const isSeedVerified = typeof localStorage !== 'undefined' && localStorage.getItem('aetheris_seed_verified') === 'true';
+      const vaultPosts = store?.posts?.filter((p: any) => p.channelId?.startsWith('vault-')) || [];
+      if (!isSeedVerified || vaultPosts.length === 0) {
+        return this.emitSuggestion({
+          id: `sug-entropy-${now}`,
+          type: 'low_vault_entropy',
+          title: 'Vault Seed Security Advisory',
+          message: 'Your sovereign vault seed backup has not been verified. Backup your 12-word phrase to guarantee permanent recovery.',
+          actionLabel: 'Backup Seed',
+          actionCallback: () => {
+            if (typeof window !== 'undefined' && (window as any).__aetheris_open_mnemonic) {
+              (window as any).__aetheris_open_mnemonic();
+            }
+          },
+          timestamp: now,
+        });
+      }
+    }
+
+    // 2. Check: dao_quorum_near
+    if (!this.dismissedSuggestionTypes.has('dao_quorum_near')) {
+      const nearQuorumPost = store?.posts?.find((p: any) => (p.meritVotes || 0) >= 35 && (p.meritVotes || 0) < 50);
+      if (nearQuorumPost) {
+        const remaining = 50 - (nearQuorumPost.meritVotes || 0);
+        return this.emitSuggestion({
+          id: `sug-dao-${nearQuorumPost.id}`,
+          type: 'dao_quorum_near',
+          title: 'DAO Quorum Close to Passing',
+          message: `Proposal "${(nearQuorumPost.title || 'Community Action').slice(0, 35)}..." is only ${remaining} votes away from consensus quorum!`,
+          actionLabel: 'View Proposal',
+          actionCallback: () => {
+            if (typeof window !== 'undefined' && (window as any).feedControlsEngine) {
+              (window as any).feedControlsEngine.openDetail(nearQuorumPost.id);
+            }
+          },
+          timestamp: now,
+        });
+      }
+    }
+
+    // 3. Check: guardian_inactive
+    if (!this.dismissedSuggestionTypes.has('guardian_inactive')) {
+      const inactiveGuardian = store?.members?.find((m: any) => m.role === 'GUARDIAN' && (m.isInactive || (m.messagesCount || 0) < 2));
+      if (inactiveGuardian) {
+        return this.emitSuggestion({
+          id: `sug-guardian-${inactiveGuardian.fingerprint}`,
+          type: 'guardian_inactive',
+          title: 'Social Recovery Advisory',
+          message: `Guardian node @id:${inactiveGuardian.fingerprint.substring(0, 8)} appears inactive. Verify your trust circle.`,
+          actionLabel: 'Check Circle',
+          actionCallback: () => {
+            if (typeof window !== 'undefined' && (window as any).__aetheris_open_social_recovery) {
+              (window as any).__aetheris_open_social_recovery();
+            }
+          },
+          timestamp: now,
+        });
+      }
+    }
+
+    return null;
+  }
+
+  private emitSuggestion(suggestion: ProactiveSuggestion): ProactiveSuggestion {
+    this.lastSuggestionTime = Date.now();
+    this.activeSuggestions.push(suggestion);
+    this.showProactiveToast(suggestion);
+    return suggestion;
+  }
+
+  public showProactiveToast(suggestion: ProactiveSuggestion): void {
+    if (typeof document === 'undefined') return;
+    let container = document.getElementById('proactive-ai-container');
+    if (!container) {
+      container = document.createElement('div');
+      container.id = 'proactive-ai-container';
+      container.className = 'fixed bottom-6 left-6 z-[9999] max-w-sm pointer-events-auto space-y-2';
+      document.body.appendChild(container);
+    }
+
+    const card = document.createElement('div');
+    card.id = suggestion.id;
+    card.className = 'p-4 rounded-2xl bg-surface-raised/95 backdrop-blur-2xl border border-cyan-500/30 shadow-2xl animate-in fade-in slide-in-from-bottom-3 duration-200 text-xs space-y-2.5';
+    card.innerHTML = `
+      <div class="flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+          <span class="text-base">🤖</span>
+          <span class="font-bold text-white font-mono">${this.escapeHtml(suggestion.title)}</span>
+        </div>
+        <button type="button" onclick="window.aiAssistant?.dismissSuggestion('${suggestion.id}')" class="text-slate-400 hover:text-white cursor-pointer px-1">✕</button>
+      </div>
+      <p class="text-slate-300 leading-relaxed font-sans">${this.escapeHtml(suggestion.message)}</p>
+      <div class="flex items-center justify-between pt-1 border-t border-white/5">
+        <button type="button" onclick="window.aiAssistant?.dismissSuggestionType('${suggestion.type}')" class="text-[10px] font-mono text-slate-500 hover:text-rose-400 cursor-pointer">
+          Don't show this type again
+        </button>
+        <div class="flex items-center space-x-2">
+          <button type="button" onclick="window.aiAssistant?.dismissSuggestion('${suggestion.id}')" class="px-2.5 py-1 rounded-lg bg-surface-overlay text-slate-300 hover:text-white font-medium cursor-pointer">
+            Got it
+          </button>
+          ${suggestion.actionLabel ? `
+            <button type="button" id="btn-action-${suggestion.id}" class="px-2.5 py-1 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-black font-bold cursor-pointer">
+              ${this.escapeHtml(suggestion.actionLabel)}
+            </button>
+          ` : ''}
+        </div>
+      </div>
+    `;
+
+    container.appendChild(card);
+
+    if (suggestion.actionCallback) {
+      const actionBtn = card.querySelector(`#btn-action-${suggestion.id}`);
+      if (actionBtn) {
+        actionBtn.addEventListener('click', () => {
+          suggestion.actionCallback?.();
+          this.dismissSuggestion(suggestion.id);
+        });
+      }
+    }
   }
 
   /**

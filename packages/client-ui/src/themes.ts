@@ -854,6 +854,46 @@ export class ThemeEngine {
               </div>
             </div>
 
+            <!-- SECTION 6: PROACTIVE LOCAL AI ASSISTANT -->
+            <div class="space-y-3">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-mono uppercase tracking-wider text-slate-400 font-semibold flex items-center gap-1.5">
+                  <span>🤖</span>
+                  <span>On-Device Proactive AI Assistant</span>
+                </span>
+                <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">LOCAL ONLY</span>
+              </div>
+
+              <div class="p-4 rounded-xl bg-surface-base/80 border border-white/5 space-y-3">
+                <label class="flex items-center justify-between p-2.5 rounded-xl bg-surface-base/60 border border-white/5 cursor-pointer hover:bg-surface-base transition-colors">
+                  <div class="space-y-0.5 pr-2">
+                    <span class="text-xs font-medium text-white block">Proactive Ambient Suggestions</span>
+                    <span class="text-[10px] text-slate-400 block leading-relaxed">
+                      Emits helpful, non-intrusive advisories for unbacked vaults, active DAO quorums, and guardian health.
+                    </span>
+                  </div>
+                  <input 
+                    type="checkbox" 
+                    id="checkbox-proactive-ai"
+                    ${(typeof window !== 'undefined' && (window as any).clientStore?.proactiveAiEnabled !== false) ? 'checked' : ''}
+                    onchange="if(window.clientStore) window.clientStore.setProactiveAiEnabled(this.checked)"
+                    class="w-4 h-4 rounded text-cyan-400 focus:ring-0 cursor-pointer"
+                  />
+                </label>
+
+                <div class="flex items-center justify-between text-[11px] font-mono pt-1 text-slate-400">
+                  <span>Dismissed suggestion types:</span>
+                  <button
+                    type="button"
+                    onclick="if(window.aiAssistant){ window.aiAssistant.dismissedSuggestionTypes.clear(); localStorage.removeItem('aetheris_dismissed_suggestions'); if(window.toastManager) window.toastManager.success('Dismissed AI suggestions reset!', '✓'); }"
+                    class="text-[10px] text-cyan-400 hover:text-cyan-300 underline cursor-pointer"
+                  >
+                    Reset Dismissed
+                  </button>
+                </div>
+              </div>
+            </div>
+
           </div>
 
           <!-- MODAL FOOTER -->

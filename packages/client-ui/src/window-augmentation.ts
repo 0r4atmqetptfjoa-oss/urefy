@@ -128,6 +128,7 @@ export interface WindowAugmentation {
   codeSandbox?: any;
   chaumianVotingManager?: any;
   sovereignWebPush?: any;
+  aiAssistant?: any;
 
   // Error Boundary & Structured Logging
   errorBoundary?: any;

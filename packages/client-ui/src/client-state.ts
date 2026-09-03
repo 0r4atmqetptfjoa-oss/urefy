@@ -133,6 +133,7 @@ export class AetherisClientStore {
   public showTrustBadges: boolean = true;
   public minFeedTrustThreshold: number = 0;
   public demoteLowTrustPosts: boolean = false;
+  public proactiveAiEnabled: boolean = true;
   public isCommandRailOpen: boolean = false;
   public isComposerOpen: boolean = false;
   public isQuarantined: boolean = false;
@@ -232,6 +233,11 @@ export class AetherisClientStore {
       const savedDemote = localStorage.getItem('aetheris_demote_low_trust_posts');
       if (savedDemote !== null) {
         this.demoteLowTrustPosts = savedDemote === 'true';
+      }
+
+      const savedProactive = localStorage.getItem('aetheris_proactive_ai_enabled');
+      if (savedProactive !== null) {
+        this.proactiveAiEnabled = savedProactive === 'true';
       }
     } else {
       this.mnemonic = generateMnemonic(128);
@@ -1296,6 +1302,17 @@ export class AetherisClientStore {
       localStorage.setItem('aetheris_demote_low_trust_posts', String(demote));
     }
     this.notify('TRUST_SETTINGS_CHANGED', { demoteLowTrustPosts: demote });
+  }
+
+  public setProactiveAiEnabled(enabled: boolean): void {
+    this.proactiveAiEnabled = enabled;
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('aetheris_proactive_ai_enabled', String(enabled));
+    }
+    if (typeof window !== 'undefined' && (window as any).aiAssistant) {
+      (window as any).aiAssistant.setProactiveEnabled(enabled);
+    }
+    this.notify('PROACTIVE_AI_CHANGED', { enabled });
   }
 
   public likePost(postId: string): void {

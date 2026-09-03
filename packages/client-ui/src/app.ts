@@ -382,6 +382,11 @@ export function initApp(): void {
   touchGestureEngine.init();
   crossTabSync.init();
 
+  // Proactive Local AI Assistant Observer
+  if (clientStore.proactiveAiEnabled) {
+    aiAssistant.startObserver(30000);
+  }
+
   // PWA Install State & Network Monitoring
   pwaService.subscribe((state) => {
     const installBtn = document.getElementById('btn-pwa-install');
