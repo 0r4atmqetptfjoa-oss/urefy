@@ -79,6 +79,7 @@ import { governanceDAO } from './governance.js';
 import { rssImporter } from './rss-import.js';
 import { cryptoWorkerPool } from './web-workers.js';
 import { ambientNetworkMinimap } from './network-minimap.js';
+import { mobileTabBar } from './mobile-tab-bar.js';
 import { pwaService } from './pwa-service.js';
 import { cveMonitor } from './cve-monitor.js';
 import { webAuthnManager } from './webauthn.js';
@@ -2161,12 +2162,7 @@ function renderMobileBottomNavButtons(): string {
 }
 
 function renderMobileBottomNav(): string {
-  return `
-    <!-- MOBILE BOTTOM NAVIGATION BAR -->
-    <nav id="app-mobile-bottom-nav" class="fixed bottom-0 inset-x-0 z-40 bg-surface-base/95 backdrop-blur-2xl border-t border-white/10 h-14 md:hidden flex items-center justify-around px-2 pb-safe select-none shadow-2xl">
-      ${renderMobileBottomNavButtons()}
-    </nav>
-  `;
+  return mobileTabBar.renderTabBarHTML();
 }
 
 function renderMobileDrawer(): string {
