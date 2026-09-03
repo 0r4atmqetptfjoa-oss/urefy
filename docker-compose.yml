@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  server-edge:
+    build:
+      context: .
+      dockerfile: packages/server-edge/Dockerfile
+    container_name: aetheris-server-edge
+    ports:
+      - "4000:4000"
+    environment:
+      - PORT=4000
+      - NODE_ENV=production
+    restart: unless-stopped
+
+  daemon-archivist:
+    build:
+      context: .
+      dockerfile: packages/daemon-archivist/Dockerfile
+    container_name: aetheris-daemon-archivist
+    depends_on:
+      - server-edge
+    environment:
+      - SERVER_URL=ws://server-edge:4000
+      - NODE_ENV=production
+    restart: unless-stopped
+
+  client-ui:
+    image: node:20-alpine
+    container_name: aetheris-client-ui
+    working_dir: /app
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+      - ./packages/client-ui:/app/packages/client-ui
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+    command: sh -c "npm ci && npm run client"
+    depends_on:
+      - server-edge
+    restart: unless-stopped
