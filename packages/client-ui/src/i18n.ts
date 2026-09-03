@@ -249,6 +249,12 @@ export interface TranslationDictionary {
     ago: string;
     justNow: string;
   };
+  uiMode?: {
+    simple: string;
+    sovereign: string;
+    advancedTools: string;
+    switchMode: string;
+  };
 }
 
 const enDict: TranslationDictionary = {
@@ -399,6 +405,12 @@ const enDict: TranslationDictionary = {
     days: 'days',
     ago: 'ago',
     justNow: 'just now',
+  },
+  uiMode: {
+    simple: 'Simple',
+    sovereign: 'Sovereign',
+    advancedTools: 'Advanced Tools',
+    switchMode: 'Switch Interface Mode',
   },
 };
 
@@ -1003,6 +1015,12 @@ const roDict: TranslationDictionary = {
     days: 'zile',
     ago: 'în urmă',
     justNow: 'chiar acum',
+  },
+  uiMode: {
+    simple: 'Simplu',
+    sovereign: 'Suveran',
+    advancedTools: 'Unelte avansate',
+    switchMode: 'Comută modul interfeței',
   },
 };
 

@@ -169,6 +169,10 @@ export interface WindowAugmentation {
   __aetheris_close_global_scale?: () => void;
   __aetheris_toggle_mobile_drawer?: () => void;
   __aetheris_close_mobile_drawer?: () => void;
+  __aetheris_toggle_ui_mode?: () => void;
+  __aetheris_set_ui_mode?: (mode: 'simple' | 'sovereign') => void;
+  __aetheris_toggle_advanced_overflow?: () => void;
+  __aetheris_close_advanced_overflow?: () => void;
   __aetherisToggleNotifs?: () => void;
   __aetherisCloseNotifs?: () => void;
   __aetheris_close_observatory?: () => void;

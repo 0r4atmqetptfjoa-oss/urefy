@@ -129,6 +129,7 @@ export class AetherisClientStore {
   public density: DensityMode = 'balanced';
   public viewMode: ViewMode = 'card';
   public isDualHorizon: boolean = false;
+  public uiMode: 'simple' | 'sovereign' = 'simple';
   public isCommandRailOpen: boolean = false;
   public isComposerOpen: boolean = false;
   public isQuarantined: boolean = false;
@@ -207,6 +208,11 @@ export class AetherisClientStore {
         seed = mnemonicToSeed(this.mnemonic).subarray(0, 32);
         localStorage.setItem('aetheris_identity_mnemonic', this.mnemonic);
         localStorage.setItem('aetheris_identity_seed', bytesToHex(seed));
+      }
+
+      const savedUiMode = localStorage.getItem('aetheris_ui_mode');
+      if (savedUiMode === 'sovereign' || savedUiMode === 'simple') {
+        this.uiMode = savedUiMode;
       }
     } else {
       this.mnemonic = generateMnemonic(128);
@@ -1234,6 +1240,19 @@ export class AetherisClientStore {
       this.density = 'compact';
     }
     this.notify();
+  }
+
+  public setUiMode(mode: 'simple' | 'sovereign'): void {
+    if (this.uiMode === mode) return;
+    this.uiMode = mode;
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('aetheris_ui_mode', mode);
+    }
+    this.notify('UI_MODE_CHANGED', { uiMode: mode });
+  }
+
+  public toggleUiMode(): void {
+    this.setUiMode(this.uiMode === 'simple' ? 'sovereign' : 'simple');
   }
 
   public likePost(postId: string): void {
