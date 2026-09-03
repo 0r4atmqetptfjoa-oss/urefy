@@ -1,0 +1,16 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# Aetheris Omni-Sphere — Cloudflare Pages _redirects
+# SPA Fallback + Security Redirects + Trailing Slash Normalization
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# ─── Force HTTPS (Cloudflare handles this, but belt + suspenders) ─────────────
+# http://aetheris-omni-sphere.pages.dev/*  https://aetheris-omni-sphere.pages.dev/:splat  301
+
+# ─── Legacy / alternate route aliases ─────────────────────────────────────────
+/app   / 301
+/home  / 301
+/feed  / 301
+/pulse / 301
+
+# ─── SPA Fallback: All unmatched routes → index.html (200) ───────────────────
+/*  /index.html  200

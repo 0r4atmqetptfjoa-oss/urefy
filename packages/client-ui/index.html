@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
+    <!-- ─── SEO & Social ──────────────────────────────────────────────────── -->
+    <title>Aetheris — Sovereign Communication &amp; Knowledge Vault</title>
+    <meta name="description" content="Encrypted P2P messaging, sovereign knowledge vault, and decentralized social layer. Zero servers, zero surveillance." />
+    <meta name="keywords" content="sovereign, encrypted, p2p, decentralized, privacy, communication, knowledge vault" />
+    <meta name="author" content="Aetheris Network" />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Aetheris — Sovereign Communication" />
+    <meta property="og:description" content="Encrypted P2P messaging and decentralized knowledge vault." />
+    <meta property="og:image" content="/favicon.svg" />
+    <meta property="og:url" content="https://aetheris-omni-sphere.pages.dev" />
+    <meta property="og:site_name" content="Aetheris Omni-Sphere" />
+    <!-- Micro-Card & Social Metadata -->
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Aetheris — Sovereign Communication" />
+    <meta name="twitter:description" content="Encrypted P2P messaging and decentralized knowledge vault." />
+    <meta name="twitter:image" content="/favicon.svg" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; manifest-src 'self' blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https://images.unsplash.com https://*.ytimg.com https://*.youtube.com https://*; media-src 'self' blob: data: https://*; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com blob:; child-src 'self' blob: https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com; connect-src 'self' wss: ws: https:; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests;" />
+    <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <!-- ─── Theme & PWA ────────────────────────────────────────────────────── -->
+    <meta name="theme-color" content="#090a0f" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#f8fafc" media="(prefers-color-scheme: light)" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Aetheris" />
+    <meta name="application-name" content="Aetheris" />
+    <meta name="msapplication-TileColor" content="#090a0f" />
+    <meta name="format-detection" content="telephone=no" />
+    <!-- ─── Icons & Manifest ──────────────────────────────────────────────── -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="alternate icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="apple-touch-icon" href="/favicon.svg" />
+    <link rel="manifest" href="/manifest.json" />
+    <!-- ─── ANTI-FOUC: Critical inline CSS before ANY external resource ─────── -->
+    <style>
+      html{background-color:#090a0f;color-scheme:dark;font-size:16px}
+      body{background-color:#090a0f;margin:0;padding:0;overflow:hidden;-webkit-font-smoothing:antialiased}
+      #app{width:100vw;height:100svh;background-color:#090a0f;contain:layout style;isolation:isolate}
+      /* Skeleton shell to prevent blank canvas flash */
+      #app:empty::before{content:'';display:block;width:100%;height:100%;background:#090a0f}
+    </style>
+    <!-- ─── THEME RESTORE: Apply saved theme BEFORE first paint to prevent flash -->
+    <script>
+      (function(){try{
+        var raw=localStorage.getItem('aetheris_theme_pref');
+        var t='';
+        if(raw){try{t=(JSON.parse(raw)||{}).activeThemeId||'';}catch(e){t=raw;}}
+        var bg={'alabaster-light':'#f8fafc','matrix-monolith':'#000000','obsidian-cyber':'#0f172a'}[t]||'#090a0f';
+        document.documentElement.style.backgroundColor=bg;
+        document.body&&(document.body.style.backgroundColor=bg);
+        if(t)document.documentElement.setAttribute('data-theme',t);
+        // Restore density class
+        var d=localStorage.getItem('aetheris_density');
+        if(d)document.documentElement.setAttribute('data-density',d);
+      }catch(e){}}());
+    </script>
+    <!-- ─── RESOURCE HINTS: DNS + Preconnect for fastest possible asset load ─── -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+    <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
+    <!-- Fonts: Inter + JetBrains Mono -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" />
+    <!-- ─── Speculation Rules API — Prerender next likely navigation (Chrome 108+) -->
+    <script type="speculationrules">
+    {
+      "prerender": [
+        { "where": { "href_matches": "/*" }, "eagerness": "moderate" }
+      ],
+      "prefetch": [
+        { "where": { "href_matches": "/api/posts*" }, "eagerness": "eager" },
+        { "where": { "href_matches": "/api/channels*" }, "eagerness": "eager" }
+      ]
+    }
+    </script>
+  </head>
+  <body class="bg-[#090a0c] text-slate-200 antialiased overflow-hidden">
+    <div id="app"></div>
+    <!-- ─── ERROR SHIELD: Catch JS errors before module init ─────────────── -->
+    <script>
+      window.addEventListener('error',function(e){
+        var app=document.getElementById('app');
+        if(app&&(!app.children||app.children.length===0)){
+          var msg=(e&&e.message)?e.message:'Initialization exception';
+          app.innerHTML='<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#090a0c;color:#e2e8f0;font-family:system-ui,sans-serif;padding:24px"><div style="max-width:540px;width:100%;background:#13151b;border:1px solid rgba(244,63,94,0.3);border-radius:16px;padding:32px"><div style="color:#f43f5e;font-size:12px;font-family:monospace;font-weight:700;letter-spacing:1px;margin-bottom:12px">SOVEREIGN RESILIENCE SHIELD</div><h2 style="margin:0 0 12px;font-size:20px;font-weight:700;color:#fff">Something went wrong — your vault is safe</h2><p style="color:#94a3b8;font-size:13px;line-height:1.6;margin-bottom:24px">'+msg+'</p><div style="display:flex;gap:12px"><button onclick="window.location.reload()" style="background:#4f46e5;color:#fff;border:none;padding:10px 18px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">Reload Interface</button><button onclick="localStorage.setItem(\'aetheris_safemode\',\'true\');window.location.reload();" style="background:#262a36;color:#cbd5e1;border:1px solid rgba(255,255,255,0.1);padding:10px 18px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">Safe Mode</button></div></div></div>';
+        }
+      });
+    </script>
+    <!-- ─── SW REGISTRATION — NavigationPreload + update detection ─────────── -->
+    <script>
+      if('serviceWorker' in navigator){
+        window.addEventListener('load',function(){
+          navigator.serviceWorker.register('/sw.js',{scope:'/',updateViaCache:'none'})
+            .then(function(reg){
+              // Enable Navigation Preload for instant navigations
+              if(reg.navigationPreload&&reg.active){try{reg.navigationPreload.enable();}catch(e){}}
+              // Auto-update: if new SW waiting, activate it without forcing reload
+              reg.addEventListener('updatefound',function(){
+                var newSW=reg.installing;
+                if(!newSW)return;
+                newSW.addEventListener('statechange',function(){
+                  if(newSW.state==='installed'&&navigator.serviceWorker.controller){
+                    // New version available — notify the app
+                    window.dispatchEvent(new CustomEvent('sw-update-available'));
+                  }
+                });
+              });
+            }).catch(function(){});
+        });
+        // Listen for controller change (SW activated) → reload for fresh assets
+        var refreshing=false;
+        navigator.serviceWorker.addEventListener('controllerchange',function(){
+          if(!refreshing){refreshing=true;/* optional: window.location.reload(); */}
+        });
+      }
+    </script>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
+

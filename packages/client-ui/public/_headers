@@ -1,0 +1,102 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# Aetheris Omni-Sphere — Cloudflare Pages _headers
+# Maximum Edge Performance + Zero-Trust Security + HTTP/3 + Brotli
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# ─── GLOBAL: All routes ────────────────────────────────────────────────────────
+/*
+  # Security — Zero-Trust Headers
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  X-XSS-Protection: 0
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Permitted-Cross-Domain-Policies: none
+  X-DNS-Prefetch-Control: on
+
+  # HSTS — Max age 2 years, include subdomains, HSTS preload list
+  Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
+
+  # CSP — Strict but allows WASM, inline styles for theming, WebRTC, YouTube and Vimeo embeds, and sandboxed WebWorker evaluation
+  Content-Security-Policy: default-src 'self'; manifest-src 'self' blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https://images.unsplash.com https://*.ytimg.com https://*.youtube.com https://*; media-src 'self' blob: data: https://*; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com blob:; child-src 'self' blob: https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com; connect-src 'self' wss: ws: https:; worker-src 'self' blob:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests;
+
+  # Permissions — Allow media embedding and device capabilities
+  Permissions-Policy: accelerometer=*, ambient-light-sensor=(), autoplay=*, battery=(), camera=(), display-capture=(self), encrypted-media=*, fullscreen=*, geolocation=(), gyroscope=*, interest-cohort=(), magnetometer=(), microphone=(self), midi=(), payment=(), picture-in-picture=*, publickey-credentials-get=(self), usb=(), xr-spatial-tracking=(), clipboard-read=(), clipboard-write=*
+
+  # Cross-Origin
+  Cross-Origin-Opener-Policy: same-origin-allow-popups
+  Cross-Origin-Resource-Policy: cross-origin
+
+  # HTTP/3 + Alt-Svc for QUIC negotiation
+  Alt-Svc: h3=":443"; ma=86400
+
+  # CF Cache hints
+  X-Robots-Tag: index, follow
+
+# ─── HTML Documents — Stale-While-Revalidate + Early Hints ───────────────────
+/
+  Cache-Control: public, max-age=0, must-revalidate
+
+/index.html
+  Cache-Control: public, max-age=0, must-revalidate
+
+/admin.html
+  Cache-Control: public, max-age=0, must-revalidate
+  X-Robots-Tag: noindex, nofollow
+
+# ─── Immutable Hashed Assets — 1 Year Cache + Brotli ────────────────────────
+/assets/*.js
+  Cache-Control: public, max-age=31536000, immutable
+  X-Content-Type-Options: nosniff
+  Access-Control-Allow-Origin: *
+  Vary: Accept-Encoding
+
+/assets/*.css
+  Cache-Control: public, max-age=31536000, immutable
+  X-Content-Type-Options: nosniff
+  Access-Control-Allow-Origin: *
+  Vary: Accept-Encoding
+
+/assets/*.wasm
+  Cache-Control: public, max-age=31536000, immutable
+  X-Content-Type-Options: nosniff
+  Access-Control-Allow-Origin: *
+  Cross-Origin-Resource-Policy: cross-origin
+
+# ─── Static Assets — 1 Year Cache ────────────────────────────────────────────
+/favicon.svg
+  Cache-Control: public, max-age=31536000, immutable
+  Access-Control-Allow-Origin: *
+
+/favicon.ico
+  Cache-Control: public, max-age=31536000, immutable
+  Access-Control-Allow-Origin: *
+
+/manifest.json
+  Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+  Access-Control-Allow-Origin: *
+  Content-Type: application/manifest+json; charset=utf-8
+
+# ─── Service Worker — Never Cache, Always Fresh ───────────────────────────────
+/sw.js
+  Cache-Control: public, max-age=0, must-revalidate
+  Service-Worker-Allowed: /
+  X-Content-Type-Options: nosniff
+
+# ─── API Endpoints — No browser cache, CF edge cache via headers ──────────────
+/api/*
+  Cache-Control: no-cache, no-store, must-revalidate
+  Access-Control-Allow-Origin: *
+  Access-Control-Allow-Methods: GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD
+  Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With, Upgrade, Sec-WebSocket-Key, Sec-WebSocket-Version, Sec-WebSocket-Extensions, Sec-WebSocket-Protocol, X-CSRF-Token, X-Aetheris-CSRF, X-File-Name, X-Author, X-Title, X-Key, X-Sha256, X-Merkle-Root, X-Channel-Id, X-RLN-Nullifier, Cache-Control
+  Access-Control-Expose-Headers: Content-Disposition, Content-Length, Content-Type, X-SHA256-Checksum, X-Merkle-Root, X-Author, X-Title, X-Edge-Storage, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset, Retry-After, ETag, Cache-Control
+  Access-Control-Max-Age: 86400
+  X-Content-Type-Options: nosniff
+  Vary: Accept, Accept-Encoding, Origin
+
+# ─── WebSocket Endpoint — No caching ─────────────────────────────────────────
+/api/ws
+  Cache-Control: no-store
+  Access-Control-Allow-Origin: *
+  Access-Control-Allow-Methods: GET, OPTIONS
+  Access-Control-Allow-Headers: Upgrade, Connection, Sec-WebSocket-Key, Sec-WebSocket-Version, Sec-WebSocket-Extensions, Sec-WebSocket-Protocol
+

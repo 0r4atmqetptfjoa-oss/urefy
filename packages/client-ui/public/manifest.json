@@ -1,0 +1,42 @@
+﻿{
+  "name": "Aetheris Omni-Sphere",
+  "short_name": "Aetheris",
+  "description": "Sovereign P2P Communication & Encrypted Knowledge Vault",
+  "start_url": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
+  "background_color": "#090a0f",
+  "theme_color": "#090a0f",
+  "orientation": "any",
+  "scope": "/",
+  "lang": "en-US",
+  "categories": ["social", "productivity", "security"],
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/favicon.ico",
+      "sizes": "48x48",
+      "type": "image/x-icon"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Stream",
+      "url": "/?view=stream",
+      "description": "Open Relay Stream"
+    },
+    {
+      "name": "Compose",
+      "url": "/?compose=true",
+      "description": "Create a new post"
+    }
+  ],
+  "screenshots": [],
+  "prefer_related_applications": false,
+  "handle_links": "preferred"
+}

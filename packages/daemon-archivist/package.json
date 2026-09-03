@@ -1,0 +1,22 @@
+{
+  "name": "@aetheris/daemon-archivist",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "start": "tsx src/index.ts",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@aetheris/core-crypto": "*",
+    "@aetheris/vault-engine": "*",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.5.14",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.5"
+  }
+}
