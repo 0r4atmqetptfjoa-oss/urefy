@@ -277,6 +277,7 @@ export const SERVICES = {
   SocialRecoveryModal: createServiceToken<unknown>('SocialRecoveryModal'),
   NetworkMinimap: createServiceToken<unknown>('NetworkMinimap'),
   MobileTabBar: createServiceToken<unknown>('MobileTabBar'),
+  SovereignFootprint: createServiceToken<unknown>('SovereignFootprint'),
 } as const;
 
 // ── Default Global Container Instance ──────────────────────────────────────────────

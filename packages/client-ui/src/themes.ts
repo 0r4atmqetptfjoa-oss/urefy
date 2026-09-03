@@ -9,6 +9,7 @@
 
 import './window-augmentation.js';
 import { serviceRegistry, SERVICES } from './service-registry.js';
+import { sovereignFootprint } from './settings-footprint.js';
 
 // ─── INTERFACES & TYPES ─────────────────────────────────────────────────────────
 
@@ -893,6 +894,9 @@ export class ThemeEngine {
                 </div>
               </div>
             </div>
+
+            <!-- SECTION 7: SOVEREIGN FOOTPRINT -->
+            ${sovereignFootprint.renderFootprintSectionHTML()}
 
           </div>
 
