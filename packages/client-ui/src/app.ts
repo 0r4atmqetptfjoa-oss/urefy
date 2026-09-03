@@ -78,6 +78,7 @@ import { slideDeckManager } from './slide-deck.js';
 import { governanceDAO } from './governance.js';
 import { rssImporter } from './rss-import.js';
 import { cryptoWorkerPool } from './web-workers.js';
+import { ambientNetworkMinimap } from './network-minimap.js';
 import { pwaService } from './pwa-service.js';
 import { cveMonitor } from './cve-monitor.js';
 import { webAuthnManager } from './webauthn.js';
@@ -385,6 +386,12 @@ export function initApp(): void {
   // Proactive Local AI Assistant Observer
   if (clientStore.proactiveAiEnabled) {
     aiAssistant.startObserver(30000);
+  }
+
+  // Ambient Network Minimap
+  const minimapCanvas = document.getElementById('ambient-network-minimap') as HTMLCanvasElement;
+  if (minimapCanvas) {
+    ambientNetworkMinimap.bindCanvas(minimapCanvas);
   }
 
   // PWA Install State & Network Monitoring
@@ -710,11 +717,8 @@ export function initApp(): void {
               <span class="font-sans font-medium">Install</span>
             </button>
 
-            <!-- NETWORK STATUS BADGE -->
-            <div id="network-status-badge" class="hidden sm:inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-[11px] font-mono bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 select-none">
-              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span class="hidden 2xl:inline">Synced</span>
-            </div>
+            <!-- AMBIENT NETWORK MINIMAP & STATUS -->
+            ${ambientNetworkMinimap.renderMinimapHTML()}
 
             <!-- UI MODE SWITCHER PILL (Simple / Sovereign) -->
             <button type="button" id="btn-toggle-ui-mode" onclick="window.clientStore?.toggleUiMode()" class="px-2.5 py-1.5 rounded-xl text-xs font-mono border transition-all flex items-center space-x-1.5 cursor-pointer ${clientStore.uiMode === 'simple' ? 'bg-cyan-500/10 text-cyan-300 border-cyan-500/30 hover:bg-cyan-500/20' : 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40 hover:bg-indigo-500/30'}" title="${i18n.t('uiMode.switchMode', undefined, 'Switch Interface Mode')}">

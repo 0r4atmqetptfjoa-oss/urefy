@@ -275,6 +275,7 @@ export const SERVICES = {
   SoundPacks: createServiceToken<unknown>('SoundPacks'),
   NodeFederation: createServiceToken<unknown>('NodeFederation'),
   SocialRecoveryModal: createServiceToken<unknown>('SocialRecoveryModal'),
+  NetworkMinimap: createServiceToken<unknown>('NetworkMinimap'),
 } as const;
 
 // ── Default Global Container Instance ──────────────────────────────────────────────
