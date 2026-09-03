@@ -6,7 +6,8 @@
     "dev": "vite --port 3000 --host",
     "build": "vite build",
     "test": "vitest run",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "i18n-audit": "tsx scripts/i18n-audit.ts"
   },
   "dependencies": {
     "@aetheris/core-crypto": "*",
@@ -21,3 +22,4 @@
     "vite": "^6.1.0"
   }
 }
+
