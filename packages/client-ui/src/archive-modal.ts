@@ -68,14 +68,14 @@ export class SovereignArchiveModal {
     this.activeTab = tab;
     this.errorMessage = '';
     this.successMessage = '';
-    clientStore.notify();
+    clientStore.notifySync();
   }
 
   public closeModal(): void {
     this.isOpen = false;
     this.errorMessage = '';
     this.successMessage = '';
-    clientStore.notify();
+    clientStore.notifySync();
   }
 
   public setTab(tab: 'export' | 'restore'): void {
@@ -192,6 +192,7 @@ export class SovereignArchiveModal {
             <button
               type="button"
               id="btn-close-archive-modal"
+              onclick="if(window.__aetheris_close_archive_modal) { window.__aetheris_close_archive_modal(); } else if(window.sovereignArchiveModal) { window.sovereignArchiveModal.closeModal(); }"
               class="text-slate-400 hover:text-white p-1.5 rounded-xl hover:bg-white/10 transition-colors cursor-pointer text-sm font-mono"
             >
               ✕

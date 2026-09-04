@@ -27,7 +27,7 @@ export class SovereignMnemonicModal {
   public closeModal(): void {
     this.isOpen = false;
     this.isRevealed = false;
-    clientStore.notify();
+    clientStore.notifySync();
   }
 
   public toggleReveal(): void {
@@ -101,7 +101,7 @@ export class SovereignMnemonicModal {
     const words = clientStore.mnemonic.trim().split(/\s+/);
 
     return `
-      <div id="mnemonic-vault-backdrop" class="fixed inset-0 bg-black/80 backdrop-blur-md z-[10000] flex items-center justify-center p-4 animate-fade-in pointer-events-auto">
+      <div id="mnemonic-vault-backdrop" class="fixed inset-0 bg-black/80 backdrop-blur-md z-[10000] flex items-center justify-center p-4 animate-fade-in pointer-events-auto" onclick="if(event.target.id==='mnemonic-vault-backdrop'){if(window.__aetheris_close_mnemonic)window.__aetheris_close_mnemonic();else if(window.sovereignMnemonicModal)window.sovereignMnemonicModal.closeModal();}">
         <div class="bg-surface-base border border-white/15 rounded-3xl max-w-xl w-full p-6 shadow-2xl space-y-6 relative overflow-hidden" onclick="event.stopPropagation()">
           
           <!-- MODAL HEADER -->
@@ -121,6 +121,7 @@ export class SovereignMnemonicModal {
             <button
               type="button"
               id="btn-close-mnemonic-modal"
+              onclick="if(window.__aetheris_close_mnemonic) { window.__aetheris_close_mnemonic(); } else if(window.sovereignMnemonicModal) { window.sovereignMnemonicModal.closeModal(); }"
               class="text-slate-400 hover:text-white p-1.5 rounded-xl hover:bg-white/10 transition-colors cursor-pointer text-sm font-mono"
             >
               ✕

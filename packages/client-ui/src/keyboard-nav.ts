@@ -48,17 +48,17 @@ export class KeyboardNavigationEngine {
 
   public openHelpModal(): void {
     this.isHelpModalOpen = true;
-    clientStore.notify();
+    clientStore.notifySync();
   }
 
   public closeHelpModal(): void {
     this.isHelpModalOpen = false;
-    clientStore.notify();
+    clientStore.notifySync();
   }
 
   public toggleHelpModal(): void {
     this.isHelpModalOpen = !this.isHelpModalOpen;
-    clientStore.notify();
+    clientStore.notifySync();
   }
 
   private isInputFocused(): boolean {
@@ -265,7 +265,7 @@ export class KeyboardNavigationEngine {
     if (!this.isHelpModalOpen) return '';
 
     return `
-      <div id="keyboard-shortcuts-backdrop" class="fixed inset-0 bg-black/80 backdrop-blur-md z-[10000] flex items-center justify-center p-4 animate-fade-in pointer-events-auto">
+      <div id="keyboard-shortcuts-backdrop" onclick="if(event.target.id==='keyboard-shortcuts-backdrop'){if(window.keyboardNavigator){window.keyboardNavigator.closeHelpModal();}}" class="fixed inset-0 bg-black/80 backdrop-blur-md z-[10000] flex items-center justify-center p-4 animate-fade-in pointer-events-auto">
         <div class="bg-surface-base border border-white/15 rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-5 relative overflow-hidden" onclick="event.stopPropagation()">
           
           <!-- MODAL HEADER -->
@@ -285,6 +285,7 @@ export class KeyboardNavigationEngine {
             <button
               type="button"
               id="btn-close-shortcuts-modal"
+              onclick="if(window.keyboardNavigator){window.keyboardNavigator.closeHelpModal();}"
               class="text-slate-400 hover:text-white p-1.5 rounded-xl hover:bg-white/10 transition-colors cursor-pointer text-sm font-mono"
             >
               ✕
@@ -309,6 +310,7 @@ export class KeyboardNavigationEngine {
             <button
               type="button"
               id="btn-dismiss-shortcuts-modal"
+              onclick="if(window.keyboardNavigator){window.keyboardNavigator.closeHelpModal();}"
               class="px-4 py-1.5 rounded-xl bg-surface-raised hover:bg-surface-overlay text-slate-200 text-xs font-bold border border-white/10 transition-colors cursor-pointer"
             >
               Got it

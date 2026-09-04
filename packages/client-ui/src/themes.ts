@@ -561,6 +561,7 @@ export class ThemeEngine {
 
     return `
       <div
+        id="theme-selector-backdrop"
         class="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200"
         onclick="if(event.target === this) { window.__aetheris_close_theme ? window.__aetheris_close_theme() : (window.themeEngine && window.themeEngine.closeModal()); }"
         role="dialog"
@@ -917,7 +918,8 @@ export class ThemeEngine {
             <div class="flex items-center space-x-3">
               <button
                 type="button"
-                onclick="if(window.themeEngine) window.themeEngine.closeModal()"
+                id="btn-save-close-theme"
+                onclick="if(window.__aetheris_close_theme) { window.__aetheris_close_theme(); } else if(window.themeEngine) { window.themeEngine.closeModal(); }"
                 class="px-5 py-1.5 rounded-lg text-black font-semibold text-xs transition-all duration-150 shadow-md hover:shadow-cyan-500/25 cursor-pointer"
                 style="background-color: ${effectiveAccent};"
               >

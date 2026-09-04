@@ -540,17 +540,17 @@ export class ProfileView {
 
   public renderEditProfileModal(profile: UserProfileData): string {
     return `
-      <div id="edit-profile-modal-overlay" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 select-none animate-in fade-in zoom-in-95">
+      <div id="edit-profile-modal-overlay" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 select-none animate-in fade-in zoom-in-95" onclick="if(event.target === this || event.target.id==='edit-profile-modal-overlay'){ if(window.__aetheris_close_edit_profile) window.__aetheris_close_edit_profile(); }">
         <div class="w-full max-w-[560px] bg-surface-base border border-white/10 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
           
           <div class="p-4 border-subtle-b bg-surface-raised flex items-center justify-between">
             <h3 class="text-sm font-bold text-white">Edit Sovereign Profile</h3>
-            <button type="button" id="btn-close-edit-profile" class="text-slate-400 hover:text-white font-mono px-2 py-1 cursor-pointer">
+            <button type="button" id="btn-close-edit-profile" onclick="if(window.__aetheris_close_edit_profile) window.__aetheris_close_edit_profile();" class="text-slate-400 hover:text-white font-mono px-2 py-1 cursor-pointer">
               ✕
             </button>
           </div>
 
-          <form id="form-edit-profile" class="p-5 space-y-4 overflow-y-auto">
+          <form id="form-edit-profile" onsubmit="event.preventDefault(); if(window.__aetheris_save_profile) window.__aetheris_save_profile();" class="p-5 space-y-4 overflow-y-auto">
             <!-- AVATAR PHOTO UPLOAD SECTION -->
             <div class="p-3 bg-surface-raised/80 border border-white/10 rounded-2xl flex items-center space-x-4">
               <div class="relative w-16 h-16 rounded-full overflow-hidden border-2 border-indigo-500/50 bg-black shrink-0">
@@ -605,8 +605,8 @@ export class ProfileView {
             </div>
 
             <div class="flex items-center justify-end space-x-3 pt-3 border-t border-white/5">
-              <button type="button" id="btn-cancel-edit-profile" class="px-4 py-2 text-xs text-slate-400 hover:text-white cursor-pointer">Cancel</button>
-              <button type="submit" class="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-full shadow-md cursor-pointer transition-all">Save Changes</button>
+              <button type="button" id="btn-cancel-edit-profile" onclick="if(window.__aetheris_close_edit_profile) window.__aetheris_close_edit_profile();" class="px-4 py-2 text-xs text-slate-400 hover:text-white cursor-pointer">Cancel</button>
+              <button type="button" id="btn-save-profile" onclick="if(window.__aetheris_save_profile) window.__aetheris_save_profile();" class="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-full shadow-md cursor-pointer transition-all">Save Changes</button>
             </div>
           </form>
 

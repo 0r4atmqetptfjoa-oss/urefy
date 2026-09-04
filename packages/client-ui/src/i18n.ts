@@ -1878,9 +1878,12 @@ export class I18nEngine {
             <span class="text-base">🌐</span>
             <h4 class="font-bold text-white">${this.t('nav.language')}</h4>
           </div>
-          <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-500/30 font-bold">
-            ${current.direction.toUpperCase()}
-          </span>
+          <div class="flex items-center space-x-2">
+            <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-500/30 font-bold">
+              ${current.direction.toUpperCase()}
+            </span>
+            <button type="button" id="btn-close-lang" onclick="if(window.__aetheris_close_lang) window.__aetheris_close_lang();" class="text-slate-400 hover:text-white px-1.5 py-0.5 rounded hover:bg-white/10 cursor-pointer" title="Close">✕</button>
+          </div>
         </div>
         <p class="text-[11px] text-slate-400">
           Seamless zero-reload dynamic localization. Arabic natively activates bidirectional RTL layout.

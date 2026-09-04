@@ -31,6 +31,8 @@ import { sovereignMnemonicModal } from './mnemonic-modal.js';
 import { steganographyModal } from './steganography-modal.js';
 import { sovereignArchiveModal } from './archive-modal.js';
 import { socialRecoveryModal } from './social-recovery-modal.js';
+import { portableTrustModal } from './portable-trust-modal.js';
+import { binaryHygienePortal } from './binary-hygiene-portal.js';
 import { exportSovereignArchive, importSovereignArchive, downloadArchiveFile } from './data-archive.js';
 import { touchGestureEngine } from './touch-gestures.js';
 import { crossTabSync } from './cross-tab-sync.js';
@@ -203,47 +205,71 @@ if (typeof window !== 'undefined') {
   window.spatialAudioMesh = spatialAudioMesh;
   window.soundPacks = soundPacks;
   window.nodeFederationEngine = nodeFederationEngine;
-  window.__aetheris_close_gossip = () => { isGossipModalOpen = false; clientStore.notify(); };
-  window.__aetheris_close_rss = () => { isRSSModalOpen = false; clientStore.notify(); };
-  window.__aetheris_close_cve = () => { isCVEModalOpen = false; clientStore.notify(); };
-  window.__aetheris_close_dao = () => { isGovernanceModalOpen = false; clientStore.notify(); };
-  window.__aetheris_close_governance = () => { isGovernanceModalOpen = false; clientStore.notify(); };
-  window.__aetheris_close_export = () => { isExportBackupModalOpen = false; clientStore.notify(); };
-  window.__aetheris_open_theme = () => { isThemeModalOpen = true; clientStore.notify(); };
-  window.__aetheris_close_theme = () => { isThemeModalOpen = false; clientStore.notify(); };
-  window.__aetheris_apply_theme = (id: string) => { themeEngine.setTheme(id); isThemeModalOpen = false; clientStore.notify(); };
-  window.__aetherisToggleNotifs = () => { isNotificationPanelOpen = !isNotificationPanelOpen; clientStore.notify(); };
-  window.__aetherisCloseNotifs = () => { isNotificationPanelOpen = false; clientStore.notify(); };
-  window.__aetheris_close_lang = () => { isLangModalOpen = false; clientStore.notify(); };
-  window.__aetheris_close_observatory = () => { networkObservatory.close(); clientStore.notify(); };
-  window.__aetheris_close_wot_graph = () => { wotGraphViz.close(); clientStore.notify(); };
-  window.__aetheris_close_custom_theme_builder = () => { customThemeBuilder.closeModal(); clientStore.notify(); };
-  window.__aetheris_close_wallet = () => { walletBridge.closeModal(); clientStore.notify(); };
-  window.__aetheris_close_reputation = () => { zkReputation.close(); clientStore.notify(); };
-  window.__aetheris_close_merkle = () => { merkleVisualizer.close(); clientStore.notify(); };
-  window.__aetheris_close_sync = () => { offlineSync.close(); clientStore.notify(); };
-  window.__aetheris_open_mnemonic = () => { sovereignMnemonicModal.openModal(); clientStore.notify(); };
-  window.__aetheris_close_mnemonic = () => { sovereignMnemonicModal.closeModal(); clientStore.notify(); };
-  window.__aetheris_open_steganography = () => { steganographyModal.openModal(); clientStore.notify(); };
-  window.__aetheris_close_steganography = () => { steganographyModal.closeModal(); clientStore.notify(); };
-  window.__aetheris_open_archive_modal = (tab?: 'export' | 'restore') => { sovereignArchiveModal.openModal(tab); clientStore.notify(); };
-  window.__aetheris_close_archive_modal = () => { sovereignArchiveModal.closeModal(); clientStore.notify(); };
-  window.__aetheris_open_social_recovery = (tab?: 'setup' | 'recover') => { socialRecoveryModal.openModal(tab); clientStore.notify(); };
-  window.__aetheris_close_social_recovery = () => { socialRecoveryModal.closeModal(); clientStore.notify(); };
+  window.__aetheris_open_global_scale = () => { isGlobalScaleModalOpen = true; clientStore.notifySync(); };
+  window.__aetheris_close_global_scale = () => { isGlobalScaleModalOpen = false; clientStore.notifySync(); };
+  window.__aetheris_open_edit_profile = () => { profileView.isEditProfileModalOpen = true; clientStore.notifySync(); };
+  window.__aetheris_close_edit_profile = () => { profileView.isEditProfileModalOpen = false; clientStore.notifySync(); };
+  window.__aetheris_save_profile = () => {
+    const name = (document.getElementById('edit-profile-name') as HTMLInputElement)?.value.trim() || 'Sovereign Node';
+    const bio = (document.getElementById('edit-profile-bio') as HTMLTextAreaElement)?.value.trim() || '';
+    const location = (document.getElementById('edit-profile-location') as HTMLInputElement)?.value.trim() || 'Cyberspace';
+    const website = (document.getElementById('edit-profile-website') as HTMLInputElement)?.value.trim() || 'aetheris.eth';
+    const avatar = (document.getElementById('edit-profile-avatar') as HTMLInputElement)?.value.trim() || profileView.getProfile(clientStore.keypair.fingerprint).avatar;
+    const banner = (document.getElementById('edit-profile-banner') as HTMLInputElement)?.value.trim() || profileView.getProfile(clientStore.keypair.fingerprint).banner;
+
+    profileView.saveProfile(clientStore.keypair.fingerprint, { name, bio, location, website, avatar, banner });
+    profileView.isEditProfileModalOpen = false;
+    clientStore.showToast('👤 Sovereign Profile & Photo Updated!', 'success');
+    clientStore.notifySync();
+  };
+  window.__aetheris_open_gossip = () => { isGossipModalOpen = true; clientStore.notifySync(); };
+  window.__aetheris_close_gossip = () => { isGossipModalOpen = false; clientStore.notifySync(); };
+  window.__aetheris_open_rss = () => { isRSSModalOpen = true; clientStore.notifySync(); };
+  window.__aetheris_close_rss = () => { isRSSModalOpen = false; clientStore.notifySync(); };
+  window.__aetheris_open_cve = () => { isCVEModalOpen = true; clientStore.notifySync(); };
+  window.__aetheris_close_cve = () => { isCVEModalOpen = false; clientStore.notifySync(); };
+  window.__aetheris_open_dao = () => { isGovernanceModalOpen = true; clientStore.notifySync(); };
+  window.__aetheris_close_dao = () => { isGovernanceModalOpen = false; clientStore.notifySync(); };
+  window.__aetheris_open_governance = () => { isGovernanceModalOpen = true; clientStore.notifySync(); };
+  window.__aetheris_close_governance = () => { isGovernanceModalOpen = false; clientStore.notifySync(); };
+  window.__aetheris_open_export = () => { isExportBackupModalOpen = true; clientStore.notifySync(); };
+  window.__aetheris_close_export = () => { isExportBackupModalOpen = false; clientStore.notifySync(); };
+  window.__aetheris_open_lang = () => { isLangModalOpen = true; clientStore.notifySync(); };
+  window.__aetheris_open_theme = () => { isThemeModalOpen = true; themeEngine.openModal(); clientStore.notifySync(); };
+  window.__aetheris_close_theme = () => { isThemeModalOpen = false; themeEngine.closeModal(); clientStore.notifySync(); };
+  window.__aetheris_apply_theme = (id: string) => { themeEngine.setTheme(id); isThemeModalOpen = false; themeEngine.isModalOpen = false; clientStore.notifySync(); };
+  window.__aetherisToggleNotifs = () => { isNotificationPanelOpen = !isNotificationPanelOpen; clientStore.notifySync(); };
+  window.__aetherisCloseNotifs = () => { isNotificationPanelOpen = false; clientStore.notifySync(); };
+  window.__aetheris_close_lang = () => { isLangModalOpen = false; clientStore.notifySync(); };
+  window.__aetheris_close_observatory = () => { networkObservatory.close(); clientStore.notifySync(); };
+  window.__aetheris_close_wot_graph = () => { wotGraphViz.close(); clientStore.notifySync(); };
+  window.__aetheris_close_custom_theme_builder = () => { customThemeBuilder.closeModal(); clientStore.notifySync(); };
+  window.__aetheris_close_wallet = () => { walletBridge.closeModal(); clientStore.notifySync(); };
+  window.__aetheris_close_reputation = () => { zkReputation.close(); clientStore.notifySync(); };
+  window.__aetheris_close_merkle = () => { merkleVisualizer.close(); clientStore.notifySync(); };
+  window.__aetheris_close_sync = () => { offlineSync.close(); clientStore.notifySync(); };
+  window.__aetheris_open_mnemonic = () => { sovereignMnemonicModal.openModal(); clientStore.notifySync(); };
+  window.__aetheris_close_mnemonic = () => { sovereignMnemonicModal.closeModal(); clientStore.notifySync(); };
+  window.__aetheris_open_steganography = () => { steganographyModal.openModal(); clientStore.notifySync(); };
+  window.__aetheris_close_steganography = () => { steganographyModal.closeModal(); clientStore.notifySync(); };
+  window.__aetheris_open_archive_modal = (tab?: 'export' | 'restore') => { sovereignArchiveModal.openModal(tab); clientStore.notifySync(); };
+  window.__aetheris_close_archive_modal = () => { sovereignArchiveModal.closeModal(); clientStore.notifySync(); };
+  window.__aetheris_open_social_recovery = (tab?: 'setup' | 'recover') => { socialRecoveryModal.openModal(tab); clientStore.notifySync(); };
+  window.__aetheris_close_social_recovery = () => { socialRecoveryModal.closeModal(); clientStore.notifySync(); };
   window.__aetheris_dismiss_broadcast = () => {
     if (typeof sessionStorage !== 'undefined') {
       try {
         sessionStorage.setItem('aetheris_dismissed_broadcast', clientStore.broadcastAnnouncement || '');
       } catch (_) {}
     }
-    clientStore.notify();
+    clientStore.notifySync();
   };
-  window.__aetheris_close_mesh = () => { meshMatrix.close(); clientStore.notify(); };
-  window.__aetheris_close_paper_wallet = () => { paperWallet.close(); clientStore.notify(); };
-  window.__aetheris_close_dsp = () => { acousticDSP.close(); clientStore.notify(); };
-  window.__aetheris_toggle_mobile_drawer = () => { isMobileDrawerOpen = !isMobileDrawerOpen; clientStore.notify(); };
-  window.__aetheris_open_mobile_drawer = () => { isMobileDrawerOpen = true; clientStore.notify(); };
-  window.__aetheris_close_mobile_drawer = () => { isMobileDrawerOpen = false; clientStore.notify(); };
+  window.__aetheris_close_mesh = () => { meshMatrix.close(); clientStore.notifySync(); };
+  window.__aetheris_close_paper_wallet = () => { paperWallet.close(); clientStore.notifySync(); };
+  window.__aetheris_close_dsp = () => { acousticDSP.close(); clientStore.notifySync(); };
+  window.__aetheris_toggle_mobile_drawer = () => { isMobileDrawerOpen = !isMobileDrawerOpen; clientStore.notifySync(); };
+  window.__aetheris_open_mobile_drawer = () => { isMobileDrawerOpen = true; clientStore.notifySync(); };
+  window.__aetheris_close_mobile_drawer = () => { isMobileDrawerOpen = false; clientStore.notifySync(); };
   window.__aetheris_toggle_ui_mode = () => { clientStore.toggleUiMode(); };
   window.__aetheris_set_ui_mode = (mode: 'simple' | 'sovereign') => { clientStore.setUiMode(mode); };
   window.__aetheris_toggle_advanced_overflow = () => { isAdvancedOverflowOpen = !isAdvancedOverflowOpen; clientStore.notify(); };
@@ -274,6 +300,20 @@ if (typeof window !== 'undefined') {
   window.pwaService = pwaService;
   window.markdownRenderer = markdownRenderer;
   window.diagramRenderer = diagramRenderer;
+  window.transparencyMode = transparencyMode;
+  window.__aetherisTransparency = transparencyMode;
+  window.sovereignCircleEngine = sovereignCircleEngine;
+  window.relaysManager = relaysManager;
+  window.governanceDAO = governanceDAO;
+  window.rssImporter = rssImporter;
+  window.cveMonitor = cveMonitor;
+  window.gossipViz = gossipViz;
+  window.exportBackup = exportBackup;
+  window.walletBridge = walletBridge;
+  window.settingsView = settingsView;
+  window.postDetailView = postDetailView;
+  (window as any).portableTrustModal = portableTrustModal;
+  (window as any).binaryHygienePortal = binaryHygienePortal;
 }
 
 let activeAwardPostId: string | null = null;
@@ -1263,19 +1303,21 @@ export function initApp(): void {
     ${wotGraphViz.isOpen ? wotGraphViz.renderWoTGraphModal() : ''}
     ${customThemeBuilder.isOpen ? customThemeBuilder.renderBuilderModal() : ''}
     ${isLangModalOpen ? `<div id="lang-modal-backdrop" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md" onclick="if(event.target.id==='lang-modal-backdrop'){window.__aetheris_close_lang&&window.__aetheris_close_lang();}">${i18n.renderLanguagePicker('dropdown')}</div>` : ''}
-    ${isGlobalScaleModalOpen ? `<div id="global-scale-modal-backdrop" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md" onclick="if(event.target.id==='global-scale-modal-backdrop'){window.__aetheris_close_global_scale&&window.__aetheris_close_global_scale();}"><div class="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto bg-surface-base border border-white/10 rounded-2xl p-6 shadow-2xl"><div class="flex justify-between items-center pb-3 mb-3 border-b border-white/5"><span class="text-sm font-bold text-white font-mono">🌐 Edge Infrastructure</span><button onclick="window.__aetheris_close_global_scale&&window.__aetheris_close_global_scale()" class="text-slate-400 hover:text-white px-2 py-1 cursor-pointer">✕</button></div><div>${globalScale.renderGlobalScaleDashboard()}</div></div></div>` : ''}
-    ${isGovernanceModalOpen ? `<div id="governance-modal-backdrop" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md" onclick="if(event.target.id==='governance-modal-backdrop'){window.__aetheris_close_governance&&window.__aetheris_close_governance();}"><div class="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto bg-surface-base border border-white/10 rounded-2xl p-6 shadow-2xl"><div class="flex justify-between items-center pb-3 mb-3 border-b border-white/5"><span class="text-sm font-bold text-white font-mono">🏛️ DAO Governance</span><button onclick="window.__aetheris_close_governance&&window.__aetheris_close_governance()" class="text-slate-400 hover:text-white px-2 py-1 cursor-pointer">✕</button></div><div id="dao-container-root">${governanceDAO.renderGovernanceHub(clientStore.keypair.fingerprint, 75)}</div></div></div>` : ''}
-    ${isRSSModalOpen ? `<div id="rss-modal-backdrop" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md" onclick="if(event.target.id==='rss-modal-backdrop'){window.__aetheris_close_rss&&window.__aetheris_close_rss();}"><div class="relative w-full max-w-3xl max-h-[90vh] overflow-y-auto bg-surface-base border border-white/10 rounded-2xl p-6 shadow-2xl"><div class="flex justify-between items-center pb-3 mb-3 border-b border-white/5"><span class="text-sm font-bold text-white font-mono">📡 RSS Importer</span><button onclick="window.__aetheris_close_rss&&window.__aetheris_close_rss()" class="text-slate-400 hover:text-white px-2 py-1 cursor-pointer">✕</button></div><div id="rss-container-root">${rssImporter.renderRSSPanel()}</div></div></div>` : ''}
-    ${isCVEModalOpen ? `<div id="cve-modal-backdrop" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md" onclick="if(event.target.id==='cve-modal-backdrop'){window.__aetheris_close_cve&&window.__aetheris_close_cve();}"><div class="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto bg-surface-base border border-white/10 rounded-2xl p-6 shadow-2xl"><div class="flex justify-between items-center pb-3 mb-3 border-b border-white/5"><span class="text-sm font-bold text-white font-mono">🛡️ CVE Monitor</span><button onclick="window.__aetheris_close_cve&&window.__aetheris_close_cve()" class="text-slate-400 hover:text-white px-2 py-1 cursor-pointer">✕</button></div><div id="cve-container-root">${cveMonitor.renderCVEDashboard()}</div></div></div>` : ''}
-    ${isGossipModalOpen ? `<div id="gossip-modal-backdrop" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md" onclick="if(event.target.id==='gossip-modal-backdrop'){window.__aetheris_close_gossip&&window.__aetheris_close_gossip();}"><div class="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto bg-surface-base border border-white/10 rounded-2xl p-6 shadow-2xl"><div class="flex justify-between items-center pb-3 mb-3 border-b border-white/5"><span class="text-sm font-bold text-white font-mono">📡 Gossip Visualizer</span><button onclick="window.__aetheris_close_gossip&&window.__aetheris_close_gossip()" class="text-slate-400 hover:text-white px-2 py-1 cursor-pointer">✕</button></div><div id="gossip-container-root">${gossipViz.renderGossipPanel()}</div></div></div>` : ''}
+    ${isGlobalScaleModalOpen ? `<div id="global-scale-modal-backdrop" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md" onclick="if(event.target.id==='global-scale-modal-backdrop'){window.__aetheris_close_global_scale&&window.__aetheris_close_global_scale();}"><div class="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto bg-surface-base border border-white/10 rounded-2xl p-6 shadow-2xl"><div class="flex justify-between items-center pb-3 mb-3 border-b border-white/5"><span class="text-sm font-bold text-white font-mono">🌐 Edge Infrastructure</span><button id="btn-close-global-scale" onclick="window.__aetheris_close_global_scale&&window.__aetheris_close_global_scale()" class="text-slate-400 hover:text-white px-2 py-1 cursor-pointer">✕</button></div><div>${globalScale.renderGlobalScaleDashboard()}</div></div></div>` : ''}
+    ${isGovernanceModalOpen ? `<div id="governance-modal-backdrop" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md" onclick="if(event.target.id==='governance-modal-backdrop'){window.__aetheris_close_governance&&window.__aetheris_close_governance();}"><div class="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto bg-surface-base border border-white/10 rounded-2xl p-6 shadow-2xl"><div class="flex justify-between items-center pb-3 mb-3 border-b border-white/5"><span class="text-sm font-bold text-white font-mono">🏛️ DAO Governance</span><button id="btn-close-governance" onclick="window.__aetheris_close_governance&&window.__aetheris_close_governance()" class="text-slate-400 hover:text-white px-2 py-1 cursor-pointer">✕</button></div><div id="dao-container-root">${governanceDAO.renderGovernanceHub(clientStore.keypair.fingerprint, 75)}</div></div></div>` : ''}
+    ${isRSSModalOpen ? `<div id="rss-modal-backdrop" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md" onclick="if(event.target.id==='rss-modal-backdrop'){window.__aetheris_close_rss&&window.__aetheris_close_rss();}"><div class="relative w-full max-w-3xl max-h-[90vh] overflow-y-auto bg-surface-base border border-white/10 rounded-2xl p-6 shadow-2xl"><div class="flex justify-between items-center pb-3 mb-3 border-b border-white/5"><span class="text-sm font-bold text-white font-mono">📡 RSS Importer</span><button id="btn-close-rss" onclick="window.__aetheris_close_rss&&window.__aetheris_close_rss()" class="text-slate-400 hover:text-white px-2 py-1 cursor-pointer">✕</button></div><div id="rss-container-root">${rssImporter.renderRSSPanel()}</div></div></div>` : ''}
+    ${isCVEModalOpen ? `<div id="cve-modal-backdrop" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md" onclick="if(event.target.id==='cve-modal-backdrop'){window.__aetheris_close_cve&&window.__aetheris_close_cve();}"><div class="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto bg-surface-base border border-white/10 rounded-2xl p-6 shadow-2xl"><div class="flex justify-between items-center pb-3 mb-3 border-b border-white/5"><span class="text-sm font-bold text-white font-mono">🛡️ CVE Monitor</span><button id="btn-close-cve" onclick="window.__aetheris_close_cve&&window.__aetheris_close_cve()" class="text-slate-400 hover:text-white px-2 py-1 cursor-pointer">✕</button></div><div id="cve-container-root">${cveMonitor.renderCVEDashboard()}</div></div></div>` : ''}
+    ${isGossipModalOpen ? `<div id="gossip-modal-backdrop" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md" onclick="if(event.target.id==='gossip-modal-backdrop'){window.__aetheris_close_gossip&&window.__aetheris_close_gossip();}"><div class="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto bg-surface-base border border-white/10 rounded-2xl p-6 shadow-2xl"><div class="flex justify-between items-center pb-3 mb-3 border-b border-white/5"><span class="text-sm font-bold text-white font-mono">📡 Gossip Visualizer</span><button id="btn-close-gossip" onclick="window.__aetheris_close_gossip&&window.__aetheris_close_gossip()" class="text-slate-400 hover:text-white px-2 py-1 cursor-pointer">✕</button></div><div id="gossip-container-root">${gossipViz.renderGossipPanel()}</div></div></div>` : ''}
 
-    ${isExportBackupModalOpen ? `<div id="export-modal-backdrop" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md" onclick="if(event.target.id==='export-modal-backdrop'){window.__aetheris_close_export&&window.__aetheris_close_export();}"><div class="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto bg-surface-base border border-white/10 rounded-2xl p-6 shadow-2xl"><div class="flex justify-between items-center pb-3 mb-3 border-b border-white/5"><span class="text-sm font-bold text-white font-mono">📂 Export & Backup</span><button onclick="window.__aetheris_close_export&&window.__aetheris_close_export()" class="text-slate-400 hover:text-white px-2 py-1">✕</button></div><div id="export-container-root">${exportBackup.renderExportPanel()}</div></div></div>` : ''}
+    ${isExportBackupModalOpen ? `<div id="export-modal-backdrop" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md" onclick="if(event.target.id==='export-modal-backdrop'){window.__aetheris_close_export&&window.__aetheris_close_export();}"><div class="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto bg-surface-base border border-white/10 rounded-2xl p-6 shadow-2xl"><div class="flex justify-between items-center pb-3 mb-3 border-b border-white/5"><span class="text-sm font-bold text-white font-mono">📂 Export & Backup</span><button id="btn-close-export" onclick="window.__aetheris_close_export&&window.__aetheris_close_export()" class="text-slate-400 hover:text-white px-2 py-1 cursor-pointer">✕</button></div><div id="export-container-root">${exportBackup.renderExportPanel()}</div></div></div>` : ''}
     ${profileView.isEditProfileModalOpen ? profileView.renderEditProfileModal(profileView.getProfile(profileView.targetFingerprint)) : ''}
     ${clientStore.isComposerOpen ? hybridComposer.renderComposerModal() : (omniComposer.isModalOpen ? omniComposer.renderComposerModal() : '')}
     ${sovereignMnemonicModal.renderModalHTML()}
     ${steganographyModal.renderModalHTML()}
     ${sovereignArchiveModal.renderModalHTML()}
     ${socialRecoveryModal.renderModalHTML()}
+    ${portableTrustModal.renderModalHTML()}
+    ${binaryHygienePortal.renderModalHTML()}
     ${keyboardNavigator.renderModal()}
     ${transparencyMode.renderInspectorModal()}
     ${sovereignWebPush.renderPushOptInBanner()}
@@ -4438,7 +4480,11 @@ function bindEvents(): void {
         if (paperWallet.isOpen) { paperWallet.close(); changed = true; }
         if (acousticDSP.isOpen) { acousticDSP.close(); changed = true; }
         if (cyberDefenseHub.isOpen) { cyberDefenseHub.close(); changed = true; }
-        if (isThemeModalOpen) { isThemeModalOpen = false; changed = true; }
+        if (isThemeModalOpen || themeEngine.isModalOpen) {
+          isThemeModalOpen = false;
+          themeEngine.closeModal();
+          changed = true;
+        }
         if (isLangModalOpen) { isLangModalOpen = false; changed = true; }
         if (isGlobalScaleModalOpen) { isGlobalScaleModalOpen = false; changed = true; }
         if (networkObservatory.isOpen) { networkObservatory.close(); changed = true; }
@@ -4449,6 +4495,10 @@ function bindEvents(): void {
         if (isRSSModalOpen) { isRSSModalOpen = false; changed = true; }
         if (isCVEModalOpen) { isCVEModalOpen = false; changed = true; }
         if (isGovernanceModalOpen) { isGovernanceModalOpen = false; changed = true; }
+        if (sovereignCircleEngine.isCreateModalOpen) { sovereignCircleEngine.isCreateModalOpen = false; changed = true; }
+        if (relaysManager.isCreateModalOpen) { relaysManager.isCreateModalOpen = false; changed = true; }
+        if (relaysManager.isInviteModalOpen) { relaysManager.isInviteModalOpen = false; changed = true; }
+        if (relaysManager.isJoinModalOpen) { relaysManager.isJoinModalOpen = false; changed = true; }
         if (sovereignMnemonicModal.isOpen) { sovereignMnemonicModal.closeModal(); changed = true; }
         if (steganographyModal.isOpen) { steganographyModal.closeModal(); changed = true; }
         if (sovereignArchiveModal.isOpen) { sovereignArchiveModal.closeModal(); changed = true; }
@@ -4467,7 +4517,8 @@ function bindEvents(): void {
         if (activeAwardPostId) { activeAwardPostId = null; changed = true; }
         if (activeCrossPostId) { activeCrossPostId = null; changed = true; }
         if (postDetailView.isOpen()) { postDetailView.closePost(); changed = true; }
-        if (changed) clientStore.notify();
+        if (isMobileDrawerOpen) { isMobileDrawerOpen = false; changed = true; }
+        if (changed) clientStore.notifySync();
       } else if (obsidianMediaPlayer.isLightboxOpen()) {
         if (e.key === 'ArrowRight') { obsidianMediaPlayer.nextImage(); clientStore.notify(); }
         else if (e.key === 'ArrowLeft') { obsidianMediaPlayer.prevImage(); clientStore.notify(); }

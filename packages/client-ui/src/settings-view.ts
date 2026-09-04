@@ -237,7 +237,7 @@ export class SettingsView {
       <div
         id="settings-modal-backdrop"
         class="fixed inset-0 z-50 flex items-center justify-center p-3 md:p-6 bg-black/80 backdrop-blur-md animate-fade-in"
-        onclick="if(event.target.id==='settings-modal-backdrop') { if(window.__aetheris_close_settings) window.__aetheris_close_settings(); }"
+        onclick="if(event.target.id==='settings-modal-backdrop') { if(window.__aetheris_close_settings) { window.__aetheris_close_settings(); } else if(window.settingsView) { window.settingsView.close(); } }"
         role="dialog"
         aria-modal="true"
         aria-labelledby="settings-modal-title"
@@ -264,7 +264,7 @@ export class SettingsView {
             <button
               type="button"
               id="btn-close-settings-modal"
-              onclick="if(window.__aetheris_close_settings) window.__aetheris_close_settings();"
+              onclick="if(window.__aetheris_close_settings) { window.__aetheris_close_settings(); } else if(window.settingsView) { window.settingsView.close(); }"
               class="text-slate-400 hover:text-white p-2 rounded-xl hover:bg-white/10 transition-colors cursor-pointer text-sm font-mono flex items-center justify-center"
               title="Închide Setări"
               aria-label="Close settings"
@@ -284,6 +284,26 @@ export class SettingsView {
             <main class="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 bg-surface-base/50" id="settings-tab-content">
               ${contentHTML}
             </main>
+          </div>
+
+          <!-- FOOTER: REAL-TIME PERSISTENCE STATUS & SAVE & CLOSE BUTTON -->
+          <div class="px-6 py-3.5 border-t border-white/10 bg-surface-raised/60 flex items-center justify-between shrink-0">
+            <div class="flex items-center space-x-2 text-xs text-slate-400 font-mono">
+              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span class="hidden sm:inline">Modificările se sincronizează automat pe dispozitiv</span>
+              <span class="sm:hidden">Auto-salvat</span>
+            </div>
+            <div class="flex items-center space-x-3">
+              <button
+                type="button"
+                id="btn-settings-save-done"
+                onclick="if(window.__aetheris_close_settings) { window.__aetheris_close_settings(); } else if(window.settingsView) { window.settingsView.close(); }"
+                class="px-5 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white font-bold text-xs shadow-lg shadow-cyan-500/20 transition-all cursor-pointer flex items-center space-x-1.5"
+              >
+                <span>✓</span>
+                <span>Salvează & Închide (Save Changes)</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -643,10 +663,14 @@ export class SettingsView {
       });
     });
 
-    // Close button
+    // Close and Save buttons
     const closeBtn = root.querySelector('#btn-close-settings-modal');
     if (closeBtn) {
       closeBtn.addEventListener('click', () => this.close());
+    }
+    const saveDoneBtn = root.querySelector('#btn-settings-save-done');
+    if (saveDoneBtn) {
+      saveDoneBtn.addEventListener('click', () => this.close());
     }
 
     // Custom Theme Builder button

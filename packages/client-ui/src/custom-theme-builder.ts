@@ -951,6 +951,7 @@ export class CustomThemeBuilder {
 
     return `
       <div
+        id="custom-theme-builder-backdrop"
         class="fixed inset-0 z-[9999] flex items-center justify-center p-4 md:p-6 bg-black/85 backdrop-blur-md animate-in fade-in duration-200"
         onclick="if(event.target === this && (window.__aetheris_close_custom_theme_builder ? window.__aetheris_close_custom_theme_builder() : (window.customThemeBuilder && window.customThemeBuilder.closeModal())));"
         role="dialog"
@@ -1069,6 +1070,7 @@ export class CustomThemeBuilder {
               <div class="grid grid-cols-2 gap-2 pt-1">
                 <button
                   type="button"
+                  id="btn-save-custom-theme"
                   onclick="if(window.customThemeBuilder) window.customThemeBuilder.saveDraftAsTheme()"
                   class="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-cyphr to-cyan-400 hover:from-cyan-400 hover:to-cyphr text-black text-xs font-bold shadow-lg shadow-cyan-500/20 transition-all flex items-center justify-center space-x-1.5 cursor-pointer"
                 >

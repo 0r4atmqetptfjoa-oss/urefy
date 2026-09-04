@@ -914,8 +914,14 @@ export class AetherisClientStore {
     }
 
     // Browser environment: batch using requestAnimationFrame for zero-flicker 60fps rendering
-    if (event !== undefined) this._pendingEvent = event;
-    if (data !== undefined) this._pendingData = data;
+    if (event !== undefined) {
+      this._pendingEvent = event;
+      this._pendingData = data;
+    } else {
+      // General re-render request clears event fast-paths (like TOAST) to guarantee full DOM patch
+      this._pendingEvent = undefined;
+      this._pendingData = undefined;
+    }
 
     if (this._notifyTimer !== null) return;
 

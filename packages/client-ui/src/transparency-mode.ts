@@ -206,6 +206,9 @@ export class TransparencyModeManager {
       const found = this.journeys.find((j) => j.journeyId === this.activeJourneyId);
       if (found) return found;
     }
+    if (this.journeys.length === 0) {
+      this.recordMessageJourney('msg_genesis', 'Aetheris Genesis Sovereign Communication Block', 'genesis-node', 'local-node', 'inbound');
+    }
     return this.journeys[0];
   }
 
@@ -836,10 +839,10 @@ export class TransparencyModeManager {
     ];
 
     return `
-      <div id="transparency-mode-backdrop" class="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
+      <div id="transparency-mode-backdrop" onclick="if(event.target.id==='transparency-mode-backdrop'){if(window.__aetherisTransparency){window.__aetherisTransparency.close();if(window.clientStore)window.clientStore.notifySync();}}" class="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
         <div class="relative w-full ${
           this.viewMode === 'modal' ? 'max-w-5xl h-[90vh]' : 'max-w-2xl h-full ml-auto rounded-none border-l'
-        } bg-surface-overlay border border-white/10 rounded-3xl shadow-2xl flex flex-col overflow-hidden text-slate-200 font-sans">
+        } bg-surface-overlay border border-white/10 rounded-3xl shadow-2xl flex flex-col overflow-hidden text-slate-200 font-sans" onclick="event.stopPropagation()">
           
           <!-- Top Inspector Header -->
           <div class="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-slate-950/60 shrink-0">
@@ -861,7 +864,7 @@ export class TransparencyModeManager {
               <!-- Simulate Journey Button -->
               <button
                 type="button"
-                onclick="if(window.__aetherisTransparency) { window.__aetherisTransparency.recordMessageJourney('msg_live_' + Date.now(), 'Live encrypted ratcheted transmission at ' + new Date().toISOString(), 'local-node', 'peer-node', 'outbound'); if(window.__aetherisToast) window.__aetherisToast('Simulated real cryptographic journey!', 'info'); if(window.clientStore) window.clientStore.notify(); }"
+                onclick="if(window.__aetherisTransparency) { window.__aetherisTransparency.recordMessageJourney('msg_live_' + Date.now(), 'Live encrypted ratcheted transmission at ' + new Date().toISOString(), 'local-node', 'peer-node', 'outbound'); if(window.__aetherisToast) window.__aetherisToast('Simulated real cryptographic journey!', 'info'); if(window.clientStore) window.clientStore.notifySync(); }"
                 class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-500/40 text-xs font-semibold text-indigo-200 transition-all cursor-pointer"
                 title="Run Live 5-Stage Cryptographic Simulation"
               >
@@ -872,7 +875,7 @@ export class TransparencyModeManager {
               <!-- Full-Screen / Drawer Toggle -->
               <button
                 type="button"
-                onclick="if(window.__aetherisTransparency) { window.__aetherisTransparency.toggleViewMode(); if(window.clientStore) window.clientStore.notify(); }"
+                onclick="if(window.__aetherisTransparency) { window.__aetherisTransparency.toggleViewMode(); if(window.clientStore) window.clientStore.notifySync(); }"
                 class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-surface-raised transition-all cursor-pointer"
                 title="${this.viewMode === 'modal' ? 'Switch to Side-Over Drawer' : 'Switch to Full-Screen Modal'}"
               >
@@ -883,7 +886,7 @@ export class TransparencyModeManager {
               <button
                 type="button"
                 id="btn-close-transparency-modal"
-                onclick="if(window.__aetherisTransparency) { window.__aetherisTransparency.close(); if(window.clientStore) window.clientStore.notify(); }"
+                onclick="if(window.__aetherisTransparency) { window.__aetherisTransparency.close(); if(window.clientStore) window.clientStore.notifySync(); }"
                 class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-surface-raised transition-all cursor-pointer text-lg leading-none"
                 title="Close Inspector (Esc or Ctrl+Shift+T)"
               >

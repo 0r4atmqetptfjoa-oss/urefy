@@ -143,12 +143,12 @@ export class SocialRecoveryModal {
     this.isOpen = true;
     this.activeTab = tab;
     this.updateShardValidation();
-    clientStore.notify();
+    clientStore.notifySync();
   }
 
   public closeModal(): void {
     this.isOpen = false;
-    clientStore.notify();
+    clientStore.notifySync();
   }
 
   public setTab(tab: 'setup' | 'recover'): void {
@@ -415,7 +415,7 @@ export class SocialRecoveryModal {
                 <p class="text-[10px] text-slate-400 font-mono">Web-of-Trust decentralized quorum · 256-bit prime field Lagrange interpolation</p>
               </div>
             </div>
-            <button id="btn-close-social-recovery" class="w-8 h-8 rounded-full bg-surface-raised hover:bg-surface-overlay text-slate-300 hover:text-white flex items-center justify-center text-sm border border-white/10 transition-colors cursor-pointer" title="Close (Esc)">
+            <button id="btn-close-social-recovery" onclick="if(window.__aetheris_close_social_recovery) { window.__aetheris_close_social_recovery(); } else if(window.socialRecoveryModal) { window.socialRecoveryModal.closeModal(); }" class="w-8 h-8 rounded-full bg-surface-raised hover:bg-surface-overlay text-slate-300 hover:text-white flex items-center justify-center text-sm border border-white/10 transition-colors cursor-pointer" title="Close (Esc)">
               ✕
             </button>
           </div>

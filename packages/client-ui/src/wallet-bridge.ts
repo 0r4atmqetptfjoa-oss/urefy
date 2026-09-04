@@ -1135,8 +1135,8 @@ export class WalletBridge {
     if (!this.isModalOpen) return '';
 
     return `
-      <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-        <div class="relative w-full max-w-3xl max-h-[90vh] flex flex-col bg-surface-base border border-white/10 rounded-2xl shadow-2xl overflow-hidden font-sans text-slate-200">
+      <div id="wallet-bridge-backdrop" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200" onclick="if(event.target === this || event.target.id==='wallet-bridge-backdrop'){ if(window.__aetheris_close_wallet) window.__aetheris_close_wallet(); else if(window.walletBridge){ window.walletBridge.closeModal(); window.clientStore&&window.clientStore.notifySync(); } }">
+        <div class="relative w-full max-w-3xl max-h-[90vh] flex flex-col bg-surface-base border border-white/10 rounded-2xl shadow-2xl overflow-hidden font-sans text-slate-200" onclick="event.stopPropagation()">
           
           <!-- Panel Header -->
           <div class="flex items-center justify-between px-6 py-4 border-b border-white/5 bg-surface-raised">
@@ -1156,8 +1156,9 @@ export class WalletBridge {
             </div>
 
             <button
-              onclick="walletBridge.closeModal()"
-              class="w-8 h-8 rounded-lg bg-surface-base hover:bg-surface-overlay text-slate-400 hover:text-white flex items-center justify-center transition-colors border border-white/5"
+              id="btn-close-wallet-bridge"
+              onclick="if(window.__aetheris_close_wallet) window.__aetheris_close_wallet(); else if(window.walletBridge){ window.walletBridge.closeModal(); window.clientStore&&window.clientStore.notifySync(); }"
+              class="w-8 h-8 rounded-lg bg-surface-base hover:bg-surface-overlay text-slate-400 hover:text-white flex items-center justify-center transition-colors border border-white/5 cursor-pointer"
               title="Close"
             >
               ✕
