@@ -467,7 +467,7 @@ export class LocalAIAssistant {
     if (!container) {
       container = document.createElement('div');
       container.id = 'proactive-ai-container';
-      container.className = 'fixed bottom-6 left-6 z-[9999] max-w-sm pointer-events-auto space-y-2';
+      container.className = 'fixed bottom-20 right-4 sm:right-6 sm:bottom-16 z-[9999] max-w-sm pointer-events-auto space-y-2';
       document.body.appendChild(container);
     }
 

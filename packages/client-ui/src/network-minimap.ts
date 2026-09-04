@@ -106,6 +106,8 @@ export class AmbientNetworkMinimap {
    * Binds canvas element and starts rendering loop
    */
   public bindCanvas(canvas: HTMLCanvasElement): void {
+    if (!canvas) return;
+    if (this.canvas === canvas && this.isRunning) return;
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     this.start();
@@ -285,13 +287,13 @@ export class AmbientNetworkMinimap {
     return `
       <div 
         id="ambient-network-minimap-container" 
-        class="hidden sm:inline-flex items-center space-x-2 px-2.5 py-1 rounded-full border border-white/10 bg-surface-base/80 hover:border-cyan-500/40 hover:bg-surface-raised transition-all cursor-pointer group shadow-sm select-none"
+        class="hidden sm:inline-flex items-center space-x-2 px-2.5 py-1 rounded-full border border-white/10 bg-surface-base/80 hover:border-cyan-500/40 hover:bg-surface-raised transition-all cursor-pointer group shadow-sm select-none shrink-0"
         onclick="if(window.__aetheris_open_mesh_matrix){ window.__aetheris_open_mesh_matrix(); } else if(window.meshMatrix){ window.meshMatrix.isOpen = true; window.clientStore?.notify(); }"
         title="Sovereign Ambient Network Mesh (Click to open Observatory)"
       >
-        <canvas id="ambient-network-minimap" width="92" height="26" class="rounded-full bg-black/30"></canvas>
-        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-        <span class="text-[10px] font-mono text-emerald-400 font-semibold group-hover:text-cyan-300 transition-colors hidden xl:inline">
+        <canvas id="ambient-network-minimap" width="92" height="26" class="rounded-full bg-black/30 shrink-0"></canvas>
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0"></span>
+        <span class="text-[10px] font-mono text-emerald-400 font-semibold group-hover:text-cyan-300 transition-colors hidden xl:inline whitespace-nowrap shrink-0">
           ${this.connectedPeerCount} Peers
         </span>
       </div>

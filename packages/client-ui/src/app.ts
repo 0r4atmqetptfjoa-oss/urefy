@@ -540,43 +540,18 @@ export function initApp(): void {
       `;
     }
 
-    // Sovereign mode (full individual buttons)
+    // Sovereign mode (streamlined top bar)
     return `
       <button type="button" id="btn-toggle-dual-horizon" title="Toggle Split Screen: Stream + Vault simultaneously (Ctrl+\\)" class="hidden md:flex p-2 text-xs rounded-xl border items-center justify-center transition-all cursor-pointer ${clientStore.isDualHorizon ? 'bg-indigo-950 text-indigo-300 border-indigo-500/40' : 'bg-surface-raised/80 text-slate-400 border-white/5 hover:text-slate-200'}">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 4v16m6-16v16M4 4h16v16H4z"></path></svg>
       </button>
 
-      <button type="button" id="btn-open-global-scale" class="hidden sm:flex px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-raised/80 hover:bg-surface-overlay text-slate-300 font-mono items-center space-x-1.5 transition-all shadow-sm cursor-pointer" title="Worldwide Anycast Edge Infrastructure (<15ms SLA)">
+      <button type="button" id="btn-open-global-scale" class="hidden xl:flex px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-raised/80 hover:bg-surface-overlay text-slate-300 font-mono items-center space-x-1.5 transition-all shadow-sm cursor-pointer" title="Worldwide Anycast Edge Infrastructure (<15ms SLA)">
         <span class="text-xs">🌐</span>
-        <span class="hidden xl:inline text-emerald-400 font-bold">${globalScale.getActivePoP().measuredRttMs}ms</span>
-      </button>
-
-      <button type="button" id="btn-open-seed-vault" onclick="if(window.__aetheris_open_mnemonic) window.__aetheris_open_mnemonic();" class="hidden sm:flex px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 font-mono items-center space-x-1.5 transition-all shadow-sm cursor-pointer" title="Sovereign Identity Seed Vault (BIP-39)">
-        <span>🔐</span>
-        <span class="hidden 2xl:inline font-sans font-medium">Seed</span>
-      </button>
-
-      <button type="button" id="btn-open-steganography" onclick="if(window.__aetheris_open_steganography) window.__aetheris_open_steganography();" class="hidden sm:flex px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 font-mono items-center space-x-1.5 transition-all shadow-sm cursor-pointer" title="Pixel Canvas Steganography (LSB PNG E2EE)">
-        <span>🖼️</span>
-        <span class="hidden 2xl:inline font-sans font-medium">Stego</span>
-      </button>
-
-      <button type="button" id="btn-open-archive-vault" onclick="if(window.__aetheris_open_archive_modal) window.__aetheris_open_archive_modal();" class="hidden sm:flex px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 font-mono items-center space-x-1.5 transition-all shadow-sm cursor-pointer" title="Sovereign Data Archive (AES-256-GCM Export / Restore)">
-        <span>📦</span>
-        <span class="hidden 2xl:inline font-sans font-medium">Archive</span>
-      </button>
-
-      <button type="button" id="btn-open-social-recovery" onclick="if(window.__aetheris_open_social_recovery) window.__aetheris_open_social_recovery();" class="hidden sm:flex px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 font-mono items-center space-x-1.5 transition-all shadow-sm cursor-pointer" title="Social Identity Recovery via WoT Guardians">
-        <span>🛡️</span>
-        <span class="hidden 2xl:inline font-sans font-medium">Recovery</span>
+        <span class="text-emerald-400 font-bold">${globalScale.getActivePoP().measuredRttMs}ms</span>
       </button>
 
       ${transparencyMode.renderHeaderToggle()}
-
-      <button type="button" id="btn-open-keyboard-help" onclick="if(window.keyboardNavigator) window.keyboardNavigator.toggleHelpModal();" class="hidden lg:flex px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-raised/80 hover:bg-surface-overlay text-slate-300 font-mono items-center space-x-1.5 transition-all shadow-sm cursor-pointer" title="Keyboard Shortcuts (?)">
-        <span>⌨️</span>
-        <span class="hidden 2xl:inline font-sans font-medium">Keys</span>
-      </button>
 
       <button type="button" id="btn-open-lang-picker" class="hidden sm:flex px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-raised/80 hover:bg-surface-overlay text-slate-300 font-mono items-center space-x-1.5 transition-all shadow-sm cursor-pointer" title="Switch Language & RTL Mode (${i18n.getCurrentLanguageMeta().name})">
         <span>${i18n.getCurrentLanguageMeta().flag}</span>
@@ -590,9 +565,6 @@ export function initApp(): void {
 
       <div class="hidden md:flex items-center space-x-1">
         ${offlineSync.renderSyncBadge()}
-        <button type="button" id="btn-open-bookmarks-modal" class="p-2 rounded-xl text-slate-400 hover:text-amber-400 hover:bg-surface-raised transition-all cursor-pointer" title="Saved Bookmarks">
-          <span class="text-sm">🔖</span>
-        </button>
       </div>
     `;
   };
@@ -626,7 +598,7 @@ export function initApp(): void {
 
   const renderHeaderToolsRoot = (): string => `
     <!-- PWA 1-CLICK INSTALL (visible when installable) -->
-    <button type="button" id="btn-pwa-install" onclick="if(window.pwaService) window.pwaService.promptInstall();" class="hidden sm:flex px-2.5 py-1.5 text-xs rounded-xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 font-mono items-center space-x-1.5 transition-all shadow-sm cursor-pointer" title="Install Aetheris as Native App">
+    <button type="button" id="btn-pwa-install" onclick="if(window.pwaService) window.pwaService.promptInstall();" class="${pwaService.isInstallable && !pwaService.isInstalled ? 'inline-flex' : 'hidden'} px-2.5 py-1.5 text-xs rounded-xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 font-mono items-center space-x-1.5 transition-all shadow-sm cursor-pointer" title="Install Aetheris as Native App">
       <span>📲</span>
       <span class="font-sans font-medium">Install</span>
     </button>
@@ -800,20 +772,20 @@ export function initApp(): void {
               </div>
             </div>
 
-            <!-- PRIMARY WORKSPACE NAVIGATION DOCK -->
-            <nav id="header-primary-nav" class="hidden md:flex items-center space-x-1 bg-surface-raised/80 p-1 rounded-2xl border border-white/5 text-xs shadow-inner" aria-label="Desktop primary navigation">
+            <!-- PRIMARY WORKSPACE NAVIGATION DOCK (visible on wide screens) -->
+            <nav id="header-primary-nav" class="hidden xl:flex items-center space-x-1 bg-surface-raised/80 p-1 rounded-2xl border border-white/5 text-xs shadow-inner" aria-label="Desktop primary navigation">
               ${renderHeaderPrimaryNav()}
             </nav>
           </div>
 
           <!-- CENTER: UNIFIED SEARCH & COMMAND OMNIBAR -->
-          <div class="hidden lg:flex items-center flex-1 max-w-md mx-6">
-            <button type="button" id="btn-open-command-rail" class="w-full flex items-center justify-between px-3.5 py-1.5 bg-surface-raised/80 hover:bg-surface-overlay text-slate-400 hover:text-slate-200 text-xs rounded-xl border border-white/5 transition-all shadow-sm hover:border-indigo-500/30 group cursor-pointer">
-              <div class="flex items-center space-x-2.5">
-                <svg class="w-4 h-4 text-indigo-400 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                <span class="text-slate-300 font-medium">Search ledger, circles, or commands...</span>
+          <div class="hidden lg:flex items-center shrink min-w-[140px] max-w-xs xl:max-w-md mx-2 xl:mx-4 flex-1">
+            <button type="button" id="btn-open-command-rail" class="w-full flex items-center justify-between px-3.5 py-1.5 bg-surface-raised/80 hover:bg-surface-overlay text-slate-400 hover:text-slate-200 text-xs rounded-xl border border-white/5 transition-all shadow-sm hover:border-indigo-500/30 group cursor-pointer overflow-hidden">
+              <div class="flex items-center space-x-2.5 min-w-0">
+                <svg class="w-4 h-4 shrink-0 text-indigo-400 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                <span class="text-slate-300 font-medium truncate whitespace-nowrap">Search ledger, circles, or commands...</span>
               </div>
-              <span class="kbd-badge">Ctrl+K</span>
+              <span class="kbd-badge shrink-0 ml-2">Ctrl+K</span>
             </button>
           </div>
 
@@ -2625,6 +2597,12 @@ function bindEvents(): void {
   _bindEventsController?.abort();
   _bindEventsController = new AbortController();
   const { signal } = _bindEventsController;
+
+  // Bind ambient network minimap canvas if present in DOM
+  const minimapCanvas = document.getElementById('ambient-network-minimap') as HTMLCanvasElement | null;
+  if (minimapCanvas) {
+    ambientNetworkMinimap.bindCanvas(minimapCanvas);
+  }
 
   // ─── Scoped event binding helpers ─────────────────────────────────────────────
   // `on(el, event, handler)` → auto-injects AbortSignal so all listeners are removed on next bindEvents()
