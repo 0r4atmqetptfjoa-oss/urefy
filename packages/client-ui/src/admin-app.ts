@@ -107,8 +107,8 @@ function renderLoginPage(): string {
           </div>
         </div>
 
-        <p class="text-center text-xs text-slate-700 mt-4 font-mono">
-          Default PIN: 11223 · Change in Server Config tab
+        <p class="text-center text-xs text-slate-600 mt-4 font-mono">
+          Enter sovereign instance PIN (Cloudflare Secret or Local Dev 11223)
         </p>
       </div>
     </div>
@@ -116,30 +116,58 @@ function renderLoginPage(): string {
 }
 
 function bindLoginEvents(): void {
+  const form = document.querySelector('form');
   const input = document.getElementById('login-pin-input') as HTMLInputElement | null;
+  const submitBtn = document.getElementById('btn-login-submit') as HTMLButtonElement | null;
   const errorEl = document.getElementById('login-error');
 
-  const tryLogin = () => {
+  const tryLogin = async () => {
     const pin = input?.value ?? '';
-    const ok = adminAuth.verifyPin(pin);
-    if (ok) {
-      adminPanel.open();
-      initAdminApp();
-    } else {
-      if (errorEl) {
-        errorEl.textContent = '✗ Incorrect PIN. Access denied.';
-        errorEl.classList.remove('hidden');
+    if (!pin) return;
+
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Verifying PIN...';
+    }
+
+    try {
+      const ok = await adminAuth.verifyPinAsync(pin);
+      if (ok) {
+        adminPanel.open();
+        initAdminApp();
+      } else {
+        if (errorEl) {
+          errorEl.textContent = adminAuth.pinError ? `✗ ${adminAuth.pinError}` : '✗ Incorrect PIN. Access denied.';
+          errorEl.classList.remove('hidden');
+        }
+        if (input) {
+          input.value = '';
+          input.classList.add('border-crimson/50');
+          setTimeout(() => input.classList.remove('border-crimson/50'), 1500);
+        }
       }
-      if (input) {
-        input.value = '';
-        input.classList.add('border-crimson/50');
-        setTimeout(() => input.classList.remove('border-crimson/50'), 1500);
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Unlock Admin Panel';
       }
     }
   };
 
-  document.getElementById('btn-login-submit')?.addEventListener('click', tryLogin);
-  input?.addEventListener('keydown', (e) => { if (e.key === 'Enter') tryLogin(); });
+  form?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    tryLogin();
+  });
+  submitBtn?.addEventListener('click', (e) => {
+    e.preventDefault();
+    tryLogin();
+  });
+  input?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      tryLogin();
+    }
+  });
 }
 
 // ─────────────────────────────────────────────────────────

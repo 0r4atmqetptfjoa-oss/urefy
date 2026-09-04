@@ -115,7 +115,18 @@ export class AdminAuthManager {
     return this._activePin || safeGet('aetheris_admin_pin') || ADMIN_DEFAULT_PIN;
   }
 
-  /** Verify PIN and activate admin session */
+  private _activateSession(pin: string): void {
+    this._isAdmin = true;
+    this._activePin = pin;
+    this._sessionStartedAt = Date.now();
+    this.isPinDialogOpen = false;
+    this.pinError = '';
+    this._failedAttempts = 0;
+    this._lockedUntil = 0;
+    safeSet('aetheris_admin_pin', pin);
+  }
+
+  /** Verify PIN synchronously against local memory/storage or default dev pin */
   public verifyPin(pin: string): boolean {
     const now = Date.now();
     if (this._lockedUntil > now) {
@@ -125,30 +136,78 @@ export class AdminAuthManager {
     }
 
     const storedPin = safeGet('aetheris_admin_pin') || ADMIN_DEFAULT_PIN;
-    if (!storedPin) {
-      this.pinError = 'No admin PIN configured on this instance.';
+    if (storedPin && pin && pin === storedPin) {
+      this._activateSession(pin);
+      return true;
+    }
+
+    this._failedAttempts++;
+    if (this._failedAttempts >= 5) {
+      this._lockedUntil = now + 10 * 60 * 1000;
+      this.pinError = 'Too many failed attempts. Locked out for 10 minutes.';
+    } else {
+      this.pinError = `Incorrect PIN. Access denied (${5 - this._failedAttempts} attempts remaining).`;
+    }
+    return false;
+  }
+
+  /** Asynchronously verify PIN against Cloudflare Edge /api/admin or local storage */
+  public async verifyPinAsync(pin: string): Promise<boolean> {
+    const now = Date.now();
+    if (this._lockedUntil > now) {
+      const remainingSec = Math.ceil((this._lockedUntil - now) / 1000);
+      this.pinError = `Too many failed attempts. Locked out for ${remainingSec}s.`;
       return false;
     }
 
-    if (pin && pin === storedPin) {
-      this._isAdmin = true;
-      this._activePin = pin;
-      this._sessionStartedAt = Date.now();
-      this.isPinDialogOpen = false;
-      this.pinError = '';
-      this._failedAttempts = 0;
-      this._lockedUntil = 0;
-      return true;
-    } else {
-      this._failedAttempts++;
-      if (this._failedAttempts >= 5) {
-        this._lockedUntil = now + 10 * 60 * 1000; // 10 minutes
-        this.pinError = 'Too many failed attempts. Locked out for 10 minutes.';
-      } else {
-        this.pinError = `Incorrect PIN. Access denied (${5 - this._failedAttempts} attempts remaining).`;
-      }
+    if (!pin) {
+      this.pinError = 'PIN cannot be empty.';
       return false;
     }
+
+    // 1. Check local storage or dev default
+    const storedPin = safeGet('aetheris_admin_pin') || ADMIN_DEFAULT_PIN;
+    if (storedPin && pin === storedPin) {
+      this._activateSession(pin);
+      return true;
+    }
+
+    // 2. Validate against Cloudflare /api/admin backend
+    if (typeof fetch !== 'undefined') {
+      try {
+        const res = await fetch('/api/admin?action=stats', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Admin-PIN': pin,
+          },
+        });
+        if (res.ok) {
+          this._activateSession(pin);
+          return true;
+        } else if (res.status === 429) {
+          const data = await res.json().catch(() => ({}));
+          this.pinError = (data as any)?.error || 'Too many failed attempts. Locked out for 10 minutes.';
+          this._lockedUntil = now + 10 * 60 * 1000;
+          return false;
+        } else if (res.status === 503) {
+          const data = await res.json().catch(() => ({}));
+          this.pinError = (data as any)?.error || 'ADMIN_PIN not configured in Cloudflare environment.';
+          return false;
+        }
+      } catch (err) {
+        console.warn('[AdminAuth] Server verification network error, falling back to local check:', err);
+      }
+    }
+
+    this._failedAttempts++;
+    if (this._failedAttempts >= 5) {
+      this._lockedUntil = now + 10 * 60 * 1000;
+      this.pinError = 'Too many failed attempts. Locked out for 10 minutes.';
+    } else {
+      this.pinError = `Incorrect PIN. Access denied (${5 - this._failedAttempts} attempts remaining).`;
+    }
+    return false;
   }
 
   /** Change admin PIN */
