@@ -238,6 +238,7 @@ export const SERVICES = {
   FeedPersonalization: createServiceToken<unknown>('FeedPersonalization'),
   ExportBackup: createServiceToken<unknown>('ExportBackup'),
   GovernanceDAO: createServiceToken<unknown>('GovernanceDAO'),
+  TransparencyLog: createServiceToken<unknown>('TransparencyLog'),
   RSSImporter: createServiceToken<unknown>('RSSImporter'),
   CVEMonitor: createServiceToken<unknown>('CVEMonitor'),
   GossipViz: createServiceToken<unknown>('GossipViz'),
@@ -278,6 +279,7 @@ export const SERVICES = {
   NetworkMinimap: createServiceToken<unknown>('NetworkMinimap'),
   MobileTabBar: createServiceToken<unknown>('MobileTabBar'),
   SovereignFootprint: createServiceToken<unknown>('SovereignFootprint'),
+  LocalDiagnostics: createServiceToken<unknown>('LocalDiagnostics'),
 } as const;
 
 // ── Default Global Container Instance ──────────────────────────────────────────────

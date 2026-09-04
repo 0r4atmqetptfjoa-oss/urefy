@@ -98,6 +98,7 @@ import { meshMatrix } from './mesh-matrix.js';
 import { paperWallet } from './paper-wallet.js';
 import { acousticDSP } from './acoustic-dsp.js';
 import { errorBoundary, structuredLogger } from './error-boundary.js';
+import { localDiagnostics } from './local-diagnostics.js';
 import { i18n, t, SUPPORTED_LANGUAGES } from './i18n.js';
 import { globalScale } from './global-scale.js';
 import { feedControlsEngine } from './feed-controls.js';
@@ -136,6 +137,7 @@ serviceRegistry.registerInstance(SERVICES.CustomThemeBuilder, customThemeBuilder
 serviceRegistry.registerInstance(SERVICES.WalletBridge, walletBridge);
 serviceRegistry.registerInstance(SERVICES.ErrorBoundary, errorBoundary);
 serviceRegistry.registerInstance(SERVICES.StructuredLogger, structuredLogger);
+serviceRegistry.registerInstance(SERVICES.LocalDiagnostics, localDiagnostics);
 serviceRegistry.registerInstance(SERVICES.I18nEngine, i18n);
 serviceRegistry.registerInstance(SERVICES.GlobalScale, globalScale);
 serviceRegistry.registerInstance(SERVICES.OmniComposer, omniComposer);

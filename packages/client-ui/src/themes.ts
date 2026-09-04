@@ -10,6 +10,7 @@
 import './window-augmentation.js';
 import { serviceRegistry, SERVICES } from './service-registry.js';
 import { sovereignFootprint } from './settings-footprint.js';
+import { localDiagnostics } from './local-diagnostics.js';
 
 // ─── INTERFACES & TYPES ─────────────────────────────────────────────────────────
 
@@ -897,6 +898,9 @@ export class ThemeEngine {
 
             <!-- SECTION 7: SOVEREIGN FOOTPRINT -->
             ${sovereignFootprint.renderFootprintSectionHTML()}
+
+            <!-- SECTION 8: LOCAL CRASH DIAGNOSTICS -->
+            ${localDiagnostics.renderDiagnosticsSectionHTML()}
 
           </div>
 

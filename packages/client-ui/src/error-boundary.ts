@@ -9,6 +9,7 @@
 
 import { sha256 } from '@noble/hashes/sha256';
 import { bytesToHex } from '@noble/hashes/utils';
+import { localDiagnostics } from './local-diagnostics.js';
 
 // ─── LOGGING TYPES & INTERFACES ──────────────────────────────────────────────
 
@@ -382,11 +383,7 @@ export class ErrorBoundary {
     this.originalOnError = window.onerror;
     window.onerror = (message, source, lineno, colno, error) => {
       const err = error instanceof Error ? error : new Error(String(message));
-      this.catchError(err, {
-        component: source ? `${source}:${lineno}:${colno}` : 'window.onerror',
-        userAction: 'unhandled_global_exception',
-        fatal: false,
-      });
+      this.handleGlobalError(err, source ? `${source}:${lineno}:${colno}` : 'window.onerror');
 
       if (typeof this.originalOnError === 'function') {
         return this.originalOnError(message, source, lineno, colno, error);
@@ -397,16 +394,32 @@ export class ErrorBoundary {
     this.unhandledRejectionHandler = (event: PromiseRejectionEvent) => {
       const reason = event.reason;
       const err = reason instanceof Error ? reason : new Error(typeof reason === 'string' ? reason : JSON.stringify(reason));
-      this.catchError(err, {
-        component: 'window.onunhandledrejection',
-        userAction: 'unhandled_promise_rejection',
-        fatal: false,
-      });
+      this.handleGlobalError(err, 'window.onunhandledrejection');
     };
 
     window.addEventListener('unhandledrejection', this.unhandledRejectionHandler);
     this.isInitialized = true;
     structuredLogger.info('ErrorBoundary', 'Global error boundary and telemetry interceptors armed');
+  }
+
+  /**
+   * Records an error explicitly, forwarding to structured logger and local diagnostics ring buffer.
+   */
+  public recordError(error: Error | unknown, component?: string): Error {
+    const err = error instanceof Error ? error : new Error(String(error || 'Unknown error'));
+    return this.catchError(err, { component: component || 'CoreSystem' });
+  }
+
+  /**
+   * Handles an unhandled global error from window.onerror or unhandledrejection.
+   */
+  public handleGlobalError(error: Error | unknown, source?: string): Error {
+    const err = error instanceof Error ? error : new Error(String(error || 'Global error'));
+    return this.catchError(err, {
+      component: source || 'window.onerror',
+      userAction: 'unhandled_global_exception',
+      fatal: false,
+    });
   }
 
   /**
@@ -453,6 +466,13 @@ export class ErrorBoundary {
       structuredLogger.fatal(comp, errorObj.message, errorObj, { context });
     } else {
       structuredLogger.error(comp, errorObj.message, errorObj, { context });
+    }
+
+    // Forward to 100% on-device local diagnostics manager
+    try {
+      localDiagnostics.recordError(errorObj, comp);
+    } catch (diagErr) {
+      console.warn('[ErrorBoundary] Failed to record error to local diagnostics:', diagErr);
     }
 
     for (const listener of this.errorListeners) {
@@ -738,6 +758,8 @@ export class ErrorBoundary {
 
 // Global error boundary instance
 export const errorBoundary = new ErrorBoundary();
+export const recordError = (error: Error | unknown, component?: string) => errorBoundary.recordError(error, component);
+export const handleGlobalError = (error: Error | unknown, source?: string) => errorBoundary.handleGlobalError(error, source);
 
 // ─── RESILIENCE & GRACEFUL DEGRADATION PROBES ────────────────────────────────
 

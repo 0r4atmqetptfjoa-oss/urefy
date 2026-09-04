@@ -279,7 +279,7 @@ export interface TranslationDictionary {
   };
 }
 
-const enDict: TranslationDictionary = {
+export const enDict: TranslationDictionary = {
   common: {
     appName: 'Aetheris Omni-Sphere',
     tagline: 'Sovereign Zero-Knowledge Global Communication Matrix',
@@ -458,7 +458,7 @@ const enDict: TranslationDictionary = {
   },
 };
 
-const frDict: TranslationDictionary = {
+export const frDict: TranslationDictionary = {
   common: {
     appName: 'Aetheris Omni-Sphere',
     tagline: 'Matrice Mondiale de Communication Souveraine Zero-Knowledge',
@@ -609,7 +609,7 @@ const frDict: TranslationDictionary = {
   },
 };
 
-const deDict: TranslationDictionary = {
+export const deDict: TranslationDictionary = {
   common: {
     appName: 'Aetheris Omni-Sphere',
     tagline: 'Souveräne Zero-Knowledge Globale Kommunikationsmatrix',
@@ -760,7 +760,7 @@ const deDict: TranslationDictionary = {
   },
 };
 
-const esDict: TranslationDictionary = {
+export const esDict: TranslationDictionary = {
   common: {
     appName: 'Aetheris Omni-Sphere',
     tagline: 'Matriz Global Soberana de Comunicación Zero-Knowledge',
@@ -911,7 +911,7 @@ const esDict: TranslationDictionary = {
   },
 };
 
-const roDict: TranslationDictionary = {
+export const roDict: TranslationDictionary = {
   common: {
     appName: 'Aetheris Omni-Sphere',
     tagline: 'Matrice Globală Suverană de Comunicații Zero-Knowledge',
@@ -1090,7 +1090,7 @@ const roDict: TranslationDictionary = {
   },
 };
 
-const jaDict: TranslationDictionary = {
+export const jaDict: TranslationDictionary = {
   common: {
     appName: 'Aetheris Omni-Sphere',
     tagline: 'ゼロ知識・主権型グローバル分散通信マトリクス',
@@ -1241,7 +1241,7 @@ const jaDict: TranslationDictionary = {
   },
 };
 
-const arDict: TranslationDictionary = {
+export const arDict: TranslationDictionary = {
   common: {
     appName: 'أثيريس أومني-سفير (Aetheris)',
     tagline: 'مصفوفة الاتصالات السيادية العالمية عديمة المعرفة (Zero-Knowledge)',
