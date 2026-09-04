@@ -1,8 +1,10 @@
 // ============================================================================
 // governance.ts — Aetheris Omni-Sphere Sovereign DAO & Cryptographic Governance
 // Complete, 100% functional merit-weighted sovereign voting engine with ZK proofs.
-// No external dependencies. Strict TypeScript with full implementation.
+// Strict TypeScript with full implementation.
 // ============================================================================
+
+import { serviceRegistry, SERVICES } from './service-registry.js';
 
 export type ProposalCategory = 'protocol' | 'community' | 'security' | 'funding';
 export type ProposalStatus = 'draft' | 'active' | 'passed' | 'rejected' | 'expired';
@@ -95,6 +97,7 @@ export class GovernanceDAO {
   public searchQuery: string = '';
   public activeModalProposalId: string | null = null;
   public isCreateModalOpen: boolean = false;
+  public isTransparencyModalOpen: boolean = false;
 
   constructor() {
     this.seedInitialProposals();
@@ -975,6 +978,262 @@ export class GovernanceDAO {
   }
 
   /**
+   * Renders the Public DAO Transparency Log panel.
+   * STRICT PRIVACY INVARIANT:
+   * Displays aggregated voting metrics, real-time quorum progress percentages,
+   * and finalized historical decisions with ZERO voter fingerprints or identity leaks.
+   */
+  public renderTransparencyLogPanel(): string {
+    this.checkAndUpdateStatuses();
+
+    const activeProposals = this.proposals.filter(p => p.status === 'active');
+    const finalizedProposals = this.proposals.filter(p => p.status === 'passed' || p.status === 'rejected' || p.status === 'expired');
+
+    let totalWeightAllProposals = 0;
+    for (const p of this.proposals) {
+      totalWeightAllProposals += (p.votes.for + p.votes.against + p.votes.abstain);
+    }
+
+    return `
+      <div id="dao-transparency-log-panel" class="space-y-6 text-slate-100 font-sans select-none">
+        
+        <!-- PRIVACY ASSURANCE BANNER -->
+        <div class="p-4 rounded-2xl bg-cyan-950/40 border border-cyan-500/30 flex items-start space-x-3 shadow-inner">
+          <span class="text-xl shrink-0 mt-0.5">🛡️</span>
+          <div class="space-y-1">
+            <h4 class="text-xs font-bold text-[#00e5ff] uppercase tracking-wider font-mono">
+              Cryptographic Anonymity & Public Audit Invariant
+            </h4>
+            <p class="text-xs text-slate-300 leading-relaxed">
+              This transparency ledger exposes real-time aggregate voting power and quorum fulfillment without compromising voter anonymity. Individual cryptographic fingerprints, nullifiers, and vote-choice correlations are strictly omitted.
+            </p>
+          </div>
+        </div>
+
+        <!-- AGGREGATE SUMMARY METRICS ROW -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div class="bg-surface-base border border-white/5 rounded-xl p-3.5 flex flex-col justify-between">
+            <span class="text-[11px] text-slate-400 font-mono">Total Proposals</span>
+            <span class="text-lg font-bold font-mono text-white mt-1">${this.proposals.length}</span>
+            <span class="text-[10px] text-slate-500 font-mono">All AIPs</span>
+          </div>
+          <div class="bg-surface-base border border-white/5 rounded-xl p-3.5 flex flex-col justify-between">
+            <span class="text-[11px] text-slate-400 font-mono">Active In Quorum</span>
+            <span class="text-lg font-bold font-mono text-[#22c55e] mt-1">${activeProposals.length}</span>
+            <span class="text-[10px] text-slate-500 font-mono">Live ballots</span>
+          </div>
+          <div class="bg-surface-base border border-white/5 rounded-xl p-3.5 flex flex-col justify-between">
+            <span class="text-[11px] text-slate-400 font-mono">Finalized Decisions</span>
+            <span class="text-lg font-bold font-mono text-purple-400 mt-1">${finalizedProposals.length}</span>
+            <span class="text-[10px] text-slate-500 font-mono">Passed / Rejected</span>
+          </div>
+          <div class="bg-surface-base border border-white/5 rounded-xl p-3.5 flex flex-col justify-between">
+            <span class="text-[11px] text-slate-400 font-mono">Aggregated Power</span>
+            <span class="text-lg font-bold font-mono text-[#00e5ff] mt-1">${totalWeightAllProposals.toLocaleString()}</span>
+            <span class="text-[10px] text-slate-500 font-mono">Merit-weighted total</span>
+          </div>
+        </div>
+
+        <!-- SECTION 1: ACTIVE PROPOSALS & REAL-TIME QUORUM PROGRESS BARS -->
+        <div class="space-y-3">
+          <div class="flex items-center justify-between pb-1 border-b border-white/5">
+            <div class="flex items-center space-x-2">
+              <span class="text-base">⚡</span>
+              <h3 class="text-sm font-bold text-white tracking-wide">Active Proposals & Quorum Milestones</h3>
+            </div>
+            <span class="text-[11px] font-mono text-[#22c55e]">${activeProposals.length} active</span>
+          </div>
+
+          ${activeProposals.length === 0 ? `
+            <div class="p-6 rounded-xl bg-surface-base border border-white/5 text-center text-xs text-slate-400">
+              No active proposals currently undergoing quorum verification.
+            </div>
+          ` : `
+            <div class="space-y-3" id="transparency-active-list">
+              ${activeProposals.map(p => {
+                const tally = p.votes;
+                const totalCast = tally.for + tally.against + tally.abstain;
+                const quorumRequired = p.quorumRequired;
+                const quorumPct = quorumRequired > 0 ? Math.round((totalCast / quorumRequired) * 100) : 100;
+                const isQuorumReached = totalCast >= quorumRequired;
+                const forPct = totalCast > 0 ? Math.round((tally.for / totalCast) * 100) : 0;
+                const againstPct = totalCast > 0 ? Math.round((tally.against / totalCast) * 100) : 0;
+                const abstainPct = totalCast > 0 ? Math.max(0, 100 - forPct - againstPct) : 0;
+
+                return `
+                  <div class="p-4 rounded-xl bg-surface-base border border-white/5 hover:border-white/10 transition-colors space-y-3" data-transparency-id="${p.id}">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                      <div class="flex items-center space-x-2">
+                        <span class="font-mono text-xs font-bold text-[#00e5ff] bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20">
+                          ${p.id}
+                        </span>
+                        ${this.renderCategoryBadge(p.category)}
+                        <span class="text-xs font-bold text-white">${escapeHtml(p.title)}</span>
+                      </div>
+                      <span class="text-[11px] font-mono text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                        ⏳ ${formatTimeRemaining(p.expiresAt)}
+                      </span>
+                    </div>
+
+                    <!-- REAL-TIME AGGREGATED QUORUM PROGRESS BAR -->
+                    <div class="space-y-1.5 bg-surface-raised/60 p-3 rounded-lg border border-white/5">
+                      <div class="flex items-center justify-between text-xs font-mono">
+                        <span class="text-slate-400 flex items-center space-x-1">
+                          <span>Quorum Threshold:</span>
+                          <span class="text-slate-200 font-bold">${totalCast.toLocaleString()} / ${quorumRequired.toLocaleString()} merit</span>
+                        </span>
+                        <span class="${isQuorumReached ? 'text-[#00e5ff] font-bold' : 'text-slate-300'} font-bold">
+                          ${quorumPct}% towards quorum required ${isQuorumReached ? '✓ (Quorum Met)' : ''}
+                        </span>
+                      </div>
+                      <div class="h-2 w-full bg-black/40 rounded-full overflow-hidden border border-white/5">
+                        <div 
+                          class="h-full bg-gradient-to-r ${isQuorumReached ? 'from-cyan-500 to-[#00e5ff]' : 'from-indigo-500 to-cyan-500'} rounded-full transition-all duration-500" 
+                          style="width: ${Math.min(100, quorumPct)}%;"
+                          role="progressbar"
+                          aria-valuenow="${quorumPct}"
+                          aria-valuemin="0"
+                          aria-valuemax="100"
+                        ></div>
+                      </div>
+                    </div>
+
+                    <!-- AGGREGATED TALLY BREAKDOWN (STRICTLY AGGREGATED) -->
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono">
+                      <div class="bg-surface-raised/40 p-2 rounded-lg border border-white/5">
+                        <span class="text-slate-400 block text-[10px]">For (+Merit)</span>
+                        <span class="text-[#22c55e] font-bold">${tally.for.toLocaleString()} (${forPct}%)</span>
+                      </div>
+                      <div class="bg-surface-raised/40 p-2 rounded-lg border border-white/5">
+                        <span class="text-slate-400 block text-[10px]">Against (-Merit)</span>
+                        <span class="text-[#ef4444] font-bold">${tally.against.toLocaleString()} (${againstPct}%)</span>
+                      </div>
+                      <div class="bg-surface-raised/40 p-2 rounded-lg border border-white/5">
+                        <span class="text-slate-400 block text-[10px]">Abstain</span>
+                        <span class="text-slate-300 font-bold">${tally.abstain.toLocaleString()} (${abstainPct}%)</span>
+                      </div>
+                      <div class="bg-surface-raised/40 p-2 rounded-lg border border-white/5">
+                        <span class="text-slate-400 block text-[10px]">Anonymous Voters</span>
+                        <span class="text-[#00e5ff] font-bold">${tally.totalVoters} sovereign nodes</span>
+                      </div>
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          `}
+        </div>
+
+        <!-- SECTION 2: FINALIZED HISTORICAL DECISIONS -->
+        <div class="space-y-3">
+          <div class="flex items-center justify-between pb-1 border-b border-white/5">
+            <div class="flex items-center space-x-2">
+              <span class="text-base">🏛️</span>
+              <h3 class="text-sm font-bold text-white tracking-wide">Finalized Decision History</h3>
+            </div>
+            <span class="text-[11px] font-mono text-purple-400">${finalizedProposals.length} recorded</span>
+          </div>
+
+          ${finalizedProposals.length === 0 ? `
+            <div class="p-6 rounded-xl bg-surface-base border border-white/5 text-center text-xs text-slate-400">
+              No historical decisions finalized yet.
+            </div>
+          ` : `
+            <div class="space-y-2.5" id="transparency-finalized-list">
+              ${finalizedProposals.map(p => {
+                const tally = p.votes;
+                const totalCast = tally.for + tally.against + tally.abstain;
+                const isQuorumMet = totalCast >= p.quorumRequired;
+                const resultOutcome = p.status === 'passed' ? 'PASSED' : (p.status === 'rejected' ? 'REJECTED' : 'EXPIRED');
+                const outcomeClass = p.status === 'passed' ? 'text-[#22c55e] border-[#22c55e]/30 bg-emerald-500/10' : (p.status === 'rejected' ? 'text-[#ef4444] border-[#ef4444]/30 bg-rose-500/10' : 'text-slate-400 border-slate-600/30 bg-slate-700/40');
+
+                return `
+                  <div class="p-3.5 rounded-xl bg-surface-base border border-white/5 hover:border-white/10 transition-colors flex flex-col md:flex-row md:items-center justify-between gap-3" data-decision-id="${p.id}">
+                    <div class="space-y-1 min-w-0 flex-1">
+                      <div class="flex flex-wrap items-center gap-2">
+                        <span class="font-mono text-xs font-bold text-[#00e5ff] bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20">
+                          ${p.id}
+                        </span>
+                        ${this.renderCategoryBadge(p.category)}
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold border ${outcomeClass}">
+                          ${resultOutcome}
+                        </span>
+                        <span class="text-[11px] font-mono text-slate-400">
+                          Finalized: ${formatDate(p.expiresAt)}
+                        </span>
+                      </div>
+                      <h4 class="text-xs font-semibold text-slate-200 truncate">
+                        ${escapeHtml(p.title)}
+                      </h4>
+                    </div>
+
+                    <!-- TOTAL VOTES TALLY & OUTCOME -->
+                    <div class="flex items-center space-x-3 text-xs font-mono shrink-0 bg-surface-raised/50 px-3 py-1.5 rounded-lg border border-white/5">
+                      <div class="flex items-center space-x-2 text-[11px]">
+                        <span class="text-[#22c55e] font-bold">For: ${tally.for}</span>
+                        <span class="text-slate-500">|</span>
+                        <span class="text-[#ef4444] font-bold">Against: ${tally.against}</span>
+                        <span class="text-slate-500">|</span>
+                        <span class="text-slate-400">Abstain: ${tally.abstain}</span>
+                      </div>
+                      <span class="text-slate-500">|</span>
+                      <div class="text-[10px] text-slate-300">
+                        Total: <span class="font-bold text-[#00e5ff]">${totalCast} merit</span> (${tally.totalVoters} voters) · ${isQuorumMet ? 'Quorum Met' : 'No Quorum'}
+                      </div>
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          `}
+        </div>
+
+      </div>
+    `;
+  }
+
+  /**
+   * Renders the Public DAO Transparency Log within an accessible modal dialog.
+   */
+  public renderTransparencyLogModal(): string {
+    return `
+      <div id="dao-transparency-modal" class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/80 backdrop-blur-md animate-in fade-in duration-150">
+        <div class="bg-surface-raised border border-white/10 rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col text-slate-200 select-none">
+          <!-- MODAL HEADER -->
+          <div class="px-5 py-4 border-b border-white/5 flex items-center justify-between bg-surface-base">
+            <div class="flex items-center space-x-2">
+              <span class="text-xl">📜</span>
+              <div>
+                <h3 class="text-sm font-bold text-slate-100">DAO Public Transparency Log</h3>
+                <div class="text-[10px] font-mono text-[#00e5ff]">Zero-Knowledge Aggregated Consensus Ledger</div>
+              </div>
+            </div>
+            <button data-action="close-transparency-modal" class="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-surface-overlay transition-colors cursor-pointer" title="Close Transparency Log">
+              ✕
+            </button>
+          </div>
+
+          <!-- MODAL BODY -->
+          <div class="p-4 sm:p-6 overflow-y-auto max-h-[calc(90vh-120px)] space-y-4">
+            ${this.renderTransparencyLogPanel()}
+          </div>
+
+          <!-- MODAL FOOTER -->
+          <div class="px-5 py-3 border-t border-white/5 flex items-center justify-between bg-surface-base text-[11px] font-mono text-slate-400">
+            <span class="flex items-center space-x-1.5 text-emerald-400">
+              <span>🔒</span>
+              <span>Zero voter fingerprints exposed · Fully anonymous ZK tally</span>
+            </span>
+            <button data-action="close-transparency-modal" class="px-3.5 py-1.5 rounded-lg bg-surface-overlay hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-colors cursor-pointer">
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  /**
    * Render Navigation Button for Main Header/Rail.
    */
   public renderGovernanceButton(): string {
@@ -1032,14 +1291,24 @@ export class GovernanceDAO {
               </p>
             </div>
 
-            <!-- PROPOSE BUTTON -->
-            <button 
-              id="btn-open-create-proposal" 
-              class="px-4 py-2.5 rounded-xl bg-[#00e5ff] hover:bg-[#00e5ff]/90 text-[#0d0f14] text-xs font-bold font-sans transition-all flex items-center justify-center space-x-2 cursor-pointer shadow-lg shadow-[#00e5ff]/20 hover:scale-[1.02] active:scale-[0.98] whitespace-nowrap"
-            >
-              <span>➕</span>
-              <span>New Proposal</span>
-            </button>
+            <div class="flex items-center space-x-2">
+              <button 
+                id="btn-open-transparency-log" 
+                data-action="open-transparency-log"
+                class="px-3.5 py-2.5 rounded-xl bg-surface-base hover:bg-surface-overlay text-[#00e5ff] hover:text-white border border-[#00e5ff]/30 hover:border-[#00e5ff]/60 text-xs font-bold font-sans transition-all flex items-center justify-center space-x-1.5 cursor-pointer shadow-sm hover:scale-[1.02] active:scale-[0.98] whitespace-nowrap"
+                title="View Public DAO Transparency Log (ZK-Preserved Privacy)"
+              >
+                <span>📜</span>
+                <span>Transparency Log</span>
+              </button>
+              <button 
+                id="btn-open-create-proposal" 
+                class="px-4 py-2.5 rounded-xl bg-[#00e5ff] hover:bg-[#00e5ff]/90 text-[#0d0f14] text-xs font-bold font-sans transition-all flex items-center justify-center space-x-2 cursor-pointer shadow-lg shadow-[#00e5ff]/20 hover:scale-[1.02] active:scale-[0.98] whitespace-nowrap"
+              >
+                <span>➕</span>
+                <span>New Proposal</span>
+              </button>
+            </div>
           </div>
 
           <!-- DAO STATS OVERVIEW -->
@@ -1147,6 +1416,7 @@ export class GovernanceDAO {
         <!-- ACTIVE MODALS INJECTION -->
         ${this.activeModalProposalId ? this.renderVoteModal(this.activeModalProposalId, currentFP, userMerit) : ''}
         ${this.isCreateModalOpen ? this.renderCreateProposalModal(currentFP) : ''}
+        ${this.isTransparencyModalOpen ? this.renderTransparencyLogModal() : ''}
       </div>
     `;
   }
@@ -1165,6 +1435,18 @@ export class GovernanceDAO {
       this.bindEvents(container, currentFP, userMerit, onStateChange);
       if (onStateChange) onStateChange();
     };
+
+    // Global window helpers
+    if (typeof window !== 'undefined') {
+      (window as any).__aetheris_open_transparency_log = () => {
+        this.isTransparencyModalOpen = true;
+        triggerUpdate();
+      };
+      (window as any).__aetheris_close_transparency_log = () => {
+        this.isTransparencyModalOpen = false;
+        triggerUpdate();
+      };
+    }
 
     // TAB CLICKS
     container.querySelectorAll<HTMLButtonElement>('#dao-status-tabs button[data-tab]').forEach(btn => {
@@ -1216,11 +1498,28 @@ export class GovernanceDAO {
       });
     }
 
+    // OPEN TRANSPARENCY LOG MODAL
+    container.querySelectorAll<HTMLButtonElement>('[data-action="open-transparency-log"], #btn-open-transparency-log').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.isTransparencyModalOpen = true;
+        triggerUpdate();
+      });
+    });
+
+    // CLOSE TRANSPARENCY LOG MODAL
+    container.querySelectorAll<HTMLButtonElement>('[data-action="close-transparency-modal"]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.isTransparencyModalOpen = false;
+        triggerUpdate();
+      });
+    });
+
     // CLOSE MODAL BUTTONS
     container.querySelectorAll<HTMLButtonElement>('[data-action="close-modal"]').forEach(btn => {
       btn.addEventListener('click', () => {
         this.activeModalProposalId = null;
         this.isCreateModalOpen = false;
+        this.isTransparencyModalOpen = false;
         triggerUpdate();
       });
     });
@@ -1332,3 +1631,11 @@ export class GovernanceDAO {
 
 // ─── Singleton Export ────────────────────────────────────────────────────────
 export const governanceDAO = new GovernanceDAO();
+
+// Auto-register with ServiceRegistry if not already registered
+if (!serviceRegistry.has(SERVICES.GovernanceDAO)) {
+  serviceRegistry.registerInstance(SERVICES.GovernanceDAO, governanceDAO);
+}
+if (!serviceRegistry.has(SERVICES.TransparencyLog)) {
+  serviceRegistry.registerInstance(SERVICES.TransparencyLog, governanceDAO);
+}
