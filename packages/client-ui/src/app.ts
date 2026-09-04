@@ -465,6 +465,267 @@ export function initApp(): void {
   const appEl = document.getElementById('app');
   if (!appEl) return;
 
+  const renderAdvancedHeaderTools = (inDropdown: boolean = false): string => {
+    if (inDropdown) {
+      return `
+        <!-- DUAL HORIZON -->
+        <button type="button" id="btn-toggle-dual-horizon" title="Toggle Split Screen: Stream + Vault simultaneously (Ctrl+\\)" class="w-full flex items-center space-x-2 px-2.5 py-1.5 rounded-xl text-xs border border-white/5 bg-surface-base/60 hover:bg-surface-overlay text-slate-300 transition-all cursor-pointer ${clientStore.isDualHorizon ? 'border-indigo-500/40 text-indigo-300' : ''}">
+          <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 4v16m6-16v16M4 4h16v16H4z"></path></svg>
+          <span class="font-sans font-medium text-[11px] truncate">Dual Horizon</span>
+        </button>
+
+        <!-- ANYCAST EDGE OBSERVATORY -->
+        <button type="button" id="btn-open-global-scale" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-base/60 hover:bg-surface-overlay text-slate-300 font-mono transition-all cursor-pointer" title="Worldwide Anycast Edge Infrastructure (<15ms SLA)">
+          <span class="text-xs shrink-0">🌐</span>
+          <span class="font-sans font-medium text-[11px] truncate">Anycast Edge (${globalScale.getActivePoP().measuredRttMs}ms)</span>
+        </button>
+
+        <!-- SEED VAULT -->
+        <button type="button" id="btn-open-seed-vault" onclick="if(window.__aetheris_open_mnemonic) window.__aetheris_open_mnemonic();" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 font-mono transition-all cursor-pointer" title="Sovereign Identity Seed Vault (BIP-39)">
+          <span class="shrink-0">🔐</span>
+          <span class="font-sans font-medium text-[11px] truncate">Seed Vault</span>
+        </button>
+
+        <!-- STEGANOGRAPHY -->
+        <button type="button" id="btn-open-steganography" onclick="if(window.__aetheris_open_steganography) window.__aetheris_open_steganography();" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 font-mono transition-all cursor-pointer" title="Pixel Canvas Steganography (LSB PNG E2EE)">
+          <span class="shrink-0">🖼️</span>
+          <span class="font-sans font-medium text-[11px] truncate">Stego Canvas</span>
+        </button>
+
+        <!-- DATA ARCHIVE -->
+        <button type="button" id="btn-open-archive-vault" onclick="if(window.__aetheris_open_archive_modal) window.__aetheris_open_archive_modal();" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 font-mono transition-all cursor-pointer" title="Sovereign Data Archive (AES-256-GCM Export / Restore)">
+          <span class="shrink-0">📦</span>
+          <span class="font-sans font-medium text-[11px] truncate">Data Archive</span>
+        </button>
+
+        <!-- SOCIAL RECOVERY -->
+        <button type="button" id="btn-open-social-recovery" onclick="if(window.__aetheris_open_social_recovery) window.__aetheris_open_social_recovery();" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 font-mono transition-all cursor-pointer" title="Social Identity Recovery via WoT Guardians">
+          <span class="shrink-0">🛡️</span>
+          <span class="font-sans font-medium text-[11px] truncate">Social Recovery</span>
+        </button>
+
+        <!-- TRANSPARENCY MODE -->
+        <div class="col-span-1 sm:col-span-2">
+          ${transparencyMode.renderHeaderToggle()}
+        </div>
+
+        <!-- KEYBOARD SHORTCUTS -->
+        <button type="button" id="btn-open-keyboard-help" onclick="if(window.keyboardNavigator) window.keyboardNavigator.toggleHelpModal();" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-base/60 hover:bg-surface-overlay text-slate-300 font-mono transition-all cursor-pointer" title="Keyboard Shortcuts (?)">
+          <span class="shrink-0">⌨️</span>
+          <span class="font-sans font-medium text-[11px] truncate">Shortcuts (?)</span>
+        </button>
+
+        <!-- LANGUAGE SELECTOR -->
+        <button type="button" id="btn-open-lang-picker" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-base/60 hover:bg-surface-overlay text-slate-300 font-mono transition-all cursor-pointer" title="Switch Language & RTL Mode (${i18n.getCurrentLanguageMeta().name})">
+          <span class="shrink-0">${i18n.getCurrentLanguageMeta().flag}</span>
+          <span class="font-sans font-medium text-[11px] truncate">${i18n.getLanguage().toUpperCase()}</span>
+        </button>
+
+        <!-- BOOKMARKS -->
+        <button type="button" id="btn-open-bookmarks-modal" class="w-full flex items-center space-x-2 px-2.5 py-1.5 rounded-xl border border-white/5 bg-surface-base/60 text-slate-300 hover:text-amber-400 hover:bg-surface-overlay transition-all cursor-pointer" title="Saved Bookmarks">
+          <span class="text-xs shrink-0">🔖</span>
+          <span class="font-sans font-medium text-[11px] truncate">Bookmarks</span>
+        </button>
+
+        <!-- SOUND, ZEN & OFFLINE SYNC -->
+        <div class="col-span-1 sm:col-span-2 flex items-center justify-between p-2 rounded-xl bg-surface-base/40 border border-white/5">
+          <div class="flex items-center space-x-1.5">
+            ${soundEffects.renderSoundToggle()}
+            ${zenModeManager.renderZenButton()}
+          </div>
+          <div>
+            ${offlineSync.renderSyncBadge()}
+          </div>
+        </div>
+      `;
+    }
+
+    // Sovereign mode (full individual buttons)
+    return `
+      <button type="button" id="btn-toggle-dual-horizon" title="Toggle Split Screen: Stream + Vault simultaneously (Ctrl+\\)" class="hidden md:flex p-2 text-xs rounded-xl border items-center justify-center transition-all cursor-pointer ${clientStore.isDualHorizon ? 'bg-indigo-950 text-indigo-300 border-indigo-500/40' : 'bg-surface-raised/80 text-slate-400 border-white/5 hover:text-slate-200'}">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 4v16m6-16v16M4 4h16v16H4z"></path></svg>
+      </button>
+
+      <button type="button" id="btn-open-global-scale" class="hidden sm:flex px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-raised/80 hover:bg-surface-overlay text-slate-300 font-mono items-center space-x-1.5 transition-all shadow-sm cursor-pointer" title="Worldwide Anycast Edge Infrastructure (<15ms SLA)">
+        <span class="text-xs">🌐</span>
+        <span class="hidden xl:inline text-emerald-400 font-bold">${globalScale.getActivePoP().measuredRttMs}ms</span>
+      </button>
+
+      <button type="button" id="btn-open-seed-vault" onclick="if(window.__aetheris_open_mnemonic) window.__aetheris_open_mnemonic();" class="hidden sm:flex px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 font-mono items-center space-x-1.5 transition-all shadow-sm cursor-pointer" title="Sovereign Identity Seed Vault (BIP-39)">
+        <span>🔐</span>
+        <span class="hidden 2xl:inline font-sans font-medium">Seed</span>
+      </button>
+
+      <button type="button" id="btn-open-steganography" onclick="if(window.__aetheris_open_steganography) window.__aetheris_open_steganography();" class="hidden sm:flex px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 font-mono items-center space-x-1.5 transition-all shadow-sm cursor-pointer" title="Pixel Canvas Steganography (LSB PNG E2EE)">
+        <span>🖼️</span>
+        <span class="hidden 2xl:inline font-sans font-medium">Stego</span>
+      </button>
+
+      <button type="button" id="btn-open-archive-vault" onclick="if(window.__aetheris_open_archive_modal) window.__aetheris_open_archive_modal();" class="hidden sm:flex px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 font-mono items-center space-x-1.5 transition-all shadow-sm cursor-pointer" title="Sovereign Data Archive (AES-256-GCM Export / Restore)">
+        <span>📦</span>
+        <span class="hidden 2xl:inline font-sans font-medium">Archive</span>
+      </button>
+
+      <button type="button" id="btn-open-social-recovery" onclick="if(window.__aetheris_open_social_recovery) window.__aetheris_open_social_recovery();" class="hidden sm:flex px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 font-mono items-center space-x-1.5 transition-all shadow-sm cursor-pointer" title="Social Identity Recovery via WoT Guardians">
+        <span>🛡️</span>
+        <span class="hidden 2xl:inline font-sans font-medium">Recovery</span>
+      </button>
+
+      ${transparencyMode.renderHeaderToggle()}
+
+      <button type="button" id="btn-open-keyboard-help" onclick="if(window.keyboardNavigator) window.keyboardNavigator.toggleHelpModal();" class="hidden lg:flex px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-raised/80 hover:bg-surface-overlay text-slate-300 font-mono items-center space-x-1.5 transition-all shadow-sm cursor-pointer" title="Keyboard Shortcuts (?)">
+        <span>⌨️</span>
+        <span class="hidden 2xl:inline font-sans font-medium">Keys</span>
+      </button>
+
+      <button type="button" id="btn-open-lang-picker" class="hidden sm:flex px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-raised/80 hover:bg-surface-overlay text-slate-300 font-mono items-center space-x-1.5 transition-all shadow-sm cursor-pointer" title="Switch Language & RTL Mode (${i18n.getCurrentLanguageMeta().name})">
+        <span>${i18n.getCurrentLanguageMeta().flag}</span>
+        <span class="font-bold uppercase">${i18n.getLanguage()}</span>
+      </button>
+
+      <div class="hidden md:flex items-center space-x-1 bg-surface-raised/80 p-0.5 rounded-xl border border-white/5">
+        ${soundEffects.renderSoundToggle()}
+        ${zenModeManager.renderZenButton()}
+      </div>
+
+      <div class="hidden md:flex items-center space-x-1">
+        ${offlineSync.renderSyncBadge()}
+        <button type="button" id="btn-open-bookmarks-modal" class="p-2 rounded-xl text-slate-400 hover:text-amber-400 hover:bg-surface-raised transition-all cursor-pointer" title="Saved Bookmarks">
+          <span class="text-sm">🔖</span>
+        </button>
+      </div>
+    `;
+  };
+
+  const renderHeaderPrimaryNav = (): string => `
+    <button type="button" data-nav-mode="pulse" class="btn-nav-mode px-3 py-1.5 rounded-xl font-semibold transition-all flex items-center space-x-1.5 cursor-pointer ${clientStore.activeChannelId.startsWith('pulse-') ? 'is-active nav-item-active shadow-sm' : 'text-slate-400 hover:text-slate-200 hover:bg-surface-overlay/50'}" title="Feed de publicații și știri suverane">
+      <span>⚡</span>
+      <span>Feed (Pulse)</span>
+    </button>
+
+    <button type="button" data-nav-mode="explore" class="btn-nav-mode px-3 py-1.5 rounded-xl font-semibold transition-all flex items-center space-x-1.5 cursor-pointer ${clientStore.activeChannelId === 'explore' ? 'is-active nav-item-active shadow-sm' : 'text-slate-400 hover:text-slate-200 hover:bg-surface-overlay/50'}" title="Explorează rețeaua și tendințele">
+      <span>🔍</span>
+      <span>Explorează</span>
+    </button>
+
+    <button type="button" data-nav-mode="profile" class="btn-nav-mode px-3 py-1.5 rounded-xl font-semibold transition-all flex items-center space-x-1.5 cursor-pointer ${clientStore.activeChannelId.startsWith('profile') ? 'is-active nav-item-active shadow-sm' : 'text-slate-400 hover:text-slate-200 hover:bg-surface-overlay/50'}" title="Profilul tău de identitate suverană">
+      <span>👤</span>
+      <span>Profil</span>
+    </button>
+
+    <button type="button" data-nav-mode="vault" class="btn-nav-mode px-3 py-1.5 rounded-xl font-semibold transition-all flex items-center space-x-1.5 cursor-pointer ${clientStore.activeChannelId.startsWith('vault-') ? 'is-active nav-item-active shadow-sm' : 'text-slate-400 hover:text-slate-200 hover:bg-surface-overlay/50'}" title="Seif de fișiere criptate și release-uri auditate">
+      <span>📚</span>
+      <span>Seif (Vault)</span>
+    </button>
+
+    <button type="button" data-nav-mode="relays" class="btn-nav-mode px-3 py-1.5 rounded-xl font-semibold transition-all flex items-center space-x-1.5 cursor-pointer ${clientStore.activeChannelId.startsWith('relays-') ? 'is-active nav-item-active shadow-sm' : 'text-slate-400 hover:text-slate-200 hover:bg-surface-overlay/50'}" title="Servere de comunicare și chat E2EE">
+      <span>💬</span>
+      <span>Servere (Relays)</span>
+    </button>
+  `;
+
+  const renderHeaderToolsRoot = (): string => `
+    <!-- PWA 1-CLICK INSTALL (visible when installable) -->
+    <button type="button" id="btn-pwa-install" onclick="if(window.pwaService) window.pwaService.promptInstall();" class="hidden sm:flex px-2.5 py-1.5 text-xs rounded-xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 font-mono items-center space-x-1.5 transition-all shadow-sm cursor-pointer" title="Install Aetheris as Native App">
+      <span>📲</span>
+      <span class="font-sans font-medium">Install</span>
+    </button>
+
+    <!-- AMBIENT NETWORK MINIMAP & STATUS -->
+    ${ambientNetworkMinimap.renderMinimapHTML()}
+
+    <!-- UI MODE SWITCHER PILL (Simple / Sovereign) -->
+    <button type="button" id="btn-toggle-ui-mode" onclick="window.clientStore?.toggleUiMode()" class="px-2.5 py-1.5 rounded-xl text-xs font-mono border transition-all flex items-center space-x-1.5 cursor-pointer ${clientStore.uiMode === 'simple' ? 'bg-cyan-500/10 text-cyan-300 border-cyan-500/30 hover:bg-cyan-500/20' : 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40 hover:bg-indigo-500/30'}" title="${i18n.t('uiMode.switchMode', undefined, 'Switch Interface Mode')}">
+      <span>${clientStore.uiMode === 'simple' ? '🌱' : '⚡'}</span>
+      <span class="font-sans text-[11px] font-semibold">${clientStore.uiMode === 'simple' ? i18n.t('uiMode.simple', undefined, 'Simple') : i18n.t('uiMode.sovereign', undefined, 'Sovereign')}</span>
+    </button>
+
+    ${clientStore.uiMode === 'sovereign' 
+      ? renderAdvancedHeaderTools(false)
+      : `
+        <!-- ADVANCED TOOLS OVERFLOW DROPDOWN (SIMPLE MODE) -->
+        <div class="relative">
+          <button type="button" id="btn-open-advanced-overflow" onclick="window.__aetheris_toggle_advanced_overflow && window.__aetheris_toggle_advanced_overflow()" class="p-2 text-xs rounded-xl border border-white/5 bg-surface-raised/80 hover:bg-surface-overlay text-slate-300 transition-all flex items-center space-x-1.5 cursor-pointer" title="${i18n.t('uiMode.advancedTools', undefined, 'Advanced Tools')}">
+            <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path></svg>
+            <span class="hidden xl:inline text-[11px] font-sans text-slate-300 font-medium">${i18n.t('uiMode.advancedTools', undefined, 'Advanced Tools')}</span>
+          </button>
+
+          ${isAdvancedOverflowOpen ? `
+            <div id="advanced-overflow-backdrop" class="fixed inset-0 z-40" onclick="window.__aetheris_close_advanced_overflow && window.__aetheris_close_advanced_overflow()"></div>
+            <div id="advanced-overflow-menu" class="absolute right-0 top-full mt-2 w-80 p-3 bg-surface-raised/95 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl z-50 animate-in fade-in slide-in-from-top-2 duration-150 space-y-2.5 select-none">
+              <div class="flex items-center justify-between pb-2 border-b border-white/5">
+                <span class="text-xs font-bold text-white font-mono flex items-center space-x-1.5">
+                  <span>🛠️</span>
+                  <span>${i18n.t('uiMode.advancedTools', undefined, 'Advanced Tools')}</span>
+                </span>
+                <button type="button" onclick="window.clientStore?.setUiMode('sovereign')" class="text-[10px] font-mono text-cyan-400 hover:underline cursor-pointer">
+                  Switch to Sovereign ⚡
+                </button>
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                ${renderAdvancedHeaderTools(true)}
+              </div>
+            </div>
+          ` : ''}
+        </div>
+      `
+    }
+
+    <!-- THEME SELECTOR (all screens) -->
+    <button type="button" id="btn-open-theme-picker" onclick="if(window.__aetheris_open_theme) window.__aetheris_open_theme();" class="px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-raised/80 hover:bg-surface-overlay text-slate-300 font-mono flex items-center space-x-1.5 transition-all shadow-sm cursor-pointer" title="Choose Theme & Typography">
+      <span>🎨</span>
+      <span class="hidden xl:inline font-sans font-medium">Theme</span>
+    </button>
+
+    <!-- NOTIFICATIONS BELL (all screens) -->
+    <div class="relative flex items-center">
+      <button type="button" id="btn-toggle-notifs" onclick="if(window.__aetherisToggleNotifs) window.__aetherisToggleNotifs();" class="relative p-2 rounded-xl text-slate-400 hover:text-white hover:bg-surface-raised transition-all cursor-pointer" title="Notifications">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+        ${notificationCenter.unreadCount > 0 ? `<span class="absolute top-1 right-1 w-2 h-2 bg-rose-500 rounded-full animate-ping"></span><span class="absolute top-1 right-1 w-2 h-2 bg-rose-500 rounded-full"></span>` : ''}
+      </button>
+    </div>
+  `;
+
+  const updateNavigationActiveClasses = (): void => {
+    const currentChannel = clientStore.activeChannelId;
+    let activeMode = 'pulse';
+    if (currentChannel.startsWith('pulse-')) activeMode = 'pulse';
+    else if (currentChannel === 'explore') activeMode = 'explore';
+    else if (currentChannel.startsWith('profile')) activeMode = 'profile';
+    else if (currentChannel.startsWith('vault-')) activeMode = 'vault';
+    else if (currentChannel.startsWith('relays-') || currentChannel.startsWith('relay-') || currentChannel.startsWith('dm-')) activeMode = 'relays';
+
+    document.querySelectorAll('[data-nav-mode]').forEach(btn => {
+      const mode = btn.getAttribute('data-nav-mode');
+      const isActive = mode === activeMode;
+      if (isActive) {
+        btn.classList.add('is-active', 'nav-item-active', 'shadow-sm');
+        btn.classList.remove('text-slate-300', 'text-slate-400');
+        if (!btn.querySelector('.nav-indicator-active')) {
+          const ind = document.createElement('span');
+          ind.className = 'w-2 h-2 rounded-full nav-indicator-active shrink-0';
+          btn.appendChild(ind);
+        }
+      } else {
+        btn.classList.remove('is-active', 'nav-item-active', 'shadow-sm');
+        btn.classList.add('text-slate-300');
+        btn.querySelector('.nav-indicator-active')?.remove();
+      }
+    });
+
+    document.querySelectorAll('[data-channel-id]').forEach(btn => {
+      const chId = btn.getAttribute('data-channel-id');
+      const isActive = chId === currentChannel;
+      if (isActive) {
+        btn.classList.add('is-active', 'font-bold', 'text-indigo-300', 'bg-indigo-950/60', 'border-indigo-500/30');
+        btn.classList.remove('text-slate-300', 'text-slate-400');
+      } else {
+        btn.classList.remove('is-active', 'font-bold', 'text-indigo-300', 'bg-indigo-950/60', 'border-indigo-500/30');
+        btn.classList.add('text-slate-300');
+      }
+    });
+  };
+
   const render = () => {
     errorBoundary.wrapRender(() => {
       // Preserve scroll positions across re-renders
@@ -498,138 +759,6 @@ export function initApp(): void {
         type: 'thread',
       });
     }
-
-    const renderAdvancedHeaderTools = (inDropdown: boolean = false): string => {
-      if (inDropdown) {
-        return `
-          <!-- DUAL HORIZON -->
-          <button type="button" id="btn-toggle-dual-horizon" title="Toggle Split Screen: Stream + Vault simultaneously (Ctrl+\\)" class="w-full flex items-center space-x-2 px-2.5 py-1.5 rounded-xl text-xs border border-white/5 bg-surface-base/60 hover:bg-surface-overlay text-slate-300 transition-all cursor-pointer ${clientStore.isDualHorizon ? 'border-indigo-500/40 text-indigo-300' : ''}">
-            <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 4v16m6-16v16M4 4h16v16H4z"></path></svg>
-            <span class="font-sans font-medium text-[11px] truncate">Dual Horizon</span>
-          </button>
-
-          <!-- ANYCAST EDGE OBSERVATORY -->
-          <button type="button" id="btn-open-global-scale" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-base/60 hover:bg-surface-overlay text-slate-300 font-mono transition-all cursor-pointer" title="Worldwide Anycast Edge Infrastructure (<15ms SLA)">
-            <span class="text-xs shrink-0">🌐</span>
-            <span class="font-sans font-medium text-[11px] truncate">Anycast Edge (${globalScale.getActivePoP().measuredRttMs}ms)</span>
-          </button>
-
-          <!-- SEED VAULT -->
-          <button type="button" id="btn-open-seed-vault" onclick="if(window.__aetheris_open_mnemonic) window.__aetheris_open_mnemonic();" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 font-mono transition-all cursor-pointer" title="Sovereign Identity Seed Vault (BIP-39)">
-            <span class="shrink-0">🔐</span>
-            <span class="font-sans font-medium text-[11px] truncate">Seed Vault</span>
-          </button>
-
-          <!-- STEGANOGRAPHY -->
-          <button type="button" id="btn-open-steganography" onclick="if(window.__aetheris_open_steganography) window.__aetheris_open_steganography();" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 font-mono transition-all cursor-pointer" title="Pixel Canvas Steganography (LSB PNG E2EE)">
-            <span class="shrink-0">🖼️</span>
-            <span class="font-sans font-medium text-[11px] truncate">Stego Canvas</span>
-          </button>
-
-          <!-- DATA ARCHIVE -->
-          <button type="button" id="btn-open-archive-vault" onclick="if(window.__aetheris_open_archive_modal) window.__aetheris_open_archive_modal();" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 font-mono transition-all cursor-pointer" title="Sovereign Data Archive (AES-256-GCM Export / Restore)">
-            <span class="shrink-0">📦</span>
-            <span class="font-sans font-medium text-[11px] truncate">Data Archive</span>
-          </button>
-
-          <!-- SOCIAL RECOVERY -->
-          <button type="button" id="btn-open-social-recovery" onclick="if(window.__aetheris_open_social_recovery) window.__aetheris_open_social_recovery();" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 font-mono transition-all cursor-pointer" title="Social Identity Recovery via WoT Guardians">
-            <span class="shrink-0">🛡️</span>
-            <span class="font-sans font-medium text-[11px] truncate">Social Recovery</span>
-          </button>
-
-          <!-- TRANSPARENCY MODE -->
-          <div class="col-span-1 sm:col-span-2">
-            ${transparencyMode.renderHeaderToggle()}
-          </div>
-
-          <!-- KEYBOARD SHORTCUTS -->
-          <button type="button" id="btn-open-keyboard-help" onclick="if(window.keyboardNavigator) window.keyboardNavigator.toggleHelpModal();" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-base/60 hover:bg-surface-overlay text-slate-300 font-mono transition-all cursor-pointer" title="Keyboard Shortcuts (?)">
-            <span class="shrink-0">⌨️</span>
-            <span class="font-sans font-medium text-[11px] truncate">Shortcuts (?)</span>
-          </button>
-
-          <!-- LANGUAGE SELECTOR -->
-          <button type="button" id="btn-open-lang-picker" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-base/60 hover:bg-surface-overlay text-slate-300 font-mono transition-all cursor-pointer" title="Switch Language & RTL Mode (${i18n.getCurrentLanguageMeta().name})">
-            <span class="shrink-0">${i18n.getCurrentLanguageMeta().flag}</span>
-            <span class="font-sans font-medium text-[11px] truncate">${i18n.getLanguage().toUpperCase()}</span>
-          </button>
-
-          <!-- BOOKMARKS -->
-          <button type="button" id="btn-open-bookmarks-modal" class="w-full flex items-center space-x-2 px-2.5 py-1.5 rounded-xl border border-white/5 bg-surface-base/60 text-slate-300 hover:text-amber-400 hover:bg-surface-overlay transition-all cursor-pointer" title="Saved Bookmarks">
-            <span class="text-xs shrink-0">🔖</span>
-            <span class="font-sans font-medium text-[11px] truncate">Bookmarks</span>
-          </button>
-
-          <!-- SOUND, ZEN & OFFLINE SYNC -->
-          <div class="col-span-1 sm:col-span-2 flex items-center justify-between p-2 rounded-xl bg-surface-base/40 border border-white/5">
-            <div class="flex items-center space-x-1.5">
-              ${soundEffects.renderSoundToggle()}
-              ${zenModeManager.renderZenButton()}
-            </div>
-            <div>
-              ${offlineSync.renderSyncBadge()}
-            </div>
-          </div>
-        `;
-      }
-
-      // Sovereign mode (full individual buttons)
-      return `
-        <button type="button" id="btn-toggle-dual-horizon" title="Toggle Split Screen: Stream + Vault simultaneously (Ctrl+\\)" class="hidden md:flex p-2 text-xs rounded-xl border items-center justify-center transition-all cursor-pointer ${clientStore.isDualHorizon ? 'bg-indigo-950 text-indigo-300 border-indigo-500/40' : 'bg-surface-raised/80 text-slate-400 border-white/5 hover:text-slate-200'}">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 4v16m6-16v16M4 4h16v16H4z"></path></svg>
-        </button>
-
-        <button type="button" id="btn-open-global-scale" class="hidden sm:flex px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-raised/80 hover:bg-surface-overlay text-slate-300 font-mono items-center space-x-1.5 transition-all shadow-sm cursor-pointer" title="Worldwide Anycast Edge Infrastructure (<15ms SLA)">
-          <span class="text-xs">🌐</span>
-          <span class="hidden xl:inline text-emerald-400 font-bold">${globalScale.getActivePoP().measuredRttMs}ms</span>
-        </button>
-
-        <button type="button" id="btn-open-seed-vault" onclick="if(window.__aetheris_open_mnemonic) window.__aetheris_open_mnemonic();" class="hidden sm:flex px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 font-mono items-center space-x-1.5 transition-all shadow-sm cursor-pointer" title="Sovereign Identity Seed Vault (BIP-39)">
-          <span>🔐</span>
-          <span class="hidden 2xl:inline font-sans font-medium">Seed</span>
-        </button>
-
-        <button type="button" id="btn-open-steganography" onclick="if(window.__aetheris_open_steganography) window.__aetheris_open_steganography();" class="hidden sm:flex px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 font-mono items-center space-x-1.5 transition-all shadow-sm cursor-pointer" title="Pixel Canvas Steganography (LSB PNG E2EE)">
-          <span>🖼️</span>
-          <span class="hidden 2xl:inline font-sans font-medium">Stego</span>
-        </button>
-
-        <button type="button" id="btn-open-archive-vault" onclick="if(window.__aetheris_open_archive_modal) window.__aetheris_open_archive_modal();" class="hidden sm:flex px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 font-mono items-center space-x-1.5 transition-all shadow-sm cursor-pointer" title="Sovereign Data Archive (AES-256-GCM Export / Restore)">
-          <span>📦</span>
-          <span class="hidden 2xl:inline font-sans font-medium">Archive</span>
-        </button>
-
-        <button type="button" id="btn-open-social-recovery" onclick="if(window.__aetheris_open_social_recovery) window.__aetheris_open_social_recovery();" class="hidden sm:flex px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 font-mono items-center space-x-1.5 transition-all shadow-sm cursor-pointer" title="Social Identity Recovery via WoT Guardians">
-          <span>🛡️</span>
-          <span class="hidden 2xl:inline font-sans font-medium">Recovery</span>
-        </button>
-
-        ${transparencyMode.renderHeaderToggle()}
-
-        <button type="button" id="btn-open-keyboard-help" onclick="if(window.keyboardNavigator) window.keyboardNavigator.toggleHelpModal();" class="hidden lg:flex px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-raised/80 hover:bg-surface-overlay text-slate-300 font-mono items-center space-x-1.5 transition-all shadow-sm cursor-pointer" title="Keyboard Shortcuts (?)">
-          <span>⌨️</span>
-          <span class="hidden 2xl:inline font-sans font-medium">Keys</span>
-        </button>
-
-        <button type="button" id="btn-open-lang-picker" class="hidden sm:flex px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-raised/80 hover:bg-surface-overlay text-slate-300 font-mono items-center space-x-1.5 transition-all shadow-sm cursor-pointer" title="Switch Language & RTL Mode (${i18n.getCurrentLanguageMeta().name})">
-          <span>${i18n.getCurrentLanguageMeta().flag}</span>
-          <span class="font-bold uppercase">${i18n.getLanguage()}</span>
-        </button>
-
-        <div class="hidden md:flex items-center space-x-1 bg-surface-raised/80 p-0.5 rounded-xl border border-white/5">
-          ${soundEffects.renderSoundToggle()}
-          ${zenModeManager.renderZenButton()}
-        </div>
-
-        <div class="hidden md:flex items-center space-x-1">
-          ${offlineSync.renderSyncBadge()}
-          <button type="button" id="btn-open-bookmarks-modal" class="p-2 rounded-xl text-slate-400 hover:text-amber-400 hover:bg-surface-raised transition-all cursor-pointer" title="Saved Bookmarks">
-            <span class="text-sm">🔖</span>
-          </button>
-        </div>
-      `;
-    };
 
     appEl.innerHTML = `
       <div id="main-layout" class="flex flex-col h-screen w-screen bg-canvas text-slate-200 overflow-hidden font-sans select-none">
@@ -672,31 +801,8 @@ export function initApp(): void {
             </div>
 
             <!-- PRIMARY WORKSPACE NAVIGATION DOCK -->
-            <nav class="hidden md:flex items-center space-x-1 bg-surface-raised/80 p-1 rounded-2xl border border-white/5 text-xs shadow-inner" aria-label="Desktop primary navigation">
-              <button type="button" data-nav-mode="pulse" class="btn-nav-mode px-3 py-1.5 rounded-xl font-semibold transition-all flex items-center space-x-1.5 cursor-pointer ${clientStore.activeChannelId.startsWith('pulse-') ? 'is-active nav-item-active shadow-sm' : 'text-slate-400 hover:text-slate-200 hover:bg-surface-overlay/50'}" title="Feed de publicații și știri suverane">
-                <span>⚡</span>
-                <span>Feed (Pulse)</span>
-              </button>
-
-              <button type="button" data-nav-mode="explore" class="btn-nav-mode px-3 py-1.5 rounded-xl font-semibold transition-all flex items-center space-x-1.5 cursor-pointer ${clientStore.activeChannelId === 'explore' ? 'is-active nav-item-active shadow-sm' : 'text-slate-400 hover:text-slate-200 hover:bg-surface-overlay/50'}" title="Explorează rețeaua și tendințele">
-                <span>🔍</span>
-                <span>Explorează</span>
-              </button>
-
-              <button type="button" data-nav-mode="profile" class="btn-nav-mode px-3 py-1.5 rounded-xl font-semibold transition-all flex items-center space-x-1.5 cursor-pointer ${clientStore.activeChannelId.startsWith('profile') ? 'is-active nav-item-active shadow-sm' : 'text-slate-400 hover:text-slate-200 hover:bg-surface-overlay/50'}" title="Profilul tău de identitate suverană">
-                <span>👤</span>
-                <span>Profil</span>
-              </button>
-
-              <button type="button" data-nav-mode="vault" class="btn-nav-mode px-3 py-1.5 rounded-xl font-semibold transition-all flex items-center space-x-1.5 cursor-pointer ${clientStore.activeChannelId.startsWith('vault-') ? 'is-active nav-item-active shadow-sm' : 'text-slate-400 hover:text-slate-200 hover:bg-surface-overlay/50'}" title="Seif de fișiere criptate și release-uri auditate">
-                <span>📚</span>
-                <span>Seif (Vault)</span>
-              </button>
-
-              <button type="button" data-nav-mode="relays" class="btn-nav-mode px-3 py-1.5 rounded-xl font-semibold transition-all flex items-center space-x-1.5 cursor-pointer ${clientStore.activeChannelId.startsWith('relays-') ? 'is-active nav-item-active shadow-sm' : 'text-slate-400 hover:text-slate-200 hover:bg-surface-overlay/50'}" title="Servere de comunicare și chat E2EE">
-                <span>💬</span>
-                <span>Servere (Relays)</span>
-              </button>
+            <nav id="header-primary-nav" class="hidden md:flex items-center space-x-1 bg-surface-raised/80 p-1 rounded-2xl border border-white/5 text-xs shadow-inner" aria-label="Desktop primary navigation">
+              ${renderHeaderPrimaryNav()}
             </nav>
           </div>
 
@@ -719,64 +825,9 @@ export function initApp(): void {
               <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
             </button>
 
-            <!-- PWA 1-CLICK INSTALL (visible when installable) -->
-            <button type="button" id="btn-pwa-install" onclick="if(window.pwaService) window.pwaService.promptInstall();" class="hidden px-2.5 py-1.5 text-xs rounded-xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 font-mono items-center space-x-1.5 transition-all shadow-sm cursor-pointer" title="Install Aetheris as Native App">
-              <span>📲</span>
-              <span class="font-sans font-medium">Install</span>
-            </button>
-
-            <!-- AMBIENT NETWORK MINIMAP & STATUS -->
-            ${ambientNetworkMinimap.renderMinimapHTML()}
-
-            <!-- UI MODE SWITCHER PILL (Simple / Sovereign) -->
-            <button type="button" id="btn-toggle-ui-mode" onclick="window.clientStore?.toggleUiMode()" class="px-2.5 py-1.5 rounded-xl text-xs font-mono border transition-all flex items-center space-x-1.5 cursor-pointer ${clientStore.uiMode === 'simple' ? 'bg-cyan-500/10 text-cyan-300 border-cyan-500/30 hover:bg-cyan-500/20' : 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40 hover:bg-indigo-500/30'}" title="${i18n.t('uiMode.switchMode', undefined, 'Switch Interface Mode')}">
-              <span>${clientStore.uiMode === 'simple' ? '🌱' : '⚡'}</span>
-              <span class="font-sans text-[11px] font-semibold">${clientStore.uiMode === 'simple' ? i18n.t('uiMode.simple', undefined, 'Simple') : i18n.t('uiMode.sovereign', undefined, 'Sovereign')}</span>
-            </button>
-
-            ${clientStore.uiMode === 'sovereign' 
-              ? renderAdvancedHeaderTools(false)
-              : `
-                <!-- ADVANCED TOOLS OVERFLOW DROPDOWN (SIMPLE MODE) -->
-                <div class="relative">
-                  <button type="button" id="btn-open-advanced-overflow" onclick="window.__aetheris_toggle_advanced_overflow && window.__aetheris_toggle_advanced_overflow()" class="p-2 text-xs rounded-xl border border-white/5 bg-surface-raised/80 hover:bg-surface-overlay text-slate-300 transition-all flex items-center space-x-1.5 cursor-pointer" title="${i18n.t('uiMode.advancedTools', undefined, 'Advanced Tools')}">
-                    <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path></svg>
-                    <span class="hidden xl:inline text-[11px] font-sans text-slate-300 font-medium">${i18n.t('uiMode.advancedTools', undefined, 'Advanced Tools')}</span>
-                  </button>
-
-                  ${isAdvancedOverflowOpen ? `
-                    <div id="advanced-overflow-backdrop" class="fixed inset-0 z-40" onclick="window.__aetheris_close_advanced_overflow && window.__aetheris_close_advanced_overflow()"></div>
-                    <div id="advanced-overflow-menu" class="absolute right-0 top-full mt-2 w-80 p-3 bg-surface-raised/95 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl z-50 animate-in fade-in slide-in-from-top-2 duration-150 space-y-2.5 select-none">
-                      <div class="flex items-center justify-between pb-2 border-b border-white/5">
-                        <span class="text-xs font-bold text-white font-mono flex items-center space-x-1.5">
-                          <span>🛠️</span>
-                          <span>${i18n.t('uiMode.advancedTools', undefined, 'Advanced Tools')}</span>
-                        </span>
-                        <button type="button" onclick="window.clientStore?.setUiMode('sovereign')" class="text-[10px] font-mono text-cyan-400 hover:underline cursor-pointer">
-                          Switch to Sovereign ⚡
-                        </button>
-                      </div>
-                      <div class="grid grid-cols-2 gap-2">
-                        ${renderAdvancedHeaderTools(true)}
-                      </div>
-                    </div>
-                  ` : ''}
-                </div>
-              `
-            }
-
-            <!-- THEME SELECTOR (all screens) -->
-            <button type="button" id="btn-open-theme-picker" onclick="if(window.__aetheris_open_theme) window.__aetheris_open_theme();" class="px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-raised/80 hover:bg-surface-overlay text-slate-300 font-mono flex items-center space-x-1.5 transition-all shadow-sm cursor-pointer" title="Choose Theme & Typography">
-              <span>🎨</span>
-              <span class="hidden xl:inline font-sans font-medium">Theme</span>
-            </button>
-
-            <!-- NOTIFICATIONS BELL (all screens) -->
-            <div class="relative flex items-center">
-              <button type="button" id="btn-toggle-notifs" onclick="if(window.__aetherisToggleNotifs) window.__aetherisToggleNotifs();" class="relative p-2 rounded-xl text-slate-400 hover:text-white hover:bg-surface-raised transition-all cursor-pointer" title="Notifications">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
-                ${notificationCenter.unreadCount > 0 ? `<span class="absolute top-1 right-1 w-2 h-2 bg-rose-500 rounded-full animate-ping"></span><span class="absolute top-1 right-1 w-2 h-2 bg-rose-500 rounded-full"></span>` : ''}
-              </button>
+            <!-- DYNAMIC HEADER TOOLS ROOT -->
+            <div id="header-tools-root" class="flex items-center space-x-1.5 sm:space-x-2">
+              ${renderHeaderToolsRoot()}
             </div>
 
             <!-- WALLET & IDENTITY PILL -->
@@ -1165,7 +1216,7 @@ export function initApp(): void {
         </footer>
 
         ${renderMobileDrawer()}
-        ${renderMobileBottomNav()}
+        <div id="app-mobile-bottom-nav">${renderMobileBottomNav()}</div>
 
         <!-- DYNAMIC ISOLATED MODAL ROOT -->
         <div id="app-modal-root" class="fixed inset-0 z-[9999] pointer-events-none">
@@ -1177,6 +1228,7 @@ export function initApp(): void {
 
     voiceVisualizer.init('voice-oscilloscope');
     bindEvents();
+    updateNavigationActiveClasses();
 
     requestAnimationFrame(() => {
       const newRight = document.getElementById('right-rail-scroll');
@@ -1209,7 +1261,6 @@ export function initApp(): void {
   /** Build modal root HTML (extracted to share between full and patch renders) */
   const buildModalRootHTML = (): string => `
     ${renderCommandRailModal()}
-    ${renderComposerModal()}
     ${obsidianMediaPlayer.renderLightboxModal()}
     ${storiesEngine.renderStoryModal(clientStore.keypair.fingerprint)}
     ${storiesEngine.renderStoryCreatorModal(clientStore.keypair.fingerprint)}
@@ -1359,11 +1410,14 @@ export function initApp(): void {
       const focusedValue = focusedEl?.value ?? null;
       const focusedSelStart = (typeof focusedEl?.selectionStart === 'number') ? focusedEl.selectionStart : null;
 
-      // Patch only the dynamic zones — stable chrome is NEVER touched
+      // Patch dynamic zones
       patchEl('toast-root', renderToasts());
       patchEl('broadcast-root', renderBroadcastBanner());
+      patchEl('header-primary-nav', renderHeaderPrimaryNav());
+      patchEl('header-tools-root', renderHeaderToolsRoot());
       patchEl('main-stage', renderMainStage());
       patchEl('app-modal-root', buildModalRootHTML());
+      updateNavigationActiveClasses();
 
       // Patch mobile drawer open/closed state reactively
       const drawerEl = document.getElementById('mobile-drawer');
@@ -1399,8 +1453,8 @@ export function initApp(): void {
         }
       }
 
-      // Patch mobile bottom nav active states only
-      patchEl('app-mobile-bottom-nav', renderMobileBottomNavButtons());
+      // Patch mobile bottom nav
+      patchEl('app-mobile-bottom-nav', renderMobileBottomNav());
 
       // Patch WebRTC transfer indicator (smart: show/remove based on active transfers)
       const widgetHtml = webrtcTransfer.renderFloatingWidget();
@@ -1432,6 +1486,7 @@ export function initApp(): void {
 
       // Re-bind event listeners on updated dynamic elements
       bindEvents();
+      updateNavigationActiveClasses();
 
       requestAnimationFrame(() => {
         // Restore focused input value & cursor position without scroll jump
@@ -2591,15 +2646,6 @@ function bindEvents(): void {
   const qsa = <T extends HTMLElement = HTMLElement>(sel: string): NodeListOf<T> =>
     document.querySelectorAll<T>(sel);
 
-  // ─── ESC key global handler — only registered once ──────────────────────────
-  if (!(document as any).__escListenerAdded) {
-    (document as any).__escListenerAdded = true;
-    document.addEventListener('keydown', (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return;
-      // Close any open modal in priority order
-      if (clientStore.isComposerOpen) { clientStore.isComposerOpen = false; clientStore.notify(); return; }
-    });
-  }
 
   // ─── PASSIVE SCROLL & TOUCH EVENT LISTENERS (GPU Thread Protection) ──────────
   // All scroll/touch/wheel listeners MUST use { passive: true } to prevent blocking
@@ -2861,10 +2907,18 @@ function bindEvents(): void {
       }
     }, { signal });
   });
-  document.getElementById('btn-close-post-detail')?.addEventListener('click', () => {
+  const handleClosePostDetail = () => {
     postDetailView.closePost();
     clientStore.notify();
-  }, { signal });
+  };
+  document.getElementById('btn-close-post-detail')?.addEventListener('click', handleClosePostDetail, { signal });
+  document.getElementById('btn-back-to-feed')?.addEventListener('click', handleClosePostDetail, { signal });
+  document.getElementById('btn-close-post-detail-fallback')?.addEventListener('click', handleClosePostDetail, { signal });
+
+  postDetailView.bindEvents((postId: string, commentText: string) => {
+    threadManager.addReply(postId, clientStore.keypair.fingerprint, commentText.trim());
+    clientStore.notify();
+  });
 
   // 8. ZK Proof Visualizer
   document.getElementById('btn-open-zk-rln')?.addEventListener('click', () => {

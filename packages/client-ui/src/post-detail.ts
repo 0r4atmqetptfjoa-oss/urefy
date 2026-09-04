@@ -141,6 +141,7 @@ export class PostDetailView {
     this.isPreviewMode = false;
     this.replyingToCommentId = null;
     this.activeSubTab = 'discussion';
+    clientStore.notify();
   }
 
   public getActivePostId(): string | null {

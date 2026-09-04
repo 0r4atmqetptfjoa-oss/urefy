@@ -2475,3 +2475,94 @@ mark {
   background: rgba(217, 119, 6, 0.2) !important;
   color: #b45309 !important;
 }
+
+/* ─── PREMIUM UI POLISH & TACTILE MICRO-INTERACTIONS ───────────────────────── */
+
+/* 1. Tactile Button & Link Feedback */
+button:not([disabled]):active,
+.btn-nav-mode:active,
+.btn-drawer-item:active,
+.btn-channel:active {
+  transform: scale(0.975);
+  transition: transform 0.08s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+button,
+.btn-nav-mode,
+.btn-drawer-item,
+.btn-channel {
+  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), 
+              background-color 0.15s ease, 
+              border-color 0.15s ease, 
+              color 0.15s ease, 
+              box-shadow 0.15s ease;
+}
+
+/* 2. Premium Modal Spring Transitions */
+.animate-modal-spring {
+  animation: modalSpringIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes modalSpringIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.96) translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* 3. Glowing Active Indicator */
+.nav-indicator-active {
+  background-color: var(--color-accent, #00e5ff) !important;
+  box-shadow: 0 0 10px var(--color-accent, #00e5ff), 0 0 20px rgba(0, 229, 255, 0.4) !important;
+  animation: indicatorGlow 2.5s ease-in-out infinite alternate;
+}
+
+@keyframes indicatorGlow {
+  0% {
+    box-shadow: 0 0 6px var(--color-accent, #00e5ff), 0 0 12px rgba(0, 229, 255, 0.3);
+  }
+  100% {
+    box-shadow: 0 0 12px var(--color-accent, #00e5ff), 0 0 24px rgba(0, 229, 255, 0.6);
+  }
+}
+
+/* 4. Active Nav Item Border & Glow */
+.is-active.nav-item-active {
+  background: rgba(0, 229, 255, 0.08) !important;
+  border-color: rgba(0, 229, 255, 0.3) !important;
+  color: #ffffff !important;
+}
+
+[data-theme="alabaster-light"] .is-active.nav-item-active {
+  background: rgba(2, 132, 199, 0.08) !important;
+  border-color: rgba(2, 132, 199, 0.3) !important;
+  color: #0f172a !important;
+}
+
+/* 5. Smooth Scrollbar & Performance Containment */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.28);
+}

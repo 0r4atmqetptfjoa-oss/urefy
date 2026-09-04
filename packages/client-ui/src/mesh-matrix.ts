@@ -272,21 +272,31 @@ export class MeshTopologyMatrix {
         const end = Date.now();
         this.doLatencyMs = Math.max(3.5, Math.round((end - start) * 0.4 * 10) / 10);
 
+        const safeJson = async (res: Response) => {
+          try {
+            const ct = res.headers.get('content-type') || '';
+            if (ct.includes('application/json')) {
+              return await res.json();
+            }
+          } catch (_) {}
+          return {};
+        };
+
         if (healthRes.status === 'fulfilled' && healthRes.value.ok) {
-          const hData = await healthRes.value.json();
-          if (hData.edge?.colo) {
+          const hData = await safeJson(healthRes.value);
+          if (hData?.edge?.colo) {
             this.edgeColo = `${hData.edge.colo} (${hData.edge.city || 'Edge Hub'})`;
           }
-          if (hData.edge?.region) {
+          if (hData?.edge?.region) {
             this.edgeRegion = hData.edge.region;
           }
           this.doMeshStatus = 'SYNCHRONIZED (DO Mesh Global Edge)';
         }
 
         if (analyticsRes.status === 'fulfilled' && analyticsRes.value.ok) {
-          const aData = await analyticsRes.value.json();
-          const d1Hdr = analyticsRes.value.headers.get('X-Edge-Storage') || (aData.storage ? aData.storage : '');
-          if (d1Hdr.includes('D1')) {
+          const aData = await safeJson(analyticsRes.value);
+          const d1Hdr = analyticsRes.value.headers.get('X-Edge-Storage') || (aData?.storage ? aData.storage : '');
+          if (d1Hdr && d1Hdr.includes('D1')) {
             this.d1Status = 'CONNECTED (D1 SQLite)';
             this.d1LatencyMs = 3.8;
           } else {
@@ -296,8 +306,8 @@ export class MeshTopologyMatrix {
         }
 
         if (storageRes.status === 'fulfilled' && storageRes.value.ok) {
-          const sData = await storageRes.value.json();
-          const stHdr = storageRes.value.headers.get('X-Storage-Backend') || sData.storage;
+          const sData = await safeJson(storageRes.value);
+          const stHdr = storageRes.value.headers.get('X-Storage-Backend') || sData?.storage;
           if (stHdr && stHdr.includes('R2')) {
             this.r2Status = 'CONNECTED (R2 Object Vault)';
             this.r2LatencyMs = 8.2;
@@ -308,7 +318,7 @@ export class MeshTopologyMatrix {
         }
       }
     } catch (err) {
-      console.warn('[MeshMatrix Edge Sync Fallback]', err);
+      // Graceful fallback without console error noise
     } finally {
       this.isEdgeSyncing = false;
       this.lastEdgeSyncAt = Date.now();
