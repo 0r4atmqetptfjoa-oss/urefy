@@ -56,8 +56,8 @@ export class NeuralDSPPipeline {
 
       this.startAnalysisLoop();
       return true;
-    } catch (err: any) {
-      console.warn('[Neural DSP] Microphone not available or permission denied:', err.message);
+    } catch {
+      // Gracefully handle when microphone is not present or permission not yet requested
       return false;
     }
   }

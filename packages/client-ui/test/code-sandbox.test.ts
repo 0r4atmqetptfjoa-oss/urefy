@@ -528,7 +528,10 @@ describe('Secure In-Browser WebWorker Code Sandbox', () => {
       runBtn!.click();
 
       // Allow async sandbox execution to settle
-      await new Promise((r) => setTimeout(r, 150));
+      for (let i = 0; i < 40; i++) {
+        if (card.querySelector('.sandbox-terminal')) break;
+        await new Promise((r) => setTimeout(r, 50));
+      }
 
       const terminal = card.querySelector<MockDOMElement>('.sandbox-terminal');
       expect(terminal).not.toBeNull();

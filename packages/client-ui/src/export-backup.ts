@@ -1132,11 +1132,13 @@ export class ExportBackupManager {
             </div>
 
             <!-- Password inputs (collapsible) -->
-            <div id="export-password-container" class="pt-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <form id="export-password-container" onsubmit="return false;" autocomplete="off" class="pt-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div class="relative">
                 <input
                   type="password"
                   id="export-backup-password"
+                  name="export_backup_password"
+                  autocomplete="new-password"
                   placeholder="Enter a strong backup password..."
                   class="w-full px-3.5 py-2.5 rounded-lg bg-surface-base border border-white/10 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyphr transition-colors pr-10"
                 />
@@ -1161,7 +1163,7 @@ export class ExportBackupManager {
                   <option value="encrypted-json">Encrypted Enclave Container (.aether-vault)</option>
                 </select>
               </div>
-            </div>
+            </form>
           </div>
 
           <!-- ACTION BUTTON & PROGRESS -->

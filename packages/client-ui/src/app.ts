@@ -4565,6 +4565,9 @@ function bindEvents(): void {
         if (steganographyModal.isOpen) { steganographyModal.closeModal(); changed = true; }
         if (sovereignArchiveModal.isOpen) { sovereignArchiveModal.closeModal(); changed = true; }
         if (socialRecoveryModal.isOpen) { socialRecoveryModal.closeModal(); changed = true; }
+        if (binaryHygienePortal.isOpen) { binaryHygienePortal.close(); changed = true; }
+        if (portableTrustModal.isOpen) { portableTrustModal.close(); changed = true; }
+        if (microSaaSDocsModal) { microSaaSDocsModal.close(); }
         if (keyboardNavigator.isHelpModalOpen) { keyboardNavigator.closeHelpModal(); changed = true; }
         if (transparencyMode.isOpen) { transparencyMode.close(); changed = true; }
         if (settingsView.isOpen) { settingsView.close(); changed = true; }

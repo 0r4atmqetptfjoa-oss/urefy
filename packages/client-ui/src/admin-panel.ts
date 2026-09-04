@@ -1079,21 +1079,21 @@ export class AdminPanelManager {
         <!-- CHANGE ADMIN PIN -->
         <div class="bg-surface-raised border border-amber/20 rounded-2xl p-5 space-y-3">
           <h3 class="text-sm font-bold text-amber">🔐 Change Admin PIN</h3>
-          <div class="grid grid-cols-3 gap-3">
+          <form onsubmit="return false;" autocomplete="off" class="grid grid-cols-3 gap-3">
             <div class="space-y-1">
-              <label class="text-xs text-slate-400">Current PIN</label>
-              <input id="admin-current-pin" type="password" placeholder="••••••" class="w-full bg-surface-base border border-white/15 rounded-xl px-3 py-2 text-sm text-center tracking-widest placeholder-slate-600 focus:outline-none focus:border-amber/50 transition-all" />
+              <label for="admin-current-pin" class="text-xs text-slate-400">Current PIN</label>
+              <input id="admin-current-pin" name="current_pin" autocomplete="current-password" type="password" placeholder="••••••" class="w-full bg-surface-base border border-white/15 rounded-xl px-3 py-2 text-sm text-center tracking-widest placeholder-slate-600 focus:outline-none focus:border-amber/50 transition-all" />
             </div>
             <div class="space-y-1">
-              <label class="text-xs text-slate-400">New PIN</label>
-              <input id="admin-new-pin" type="password" placeholder="••••••" class="w-full bg-surface-base border border-white/15 rounded-xl px-3 py-2 text-sm text-center tracking-widest placeholder-slate-600 focus:outline-none focus:border-amber/50 transition-all" />
+              <label for="admin-new-pin" class="text-xs text-slate-400">New PIN</label>
+              <input id="admin-new-pin" name="new_pin" autocomplete="new-password" type="password" placeholder="••••••" class="w-full bg-surface-base border border-white/15 rounded-xl px-3 py-2 text-sm text-center tracking-widest placeholder-slate-600 focus:outline-none focus:border-amber/50 transition-all" />
             </div>
             <div class="flex items-end">
-              <button id="btn-admin-change-pin" class="w-full py-2.5 rounded-xl bg-amber text-black font-bold text-sm hover:bg-amber/90 transition-all cursor-pointer">
+              <button type="button" id="btn-admin-change-pin" class="w-full py-2.5 rounded-xl bg-amber text-black font-bold text-sm hover:bg-amber/90 transition-all cursor-pointer">
                 Update PIN
               </button>
             </div>
-          </div>
+          </form>
           <p id="admin-pin-change-msg" class="text-xs text-slate-600"></p>
         </div>
 

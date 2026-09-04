@@ -565,43 +565,47 @@ export function attachSandboxRunnersToDOM(
       runLabel.textContent = 'Run in Sovereign Sandbox';
       runBtn.disabled = false;
 
+      const doc = typeof document !== 'undefined' ? document : (globalThis as any).document;
+      if (!doc) return;
+
       // Locate or create terminal
       let terminal = targetParent.querySelector<HTMLElement>('.sandbox-terminal');
       if (!terminal) {
-        terminal = document.createElement('div');
+        terminal = doc.createElement('div') as HTMLElement;
         terminal.className =
           'sandbox-terminal mt-2 rounded-lg border border-white/10 bg-[#0c1017] overflow-hidden shadow-2xl text-xs font-mono transition-all duration-200';
         targetParent.appendChild(terminal);
       }
+      if (!terminal) return;
       terminal.innerHTML = '';
 
       // Terminal Header
-      const header = document.createElement('div');
+      const header = doc.createElement('div');
       header.className = 'sandbox-terminal-header flex items-center justify-between px-3 py-1.5 bg-black/60 border-b border-white/5 select-none';
 
-      const headerLeft = document.createElement('div');
+      const headerLeft = doc.createElement('div');
       headerLeft.className = 'flex items-center space-x-2';
 
-      const statusSpan = document.createElement('span');
+      const statusSpan = doc.createElement('span');
       statusSpan.className = `sandbox-status font-bold ${result.success ? 'text-emerald-400' : 'text-rose-400'}`;
       statusSpan.textContent = result.success ? '✓ Success' : '✗ Error';
 
-      const timeSpan = document.createElement('span');
+      const timeSpan = doc.createElement('span');
       timeSpan.className = 'sandbox-time text-slate-400 text-[11px] font-mono';
       timeSpan.textContent = `(${result.executionTimeMs.toFixed(1)}ms)`;
 
       headerLeft.appendChild(statusSpan);
       headerLeft.appendChild(timeSpan);
 
-      const headerRight = document.createElement('div');
+      const headerRight = doc.createElement('div');
       headerRight.className = 'flex items-center space-x-2';
 
-      const collapseBtn = document.createElement('button');
+      const collapseBtn = doc.createElement('button');
       collapseBtn.type = 'button';
       collapseBtn.className = 'btn-sandbox-collapse text-[10px] text-slate-400 hover:text-slate-200 bg-white/5 hover:bg-white/10 px-2 py-0.5 rounded cursor-pointer transition-colors';
       collapseBtn.textContent = 'Collapse';
 
-      const clearBtn = document.createElement('button');
+      const clearBtn = doc.createElement('button');
       clearBtn.type = 'button';
       clearBtn.className = 'btn-sandbox-clear text-[10px] text-slate-400 hover:text-rose-300 bg-white/5 hover:bg-rose-500/20 px-2 py-0.5 rounded cursor-pointer transition-colors';
       clearBtn.textContent = 'Clear';
@@ -613,7 +617,7 @@ export function attachSandboxRunnersToDOM(
       header.appendChild(headerRight);
 
       // Terminal Body
-      const terminalBody = document.createElement('div');
+      const terminalBody = doc.createElement('div');
       terminalBody.className = 'sandbox-terminal-body p-3 overflow-x-auto max-h-64 space-y-1 bg-[#080c12]';
       terminalBody.innerHTML = renderTerminalOutput(result);
 

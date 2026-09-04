@@ -1009,19 +1009,24 @@ export class AetherisClientStore {
         // Reconnect with exponential backoff & full jitter if in browser
         if (typeof window !== 'undefined') {
           if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
-          const delay = this.calculateBackoffWithJitter();
+          // If relay is offline after 3 attempts, back off to 60s periodic polling
+          const delay = this.reconnectAttempts >= 3 ? 60000 : this.calculateBackoffWithJitter();
           this.reconnectAttempts++;
           this.reconnectTimer = setTimeout(() => this.connect(), delay);
         }
       };
 
-      this.ws.onerror = (err) => {
-        console.warn('WebSocket connection attempt noted, operating with Edge HTTP sync & local mesh:', err);
+      this.ws.onerror = () => {
+        if (this.reconnectAttempts === 0) {
+          console.info('WebSocket relay offline, operating with Edge HTTP sync & local mesh');
+        }
         this.isConnected = false;
         this.notify();
       };
     } catch (err) {
-      console.warn('WebSocket initialization caught error, using local mesh mode:', err);
+      if (this.reconnectAttempts === 0) {
+        console.info('WebSocket initialization in local mesh mode');
+      }
       this.isConnected = false;
       this.notify();
     }

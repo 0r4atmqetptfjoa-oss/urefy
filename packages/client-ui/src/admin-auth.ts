@@ -197,15 +197,16 @@ export class AdminAuthManager {
             </div>
 
             <!-- PIN INPUT -->
-            <div class="p-6 space-y-4">
+            <form id="admin-pin-form" onsubmit="return false;" autocomplete="off" class="p-6 space-y-4">
               <div class="relative">
                 <input
                   type="password"
                   id="admin-pin-input"
+                  name="admin_pin"
                   maxlength="8"
                   placeholder="••••• PIN"
                   class="w-full bg-surface-raised border ${this.pinError ? 'border-crimson/60' : 'border-white/15'} rounded-xl px-4 py-3 text-center text-xl font-mono tracking-[0.5em] text-white placeholder-slate-600 focus:outline-none focus:border-amber/50 focus:ring-1 focus:ring-amber/20 transition-all"
-                  autocomplete="off"
+                  autocomplete="current-password"
                   autofocus
                 />
               </div>
@@ -218,6 +219,7 @@ export class AdminAuthManager {
               ` : ''}
 
               <button
+                type="submit"
                 id="btn-admin-pin-submit"
                 class="w-full py-3 rounded-xl bg-amber text-black font-bold text-sm hover:bg-amber/90 transition-all shadow-lg shadow-amber/20 cursor-pointer"
               >
@@ -225,6 +227,7 @@ export class AdminAuthManager {
               </button>
 
               <button
+                type="button"
                 id="btn-admin-pin-cancel"
                 class="w-full py-2 rounded-xl text-slate-400 hover:text-white text-sm transition-all cursor-pointer"
               >
@@ -234,7 +237,7 @@ export class AdminAuthManager {
               <p class="text-[10px] text-slate-600 text-center">
                 Default PIN: ${ADMIN_DEFAULT_PIN} · Change in Admin → Server Config
               </p>
-            </div>
+            </form>
           </div>
         </div>
       </div>

@@ -220,6 +220,21 @@ export interface WindowAugmentation {
   microSaaSDocsModal?: any;
   __aetheris_open_microsaas_docs?: () => void;
   __aetheris_close_microsaas_docs?: () => void;
+  __aetheris_save_profile?: () => void;
+  __aetheris_open_gossip?: () => void;
+  __aetheris_open_rss?: () => void;
+  __aetheris_open_cve?: () => void;
+  __aetheris_open_dao?: () => void;
+  __aetheris_open_governance?: () => void;
+  __aetheris_open_export?: () => void;
+  __aetheris_open_lang?: () => void;
+  transparencyMode?: any;
+  __aetherisTransparency?: any;
+  governanceDAO?: any;
+  rssImporter?: any;
+  cveMonitor?: any;
+  gossipViz?: any;
+  exportBackup?: any;
 
   // Web Standards & Cross-browser Augmentations
   ethereum?: EIP1193Provider;

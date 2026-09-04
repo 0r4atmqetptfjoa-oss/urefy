@@ -358,7 +358,13 @@ export class LocalAIAssistant {
       const el = document.getElementById(id);
       if (el) {
         el.classList.add('opacity-0', 'translate-y-2');
-        setTimeout(() => el.remove(), 200);
+        setTimeout(() => {
+          el.remove();
+          const container = document.getElementById('proactive-ai-container');
+          if (container && container.children.length === 0) {
+            container.remove();
+          }
+        }, 200);
       }
     }
   }
@@ -384,6 +390,11 @@ export class LocalAIAssistant {
     if (!this.proactiveEnabled) return null;
     const now = Date.now();
     if (this.lastSuggestionTime > 0 && now - this.lastSuggestionTime < this.suggestionCooldownMs) {
+      return null;
+    }
+
+    // Do not pop up new suggestions if there is already an active suggestion visible on screen
+    if (this.activeSuggestions.length > 0) {
       return null;
     }
 
@@ -455,6 +466,13 @@ export class LocalAIAssistant {
   }
 
   private emitSuggestion(suggestion: ProactiveSuggestion): ProactiveSuggestion {
+    if (this.dismissedSuggestionTypes.has(suggestion.type)) return suggestion;
+    if (this.activeSuggestions.some(s => s.id === suggestion.id || s.type === suggestion.type)) {
+      return suggestion;
+    }
+    if (typeof document !== 'undefined' && document.getElementById(suggestion.id)) {
+      return suggestion;
+    }
     this.lastSuggestionTime = Date.now();
     this.activeSuggestions.push(suggestion);
     this.showProactiveToast(suggestion);
@@ -463,6 +481,7 @@ export class LocalAIAssistant {
 
   public showProactiveToast(suggestion: ProactiveSuggestion): void {
     if (typeof document === 'undefined') return;
+    if (document.getElementById(suggestion.id)) return;
     let container = document.getElementById('proactive-ai-container');
     if (!container) {
       container = document.createElement('div');

@@ -440,7 +440,7 @@ export class SovereignSteganographyModal {
         </div>
 
         <!-- OPTIONAL PASSPHRASE ENCRYPTION -->
-        <div class="space-y-1.5">
+        <form onsubmit="return false;" autocomplete="off" class="space-y-1.5">
           <label for="input-steg-passphrase" class="text-xs font-bold text-slate-200 flex items-center space-x-1.5">
             <span>Passphrase Encryption (AES-256-GCM)</span>
             <span class="text-[10px] text-slate-400 font-normal">(Optional, recommended)</span>
@@ -448,12 +448,14 @@ export class SovereignSteganographyModal {
           <input
             type="password"
             id="input-steg-passphrase"
+            name="steg_encode_passphrase"
+            autocomplete="new-password"
             value="${this.encodePassphrase}"
             placeholder="Set optional decryption passphrase (PBKDF2 50,000 iter)..."
             class="w-full bg-surface-raised border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 transition-colors font-mono"
           />
           <p class="text-[10px] text-slate-400">If set, payload is encrypted with PBKDF2 & AES-256-GCM before LSB injection.</p>
-        </div>
+        </form>
 
         <!-- ACTIONS -->
         <div class="pt-2 flex items-center space-x-3">
@@ -512,18 +514,20 @@ export class SovereignSteganographyModal {
         </div>
 
         <!-- PASSPHRASE INPUT (IF ENCRYPTED) -->
-        <div class="space-y-1.5">
+        <form onsubmit="return false;" autocomplete="off" class="space-y-1.5">
           <label for="input-steg-decode-passphrase" class="text-xs font-bold text-slate-200 block">
             Decryption Passphrase
           </label>
           <input
             type="password"
             id="input-steg-decode-passphrase"
+            name="steg_decode_passphrase"
+            autocomplete="current-password"
             value="${this.decodePassphrase}"
             placeholder="Enter passphrase if the payload was encrypted..."
             class="w-full bg-surface-raised border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 transition-colors font-mono"
           />
-        </div>
+        </form>
 
         <!-- DECODE ACTION -->
         <div class="pt-1">
