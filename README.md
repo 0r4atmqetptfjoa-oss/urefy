@@ -97,3 +97,11 @@ Servicii orchestrate:
 - **`daemon-archivist`**: worker de arhivare și indexare automată conectat la server
 - **`client-ui`**: container de dezvoltare live-reload expus pe `http://localhost:3000`
 
+---
+
+## 📜 Sustenabilitate, Finanțare & Guvernanță
+
+- [Modelul de Sustenabilitate Suverană (SUSTAINABILITY.md)](./SUSTAINABILITY.md) — Cei 5 piloni: granturi OSS, economie P2P cu cost zero de scalare, reputație fără tokeni speculativi, impact ecologic minim și neutralitatea protocolului.
+- [Opțiuni de Decizie Finanțare & Guvernanță (GOVERNANCE_FUNDING.md)](./GOVERNANCE_FUNDING.md) — Document de decizie pentru proprietarul de proiect privind operarea relay-urilor comunitare și micro-donațiile transparente non-custodiale.
+
+
