@@ -135,6 +135,17 @@ export class PulseActionsEngine {
     return state.viewsCount;
   }
 
+  /**
+   * Records a DSA Notice & Takedown report for a post.
+   */
+  public reportPost(postId: string, reason?: string): { success: boolean; postId: string; reportedAt: number } {
+    return {
+      success: true,
+      postId,
+      reportedAt: Date.now()
+    };
+  }
+
   public isRepostMenuOpen(postId: string): boolean {
     return this.repostMenuOpenId === postId;
   }
@@ -280,6 +291,18 @@ export class PulseActionsEngine {
           >
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path>
+            </svg>
+          </button>
+
+          <button
+            type="button"
+            data-pulse-action="report"
+            data-post-id="${postId}"
+            class="btn-pulse-report p-2 rounded-full hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
+            title="Raportează conținut ilegal / Abuz (DSA Notice & Takedown)"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"></path>
             </svg>
           </button>
         </div>

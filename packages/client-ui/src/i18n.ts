@@ -30,71 +30,79 @@ export interface LanguageMeta {
   flag: string;
   region: string;
   dateFormat: string;
+  tier: 'official' | 'beta';
 }
 
 export const SUPPORTED_LANGUAGES: Record<SupportedLocale, LanguageMeta> = {
   en: {
     code: 'en',
     name: 'English',
-    nativeName: 'English (US/UK)',
+    nativeName: 'English (Official - 100%)',
     direction: 'ltr',
     flag: '🌐',
     region: 'Global / US / UK',
     dateFormat: 'MM/DD/YYYY',
+    tier: 'official',
   },
   fr: {
     code: 'fr',
     name: 'French',
-    nativeName: 'Français',
+    nativeName: 'Français (Beta)',
     direction: 'ltr',
     flag: '🇫🇷',
     region: 'France / Europe',
     dateFormat: 'DD/MM/YYYY',
+    tier: 'beta',
   },
   de: {
     code: 'de',
     name: 'German',
-    nativeName: 'Deutsch',
+    nativeName: 'Deutsch (Beta)',
     direction: 'ltr',
     flag: '🇩🇪',
     region: 'Germany / DACH',
     dateFormat: 'DD.MM.YYYY',
+    tier: 'beta',
   },
   es: {
     code: 'es',
     name: 'Spanish',
-    nativeName: 'Español',
+    nativeName: 'Español (Beta)',
     direction: 'ltr',
     flag: '🇪🇸',
     region: 'Spain / Latin America',
     dateFormat: 'DD/MM/YYYY',
+    tier: 'beta',
   },
   ro: {
     code: 'ro',
     name: 'Romanian',
-    nativeName: 'Română',
+    nativeName: 'Română (Oficial - 100%)',
     direction: 'ltr',
     flag: '🇷🇴',
     region: 'Romania / Eastern Europe',
     dateFormat: 'DD.MM.YYYY',
+    tier: 'official',
   },
   ja: {
     code: 'ja',
     name: 'Japanese',
-    nativeName: '日本語',
+    nativeName: '日本語 (Beta)',
     direction: 'ltr',
     flag: '🇯🇵',
     region: 'Japan / Asia-Pacific',
     dateFormat: 'YYYY/MM/DD',
+    tier: 'beta',
   },
   ar: {
     code: 'ar',
     name: 'Arabic',
-    nativeName: 'العربية',
+    nativeName: 'العربية (Beta)',
     direction: 'rtl',
     flag: '🇦🇪',
     region: 'Middle East & North Africa (MENA)',
     dateFormat: 'DD/MM/YYYY',
+    tier: 'beta',
   },
 };
 
@@ -607,6 +615,34 @@ export const frDict: TranslationDictionary = {
     ago: 'il y a',
     justNow: 'à l\'instant',
   },
+  uiMode: {
+    simple: 'Simple',
+    sovereign: 'Souverain',
+    advancedTools: 'Outils Avancés',
+    switchMode: "Changer le Mode d'Interface",
+  },
+  onboardingNarrative: {
+    step1Title: 'Votre identité vous appartient',
+    step1Subtitle: 'Auto-souveraineté dès la première seconde',
+    step1Body: "Aucun serveur central ne possède votre compte. Pas d'e-mail, pas de numéro de téléphone, pas de mots de passe stockés sur des serveurs distants. Vos clés cryptographiques existent exclusivement sur votre appareil.",
+    step2Title: 'Votre contenu est entièrement protégé',
+    step2Subtitle: 'Sécurité zero-knowledge de bout en bout',
+    step2Body: "Tout ce que vous rédigez ou partagez est chiffré directement dans votre navigateur avant d'atteindre le réseau. Seuls les destinataires que vous autorisez détiennent les clés de déchiffrement.",
+    step3Title: 'Le réseau appartient à tous',
+    step3Subtitle: 'Distribution décentralisée peer-to-peer',
+    step3Body: 'Chaque participant contribue à relayer et préserver les données sur le maillage. Zéro algorithme opaque conçu pour capter votre attention, et zéro point de contrôle pour la censure.',
+    step4Title: 'Sauvegardez votre clé de récupération',
+    step4Subtitle: 'Votre phrase mnémonique de 12 mots',
+    step4Body: "Notez ces 12 mots secrets. Ils représentent l'intégralité de votre identité souveraine et de vos identifiants cryptographiques.",
+    step4Warning: 'Cette phrase de 12 mots est le seul moyen de récupérer votre compte. Aetheris ne stocke jamais vos clés.',
+    step4SavedWords: "J'ai sauvegardé mes mots mnémoniques en sécurité",
+    step4DownloadBackup: 'Télécharger la sauvegarde chiffrée',
+    skip: 'Passer',
+    continue: 'Continuer',
+    back: 'Retour',
+    finish: 'Entrer dans le Réseau Souverain',
+    stepOf: 'Étape {step} sur 4',
+  },
 };
 
 export const deDict: TranslationDictionary = {
@@ -758,6 +794,34 @@ export const deDict: TranslationDictionary = {
     ago: 'vor',
     justNow: 'gerade eben',
   },
+  uiMode: {
+    simple: 'Einfach',
+    sovereign: 'Souverän',
+    advancedTools: 'Erweiterte Werkzeuge',
+    switchMode: 'Schnittstellenmodus wechseln',
+  },
+  onboardingNarrative: {
+    step1Title: 'Ihre Identität gehört Ihnen',
+    step1Subtitle: 'Selbstbestimmung von der ersten Sekunde an',
+    step1Body: 'Kein zentraler Server besitzt Ihr Konto. Keine E-Mail, keine Telefonnummer, keine Passwörter auf externen Servern. Ihre kryptografischen Schlüssel existieren ausschließlich auf Ihrem Gerät.',
+    step2Title: 'Ihre Inhalte sind vollständig geschützt',
+    step2Subtitle: 'Durchgehende Zero-Knowledge-Sicherheit',
+    step2Body: 'Alles, was Sie verfassen oder teilen, wird direkt in Ihrem Browser verschlüsselt, bevor es das Netzwerk berührt. Nur autorisierte Empfänger besitzen die Schlüssel zum Entschlüsseln.',
+    step3Title: 'Das Netzwerk gehört allen',
+    step3Subtitle: 'Dezentrale Peer-to-Peer-Verteilung',
+    step3Body: 'Jeder Teilnehmer hilft beim Weiterleiten und Bewahren von Wissen im Mesh-Netzwerk. Keine manipulativen Algorithmen und keine zentralen Zensur-Schwachstellen.',
+    step4Title: 'Wiederherstellungsschlüssel sichern',
+    step4Subtitle: 'Ihre 12-Wörter-Master-Seed-Phrase',
+    step4Body: 'Notieren Sie sich diese 12 geheimen Wörter. Sie stellen Ihre vollständige souveräne Identität und all Ihre Zugangsdaten dar.',
+    step4Warning: 'Diese 12-Wörter-Phrase ist die einzige Möglichkeit, Ihr Konto wiederherzustellen. Aetheris speichert niemals Ihre Schlüssel.',
+    step4SavedWords: 'Ich habe meine Seed-Wörter sicher aufbewahrt',
+    step4DownloadBackup: 'Verschlüsseltes Backup herunterladen',
+    skip: 'Überspringen',
+    continue: 'Weiter',
+    back: 'Zurück',
+    finish: 'Dem souveränen Netzwerk beitreten',
+    stepOf: 'Schritt {step} von 4',
+  },
 };
 
 export const esDict: TranslationDictionary = {
@@ -908,6 +972,34 @@ export const esDict: TranslationDictionary = {
     days: 'días',
     ago: 'hace',
     justNow: 'ahora mismo',
+  },
+  uiMode: {
+    simple: 'Simple',
+    sovereign: 'Soberano',
+    advancedTools: 'Herramientas Avanzadas',
+    switchMode: 'Cambiar Modo de Interfaz',
+  },
+  onboardingNarrative: {
+    step1Title: 'Tu identidad te pertenece',
+    step1Subtitle: 'Autosoberanía desde el primer segundo',
+    step1Body: 'Ningún servidor central posee tu cuenta. Sin correo electrónico, sin número de teléfono, sin contraseñas en bases de datos externas. Tus claves criptográficas residen exclusivamente en tu dispositivo.',
+    step2Title: 'Tu contenido está totalmente protegido',
+    step2Subtitle: 'Seguridad zero-knowledge de extremo a extremo',
+    step2Body: 'Todo lo que escribes o compartes se cifra directamente en tu navegador antes de transmitirse. Solo los destinatarios que autorices poseen las claves para descifrarlo.',
+    step3Title: 'La red pertenece a todos',
+    step3Subtitle: 'Distribución descentralizada peer-to-peer',
+    step3Body: 'Cada participante ayuda a retransmitir y preservar el conocimiento en la malla. Cero algoritmos opacos de manipulación y cero puntos centrales de censura.',
+    step4Title: 'Guarda tu clave de recuperación',
+    step4Subtitle: 'Tu frase semilla maestra de 12 palabras',
+    step4Body: 'Anota estas 12 palabras secretas. Representan tu identidad soberana completa y todas tus credenciales criptográficas.',
+    step4Warning: 'Esta frase de 12 palabras es la única vía para recuperar tu cuenta. Aetheris nunca almacena tus claves.',
+    step4SavedWords: 'He guardado mis palabras semilla de forma segura',
+    step4DownloadBackup: 'Descargar copia de seguridad cifrada',
+    skip: 'Omitir',
+    continue: 'Continuar',
+    back: 'Atrás',
+    finish: 'Entrar a la Red Soberana',
+    stepOf: 'Paso {step} de 4',
   },
 };
 
@@ -1239,6 +1331,34 @@ export const jaDict: TranslationDictionary = {
     ago: '前',
     justNow: 'たった今',
   },
+  uiMode: {
+    simple: 'シンプル',
+    sovereign: '主権モード',
+    advancedTools: '高度なツール',
+    switchMode: 'インターフェースモード切替',
+  },
+  onboardingNarrative: {
+    step1Title: 'あなたの主権IDはあなたのもの',
+    step1Subtitle: '最初の1秒から完全な自己主権を確立',
+    step1Body: '中央サーバーがあなたのアカウントを管理することはありません。メールアドレス、電話番号、パスワードの外部保管は一切不要です。暗号鍵は端末内だけに安全に保管されます。',
+    step2Title: 'あなたのコンテンツは完全に保護されます',
+    step2Subtitle: 'エンドツーエンドのゼロ知識セキュリティ',
+    step2Body: '投稿やメッセージは送信前にブラウザ上で直接暗号化されます。明示的に許可した受信者のみが復号鍵を保持します。',
+    step3Title: 'ネットワークは全員の共有財産です',
+    step3Subtitle: '分散型P2Pネットワークによる配信',
+    step3Body: '各参加ノードがメッシュ上で知識のリレーと保持を担います。注意力を搾取する不透明なアルゴリズムや中央集権的検閲は存在しません。',
+    step4Title: 'リカバリーキーを保存してください',
+    step4Subtitle: '12単語のマスターシードフレーズ',
+    step4Body: 'この12個のシード単語を書き留めて安全に保管してください。これがあなたの主権アイデンティティとすべての暗号資格情報の鍵となります。',
+    step4Warning: 'この12単語のフレーズがアカウントを復元する唯一の手段です。Aetherisが鍵を預かることは決してありません。',
+    step4SavedWords: 'シード単語を安全に保存しました',
+    step4DownloadBackup: '暗号化バックアップをダウンロード',
+    skip: 'スキップ',
+    continue: '次へ',
+    back: '戻る',
+    finish: '主権ネットワークに参加',
+    stepOf: 'ステップ {step} / 4',
+  },
 };
 
 export const arDict: TranslationDictionary = {
@@ -1389,6 +1509,34 @@ export const arDict: TranslationDictionary = {
     days: 'أيام',
     ago: 'منذ',
     justNow: 'الآن',
+  },
+  uiMode: {
+    simple: 'بسيط',
+    sovereign: 'سيادي',
+    advancedTools: 'أدوات متقدمة',
+    switchMode: 'تبديل وضع الواجهة',
+  },
+  onboardingNarrative: {
+    step1Title: 'هويتك ملك لك وحدك',
+    step1Subtitle: 'سيادة ذاتية كاملة من اللحظة الأولى',
+    step1Body: 'لا يوجد خادم مركزي يمتلك حسابك. لا بريد إلكتروني، لا رقم هاتف، ولا كلمات مرور مخزنة في قواعد بيانات خارجية. مفاتيحك المشفرة موجودة حصرياً على جهازك.',
+    step2Title: 'محتواك محمي بالكامل',
+    step2Subtitle: 'أمان تام بدون معرفة مسبقة من البداية للنهاية',
+    step2Body: 'كل ما تكتبه أو تشاركه يتم تشفيره مباشرة في متصفحك قبل مغادرة جهازك. فقط المستلمون المصرح لهم يملكون مفاتيح فك التشفير.',
+    step3Title: 'الشبكة ملك للجميع',
+    step3Subtitle: 'توزيع لا مركزي من نظير لنظير',
+    step3Body: 'يساعد كل مشارك في نقل المعرفة وحفظها عبر الشبكة المتداخلة. بدون خوارزميات لاستغلال الانتباه وبدون رقابة مركزية.',
+    step4Title: 'احفظ مفتاح الاسترداد الخاص بك',
+    step4Subtitle: 'عبارة الاسترداد الرئيسية المكونة من 12 كلمة',
+    step4Body: 'دوّن هذه الكلمات السرية الـ 12. إنها تمثل هويتك السيادية الكاملة وكافة بيانات اعتمادك المشفرة.',
+    step4Warning: 'هذه العبارة المكونة من 12 كلمة هي الطريقة الوحيدة لاستعادة حسابك. Aetheris لا يخزن مفاتيحك أبداً.',
+    step4SavedWords: 'لقد حفظت كلمات الاسترداد بأمان',
+    step4DownloadBackup: 'تحميل نسخة احتياطية مشفرة',
+    skip: 'تخطي',
+    continue: 'متابعة',
+    back: 'رجوع',
+    finish: 'الدخول إلى الشبكة السيادية',
+    stepOf: 'الخطوة {step} من 4',
   },
 };
 
@@ -1909,8 +2057,9 @@ export class I18nEngine {
                 </div>
               </div>
               <div class="flex items-center space-x-1.5">
+                <span class="text-[9px] px-1.5 py-0.5 rounded font-mono ${lang.tier === 'official' ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-500/30' : 'bg-slate-800 text-slate-400 border border-white/10'}">${lang.tier === 'official' ? '100%' : 'Beta'}</span>
                 ${lang.direction === 'rtl' ? '<span class="text-[9px] px-1.5 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-500/30">RTL</span>' : ''}
-                ${lang.code === this.currentLocale ? '<span class="text-emerald-400">✓</span>' : ''}
+                ${lang.code === this.currentLocale ? '<span class="text-emerald-400 font-bold">✓</span>' : ''}
               </div>
             </button>
           `

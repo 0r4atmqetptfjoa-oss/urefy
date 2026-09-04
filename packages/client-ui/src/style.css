@@ -1030,6 +1030,7 @@ button,
 .btn-pulse-like,
 .btn-pulse-bookmark,
 .btn-pulse-share,
+.btn-pulse-report,
 .btn-hashtag,
 [role="button"] {
   touch-action: manipulation;
@@ -1056,6 +1057,7 @@ button:active,
 .btn-pulse-like:active,
 .btn-pulse-bookmark:active,
 .btn-pulse-share:active,
+.btn-pulse-report:active,
 .btn-hashtag:active,
 [role="button"]:active,
 .active\:scale-95:active {

@@ -1,6 +1,6 @@
 # i18n Coverage Report — Aetheris Omni-Sphere
 
-> Generated: 2026-09-04 10:53 UTC
+> Generated: 2026-09-04 19:47 UTC
 > Audit tool: `packages/client-ui/scripts/i18n-audit.ts`
 > Scope: `packages/client-ui/src/*.ts`
 
@@ -11,7 +11,7 @@
 | Metric | Value |
 |--------|-------|
 | Total i18n dictionary keys (EN baseline) | **153** |
-| Unique hardcoded template strings found | **1047** |
+| Unique hardcoded template strings found | **1093** |
 | Strings likely needing i18n attention | **50** (sample capped at 50) |
 | Registered translation keys | **154** |
 
@@ -22,12 +22,12 @@
 | Language | Translated Strings | EN Baseline | Coverage % | Status |
 |----------|--------------------|-------------|------------|--------|
 | `en` | 153 | 153 | **100%** | ✅ |
-| `fr` | 127 | 153 | **83%** | ⚠️ |
-| `de` | 129 | 153 | **84%** | ⚠️ |
-| `es` | 128 | 153 | **84%** | ⚠️ |
+| `fr` | 150 | 153 | **98%** | ✅ |
+| `de` | 153 | 153 | **100%** | ✅ |
+| `es` | 152 | 153 | **99%** | ✅ |
 | `ro` | 153 | 153 | **100%** | ✅ |
-| `ja` | 125 | 153 | **82%** | ⚠️ |
-| `ar` | 130 | 153 | **85%** | ⚠️ |
+| `ja` | 149 | 153 | **97%** | ✅ |
+| `ar` | 154 | 153 | **101%** | ✅ |
 
 ---
 
@@ -50,8 +50,8 @@
 | `admin-app.ts` | L59 | Admin Control Panel |
 | `admin-app.ts` | L72 | RESTRICTED ACCESS |
 | `admin-app.ts` | L78 | Admin PIN |
-| `admin-auth.ts` | L220 | Unlock Admin Panel |
-| `admin-auth.ts` | L195 | Admin Access |
+| `admin-auth.ts` | L249 | Unlock Admin Panel |
+| `admin-auth.ts` | L223 | Admin Access |
 | `webrtc-transfer.ts` | L1941 | Cancel |
 | `admin-panel.ts` | L406 | Admin Control Panel (Ctrl+Shift+A) |
 | `admin-panel.ts` | L483 | Sync live state with Cloudflare Edge D1/KV |
@@ -72,7 +72,7 @@
 | `admin-panel.ts` | L588 | Live Throughput |
 | `admin-panel.ts` | L592 | Avg Edge RTT |
 | `admin-panel.ts` | L635 | Live Inbound Ingress Stream |
-| `mesh-matrix.ts` | L476 | Status |
+| `mesh-matrix.ts` | L486 | Status |
 | `admin-panel.ts` | L644 | Edge PoP |
 | `admin-panel.ts` | L645 | Protocol |
 | `admin-panel.ts` | L659 | WebSocket |
@@ -88,7 +88,7 @@
 | `admin-panel.ts` | L939 | Trigger Backup Now |
 | `admin-panel.ts` | L973 | Run WAF Stress Probe |
 
-_...and 997 more. Run the full audit to see all._
+_...and 1043 more. Run the full audit to see all._
 
 ---
 

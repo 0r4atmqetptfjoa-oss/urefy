@@ -14,6 +14,15 @@ bindings = [
   { name = "RELAY_DO", class_name = "RelayDurableObject" }
 ]
 
+# Cloudflare R2 Storage Bucket for D1 Backups
+[[r2_buckets]]
+binding = "STORAGE_BUCKET"
+bucket_name = "aetheris-vault-storage"
+
+# Automated Scheduled Cron Trigger (Daily at 03:00 UTC)
+[triggers]
+crons = ["0 3 * * *"]
+
 [[migrations]]
 tag = "v1"
 new_classes = ["RelayDurableObject"]

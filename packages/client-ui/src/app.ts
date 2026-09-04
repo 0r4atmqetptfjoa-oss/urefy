@@ -34,6 +34,7 @@ import { socialRecoveryModal } from './social-recovery-modal.js';
 import { portableTrustModal } from './portable-trust-modal.js';
 import { binaryHygienePortal } from './binary-hygiene-portal.js';
 import { microSaaSDocsModal } from './microsaas-docs-modal.js';
+import { legalModal } from './legal-modal.js';
 import { exportSovereignArchive, importSovereignArchive, downloadArchiveFile } from './data-archive.js';
 import { touchGestureEngine } from './touch-gestures.js';
 import { crossTabSync } from './cross-tab-sync.js';
@@ -263,6 +264,9 @@ if (typeof window !== 'undefined') {
   window.__aetheris_close_binary_hygiene = () => { binaryHygienePortal.close(); clientStore.notifySync(); };
   window.__aetheris_open_microsaas_docs = () => { microSaaSDocsModal.open(); clientStore.notifySync(); };
   window.__aetheris_close_microsaas_docs = () => { microSaaSDocsModal.close(); clientStore.notifySync(); };
+  window.__aetheris_open_legal = (tab = 'terms') => { legalModal.open(tab as any); clientStore.notifySync(); };
+  window.__aetheris_close_legal = () => { legalModal.close(); clientStore.notifySync(); };
+  window.__aetheris_set_legal_tab = (tab) => { legalModal.setTab(tab as any); clientStore.notifySync(); };
   window.__aetheris_dismiss_broadcast = () => {
     if (typeof sessionStorage !== 'undefined') {
       try {
@@ -1370,6 +1374,7 @@ export function initApp(): void {
     ${sovereignWebPush.renderPushOptInBanner()}
     ${onboardingWizard.renderWizardModal(clientStore.keypair?.fingerprint)}
     ${settingsView.isOpen ? settingsView.renderSettingsModal() : ''}
+    ${legalModal.render()}
   `;
 
   const patchRender = (event?: string, data?: any) => {
@@ -3362,6 +3367,20 @@ function bindEvents(): void {
     }, { signal });
   });
 
+  document.querySelectorAll('.btn-pulse-report').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const postId = btn.getAttribute('data-post-id');
+      if (postId) {
+        pulseActionsEngine.reportPost(postId);
+        clientStore.showToast('🚩 Formular DSA deschis. Raportul va fi transmis echipei de moderare conform Regulamentului (UE) 2022/2065.', 'info');
+        if (typeof (window as any).__aetheris_open_legal === 'function') {
+          (window as any).__aetheris_open_legal('dsa');
+        }
+      }
+    }, { signal });
+  });
+
   // Explore View Handlers
   document.querySelectorAll('.btn-explore-category').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -4568,6 +4587,7 @@ function bindEvents(): void {
         if (binaryHygienePortal.isOpen) { binaryHygienePortal.close(); changed = true; }
         if (portableTrustModal.isOpen) { portableTrustModal.close(); changed = true; }
         if (microSaaSDocsModal) { microSaaSDocsModal.close(); }
+        if (legalModal.isOpen) { legalModal.close(); changed = true; }
         if (keyboardNavigator.isHelpModalOpen) { keyboardNavigator.closeHelpModal(); changed = true; }
         if (transparencyMode.isOpen) { transparencyMode.close(); changed = true; }
         if (settingsView.isOpen) { settingsView.close(); changed = true; }

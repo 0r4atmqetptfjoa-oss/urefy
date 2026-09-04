@@ -9,7 +9,13 @@ import './window-augmentation.js';
 import { serviceRegistry, SERVICES } from './service-registry.js';
 import { safeLocalStorage } from './dry-utils.js';
 
-export const ADMIN_DEFAULT_PIN = '11223'; // Change this to your PIN
+export function isLocalDev(): boolean {
+  if (typeof window === 'undefined' || !window.location) return true;
+  const host = window.location.hostname;
+  return host === 'localhost' || host === '127.0.0.1' || host === '::1' || host === '[::1]';
+}
+
+export const ADMIN_DEFAULT_PIN = isLocalDev() ? '11223' : '';
 
 const memoryStorage: Record<string, string> = {};
 
@@ -46,6 +52,8 @@ export class AdminAuthManager {
   public pinError: string = '';
   private adminFingerprint: string = '';
   private _sessionTimeoutIntervalId: any = null;
+  private _failedAttempts: number = 0;
+  private _lockedUntil: number = 0;
 
   constructor() {
     // Load or create the admin fingerprint binding
@@ -109,16 +117,36 @@ export class AdminAuthManager {
 
   /** Verify PIN and activate admin session */
   public verifyPin(pin: string): boolean {
+    const now = Date.now();
+    if (this._lockedUntil > now) {
+      const remainingSec = Math.ceil((this._lockedUntil - now) / 1000);
+      this.pinError = `Too many failed attempts. Locked out for ${remainingSec}s.`;
+      return false;
+    }
+
     const storedPin = safeGet('aetheris_admin_pin') || ADMIN_DEFAULT_PIN;
-    if (pin === storedPin) {
+    if (!storedPin) {
+      this.pinError = 'No admin PIN configured on this instance.';
+      return false;
+    }
+
+    if (pin && pin === storedPin) {
       this._isAdmin = true;
       this._activePin = pin;
       this._sessionStartedAt = Date.now();
       this.isPinDialogOpen = false;
       this.pinError = '';
+      this._failedAttempts = 0;
+      this._lockedUntil = 0;
       return true;
     } else {
-      this.pinError = 'Incorrect PIN. Access denied.';
+      this._failedAttempts++;
+      if (this._failedAttempts >= 5) {
+        this._lockedUntil = now + 10 * 60 * 1000; // 10 minutes
+        this.pinError = 'Too many failed attempts. Locked out for 10 minutes.';
+      } else {
+        this.pinError = `Incorrect PIN. Access denied (${5 - this._failedAttempts} attempts remaining).`;
+      }
       return false;
     }
   }
@@ -126,7 +154,7 @@ export class AdminAuthManager {
   /** Change admin PIN */
   public changePin(currentPin: string, newPin: string): boolean {
     const storedPin = safeGet('aetheris_admin_pin') || ADMIN_DEFAULT_PIN;
-    if (currentPin !== storedPin) return false;
+    if (storedPin && currentPin !== storedPin) return false;
     if (newPin.length < 4) return false;
     safeSet('aetheris_admin_pin', newPin);
     return true;

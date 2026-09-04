@@ -20,6 +20,10 @@
     "tailwindcss": "^3.4.17",
     "typescript": "^5.7.3",
     "vite": "^6.1.0"
+  },
+  "optionalDependencies": {
+    "@rollup/rollup-linux-x64-gnu": "^4.34.8",
+    "@rollup/rollup-linux-x64-musl": "^4.34.8"
   }
 }
 

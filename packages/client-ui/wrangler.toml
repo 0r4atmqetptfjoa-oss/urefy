@@ -6,4 +6,26 @@ compatibility_flags = ["nodejs_compat"]
 [vars]
 ENVIRONMENT = "production"
 APP_NAME = "Aetheris Omni-Sphere"
+MAX_STORAGE_CAP_BYTES = "8589934592" # 8.0 GB safe storage ceiling
 MAX_BINARY_SCAN_BYTES = "26214400" # 25 MB max edge binary scan limit
+
+# Cloudflare D1 SQL Database Binding (functions/api/_db.ts -> env.DB / env.AETHERIS_DB)
+[[d1_databases]]
+binding = "DB"
+database_name = "aetheris-global-d1"
+database_id = "aetheris-production-db-id"
+
+# Cloudflare KV Cache Binding (functions/api/_db.ts -> env.KV / env.CACHE_KV)
+[[kv_namespaces]]
+binding = "KV"
+id = "aetheris-cache-kv-id"
+
+# Cloudflare R2 Storage Buckets (functions/api/_db.ts -> env.STORAGE_BUCKET / env.VAULT_BUCKET)
+[[r2_buckets]]
+binding = "STORAGE_BUCKET"
+bucket_name = "aetheris-vault-storage"
+
+[[r2_buckets]]
+binding = "VAULT_BUCKET"
+bucket_name = "aetheris-vault-storage"
+

@@ -281,6 +281,7 @@ export const SERVICES = {
   SovereignFootprint: createServiceToken<unknown>('SovereignFootprint'),
   LocalDiagnostics: createServiceToken<unknown>('LocalDiagnostics'),
   SettingsView: createServiceToken<unknown>('SettingsView'),
+  LegalModal: createServiceToken<unknown>('LegalModal'),
 } as const;
 
 // ── Default Global Container Instance ──────────────────────────────────────────────

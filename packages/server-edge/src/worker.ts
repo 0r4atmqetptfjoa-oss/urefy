@@ -359,4 +359,72 @@ export default {
 
     return new Response('Aetheris Sovereign Edge Relay Active', { status: 200 });
   },
+
+  /**
+   * Cloudflare Cron Trigger Handler
+   * Executes scheduled tasks, including daily automated D1 database snapshots to Cloudflare R2
+   */
+  async scheduled(event: any, env: Env, ctx: any): Promise<void> {
+    console.info(`[Edge Cron] Scheduled event triggered: ${event.cron || 'cron-trigger'} at ${new Date().toISOString()}`);
+
+    if (!env.DB) {
+      console.warn('[Edge Cron Backup] Cloudflare D1 binding (DB) is absent. Skipping snapshot.');
+      return;
+    }
+
+    try {
+      const tables = ['channels', 'messages', 'posts', 'votes', 'nanopublications', 'nodes_telemetry'];
+      const snapshot: Record<string, any[]> = {};
+      let totalRows = 0;
+
+      for (const table of tables) {
+        try {
+          const result = await env.DB.prepare(`SELECT * FROM ${table}`).all();
+          snapshot[table] = result.results || [];
+          totalRows += (result.results || []).length;
+        } catch (err: any) {
+          console.warn(`[Edge Cron Backup] Could not query table ${table}:`, err.message);
+          snapshot[table] = [];
+        }
+      }
+
+      const isoDate = new Date().toISOString().slice(0, 10);
+      const manifest = {
+        version: '1.0.0',
+        timestamp: new Date().toISOString(),
+        tables: snapshot,
+        totalRows,
+      };
+
+      const serialized = JSON.stringify(manifest, null, 2);
+
+      if (env.STORAGE_BUCKET) {
+        const key = `backups/d1-snapshot-${isoDate}.json`;
+        await env.STORAGE_BUCKET.put(key, serialized, {
+          customMetadata: {
+            createdAt: new Date().toISOString(),
+            totalRows: String(totalRows),
+          },
+        });
+        console.info(`[Edge Cron Backup] Successfully uploaded snapshot to R2: ${key} (${totalRows} total rows)`);
+
+        // Rotate backups older than 7 days
+        const listed = await env.STORAGE_BUCKET.list({ prefix: 'backups/d1-snapshot-' });
+        const now = Date.now();
+        const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+
+        for (const obj of listed.objects || []) {
+          if (obj.uploaded && now - new Date(obj.uploaded).getTime() > sevenDaysMs) {
+            await env.STORAGE_BUCKET.delete(obj.key);
+            console.info(`[Edge Cron Backup] Pruned expired backup: ${obj.key}`);
+          }
+        }
+      } else {
+        console.info(`[Edge Cron Backup] D1 snapshot completed (${totalRows} rows). STORAGE_BUCKET binding not configured.`);
+      }
+    } catch (err: any) {
+      console.error('[Edge Cron Backup] Fatal error executing scheduled backup:', err);
+    }
+  },
 };
+

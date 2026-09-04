@@ -235,6 +235,10 @@ export interface WindowAugmentation {
   cveMonitor?: any;
   gossipViz?: any;
   exportBackup?: any;
+  legalModal?: any;
+  __aetheris_open_legal?: (tab?: string) => void;
+  __aetheris_close_legal?: () => void;
+  __aetheris_set_legal_tab?: (tab: string) => void;
 
   // Web Standards & Cross-browser Augmentations
   ethereum?: EIP1193Provider;
