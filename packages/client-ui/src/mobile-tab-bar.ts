@@ -169,11 +169,11 @@ export class MobileTabBar {
     const unreadCircle = this.getUnreadCircleCount();
     const unreadFeed = this.getUnreadFeedCount();
 
-    const tabs: Array<{ id: MobileTab; label: string; icon: string; badge?: number }> = [
-      { id: 'feed', label: 'Feed', icon: '📰', badge: unreadFeed > 0 ? unreadFeed : undefined },
-      { id: 'vault', label: 'Vault', icon: '🗄️' },
-      { id: 'circle', label: 'Cerc', icon: '👥', badge: unreadCircle > 0 ? unreadCircle : undefined },
-      { id: 'profile', label: 'Profil', icon: '👤' },
+    const tabs: Array<{ id: MobileTab; label: string; sublabel?: string; icon: string; title: string; badge?: number }> = [
+      { id: 'feed', label: 'Feed', icon: '📰', title: 'Feed (Flux Pulse)', badge: unreadFeed > 0 ? unreadFeed : undefined },
+      { id: 'vault', label: 'Vault', icon: '🗄️', title: 'Seif Fișiere (Vault)' },
+      { id: 'circle', label: 'Servere', sublabel: 'Cerc', icon: '📡', title: 'Servere & Canale Chat (Cerc)', badge: unreadCircle > 0 ? unreadCircle : undefined },
+      { id: 'profile', label: 'Profil', icon: '👤', title: 'Profil Suveran' },
     ];
 
     return `
@@ -186,7 +186,7 @@ export class MobileTabBar {
         ${tabs.map(tab => {
           const isActive = currentTab === tab.id;
           const activeClass = isActive 
-            ? 'text-cyan-400 font-bold scale-105' 
+            ? 'text-cyan-400 font-bold scale-105 is-active' 
             : 'text-slate-400 hover:text-white';
           const indicator = isActive
             ? '<span class="w-1 h-1 rounded-full bg-cyan-400 -mt-0.5"></span>'
@@ -198,7 +198,8 @@ export class MobileTabBar {
               id="btn-mobile-tab-${tab.id}"
               onclick="if(window.mobileTabBar) window.mobileTabBar.setTab('${tab.id}')"
               class="relative flex-1 min-h-[44px] flex flex-col items-center justify-center py-1 transition-all cursor-pointer ${activeClass}"
-              title="${tab.label}"
+              title="${tab.title}"
+              aria-label="${tab.label} ${tab.sublabel || ''}"
             >
               <div class="relative flex items-center justify-center">
                 <span class="text-lg leading-none">${tab.icon}</span>
@@ -209,6 +210,7 @@ export class MobileTabBar {
                 ` : ''}
               </div>
               <span class="text-[10px] font-sans mt-0.5">${tab.label}</span>
+              ${tab.sublabel ? `<span class="sr-only">${tab.sublabel}</span>` : ''}
               ${indicator}
             </button>
           `;
