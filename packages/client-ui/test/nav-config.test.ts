@@ -68,9 +68,9 @@ describe('Navigation Config: PRIMARY_NAV_ITEMS and ADVANCED_TOOLS_ITEMS', () => 
     });
   });
 
-  it('2. should export ADVANCED_TOOLS_ITEMS containing all 10 expected tools with correct testIds and icons', () => {
+  it('2. should export ADVANCED_TOOLS_ITEMS containing all 13 expected tools with correct testIds and icons', () => {
     expect(ADVANCED_TOOLS_ITEMS).toBeDefined();
-    expect(ADVANCED_TOOLS_ITEMS.length).toBe(10);
+    expect(ADVANCED_TOOLS_ITEMS.length).toBe(13);
 
     const expectedTools = [
       { id: 'bookmarks', label: 'Saved Bookmarks', icon: '🔖', testId: 'rail-btn-bookmarks' },
@@ -83,6 +83,9 @@ describe('Navigation Config: PRIMARY_NAV_ITEMS and ADVANCED_TOOLS_ITEMS', () => 
       { id: 'gossip', label: 'Gossip Visualizer', icon: '📡', testId: 'btn-open-gossip-viz' },
       { id: 'backup', label: 'Export & Backup', icon: '💾', testId: 'btn-open-backup-export' },
       { id: 'steganography', label: 'Pixel Canvas Steganography', icon: '🖼️', testId: 'drawer-btn-steganography' },
+      { id: 'binary-hygiene', label: 'Binary Hygiene Portal', icon: '🛡️', testId: 'btn-open-binary-hygiene' },
+      { id: 'portable-trust', label: 'Portable ZK Trust Score', icon: '💎', testId: 'btn-open-portable-trust' },
+      { id: 'microsaas-docs', label: 'Micro-SaaS & Dev APIs', icon: '⚡', testId: 'btn-open-microsaas-docs' },
     ];
 
     expectedTools.forEach(expected => {
@@ -99,12 +102,15 @@ describe('Navigation Config: PRIMARY_NAV_ITEMS and ADVANCED_TOOLS_ITEMS', () => 
   it('3. should lookup nav items by ID and primary items by mode', () => {
     expect(getNavItemById('vault')).toEqual(PRIMARY_NAV_ITEMS.find(i => i.id === 'vault'));
     expect(getNavItemById('steganography')).toEqual(ADVANCED_TOOLS_ITEMS.find(i => i.id === 'steganography'));
+    expect(getNavItemById('binary-hygiene')).toEqual(ADVANCED_TOOLS_ITEMS.find(i => i.id === 'binary-hygiene'));
+    expect(getNavItemById('portable-trust')).toEqual(ADVANCED_TOOLS_ITEMS.find(i => i.id === 'portable-trust'));
+    expect(getNavItemById('microsaas-docs')).toEqual(ADVANCED_TOOLS_ITEMS.find(i => i.id === 'microsaas-docs'));
     expect(getNavItemById('nonexistent')).toBeUndefined();
 
     expect(getPrimaryNavItemByMode('pulse')).toEqual(PRIMARY_NAV_ITEMS.find(i => i.mode === 'pulse'));
     expect(getPrimaryNavItemByMode('explore')).toEqual(PRIMARY_NAV_ITEMS.find(i => i.mode === 'explore'));
     expect(getPrimaryNavItemByMode('invalid')).toBeUndefined();
 
-    expect(ALL_NAV_ITEMS.length).toBe(15);
+    expect(ALL_NAV_ITEMS.length).toBe(18);
   });
 });
