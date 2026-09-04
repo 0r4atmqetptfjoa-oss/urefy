@@ -11,13 +11,13 @@ import { serviceRegistry, SERVICES } from './service-registry.js';
 import { clientStore } from './client-state.js';
 import { i18n } from './i18n.js';
 
-export type MobileTab = 'feed' | 'vault' | 'circle' | 'profile';
+export type MobileTab = 'feed' | 'vault' | 'circle' | 'profile' | 'more';
 
 export interface MobileTabDefinition {
   id: MobileTab;
   label: string;
   icon: string;
-  channelTarget: string;
+  channelTarget?: string;
 }
 
 export class MobileTabBar {
@@ -84,7 +84,19 @@ export class MobileTabBar {
         break;
       case 'profile':
         clientStore.activeChannelId = 'profile';
+        if (typeof window !== 'undefined' && (window as any).profileView) {
+          (window as any).profileView.setTargetFingerprint(clientStore.keypair.fingerprint);
+        }
         clientStore.notify();
+        break;
+      case 'more':
+        if (typeof window !== 'undefined') {
+          if ((window as any).__aetheris_open_mobile_drawer) {
+            (window as any).__aetheris_open_mobile_drawer();
+          } else if ((window as any).__aetheris_toggle_mobile_drawer) {
+            (window as any).__aetheris_toggle_mobile_drawer();
+          }
+        }
         break;
     }
   }
@@ -174,6 +186,7 @@ export class MobileTabBar {
       { id: 'vault', label: 'Vault', icon: '🗄️', title: 'Seif Fișiere (Vault)' },
       { id: 'circle', label: 'Servere', sublabel: 'Cerc', icon: '📡', title: 'Servere & Canale Chat (Cerc)', badge: unreadCircle > 0 ? unreadCircle : undefined },
       { id: 'profile', label: 'Profil', icon: '👤', title: 'Profil Suveran' },
+      { id: 'more' as any, label: 'Mai multe', icon: '☰', title: 'Mai multe opțiuni & unelte' },
     ];
 
     return `
@@ -192,11 +205,15 @@ export class MobileTabBar {
             ? '<span class="w-1 h-1 rounded-full bg-cyan-400 -mt-0.5"></span>'
             : '';
 
+          const clickAction = tab.id === 'more'
+            ? 'if(window.__aetheris_open_mobile_drawer) window.__aetheris_open_mobile_drawer(); else if(window.mobileTabBar) window.mobileTabBar.setTab(\'more\');'
+            : `if(window.mobileTabBar) window.mobileTabBar.setTab('${tab.id}')`;
+
           return `
             <button
               type="button"
               id="btn-mobile-tab-${tab.id}"
-              onclick="if(window.mobileTabBar) window.mobileTabBar.setTab('${tab.id}')"
+              onclick="${clickAction}"
               class="relative flex-1 min-h-[44px] flex flex-col items-center justify-center py-1 transition-all cursor-pointer ${activeClass}"
               title="${tab.title}"
               aria-label="${tab.label} ${tab.sublabel || ''}"

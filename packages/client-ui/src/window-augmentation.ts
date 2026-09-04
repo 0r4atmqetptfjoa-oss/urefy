@@ -129,6 +129,7 @@ export interface WindowAugmentation {
   chaumianVotingManager?: any;
   sovereignWebPush?: any;
   aiAssistant?: any;
+  settingsView?: any;
 
   // Error Boundary & Structured Logging
   errorBoundary?: any;
@@ -195,6 +196,8 @@ export interface WindowAugmentation {
   __aetheris_close_steganography?: () => void;
   __aetheris_open_archive_modal?: (tab?: 'export' | 'restore') => void;
   __aetheris_close_archive_modal?: () => void;
+  __aetheris_open_settings?: (tab?: any) => void;
+  __aetheris_close_settings?: () => void;
   __aetheris_dismiss_broadcast?: () => void;
   sovereignMnemonicModal?: any;
   steganographyModal?: any;

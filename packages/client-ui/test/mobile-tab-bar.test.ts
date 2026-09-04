@@ -99,4 +99,24 @@ describe('Ticket 3.2: Native Mobile Bottom Tab Bar (Feed / Vault / Cerc / Profil
     const html = tabBar.renderTabBarHTML();
     expect(html).toContain('bg-cyan-500');
   });
+
+  it('7. should render 5th "more" tab slot and trigger mobile drawer', () => {
+    const html = tabBar.renderTabBarHTML();
+
+    expect(html).toContain('btn-mobile-tab-more');
+    expect(html).toContain('Mai multe');
+    expect(html).toContain('☰');
+    expect(html).toContain('title="Mai multe opțiuni & unelte"');
+    expect(html).toContain("if(window.__aetheris_open_mobile_drawer) window.__aetheris_open_mobile_drawer(); else if(window.mobileTabBar) window.mobileTabBar.setTab('more');");
+
+    const drawerMock = vi.fn();
+    (globalThis as any).window = { __aetheris_open_mobile_drawer: drawerMock };
+
+    tabBar.setTab('more');
+    expect(tabBar.activeTab).toBe('more');
+    expect(drawerMock).toHaveBeenCalledTimes(1);
+
+    delete (globalThis as any).window;
+  });
 });
+

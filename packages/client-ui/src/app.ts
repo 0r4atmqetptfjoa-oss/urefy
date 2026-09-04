@@ -111,6 +111,9 @@ import { nodeFederationEngine } from './node-federation.js';
 import { transparencyMode } from './transparency-mode.js';
 import { zkDeliveryManager } from './delivery-proof.js';
 import { renderPulseEmptyState, renderVaultFilesEmptyState, renderVaultReleasesEmptyState, renderRelaysEmptyState } from './empty-states.js';
+import { settingsView } from './settings-view.js';
+import { adminAuth } from './admin-auth.js';
+import { PRIMARY_NAV_ITEMS, ADVANCED_TOOLS_ITEMS } from './nav-config.js';
 
 let isThemeModalOpen = false;
 let isExportBackupModalOpen = false;
@@ -239,6 +242,7 @@ if (typeof window !== 'undefined') {
   window.__aetheris_close_paper_wallet = () => { paperWallet.close(); clientStore.notify(); };
   window.__aetheris_close_dsp = () => { acousticDSP.close(); clientStore.notify(); };
   window.__aetheris_toggle_mobile_drawer = () => { isMobileDrawerOpen = !isMobileDrawerOpen; clientStore.notify(); };
+  window.__aetheris_open_mobile_drawer = () => { isMobileDrawerOpen = true; clientStore.notify(); };
   window.__aetheris_close_mobile_drawer = () => { isMobileDrawerOpen = false; clientStore.notify(); };
   window.__aetheris_toggle_ui_mode = () => { clientStore.toggleUiMode(); };
   window.__aetheris_set_ui_mode = (mode: 'simple' | 'sovereign') => { clientStore.setUiMode(mode); };
@@ -798,7 +802,7 @@ export function initApp(): void {
           <aside id="left-rail-container" class="w-64 bg-surface-base border-subtle-r flex flex-col justify-between shrink-0 select-none hidden lg:flex">
             <div id="left-rail-scroll" class="p-3 overflow-y-auto space-y-4">
               
-              <!-- PRIMARY NAVIGATION DOCK -->
+              <!-- PRIMARY NAVIGATION DOCK (LEVEL 1: 5 ITEMS) -->
               <div class="space-y-1" aria-label="Navigare principală">
                 <button type="button" data-nav-mode="pulse" class="btn-nav-mode w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center space-x-3 cursor-pointer ${clientStore.activeChannelId.startsWith('pulse-') ? 'is-active nav-item-active shadow-sm' : 'text-slate-300 hover:text-white hover:bg-surface-raised'}" title="Feed de publicații și știri suverane">
                   <span class="text-base shrink-0">⚡</span>
@@ -844,6 +848,14 @@ export function initApp(): void {
                   </div>
                   ${clientStore.activeChannelId.startsWith('relays-') || clientStore.activeChannelId.startsWith('relay-') ? '<span class="w-2 h-2 rounded-full nav-indicator-active shrink-0"></span>' : ''}
                 </button>
+              </div>
+
+              <!-- ADVANCED TOOLS PANEL (UNELTE AVANSATE) -->
+              <div class="pt-2 border-t border-white/5 space-y-1" aria-label="Unelte avansate">
+                <div class="text-[10px] uppercase font-bold text-slate-500 tracking-wider mb-2 px-2 flex items-center justify-between">
+                  <span>🛠️ Unelte Avansate</span>
+                  <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-surface-raised text-cyan-400 border border-white/5">10 unelte</span>
+                </div>
 
                 <button type="button" id="rail-btn-bookmarks" class="w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
                   <span class="text-base">🔖</span>
@@ -900,12 +912,20 @@ export function initApp(): void {
                   <span class="flex-1">Export & Backup</span>
                 </button>
 
-                <!-- SOVEREIGN ADMIN PANEL -->
-                <a href="/admin.html" id="link-open-admin-panel" class="w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 border border-amber-500/20 transition-all flex items-center space-x-3 cursor-pointer" title="Open Sovereign Admin Control Panel">
-                  <span class="text-base">⚙️</span>
-                  <span class="flex-1 font-mono">Admin Console</span>
-                  <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
-                </a>
+                <!-- PIXEL CANVAS STEGANOGRAPHY -->
+                <button type="button" id="btn-open-steganography" onclick="if(window.__aetheris_open_steganography) window.__aetheris_open_steganography();" class="w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold text-cyan-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer" title="Pixel Canvas Steganography">
+                  <span class="text-base">🖼️</span>
+                  <span class="flex-1">Pixel Canvas Steganography</span>
+                </button>
+
+                ${adminAuth && adminAuth.isAdmin ? `
+                  <!-- SOVEREIGN ADMIN PANEL (Admin Authenticated Only) -->
+                  <a href="/admin.html" id="link-open-admin-panel" class="w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 border border-amber-500/20 transition-all flex items-center space-x-3 cursor-pointer" title="Open Sovereign Admin Control Panel">
+                    <span class="text-base">⚙️</span>
+                    <span class="flex-1 font-mono">Admin Console</span>
+                    <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+                  </a>
+                ` : ''}
               </div>
 
               <!-- SOVEREIGN CIRCLES & COLLECTIVES -->
@@ -1237,6 +1257,7 @@ export function initApp(): void {
     ${transparencyMode.renderInspectorModal()}
     ${sovereignWebPush.renderPushOptInBanner()}
     ${onboardingWizard.renderWizardModal(clientStore.keypair?.fingerprint)}
+    ${settingsView.isOpen ? settingsView.renderSettingsModal() : ''}
   `;
 
   const patchRender = (event?: string, data?: any) => {
@@ -2176,7 +2197,7 @@ function renderMobileDrawer(): string {
     <!-- MOBILE SLIDE-OVER DRAWER -->
     <div id="mobile-drawer" class="fixed inset-0 z-50 lg:hidden transition-all ${isMobileDrawerOpen ? 'pointer-events-auto' : 'pointer-events-none'}" aria-hidden="${!isMobileDrawerOpen}">
       <!-- BACKDROP OVERLAY -->
-      <div id="mobile-drawer-backdrop" class="fixed inset-0 bg-black/70 backdrop-blur-xs transition-opacity duration-300 ease-in-out cursor-pointer ${isMobileDrawerOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}"></div>
+      <div id="mobile-drawer-backdrop" onclick="if(window.__aetheris_close_mobile_drawer) window.__aetheris_close_mobile_drawer();" class="fixed inset-0 bg-black/70 backdrop-blur-xs transition-opacity duration-300 ease-in-out cursor-pointer ${isMobileDrawerOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}"></div>
       
       <!-- DRAWER CONTENT PANEL -->
       <div class="fixed inset-y-0 left-0 w-80 max-w-[85vw] bg-surface-base border-r border-white/10 shadow-2xl flex flex-col justify-between z-10 transform transition-transform duration-300 ease-in-out ${isMobileDrawerOpen ? 'translate-x-0' : '-translate-x-full'}">
@@ -2194,7 +2215,7 @@ function renderMobileDrawer(): string {
               <div class="text-[10px] text-slate-400 font-mono">Sovereign Knowledge Vault</div>
             </div>
           </div>
-          <button type="button" id="btn-close-mobile-drawer" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-surface-raised cursor-pointer transition-colors" title="Close Drawer">
+          <button type="button" id="btn-close-mobile-drawer" onclick="if(window.__aetheris_close_mobile_drawer) window.__aetheris_close_mobile_drawer();" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-surface-raised cursor-pointer transition-colors" title="Close Drawer">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
           </button>
         </div>
@@ -2290,6 +2311,11 @@ function renderMobileDrawer(): string {
             <div class="text-[10px] uppercase font-bold text-slate-500 tracking-wider mb-2 px-2">
               🛠️ Sovereign Hubs & Utilities
             </div>
+            <button type="button" id="drawer-btn-settings" onclick="if(window.__aetheris_close_mobile_drawer) window.__aetheris_close_mobile_drawer(); if(window.__aetheris_open_settings) window.__aetheris_open_settings();" class="w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold text-cyan-300 hover:text-white bg-cyan-950/30 hover:bg-surface-raised border border-cyan-500/30 transition-all flex items-center space-x-3 cursor-pointer">
+              <span class="text-base">⚙️</span>
+              <span class="flex-1">Setări Suverane (Settings)</span>
+              <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">CONFIG</span>
+            </button>
             <button type="button" id="drawer-btn-theme" onclick="if(window.__aetheris_close_mobile_drawer) window.__aetheris_close_mobile_drawer(); if(window.__aetheris_open_theme) window.__aetheris_open_theme();" class="w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold text-amber-300 hover:text-white bg-amber-950/30 hover:bg-surface-raised border border-amber-500/30 transition-all flex items-center space-x-3 cursor-pointer">
               <span class="text-base">🎨</span>
               <span class="flex-1">Display & Theme Matrix</span>
@@ -2336,6 +2362,13 @@ function renderMobileDrawer(): string {
               <span class="text-base">🖼️</span>
               <span class="flex-1">Pixel Canvas Steganography</span>
             </button>
+            ${adminAuth && adminAuth.isAdmin ? `
+              <a href="/admin.html" class="w-full text-left px-3.5 py-2 rounded-xl text-xs font-bold text-amber-400 hover:text-white bg-amber-950/30 hover:bg-surface-raised border border-amber-500/30 transition-all flex items-center space-x-3 cursor-pointer">
+                <span class="text-base">⚙️</span>
+                <span class="flex-1 font-mono">Admin Console</span>
+                <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+              </a>
+            ` : ''}
           </div>
         </div>
 
@@ -3703,6 +3736,24 @@ function bindEvents(): void {
     clientStore.notify();
   }, { signal });
 
+  // Mobile Tab Bar Handlers
+  document.getElementById('btn-mobile-tab-feed')?.addEventListener('click', () => {
+    mobileTabBar.setTab('feed');
+  }, { signal });
+  document.getElementById('btn-mobile-tab-vault')?.addEventListener('click', () => {
+    mobileTabBar.setTab('vault');
+  }, { signal });
+  document.getElementById('btn-mobile-tab-circle')?.addEventListener('click', () => {
+    mobileTabBar.setTab('circle');
+  }, { signal });
+  document.getElementById('btn-mobile-tab-profile')?.addEventListener('click', () => {
+    mobileTabBar.setTab('profile');
+  }, { signal });
+  document.getElementById('btn-mobile-tab-more')?.addEventListener('click', () => {
+    isMobileDrawerOpen = true;
+    clientStore.notify();
+  }, { signal });
+
   // Mobile Drawer Handlers
   document.getElementById('btn-toggle-mobile-drawer')?.addEventListener('click', () => {
     isMobileDrawerOpen = !isMobileDrawerOpen;
@@ -3811,6 +3862,15 @@ function bindEvents(): void {
   }, { signal });
 
   // Profile Photo Upload Handlers
+  document.getElementById('btn-profile-settings')?.addEventListener('click', () => {
+    if (window.__aetheris_open_settings) {
+      window.__aetheris_open_settings();
+    } else {
+      settingsView.open();
+    }
+    clientStore.notify();
+  }, { signal });
+
   document.getElementById('btn-open-edit-profile')?.addEventListener('click', () => {
     profileView.isEditProfileModalOpen = true;
     clientStore.notify();
@@ -4363,6 +4423,7 @@ function bindEvents(): void {
         if (socialRecoveryModal.isOpen) { socialRecoveryModal.closeModal(); changed = true; }
         if (keyboardNavigator.isHelpModalOpen) { keyboardNavigator.closeHelpModal(); changed = true; }
         if (transparencyMode.isOpen) { transparencyMode.close(); changed = true; }
+        if (settingsView.isOpen) { settingsView.close(); changed = true; }
         if (isExportBackupModalOpen) { isExportBackupModalOpen = false; changed = true; }
         if (isBookmarkModalOpen) { isBookmarkModalOpen = false; changed = true; }
         if (isNotificationPanelOpen) { isNotificationPanelOpen = false; changed = true; }

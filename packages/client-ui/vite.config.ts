@@ -34,6 +34,24 @@ export default defineConfig({
             }
             return 'vendor';
           }
+          if (normalized.includes('/src/custom-theme-builder') || normalized.includes('/src/themes')) {
+            return 'theme-studio';
+          }
+          if (normalized.includes('/src/diagram-renderer')) {
+            return 'diagram-renderer';
+          }
+          if (normalized.includes('/src/webtorrent-swarm')) {
+            return 'webtorrent-swarm';
+          }
+          if (normalized.includes('/src/spatial-audio') || normalized.includes('/src/spatial-audio-mesh')) {
+            return 'spatial-audio';
+          }
+          if (normalized.includes('/src/network-observatory') || normalized.includes('/src/network-wot-graph') || normalized.includes('/src/gossip-viz')) {
+            return 'observatory-viz';
+          }
+          if (normalized.includes('/src/export-backup') || normalized.includes('/src/data-archive')) {
+            return 'backup-archive';
+          }
         },
       },
     },

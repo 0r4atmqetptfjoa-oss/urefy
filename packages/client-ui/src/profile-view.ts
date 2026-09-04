@@ -69,7 +69,7 @@ if (typeof window !== 'undefined') {
 
 export class ProfileView {
   public activeTab: ProfileTab = 'pulses';
-  public targetFingerprint: string = 'genesis-core';
+  public targetFingerprint: string = '';
   public isEditProfileModalOpen: boolean = false;
   public followingSet: Set<string> = new Set(['c3dc28cb705e', 'a89104fa2211', 'f40019bc88a2']);
 
@@ -77,6 +77,9 @@ export class ProfileView {
 
   constructor() {
     this._seedProfiles();
+    if (typeof window !== 'undefined') {
+      (window as any).profileView = this;
+    }
   }
 
   private _seedProfiles(): void {
@@ -237,7 +240,8 @@ export class ProfileView {
    * Renders the complete Sovereign Profile Hero Header & Timeline View.
    */
   public renderProfileView(allPosts: ClientPost[], currentUserFp: string): string {
-    const profile = this.getProfile(this.targetFingerprint);
+    const target = this.targetFingerprint || currentUserFp;
+    const profile = this.getProfile(target);
     const isOwnProfile = profile.fingerprint === currentUserFp;
     const isFollowing = this.isFollowing(profile.fingerprint);
     const timelinePosts = this.filterTimelinePosts(allPosts, profile.fingerprint);
@@ -324,6 +328,16 @@ export class ProfileView {
           <div class="mb-2">
             ${isOwnProfile ? `
               <div class="flex items-center space-x-2">
+                <button
+                  type="button"
+                  id="btn-profile-settings"
+                  onclick="if(window.__aetheris_open_settings) window.__aetheris_open_settings();"
+                  class="px-4 py-2 rounded-full border border-white/20 hover:border-white/40 bg-surface-raised hover:bg-surface-overlay text-white font-bold text-xs transition-all shadow-md cursor-pointer flex items-center space-x-1.5"
+                  title="Deschide Setări Suverane"
+                >
+                  <span>⚙️</span>
+                  <span>Setări</span>
+                </button>
                 <button
                   type="button"
                   id="btn-profile-social-recovery"

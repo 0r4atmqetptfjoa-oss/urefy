@@ -1,6 +1,6 @@
 # i18n Coverage Report — Aetheris Omni-Sphere
 
-> Generated: 2026-09-03 20:59 UTC
+> Generated: 2026-09-04 10:53 UTC
 > Audit tool: `packages/client-ui/scripts/i18n-audit.ts`
 > Scope: `packages/client-ui/src/*.ts`
 
@@ -11,7 +11,7 @@
 | Metric | Value |
 |--------|-------|
 | Total i18n dictionary keys (EN baseline) | **153** |
-| Unique hardcoded template strings found | **1028** |
+| Unique hardcoded template strings found | **1047** |
 | Strings likely needing i18n attention | **50** (sample capped at 50) |
 | Registered translation keys | **154** |
 
@@ -88,7 +88,7 @@
 | `admin-panel.ts` | L939 | Trigger Backup Now |
 | `admin-panel.ts` | L973 | Run WAF Stress Probe |
 
-_...and 978 more. Run the full audit to see all._
+_...and 997 more. Run the full audit to see all._
 
 ---
 

@@ -280,6 +280,7 @@ export const SERVICES = {
   MobileTabBar: createServiceToken<unknown>('MobileTabBar'),
   SovereignFootprint: createServiceToken<unknown>('SovereignFootprint'),
   LocalDiagnostics: createServiceToken<unknown>('LocalDiagnostics'),
+  SettingsView: createServiceToken<unknown>('SettingsView'),
 } as const;
 
 // ── Default Global Container Instance ──────────────────────────────────────────────
