@@ -35,6 +35,38 @@ export interface UserProfileData {
   badges: string[];
 }
 
+/**
+ * Formats a standard ActivityPub federated handle accepted by Mastodon and fediverse instances.
+ * Format: @${identifier}@aetheris.mesh
+ */
+export function formatFederatedHandle(identifier: string): string {
+  const clean = identifier.startsWith('@') ? identifier.slice(1) : identifier;
+  return `@${clean}@aetheris.mesh`;
+}
+
+/**
+ * 1-click helper to copy standard federated handle to system clipboard.
+ */
+export async function copyFederatedHandle(handleOrFp?: string): Promise<boolean> {
+  const text = handleOrFp
+    ? (handleOrFp.startsWith('@') ? handleOrFp : formatFederatedHandle(handleOrFp))
+    : '@genesis-core@aetheris.mesh';
+
+  if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  return true;
+}
+
+if (typeof window !== 'undefined') {
+  (window as any).__aetheris_copy_federated_handle = copyFederatedHandle;
+}
+
 export class ProfileView {
   public activeTab: ProfileTab = 'pulses';
   public targetFingerprint: string = 'genesis-core';
@@ -153,6 +185,27 @@ export class ProfileView {
   }
 
   /**
+   * Returns standard ActivityPub federated handle accepted by Mastodon and fediverse instances.
+   * Format: @${fingerprint}@aetheris.mesh or @${alias || fingerprint.substring(0, 12)}@aetheris.mesh
+   */
+  public getFederatedHandle(fp: string = this.targetFingerprint, fullFingerprint: boolean = false): string {
+    const profile = this.getProfile(fp);
+    if (fullFingerprint) {
+      return formatFederatedHandle(profile.fingerprint);
+    }
+    const identifier = profile.handle || (profile.fingerprint.length > 12 ? profile.fingerprint.substring(0, 12) : profile.fingerprint);
+    return formatFederatedHandle(identifier);
+  }
+
+  /**
+   * 1-click helper to copy standard federated handle to clipboard.
+   */
+  public async copyFederatedHandle(fp?: string): Promise<boolean> {
+    const handle = this.getFederatedHandle(fp);
+    return copyFederatedHandle(handle);
+  }
+
+  /**
    * Filter posts according to the active profile tab.
    */
   public filterTimelinePosts(allPosts: ClientPost[], targetFp: string): ClientPost[] {
@@ -188,6 +241,7 @@ export class ProfileView {
     const isOwnProfile = profile.fingerprint === currentUserFp;
     const isFollowing = this.isFollowing(profile.fingerprint);
     const timelinePosts = this.filterTimelinePosts(allPosts, profile.fingerprint);
+    const federatedHandle = this.getFederatedHandle(profile.fingerprint);
 
     const tabs: Array<{ id: ProfileTab; label: string }> = [
       { id: 'pulses', label: 'Pulses' },
@@ -223,6 +277,18 @@ export class ProfileView {
           </div>
 
           <div class="flex items-center space-x-2">
+            <!-- ActivityPub 2.0 & NodeInfo 2.1 Federated Indicator Badge -->
+            <a
+              href="/.well-known/aetheris-node"
+              target="_blank"
+              rel="noreferrer"
+              class="activitypub-badge px-2.5 py-1 rounded-full bg-indigo-950/80 text-indigo-300 border border-indigo-500/30 text-[10px] font-mono font-bold flex items-center space-x-1 hover:bg-indigo-900 transition-colors shadow-sm"
+              title="Federated via ActivityPub 2.0 & NodeInfo 2.1"
+              data-activitypub-badge="true"
+            >
+              <span>🌐</span>
+              <span>Federated via ActivityPub 2.0</span>
+            </a>
             <span class="text-[10px] font-mono px-2.5 py-1 rounded-full bg-indigo-950 text-indigo-300 border border-indigo-500/30 font-bold">
               ${profile.role}
             </span>
@@ -300,10 +366,23 @@ export class ProfileView {
                 </span>
               ` : ''}
             </div>
-            <div class="flex items-center space-x-2 text-xs font-mono text-slate-400 mt-0.5">
+            <div class="flex items-center space-x-2 text-xs font-mono text-slate-400 mt-0.5 flex-wrap gap-y-1.5">
               <span>@id:${profile.handle}</span>
               <span>·</span>
-              <span class="text-indigo-400">Fingerprint: ${profile.fingerprint.substring(0, 12)}...</span>
+              <span class="text-indigo-400 font-bold font-mono federated-handle" data-federated-handle="${federatedHandle}">${federatedHandle}</span>
+              <button
+                type="button"
+                id="btn-copy-federated-handle"
+                class="btn-copy-federated-handle px-2.5 py-0.5 rounded-md bg-surface-raised hover:bg-surface-overlay text-slate-300 hover:text-white border border-white/10 text-[11px] font-mono transition-all inline-flex items-center space-x-1 cursor-pointer shadow-sm"
+                title="Copy standard federated handle for Mastodon and fediverse instances"
+                data-copy-handle="${federatedHandle}"
+                onclick="if(window.__aetheris_copy_federated_handle){window.__aetheris_copy_federated_handle('${federatedHandle}');}else{navigator.clipboard&&navigator.clipboard.writeText('${federatedHandle}');}"
+              >
+                <span>📋</span>
+                <span>Copy Federated Handle</span>
+              </button>
+              <span>·</span>
+              <span class="text-slate-500">Fingerprint: ${profile.fingerprint.substring(0, 12)}...</span>
             </div>
           </div>
 
@@ -327,6 +406,19 @@ export class ProfileView {
             <div class="flex items-center space-x-1.5">
               <span>📅</span>
               <span>${profile.joinedEpoch}</span>
+            </div>
+            <div class="flex items-center space-x-1.5">
+              <a
+                href="/.well-known/aetheris-node"
+                target="_blank"
+                rel="noreferrer"
+                class="activitypub-badge inline-flex items-center space-x-1 text-[11px] font-mono text-indigo-400 hover:text-indigo-300 transition-colors"
+                title="Federated via ActivityPub 2.0 & NodeInfo 2.1"
+                data-activitypub-badge="true"
+              >
+                <span>🌐</span>
+                <span>Federated via ActivityPub 2.0</span>
+              </a>
             </div>
           </div>
 

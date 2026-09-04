@@ -23,6 +23,38 @@ export interface WoTGraphMetrics {
 }
 
 /**
+ * Formats a standard ActivityPub federated handle accepted by Mastodon and fediverse instances.
+ * Format: @${identifier}@aetheris.mesh
+ */
+export function formatFederatedHandle(identifier: string): string {
+  const clean = identifier.startsWith('@') ? identifier.slice(1) : identifier;
+  return `@${clean}@aetheris.mesh`;
+}
+
+/**
+ * 1-click helper to copy standard federated handle to system clipboard.
+ */
+export async function copyFederatedHandle(handleOrFp?: string): Promise<boolean> {
+  const text = handleOrFp
+    ? (handleOrFp.startsWith('@') ? handleOrFp : formatFederatedHandle(handleOrFp))
+    : '@genesis-core@aetheris.mesh';
+
+  if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  return true;
+}
+
+if (typeof window !== 'undefined') {
+  (window as any).__aetheris_copy_federated_handle = copyFederatedHandle;
+}
+
+/**
  * 32-bit FNV-1a deterministic hash implementation for consistent procedural profile generation.
  */
 function fnv1a32(str: string): number {
@@ -447,6 +479,28 @@ export class ProfileCardEngine {
   }
 
   /**
+   * Returns standard ActivityPub federated handle accepted by Mastodon and fediverse instances.
+   * Format: @${fingerprint}@aetheris.mesh or @${alias || fingerprint.substring(0, 12)}@aetheris.mesh
+   */
+  public getFederatedHandle(fp?: string, fullFingerprint: boolean = false): string {
+    const targetFp = fp || this.activeCardFP || 'anonymous-node';
+    const cleanFp = targetFp.trim();
+    if (fullFingerprint) {
+      return formatFederatedHandle(cleanFp);
+    }
+    const alias = cleanFp.length > 12 ? cleanFp.substring(0, 12) : cleanFp;
+    return formatFederatedHandle(alias);
+  }
+
+  /**
+   * 1-click helper to copy standard federated handle to clipboard.
+   */
+  public async copyFederatedHandle(fp?: string): Promise<boolean> {
+    const handle = this.getFederatedHandle(fp);
+    return copyFederatedHandle(handle);
+  }
+
+  /**
    * Render the complete Profile Card HTML string with Obsidian glassmorphism aesthetic.
    */
   public renderProfileCard(): string {
@@ -460,6 +514,7 @@ export class ProfileCardEngine {
     const trustColorClass = this.computeTrustColor(profile.trustScore);
     const trustGradientClass = this.computeTrustBarGradient(profile.trustScore);
     const wotMetrics = this.simulateWoTGraph(profile.fingerprint);
+    const cardFederatedHandle = this.getFederatedHandle(profile.fingerprint);
 
     // Role style mapping
     let roleBadgeBg = 'bg-surface-overlay text-slate-300 border-white/10';
@@ -535,6 +590,18 @@ export class ProfileCardEngine {
                     Unverified
                   </span>
                 `}
+                <!-- ACTIVITYPUB INDICATOR BADGE -->
+                <a
+                  href="/.well-known/aetheris-node"
+                  target="_blank"
+                  rel="noreferrer"
+                  class="activitypub-badge inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-mono font-semibold bg-indigo-950/70 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-900 transition-colors"
+                  title="Federated via ActivityPub 2.0 & NodeInfo 2.1"
+                  data-activitypub-badge="true"
+                >
+                  <span>🌐</span>
+                  <span>Federated via ActivityPub 2.0</span>
+                </a>
               </div>
 
               <!-- FINGERPRINT & EPOCH -->
@@ -551,6 +618,23 @@ export class ProfileCardEngine {
                 <span>${statusLabel}</span>
               </div>
             </div>
+          </div>
+
+          <!-- FEDERATED HANDLE & 1-CLICK COPY BUTTON -->
+          <div class="flex items-center justify-between gap-1.5 bg-surface-base/80 p-2 rounded-xl border border-white/5 relative z-10 text-[11px] font-mono">
+            <span class="text-indigo-300 truncate font-semibold federated-handle" data-federated-handle="${cardFederatedHandle}" title="${cardFederatedHandle}">
+              ${cardFederatedHandle}
+            </span>
+            <button
+              type="button"
+              class="btn-copy-federated-handle px-2 py-1 rounded-lg bg-surface-overlay hover:bg-indigo-950 text-slate-300 hover:text-indigo-200 border border-white/10 hover:border-indigo-500/30 text-[10px] font-mono transition-all flex items-center gap-1 cursor-pointer shrink-0"
+              data-copy-handle="${cardFederatedHandle}"
+              title="Copy standard federated handle for Mastodon and fediverse instances"
+              onclick="if(window.__aetheris_copy_federated_handle){window.__aetheris_copy_federated_handle('${cardFederatedHandle}');}else{navigator.clipboard&&navigator.clipboard.writeText('${cardFederatedHandle}');}"
+            >
+              <span>📋</span>
+              <span>Copy Federated Handle</span>
+            </button>
           </div>
 
           <!-- BIO DESCRIPTION -->
@@ -711,6 +795,16 @@ export class ProfileCardEngine {
       this._hideDebounceTimer = setTimeout(() => {
         this.hideCard();
       }, 200);
+    });
+
+    // Delegated click listener for copy federated handle
+    document.addEventListener('click', (e: MouseEvent) => {
+      const target = (e.target as HTMLElement)?.closest('.btn-copy-federated-handle, [data-copy-handle]') as HTMLElement | null;
+      if (!target) return;
+      const handle = target.getAttribute('data-copy-handle');
+      if (handle) {
+        copyFederatedHandle(handle);
+      }
     });
   }
 
