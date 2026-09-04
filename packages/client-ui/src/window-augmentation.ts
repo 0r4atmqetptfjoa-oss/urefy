@@ -215,6 +215,11 @@ export interface WindowAugmentation {
   spatialAudioMesh?: any;
   soundPacks?: any;
   webTorrentSwarm?: any;
+  binaryHygienePortal?: any;
+  portableTrustModal?: any;
+  microSaaSDocsModal?: any;
+  __aetheris_open_microsaas_docs?: () => void;
+  __aetheris_close_microsaas_docs?: () => void;
 
   // Web Standards & Cross-browser Augmentations
   ethereum?: EIP1193Provider;

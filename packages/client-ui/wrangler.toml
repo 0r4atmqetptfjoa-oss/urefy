@@ -1,0 +1,9 @@
+name = "aetheris-omni-sphere"
+pages_build_output_dir = "dist"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+ENVIRONMENT = "production"
+APP_NAME = "Aetheris Omni-Sphere"
+MAX_BINARY_SCAN_BYTES = "26214400" # 25 MB max edge binary scan limit

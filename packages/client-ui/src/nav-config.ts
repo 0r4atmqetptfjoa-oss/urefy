@@ -145,6 +145,33 @@ export const ADVANCED_TOOLS_ITEMS: NavItemConfig[] = [
     testId: 'drawer-btn-steganography',
     action: 'steganography',
   },
+  {
+    id: 'binary-hygiene',
+    label: 'Binary Hygiene Portal',
+    icon: '🛡️',
+    description: 'Scanare binară securizată PE/ELF, entropie Shannon & detecție UPX',
+    testId: 'btn-open-binary-hygiene',
+    action: 'binary-hygiene',
+    badge: 'FREE',
+  },
+  {
+    id: 'portable-trust',
+    label: 'Portable ZK Trust Score',
+    icon: '💎',
+    description: 'Export reputație ZK pe curba BN254 & badge integrabil',
+    testId: 'btn-open-portable-trust',
+    action: 'portable-trust',
+    badge: 'ZK',
+  },
+  {
+    id: 'microsaas-docs',
+    label: 'Micro-SaaS & Dev APIs',
+    icon: '⚡',
+    description: 'Documentație interactivă API, endpoint-uri cURL & embed-uri',
+    testId: 'btn-open-microsaas-docs',
+    action: 'microsaas-docs',
+    badge: 'B2B',
+  },
 ];
 
 export const ALL_NAV_ITEMS: NavItemConfig[] = [

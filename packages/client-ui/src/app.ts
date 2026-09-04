@@ -33,6 +33,7 @@ import { sovereignArchiveModal } from './archive-modal.js';
 import { socialRecoveryModal } from './social-recovery-modal.js';
 import { portableTrustModal } from './portable-trust-modal.js';
 import { binaryHygienePortal } from './binary-hygiene-portal.js';
+import { microSaaSDocsModal } from './microsaas-docs-modal.js';
 import { exportSovereignArchive, importSovereignArchive, downloadArchiveFile } from './data-archive.js';
 import { touchGestureEngine } from './touch-gestures.js';
 import { crossTabSync } from './cross-tab-sync.js';
@@ -256,6 +257,12 @@ if (typeof window !== 'undefined') {
   window.__aetheris_close_archive_modal = () => { sovereignArchiveModal.closeModal(); clientStore.notifySync(); };
   window.__aetheris_open_social_recovery = (tab?: 'setup' | 'recover') => { socialRecoveryModal.openModal(tab); clientStore.notifySync(); };
   window.__aetheris_close_social_recovery = () => { socialRecoveryModal.closeModal(); clientStore.notifySync(); };
+  window.__aetheris_open_portable_trust = () => { portableTrustModal.open(); clientStore.notifySync(); };
+  window.__aetheris_close_portable_trust = () => { portableTrustModal.close(); clientStore.notifySync(); };
+  window.__aetheris_open_binary_hygiene = () => { binaryHygienePortal.open(); clientStore.notifySync(); };
+  window.__aetheris_close_binary_hygiene = () => { binaryHygienePortal.close(); clientStore.notifySync(); };
+  window.__aetheris_open_microsaas_docs = () => { microSaaSDocsModal.open(); clientStore.notifySync(); };
+  window.__aetheris_close_microsaas_docs = () => { microSaaSDocsModal.close(); clientStore.notifySync(); };
   window.__aetheris_dismiss_broadcast = () => {
     if (typeof sessionStorage !== 'undefined') {
       try {
@@ -314,6 +321,7 @@ if (typeof window !== 'undefined') {
   window.postDetailView = postDetailView;
   (window as any).portableTrustModal = portableTrustModal;
   (window as any).binaryHygienePortal = binaryHygienePortal;
+  (window as any).microSaaSDocsModal = microSaaSDocsModal;
 }
 
 let activeAwardPostId: string | null = null;
@@ -542,6 +550,24 @@ export function initApp(): void {
         <button type="button" id="btn-open-social-recovery" onclick="if(window.__aetheris_open_social_recovery) window.__aetheris_open_social_recovery();" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 font-mono transition-all cursor-pointer" title="Social Identity Recovery via WoT Guardians">
           <span class="shrink-0">🛡️</span>
           <span class="font-sans font-medium text-[11px] truncate">Social Recovery</span>
+        </button>
+
+        <!-- BINARY HYGIENE -->
+        <button type="button" id="btn-open-binary-hygiene" onclick="if(window.__aetheris_open_binary_hygiene) window.__aetheris_open_binary_hygiene();" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 font-mono transition-all cursor-pointer" title="Binary Hygiene (Entropy & UPX Packer Detection)">
+          <span class="shrink-0">🛡️</span>
+          <span class="font-sans font-medium text-[11px] truncate">Binary Hygiene</span>
+        </button>
+
+        <!-- PORTABLE ZK TRUST -->
+        <button type="button" id="btn-open-portable-trust" onclick="if(window.__aetheris_open_portable_trust) window.__aetheris_open_portable_trust();" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 font-mono transition-all cursor-pointer" title="Portable ZK Trust Score (BN254 Range Proofs)">
+          <span class="shrink-0">💎</span>
+          <span class="font-sans font-medium text-[11px] truncate">ZK Trust</span>
+        </button>
+
+        <!-- DEV APIS & MICRO-SAAS -->
+        <button type="button" id="btn-open-microsaas-docs" onclick="if(window.__aetheris_open_microsaas_docs) window.__aetheris_open_microsaas_docs();" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 font-mono transition-all cursor-pointer" title="Developer APIs & Micro-SaaS Hub (Cloudflare Edge Free Tier)">
+          <span class="shrink-0">⚡</span>
+          <span class="font-sans font-medium text-[11px] truncate">Dev APIs & SaaS</span>
         </button>
 
         <!-- TRANSPARENCY MODE -->
@@ -979,6 +1005,27 @@ export function initApp(): void {
                 <button type="button" id="btn-open-steganography" onclick="if(window.__aetheris_open_steganography) window.__aetheris_open_steganography();" class="w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold text-cyan-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer" title="Pixel Canvas Steganography">
                   <span class="text-base">🖼️</span>
                   <span class="flex-1">Pixel Canvas Steganography</span>
+                </button>
+
+                <!-- BINARY HYGIENE PORTAL -->
+                <button type="button" id="btn-open-binary-hygiene-menu" onclick="if(window.__aetheris_open_binary_hygiene) window.__aetheris_open_binary_hygiene();" class="w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold text-cyan-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer" title="Binary Hygiene (Entropy & UPX Detection)">
+                  <span class="text-base">🛡️</span>
+                  <span class="flex-1">Binary Hygiene Portal</span>
+                  <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-cyan-950 text-cyan-300 border border-cyan-500/30">FREE</span>
+                </button>
+
+                <!-- PORTABLE ZK TRUST SCORE -->
+                <button type="button" id="btn-open-portable-trust-menu" onclick="if(window.__aetheris_open_portable_trust) window.__aetheris_open_portable_trust();" class="w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold text-purple-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer" title="Portable ZK Trust Score (BN254 Range Proofs)">
+                  <span class="text-base">💎</span>
+                  <span class="flex-1">Portable ZK Trust Score</span>
+                  <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-purple-950 text-purple-300 border border-purple-500/30">ZK</span>
+                </button>
+
+                <!-- MICRO-SAAS & DEV APIS -->
+                <button type="button" id="btn-open-microsaas-docs-menu" onclick="if(window.__aetheris_open_microsaas_docs) window.__aetheris_open_microsaas_docs();" class="w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold text-emerald-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer" title="Micro-SaaS & Developer APIs">
+                  <span class="text-base">⚡</span>
+                  <span class="flex-1">Micro-SaaS & Dev APIs</span>
+                  <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-300 border border-emerald-500/30">EDGE</span>
                 </button>
 
                 ${adminAuth && adminAuth.isAdmin ? `
@@ -2430,6 +2477,21 @@ function renderMobileDrawer(): string {
             <button type="button" id="drawer-btn-steganography" onclick="if(window.__aetheris_close_mobile_drawer) window.__aetheris_close_mobile_drawer(); if(window.__aetheris_open_steganography) window.__aetheris_open_steganography();" class="w-full text-left px-3.5 py-2 rounded-xl text-xs font-bold text-cyan-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
               <span class="text-base">🖼️</span>
               <span class="flex-1">Pixel Canvas Steganography</span>
+            </button>
+            <button type="button" id="drawer-btn-binary-hygiene" onclick="if(window.__aetheris_close_mobile_drawer) window.__aetheris_close_mobile_drawer(); if(window.__aetheris_open_binary_hygiene) window.__aetheris_open_binary_hygiene();" class="w-full text-left px-3.5 py-2 rounded-xl text-xs font-bold text-cyan-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
+              <span class="text-base">🛡️</span>
+              <span class="flex-1">Binary Hygiene Portal</span>
+              <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-cyan-950 text-cyan-300 border border-cyan-500/30">FREE</span>
+            </button>
+            <button type="button" id="drawer-btn-portable-trust" onclick="if(window.__aetheris_close_mobile_drawer) window.__aetheris_close_mobile_drawer(); if(window.__aetheris_open_portable_trust) window.__aetheris_open_portable_trust();" class="w-full text-left px-3.5 py-2 rounded-xl text-xs font-bold text-purple-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
+              <span class="text-base">💎</span>
+              <span class="flex-1">Portable ZK Trust Score</span>
+              <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-purple-950 text-purple-300 border border-purple-500/30">ZK</span>
+            </button>
+            <button type="button" id="drawer-btn-microsaas-docs" onclick="if(window.__aetheris_close_mobile_drawer) window.__aetheris_close_mobile_drawer(); if(window.__aetheris_open_microsaas_docs) window.__aetheris_open_microsaas_docs();" class="w-full text-left px-3.5 py-2 rounded-xl text-xs font-bold text-emerald-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
+              <span class="text-base">⚡</span>
+              <span class="flex-1">Micro-SaaS & Dev APIs</span>
+              <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-300 border border-emerald-500/30">EDGE</span>
             </button>
             ${adminAuth && adminAuth.isAdmin ? `
               <a href="/admin.html" class="w-full text-left px-3.5 py-2 rounded-xl text-xs font-bold text-amber-400 hover:text-white bg-amber-950/30 hover:bg-surface-raised border border-amber-500/30 transition-all flex items-center space-x-3 cursor-pointer">
