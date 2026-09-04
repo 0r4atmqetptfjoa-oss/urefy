@@ -12,20 +12,20 @@ MAX_BINARY_SCAN_BYTES = "26214400" # 25 MB max edge binary scan limit
 # Cloudflare D1 SQL Database Binding (functions/api/_db.ts -> env.DB / env.AETHERIS_DB)
 [[d1_databases]]
 binding = "DB"
-database_name = "aetheris-global-d1"
-database_id = "aetheris-production-db-id"
+database_name = "aetheris-db"
+database_id = "1db6fb06-52af-4e09-87ba-28e862bb651f"
 
 # Cloudflare KV Cache Binding (functions/api/_db.ts -> env.KV / env.CACHE_KV)
 [[kv_namespaces]]
 binding = "KV"
-id = "aetheris-cache-kv-id"
+id = "719669b69e5d409ab5401d6b26952706"
 
 # Cloudflare R2 Storage Buckets (functions/api/_db.ts -> env.STORAGE_BUCKET / env.VAULT_BUCKET)
 [[r2_buckets]]
 binding = "STORAGE_BUCKET"
-bucket_name = "aetheris-vault-storage"
+bucket_name = "aetheris-storage"
 
 [[r2_buckets]]
 binding = "VAULT_BUCKET"
-bucket_name = "aetheris-vault-storage"
+bucket_name = "aetheris-vault"
 

@@ -5,8 +5,8 @@ compatibility_date = "2024-09-23"
 # Cloudflare D1 SQL Database Binding
 [[d1_databases]]
 binding = "DB"
-database_name = "aetheris-global-d1"
-database_id = "aetheris-production-db-id"
+database_name = "aetheris-db"
+database_id = "1db6fb06-52af-4e09-87ba-28e862bb651f"
 
 # Cloudflare Durable Objects Binding for WebSocket Hibernation Relay
 [durable_objects]
@@ -17,7 +17,7 @@ bindings = [
 # Cloudflare R2 Storage Bucket for D1 Backups
 [[r2_buckets]]
 binding = "STORAGE_BUCKET"
-bucket_name = "aetheris-vault-storage"
+bucket_name = "aetheris-storage"
 
 # Automated Scheduled Cron Trigger (Daily at 03:00 UTC)
 [triggers]
@@ -25,4 +25,4 @@ crons = ["0 3 * * *"]
 
 [[migrations]]
 tag = "v1"
-new_classes = ["RelayDurableObject"]
+new_sqlite_classes = ["RelayDurableObject"]

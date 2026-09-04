@@ -1,4 +1,4 @@
-﻿node_modules/
+node_modules/
 dist/
 .wrangler/
 .cache/
@@ -8,3 +8,6 @@ yarn-debug.log*
 yarn-error.log*
 tmp/
 .tempmediaStorage/
+.env
+.env.*
+*.env
