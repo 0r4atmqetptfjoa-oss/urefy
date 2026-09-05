@@ -172,8 +172,8 @@ export class SovereignArchiveModal {
     const passwordsMatch = this.exportPassphrase.length > 0 && this.exportPassphrase === this.exportConfirmPassphrase;
 
     return `
-      <div id="archive-modal-backdrop" class="fixed inset-0 bg-black/80 backdrop-blur-md z-[10000] flex items-center justify-center p-4 animate-fade-in pointer-events-auto" onclick="if(event.target.id==='archive-modal-backdrop'){window.__aetheris_close_archive_modal&&window.__aetheris_close_archive_modal();}">
-        <div class="bg-surface-base border border-white/15 rounded-3xl max-w-xl w-full p-6 shadow-2xl space-y-6 relative overflow-hidden" onclick="event.stopPropagation()">
+      <div id="archive-modal-backdrop" class="fixed inset-0 bg-black/80 backdrop-blur-md z-[10000] flex items-center justify-center p-4 animate-fade-in pointer-events-auto" data-action="call-global" data-raw-click="if(event.target.id==='archive-modal-backdrop'){window.__aetheris_close_archive_modal&&window.__aetheris_close_archive_modal();}">
+        <div class="bg-surface-base border border-white/15 rounded-3xl max-w-xl w-full p-6 shadow-2xl space-y-6 relative overflow-hidden" data-action="stop-propagation">
 
           <!-- MODAL HEADER -->
           <div class="flex items-center justify-between border-b border-white/10 pb-4">
@@ -191,8 +191,7 @@ export class SovereignArchiveModal {
             </div>
             <button
               type="button"
-              id="btn-close-archive-modal"
-              onclick="if(window.__aetheris_close_archive_modal) { window.__aetheris_close_archive_modal(); } else if(window.sovereignArchiveModal) { window.sovereignArchiveModal.closeModal(); }"
+              id="btn-close-archive-modal" data-action="close-feature"
               class="text-slate-400 hover:text-white p-1.5 rounded-xl hover:bg-white/10 transition-colors cursor-pointer text-sm font-mono"
             >
               ✕

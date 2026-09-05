@@ -265,8 +265,8 @@ export class KeyboardNavigationEngine {
     if (!this.isHelpModalOpen) return '';
 
     return `
-      <div id="keyboard-shortcuts-backdrop" onclick="if(event.target.id==='keyboard-shortcuts-backdrop'){if(window.keyboardNavigator){window.keyboardNavigator.closeHelpModal();}}" class="fixed inset-0 bg-black/80 backdrop-blur-md z-[10000] flex items-center justify-center p-4 animate-fade-in pointer-events-auto">
-        <div class="bg-surface-base border border-white/15 rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-5 relative overflow-hidden" onclick="event.stopPropagation()">
+      <div id="keyboard-shortcuts-backdrop" data-action="call-global" data-raw-click="if(event.target.id==='keyboard-shortcuts-backdrop'){if(window.keyboardNavigator){window.keyboardNavigator.closeHelpModal();}}" class="fixed inset-0 bg-black/80 backdrop-blur-md z-[10000] flex items-center justify-center p-4 animate-fade-in pointer-events-auto">
+        <div class="bg-surface-base border border-white/15 rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-5 relative overflow-hidden" data-action="stop-propagation">
           
           <!-- MODAL HEADER -->
           <div class="flex items-center justify-between border-b border-white/10 pb-4">
@@ -284,8 +284,7 @@ export class KeyboardNavigationEngine {
             </div>
             <button
               type="button"
-              id="btn-close-shortcuts-modal"
-              onclick="if(window.keyboardNavigator){window.keyboardNavigator.closeHelpModal();}"
+              id="btn-close-shortcuts-modal" data-action="call-global" data-raw-click="if(window.keyboardNavigator){window.keyboardNavigator.closeHelpModal();}"
               class="text-slate-400 hover:text-white p-1.5 rounded-xl hover:bg-white/10 transition-colors cursor-pointer text-sm font-mono"
             >
               ✕
@@ -309,8 +308,7 @@ export class KeyboardNavigationEngine {
             <span>Press <kbd class="px-1.5 py-0.5 rounded bg-surface-raised font-mono font-bold text-slate-200 border border-white/10">?</kbd> anywhere to toggle</span>
             <button
               type="button"
-              id="btn-dismiss-shortcuts-modal"
-              onclick="if(window.keyboardNavigator){window.keyboardNavigator.closeHelpModal();}"
+              id="btn-dismiss-shortcuts-modal" data-action="call-global" data-raw-click="if(window.keyboardNavigator){window.keyboardNavigator.closeHelpModal();}"
               class="px-4 py-1.5 rounded-xl bg-surface-raised hover:bg-surface-overlay text-slate-200 text-xs font-bold border border-white/10 transition-colors cursor-pointer"
             >
               Got it

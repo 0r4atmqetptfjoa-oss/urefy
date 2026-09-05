@@ -24,8 +24,7 @@ export function renderProfileDataHTML(profile: UserProfileData): string {
         </div>
         <button
           type="button"
-          id="btn-settings-export-backup"
-          onclick="if(window.exportBackup) window.exportBackup.downloadBackup();"
+          id="btn-settings-export-backup" data-action="call-global" data-global-method="if" data-global-args='[window.exportBackup) window.exportBackup.downloadBackup(]'
           class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition-colors shadow cursor-pointer"
         >
           Export Backup (.aeth)

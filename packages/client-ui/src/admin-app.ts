@@ -73,7 +73,7 @@ function renderLoginPage(): string {
               </div>
             </div>
 
-            <form id="admin-login-form" onsubmit="event.preventDefault();" class="space-y-4">
+            <form id="admin-login-form" data-submit="call-global" data-global-method="event.preventDefault" class="space-y-4">
               <div class="space-y-1.5">
                 <div class="flex items-center justify-between">
                   <label for="login-pin-input" class="text-xs text-slate-400 font-medium">Administrator Password / PIN</label>

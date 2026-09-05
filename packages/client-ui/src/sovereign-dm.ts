@@ -975,8 +975,7 @@ export class SovereignDMManager {
       <button
         type="button"
         data-sovereign-dm-trigger="${safeFP}"
-        data-peer-role="${safeRole}"
-        onclick="window.__aetherisDM && window.__aetherisDM.openDM('${safeFP}', '${safeRole}')"
+        data-peer-role="${safeRole}" data-action="call-global" data-raw-click="window.__aetherisDM && window.__aetherisDM.openDM('${safeFP}', '${safeRole}')"
         class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-surface-overlay text-cyphr hover:bg-cyphr/20 hover:text-white border border-cyphr/30 hover:border-cyphr transition-all duration-150 shadow-sm cursor-pointer focus:outline-none focus:ring-1 focus:ring-cyphr"
         title="Open Private E2EE TreeKEM Channel with ${safeFP}"
       >
@@ -995,8 +994,7 @@ export class SovereignDMManager {
     return `
       <div class="fixed bottom-6 right-6 z-50 flex items-center gap-2">
         <button
-          type="button"
-          onclick="window.__aetherisDM && window.__aetherisDM.toggleDM()"
+          type="button" data-action="call-global" data-raw-click="window.__aetherisDM && window.__aetherisDM.toggleDM()"
           class="relative flex items-center justify-center w-12 h-12 rounded-full bg-surface-raised border border-cyphr/40 shadow-2xl hover:scale-105 active:scale-95 transition-all duration-200 group text-cyphr hover:border-cyphr hover:shadow-[0_0_20px_rgba(0,229,255,0.4)] cursor-pointer"
           aria-label="Toggle Sovereign E2EE Direct Messages"
           title="Sovereign E2EE DMs (TreeKEM SFrame)"
@@ -1057,8 +1055,7 @@ export class SovereignDMManager {
             <div class="flex flex-col min-w-0">
               <div class="flex items-center gap-1.5">
                 <button
-                  type="button"
-                  onclick="window.__aetherisDM && window.__aetherisDM.toggleConversationsDrawer()"
+                  type="button" data-action="call-global" data-raw-click="window.__aetherisDM && window.__aetherisDM.toggleConversationsDrawer()"
                   class="font-mono text-xs font-bold text-slate-100 truncate hover:text-cyphr transition-colors flex items-center gap-1 cursor-pointer"
                   title="Switch Conversation"
                 >
@@ -1080,8 +1077,7 @@ export class SovereignDMManager {
               <!-- TreeKEM SFrame Badge Trigger -->
               <div class="flex items-center gap-1.5 mt-0.5">
                 <button
-                  type="button"
-                  onclick="window.__aetherisDM && window.__aetherisDM.toggleTreeKEMDrawer()"
+                  type="button" data-action="call-global" data-raw-click="window.__aetherisDM && window.__aetherisDM.toggleTreeKEMDrawer()"
                   class="inline-flex items-center gap-1 text-[10px] font-mono text-signal hover:text-cyphr transition-colors cursor-pointer"
                   title="View TreeKEM Epoch and Key Ratchet Status"
                 >
@@ -1091,8 +1087,7 @@ export class SovereignDMManager {
                 </button>
                 <span class="text-slate-600">•</span>
                 <button
-                  type="button"
-                  onclick="window.__aetherisDM && window.__aetherisDM.toggleSafetyModal()"
+                  type="button" data-action="call-global" data-raw-click="window.__aetherisDM && window.__aetherisDM.toggleSafetyModal()"
                   class="text-[10px] font-mono text-slate-400 hover:text-amber transition-colors cursor-pointer"
                   title="Verify Safety Number"
                 >
@@ -1101,8 +1096,7 @@ export class SovereignDMManager {
                 <span class="text-slate-600">•</span>
                 <button
                   type="button"
-                  id="btn-pqc-shield-badge"
-                  onclick="window.__aetherisDM && window.__aetherisDM.toggleQuantumInspector()"
+                  id="btn-pqc-shield-badge" data-action="call-global" data-raw-click="window.__aetherisDM && window.__aetherisDM.toggleQuantumInspector()"
                   class="inline-flex items-center gap-1 text-[9px] font-mono px-1.5 py-0.2 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25 transition-all cursor-pointer shadow-[0_0_8px_rgba(16,185,129,0.2)]"
                   title="NIST FIPS 203 ML-KEM-768 Hybrid PQC Active"
                 >
@@ -1117,8 +1111,7 @@ export class SovereignDMManager {
           <div class="flex items-center gap-1 text-slate-400">
             <!-- Ciphertext / Plaintext Toggle -->
             <button
-              type="button"
-              onclick="window.__aetherisDM && window.__aetherisDM.toggleCiphertext()"
+              type="button" data-action="call-global" data-raw-click="window.__aetherisDM && window.__aetherisDM.toggleCiphertext()"
               class="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-surface-overlay hover:text-cyphr transition-colors cursor-pointer ${
                 this.showCiphertextToggle ? 'text-cyphr bg-cyphr/10 border border-cyphr/30' : ''
               }"
@@ -1131,8 +1124,7 @@ export class SovereignDMManager {
 
             <!-- Minimize Button -->
             <button
-              type="button"
-              onclick="window.__aetherisDM && window.__aetherisDM.minimizeDM()"
+              type="button" data-action="call-global" data-raw-click="window.__aetherisDM && window.__aetherisDM.minimizeDM()"
               class="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-surface-overlay hover:text-slate-200 transition-colors cursor-pointer"
               title="Minimize to Dock"
             >
@@ -1143,8 +1135,7 @@ export class SovereignDMManager {
 
             <!-- Close Button -->
             <button
-              type="button"
-              onclick="window.__aetherisDM && window.__aetherisDM.closeDM()"
+              type="button" data-action="call-global" data-raw-click="window.__aetherisDM && window.__aetherisDM.closeDM()"
               class="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-crimson/20 hover:text-crimson transition-colors cursor-pointer"
               title="Close Direct Message Session"
             >
@@ -1207,8 +1198,7 @@ export class SovereignDMManager {
         <!-- DRAFTING / COMPOSER INPUT BAR -->
         <div class="p-3 bg-surface-raised border-t border-white/5 shrink-0">
           <form
-            id="sovereign-dm-composer-form"
-            onsubmit="event.preventDefault(); const inp = document.getElementById('sovereign-dm-input'); if(inp && inp.value.trim()){ window.__aetherisDM.sendMessage(inp.value.trim(), '${escapeHtml(myFP)}'); inp.value = ''; }"
+            id="sovereign-dm-composer-form" data-submit="call-global" data-raw-submit="event.preventDefault(); const inp = document.getElementById('sovereign-dm-input'); if(inp && inp.value.trim()){ window.__aetherisDM.sendMessage(inp.value.trim(), '${escapeHtml(myFP)}'); inp.value = ''; }"
             class="flex items-center gap-2"
           >
             <!-- Chat Input Field -->
@@ -1218,12 +1208,10 @@ export class SovereignDMManager {
                 type="text"
                 autocomplete="off"
                 placeholder="Type an E2EE encrypted message (Enter to send)..."
-                class="w-full h-10 px-3.5 pr-8 bg-surface-base text-slate-100 placeholder-slate-500 rounded-xl border border-white/10 focus:outline-none focus:border-cyphr/60 focus:ring-1 focus:ring-cyphr/40 text-xs font-sans transition-all"
-                onkeydown="if(event.key === 'Enter' && !event.shiftKey){ event.preventDefault(); const val = this.value.trim(); if(val){ window.__aetherisDM.sendMessage(val, '${escapeHtml(myFP)}'); this.value = ''; } }"
+                class="w-full h-10 px-3.5 pr-8 bg-surface-base text-slate-100 placeholder-slate-500 rounded-xl border border-white/10 focus:outline-none focus:border-cyphr/60 focus:ring-1 focus:ring-cyphr/40 text-xs font-sans transition-all" data-keydown="call-global" data-raw-keydown="if(event.key === 'Enter' && !event.shiftKey){ event.preventDefault(); const val = this.value.trim(); if(val){ window.__aetherisDM.sendMessage(val, '${escapeHtml(myFP)}'); this.value = ''; } }"
               />
               <button
-                type="button"
-                onclick="const inp = document.getElementById('sovereign-dm-input'); if(inp){ inp.value += '🔒 '; inp.focus(); }"
+                type="button" data-action="call-global" data-raw-click="const inp = document.getElementById('sovereign-dm-input'); if(inp){ inp.value += '🔒 '; inp.focus(); }"
                 class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-cyphr transition-colors text-xs"
                 title="Insert Security Tag"
               >
@@ -1234,8 +1222,7 @@ export class SovereignDMManager {
             <!-- Stego Mode Toggle Button -->
             <button
               type="button"
-              id="btn-stego-mode-toggle"
-              onclick="window.__aetherisDM && window.__aetherisDM.toggleStegoMode()"
+              id="btn-stego-mode-toggle" data-action="call-global" data-raw-click="window.__aetherisDM && window.__aetherisDM.toggleStegoMode()"
               class="h-10 px-2.5 rounded-xl border text-xs font-mono flex items-center gap-1 transition-all cursor-pointer ${
                 this.isStegoModeActive
                   ? 'bg-purple-500/20 text-purple-300 border-purple-500/50 shadow-[0_0_12px_rgba(168,85,247,0.3)]'
@@ -1279,8 +1266,7 @@ export class SovereignDMManager {
               P2P Mesh: 0-Relay Hop
             </span>
             <button
-              type="button"
-              onclick="window.__aetherisDM && window.__aetherisDM.simulateIncomingMessage('${escapeHtml(activeFP)}', '${escapeHtml(myFP)}')"
+              type="button" data-action="call-global" data-raw-click="window.__aetherisDM && window.__aetherisDM.simulateIncomingMessage('${escapeHtml(activeFP)}', '${escapeHtml(myFP)}')"
               class="text-slate-400 hover:text-cyphr transition-colors flex items-center gap-1"
               title="Simulate peer reply in local test sandbox"
             >
@@ -1309,7 +1295,7 @@ export class SovereignDMManager {
           <span>•</span>
           <span>${timeStr}</span>
           ${isMine ? `<span class="text-signal font-bold" title="Delivered & Verified">✓✓</span>` : ''}
-          <span class="cursor-pointer" onclick="if(window.__aetherisTransparency) window.__aetherisTransparency.open('pipeline');">
+          <span class="cursor-pointer" data-action="call-global" data-global-method="if" data-global-args='[window.__aetherisTransparency) window.__aetherisTransparency.open("pipeline"]'>
             ${renderZKDeliveryBadge(msg.id, { compact: false, verified: msg.isRead || zkDeliveryManager.isZKVerified(msg.id) })}
           </span>
         </div>
@@ -1351,8 +1337,7 @@ export class SovereignDMManager {
                         <span class="text-[10px] text-slate-300 truncate">Plausible deniability packet</span>
                         <button
                           type="button"
-                          id="btn-reveal-stego-${msg.id}"
-                          onclick="window.__aetherisDM && window.__aetherisDM.revealStego('${escapeHtml(msg.id)}', '${escapeHtml(pngUrl)}')"
+                          id="btn-reveal-stego-${msg.id}" data-action="call-global" data-raw-click="window.__aetherisDM && window.__aetherisDM.revealStego('${escapeHtml(msg.id)}', '${escapeHtml(pngUrl)}')"
                           class="px-2.5 py-1 rounded bg-purple-500/25 hover:bg-purple-500/40 text-purple-200 border border-purple-500/40 text-[10px] font-mono font-bold flex items-center gap-1 cursor-pointer transition-all w-fit"
                         >
                           <span>🔓</span>
@@ -1376,16 +1361,14 @@ export class SovereignDMManager {
 
             <div class="flex items-center gap-1.5">
               <button
-                type="button"
-                onclick="navigator.clipboard && navigator.clipboard.writeText('${escapeHtml(msg.plaintext)}')"
+                type="button" data-action="call-global" data-raw-click="navigator.clipboard && navigator.clipboard.writeText('${escapeHtml(msg.plaintext)}')"
                 class="hover:text-slate-200 transition-colors"
                 title="Copy Plaintext"
               >
                 📋
               </button>
               <button
-                type="button"
-                onclick="window.__aetherisDM && window.__aetherisDM.deleteMessage('${escapeHtml(isMine ? msg.receiverFP : msg.senderFP)}', '${escapeHtml(msg.id)}')"
+                type="button" data-action="call-global" data-raw-click="window.__aetherisDM && window.__aetherisDM.deleteMessage('${escapeHtml(isMine ? msg.receiverFP : msg.senderFP)}', '${escapeHtml(msg.id)}')"
                 class="hover:text-crimson transition-colors"
                 title="Delete message from local store"
               >
@@ -1408,8 +1391,7 @@ export class SovereignDMManager {
         <span class="text-[10px] text-slate-500 font-mono mr-1">React:</span>
         ${emojis.map((emoji) => `
           <button
-            type="button"
-            onclick="const inp = document.getElementById('sovereign-dm-input'); if(inp){ inp.value += '${emoji}'; inp.focus(); }"
+            type="button" data-action="call-global" data-raw-click="const inp = document.getElementById('sovereign-dm-input'); if(inp){ inp.value += '${emoji}'; inp.focus(); }"
             class="w-6 h-6 rounded-md hover:bg-surface-overlay flex items-center justify-center text-xs transition-transform hover:scale-110 active:scale-90 cursor-pointer"
             title="Add ${emoji}"
           >
@@ -1432,8 +1414,7 @@ export class SovereignDMManager {
             Sovereign Peer Channels (${conversations.length})
           </span>
           <button
-            type="button"
-            onclick="window.__aetherisDM && window.__aetherisDM.toggleConversationsDrawer()"
+            type="button" data-action="call-global" data-raw-click="window.__aetherisDM && window.__aetherisDM.toggleConversationsDrawer()"
             class="text-xs text-slate-400 hover:text-slate-200"
           >
             ✕ Close
@@ -1458,8 +1439,7 @@ export class SovereignDMManager {
     const relTime = formatRelativeTime(conv.lastMessageAt);
 
     return `
-      <div
-        onclick="window.__aetherisDM && window.__aetherisDM.setActivePeer('${escapeHtml(conv.peerFingerprint)}')"
+      <div data-action="call-global" data-raw-click="window.__aetherisDM && window.__aetherisDM.setActivePeer('${escapeHtml(conv.peerFingerprint)}')"
         class="p-2.5 rounded-xl border flex items-center justify-between gap-3 cursor-pointer transition-all ${
           isCurrent
             ? 'bg-surface-overlay/90 border-cyphr/50 shadow-md'
@@ -1513,8 +1493,7 @@ export class SovereignDMManager {
             <span class="font-bold text-slate-100">TreeKEM Protocol Diagnostics</span>
           </div>
           <button
-            type="button"
-            onclick="window.__aetherisDM && window.__aetherisDM.toggleTreeKEMDrawer()"
+            type="button" data-action="call-global" data-raw-click="window.__aetherisDM && window.__aetherisDM.toggleTreeKEMDrawer()"
             class="text-slate-400 hover:text-slate-200"
           >
             ✕ Close
@@ -1555,15 +1534,13 @@ export class SovereignDMManager {
 
           <div class="pt-2 flex gap-2">
             <button
-              type="button"
-              onclick="const t = window.__aetherisDM.exportTranscriptJSON('${escapeHtml(peerFP)}'); navigator.clipboard && navigator.clipboard.writeText(t); if(window.clientStore) window.clientStore.showToast('Encrypted transcript copied to clipboard!', 'success');"
+              type="button" data-action="call-global" data-raw-click="const t = window.__aetherisDM.exportTranscriptJSON('${escapeHtml(peerFP)}'); navigator.clipboard && navigator.clipboard.writeText(t); if(window.clientStore) window.clientStore.showToast('Encrypted transcript copied to clipboard!', 'success')"
               class="flex-1 py-2 rounded-lg bg-surface-overlay text-slate-200 hover:bg-surface-overlay/80 border border-white/10 text-center font-bold"
             >
               Export JSON Transcript
             </button>
             <button
-              type="button"
-              onclick="if(window.sovereignDialog){ window.sovereignDialog.confirm('Clear all messages with this peer?', { title: 'Clear Conversation', destructive: true }).then(ok => { if(ok) window.__aetherisDM.clearConversation('${escapeHtml(peerFP)}'); }); } else { window.__aetherisDM.clearConversation('${escapeHtml(peerFP)}'); }"
+              type="button" data-action="call-global" data-raw-click="if(window.sovereignDialog){ window.sovereignDialog.confirm('Clear all messages with this peer?', { title: 'Clear Conversation', destructive: true }).then(ok => { if(ok) window.__aetherisDM.clearConversation('${escapeHtml(peerFP)}'); }); } else { window.__aetherisDM.clearConversation('${escapeHtml(peerFP)}'); }"
               class="py-2 px-3 rounded-lg bg-crimson/20 text-crimson hover:bg-crimson/30 border border-crimson/30 font-bold"
             >
               Clear
@@ -1587,8 +1564,7 @@ export class SovereignDMManager {
             <span class="font-bold text-slate-100">Verify Safety Number</span>
           </div>
           <button
-            type="button"
-            onclick="window.__aetherisDM && window.__aetherisDM.toggleSafetyModal()"
+            type="button" data-action="call-global" data-raw-click="window.__aetherisDM && window.__aetherisDM.toggleSafetyModal()"
             class="text-slate-400 hover:text-slate-200"
           >
             ✕ Close
@@ -1620,8 +1596,7 @@ export class SovereignDMManager {
           </div>
 
           <button
-            type="button"
-            onclick="if(window.clientStore) window.clientStore.showToast('Safety numbers confirmed! Session marked as Verified.', 'success'); window.__aetherisDM.toggleSafetyModal();"
+            type="button" data-action="call-global" data-global-method="if" data-global-args='[window.clientStore) window.clientStore.showToast("Safety numbers confirmed! Session marked as Verified.", "success"); window.__aetherisDM.toggleSafetyModal(]'
             class="w-full py-2.5 rounded-xl bg-gradient-to-r from-signal/80 to-emerald-600 hover:from-signal hover:to-emerald-500 text-canvas font-bold text-xs uppercase tracking-wider shadow-lg transition-all cursor-pointer"
           >
             Mark as Verified
@@ -1647,8 +1622,7 @@ export class SovereignDMManager {
             </div>
           </div>
           <button
-            type="button"
-            onclick="window.__aetherisDM && window.__aetherisDM.toggleQuantumInspector()"
+            type="button" data-action="call-global" data-raw-click="window.__aetherisDM && window.__aetherisDM.toggleQuantumInspector()"
             class="text-slate-400 hover:text-slate-200"
           >
             ✕ Close
@@ -1717,8 +1691,7 @@ export class SovereignDMManager {
           <div class="pt-1">
             <button
               type="button"
-              id="btn-run-pqc-benchmark"
-              onclick="window.__aetherisDM && window.__aetherisDM.runPQCExchangeBenchmark()"
+              id="btn-run-pqc-benchmark" data-action="call-global" data-raw-click="window.__aetherisDM && window.__aetherisDM.runPQCExchangeBenchmark()"
               class="w-full py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer"
             >
               <span>⚡</span>

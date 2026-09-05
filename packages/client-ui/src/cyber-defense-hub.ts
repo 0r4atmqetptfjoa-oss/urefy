@@ -214,8 +214,7 @@ export class CyberDefenseHub {
     return `
       <div 
         id="defense-hub-modal-backdrop" 
-        class="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-6 bg-black/85 backdrop-blur-xl animate-in fade-in duration-200"
-        onclick="if(event.target.id === 'defense-hub-modal-backdrop') { window.__aetheris_close_defense && window.__aetheris_close_defense(); }"
+        class="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-6 bg-black/85 backdrop-blur-xl animate-in fade-in duration-200" data-action="call-global" data-raw-click="if(event.target.id === 'defense-hub-modal-backdrop') { window.__aetheris_close_defense && window.__aetheris_close_defense(); }"
       >
         <div class="relative w-full max-w-6xl max-h-[92vh] flex flex-col bg-surface-base/95 border border-white/15 rounded-3xl shadow-2xl overflow-hidden font-sans backdrop-blur-2xl">
           
@@ -243,8 +242,7 @@ export class CyberDefenseHub {
 
             <div class="flex items-center space-x-3">
               <button 
-                id="btn-close-defense-center"
-                onclick="window.__aetheris_close_defense && window.__aetheris_close_defense()"
+                id="btn-close-defense-center" data-action="call-global" data-raw-click="window.__aetheris_close_defense && window.__aetheris_close_defense()"
                 class="w-9 h-9 rounded-xl bg-surface-raised hover:bg-surface-overlay text-slate-400 hover:text-white flex items-center justify-center border border-white/10 transition-colors cursor-pointer"
                 title="Close (Esc)"
               >
@@ -398,8 +396,7 @@ export class CyberDefenseHub {
               <span>•</span>
               <span>Zero-Day Shield: <strong class="text-signal">100% Operational</strong></span>
             </div>
-            <button 
-              onclick="window.__aetheris_close_defense && window.__aetheris_close_defense()"
+            <button data-action="call-global" data-raw-click="window.__aetheris_close_defense && window.__aetheris_close_defense()"
               class="px-4 py-1.5 rounded-xl bg-surface-raised hover:bg-surface-overlay text-white border border-white/10 transition-all font-sans font-semibold cursor-pointer"
             >
               Close Defense Center

@@ -324,7 +324,7 @@ export class BinaryHygienePortal {
     }
 
     return `
-      <div id="binary-hygiene-backdrop" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md select-none animate-in fade-in duration-150 font-sans" onclick="if(event.target.id==='binary-hygiene-backdrop') window.binaryHygienePortal && window.binaryHygienePortal.close();">
+      <div id="binary-hygiene-backdrop" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md select-none animate-in fade-in duration-150 font-sans" data-action="call-global" data-global-method="if" data-global-args='[event.target.id==="binary-hygiene-backdrop") window.binaryHygienePortal && window.binaryHygienePortal.close(]'>
         <div class="relative w-full max-w-3xl max-h-[92vh] overflow-y-auto bg-slate-900 border border-white/10 rounded-2xl p-6 shadow-2xl space-y-5 text-slate-200">
           
           <!-- MODAL HEADER -->
@@ -341,7 +341,7 @@ export class BinaryHygienePortal {
                 <p class="text-[10px] text-slate-400 font-mono">Static Shannon entropy breakdown · PE / ELF / Mach-O inspection · UPX signature scanner</p>
               </div>
             </div>
-            <button id="btn-close-binary-hygiene" onclick="if(window.__aetheris_close_binary_hygiene) { window.__aetheris_close_binary_hygiene(); } else if(window.binaryHygienePortal) { window.binaryHygienePortal.close(); }" class="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center text-sm border border-white/10 transition-colors cursor-pointer" title="Close (Esc)">
+            <button id="btn-close-binary-hygiene" data-action="call-global" data-raw-click="if(window.__aetheris_close_binary_hygiene) { window.__aetheris_close_binary_hygiene(); } else if(window.binaryHygienePortal) { window.binaryHygienePortal.close(); }" class="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center text-sm border border-white/10 transition-colors cursor-pointer" title="Close (Esc)">
               ✕
             </button>
           </div>
@@ -349,14 +349,12 @@ export class BinaryHygienePortal {
           <!-- DROPZONE -->
           <div
             id="binary-hygiene-dropzone"
-            class="relative border-2 border-dashed border-cyan-500/30 hover:border-cyan-400/60 rounded-2xl p-6 text-center bg-slate-800/40 hover:bg-slate-800/70 transition-all cursor-pointer group space-y-2"
-            onclick="document.getElementById('binary-hygiene-file-input')?.click();"
+            class="relative border-2 border-dashed border-cyan-500/30 hover:border-cyan-400/60 rounded-2xl p-6 text-center bg-slate-800/40 hover:bg-slate-800/70 transition-all cursor-pointer group space-y-2" data-action="call-global" data-global-method="document.getElementById" data-global-args='["binary-hygiene-file-input")?.click(]'
           >
             <input
               type="file"
               id="binary-hygiene-file-input"
-              class="hidden"
-              onchange="if(this.files && this.files[0]) window.binaryHygienePortal && window.binaryHygienePortal.scanFile(this.files[0], this.files[0].name);"
+              class="hidden" data-change="call-global" data-global-method="if"
             />
             <div class="text-3xl text-cyan-400 group-hover:scale-110 transition-transform">
               ${this.isScanning ? '⏳' : '📥'}
@@ -543,16 +541,14 @@ export class BinaryHygienePortal {
               <div class="flex items-center justify-between pt-2">
                 <button
                   type="button"
-                  id="btn-clear-scan"
-                  onclick="if(window.binaryHygienePortal) window.binaryHygienePortal.clearReport();"
+                  id="btn-clear-scan" data-action="call-global" data-global-method="if" data-global-args='[window.binaryHygienePortal) window.binaryHygienePortal.clearReport(]'
                   class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-mono text-xs border border-white/10 transition-colors cursor-pointer"
                 >
                   Scan Another Binary
                 </button>
                 <button
                   type="button"
-                  id="btn-download-audit-cert"
-                  onclick="if(window.binaryHygienePortal) window.binaryHygienePortal.downloadAuditCertificate();"
+                  id="btn-download-audit-cert" data-action="call-global" data-global-method="if" data-global-args='[window.binaryHygienePortal) window.binaryHygienePortal.downloadAuditCertificate(]'
                   class="px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold font-mono text-xs shadow-lg transition-all cursor-pointer flex items-center space-x-2"
                 >
                   <span>📜 Download Signed Audit Certificate</span>

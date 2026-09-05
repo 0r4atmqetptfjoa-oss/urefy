@@ -453,8 +453,7 @@ export class RelaysManager {
         <div class="flex items-center space-x-2">
           <!-- ZK Delivery & Cryptographic Transparency Badge -->
           <button
-            type="button"
-            onclick="if(window.__aetherisTransparency) window.__aetherisTransparency.open('pipeline');"
+            type="button" data-action="call-global" data-global-method="if" data-global-args='[window.__aetherisTransparency) window.__aetherisTransparency.open("pipeline"]'
             class="px-2.5 py-1.5 rounded-xl bg-cyan-950/40 hover:bg-cyan-900/40 border border-cyan-500/30 text-cyan-300 text-xs font-mono font-semibold flex items-center space-x-1.5 transition-all cursor-pointer"
             title="Inspect Cryptographic Delivery & Pipeline"
           >
@@ -510,7 +509,7 @@ export class RelaysManager {
     const emojis = ['⚡', '🔮', '🛡️', '⚔️', '🪐', '🌌', '🧬', '👁️', '💎', '🔥', '💻', '🗝️'];
 
     return `
-      <div id="create-relay-backdrop" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-150" onclick="if(event.target.id==='create-relay-backdrop'){if(window.relaysManager){window.relaysManager.isCreateModalOpen=false;window.clientStore&&window.clientStore.notifySync();}}">
+      <div id="create-relay-backdrop" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-150" data-action="call-global" data-raw-click="if(event.target.id==='create-relay-backdrop'){if(window.relaysManager){window.relaysManager.isCreateModalOpen=false;window.clientStore&&window.clientStore.notifySync();}}">
         <div class="w-full max-w-md bg-surface-overlay border border-white/10 rounded-3xl p-6 shadow-2xl space-y-5">
           
           <div class="flex items-center justify-between border-b border-white/10 pb-4">
@@ -521,7 +520,7 @@ export class RelaysManager {
                 <p class="text-xs text-slate-400 font-mono">Your private real-time communication guild</p>
               </div>
             </div>
-            <button type="button" id="btn-close-create-relay" onclick="if(window.relaysManager){window.relaysManager.isCreateModalOpen=false;window.clientStore&&window.clientStore.notifySync();}" class="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-surface-raised transition-all cursor-pointer">✕</button>
+            <button type="button" id="btn-close-create-relay" data-action="call-global" data-raw-click="if(window.relaysManager){window.relaysManager.isCreateModalOpen=false;window.clientStore&&window.clientStore.notifySync();}" class="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-surface-raised transition-all cursor-pointer">✕</button>
           </div>
 
           <form id="form-create-relay" class="space-y-4">
@@ -662,7 +661,7 @@ export class RelaysManager {
     if (!this.isJoinModalOpen) return '';
 
     return `
-      <div id="join-relay-backdrop" onclick="if(event.target.id==='join-relay-backdrop'){if(window.relaysManager){window.relaysManager.isJoinModalOpen=false;window.clientStore&&window.clientStore.notifySync();}}" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-150">
+      <div id="join-relay-backdrop" data-action="call-global" data-raw-click="if(event.target.id==='join-relay-backdrop'){if(window.relaysManager){window.relaysManager.isJoinModalOpen=false;window.clientStore&&window.clientStore.notifySync();}}" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-150">
         <div class="w-full max-w-md bg-surface-overlay border border-white/10 rounded-3xl p-6 shadow-2xl space-y-5">
           
           <div class="flex items-center justify-between border-b border-white/10 pb-4">
@@ -673,7 +672,7 @@ export class RelaysManager {
                 <p class="text-xs text-slate-400 font-mono">Enter an invite link or short code</p>
               </div>
             </div>
-            <button type="button" id="btn-close-join-modal" onclick="if(window.relaysManager){window.relaysManager.isJoinModalOpen=false;window.clientStore&&window.clientStore.notifySync();}" class="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-surface-raised transition-all cursor-pointer">✕</button>
+            <button type="button" id="btn-close-join-modal" data-action="call-global" data-raw-click="if(window.relaysManager){window.relaysManager.isJoinModalOpen=false;window.clientStore&&window.clientStore.notifySync();}" class="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-surface-raised transition-all cursor-pointer">✕</button>
           </div>
 
           <form id="form-join-relay" class="space-y-4">
@@ -693,8 +692,7 @@ export class RelaysManager {
             <div class="pt-2 flex items-center justify-end space-x-3">
               <button
                 type="button"
-                id="btn-cancel-join-modal"
-                onclick="if(window.relaysManager){window.relaysManager.isJoinModalOpen=false;window.clientStore&&window.clientStore.notifySync();}"
+                id="btn-cancel-join-modal" data-action="call-global" data-raw-click="if(window.relaysManager){window.relaysManager.isJoinModalOpen=false;window.clientStore&&window.clientStore.notifySync();}"
                 class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-surface-raised transition-all cursor-pointer"
               >
                 Cancel

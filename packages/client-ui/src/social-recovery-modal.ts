@@ -398,7 +398,7 @@ export class SocialRecoveryModal {
     const isQuorumMet = this.validationStatus.validCount >= this.validationStatus.requiredThreshold;
 
     return `
-      <div id="social-recovery-backdrop" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md select-none animate-in fade-in duration-150" onclick="if(event.target.id==='social-recovery-backdrop') window.socialRecoveryModal && window.socialRecoveryModal.closeModal();">
+      <div id="social-recovery-backdrop" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md select-none animate-in fade-in duration-150" data-action="close-feature">
         <div class="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-surface-base border border-white/10 rounded-2xl p-6 shadow-2xl space-y-5 text-slate-200 font-sans">
           
           <!-- MODAL HEADER -->
@@ -415,7 +415,7 @@ export class SocialRecoveryModal {
                 <p class="text-[10px] text-slate-400 font-mono">Web-of-Trust decentralized quorum · 256-bit prime field Lagrange interpolation</p>
               </div>
             </div>
-            <button id="btn-close-social-recovery" onclick="if(window.__aetheris_close_social_recovery) { window.__aetheris_close_social_recovery(); } else if(window.socialRecoveryModal) { window.socialRecoveryModal.closeModal(); }" class="w-8 h-8 rounded-full bg-surface-raised hover:bg-surface-overlay text-slate-300 hover:text-white flex items-center justify-center text-sm border border-white/10 transition-colors cursor-pointer" title="Close (Esc)">
+            <button id="btn-close-social-recovery" data-action="close-feature" class="w-8 h-8 rounded-full bg-surface-raised hover:bg-surface-overlay text-slate-300 hover:text-white flex items-center justify-center text-sm border border-white/10 transition-colors cursor-pointer" title="Close (Esc)">
               ✕
             </button>
           </div>

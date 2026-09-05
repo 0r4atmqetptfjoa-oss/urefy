@@ -289,7 +289,7 @@ export class ObsidianMediaPlayer {
       <div id="lightbox-overlay" class="fixed inset-0 bg-black/95 backdrop-blur-xl z-[100] flex items-center justify-center p-4 select-none animate-in fade-in duration-150">
         
         <!-- TOP TOOLBAR -->
-        <div class="absolute top-4 inset-x-4 flex items-center justify-between z-20" onclick="event.stopPropagation()">
+        <div class="absolute top-4 inset-x-4 flex items-center justify-between z-20" data-action="stop-propagation">
           <div class="flex items-center space-x-3 bg-black/60 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 text-xs font-mono text-slate-300 shadow-xl">
             <span class="text-indigo-400 font-bold">📷 Visual Asset</span>
             ${hasMultiple ? `<span class="text-slate-500">|</span><span class="text-white font-bold">${currentNum} / ${totalNum}</span>` : ''}
@@ -332,7 +332,7 @@ export class ObsidianMediaPlayer {
         ` : ''}
 
         <!-- IMAGE DISPLAY CANVAS -->
-        <div id="lightbox-image-container" class="relative max-w-[90vw] max-h-[85vh] overflow-hidden flex items-center justify-center" onclick="event.stopPropagation()">
+        <div id="lightbox-image-container" class="relative max-w-[90vw] max-h-[85vh] overflow-hidden flex items-center justify-center" data-action="stop-propagation">
           <img 
             id="lightbox-main-img" 
             src="${this.currentLightboxSrc}" 

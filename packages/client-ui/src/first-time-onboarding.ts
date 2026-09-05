@@ -94,8 +94,7 @@ export class SovereignOnboardingTour {
             <!-- HOW IT WORKS (COLLAPSIBLE TECH TOGGLE) -->
             <button
               type="button"
-              id="btn-onboarding-how-it-works"
-              onclick="const el = document.getElementById('onboarding-tech-specs'); if(el) el.classList.toggle('hidden');"
+              id="btn-onboarding-how-it-works" data-action="call-global" data-raw-click="const el = document.getElementById('onboarding-tech-specs'); if(el) el.classList.toggle('hidden')"
               class="px-2.5 py-1.5 rounded-xl bg-surface-base/60 hover:bg-surface-overlay text-slate-300 hover:text-white border border-white/10 text-[11px] font-mono transition-all cursor-pointer flex items-center space-x-1"
               title="Explore the complete sovereign architecture specifications of Aetheris"
             >

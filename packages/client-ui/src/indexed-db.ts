@@ -745,8 +745,7 @@ export class AetherisDB {
         <div class="mt-2.5 flex items-center justify-between pt-1">
           <span class="text-[10px] text-slate-500">Autonomous IndexedDB Sync</span>
           <button 
-            id="btn-refresh-db-stats" 
-            onclick="window.__aetherisRefreshDB && window.__aetherisRefreshDB()" 
+            id="btn-refresh-db-stats" data-action="call-global" data-raw-click="window.__aetherisRefreshDB && window.__aetherisRefreshDB()" 
             class="px-2 py-0.5 rounded bg-surface-highlight hover:bg-surface-overlay text-cyphr border border-white/10 hover:border-cyphr/30 text-[10px] transition-all cursor-pointer">
             Sync Stats
           </button>

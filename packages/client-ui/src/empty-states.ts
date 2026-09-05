@@ -44,8 +44,7 @@ export function renderPulseEmptyState(options?: EmptyStateOptions): string {
       </p>
       <button
         type="button"
-        id="${actionId}"
-        onclick="if(window.__aetheris_open_composer){window.__aetheris_open_composer();}else{const btn=document.getElementById('btn-open-composer');if(btn)btn.click();}"
+        id="${actionId}" data-action="call-global" data-raw-click="if(window.__aetheris_open_composer){window.__aetheris_open_composer();}else{const btn=document.getElementById('btn-open-composer');if(btn)btn.click();}"
         class="px-5 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black font-bold text-xs shadow-lg shadow-cyan-500/20 transition-all hover:scale-105 cursor-pointer flex items-center space-x-2"
         data-empty-action="pulse"
       >
@@ -78,8 +77,7 @@ export function renderVaultFilesEmptyState(options?: EmptyStateOptions): string 
       </p>
       <button
         type="button"
-        id="${actionId}"
-        onclick="if(window.__aetheris_open_composer){window.__aetheris_open_composer();}else{const btn=document.getElementById('btn-open-composer');if(btn)btn.click();}"
+        id="${actionId}" data-action="call-global" data-raw-click="if(window.__aetheris_open_composer){window.__aetheris_open_composer();}else{const btn=document.getElementById('btn-open-composer');if(btn)btn.click();}"
         class="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs shadow-lg shadow-emerald-500/20 transition-all hover:scale-105 cursor-pointer flex items-center space-x-2"
         data-empty-action="vault-files"
       >
@@ -112,8 +110,7 @@ export function renderVaultReleasesEmptyState(options?: EmptyStateOptions): stri
       </p>
       <button
         type="button"
-        id="${actionId}"
-        onclick="if(window.__aetheris_open_composer){window.__aetheris_open_composer();}else{const btn=document.getElementById('btn-open-composer');if(btn)btn.click();}"
+        id="${actionId}" data-action="call-global" data-raw-click="if(window.__aetheris_open_composer){window.__aetheris_open_composer();}else{const btn=document.getElementById('btn-open-composer');if(btn)btn.click();}"
         class="px-5 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black font-bold text-xs shadow-lg shadow-cyan-500/20 transition-all hover:scale-105 cursor-pointer flex items-center space-x-2"
         data-empty-action="vault-releases"
       >
@@ -148,8 +145,7 @@ export function renderRelaysEmptyState(options?: EmptyStateOptions): string {
       <div class="flex items-center space-x-3 flex-wrap justify-center gap-y-2">
         <button
           type="button"
-          id="${actionId}"
-          onclick="const inp=document.getElementById('input-message');if(inp){inp.focus();}else{const form=document.getElementById('form-send-message');if(form)form.scrollIntoView();}"
+          id="${actionId}" data-action="call-global" data-raw-click="const inp=document.getElementById('input-message');if(inp){inp.focus();}else{const form=document.getElementById('form-send-message');if(form)form.scrollIntoView();}"
           class="px-5 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black font-bold text-xs shadow-lg shadow-cyan-500/20 transition-all hover:scale-105 cursor-pointer flex items-center space-x-2"
           data-empty-action="relays-message"
         >
@@ -157,8 +153,7 @@ export function renderRelaysEmptyState(options?: EmptyStateOptions): string {
         </button>
         <button
           type="button"
-          id="btn-empty-add-relay"
-          onclick="if(window.__aetheris_open_relay_invite){window.__aetheris_open_relay_invite();}else{const btn=document.getElementById('btn-add-relay-server');if(btn)btn.click();}"
+          id="btn-empty-add-relay" data-action="call-global" data-raw-click="if(window.__aetheris_open_relay_invite){window.__aetheris_open_relay_invite();}else{const btn=document.getElementById('btn-add-relay-server');if(btn)btn.click();}"
           class="px-4 py-2.5 rounded-xl bg-surface-raised hover:bg-surface-overlay text-slate-200 hover:text-white border border-white/10 text-xs font-semibold transition-all cursor-pointer"
           data-empty-action="add-relay"
         >

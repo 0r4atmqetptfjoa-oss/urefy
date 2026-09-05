@@ -296,7 +296,7 @@ export class AdminAuthManager {
             </div>
 
             <!-- PIN INPUT -->
-            <form id="admin-pin-form" onsubmit="return false;" autocomplete="off" class="p-6 space-y-4">
+            <form id="admin-pin-form" data-submit="call-global" data-raw-submit="return false" autocomplete="off" class="p-6 space-y-4">
               <div class="relative">
                 <input
                   type="password"

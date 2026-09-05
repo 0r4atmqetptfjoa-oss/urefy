@@ -1107,8 +1107,7 @@ export class WalletBridge {
     const label = ens ? ens : addr ? this.truncateAddress(addr, 6, 4) : 'Wallet';
 
     return `
-      <button
-        onclick="walletBridge.toggleModal()"
+      <button data-action="call-global" data-global-method="walletBridge.toggleModal"
         class="group relative flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all duration-200 font-mono text-xs shadow-sm
           ${
             isConn
@@ -1135,8 +1134,8 @@ export class WalletBridge {
     if (!this.isModalOpen) return '';
 
     return `
-      <div id="wallet-bridge-backdrop" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200" onclick="if(event.target === this || event.target.id==='wallet-bridge-backdrop'){ if(window.__aetheris_close_wallet) window.__aetheris_close_wallet(); else if(window.walletBridge){ window.walletBridge.closeModal(); window.clientStore&&window.clientStore.notifySync(); } }">
-        <div class="relative w-full max-w-3xl max-h-[90vh] flex flex-col bg-surface-base border border-white/10 rounded-2xl shadow-2xl overflow-hidden font-sans text-slate-200" onclick="event.stopPropagation()">
+      <div id="wallet-bridge-backdrop" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200" data-action="close-feature">
+        <div class="relative w-full max-w-3xl max-h-[90vh] flex flex-col bg-surface-base border border-white/10 rounded-2xl shadow-2xl overflow-hidden font-sans text-slate-200" data-action="stop-propagation">
           
           <!-- Panel Header -->
           <div class="flex items-center justify-between px-6 py-4 border-b border-white/5 bg-surface-raised">
@@ -1156,8 +1155,7 @@ export class WalletBridge {
             </div>
 
             <button
-              id="btn-close-wallet-bridge"
-              onclick="if(window.__aetheris_close_wallet) window.__aetheris_close_wallet(); else if(window.walletBridge){ window.walletBridge.closeModal(); window.clientStore&&window.clientStore.notifySync(); }"
+              id="btn-close-wallet-bridge" data-action="close-feature"
               class="w-8 h-8 rounded-lg bg-surface-base hover:bg-surface-overlay text-slate-400 hover:text-white flex items-center justify-center transition-colors border border-white/5 cursor-pointer"
               title="Close"
             >
@@ -1170,8 +1168,7 @@ export class WalletBridge {
 
           <!-- Navigation Tabs -->
           <div class="flex items-center px-6 border-b border-white/5 bg-surface-base gap-2 pt-2">
-            <button
-              onclick="walletBridge.setTab('identity')"
+            <button data-action="call-global" data-global-method="walletBridge.setTab" data-global-args='["identity"]'
               class="px-4 py-2 text-xs font-semibold rounded-t-lg transition-all flex items-center gap-2 border-b-2
                 ${
                   this.activeTab === 'identity'
@@ -1182,8 +1179,7 @@ export class WalletBridge {
               <span>🔑</span> Identity & Bridge
             </button>
 
-            <button
-              onclick="walletBridge.setTab('signatures')"
+            <button data-action="call-global" data-global-method="walletBridge.setTab" data-global-args='["signatures"]'
               class="px-4 py-2 text-xs font-semibold rounded-t-lg transition-all flex items-center gap-2 border-b-2
                 ${
                   this.activeTab === 'signatures'
@@ -1194,8 +1190,7 @@ export class WalletBridge {
               <span>✍️</span> Signatures & Attestations
             </button>
 
-            <button
-              onclick="walletBridge.setTab('token-gate')"
+            <button data-action="call-global" data-global-method="walletBridge.setTab" data-global-args='["token-gate"]'
               class="px-4 py-2 text-xs font-semibold rounded-t-lg transition-all flex items-center gap-2 border-b-2
                 ${
                   this.activeTab === 'token-gate'
@@ -1206,8 +1201,7 @@ export class WalletBridge {
               <span>🚪</span> Token-Gated Spaces
             </button>
 
-            <button
-              onclick="walletBridge.setTab('networks')"
+            <button data-action="call-global" data-global-method="walletBridge.setTab" data-global-args='["networks"]'
               class="px-4 py-2 text-xs font-semibold rounded-t-lg transition-all flex items-center gap-2 border-b-2
                 ${
                   this.activeTab === 'networks'
@@ -1244,14 +1238,12 @@ export class WalletBridge {
             </div>
 
             <div class="flex items-center gap-2">
-              <button
-                onclick="walletBridge.copyToClipboard('${escapeHtml(this.identity?.ethAddress || '')}', 'Ethereum Address')"
+              <button data-action="call-global" data-global-method="walletBridge.copyToClipboard" data-global-args='["${escapeHtml(this.identity?.ethAddress || '')}', 'Ethereum Address"]'
                 class="px-2.5 py-1 rounded bg-surface-base hover:bg-surface-overlay text-slate-300 hover:text-white border border-white/5 transition-all text-[11px]"
               >
                 📋 Copy Address
               </button>
-              <button
-                onclick="walletBridge.closeModal()"
+              <button data-action="close-feature"
                 class="px-3 py-1 rounded bg-slate-800 hover:bg-slate-700 text-white font-sans transition-all text-[11px]"
               >
                 Close
@@ -1305,16 +1297,14 @@ export class WalletBridge {
             ${
               isConn
                 ? `
-                  <button
-                    onclick="walletBridge.disconnect()"
+                  <button data-action="call-global" data-global-method="walletBridge.disconnect"
                     class="px-3 py-1.5 rounded-lg bg-crimson/10 hover:bg-crimson/20 text-crimson border border-crimson/30 font-semibold text-xs transition-all"
                   >
                     Disconnect
                   </button>
                 `
                 : `
-                  <button
-                    onclick="walletBridge.connectMetaMask()"
+                  <button data-action="call-global" data-global-method="walletBridge.connectMetaMask"
                     class="px-4 py-1.5 rounded-lg bg-cyphr hover:bg-cyphr/90 text-slate-950 font-bold text-xs shadow-[0_0_12px_rgba(0,229,255,0.3)] transition-all flex items-center gap-1.5"
                   >
                     <span>🦊</span> Connect MetaMask
@@ -1333,7 +1323,7 @@ export class WalletBridge {
                 ? `<span class="px-2.5 py-1 text-xs font-mono font-bold rounded-md bg-cyphr/10 text-cyphr border border-cyphr/30 flex items-center gap-1">
                      🔗 ENS Verified: <strong class="text-white">${escapeHtml(ensName)}</strong>
                    </span>`
-                : `<button onclick="walletBridge.resolveENS('${ethAddr}').then(() => walletBridge.updateUI())" class="text-xs text-slate-400 hover:text-cyphr transition-colors underline">
+                : `<button data-action="call-global" data-global-method="walletBridge.resolveENS" data-global-args='["${ethAddr}").then(() => walletBridge.updateUI()]' class="text-xs text-slate-400 hover:text-cyphr transition-colors underline">
                      🔍 Resolve ENS
                    </button>`
             }
@@ -1341,8 +1331,7 @@ export class WalletBridge {
 
           <div class="flex items-center justify-between p-3 rounded-lg bg-surface-base border border-white/5 font-mono text-sm">
             <span class="text-white select-all break-all">${escapeHtml(ethAddr)}</span>
-            <button
-              onclick="walletBridge.copyToClipboard('${escapeHtml(ethAddr)}', 'Ethereum Address')"
+            <button data-action="call-global" data-global-method="walletBridge.copyToClipboard" data-global-args='["${escapeHtml(ethAddr)}', 'Ethereum Address"]'
               class="ml-3 px-2 py-1 rounded bg-surface-overlay hover:bg-slate-700 text-xs text-slate-300 transition-colors shrink-0"
               title="Copy address"
             >
@@ -1375,8 +1364,7 @@ export class WalletBridge {
               <h3 class="text-sm font-bold text-white">Cryptographic Identity Proof (Dual-Curve Attestation)</h3>
               <p class="text-xs text-slate-400">Publicly sign the Ed25519 key with your Secp256k1 wallet for sovereign cross-chain attestation.</p>
             </div>
-            <button
-              onclick="walletBridge.signIdentityProof()"
+            <button data-action="call-global" data-global-method="walletBridge.signIdentityProof"
               class="px-4 py-2 rounded-lg bg-aether hover:bg-aether/90 text-white font-bold text-xs shadow-[0_0_14px_rgba(168,85,247,0.3)] transition-all flex items-center gap-1.5"
             >
               <span>✍️</span> Sign Identity
@@ -1428,8 +1416,7 @@ export class WalletBridge {
             <label class="text-xs font-semibold text-slate-300">Message to Sign</label>
             <textarea
               id="wallet-custom-msg-input"
-              rows="3"
-              oninput="walletBridge.setCustomMessage(this.value)"
+              rows="3" data-input="call-global" data-global-method="walletBridge.setCustomMessage"
               class="w-full px-3 py-2 rounded-lg bg-surface-base border border-white/10 text-white font-mono text-xs focus:outline-none focus:border-cyphr transition-colors resize-none"
               placeholder="Enter message text to sign..."
             >${escapeHtml(this.customMessageInput)}</textarea>
@@ -1437,8 +1424,7 @@ export class WalletBridge {
 
           <div class="flex items-center justify-between">
             <span class="text-xs text-slate-400 font-mono">Active Curve: <strong class="text-cyphr">Secp256k1 (EVM Standard)</strong></span>
-            <button
-              onclick="walletBridge.signCustomMessage()"
+            <button data-action="call-global" data-global-method="walletBridge.signCustomMessage"
               class="px-4 py-2 rounded-lg bg-cyphr hover:bg-cyphr/90 text-slate-950 font-bold text-xs shadow-[0_0_12px_rgba(0,229,255,0.25)] transition-all flex items-center gap-1.5"
             >
               <span>🔏</span> Execute Signature
@@ -1477,8 +1463,7 @@ export class WalletBridge {
                           </div>
                           <div class="flex items-center justify-between text-[10px] text-slate-400">
                             <span class="truncate max-w-md select-all text-slate-400">Sig: ${escapeHtml(sig.signature)}</span>
-                            <button
-                              onclick="walletBridge.copyToClipboard('${escapeHtml(sig.signature)}', 'Signature')"
+                            <button data-action="call-global" data-global-method="walletBridge.copyToClipboard" data-global-args='["${escapeHtml(sig.signature)}', 'Signature"]'
                               class="px-2 py-0.5 rounded bg-surface-overlay hover:bg-slate-700 text-slate-200 transition-colors ml-2 shrink-0"
                             >
                               Copy
@@ -1509,8 +1494,7 @@ export class WalletBridge {
             <h3 class="text-sm font-bold text-white">Token-Gated Access Gates (ERC-20 & ERC-721)</h3>
             <p class="text-xs text-slate-400">Encrypted channels and sovereign spaces unlock automatically based on on-chain token balance.</p>
           </div>
-          <button
-            onclick="walletBridge.checkAllTokenGates()"
+          <button data-action="call-global" data-global-method="walletBridge.checkAllTokenGates"
             class="px-3.5 py-1.5 rounded-lg bg-surface-overlay hover:bg-slate-700 text-white font-semibold text-xs border border-white/10 transition-all flex items-center gap-1.5"
           >
             <span>🔄</span> Re-Verify All
@@ -1556,8 +1540,7 @@ export class WalletBridge {
                         <div class="text-[10px] text-slate-500 uppercase">Last Verification</div>
                         <div class="text-slate-300 text-[11px]">${this.formatDate(gate.checkedAt).slice(11, 19)}</div>
                       </div>
-                      <button
-                        onclick="walletBridge.checkSingleGate('${gate.id}')"
+                      <button data-action="call-global" data-global-method="walletBridge.checkSingleGate" data-global-args='["${gate.id}"]'
                         class="px-2 py-1 rounded bg-surface-overlay hover:bg-slate-700 text-xs text-white transition-colors"
                         title="Re-verify this contract"
                       >
@@ -1592,8 +1575,7 @@ export class WalletBridge {
             .map((net) => {
               const isSelected = this.chainId.toLowerCase() === net.chainId.toLowerCase();
               return `
-                <div
-                  onclick="walletBridge.switchNetwork('${net.chainId}')"
+                <div data-action="call-global" data-global-method="walletBridge.switchNetwork" data-global-args='["${net.chainId}"]'
                   class="p-4 rounded-xl cursor-pointer border transition-all ${
                     isSelected
                       ? 'bg-cyphr/10 border-cyphr/50 shadow-[0_0_14px_rgba(0,229,255,0.15)]'

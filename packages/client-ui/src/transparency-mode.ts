@@ -627,7 +627,7 @@ export class TransparencyModeManager {
 
       return `
         <!-- Stage Node ${st.stageId} -->
-        <g class="cursor-pointer transition-transform hover:scale-105" onclick="if(window.__aetherisTransparency) window.__aetherisTransparency.selectStage(${st.stageId})">
+        <g class="cursor-pointer transition-transform hover:scale-105" data-action="call-global" data-global-method="if" data-global-args='[window.__aetherisTransparency) window.__aetherisTransparency.selectStage(${st.stageId}]'>
           <circle cx="${x}" cy="${y}" r="32" fill="#0f172a" stroke="${strokeColor}" stroke-width="${isSelected ? '3' : '1.5'}" ${glowFilter} />
           <circle cx="${x}" cy="${y}" r="26" fill="${isSelected ? 'rgba(56, 189, 248, 0.15)' : 'rgba(99, 102, 241, 0.08)'}" />
           <text x="${x}" y="${y + 6}" font-size="20" text-anchor="middle" dominant-baseline="middle">${icon}</text>
@@ -700,8 +700,7 @@ export class TransparencyModeManager {
       const isTabActive = this.selectedPayloadIndex === idx;
       return `
         <button
-          type="button"
-          onclick="if(window.__aetherisTransparency) window.__aetherisTransparency.selectPayload(${idx})"
+          type="button" data-action="call-global" data-global-method="if" data-global-args='[window.__aetherisTransparency) window.__aetherisTransparency.selectPayload(${idx}]'
           class="px-3 py-1.5 rounded-lg text-xs font-mono font-medium transition-all ${
             isTabActive
               ? 'bg-sky-500/20 text-sky-300 border border-sky-500/40 shadow-sm'
@@ -754,8 +753,7 @@ export class TransparencyModeManager {
             <div class="flex items-center gap-2">
               <span class="text-[10px] font-mono text-slate-500">${payload?.byteLength || 0} bytes</span>
               <button
-                type="button"
-                onclick="navigator.clipboard && navigator.clipboard.writeText('${payload?.hex || ''}'); if(window.__aetherisToast) window.__aetherisToast('Hex payload copied to clipboard!', 'success');"
+                type="button" data-action="call-global" data-raw-click="navigator.clipboard && navigator.clipboard.writeText('${payload?.hex || ''}'); if(window.__aetherisToast) window.__aetherisToast('Hex payload copied to clipboard!', 'success')"
                 class="px-2.5 py-1 rounded-lg text-xs font-mono font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-white/10 transition-colors flex items-center gap-1 cursor-pointer"
                 title="Copy Raw Hex"
               >
@@ -840,10 +838,10 @@ export class TransparencyModeManager {
     ];
 
     return `
-      <div id="transparency-mode-backdrop" onclick="if(event.target.id==='transparency-mode-backdrop'){if(window.__aetherisTransparency){window.__aetherisTransparency.close();if(window.clientStore)window.clientStore.notifySync();}}" class="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
+      <div id="transparency-mode-backdrop" data-action="call-global" data-raw-click="if(event.target.id==='transparency-mode-backdrop'){if(window.__aetherisTransparency){window.__aetherisTransparency.close();if(window.clientStore)window.clientStore.notifySync();}}" class="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
         <div class="relative w-full ${
           this.viewMode === 'modal' ? 'max-w-5xl h-[90vh]' : 'max-w-2xl h-full ml-auto rounded-none border-l'
-        } bg-surface-overlay border border-white/10 rounded-3xl shadow-2xl flex flex-col overflow-hidden text-slate-200 font-sans" onclick="event.stopPropagation()">
+        } bg-surface-overlay border border-white/10 rounded-3xl shadow-2xl flex flex-col overflow-hidden text-slate-200 font-sans" data-action="stop-propagation">
           
           <!-- Top Inspector Header -->
           <div class="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-slate-950/60 shrink-0">
@@ -864,8 +862,7 @@ export class TransparencyModeManager {
             <div class="flex items-center gap-2">
               <!-- Simulate Journey Button -->
               <button
-                type="button"
-                onclick="if(window.__aetherisTransparency) { window.__aetherisTransparency.recordMessageJourney('msg_live_' + Date.now(), 'Live encrypted ratcheted transmission at ' + new Date().toISOString(), 'local-node', 'peer-node', 'outbound'); if(window.__aetherisToast) window.__aetherisToast('Simulated real cryptographic journey!', 'info'); if(window.clientStore) window.clientStore.notifySync(); }"
+                type="button" data-action="call-global" data-raw-click="if(window.__aetherisTransparency) { window.__aetherisTransparency.recordMessageJourney('msg_live_' + Date.now(), 'Live encrypted ratcheted transmission at ' + new Date().toISOString(), 'local-node', 'peer-node', 'outbound'); if(window.__aetherisToast) window.__aetherisToast('Simulated real cryptographic journey!', 'info'); if(window.clientStore) window.clientStore.notifySync(); }"
                 class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-500/40 text-xs font-semibold text-indigo-200 transition-all cursor-pointer"
                 title="Run Live 5-Stage Cryptographic Simulation"
               >
@@ -875,8 +872,7 @@ export class TransparencyModeManager {
 
               <!-- Full-Screen / Drawer Toggle -->
               <button
-                type="button"
-                onclick="if(window.__aetherisTransparency) { window.__aetherisTransparency.toggleViewMode(); if(window.clientStore) window.clientStore.notifySync(); }"
+                type="button" data-action="call-global" data-raw-click="if(window.__aetherisTransparency) { window.__aetherisTransparency.toggleViewMode(); if(window.clientStore) window.clientStore.notifySync(); }"
                 class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-surface-raised transition-all cursor-pointer"
                 title="${this.viewMode === 'modal' ? 'Switch to Side-Over Drawer' : 'Switch to Full-Screen Modal'}"
               >
@@ -886,8 +882,7 @@ export class TransparencyModeManager {
               <!-- Close Button -->
               <button
                 type="button"
-                id="btn-close-transparency-modal"
-                onclick="if(window.__aetherisTransparency) { window.__aetherisTransparency.close(); if(window.clientStore) window.clientStore.notifySync(); }"
+                id="btn-close-transparency-modal" data-action="call-global" data-raw-click="if(window.__aetherisTransparency) { window.__aetherisTransparency.close(); if(window.clientStore) window.clientStore.notifySync(); }"
                 class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-surface-raised transition-all cursor-pointer text-lg leading-none"
                 title="Close Inspector (Esc or Ctrl+Shift+T)"
               >
@@ -902,8 +897,7 @@ export class TransparencyModeManager {
               const isTabActive = this.activeTab === t.id;
               return `
                 <button
-                  type="button"
-                  onclick="if(window.__aetherisTransparency) { window.__aetherisTransparency.activeTab = '${t.id}'; if(window.clientStore) window.clientStore.notify(); }"
+                  type="button" data-action="call-global" data-raw-click="if(window.__aetherisTransparency) { window.__aetherisTransparency.activeTab = '${t.id}'; if(window.clientStore) window.clientStore.notify(); }"
                   class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all shrink-0 cursor-pointer ${
                     isTabActive
                       ? 'bg-sky-500/20 text-sky-200 border border-sky-500/40 font-semibold'
@@ -924,8 +918,7 @@ export class TransparencyModeManager {
               <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-white/5">
                 <div class="flex items-center gap-2">
                   <span class="text-xs font-mono text-slate-400">Message Journey:</span>
-                  <select
-                    onchange="if(window.__aetherisTransparency) { window.__aetherisTransparency.selectJourney(this.value); if(window.clientStore) window.clientStore.notify(); }"
+                  <select data-change="call-global" data-raw-change="if(window.__aetherisTransparency) { window.__aetherisTransparency.selectJourney(this.value); if(window.clientStore) window.clientStore.notify(); }"
                     class="bg-surface-raised border border-white/10 rounded-xl px-3 py-1 text-xs text-white font-mono focus:outline-none focus:border-sky-400"
                   >
                     ${this.journeys.map((j) => `
@@ -965,8 +958,7 @@ export class TransparencyModeManager {
                 <div class="p-6 rounded-2xl bg-black/40 border border-white/10 text-center space-y-4">
                   <p class="text-xs text-slate-400">Gossip protocol active with fanout=3 and infection probability P=0.70 across 24 peers.</p>
                   <button
-                    type="button"
-                    onclick="if(window.__aetherisToggleGossip) window.__aetherisToggleGossip();"
+                    type="button" data-action="call-global" data-global-method="if" data-global-args='[window.__aetherisToggleGossip) window.__aetherisToggleGossip(]'
                     class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all shadow-lg"
                   >
                     Launch Dedicated Gossip Topology Canvas
@@ -1001,8 +993,7 @@ export class TransparencyModeManager {
     return `
       <button
         type="button"
-        id="btn-toggle-transparency-mode"
-        onclick="if(window.__aetherisTransparency) { window.__aetherisTransparency.toggle(); if(window.clientStore) window.clientStore.notify(); }"
+        id="btn-toggle-transparency-mode" data-action="call-global" data-raw-click="if(window.__aetherisTransparency) { window.__aetherisTransparency.toggle(); if(window.clientStore) window.clientStore.notify(); }"
         class="flex items-center space-x-1.5 px-2.5 py-1.5 text-xs rounded-xl border transition-all shadow-sm cursor-pointer ${
           this.isEnabled
             ? 'border-sky-500/40 bg-sky-500/15 text-sky-300 hover:bg-sky-500/25'

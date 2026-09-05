@@ -194,8 +194,7 @@ export class SettingsView {
       return `
         <button
           type="button"
-          data-settings-tab="${sec.id}"
-          onclick="if(window.settingsView) window.settingsView.setActiveTab('${sec.id}');"
+          data-settings-tab="${sec.id}" data-action="call-global" data-global-method="if" data-global-args='[window.settingsView) window.settingsView.setActiveTab("${sec.id}"]'
           class="flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-left text-xs md:text-sm font-medium transition-all cursor-pointer whitespace-nowrap md:whitespace-normal w-full group ${
             isSelected
               ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-semibold shadow-[0_0_12px_rgba(0,229,255,0.15)]'
@@ -236,16 +235,14 @@ export class SettingsView {
     return `
       <div
         id="settings-modal-backdrop"
-        class="fixed inset-0 z-50 flex items-center justify-center p-3 md:p-6 bg-black/80 backdrop-blur-md animate-fade-in"
-        onclick="if(event.target.id==='settings-modal-backdrop') { if(window.__aetheris_close_settings) { window.__aetheris_close_settings(); } else if(window.settingsView) { window.settingsView.close(); } }"
+        class="fixed inset-0 z-50 flex items-center justify-center p-3 md:p-6 bg-black/80 backdrop-blur-md animate-fade-in" data-action="call-global" data-raw-click="if(event.target.id==='settings-modal-backdrop') { if(window.__aetheris_close_settings) { window.__aetheris_close_settings(); } else if(window.settingsView) { window.settingsView.close(); } }"
         role="dialog"
         aria-modal="true"
         aria-labelledby="settings-modal-title"
       >
         <div
           id="unified-settings-modal"
-          class="relative w-full max-w-5xl h-[90vh] max-h-[850px] bg-surface-base border border-white/10 rounded-3xl shadow-2xl flex flex-col overflow-hidden text-slate-100 font-sans backdrop-blur-xl animate-in zoom-in-95 duration-200"
-          onclick="event.stopPropagation()"
+          class="relative w-full max-w-5xl h-[90vh] max-h-[850px] bg-surface-base border border-white/10 rounded-3xl shadow-2xl flex flex-col overflow-hidden text-slate-100 font-sans backdrop-blur-xl animate-in zoom-in-95 duration-200" data-action="stop-propagation"
         >
           <!-- HEADER -->
           <div class="flex items-center justify-between px-6 py-4 border-b border-white/10 shrink-0 bg-surface-raised/40">
@@ -263,8 +260,7 @@ export class SettingsView {
             </div>
             <button
               type="button"
-              id="btn-close-settings-modal"
-              onclick="if(window.__aetheris_close_settings) { window.__aetheris_close_settings(); } else if(window.settingsView) { window.settingsView.close(); }"
+              id="btn-close-settings-modal" data-action="call-global" data-raw-click="if(window.__aetheris_close_settings) { window.__aetheris_close_settings(); } else if(window.settingsView) { window.settingsView.close(); }"
               class="text-slate-400 hover:text-white p-2 rounded-xl hover:bg-white/10 transition-colors cursor-pointer text-sm font-mono flex items-center justify-center"
               title="Close Settings"
               aria-label="Close settings"
@@ -296,8 +292,7 @@ export class SettingsView {
             <div class="flex items-center space-x-3">
               <button
                 type="button"
-                id="btn-settings-save-done"
-                onclick="if(window.__aetheris_close_settings) { window.__aetheris_close_settings(); } else if(window.settingsView) { window.settingsView.close(); }"
+                id="btn-settings-save-done" data-action="call-global" data-raw-click="if(window.__aetheris_close_settings) { window.__aetheris_close_settings(); } else if(window.settingsView) { window.settingsView.close(); }"
                 class="px-5 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white font-bold text-xs shadow-lg shadow-cyan-500/20 transition-all cursor-pointer flex items-center space-x-1.5"
               >
                 <span>✓</span>
@@ -338,8 +333,7 @@ export class SettingsView {
       return `
         <button
           type="button"
-          id="theme-card-${t.id}"
-          onclick="if(window.__aetheris_apply_theme) { window.__aetheris_apply_theme('${t.id}'); } else if(window.themeEngine) { window.themeEngine.setTheme('${t.id}'); } if(window.settingsView) { window.settingsView.setActiveTab('appearance'); }"
+          id="theme-card-${t.id}" data-action="call-global" data-raw-click="if(window.__aetheris_apply_theme) { window.__aetheris_apply_theme('${t.id}'); } else if(window.themeEngine) { window.themeEngine.setTheme('${t.id}'); } if(window.settingsView) { window.settingsView.setActiveTab('appearance'); }"
           class="p-3.5 rounded-2xl border text-left flex flex-col justify-between space-y-2 transition-all cursor-pointer group ${
             isSelected
               ? 'bg-cyan-500/15 border-cyan-400 ring-2 ring-cyan-500/40 shadow-lg'
@@ -401,8 +395,7 @@ export class SettingsView {
             <input
               type="checkbox"
               id="toggle-oled-mode"
-              ${isOledActive ? 'checked' : ''}
-              onchange="if(window.themeEngine) { window.themeEngine.setTheme(this.checked ? 'matrix-monolith' : 'obsidian-cyber'); } if(window.settingsView) { window.settingsView.setActiveTab('appearance'); }"
+              ${isOledActive ? 'checked' : ''} data-change="call-global" data-raw-change="if(window.themeEngine) { window.themeEngine.setTheme(this.checked ? 'matrix-monolith' : 'obsidian-cyber'); } if(window.settingsView) { window.settingsView.setActiveTab('appearance'); }"
               class="sr-only peer"
             />
             <div class="w-11 h-6 bg-surface-base peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
@@ -422,15 +415,13 @@ export class SettingsView {
           <input
             type="checkbox"
             id="toggle-font-family"
-            ${currentFont === 'mono' ? 'checked' : ''}
-            onchange="if(window.themeEngine) { window.themeEngine.setFontFamily(this.checked ? 'mono' : 'sans'); } if(window.settingsView) { window.settingsView.setActiveTab('appearance'); }"
+            ${currentFont === 'mono' ? 'checked' : ''} data-change="call-global" data-raw-change="if(window.themeEngine) { window.themeEngine.setFontFamily(this.checked ? 'mono' : 'sans'); } if(window.settingsView) { window.settingsView.setActiveTab('appearance'); }"
             class="sr-only"
           />
           <div class="grid grid-cols-2 gap-3" id="settings-font-family-controls">
             <button
               type="button"
-              id="btn-font-sans"
-              onclick="if(window.themeEngine) { window.themeEngine.setFontFamily('sans'); } if(window.settingsView) { window.settingsView.setActiveTab('appearance'); }"
+              id="btn-font-sans" data-action="call-global" data-raw-click="if(window.themeEngine) { window.themeEngine.setFontFamily('sans'); } if(window.settingsView) { window.settingsView.setActiveTab('appearance'); }"
               class="p-3.5 rounded-xl border text-left flex items-center space-x-3 transition-all cursor-pointer ${
                 currentFont === 'sans'
                   ? 'bg-cyan-500/20 border-cyan-500 text-cyan-200 shadow-md font-semibold'
@@ -446,8 +437,7 @@ export class SettingsView {
 
             <button
               type="button"
-              id="btn-font-mono"
-              onclick="if(window.themeEngine) { window.themeEngine.setFontFamily('mono'); } if(window.settingsView) { window.settingsView.setActiveTab('appearance'); }"
+              id="btn-font-mono" data-action="call-global" data-raw-click="if(window.themeEngine) { window.themeEngine.setFontFamily('mono'); } if(window.settingsView) { window.settingsView.setActiveTab('appearance'); }"
               class="p-3.5 rounded-xl border text-left flex items-center space-x-3 transition-all cursor-pointer ${
                 currentFont === 'mono'
                   ? 'bg-cyan-500/20 border-cyan-500 text-cyan-200 shadow-md font-semibold'
@@ -476,8 +466,7 @@ export class SettingsView {
           </div>
           <button
             type="button"
-            id="btn-settings-open-theme-builder"
-            onclick="if(window.customThemeBuilder) window.customThemeBuilder.openModal();"
+            id="btn-settings-open-theme-builder" data-action="open-feature" data-feature="custom-theme"
             class="shrink-0 px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-400 to-indigo-500 hover:from-cyan-300 hover:to-indigo-400 text-slate-950 font-bold text-xs flex items-center space-x-2 shadow-lg shadow-cyan-500/25 transition-all cursor-pointer active:scale-95"
             title="Open Custom Theme Studio"
           >
@@ -544,8 +533,7 @@ export class SettingsView {
             <input
               type="checkbox"
               id="toggle-wot-badges"
-              ${showTrustBadges ? 'checked' : ''}
-              onchange="if(window.clientStore) window.clientStore.setShowTrustBadges(this.checked);"
+              ${showTrustBadges ? 'checked' : ''} data-change="call-global" data-global-method="if"
               class="w-4 h-4 rounded text-emerald-500 focus:ring-0 cursor-pointer accent-emerald-500"
             />
           </label>
@@ -564,8 +552,7 @@ export class SettingsView {
             <input
               type="checkbox"
               id="toggle-demote-low-trust"
-              ${demoteLowTrust ? 'checked' : ''}
-              onchange="if(window.clientStore) window.clientStore.setDemoteLowTrustPosts(this.checked);"
+              ${demoteLowTrust ? 'checked' : ''} data-change="call-global" data-global-method="if"
               class="w-4 h-4 rounded text-emerald-500 focus:ring-0 cursor-pointer accent-emerald-500"
             />
           </label>
@@ -590,8 +577,7 @@ export class SettingsView {
               min="0"
               max="500"
               step="10"
-              value="${meritThreshold}"
-              oninput="const el = document.getElementById('merit-threshold-value'); if(el) el.textContent = this.value; if(window.clientStore) window.clientStore.setMinFeedTrustThreshold(parseInt(this.value, 10));"
+              value="${meritThreshold}" data-input="call-global" data-raw-input="const el = document.getElementById('merit-threshold-value'); if(el) el.textContent = this.value; if(window.clientStore) window.clientStore.setMinFeedTrustThreshold(parseInt(this.value, 10))"
               class="w-full h-2 bg-surface-base rounded-lg appearance-none cursor-pointer accent-cyan-400"
             />
             <div class="flex justify-between text-[10px] font-mono text-slate-500">
@@ -616,8 +602,7 @@ export class SettingsView {
             <input
               type="checkbox"
               id="toggle-proactive-ai"
-              ${proactiveAi ? 'checked' : ''}
-              onchange="if(window.clientStore) window.clientStore.setProactiveAiEnabled(this.checked);"
+              ${proactiveAi ? 'checked' : ''} data-change="call-global" data-global-method="if"
               class="w-4 h-4 rounded text-cyan-500 focus:ring-0 cursor-pointer accent-cyan-500"
             />
           </label>
@@ -636,8 +621,7 @@ export class SettingsView {
             <input
               type="checkbox"
               id="toggle-zen-mode"
-              ${isZenActive ? 'checked' : ''}
-              onchange="if(window.zenModeManager) window.zenModeManager.toggle();"
+              ${isZenActive ? 'checked' : ''} data-change="call-global" data-global-method="if"
               class="w-4 h-4 rounded text-purple-500 focus:ring-0 cursor-pointer accent-purple-500"
             />
           </label>

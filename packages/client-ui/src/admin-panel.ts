@@ -1123,7 +1123,7 @@ export class AdminPanelManager {
         <!-- CHANGE ADMIN PIN -->
         <div class="bg-surface-raised border border-amber/20 rounded-2xl p-5 space-y-3">
           <h3 class="text-sm font-bold text-amber">🔐 Change Admin PIN</h3>
-          <form onsubmit="return false;" autocomplete="off" class="grid grid-cols-3 gap-3">
+          <form data-submit="call-global" data-raw-submit="return false" autocomplete="off" class="grid grid-cols-3 gap-3">
             <div class="space-y-1">
               <label for="admin-current-pin" class="text-xs text-slate-400">Current PIN</label>
               <input id="admin-current-pin" name="current_pin" autocomplete="current-password" type="password" placeholder="••••••" class="w-full bg-surface-base border border-white/15 rounded-xl px-3 py-2 text-sm text-center tracking-widest placeholder-slate-600 focus:outline-none focus:border-amber/50 transition-all" />

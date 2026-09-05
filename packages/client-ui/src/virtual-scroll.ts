@@ -845,7 +845,7 @@ export class VirtualScrollEngine<T = unknown> {
           Current feed is empty or the ZK node is awaiting new blocks on the Aetheris P2P network.
         </p>
         <div class="flex items-center space-x-3">
-          <button onclick="window.location.reload()" class="px-4 py-2 rounded-xl bg-surface-overlay hover:bg-surface-highlight text-cyphr border border-cyphr/30 text-xs font-mono uppercase tracking-wider transition-all shadow-lg hover:shadow-cyan-500/20 active:scale-95">
+          <button data-action="call-global" data-global-method="location.reload" class="px-4 py-2 rounded-xl bg-surface-overlay hover:bg-surface-highlight text-cyphr border border-cyphr/30 text-xs font-mono uppercase tracking-wider transition-all shadow-lg hover:shadow-cyan-500/20 active:scale-95">
             Refresh Channel
           </button>
         </div>

@@ -342,7 +342,7 @@ export class PulseActionsEngine {
     const isMenuOpen = this.isRepostMenuOpen(postId);
 
     return `
-      <div class="pulse-action-bar flex items-center justify-between mt-3.5 max-w-lg text-slate-400 select-none text-xs font-mono" data-post-id="${postId}" onclick="event.stopPropagation()">
+      <div class="pulse-action-bar flex items-center justify-between mt-3.5 max-w-lg text-slate-400 select-none text-xs font-mono" data-post-id="${postId}" data-action="stop-propagation">
         
         <!-- 1. REPLY BUTTON -->
         <button

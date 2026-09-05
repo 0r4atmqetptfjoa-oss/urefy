@@ -314,8 +314,8 @@ export class SovereignSteganographyModal {
       : 0;
 
     return `
-      <div id="steganography-modal-backdrop" onclick="if(event.target.id==='steganography-modal-backdrop'){if(window.__aetheris_close_steganography){window.__aetheris_close_steganography();}else if(window.steganographyModal){window.steganographyModal.closeModal();}}" class="fixed inset-0 bg-black/85 backdrop-blur-md z-[10000] flex items-center justify-center p-4 animate-fade-in pointer-events-auto">
-        <div class="bg-surface-base border border-cyan-500/30 rounded-3xl max-w-2xl w-full p-6 shadow-2xl space-y-5 relative overflow-hidden flex flex-col max-h-[90vh]" onclick="event.stopPropagation()">
+      <div id="steganography-modal-backdrop" data-action="close-feature" class="fixed inset-0 bg-black/85 backdrop-blur-md z-[10000] flex items-center justify-center p-4 animate-fade-in pointer-events-auto">
+        <div class="bg-surface-base border border-cyan-500/30 rounded-3xl max-w-2xl w-full p-6 shadow-2xl space-y-5 relative overflow-hidden flex flex-col max-h-[90vh]" data-action="stop-propagation">
           
           <!-- MODAL HEADER -->
           <div class="flex items-center justify-between border-b border-white/10 pb-4 shrink-0">
@@ -333,8 +333,7 @@ export class SovereignSteganographyModal {
             </div>
             <button
               type="button"
-              id="btn-close-steg-modal"
-              onclick="if(window.__aetheris_close_steganography) { window.__aetheris_close_steganography(); } else if(window.steganographyModal) { window.steganographyModal.closeModal(); }"
+              id="btn-close-steg-modal" data-action="close-feature"
               class="text-slate-400 hover:text-white p-1.5 rounded-xl hover:bg-white/10 transition-colors cursor-pointer text-sm font-mono"
             >
               ✕
@@ -440,7 +439,7 @@ export class SovereignSteganographyModal {
         </div>
 
         <!-- OPTIONAL PASSPHRASE ENCRYPTION -->
-        <form onsubmit="return false;" autocomplete="off" class="space-y-1.5">
+        <form data-submit="call-global" data-raw-submit="return false" autocomplete="off" class="space-y-1.5">
           <label for="input-steg-passphrase" class="text-xs font-bold text-slate-200 flex items-center space-x-1.5">
             <span>Passphrase Encryption (AES-256-GCM)</span>
             <span class="text-[10px] text-slate-400 font-normal">(Optional, recommended)</span>
@@ -514,7 +513,7 @@ export class SovereignSteganographyModal {
         </div>
 
         <!-- PASSPHRASE INPUT (IF ENCRYPTED) -->
-        <form onsubmit="return false;" autocomplete="off" class="space-y-1.5">
+        <form data-submit="call-global" data-raw-submit="return false" autocomplete="off" class="space-y-1.5">
           <label for="input-steg-decode-passphrase" class="text-xs font-bold text-slate-200 block">
             Decryption Passphrase
           </label>

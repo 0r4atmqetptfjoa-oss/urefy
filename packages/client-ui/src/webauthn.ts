@@ -570,16 +570,14 @@ export class WebAuthnManager {
 
                 <div class="flex items-center gap-1.5 shrink-0">
                   <button
-                    type="button"
-                    onclick="window.webAuthnManager && window.webAuthnManager.promptRenameCredential('${escapeHtml(cred.id)}')"
+                    type="button" data-action="call-global" data-raw-click="window.webAuthnManager && window.webAuthnManager.promptRenameCredential('${escapeHtml(cred.id)}')"
                     class="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-surface-overlay transition-colors text-xs"
                     title="Rename key"
                   >
                     ✏️
                   </button>
                   <button
-                    type="button"
-                    onclick="window.webAuthnManager && window.webAuthnManager.removeCredential('${escapeHtml(cred.id)}')"
+                    type="button" data-action="call-global" data-raw-click="window.webAuthnManager && window.webAuthnManager.removeCredential('${escapeHtml(cred.id)}')"
                     class="p-1.5 text-slate-400 hover:text-crimson rounded-lg hover:bg-rose-500/10 transition-colors text-xs"
                     title="Delete key"
                   >
@@ -629,16 +627,14 @@ export class WebAuthnManager {
         <!-- Action Buttons -->
         <div class="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
           <button
-            type="button"
-            onclick="window.webAuthnManager && window.webAuthnManager.promptRegisterCredential()"
+            type="button" data-action="call-global" data-raw-click="window.webAuthnManager && window.webAuthnManager.promptRegisterCredential()"
             class="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-cyphr text-slate-950 font-semibold text-sm hover:bg-cyphr/90 active:scale-[0.98] transition-all shadow-[0_0_20px_rgba(0,229,255,0.25)]"
           >
             <span>+ Add YubiKey / Touch ID</span>
           </button>
 
           <button
-            type="button"
-            onclick="window.webAuthnManager && window.webAuthnManager.authenticate()"
+            type="button" data-action="call-global" data-raw-click="window.webAuthnManager && window.webAuthnManager.authenticate()"
             class="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-surface-overlay text-white font-semibold text-sm hover:bg-slate-700 active:scale-[0.98] border border-white/10 transition-all hover:border-cyphr/40"
           >
             <span>⚡ Authenticate Now</span>
@@ -662,8 +658,7 @@ export class WebAuthnManager {
             <div class="relative inline-flex items-center">
               <input
                 type="checkbox"
-                ${this.settings.autoLockOnUnload ? 'checked' : ''}
-                onchange="window.webAuthnManager && window.webAuthnManager.updateSetting('autoLockOnUnload', this.checked)"
+                ${this.settings.autoLockOnUnload ? 'checked' : ''} data-change="call-global" data-raw-change="window.webAuthnManager && window.webAuthnManager.updateSetting('autoLockOnUnload', this.checked)"
                 class="sr-only peer"
               />
               <div class="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyphr"></div>
@@ -681,8 +676,7 @@ export class WebAuthnManager {
             <div class="relative inline-flex items-center">
               <input
                 type="checkbox"
-                ${this.settings.requireBiometricsForDMs ? 'checked' : ''}
-                onchange="window.webAuthnManager && window.webAuthnManager.updateSetting('requireBiometricsForDMs', this.checked)"
+                ${this.settings.requireBiometricsForDMs ? 'checked' : ''} data-change="call-global" data-raw-change="window.webAuthnManager && window.webAuthnManager.updateSetting('requireBiometricsForDMs', this.checked)"
                 class="sr-only peer"
               />
               <div class="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyphr"></div>
@@ -700,8 +694,7 @@ export class WebAuthnManager {
             <div class="relative inline-flex items-center">
               <input
                 type="checkbox"
-                ${this.settings.requireBiometricsForExport ? 'checked' : ''}
-                onchange="window.webAuthnManager && window.webAuthnManager.updateSetting('requireBiometricsForExport', this.checked)"
+                ${this.settings.requireBiometricsForExport ? 'checked' : ''} data-change="call-global" data-raw-change="window.webAuthnManager && window.webAuthnManager.updateSetting('requireBiometricsForExport', this.checked)"
                 class="sr-only peer"
               />
               <div class="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyphr"></div>
@@ -729,15 +722,13 @@ export class WebAuthnManager {
             ${
               this.vaultLocked
                 ? `<button
-                    type="button"
-                    onclick="window.webAuthnManager && window.webAuthnManager.unlockVault()"
+                    type="button" data-action="call-global" data-raw-click="window.webAuthnManager && window.webAuthnManager.unlockVault()"
                     class="px-3.5 py-1.5 rounded-lg bg-emerald-500/20 text-signal hover:bg-emerald-500/30 border border-emerald-500/30 text-xs font-semibold font-mono transition-colors"
                   >
                     🔓 Unlock
                   </button>`
                 : `<button
-                    type="button"
-                    onclick="window.webAuthnManager && window.webAuthnManager.lockVault()"
+                    type="button" data-action="call-global" data-raw-click="window.webAuthnManager && window.webAuthnManager.lockVault()"
                     class="px-3.5 py-1.5 rounded-lg bg-rose-500/20 text-crimson hover:bg-rose-500/30 border border-rose-500/30 text-xs font-semibold font-mono transition-colors"
                   >
                     🔒 Lock Vault
@@ -777,8 +768,7 @@ export class WebAuthnManager {
     return `
       <button
         id="aetheris-webauthn-header-btn"
-        type="button"
-        onclick="window.webAuthnManager && window.webAuthnManager.handleHeaderButtonClick()"
+        type="button" data-action="call-global" data-raw-click="window.webAuthnManager && window.webAuthnManager.handleHeaderButtonClick()"
         class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-mono font-medium border transition-all active:scale-95 ${statusColorClass}"
         title="FIDO2 Hardware Security: ${isUnlocked ? 'Vault Unlocked' : this.vaultLocked ? 'Vault Locked' : 'Hardware Configuration'}"
       >

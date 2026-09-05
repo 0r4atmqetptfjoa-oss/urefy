@@ -393,7 +393,7 @@ export class SovereignCircleEngine {
     const colorPresets = ['#6366f1', '#10b981', '#06b6d4', '#f59e0b', '#ec4899', '#8b5cf6', '#ef4444'];
 
     return `
-      <div id="create-circle-modal-backdrop" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-canvas/80 backdrop-blur-md animate-in fade-in duration-150" onclick="if(event.target.id==='create-circle-modal-backdrop'){if(window.sovereignCircleEngine){window.sovereignCircleEngine.isCreateModalOpen=false;window.clientStore&&window.clientStore.notifySync();}}">
+      <div id="create-circle-modal-backdrop" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-canvas/80 backdrop-blur-md animate-in fade-in duration-150" data-action="call-global" data-raw-click="if(event.target.id==='create-circle-modal-backdrop'){if(window.sovereignCircleEngine){window.sovereignCircleEngine.isCreateModalOpen=false;window.clientStore&&window.clientStore.notifySync();}}">
         <div class="relative w-full max-w-xl bg-surface-base border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
           
           <!-- MODAL HEADER -->
@@ -409,8 +409,7 @@ export class SovereignCircleEngine {
             </div>
             <button 
               type="button" 
-              id="btn-close-create-circle-modal" 
-              onclick="if(window.sovereignCircleEngine){window.sovereignCircleEngine.isCreateModalOpen=false;window.clientStore&&window.clientStore.notifySync();}"
+              id="btn-close-create-circle-modal" data-action="call-global" data-raw-click="if(window.sovereignCircleEngine){window.sovereignCircleEngine.isCreateModalOpen=false;window.clientStore&&window.clientStore.notifySync();}"
               class="text-slate-400 hover:text-white p-1.5 rounded-xl hover:bg-surface-overlay transition-colors font-mono text-sm cursor-pointer"
             >
               ✕
@@ -558,8 +557,7 @@ export class SovereignCircleEngine {
             <div class="flex items-center justify-end space-x-3 pt-4 border-t border-white/10">
               <button 
                 type="button" 
-                id="btn-cancel-create-circle" 
-                onclick="if(window.sovereignCircleEngine){window.sovereignCircleEngine.isCreateModalOpen=false;window.clientStore&&window.clientStore.notifySync();}"
+                id="btn-cancel-create-circle" data-action="call-global" data-raw-click="if(window.sovereignCircleEngine){window.sovereignCircleEngine.isCreateModalOpen=false;window.clientStore&&window.clientStore.notifySync();}"
                 class="px-4 py-2 text-xs font-mono font-semibold text-slate-400 hover:text-white rounded-xl transition-all cursor-pointer"
               >
                 Cancel

@@ -32,7 +32,7 @@ describe('Aetheris Omni-Sphere — Zero-Trust Security & OWASP Top 10 Hardening 
       const csp = res.headers.get('Content-Security-Policy');
       expect(csp).toBeDefined();
       expect(csp).toContain("default-src 'self'");
-      expect(csp).toContain("script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'");
+      expect(csp).toContain("script-src 'self' 'wasm-unsafe-eval'");
       expect(csp).toContain("style-src 'self' 'unsafe-inline'");
       expect(csp).toContain("font-src 'self' data:");
       expect(csp).not.toContain("fonts.googleapis.com");

@@ -218,8 +218,7 @@ export class SovereignFootprint {
           <div class="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-white/5">
             <button
               type="button"
-              id="btn-export-footprint-audit"
-              onclick="if(window.sovereignFootprint) window.sovereignFootprint.exportAuditReportJSON()"
+              id="btn-export-footprint-audit" data-action="call-global" data-global-method="if" data-global-args='[window.sovereignFootprint) window.sovereignFootprint.exportAuditReportJSON(]'
               class="px-3 py-1.5 rounded-lg bg-surface-overlay hover:bg-surface-raised border border-white/10 text-xs font-mono text-cyan-300 hover:text-white transition-all flex items-center space-x-1.5 cursor-pointer"
             >
               <span>📊</span>
@@ -228,8 +227,7 @@ export class SovereignFootprint {
 
             <button
               type="button"
-              id="btn-clear-local-cache"
-              onclick="if(window.sovereignDialog){ window.sovereignDialog.confirm('Clear local caches? Your seed phrase will remain safely stored.', { title: 'Clear Local Cache', destructive: true }).then(ok => { if(ok && window.sovereignFootprint) window.sovereignFootprint.clearLocalData(true); }); } else if(window.sovereignFootprint) { window.sovereignFootprint.clearLocalData(true); }"
+              id="btn-clear-local-cache" data-action="call-global" data-raw-click="if(window.sovereignDialog){ window.sovereignDialog.confirm('Clear local caches? Your seed phrase will remain safely stored.', { title: 'Clear Local Cache', destructive: true }).then(ok => { if(ok && window.sovereignFootprint) window.sovereignFootprint.clearLocalData(true); }); } else if(window.sovereignFootprint) { window.sovereignFootprint.clearLocalData(true); }"
               class="px-3 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-xs font-mono text-rose-300 transition-all flex items-center space-x-1.5 cursor-pointer"
             >
               <span>🧹</span>

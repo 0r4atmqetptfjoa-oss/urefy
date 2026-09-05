@@ -321,7 +321,7 @@ describe('Sovereign Wallet & Dual-Curve Cryptographic Bridge', () => {
       const html = bridge.renderWalletButton();
 
       expect(html).toContain('💰');
-      expect(html).toContain('walletBridge.toggleModal()');
+      expect(html).toContain('walletBridge.toggleModal');
       expect(html).toContain('bg-surface-base');
     });
 
@@ -335,7 +335,7 @@ describe('Sovereign Wallet & Dual-Curve Cryptographic Bridge', () => {
       expect(html).toContain('Signatures & Attestations');
       expect(html).toContain('Token-Gated Spaces');
       expect(html).toContain('EVM Networks');
-      expect(html).toContain('walletBridge.closeModal()');
+      expect(html).toContain('close-feature');
       expect(html).toContain('bg-surface-base');
       expect(html).toContain('bg-canvas');
     });

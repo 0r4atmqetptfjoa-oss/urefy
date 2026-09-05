@@ -77,7 +77,7 @@ export class PaperWalletEngine {
     const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 
     return `
-      <div id="paper-wallet-backdrop" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 select-none animate-in fade-in duration-150 font-mono text-xs" onclick="if(event.target.id === 'paper-wallet-backdrop') window.paperWallet && window.paperWallet.close();">
+      <div id="paper-wallet-backdrop" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 select-none animate-in fade-in duration-150 font-mono text-xs" data-action="call-global" data-global-method="if" data-global-args='[event.target.id === "paper-wallet-backdrop") window.paperWallet && window.paperWallet.close(]'>
         <div class="relative w-full max-w-2xl bg-surface-base border border-white/10 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6">
           
           <!-- MODAL CONTROLS -->

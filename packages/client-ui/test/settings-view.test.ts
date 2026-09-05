@@ -159,7 +159,7 @@ describe('Unified Sovereign Settings Screen (SettingsView)', () => {
 
     // Custom Theme Studio launcher button
     expect(html).toContain('id="btn-settings-open-theme-builder"');
-    expect(html).toContain('window.customThemeBuilder.openModal()');
+    expect(html).toContain('open-feature');
   });
 
   it('8. should render preferences tab with WoT badges, demote low trust, merit threshold, proactive AI, and zen mode', () => {

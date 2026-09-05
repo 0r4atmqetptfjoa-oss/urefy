@@ -552,7 +552,7 @@ export class P2PDownloadManager {
             </div>
 
             <div class="flex items-center space-x-2">
-              <button onclick="window.aetherisDownloadManager && window.aetherisDownloadManager.clearCompleted()" class="px-3 py-1.5 text-xs font-mono font-medium rounded-lg bg-surface-raised hover:bg-surface-overlay text-slate-300 border border-white/10 hover:border-white/20 transition-all flex items-center gap-1.5" title="Clear verified and completed items">
+              <button data-action="call-global" data-raw-click="window.aetherisDownloadManager && window.aetherisDownloadManager.clearCompleted()" class="px-3 py-1.5 text-xs font-mono font-medium rounded-lg bg-surface-raised hover:bg-surface-overlay text-slate-300 border border-white/10 hover:border-white/20 transition-all flex items-center gap-1.5" title="Clear verified and completed items">
                 <svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                 </svg>
@@ -649,29 +649,29 @@ export class P2PDownloadManager {
     let actionButtons = '';
     if (isDownloading) {
       actionButtons = `
-        <button onclick="window.aetherisDownloadManager && window.aetherisDownloadManager.pauseDownload('${task.id}')" class="px-2.5 py-1 text-xs font-mono rounded bg-surface-raised hover:bg-surface-overlay text-amber border border-white/10 transition-colors flex items-center gap-1" title="Pause Download">
+        <button data-action="call-global" data-raw-click="window.aetherisDownloadManager && window.aetherisDownloadManager.pauseDownload('${task.id}')" class="px-2.5 py-1 text-xs font-mono rounded bg-surface-raised hover:bg-surface-overlay text-amber border border-white/10 transition-colors flex items-center gap-1" title="Pause Download">
           <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
           Pause
         </button>
-        <button onclick="window.aetherisDownloadManager && window.aetherisDownloadManager.cancelDownload('${task.id}')" class="px-2.5 py-1 text-xs font-mono rounded bg-surface-raised hover:bg-crimson/20 text-crimson border border-white/10 hover:border-crimson/30 transition-colors flex items-center gap-1" title="Cancel Download">
+        <button data-action="call-global" data-raw-click="window.aetherisDownloadManager && window.aetherisDownloadManager.cancelDownload('${task.id}')" class="px-2.5 py-1 text-xs font-mono rounded bg-surface-raised hover:bg-crimson/20 text-crimson border border-white/10 hover:border-crimson/30 transition-colors flex items-center gap-1" title="Cancel Download">
           <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
           Cancel
         </button>
       `;
     } else if (isPaused) {
       actionButtons = `
-        <button onclick="window.aetherisDownloadManager && window.aetherisDownloadManager.resumeDownload('${task.id}')" class="px-2.5 py-1 text-xs font-mono rounded bg-surface-raised hover:bg-cyphr/20 text-cyphr border border-white/10 hover:border-cyphr/30 transition-colors flex items-center gap-1" title="Resume Download">
+        <button data-action="call-global" data-raw-click="window.aetherisDownloadManager && window.aetherisDownloadManager.resumeDownload('${task.id}')" class="px-2.5 py-1 text-xs font-mono rounded bg-surface-raised hover:bg-cyphr/20 text-cyphr border border-white/10 hover:border-cyphr/30 transition-colors flex items-center gap-1" title="Resume Download">
           <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /></svg>
           Resume
         </button>
-        <button onclick="window.aetherisDownloadManager && window.aetherisDownloadManager.cancelDownload('${task.id}')" class="px-2.5 py-1 text-xs font-mono rounded bg-surface-raised hover:bg-crimson/20 text-crimson border border-white/10 hover:border-crimson/30 transition-colors flex items-center gap-1" title="Cancel Download">
+        <button data-action="call-global" data-raw-click="window.aetherisDownloadManager && window.aetherisDownloadManager.cancelDownload('${task.id}')" class="px-2.5 py-1 text-xs font-mono rounded bg-surface-raised hover:bg-crimson/20 text-crimson border border-white/10 hover:border-crimson/30 transition-colors flex items-center gap-1" title="Cancel Download">
           <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
           Cancel
         </button>
       `;
     } else if (isFailed) {
       actionButtons = `
-        <button onclick="window.aetherisDownloadManager && window.aetherisDownloadManager.retryDownload('${task.id}')" class="px-2.5 py-1 text-xs font-mono rounded bg-surface-raised hover:bg-signal/20 text-signal border border-white/10 hover:border-signal/30 transition-colors flex items-center gap-1" title="Retry Download">
+        <button data-action="call-global" data-raw-click="window.aetherisDownloadManager && window.aetherisDownloadManager.retryDownload('${task.id}')" class="px-2.5 py-1 text-xs font-mono rounded bg-surface-raised hover:bg-signal/20 text-signal border border-white/10 hover:border-signal/30 transition-colors flex items-center gap-1" title="Retry Download">
           <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
           Retry
         </button>
@@ -792,8 +792,7 @@ export class P2PDownloadManager {
     if (task && task.status === 'downloading') {
       const percentage = Math.floor((task.downloadedBytes / task.totalBytes) * 100);
       return `
-        <button
-          onclick="window.aetherisDownloadManager && window.aetherisDownloadManager.pauseDownload('${task.id}')"
+        <button data-action="call-global" data-raw-click="window.aetherisDownloadManager && window.aetherisDownloadManager.pauseDownload('${task.id}')"
           class="btn-p2p-download inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-mono font-medium bg-cyphr/15 hover:bg-cyphr/25 text-cyphr border border-cyphr/30 transition-all shadow-[0_0_12px_rgba(0,229,255,0.15)] group"
           title="Click to Pause (${this.formatSpeed(task.speedBps)})"
         >
@@ -808,8 +807,7 @@ export class P2PDownloadManager {
     if (task && task.status === 'paused') {
       const percentage = Math.floor((task.downloadedBytes / task.totalBytes) * 100);
       return `
-        <button
-          onclick="window.aetherisDownloadManager && window.aetherisDownloadManager.resumeDownload('${task.id}')"
+        <button data-action="call-global" data-raw-click="window.aetherisDownloadManager && window.aetherisDownloadManager.resumeDownload('${task.id}')"
           class="btn-p2p-download inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-medium bg-amber/15 hover:bg-amber/25 text-amber border border-amber/30 transition-all shadow-sm"
           title="Click to Resume Swarm Ingress"
         >
@@ -823,8 +821,7 @@ export class P2PDownloadManager {
 
     // 5. Default -> Not downloaded yet
     return `
-      <button
-        onclick="window.aetherisDownloadManager && window.aetherisDownloadManager.startDownload('${safeFileName}', '${safeSha256}', ${totalBytes})"
+      <button data-action="call-global" data-raw-click="window.aetherisDownloadManager && window.aetherisDownloadManager.startDownload('${safeFileName}', '${safeSha256}', ${totalBytes})"
         class="btn-p2p-download inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-medium bg-surface-raised hover:bg-cyphr/20 text-slate-200 hover:text-cyphr border border-white/10 hover:border-cyphr/40 transition-all shadow-sm group"
         data-file-name="${safeFileName}"
         data-sha256="${safeSha256}"
@@ -898,8 +895,7 @@ export class P2PDownloadManager {
           </div>
 
           <!-- Quick Toggle Panel Button -->
-          <button
-            onclick="document.getElementById('download-manager-modal') ? document.getElementById('download-manager-modal').classList.toggle('hidden') : null"
+          <button data-action="call-global" data-raw-click="document.getElementById('download-manager-modal') ? document.getElementById('download-manager-modal').classList.toggle('hidden') : null"
             class="p-1.5 rounded-lg bg-surface-overlay hover:bg-surface-highlight text-slate-300 hover:text-white transition-colors"
             title="Toggle Download Manager View"
           >
@@ -968,8 +964,7 @@ export class P2PDownloadManager {
         `}
 
         <button
-          type="button"
-          onclick="document.getElementById('download-manager-modal') ? document.getElementById('download-manager-modal').classList.toggle('hidden') : null"
+          type="button" data-action="call-global" data-raw-click="document.getElementById('download-manager-modal') ? document.getElementById('download-manager-modal').classList.toggle('hidden') : null"
           class="w-full py-1.5 rounded-xl bg-surface-overlay hover:bg-white/10 border border-white/10 text-xs font-semibold text-slate-200 transition-all cursor-pointer flex items-center justify-center space-x-1.5"
         >
           <span>⚡</span>

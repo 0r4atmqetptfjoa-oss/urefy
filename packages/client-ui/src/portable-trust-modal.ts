@@ -348,7 +348,7 @@ export class PortableTrustModal {
     const result = this.verificationResult;
 
     return `
-      <div id="portable-trust-backdrop" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md select-none animate-in fade-in duration-150 font-sans" onclick="if(event.target.id==='portable-trust-backdrop') window.portableTrustModal && window.portableTrustModal.close();">
+      <div id="portable-trust-backdrop" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md select-none animate-in fade-in duration-150 font-sans" data-action="call-global" data-global-method="if" data-global-args='[event.target.id==="portable-trust-backdrop") window.portableTrustModal && window.portableTrustModal.close(]'>
         <div class="relative w-full max-w-2xl max-h-[92vh] overflow-y-auto bg-slate-900 border border-white/10 rounded-2xl p-6 shadow-2xl space-y-5 text-slate-200">
           
           <!-- MODAL HEADER -->
@@ -365,14 +365,14 @@ export class PortableTrustModal {
                 <p class="text-[10px] text-slate-400 font-mono">Cross-domain Groth16 range proofs · BN254 zero-infrastructure attestation</p>
               </div>
             </div>
-            <button id="btn-close-portable-trust" onclick="if(window.__aetheris_close_portable_trust) { window.__aetheris_close_portable_trust(); } else if(window.portableTrustModal) { window.portableTrustModal.close(); }" class="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center text-sm border border-white/10 transition-colors cursor-pointer" title="Close (Esc)">
+            <button id="btn-close-portable-trust" data-action="call-global" data-raw-click="if(window.__aetheris_close_portable_trust) { window.__aetheris_close_portable_trust(); } else if(window.portableTrustModal) { window.portableTrustModal.close(); }" class="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center text-sm border border-white/10 transition-colors cursor-pointer" title="Close (Esc)">
               ✕
             </button>
           </div>
 
           <!-- TAB SWITCHER -->
           <div class="flex rounded-xl bg-slate-800/80 p-1 border border-white/5 text-xs font-mono">
-            <button id="tab-btn-export-cert" onclick="if(window.portableTrustModal) window.portableTrustModal.setTab('export');" class="flex-1 py-2 rounded-lg font-bold flex items-center justify-center space-x-2 transition-all cursor-pointer ${
+            <button id="tab-btn-export-cert" data-action="call-global" data-global-method="if" data-global-args='[window.portableTrustModal) window.portableTrustModal.setTab("export"]' class="flex-1 py-2 rounded-lg font-bold flex items-center justify-center space-x-2 transition-all cursor-pointer ${
               this.activeTab === 'export'
                 ? 'bg-amber-600 text-white shadow'
                 : 'text-slate-400 hover:text-white hover:bg-white/5'
@@ -380,7 +380,7 @@ export class PortableTrustModal {
               <span>🏆</span>
               <span>Export ZK Certificate</span>
             </button>
-            <button id="tab-btn-verify-cert" onclick="if(window.portableTrustModal) window.portableTrustModal.setTab('verify');" class="flex-1 py-2 rounded-lg font-bold flex items-center justify-center space-x-2 transition-all cursor-pointer ${
+            <button id="tab-btn-verify-cert" data-action="call-global" data-global-method="if" data-global-args='[window.portableTrustModal) window.portableTrustModal.setTab("verify"]' class="flex-1 py-2 rounded-lg font-bold flex items-center justify-center space-x-2 transition-all cursor-pointer ${
               this.activeTab === 'verify'
                 ? 'bg-amber-600 text-white shadow'
                 : 'text-slate-400 hover:text-white hover:bg-white/5'
@@ -403,7 +403,7 @@ export class PortableTrustModal {
                     ${[50, 75, 90]
                       .map(
                         (th) => `
-                      <button type="button" id="btn-threshold-${th}" onclick="if(window.portableTrustModal) window.portableTrustModal.setThreshold(${th});" class="py-2 px-3 rounded-lg border font-mono text-center transition-all cursor-pointer ${
+                      <button type="button" id="btn-threshold-${th}" data-action="call-global" data-global-method="if" data-global-args='[window.portableTrustModal) window.portableTrustModal.setThreshold(${th}]' class="py-2 px-3 rounded-lg border font-mono text-center transition-all cursor-pointer ${
                           this.selectedThreshold === th
                             ? 'bg-amber-500/20 border-amber-500/50 text-amber-300 font-bold shadow-sm'
                             : 'bg-slate-900 border-white/5 text-slate-400 hover:bg-slate-700/50 hover:text-white'
@@ -422,8 +422,7 @@ export class PortableTrustModal {
                   <input
                     type="text"
                     id="input-destination-domain"
-                    value="${this.destinationDomain}"
-                    oninput="if(window.portableTrustModal) window.portableTrustModal.setDestinationDomain(this.value);"
+                    value="${this.destinationDomain}" data-input="call-global" data-global-method="if"
                     placeholder="e.g. partner-forum.org or dao-governance.eth"
                     class="w-full px-3 py-2 rounded-lg bg-slate-900 border border-white/10 text-white font-mono text-xs focus:outline-none focus:border-amber-500 transition-colors"
                   />
@@ -433,8 +432,7 @@ export class PortableTrustModal {
                 <div class="pt-2">
                   <button
                     type="button"
-                    id="btn-generate-zk-proof"
-                    onclick="if(window.portableTrustModal) window.portableTrustModal.generateProof();"
+                    id="btn-generate-zk-proof" data-action="call-global" data-global-method="if" data-global-args='[window.portableTrustModal) window.portableTrustModal.generateProof(]'
                     ${this.isGenerating ? 'disabled' : ''}
                     class="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-white font-bold font-mono text-xs shadow-lg transition-all cursor-pointer flex items-center justify-center space-x-2 disabled:opacity-50"
                   >
@@ -467,7 +465,7 @@ export class PortableTrustModal {
                     <div class="md:col-span-2 space-y-1.5">
                       <div class="flex items-center justify-between">
                         <label class="font-mono text-[10px] uppercase text-slate-400">Formatted JSON Token</label>
-                        <button type="button" id="btn-copy-token" onclick="navigator.clipboard.writeText(document.getElementById('portable-trust-json-token').value);" class="text-[10px] font-mono text-amber-400 hover:underline cursor-pointer">Copy JSON</button>
+                        <button type="button" id="btn-copy-token" data-action="call-global" data-global-method="navigator.clipboard.writeText" data-global-args='[document.getElementById("portable-trust-json-token").value]' class="text-[10px] font-mono text-amber-400 hover:underline cursor-pointer">Copy JSON</button>
                       </div>
                       <textarea
                         id="portable-trust-json-token"
@@ -482,7 +480,7 @@ export class PortableTrustModal {
                   <div class="space-y-1.5">
                     <div class="flex items-center justify-between">
                       <label class="font-mono text-[10px] uppercase text-slate-400">Copyable Embed Snippet (HTML iframe)</label>
-                      <button type="button" id="btn-copy-embed" onclick="navigator.clipboard.writeText(document.getElementById('portable-trust-embed-snippet').value);" class="text-[10px] font-mono text-amber-400 hover:underline cursor-pointer">Copy HTML</button>
+                      <button type="button" id="btn-copy-embed" data-action="call-global" data-global-method="navigator.clipboard.writeText" data-global-args='[document.getElementById("portable-trust-embed-snippet").value]' class="text-[10px] font-mono text-amber-400 hover:underline cursor-pointer">Copy HTML</button>
                     </div>
                     <textarea
                       id="portable-trust-embed-snippet"
@@ -496,7 +494,7 @@ export class PortableTrustModal {
                   <div class="space-y-1.5">
                     <div class="flex items-center justify-between">
                       <label class="font-mono text-[10px] uppercase text-slate-400">cURL Verification API Endpoint</label>
-                      <button type="button" id="btn-copy-curl" onclick="navigator.clipboard.writeText(document.getElementById('portable-trust-curl-snippet').innerText);" class="text-[10px] font-mono text-amber-400 hover:underline cursor-pointer">Copy cURL</button>
+                      <button type="button" id="btn-copy-curl" data-action="call-global" data-global-method="navigator.clipboard.writeText" data-global-args='[document.getElementById("portable-trust-curl-snippet").innerText]' class="text-[10px] font-mono text-amber-400 hover:underline cursor-pointer">Copy cURL</button>
                     </div>
                     <pre
                       id="portable-trust-curl-snippet"
@@ -518,8 +516,7 @@ export class PortableTrustModal {
                   <textarea
                     id="portable-trust-paste-input"
                     rows="6"
-                    placeholder='{"version":"1.0","threshold":75,"domain":"partner-forum.org","nullifier":"...","proof":"...","publicInputs":[...]}'
-                    oninput="if(window.portableTrustModal) window.portableTrustModal.setPasteInput(this.value);"
+                    placeholder='{"version":"1.0","threshold":75,"domain":"partner-forum.org","nullifier":"...","proof":"...","publicInputs":[...]}' data-input="call-global" data-global-method="if"
                     class="w-full p-3 rounded-lg bg-slate-900 border border-white/10 text-emerald-300 font-mono text-xs focus:outline-none focus:border-amber-500 transition-colors"
                   >${this.pasteInput}</textarea>
                 </div>
@@ -527,8 +524,7 @@ export class PortableTrustModal {
                 <div>
                   <button
                     type="button"
-                    id="btn-verify-external-cert"
-                    onclick="if(window.portableTrustModal) window.portableTrustModal.verifyExternalCertificate();"
+                    id="btn-verify-external-cert" data-action="call-global" data-global-method="if" data-global-args='[window.portableTrustModal) window.portableTrustModal.verifyExternalCertificate(]'
                     ${this.isVerifying ? 'disabled' : ''}
                     class="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold font-mono text-xs shadow-lg transition-all cursor-pointer flex items-center justify-center space-x-2 disabled:opacity-50"
                   >

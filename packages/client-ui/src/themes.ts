@@ -434,8 +434,7 @@ export class ThemeEngine {
     return `
       <button
         id="aetheris-theme-header-btn"
-        type="button"
-        onclick="window.themeEngine ? window.themeEngine.toggleModal() : null"
+        type="button" data-action="call-global" data-raw-click="window.themeEngine ? window.themeEngine.toggleModal() : null"
         class="flex items-center space-x-2 px-2.5 py-1.5 rounded-lg bg-surface-raised hover:bg-surface-overlay border border-white/10 hover:border-cyphr/40 text-xs font-medium text-slate-200 transition-all duration-200 shadow-sm group cursor-pointer"
         title="Change Obsidian theme and font scale (Current: ${this.escapeHtml(current.name)})"
         aria-label="Obsidian Theme Selector"
@@ -460,8 +459,7 @@ export class ThemeEngine {
       const isSelected = this.getEffectiveAccentColor().toLowerCase() === opt.hex.toLowerCase();
       return `
         <button
-          type="button"
-          onclick="(window.__aetheris_set_accent || function(c){window.themeEngine?.setAccentColor(c)})('${opt.hex}')"
+          type="button" data-action="call-global" data-raw-click="(window.__aetheris_set_accent || function(c){window.themeEngine?.setAccentColor(c)})('${opt.hex}')"
           class="group relative flex flex-col items-center justify-center p-2.5 rounded-xl border transition-all duration-200 cursor-pointer ${
             isSelected
               ? 'ring-2 ring-offset-2 ring-offset-black/90 scale-105 shadow-lg'
@@ -493,8 +491,7 @@ export class ThemeEngine {
         : `<span class="px-2 py-0.5 text-[10px] font-mono rounded-full bg-white/5 text-slate-400 border border-white/10">${this.escapeHtml(theme.badgeText || 'THEME')}</span>`;
 
       return `
-        <div
-          onclick="if(window.__aetheris_apply_theme) { window.__aetheris_apply_theme('${theme.id}'); } else if(window.themeEngine) { window.themeEngine.setTheme('${theme.id}'); }"
+        <div data-action="call-global" data-raw-click="if(window.__aetheris_apply_theme) { window.__aetheris_apply_theme('${theme.id}'); } else if(window.themeEngine) { window.themeEngine.setTheme('${theme.id}'); }"
           data-theme-id="${theme.id}"
           class="btn-select-theme relative p-3.5 rounded-xl cursor-pointer transition-all duration-200 flex flex-col justify-between group ${ringClasses}"
           style="background-color: ${theme.bgSurfaceRaised}; ${isActive ? `border: 1px solid ${theme.accentColor}; box-shadow: 0 0 20px ${theme.accentColor}33;` : ''}"
@@ -545,8 +542,7 @@ export class ThemeEngine {
       const isSel = this.fontSize === preset.size;
       return `
         <button
-          type="button"
-          onclick="if(window.themeEngine) window.themeEngine.setFontSize(${preset.size})"
+          type="button" data-action="call-global" data-global-method="if" data-global-args='[window.themeEngine) window.themeEngine.setFontSize(${preset.size}]'
           class="py-2 px-3 rounded-xl text-xs font-mono font-medium text-center transition-all cursor-pointer ${
             isSel
               ? 'bg-cyphr/20 border border-cyphr text-cyphr font-bold shadow-md'
@@ -562,8 +558,7 @@ export class ThemeEngine {
     return `
       <div
         id="theme-selector-backdrop"
-        class="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200"
-        onclick="if(event.target === this) { window.__aetheris_close_theme ? window.__aetheris_close_theme() : (window.themeEngine && window.themeEngine.closeModal()); }"
+        class="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200" data-action="close-feature"
         role="dialog"
         aria-modal="true"
         aria-labelledby="theme-modal-title"
@@ -587,8 +582,7 @@ export class ThemeEngine {
             </div>
             <button
               id="btn-close-theme-modal"
-              type="button"
-              onclick="if(window.__aetheris_close_theme) { window.__aetheris_close_theme(); } else if(window.themeEngine) { window.themeEngine.closeModal(); }"
+              type="button" data-action="close-feature"
               class="w-8 h-8 rounded-lg bg-surface-raised hover:bg-surface-overlay border border-white/10 text-slate-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
               title="Close (Esc)"
               aria-label="Close modal"
@@ -698,8 +692,7 @@ export class ThemeEngine {
                   min="12"
                   max="18"
                   step="1"
-                  value="${this.fontSize}"
-                  oninput="if(window.themeEngine) window.themeEngine.handleFontSizeInput(this.value)"
+                  value="${this.fontSize}" data-input="call-global" data-global-method="if"
                   class="w-full h-2 bg-surface-overlay rounded-lg appearance-none cursor-pointer accent-cyphr"
                   style="accent-color: ${effectiveAccent};"
                   aria-label="Font Size Slider"
@@ -759,8 +752,7 @@ export class ThemeEngine {
 
               <div class="grid grid-cols-2 gap-3">
                 <button
-                  type="button"
-                  onclick="if(window.themeEngine) window.themeEngine.setFontFamily('sans')"
+                  type="button" data-action="call-global" data-global-method="if" data-global-args='[window.themeEngine) window.themeEngine.setFontFamily("sans"]'
                   class="p-3 rounded-xl text-left transition-all flex items-center space-x-3 cursor-pointer ${
                     this.fontFamily === 'sans'
                       ? 'bg-aether/20 border border-aether text-white shadow-sm'
@@ -775,8 +767,7 @@ export class ThemeEngine {
                 </button>
 
                 <button
-                  type="button"
-                  onclick="if(window.themeEngine) window.themeEngine.setFontFamily('mono')"
+                  type="button" data-action="call-global" data-global-method="if" data-global-args='[window.themeEngine) window.themeEngine.setFontFamily("mono"]'
                   class="p-3 rounded-xl text-left transition-all flex items-center space-x-3 cursor-pointer ${
                     this.fontFamily === 'mono'
                       ? 'bg-aether/20 border border-aether text-white shadow-sm'
@@ -812,8 +803,7 @@ export class ThemeEngine {
                   <input 
                     type="checkbox" 
                     id="checkbox-show-trust-badges"
-                    ${(typeof window !== 'undefined' && (window as any).clientStore?.showTrustBadges !== false) ? 'checked' : ''}
-                    onchange="if(window.clientStore) { window.clientStore.setShowTrustBadges(this.checked); }"
+                    ${(typeof window !== 'undefined' && (window as any).clientStore?.showTrustBadges !== false) ? 'checked' : ''} data-change="call-global" data-raw-change="if(window.clientStore) { window.clientStore.setShowTrustBadges(this.checked); }"
                     class="w-4 h-4 rounded text-emerald-500 focus:ring-0 cursor-pointer"
                   />
                 </label>
@@ -827,8 +817,7 @@ export class ThemeEngine {
                   <input 
                     type="checkbox" 
                     id="checkbox-demote-low-trust"
-                    ${(typeof window !== 'undefined' && (window as any).clientStore?.demoteLowTrustPosts) ? 'checked' : ''}
-                    onchange="if(window.clientStore) { window.clientStore.setDemoteLowTrustPosts(this.checked); }"
+                    ${(typeof window !== 'undefined' && (window as any).clientStore?.demoteLowTrustPosts) ? 'checked' : ''} data-change="call-global" data-raw-change="if(window.clientStore) { window.clientStore.setDemoteLowTrustPosts(this.checked); }"
                     class="w-4 h-4 rounded text-emerald-500 focus:ring-0 cursor-pointer"
                   />
                 </label>
@@ -844,8 +833,7 @@ export class ThemeEngine {
                     min="10" 
                     max="500" 
                     step="10" 
-                    value="${(typeof window !== 'undefined' && (window as any).clientStore?.minFeedTrustThreshold) || 50}"
-                    oninput="const lbl = document.getElementById('label-trust-threshold'); if(lbl) lbl.textContent = this.value + ' Merit'; if(window.clientStore) window.clientStore.setMinFeedTrustThreshold(parseInt(this.value, 10));"
+                    value="${(typeof window !== 'undefined' && (window as any).clientStore?.minFeedTrustThreshold) || 50}" data-input="call-global" data-raw-input="const lbl = document.getElementById('label-trust-threshold'); if(lbl) lbl.textContent = this.value + ' Merit'; if(window.clientStore) window.clientStore.setMinFeedTrustThreshold(parseInt(this.value, 10))"
                     class="w-full h-1.5 bg-surface-overlay rounded-lg appearance-none cursor-pointer accent-emerald-400"
                   />
                   <div class="flex justify-between text-[9px] font-mono text-slate-500">
@@ -878,8 +866,7 @@ export class ThemeEngine {
                   <input 
                     type="checkbox" 
                     id="checkbox-proactive-ai"
-                    ${(typeof window !== 'undefined' && (window as any).clientStore?.proactiveAiEnabled !== false) ? 'checked' : ''}
-                    onchange="if(window.clientStore) window.clientStore.setProactiveAiEnabled(this.checked)"
+                    ${(typeof window !== 'undefined' && (window as any).clientStore?.proactiveAiEnabled !== false) ? 'checked' : ''} data-change="call-global" data-global-method="if"
                     class="w-4 h-4 rounded text-cyan-400 focus:ring-0 cursor-pointer"
                   />
                 </label>
@@ -887,8 +874,7 @@ export class ThemeEngine {
                 <div class="flex items-center justify-between text-[11px] font-mono pt-1 text-slate-400">
                   <span>Dismissed suggestion types:</span>
                   <button
-                    type="button"
-                    onclick="if(window.aiAssistant){ window.aiAssistant.dismissedSuggestionTypes.clear(); localStorage.removeItem('aetheris_dismissed_suggestions'); if(window.toastManager) window.toastManager.success('Dismissed AI suggestions reset!', '✓'); }"
+                    type="button" data-action="call-global" data-raw-click="if(window.aiAssistant){ window.aiAssistant.dismissedSuggestionTypes.clear(); localStorage.removeItem('aetheris_dismissed_suggestions'); if(window.toastManager) window.toastManager.success('Dismissed AI suggestions reset!', '✓'); }"
                     class="text-[10px] text-cyan-400 hover:text-cyan-300 underline cursor-pointer"
                   >
                     Reset Dismissed
@@ -908,8 +894,7 @@ export class ThemeEngine {
           <!-- MODAL FOOTER -->
           <div class="px-6 py-4 border-t border-white/10 bg-surface-raised/80 flex items-center justify-between shrink-0">
             <button
-              type="button"
-              onclick="if(window.themeEngine) window.themeEngine.resetToDefaults()"
+              type="button" data-action="call-global" data-global-method="if" data-global-args='[window.themeEngine) window.themeEngine.resetToDefaults(]'
               class="px-3.5 py-1.5 rounded-lg bg-surface-overlay hover:bg-surface-base border border-white/10 text-xs font-mono text-slate-300 hover:text-white transition-colors cursor-pointer"
             >
               ⟲ Reset Defaults
@@ -918,8 +903,7 @@ export class ThemeEngine {
             <div class="flex items-center space-x-3">
               <button
                 type="button"
-                id="btn-save-close-theme"
-                onclick="if(window.__aetheris_close_theme) { window.__aetheris_close_theme(); } else if(window.themeEngine) { window.themeEngine.closeModal(); }"
+                id="btn-save-close-theme" data-action="close-feature"
                 class="px-5 py-1.5 rounded-lg text-black font-semibold text-xs transition-all duration-150 shadow-md hover:shadow-cyan-500/25 cursor-pointer"
                 style="background-color: ${effectiveAccent};"
               >

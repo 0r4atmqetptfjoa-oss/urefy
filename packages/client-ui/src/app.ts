@@ -141,7 +141,7 @@ serviceRegistry.registerInstance(SERVICES.TrendingEngine, trendingEngine);
 serviceRegistry.registerInstance(SERVICES.StoriesEngine, storiesEngine);
 serviceRegistry.registerInstance(SERVICES.Notifications, notificationCenter);
 serviceRegistry.registerInstance(SERVICES.MarkdownRenderer, markdownRenderer);
-serviceRegistry.registerInstance(SERVICES.DiagramRenderer, diagramRenderer);
+// DiagramRenderer is loaded on-demand
 serviceRegistry.registerInstance(SERVICES.ZenMode, zenModeManager);
 serviceRegistry.registerInstance(SERVICES.TimelineScrubber, timelineScrubber);
 serviceRegistry.registerInstance(SERVICES.ViewTransitions, viewTransitions);
@@ -165,28 +165,28 @@ serviceRegistry.registerInstance(SERVICES.DraftAutosave, draftAutosave);
 serviceRegistry.registerInstance(SERVICES.FloatingPiP, floatingPiP);
 serviceRegistry.registerInstance(SERVICES.WotSlider, wotSlider);
 serviceRegistry.registerInstance(SERVICES.CommandRail, commandRailV2);
-serviceRegistry.registerInstance(SERVICES.AIAssistant, aiAssistant);
-serviceRegistry.registerInstance(SERVICES.RichEditor, richEditor);
+// AIAssistant is loaded on-demand
+// RichEditor is loaded on-demand by composer
 serviceRegistry.registerInstance(SERVICES.PWAService, pwaService);
 serviceRegistry.registerInstance(SERVICES.CryptoWorkerPool, cryptoWorkerPool);
 serviceRegistry.registerInstance(SERVICES.ModuleLoader, moduleLoader);
 serviceRegistry.registerInstance(SERVICES.SovereignOnboarding, sovereignOnboarding);
-serviceRegistry.registerInstance(SERVICES.SpatialAudio, spatialAudio);
+// SpatialAudio is loaded on-demand
 // steganographyModal loaded on demand
-serviceRegistry.registerInstance(SERVICES.CodeSandbox, codeSandbox);
-serviceRegistry.registerInstance(SERVICES.WebTorrentSwarm, webTorrentSwarm);
-serviceRegistry.registerInstance(SERVICES.SpatialAudioMesh, spatialAudioMesh);
-serviceRegistry.registerInstance(SERVICES.SoundPacks, soundPacks);
-serviceRegistry.registerInstance(SERVICES.NodeFederation, nodeFederationEngine);
+// CodeSandbox is loaded on-demand
+// WebTorrentSwarm is loaded on-demand
+// SpatialAudioMesh is loaded on-demand
+// SoundPacks is loaded on-demand
+// NodeFederation is loaded on-demand
 
 if (typeof window !== 'undefined') {
-  window.codeSandbox = codeSandbox;
+  // codeSandbox is loaded on-demand
   window.chaumianVotingManager = chaumianVotingManager;
   window.sovereignWebPush = sovereignWebPush;
-  window.webTorrentSwarm = webTorrentSwarm;
-  window.spatialAudioMesh = spatialAudioMesh;
-  window.soundPacks = soundPacks;
-  window.nodeFederationEngine = nodeFederationEngine;
+  // webTorrentSwarm is loaded on-demand
+  // window.spatialAudioMesh initialized on demand
+  // window.soundPacks initialized on demand
+  // nodeFederationEngine is loaded on-demand
   window.__aetheris_open_global_scale = () => { modalManager.openFeature('global-scale'); };
   window.__aetheris_close_global_scale = () => { modalManager.closeFeature(); };
   window.__aetheris_open_edit_profile = () => { profileView.isEditProfileModalOpen = true; clientStore.notifySync(); };
@@ -282,7 +282,7 @@ if (typeof window !== 'undefined') {
   window.keyboardNavigator = keyboardNavigator;
   window.pwaService = pwaService;
   window.markdownRenderer = markdownRenderer;
-  window.diagramRenderer = diagramRenderer;
+  // diagramRenderer is loaded on-demand
   window.transparencyMode = transparencyMode;
   window.__aetherisTransparency = transparencyMode;
   window.sovereignCircleEngine = sovereignCircleEngine;
@@ -417,7 +417,7 @@ export function initApp(): void {
 
   // Proactive Local AI Assistant Observer
   if (clientStore.proactiveAiEnabled) {
-    aiAssistant.startObserver(30000);
+    if (typeof requestIdleCallback !== 'undefined') { requestIdleCallback(async () => { const { aiAssistant } = await import('./ai-assistant.js'); aiAssistant.startObserver(30000); }); }
   }
 
   // Ambient Network Minimap
@@ -2639,23 +2639,23 @@ function bindEvents(): void {
 
   // Spatial Audio Voice Radar Modal
   document.getElementById('btn-open-spatial-audio')?.addEventListener('click', () => {
-    spatialAudio.openModal();
+    import('./spatial-audio.js').then(m => m.spatialAudio.openModal());
     soundEffects.playVoiceJoin();
     clientStore.notify();
   }, { signal });
   document.getElementById('spatial-modal-close-btn')?.addEventListener('click', () => {
-    spatialAudio.closeModal();
+    import('./spatial-audio.js').then(m => m.spatialAudio.closeModal());
     clientStore.notify();
   }, { signal });
 
   // 3D Spatial Audio Mesh Channel Modal
   document.getElementById('btn-open-spatial-audio-mesh')?.addEventListener('click', () => {
-    spatialAudioMesh.openModal();
-    soundPacks.play('MESSAGE_SENT');
+    import('./spatial-audio-mesh.js').then(m => m.spatialAudioMesh.openModal());
+    import('./sound-packs.js').then(m => m.soundPacks.play('MESSAGE_SENT'));
     clientStore.notify();
   }, { signal });
   document.getElementById('mesh-modal-close-btn')?.addEventListener('click', () => {
-    spatialAudioMesh.closeModal();
+    import('./spatial-audio-mesh.js').then(m => m.spatialAudioMesh.closeModal());
     clientStore.notify();
   }, { signal });
 
@@ -3026,7 +3026,7 @@ function bindEvents(): void {
   });
 
   // Attach Sovereign Sandbox runners to rendered code blocks
-  attachSandboxRunnersToDOM();
+  import('./code-sandbox.js').then(m => m.attachSandboxRunnersToDOM());
 
   // Identity info modal -> ZK Passport
   document.getElementById('btn-identity-info')?.addEventListener('click', () => {
@@ -3277,7 +3277,7 @@ function bindEvents(): void {
   }, { signal });
 
   // Sovereign Federated Mesh Widget Event Handlers
-  nodeFederationEngine.bindEvents();
+  import('./node-federation.js').then(m => m.nodeFederationEngine.bindEvents());
 
   // Profile View Handlers
   document.querySelectorAll('.btn-profile-tab').forEach(btn => {
@@ -3533,6 +3533,7 @@ function bindEvents(): void {
       activeDownloadName = fileName;
       btn.textContent = 'Connecting Swarm...';
 
+      const { p2pFileClient } = await import('./p2p-client.js');
       await p2pFileClient.downloadFileFromSwarm(fileName, byteSize, sha, (p) => {
         activeDownloadProgress = p.percentage;
         btn.textContent = `Downloading ${p.percentage}%`;
@@ -4395,7 +4396,7 @@ function bindEvents(): void {
   }
 
   // Code Sandbox: attach in-browser sandbox runner to any code blocks in posts
-  attachSandboxRunnersToDOM(document.body);
+  import('./code-sandbox.js').then(m => m.attachSandboxRunnersToDOM(document.body));
 
   // sovereignMnemonicModal binds on open
   // steganographyModal binds on open

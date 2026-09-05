@@ -546,7 +546,7 @@ export class OfflineSyncEngine {
       .join(', ') || 'none';
 
     return `
-      <div id="sync-modal-backdrop" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 select-none animate-in fade-in duration-150" onclick="if(event.target.id === 'sync-modal-backdrop') window.offlineSync && window.offlineSync.close();">
+      <div id="sync-modal-backdrop" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 select-none animate-in fade-in duration-150" data-action="call-global" data-global-method="if" data-global-args='[event.target.id === "sync-modal-backdrop") window.offlineSync && window.offlineSync.close(]'>
         <div class="relative w-full max-w-lg bg-surface-base border border-white/10 rounded-2xl p-6 shadow-2xl space-y-4 font-mono text-xs">
           
           <!-- HEADER -->

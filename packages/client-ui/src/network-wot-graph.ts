@@ -689,11 +689,9 @@ export class WoTGraphVisualizer {
           id="wot-node-${node.id}"
           transform="translate(${node.x.toFixed(2)}, ${node.y.toFixed(2)})"
           opacity="${nodeOpacity}"
-          class="cursor-pointer select-none transition-opacity duration-150"
-          onmousedown="window.wotGraphViz?.handleNodeMouseDown(event, '${node.id}')"
+          class="cursor-pointer select-none transition-opacity duration-150" data-mousedown="call-global" data-raw-mousedown="window.wotGraphViz?.handleNodeMouseDown(event, '${node.id}')"
           onmouseenter="window.wotGraphViz?.handleNodeMouseEnter('${node.id}')"
-          onmouseleave="window.wotGraphViz?.handleNodeMouseLeave()"
-          onclick="window.wotGraphViz?.handleNodeClick('${node.id}')"
+          onmouseleave="window.wotGraphViz?.handleNodeMouseLeave()" data-action="call-global" data-raw-click="window.wotGraphViz?.handleNodeClick('${node.id}')"
         >
           <!-- Pulsing Outer Halo for Archons & Sentinels -->
           ${(node.role === 'archon' || node.role === 'sentinel') && !isMuted ? `
@@ -789,8 +787,7 @@ export class WoTGraphVisualizer {
         viewBox="0 0 ${this.width} ${this.height}"
         class="w-full h-full block select-none bg-canvas rounded-xl shadow-inner border border-white/5"
         xmlns="http://www.w3.org/2000/svg"
-        onmousemove="window.wotGraphViz?.handleCanvasMouseMove(event)"
-        onmouseup="window.wotGraphViz?.handleCanvasMouseUp()"
+        onmousemove="window.wotGraphViz?.handleCanvasMouseMove(event)" data-mouseup="call-global" data-raw-mouseup="window.wotGraphViz?.handleCanvasMouseUp()"
         onmouseleave="window.wotGraphViz?.handleCanvasMouseUp()"
       >
         ${defs}
@@ -843,8 +840,7 @@ export class WoTGraphVisualizer {
             <!-- Header Actions -->
             <div class="flex items-center space-x-2">
               <button
-                id="btn-wot-refresh-sim"
-                onclick="window.wotGraphViz?.regenerateGraph()"
+                id="btn-wot-refresh-sim" data-action="call-global" data-raw-click="window.wotGraphViz?.regenerateGraph()"
                 class="px-3 py-1.5 rounded-lg bg-surface-overlay hover:bg-surface-highlight border border-white/10 text-gray-200 hover:text-white text-xs font-semibold flex items-center space-x-1.5 transition-all shadow-sm"
                 title="Regenerate graph with new parameters"
               >
@@ -853,8 +849,7 @@ export class WoTGraphVisualizer {
               </button>
 
               <button
-                id="btn-wot-toggle-anim"
-                onclick="window.wotGraphViz?.toggleAnimation()"
+                id="btn-wot-toggle-anim" data-action="call-global" data-raw-click="window.wotGraphViz?.toggleAnimation()"
                 class="px-3 py-1.5 rounded-lg ${this.isSimulating ? 'bg-amber-500/10 border-amber-500/30 text-amber' : 'bg-surface-overlay border-white/10 text-gray-300'} border text-xs font-semibold flex items-center space-x-1.5 transition-all shadow-sm"
               >
                 <span>${this.isSimulating ? '⏸' : '▶'}</span>
@@ -862,8 +857,7 @@ export class WoTGraphVisualizer {
               </button>
 
               <button
-                id="btn-close-wot-modal"
-                onclick="window.__aetheris_close_wot_graph && window.__aetheris_close_wot_graph();"
+                id="btn-close-wot-modal" data-action="call-global" data-raw-click="window.__aetheris_close_wot_graph && window.__aetheris_close_wot_graph()"
                 class="w-8 h-8 rounded-lg bg-surface-overlay hover:bg-crimson/20 border border-white/10 hover:border-crimson/40 text-gray-400 hover:text-crimson flex items-center justify-center text-sm transition-all cursor-pointer"
                 title="Close modal (Esc)"
               >
@@ -910,24 +904,19 @@ export class WoTGraphVisualizer {
               <div class="flex flex-wrap items-center justify-between gap-2 text-xs">
                 <!-- Role Filter Pills -->
                 <div class="flex items-center space-x-1.5 bg-surface-raised p-1 rounded-xl border border-white/5">
-                  <button
-                    onclick="window.wotGraphViz?.setRoleFilter('all')"
+                  <button data-action="call-global" data-raw-click="window.wotGraphViz?.setRoleFilter('all')"
                     class="px-2.5 py-1 rounded-lg font-medium transition-all ${this.activeRoleFilter === 'all' ? 'bg-cyan-500/20 text-cyphr border border-cyan-500/30' : 'text-gray-400 hover:text-white'}"
                   >All (${stats.totalNodes})</button>
-                  <button
-                    onclick="window.wotGraphViz?.setRoleFilter('archon')"
+                  <button data-action="call-global" data-raw-click="window.wotGraphViz?.setRoleFilter('archon')"
                     class="px-2.5 py-1 rounded-lg font-medium transition-all ${this.activeRoleFilter === 'archon' ? 'bg-amber-500/20 text-amber border border-amber-500/30' : 'text-gray-400 hover:text-white'}"
                   >👑 Archon (${stats.archonCount})</button>
-                  <button
-                    onclick="window.wotGraphViz?.setRoleFilter('sentinel')"
+                  <button data-action="call-global" data-raw-click="window.wotGraphViz?.setRoleFilter('sentinel')"
                     class="px-2.5 py-1 rounded-lg font-medium transition-all ${this.activeRoleFilter === 'sentinel' ? 'bg-cyan-500/20 text-cyphr border border-cyan-500/30' : 'text-gray-400 hover:text-white'}"
                   >🛡️ Sentinel (${stats.sentinelCount})</button>
-                  <button
-                    onclick="window.wotGraphViz?.setRoleFilter('validator')"
+                  <button data-action="call-global" data-raw-click="window.wotGraphViz?.setRoleFilter('validator')"
                     class="px-2.5 py-1 rounded-lg font-medium transition-all ${this.activeRoleFilter === 'validator' ? 'bg-emerald-500/20 text-signal border border-emerald-500/30' : 'text-gray-400 hover:text-white'}"
                   >⚡ Validator (${stats.validatorCount})</button>
-                  <button
-                    onclick="window.wotGraphViz?.setRoleFilter('citizen')"
+                  <button data-action="call-global" data-raw-click="window.wotGraphViz?.setRoleFilter('citizen')"
                     class="px-2.5 py-1 rounded-lg font-medium transition-all ${this.activeRoleFilter === 'citizen' ? 'bg-slate-500/20 text-gray-200 border border-slate-500/30' : 'text-gray-400 hover:text-white'}"
                   >🌐 Citizen (${stats.citizenCount})</button>
                 </div>
@@ -938,12 +927,11 @@ export class WoTGraphVisualizer {
                     id="wot-search-input"
                     type="text"
                     value="${this.escapeHtml(this.searchQuery)}"
-                    placeholder="Search fingerprint / alias..."
-                    oninput="window.wotGraphViz?.handleSearchInput(this.value)"
+                    placeholder="Search fingerprint / alias..." data-input="call-global" data-raw-input="window.wotGraphViz?.handleSearchInput(this.value)"
                     class="w-full bg-surface-raised border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500/50"
                   />
                   ${this.searchQuery ? `
-                    <button onclick="window.wotGraphViz?.handleSearchInput('')" class="absolute right-2.5 top-1.5 text-gray-400 hover:text-white text-xs">✕</button>
+                    <button data-action="call-global" data-raw-click="window.wotGraphViz?.handleSearchInput('')" class="absolute right-2.5 top-1.5 text-gray-400 hover:text-white text-xs">✕</button>
                   ` : ''}
                 </div>
               </div>
@@ -1068,16 +1056,14 @@ export class WoTGraphVisualizer {
 
                   <!-- Quick Actions for Node -->
                   <div class="grid grid-cols-2 gap-2 pt-2 border-subtle-b">
-                    <button
-                      onclick="window.wotGraphViz?.vouchForNode('${selectedNode.id}')"
+                    <button data-action="call-global" data-raw-click="window.wotGraphViz?.vouchForNode('${selectedNode.id}')"
                       class="px-3 py-2 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyphr text-xs font-semibold transition-all text-center flex items-center justify-center space-x-1"
                     >
                       <span>🤝</span>
                       <span>Vouch Node</span>
                     </button>
 
-                    <button
-                      onclick="window.wotGraphViz?.centerOnNode('${selectedNode.id}')"
+                    <button data-action="call-global" data-raw-click="window.wotGraphViz?.centerOnNode('${selectedNode.id}')"
                       class="px-3 py-2 rounded-lg bg-surface-overlay hover:bg-surface-highlight border border-white/10 text-gray-200 hover:text-white text-xs font-semibold transition-all text-center flex items-center justify-center space-x-1"
                     >
                       <span>🎯</span>
@@ -1110,8 +1096,7 @@ export class WoTGraphVisualizer {
                 min="0"
                 max="95"
                 step="5"
-                value="${this.trustThreshold}"
-                oninput="window.wotGraphViz?.setTrustThreshold(Number(this.value))"
+                value="${this.trustThreshold}" data-input="call-global" data-raw-input="window.wotGraphViz?.setTrustThreshold(Number(this.value))"
                 class="flex-1 h-2 bg-surface-overlay rounded-lg appearance-none cursor-pointer accent-cyan-400 focus:outline-none"
               />
               
@@ -1126,7 +1111,7 @@ export class WoTGraphVisualizer {
               <span class="text-gray-600">·</span>
               <span>Double-click to pin/unpin</span>
               <span class="text-gray-600">·</span>
-              <button onclick="window.wotGraphViz?.resetGraphPositions()" class="text-cyphr hover:underline">Reset Positions</button>
+              <button data-action="call-global" data-raw-click="window.wotGraphViz?.resetGraphPositions()" class="text-cyphr hover:underline">Reset Positions</button>
             </div>
           </div>
 
@@ -1143,8 +1128,7 @@ export class WoTGraphVisualizer {
     const stats = this.getStats();
     return `
       <button
-        id="btn-wot-graph-trigger"
-        onclick="window.wotGraphViz?.open()"
+        id="btn-wot-graph-trigger" data-action="call-global" data-raw-click="window.wotGraphViz?.open()"
         class="w-full flex items-center justify-between px-3 py-2.5 rounded-xl bg-surface-raised hover:bg-surface-overlay border border-white/5 hover:border-cyan-500/30 text-gray-200 hover:text-cyphr transition-all group shadow-sm"
         title="Open Web-of-Trust Graph (D3-style force visualizer)"
       >
@@ -1468,16 +1452,14 @@ export class WoTGraphVisualizer {
 
       <!-- Quick Actions for Node -->
       <div class="grid grid-cols-2 gap-2 pt-2 border-subtle-b">
-        <button
-          onclick="window.wotGraphViz?.vouchForNode('${selectedNode.id}')"
+        <button data-action="call-global" data-raw-click="window.wotGraphViz?.vouchForNode('${selectedNode.id}')"
           class="px-3 py-2 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyphr text-xs font-semibold transition-all text-center flex items-center justify-center space-x-1"
         >
           <span>🤝</span>
           <span>Vouch Node</span>
         </button>
 
-        <button
-          onclick="window.wotGraphViz?.centerOnNode('${selectedNode.id}')"
+        <button data-action="call-global" data-raw-click="window.wotGraphViz?.centerOnNode('${selectedNode.id}')"
           class="px-3 py-2 rounded-lg bg-surface-overlay hover:bg-surface-highlight border border-white/10 text-gray-200 hover:text-white text-xs font-semibold transition-all text-center flex items-center justify-center space-x-1"
         >
           <span>🎯</span>

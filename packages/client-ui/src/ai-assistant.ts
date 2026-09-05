@@ -499,15 +499,15 @@ export class LocalAIAssistant {
           <span class="text-base">🤖</span>
           <span class="font-bold text-white font-mono">${this.escapeHtml(suggestion.title)}</span>
         </div>
-        <button type="button" onclick="window.aiAssistant?.dismissSuggestion('${suggestion.id}')" class="text-slate-400 hover:text-white cursor-pointer px-1">✕</button>
+        <button type="button" data-action="call-global" data-raw-click="window.aiAssistant?.dismissSuggestion('${suggestion.id}')" class="text-slate-400 hover:text-white cursor-pointer px-1">✕</button>
       </div>
       <p class="text-slate-300 leading-relaxed font-sans">${this.escapeHtml(suggestion.message)}</p>
       <div class="flex items-center justify-between pt-1 border-t border-white/5">
-        <button type="button" onclick="window.aiAssistant?.dismissSuggestionType('${suggestion.type}')" class="text-[10px] font-mono text-slate-500 hover:text-rose-400 cursor-pointer">
+        <button type="button" data-action="call-global" data-raw-click="window.aiAssistant?.dismissSuggestionType('${suggestion.type}')" class="text-[10px] font-mono text-slate-500 hover:text-rose-400 cursor-pointer">
           Don't show this type again
         </button>
         <div class="flex items-center space-x-2">
-          <button type="button" onclick="window.aiAssistant?.dismissSuggestion('${suggestion.id}')" class="px-2.5 py-1 rounded-lg bg-surface-overlay text-slate-300 hover:text-white font-medium cursor-pointer">
+          <button type="button" data-action="call-global" data-raw-click="window.aiAssistant?.dismissSuggestion('${suggestion.id}')" class="px-2.5 py-1 rounded-lg bg-surface-overlay text-slate-300 hover:text-white font-medium cursor-pointer">
             Got it
           </button>
           ${suggestion.actionLabel ? `
@@ -1836,8 +1836,7 @@ export class LocalAIAssistant {
           </div>
           <button
             type="button"
-            id="btn-verify-airgap-${postId}"
-            onclick="(function(btn){
+            id="btn-verify-airgap-${postId}" data-action="call-global" data-raw-click="(function(btn){
               btn.disabled = true;
               btn.innerHTML = 'Testing...';
               setTimeout(function(){

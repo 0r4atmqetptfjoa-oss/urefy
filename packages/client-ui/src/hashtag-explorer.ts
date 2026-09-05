@@ -214,7 +214,7 @@ export class HashtagExplorer {
     const activeClass = isActive
       ? "ring-1 ring-cyphr bg-cyphr/10"
       : "bg-surface-overlay hover:bg-surface-highlight";
-    return `<button class="btn-hashtag px-2 py-1 text-xs font-mono rounded-full ${activeClass} border border-white/10 text-cyphr transition-all" data-tag="${normalized}" onclick="hashtagExplorer.setActiveTag(hashtagExplorer.activeTag === '${normalized}' ? null : '${normalized}')" title="Filter by #${normalized}">#${normalized} <span class="text-slate-400 text-[10px]">${count}</span></button>`;
+    return `<button class="btn-hashtag px-2 py-1 text-xs font-mono rounded-full ${activeClass} border border-white/10 text-cyphr transition-all" data-tag="${normalized}" data-action="call-global" data-global-method="hashtagExplorer.setActiveTag" data-global-args='[hashtagExplorer.activeTag === "${normalized}" ? null : "${normalized}"]' title="Filter by #${normalized}">#${normalized} <span class="text-slate-400 text-[10px]">${count}</span></button>`;
   }
 
   renderTagExplorerPanel(): string {
@@ -230,14 +230,14 @@ export class HashtagExplorer {
     const header = `<div class="flex items-center justify-between px-4 pt-4 pb-2 border-b border-white/5">
   <span class="text-xs font-semibold text-slate-400 uppercase tracking-widest"># Explorer</span>
   ${this.activeTag
-    ? `<button class="text-[10px] font-mono text-cyphr hover:text-white transition-colors px-2 py-0.5 rounded bg-cyphr/10 border border-cyphr/30" onclick="hashtagExplorer.setActiveTag(null)" title="Clear active tag">✕ #${this.activeTag}</button>`
+    ? `<button class="text-[10px] font-mono text-cyphr hover:text-white transition-colors px-2 py-0.5 rounded bg-cyphr/10 border border-cyphr/30" data-action="call-global" data-global-method="hashtagExplorer.setActiveTag" data-global-args='[null]' title="Clear active tag">✕ #${this.activeTag}</button>`
     : `<span class="text-[10px] text-slate-600 font-mono">no filter</span>`}
 </div>`;
 
     const search = `<div class="px-4 py-3">
   <div class="relative">
     <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 text-xs">#</span>
-    <input id="hashtag-search-input" type="text" placeholder="Search tags..." class="w-full bg-surface-overlay border border-white/10 rounded-lg text-xs font-mono text-slate-200 placeholder-slate-600 pl-6 pr-3 py-1.5 focus:outline-none focus:border-cyphr/50 focus:ring-1 focus:ring-cyphr/20 transition-all" oninput="hashtagExplorer._handleSearchInput(this.value)" />
+    <input id="hashtag-search-input" type="text" placeholder="Search tags..." class="w-full bg-surface-overlay border border-white/10 rounded-lg text-xs font-mono text-slate-200 placeholder-slate-600 pl-6 pr-3 py-1.5 focus:outline-none focus:border-cyphr/50 focus:ring-1 focus:ring-cyphr/20 transition-all" data-input="call-global" data-global-method="hashtagExplorer._handleSearchInput" />
   </div>
 </div>`;
 
@@ -305,7 +305,7 @@ ${statsFooter}
     <span class="text-xs text-slate-300 truncate">Showing posts tagged <span class="font-mono ${colorClass} font-semibold">#${this.activeTag}</span> <span class="text-slate-500 ml-1">(${count} result${count !== 1 ? "s" : ""})</span></span>
     <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-surface-raised border border-white/10 ${colorClass} shrink-0">${cat}</span>
   </div>
-  <button class="ml-3 shrink-0 text-[11px] font-mono text-slate-400 hover:text-white transition-colors px-2 py-0.5 rounded hover:bg-surface-raised border border-transparent hover:border-white/10" onclick="hashtagExplorer.setActiveTag(null)" aria-label="Clear tag filter">✕ Clear</button>
+  <button class="ml-3 shrink-0 text-[11px] font-mono text-slate-400 hover:text-white transition-colors px-2 py-0.5 rounded hover:bg-surface-raised border border-transparent hover:border-white/10" data-action="call-global" data-global-method="hashtagExplorer.setActiveTag" data-global-args='[null]' aria-label="Clear tag filter">✕ Clear</button>
 </div>`;
   }
 

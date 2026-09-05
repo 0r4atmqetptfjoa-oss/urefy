@@ -29,8 +29,7 @@ export function renderProfileSecurityHTML(profile: UserProfileData): string {
         </div>
         <button
           type="button"
-          id="btn-settings-register-passkey"
-          onclick="if(window.webAuthnManager){ window.webAuthnManager.registerDevicePasskey(); }else{ if(window.clientStore) window.clientStore.showToast('Passkey registered on local hardware.', 'success'); }"
+          id="btn-settings-register-passkey" data-action="call-global" data-raw-click="if(window.webAuthnManager){ window.webAuthnManager.registerDevicePasskey(); }else{ if(window.clientStore) window.clientStore.showToast('Passkey registered on local hardware.', 'success'); }"
           class="px-4 py-2 rounded-xl bg-surface-raised hover:bg-surface-overlay text-slate-200 border border-white/10 text-xs font-bold transition-all cursor-pointer"
         >
           Register Passkey
@@ -46,8 +45,7 @@ export function renderProfileSecurityHTML(profile: UserProfileData): string {
           </div>
           <button
             type="button"
-            id="btn-settings-toggle-seed"
-            onclick="const el=document.getElementById('settings-seed-display'); if(el){ el.classList.toggle('blur-sm'); }"
+            id="btn-settings-toggle-seed" data-action="call-global" data-raw-click="const el=document.getElementById('settings-seed-display'); if(el){ el.classList.toggle('blur-sm'); }"
             class="px-3 py-1 rounded-xl bg-surface-raised hover:bg-surface-overlay text-slate-300 border border-white/10 text-xs transition-colors cursor-pointer"
           >
             Reveal / Hide Seed
@@ -69,8 +67,7 @@ export function renderProfileSecurityHTML(profile: UserProfileData): string {
         </div>
         <button
           type="button"
-          id="btn-settings-open-social-guardians"
-          onclick="if(window.__aetheris_open_social_recovery) window.__aetheris_open_social_recovery();"
+          id="btn-settings-open-social-guardians" data-action="call-global" data-global-method="if" data-global-args='[window.__aetheris_open_social_recovery) window.__aetheris_open_social_recovery(]'
           class="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all cursor-pointer shadow"
         >
           Configure Guardians

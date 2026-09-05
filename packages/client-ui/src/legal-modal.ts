@@ -147,8 +147,7 @@ export class LegalModal {
               </div>
             </div>
             <button
-              type="button"
-              onclick="if(window.__aetheris_close_legal) window.__aetheris_close_legal();"
+              type="button" data-action="call-global" data-global-method="if" data-global-args='[window.__aetheris_close_legal) window.__aetheris_close_legal(]'
               class="text-slate-400 hover:text-white p-2 rounded-xl hover:bg-white/10 transition-colors cursor-pointer shrink-0 ml-2"
               title="Close (Esc)"
             >
@@ -159,8 +158,7 @@ export class LegalModal {
           <!-- Navigation Tabs -->
           <div class="flex overflow-x-auto border-b border-white/10 bg-black/40 px-3 sm:px-6 space-x-1 pt-1.5 sm:pt-2 no-scrollbar scroll-smooth" style="-webkit-overflow-scrolling: touch;">
             <button
-              type="button"
-              onclick="if(window.__aetheris_set_legal_tab) window.__aetheris_set_legal_tab('about');"
+              type="button" data-action="call-global" data-global-method="if" data-global-args='[window.__aetheris_set_legal_tab) window.__aetheris_set_legal_tab("about"]'
               class="px-2.5 sm:px-3 py-1.5 sm:py-2 text-[11px] sm:text-xs font-semibold whitespace-nowrap transition-all border-b-2 cursor-pointer ${
                 this._activeTab === 'about'
                   ? 'border-cyan-400 text-cyan-300 bg-white/5'
@@ -170,8 +168,7 @@ export class LegalModal {
               ℹ️ About Us
             </button>
             <button
-              type="button"
-              onclick="if(window.__aetheris_set_legal_tab) window.__aetheris_set_legal_tab('terms');"
+              type="button" data-action="call-global" data-global-method="if" data-global-args='[window.__aetheris_set_legal_tab) window.__aetheris_set_legal_tab("terms"]'
               class="px-2.5 sm:px-3 py-1.5 sm:py-2 text-[11px] sm:text-xs font-semibold whitespace-nowrap transition-all border-b-2 cursor-pointer ${
                 this._activeTab === 'terms'
                   ? 'border-cyan-400 text-cyan-300 bg-white/5'
@@ -181,8 +178,7 @@ export class LegalModal {
               📜 Terms of Service
             </button>
             <button
-              type="button"
-              onclick="if(window.__aetheris_set_legal_tab) window.__aetheris_set_legal_tab('privacy');"
+              type="button" data-action="call-global" data-global-method="if" data-global-args='[window.__aetheris_set_legal_tab) window.__aetheris_set_legal_tab("privacy"]'
               class="px-2.5 sm:px-3 py-1.5 sm:py-2 text-[11px] sm:text-xs font-semibold whitespace-nowrap transition-all border-b-2 cursor-pointer ${
                 this._activeTab === 'privacy'
                   ? 'border-cyan-400 text-cyan-300 bg-white/5'
@@ -192,8 +188,7 @@ export class LegalModal {
               🛡️ Privacy Policy (GDPR)
             </button>
             <button
-              type="button"
-              onclick="if(window.__aetheris_set_legal_tab) window.__aetheris_set_legal_tab('rules');"
+              type="button" data-action="call-global" data-global-method="if" data-global-args='[window.__aetheris_set_legal_tab) window.__aetheris_set_legal_tab("rules"]'
               class="px-2.5 sm:px-3 py-1.5 sm:py-2 text-[11px] sm:text-xs font-semibold whitespace-nowrap transition-all border-b-2 cursor-pointer ${
                 this._activeTab === 'rules'
                   ? 'border-cyan-400 text-cyan-300 bg-white/5'
@@ -203,8 +198,7 @@ export class LegalModal {
               ⚖️ Rules & Moderation
             </button>
             <button
-              type="button"
-              onclick="if(window.__aetheris_set_legal_tab) window.__aetheris_set_legal_tab('dsa');"
+              type="button" data-action="call-global" data-global-method="if" data-global-args='[window.__aetheris_set_legal_tab) window.__aetheris_set_legal_tab("dsa"]'
               class="px-2.5 sm:px-3 py-1.5 sm:py-2 text-[11px] sm:text-xs font-semibold whitespace-nowrap transition-all border-b-2 cursor-pointer ${
                 this._activeTab === 'dsa'
                   ? 'border-cyan-400 text-cyan-300 bg-white/5'
@@ -216,8 +210,7 @@ export class LegalModal {
               <span class="sm:hidden">Report (DSA)</span>
             </button>
             <button
-              type="button"
-              onclick="if(window.__aetheris_set_legal_tab) window.__aetheris_set_legal_tab('contact');"
+              type="button" data-action="call-global" data-global-method="if" data-global-args='[window.__aetheris_set_legal_tab) window.__aetheris_set_legal_tab("contact"]'
               class="px-2.5 sm:px-3 py-1.5 sm:py-2 text-[11px] sm:text-xs font-semibold whitespace-nowrap transition-all border-b-2 cursor-pointer ${
                 this._activeTab === 'contact'
                   ? 'border-cyan-400 text-cyan-300 bg-white/5'
@@ -237,8 +230,7 @@ export class LegalModal {
           <div class="flex items-center justify-between px-4 sm:px-6 py-3 border-t border-white/10 bg-surface-raised/50 font-mono text-[10px] sm:text-[11px]">
             <span class="text-slate-400 truncate mr-2">© 2026 Aetheris · EU DSA Compliant</span>
             <button
-              type="button"
-              onclick="if(window.__aetheris_close_legal) window.__aetheris_close_legal();"
+              type="button" data-action="call-global" data-global-method="if" data-global-args='[window.__aetheris_close_legal) window.__aetheris_close_legal(]'
               class="px-3 sm:px-4 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white font-medium transition-colors cursor-pointer shrink-0"
             >
               Close
@@ -350,15 +342,14 @@ export class LegalModal {
                   The report has been recorded in the Cloudflare D1 ledger and dispatched to compliance moderators.
                 </p>
                 <button
-                  type="button"
-                  onclick="if(window.__aetheris_open_legal) window.__aetheris_open_legal('dsa');"
+                  type="button" data-action="call-global" data-global-method="if" data-global-args='[window.__aetheris_open_legal) window.__aetheris_open_legal("dsa"]'
                   class="px-4 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 text-xs font-semibold cursor-pointer transition-colors"
                 >
                   Submit another report
                 </button>
               </div>
             ` : `
-              <form id="dsa-report-form" onsubmit="event.preventDefault(); if(window.__aetheris_submit_dsa_report) window.__aetheris_submit_dsa_report();" class="space-y-3 bg-black/30 p-4 rounded-xl border border-white/5">
+              <form id="dsa-report-form" data-submit="call-global" data-global-method="event.preventDefault" class="space-y-3 bg-black/30 p-4 rounded-xl border border-white/5">
                 <div class="font-bold text-xs text-white">Official Illegal Content Notification Form (Notice & Takedown)</div>
 
                 <div>

@@ -1088,8 +1088,7 @@ export class SlideDeckManager {
     // Speaker blackout view
     if (this.isBlackoutActive) {
       return `
-        <div class="fixed inset-0 z-[9999] bg-black flex flex-col items-center justify-center select-none cursor-pointer transition-opacity duration-300"
-             onclick="window.slideDeckManager.toggleBlackout()">
+        <div class="fixed inset-0 z-[9999] bg-black flex flex-col items-center justify-center select-none cursor-pointer transition-opacity duration-300" data-action="call-global" data-global-method="slideDeckManager.toggleBlackout">
           <div class="text-slate-700 font-mono text-sm uppercase tracking-widest animate-pulse">
             ● Blackout Mode (Press [B] or click to resume)
           </div>
@@ -1119,8 +1118,7 @@ export class SlideDeckManager {
                 <span class="text-cyphr">⚡</span> ${escapeHtml(currentSlide.codeLanguage || 'typescript')}
               </span>
             </div>
-            <button id="slide-copy-code-btn"
-                    onclick="window.slideDeckManager.copyCurrentSlideCode()"
+            <button id="slide-copy-code-btn" data-action="call-global" data-global-method="slideDeckManager.copyCurrentSlideCode"
                     class="px-3 py-1 rounded-lg text-xs font-mono font-medium text-slate-300 bg-surface-overlay hover:bg-surface-highlight hover:text-white border border-white/10 transition-colors flex items-center gap-1.5 shadow-sm">
               📋 Copy
             </button>
@@ -1148,7 +1146,7 @@ export class SlideDeckManager {
             <span class="text-xs font-mono font-bold tracking-wider text-aether uppercase flex items-center gap-2">
               📝 Speaker Notes
             </span>
-            <button onclick="window.slideDeckManager.toggleSpeakerNotes()" class="text-slate-400 hover:text-white text-sm font-mono">✕</button>
+            <button data-action="call-global" data-global-method="slideDeckManager.toggleSpeakerNotes" class="text-slate-400 hover:text-white text-sm font-mono">✕</button>
           </div>
           <div class="text-slate-200 text-sm leading-relaxed font-sans whitespace-pre-wrap">
             ${notesContent}
@@ -1168,7 +1166,7 @@ export class SlideDeckManager {
             : 'border-white/10 bg-surface-base/80 hover:border-white/30 hover:bg-surface-raised opacity-70 hover:opacity-100';
 
           return `
-            <button onclick="window.slideDeckManager.goToSlide(${idx})"
+            <button data-action="call-global" data-global-method="slideDeckManager.goToSlide" data-global-args='[${idx}]'
                     class="shrink-0 w-36 h-20 rounded-xl border p-2.5 text-left flex flex-col justify-between transition-all duration-200 ${activeClass}">
               <div class="flex items-center justify-between w-full">
                 <span class="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-black/40 text-slate-300">#${idx + 1}</span>
@@ -1201,7 +1199,7 @@ export class SlideDeckManager {
           : 'w-2.5 h-2.5 bg-white/20 hover:bg-white/50 rounded-full cursor-pointer transition-all';
 
         return `
-          <button onclick="window.slideDeckManager.goToSlide(${idx})"
+          <button data-action="call-global" data-global-method="slideDeckManager.goToSlide" data-global-args='[${idx}]'
                   title="Go to slide ${idx + 1}"
                   class="${dotClass} transition-all duration-300 inline-block"></button>
         `;
@@ -1249,40 +1247,40 @@ export class SlideDeckManager {
             
             <!-- Font Size Adjusters -->
             <div class="hidden md:flex items-center bg-surface-base rounded-lg border border-white/10 p-0.5">
-              <button onclick="window.slideDeckManager.decreaseFontSize()" title="Decrease font size" class="px-2 py-1 text-xs font-mono hover:bg-surface-raised rounded text-slate-300 hover:text-white">A-</button>
-              <button onclick="window.slideDeckManager.increaseFontSize()" title="Increase font size" class="px-2 py-1 text-xs font-mono hover:bg-surface-raised rounded text-slate-300 hover:text-white">A+</button>
+              <button data-action="call-global" data-global-method="slideDeckManager.decreaseFontSize" title="Decrease font size" class="px-2 py-1 text-xs font-mono hover:bg-surface-raised rounded text-slate-300 hover:text-white">A-</button>
+              <button data-action="call-global" data-global-method="slideDeckManager.increaseFontSize" title="Increase font size" class="px-2 py-1 text-xs font-mono hover:bg-surface-raised rounded text-slate-300 hover:text-white">A+</button>
             </div>
 
             <!-- Autoplay Toggle -->
-            <button onclick="window.slideDeckManager.toggleAutoplay()"
+            <button data-action="call-global" data-global-method="slideDeckManager.toggleAutoplay"
                     title="Autoplay Slides [P]"
                     class="px-3 py-1.5 rounded-xl border text-xs font-mono font-semibold transition-all flex items-center gap-1.5 ${this.isAutoplayRunning ? 'bg-signal/20 border-signal/50 text-signal animate-pulse' : 'bg-surface-base border-white/10 text-slate-300 hover:bg-surface-raised hover:text-white'}">
               ${this.isAutoplayRunning ? '⏸ Pause' : '▶ Auto'}
             </button>
 
             <!-- Speaker Notes Toggle -->
-            <button onclick="window.slideDeckManager.toggleSpeakerNotes()"
+            <button data-action="call-global" data-global-method="slideDeckManager.toggleSpeakerNotes"
                     title="Toggle Speaker Notes [N]"
                     class="px-3 py-1.5 rounded-xl border text-xs font-mono font-semibold transition-all flex items-center gap-1.5 ${this.config.showNotes ? 'bg-aether/20 border-aether/50 text-aether' : 'bg-surface-base border-white/10 text-slate-300 hover:bg-surface-raised hover:text-white'}">
               📝 Notes
             </button>
 
             <!-- Thumbnails Toggle -->
-            <button onclick="window.slideDeckManager.toggleThumbnails()"
+            <button data-action="call-global" data-global-method="slideDeckManager.toggleThumbnails"
                     title="Toggle Thumbnails Track [T]"
                     class="p-2 rounded-xl border bg-surface-base border-white/10 text-slate-300 hover:bg-surface-raised hover:text-white transition-all text-xs">
               🗂️
             </button>
 
             <!-- Fullscreen Button -->
-            <button onclick="window.slideDeckManager.toggleFullscreen()"
+            <button data-action="call-global" data-global-method="slideDeckManager.toggleFullscreen"
                     title="Toggle Fullscreen [F]"
                     class="p-2 rounded-xl border bg-surface-base border-white/10 text-slate-300 hover:bg-surface-raised hover:text-white transition-all text-xs">
               ⛶
             </button>
 
             <!-- Exit Button -->
-            <button onclick="window.slideDeckManager.exitPresentation()"
+            <button data-action="call-global" data-global-method="slideDeckManager.exitPresentation"
                     title="Exit Presentation [Esc]"
                     class="ml-2 px-3 py-1.5 rounded-xl bg-crimson/20 hover:bg-crimson/40 text-crimson border border-crimson/40 text-xs font-mono font-bold transition-all shadow-sm flex items-center gap-1">
               ✕ Exit
@@ -1294,7 +1292,7 @@ export class SlideDeckManager {
         <main class="flex-1 relative flex items-center justify-center p-6 md:p-12 overflow-y-auto z-20">
           
           <!-- Left Floating Navigation Arrow -->
-          <button onclick="window.slideDeckManager.goPrev()"
+          <button data-action="call-global" data-global-method="slideDeckManager.goPrev"
                   ${this.currentIndex === 0 ? 'disabled' : ''}
                   title="Previous Slide [Left Arrow]"
                   class="absolute left-4 md:left-8 top-1/2 -translate-y-1/2 z-40 w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-[#12151c]/80 hover:bg-surface-overlay border border-white/10 hover:border-cyphr/50 flex items-center justify-center text-xl text-slate-300 hover:text-cyphr transition-all duration-200 shadow-xl backdrop-blur-md disabled:opacity-20 disabled:pointer-events-none hover:scale-110 active:scale-95 group">
@@ -1302,7 +1300,7 @@ export class SlideDeckManager {
           </button>
 
           <!-- Right Floating Navigation Arrow -->
-          <button onclick="window.slideDeckManager.goNext()"
+          <button data-action="call-global" data-global-method="slideDeckManager.goNext"
                   ${this.currentIndex === this.slides.length - 1 ? 'disabled' : ''}
                   title="Next Slide [Right Arrow / Space]"
                   class="absolute right-4 md:right-8 top-1/2 -translate-y-1/2 z-40 w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-[#12151c]/80 hover:bg-surface-overlay border border-white/10 hover:border-cyphr/50 flex items-center justify-center text-xl text-slate-300 hover:text-cyphr transition-all duration-200 shadow-xl backdrop-blur-md disabled:opacity-20 disabled:pointer-events-none hover:scale-110 active:scale-95 group">
@@ -1382,12 +1380,12 @@ export class SlideDeckManager {
 
             <!-- Right mini navigation controls -->
             <div class="flex items-center gap-2">
-              <button onclick="window.slideDeckManager.goPrev()"
+              <button data-action="call-global" data-global-method="slideDeckManager.goPrev"
                       ${this.currentIndex === 0 ? 'disabled' : ''}
                       class="px-2.5 py-1 rounded-lg bg-surface-base hover:bg-surface-raised border border-white/10 text-xs font-mono text-slate-300 disabled:opacity-30 disabled:pointer-events-none transition-colors">
                 Previous
               </button>
-              <button onclick="window.slideDeckManager.goNext()"
+              <button data-action="call-global" data-global-method="slideDeckManager.goNext"
                       ${this.currentIndex === this.slides.length - 1 ? 'disabled' : ''}
                       class="px-2.5 py-1 rounded-lg bg-surface-base hover:bg-surface-raised border border-white/10 text-xs font-mono text-slate-300 disabled:opacity-30 disabled:pointer-events-none transition-colors">
                 Next
@@ -1413,7 +1411,7 @@ export class SlideDeckManager {
     const safeLabel = escapeHtml(customLabel);
 
     return `
-      <button onclick="(function(){
+      <button data-action="call-global" data-raw-click="(function(){
                 const postElem = document.querySelector('[data-post-id=\\'${safePostId}\\']') || document.getElementById('${safePostId}');
                 const titleElem = postElem ? postElem.querySelector('.post-title, [data-field=\\'title\\'], h2, h3') : null;
                 const bodyElem = postElem ? postElem.querySelector('.post-content, [data-field=\\'content\\'], .markdown-body') : null;

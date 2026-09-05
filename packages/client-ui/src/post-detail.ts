@@ -368,13 +368,13 @@ export class PostDetailView {
     const replyCount = post.replyCount || (comments ? comments.length : 0);
 
     return `
-      <div id="post-detail-modal-overlay" onclick="if(event.target.id==='post-detail-modal-overlay'){if(window.postDetailView){window.postDetailView.closePost();}}" class="fixed inset-0 z-[60] bg-black/85 backdrop-blur-md overflow-y-auto flex justify-center p-4 md:p-8 animate-in fade-in duration-150 select-none">
-        <div class="max-w-4xl w-full bg-surface-base border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col my-auto max-h-[94vh]" onclick="event.stopPropagation()">
+      <div id="post-detail-modal-overlay" data-action="call-global" data-raw-click="if(event.target.id==='post-detail-modal-overlay'){if(window.postDetailView){window.postDetailView.closePost();}}" class="fixed inset-0 z-[60] bg-black/85 backdrop-blur-md overflow-y-auto flex justify-center p-4 md:p-8 animate-in fade-in duration-150 select-none">
+        <div class="max-w-4xl w-full bg-surface-base border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col my-auto max-h-[94vh]" data-action="stop-propagation">
           
           <!-- ─── HEADER BAR ─────────────────────────────────────────── -->
           <header class="h-14 border-subtle-b bg-surface-raised/80 px-4 md:px-6 flex items-center justify-between shrink-0">
             <div class="flex items-center space-x-3 truncate">
-              <button id="btn-back-to-feed" onclick="if(window.postDetailView){window.postDetailView.closePost();}" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-surface-base hover:bg-surface-overlay text-slate-300 hover:text-white text-xs font-semibold border border-white/5 transition-all cursor-pointer">
+              <button id="btn-back-to-feed" data-action="call-global" data-raw-click="if(window.postDetailView){window.postDetailView.closePost();}" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-surface-base hover:bg-surface-overlay text-slate-300 hover:text-white text-xs font-semibold border border-white/5 transition-all cursor-pointer">
                 <svg class="w-4 h-4 text-cyphr" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
                 </svg>
@@ -403,7 +403,7 @@ export class PostDetailView {
                 </button>
               </div>
 
-              <button id="btn-close-post-detail" onclick="if(window.postDetailView){window.postDetailView.closePost();}" class="flex items-center space-x-1 px-2.5 py-1.5 rounded-lg bg-surface-base hover:bg-crimson/20 text-slate-400 hover:text-crimson text-xs font-mono border border-white/5 hover:border-crimson/30 transition-all cursor-pointer" title="Close modal (ESC)">
+              <button id="btn-close-post-detail" data-action="call-global" data-raw-click="if(window.postDetailView){window.postDetailView.closePost();}" class="flex items-center space-x-1 px-2.5 py-1.5 rounded-lg bg-surface-base hover:bg-crimson/20 text-slate-400 hover:text-crimson text-xs font-mono border border-white/5 hover:border-crimson/30 transition-all cursor-pointer" title="Close modal (ESC)">
                 <span>✕</span>
                 <span class="hidden sm:inline">Close (ESC)</span>
               </button>

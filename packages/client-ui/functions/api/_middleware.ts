@@ -96,7 +96,7 @@ export function getCorsHeaders(req: Request): Record<string, string> {
 // ─── SECURITY HEADERS ─────────────────────────────────────────────────────────
 const SECURITY_HEADERS: Record<string, string> = {
   'Content-Security-Policy':
-    "default-src 'self'; manifest-src 'self' blob:; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://*; media-src 'self' blob: data: https://*; connect-src 'self' wss: ws: https:; worker-src 'self' blob:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests;",
+    "default-src 'self'; manifest-src 'self' blob:; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://images.unsplash.com https://*.ytimg.com https://*.youtube.com https://avatars.githubusercontent.com; media-src 'self' blob: data: https://commondatastorage.googleapis.com; connect-src 'self' wss: ws: https:; worker-src 'self' blob:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests;",
   'Strict-Transport-Security': 'max-age=63072000; includeSubDomains; preload',
   'X-Content-Type-Options': 'nosniff',
   'X-Frame-Options': 'DENY',

@@ -520,8 +520,7 @@ export class OnboardingWizard {
           <div class="flex items-center space-x-2 pt-1">
             <button
               type="button"
-              id="btn-copy-seed-words"
-              onclick="window.onboardingWizard.copySeedWords()"
+              id="btn-copy-seed-words" data-action="call-global" data-global-method="onboardingWizard.copySeedWords"
               class="px-3 py-1.5 rounded-lg bg-surface-overlay hover:bg-surface-highlight border border-white/10 text-xs font-mono text-slate-200 hover:text-white transition-all flex items-center space-x-1.5 cursor-pointer"
             >
               <span>📋</span>
@@ -529,8 +528,7 @@ export class OnboardingWizard {
             </button>
 
             <button
-              type="button"
-              onclick="window.onboardingWizard.downloadBackup()"
+              type="button" data-action="call-global" data-global-method="onboardingWizard.downloadBackup"
               class="px-3 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-xs font-mono text-amber-300 transition-all flex items-center space-x-1.5 cursor-pointer"
             >
               <span>💾</span>
@@ -550,8 +548,7 @@ export class OnboardingWizard {
           <input
             type="checkbox"
             id="checkbox-seed-saved-confirm"
-            ${this.seedSavedConfirmed ? 'checked' : ''}
-            onchange="window.onboardingWizard.toggleSeedConfirmation(this.checked)"
+            ${this.seedSavedConfirmed ? 'checked' : ''} data-change="call-global" data-global-method="onboardingWizard.toggleSeedConfirmation"
             class="w-4 h-4 rounded text-emerald-500 focus:ring-0 cursor-pointer"
           />
           <span class="text-xs font-medium text-slate-200 select-none font-sans">
@@ -612,8 +609,7 @@ export class OnboardingWizard {
           return `
             <div class="flex flex-col items-center gap-1.5 relative group">
               <button
-                type="button"
-                onclick="window.onboardingWizard.currentStep = ${idx}; window.onboardingWizard.syncUI();"
+                type="button" data-action="call-global" data-raw-click="window.onboardingWizard.currentStep = ${idx}; window.onboardingWizard.syncUI()"
                 class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-mono transition-all cursor-pointer ${dotClass}"
               >
                 ${isPassed ? '✓' : idx + 1}
@@ -664,8 +660,7 @@ export class OnboardingWizard {
               <span class="text-xs font-mono text-slate-400 mr-2">${stepOfText}</span>
               <button
                 type="button"
-                id="btn-skip-onboarding"
-                onclick="window.onboardingWizard.skip()"
+                id="btn-skip-onboarding" data-action="call-global" data-global-method="onboardingWizard.skip"
                 class="px-2.5 py-1 text-xs font-mono text-slate-400 hover:text-white rounded bg-surface-overlay hover:bg-surface-highlight transition-all border border-white/5 cursor-pointer"
               >
                 ${skipText} ✕
@@ -688,8 +683,7 @@ export class OnboardingWizard {
             <div>
               ${!isFirst ? `
                 <button
-                  type="button"
-                  onclick="window.onboardingWizard.previous()"
+                  type="button" data-action="call-global" data-global-method="onboardingWizard.previous"
                   class="px-4 py-2 rounded-xl bg-surface-overlay hover:bg-surface-highlight text-slate-200 text-xs font-semibold tracking-wide border border-white/10 transition-all flex items-center gap-1.5 cursor-pointer"
                 >
                   <span>←</span>
@@ -703,8 +697,7 @@ export class OnboardingWizard {
             <div class="flex items-center space-x-3">
               ${!isLast ? `
                 <button
-                  type="button"
-                  onclick="window.onboardingWizard.next()"
+                  type="button" data-action="call-global" data-global-method="onboardingWizard.next"
                   class="px-6 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black font-bold text-xs tracking-wider uppercase shadow-[0_0_20px_rgba(0,229,255,0.3)] transition-all flex items-center gap-2 transform active:scale-95 cursor-pointer"
                 >
                   <span>${continueText}</span>
@@ -713,8 +706,7 @@ export class OnboardingWizard {
               ` : `
                 <button
                   type="button"
-                  id="btn-onboarding-finish"
-                  onclick="window.onboardingWizard.finish()"
+                  id="btn-onboarding-finish" data-action="call-global" data-global-method="onboardingWizard.finish"
                   class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white font-bold text-xs tracking-wider uppercase shadow-[0_0_25px_rgba(0,229,255,0.4)] transition-all flex items-center gap-2 transform active:scale-95 cursor-pointer"
                 >
                   <span>${finishText}</span>

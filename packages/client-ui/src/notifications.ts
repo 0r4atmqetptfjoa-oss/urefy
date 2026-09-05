@@ -168,8 +168,7 @@ class NotificationCenter {
     return `<button
   id="btn-notifications"
   aria-label="Notifications${count > 0 ? ` (${count} unread)` : ''}"
-  class="relative flex items-center justify-center w-8 h-8 rounded-md text-slate-400 hover:text-white hover:bg-surface-overlay transition-all duration-150 focus:outline-none focus:ring-1 focus:ring-white/20"
-  onclick="window.__aetherisNotifCenter && window.__aetherisNotifCenter.togglePanel()"
+  class="relative flex items-center justify-center w-8 h-8 rounded-md text-slate-400 hover:text-white hover:bg-surface-overlay transition-all duration-150 focus:outline-none focus:ring-1 focus:ring-white/20" data-action="call-global" data-raw-click="window.__aetherisNotifCenter && window.__aetherisNotifCenter.togglePanel()"
 >
   <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
     <path stroke-linecap="round" stroke-linejoin="round"
@@ -192,7 +191,7 @@ class NotificationCenter {
     return `
       <div id="notification-modal-wrapper" class="fixed inset-0 z-[9999] pointer-events-none flex justify-center sm:justify-end">
         <!-- BACKDROP -->
-        <div id="notification-backdrop" class="fixed inset-0 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150 cursor-pointer pointer-events-auto" onclick="if(window.__aetherisCloseNotifs) window.__aetherisCloseNotifs();"></div>
+        <div id="notification-backdrop" class="fixed inset-0 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150 cursor-pointer pointer-events-auto" data-action="call-global" data-global-method="if" data-global-args='[window.__aetherisCloseNotifs) window.__aetherisCloseNotifs(]'></div>
 
         <!-- NOTIFICATION PANEL -->
         <div
@@ -211,24 +210,21 @@ class NotificationCenter {
             <div class="flex items-center gap-2">
               <button
                 type="button"
-                class="text-xs text-indigo-400 hover:text-white transition-colors cursor-pointer ${markAllDisabled}"
-                onclick="if(window.__aetherisNotifCenter){window.__aetherisNotifCenter.markAllRead(); if(window.clientStore)window.clientStore.notify();}"
+                class="text-xs text-indigo-400 hover:text-white transition-colors cursor-pointer ${markAllDisabled}" data-action="call-global" data-raw-click="if(window.__aetherisNotifCenter){window.__aetherisNotifCenter.markAllRead(); if(window.clientStore)window.clientStore.notify();}"
               >
                 ${t('notifications.markAllRead', undefined, 'Mark read')}
               </button>
               <span class="text-white/20 text-xs">|</span>
               <button
                 type="button"
-                class="text-xs text-slate-500 hover:text-rose-400 transition-colors cursor-pointer"
-                onclick="if(window.__aetherisNotifCenter){window.__aetherisNotifCenter.clearAll(); if(window.clientStore)window.clientStore.notify();}"
+                class="text-xs text-slate-500 hover:text-rose-400 transition-colors cursor-pointer" data-action="call-global" data-raw-click="if(window.__aetherisNotifCenter){window.__aetherisNotifCenter.clearAll(); if(window.clientStore)window.clientStore.notify();}"
               >
                 ${t('notifications.clearAll', undefined, 'Clear')}
               </button>
               <span class="text-white/20 text-xs">|</span>
               <button
                 type="button"
-                class="text-xs text-slate-400 hover:text-white transition-colors cursor-pointer p-1"
-                onclick="if(window.__aetherisCloseNotifs) window.__aetherisCloseNotifs();"
+                class="text-xs text-slate-400 hover:text-white transition-colors cursor-pointer p-1" data-action="call-global" data-global-method="if" data-global-args='[window.__aetherisCloseNotifs) window.__aetherisCloseNotifs(]'
               >
                 ✕
               </button>
@@ -239,29 +235,25 @@ class NotificationCenter {
           <div class="flex items-center space-x-1.5 px-3 py-2 border-b border-white/10 bg-surface-raised/40 text-xs flex-shrink-0">
             <button
               type="button"
-              class="notif-filter-btn px-2.5 py-1 rounded-lg font-mono text-[11px] transition-all cursor-pointer ${this.activeFilter === 'all' ? 'bg-indigo-500/20 text-indigo-300 font-bold border border-indigo-500/30' : 'text-slate-400 hover:text-white'}"
-              onclick="if(window.__aetherisNotifCenter){window.__aetherisNotifCenter.setFilter('all'); if(window.clientStore)window.clientStore.notify();}"
+              class="notif-filter-btn px-2.5 py-1 rounded-lg font-mono text-[11px] transition-all cursor-pointer ${this.activeFilter === 'all' ? 'bg-indigo-500/20 text-indigo-300 font-bold border border-indigo-500/30' : 'text-slate-400 hover:text-white'}" data-action="call-global" data-raw-click="if(window.__aetherisNotifCenter){window.__aetherisNotifCenter.setFilter('all'); if(window.clientStore)window.clientStore.notify();}"
             >
               ${t('notifications.filterAll', undefined, 'All')} (${this._notifications.length})
             </button>
             <button
               type="button"
-              class="notif-filter-btn px-2.5 py-1 rounded-lg font-mono text-[11px] transition-all cursor-pointer ${this.activeFilter === 'unread' ? 'bg-indigo-500/20 text-indigo-300 font-bold border border-indigo-500/30' : 'text-slate-400 hover:text-white'}"
-              onclick="if(window.__aetherisNotifCenter){window.__aetherisNotifCenter.setFilter('unread'); if(window.clientStore)window.clientStore.notify();}"
+              class="notif-filter-btn px-2.5 py-1 rounded-lg font-mono text-[11px] transition-all cursor-pointer ${this.activeFilter === 'unread' ? 'bg-indigo-500/20 text-indigo-300 font-bold border border-indigo-500/30' : 'text-slate-400 hover:text-white'}" data-action="call-global" data-raw-click="if(window.__aetherisNotifCenter){window.__aetherisNotifCenter.setFilter('unread'); if(window.clientStore)window.clientStore.notify();}"
             >
               Unread (${this.unreadCount})
             </button>
             <button
               type="button"
-              class="notif-filter-btn px-2.5 py-1 rounded-lg font-mono text-[11px] transition-all cursor-pointer ${this.activeFilter === 'mentions' ? 'bg-indigo-500/20 text-indigo-300 font-bold border border-indigo-500/30' : 'text-slate-400 hover:text-white'}"
-              onclick="if(window.__aetherisNotifCenter){window.__aetherisNotifCenter.setFilter('mentions'); if(window.clientStore)window.clientStore.notify();}"
+              class="notif-filter-btn px-2.5 py-1 rounded-lg font-mono text-[11px] transition-all cursor-pointer ${this.activeFilter === 'mentions' ? 'bg-indigo-500/20 text-indigo-300 font-bold border border-indigo-500/30' : 'text-slate-400 hover:text-white'}" data-action="call-global" data-raw-click="if(window.__aetherisNotifCenter){window.__aetherisNotifCenter.setFilter('mentions'); if(window.clientStore)window.clientStore.notify();}"
             >
               ${t('notifications.filterMentions', undefined, 'Mentions')}
             </button>
             <button
               type="button"
-              class="notif-filter-btn px-2.5 py-1 rounded-lg font-mono text-[11px] transition-all cursor-pointer ${this.activeFilter === 'awards' ? 'bg-indigo-500/20 text-indigo-300 font-bold border border-indigo-500/30' : 'text-slate-400 hover:text-white'}"
-              onclick="if(window.__aetherisNotifCenter){window.__aetherisNotifCenter.setFilter('awards'); if(window.clientStore)window.clientStore.notify();}"
+              class="notif-filter-btn px-2.5 py-1 rounded-lg font-mono text-[11px] transition-all cursor-pointer ${this.activeFilter === 'awards' ? 'bg-indigo-500/20 text-indigo-300 font-bold border border-indigo-500/30' : 'text-slate-400 hover:text-white'}" data-action="call-global" data-raw-click="if(window.__aetherisNotifCenter){window.__aetherisNotifCenter.setFilter('awards'); if(window.clientStore)window.clientStore.notify();}"
             >
               ${t('notifications.filterAwards', undefined, 'Awards')}
             </button>
@@ -299,8 +291,7 @@ class NotificationCenter {
 
     return `<div
   class="${rowBg} px-4 py-3 flex items-start gap-3 hover:bg-surface-highlight cursor-pointer transition-colors group select-none"
-  data-notif-id="${n.id}"
-  onclick="if(window.__aetherisNotifCenter){window.__aetherisNotifCenter.markRead('${n.id}'); ${n.postId ? `if(window.__aetherisCloseNotifs)window.__aetherisCloseNotifs(); if(window.postDetailView){window.postDetailView.open('${n.postId}');}` : ''} if(window.clientStore)window.clientStore.notify();}"
+  data-notif-id="${n.id}" data-action="call-global" data-raw-click="if(window.__aetherisNotifCenter){window.__aetherisNotifCenter.markRead('${n.id}'); ${n.postId ? `if(window.__aetherisCloseNotifs)window.__aetherisCloseNotifs(); if(window.postDetailView){window.postDetailView.open('${n.postId}');}` : ''} if(window.clientStore)window.clientStore.notify();}"
   role="listitem"
   aria-label="${this._escapeHtml(n.title)}"
 >

@@ -11,6 +11,7 @@
  */
 
 import { PASSIVE_EVENT_OPTIONS, rafThrottle } from './dry-utils.js';
+import { isLocalDev } from './admin-auth.js';
 
 // ---------------------------------------------------------------------------
 // 1. Data Types & Interfaces
@@ -474,6 +475,7 @@ export class WoTSliderManager {
   // -------------------------------------------------------------------------
 
   private seedKnownProfiles(): void {
+    if (!isLocalDev()) return;
     const knownSeeds: Array<{
       fingerprint: string;
       trustScore: number;

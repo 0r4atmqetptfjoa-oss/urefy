@@ -1655,8 +1655,7 @@ export class WebRTCFileTransfer {
    */
   public renderR2VaultButton(): string {
     return `
-      <button
-        onclick="window.aetherisWebRTCTransfer && window.aetherisWebRTCTransfer.triggerUploadToR2()"
+      <button data-action="call-global" data-raw-click="window.aetherisWebRTCTransfer && window.aetherisWebRTCTransfer.triggerUploadToR2()"
         class="btn-r2-upload inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-medium bg-cyphr/10 hover:bg-cyphr/20 text-cyphr hover:text-white border border-cyphr/30 hover:border-cyphr/60 transition-all duration-200 shadow-[0_0_12px_rgba(0,229,255,0.15)] group cursor-pointer"
         title="Upload verified release binary directly to Cloudflare R2 Vault"
       >
@@ -1734,8 +1733,7 @@ export class WebRTCFileTransfer {
   public renderTransferButton(peerFP: string): string {
     const cleanFP = peerFP.replace(/"/g, '&quot;');
     return `
-      <button
-        onclick="window.aetherisWebRTCTransfer && window.aetherisWebRTCTransfer.triggerSendFile('${cleanFP}')"
+      <button data-action="call-global" data-raw-click="window.aetherisWebRTCTransfer && window.aetherisWebRTCTransfer.triggerSendFile('${cleanFP}')"
         class="btn-webrtc-send inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-medium bg-surface-raised hover:bg-cyphr/20 text-slate-200 hover:text-cyphr border border-white/10 hover:border-cyphr/40 transition-all duration-200 shadow-sm group cursor-pointer"
         title="Send file directly to ${cleanFP} via E2EE WebRTC DataChannel"
       >
@@ -1899,8 +1897,7 @@ export class WebRTCFileTransfer {
     let actionsHtml = '';
     if (isR2 && isComplete) {
       actionsHtml = `
-        <button
-          onclick="window.open('/api/storage?key=' + encodeURIComponent('${transfer.sha256 ? 'vault/' + transfer.fileName : transfer.fileName}'))"
+        <button data-action="call-global" data-global-method="open" data-global-args='["/api/storage?key=" + encodeURIComponent("${transfer.sha256 ? "vault/" + transfer.fileName : transfer.fileName}")]'
           class="px-3 py-1.5 text-xs font-mono rounded-lg bg-cyphr/15 hover:bg-cyphr/25 text-cyphr border border-cyphr/30 shadow-[0_0_10px_rgba(0,229,255,0.15)] transition-all flex items-center gap-1.5 cursor-pointer font-bold"
           title="Download verified object directly from Cloudflare R2 Vault"
         >
@@ -1912,16 +1909,14 @@ export class WebRTCFileTransfer {
       `;
     } else if (isTransferring) {
       actionsHtml = `
-        <button
-          onclick="window.aetherisWebRTCTransfer && window.aetherisWebRTCTransfer.pauseTransfer('${transfer.id}')"
+        <button data-action="call-global" data-raw-click="window.aetherisWebRTCTransfer && window.aetherisWebRTCTransfer.pauseTransfer('${transfer.id}')"
           class="px-2.5 py-1 text-xs font-mono rounded-lg bg-surface-base hover:bg-surface-highlight text-amber border border-white/10 transition-colors flex items-center gap-1 cursor-pointer"
           title="Pause Transfer"
         >
           <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
           Pause
         </button>
-        <button
-          onclick="window.aetherisWebRTCTransfer && window.aetherisWebRTCTransfer.cancelTransfer('${transfer.id}')"
+        <button data-action="call-global" data-raw-click="window.aetherisWebRTCTransfer && window.aetherisWebRTCTransfer.cancelTransfer('${transfer.id}')"
           class="px-2.5 py-1 text-xs font-mono rounded-lg bg-surface-base hover:bg-crimson/20 text-crimson border border-white/10 hover:border-crimson/30 transition-colors flex items-center gap-1 cursor-pointer"
           title="Cancel Transfer"
         >
@@ -1931,16 +1926,14 @@ export class WebRTCFileTransfer {
       `;
     } else if (transfer.status === 'pending') {
       actionsHtml = `
-        <button
-          onclick="window.aetherisWebRTCTransfer && window.aetherisWebRTCTransfer.resumeTransfer('${transfer.id}')"
+        <button data-action="call-global" data-raw-click="window.aetherisWebRTCTransfer && window.aetherisWebRTCTransfer.resumeTransfer('${transfer.id}')"
           class="px-2.5 py-1 text-xs font-mono rounded-lg bg-surface-base hover:bg-cyphr/20 text-cyphr border border-white/10 hover:border-cyphr/30 transition-colors flex items-center gap-1 cursor-pointer"
           title="Resume Transfer"
         >
           <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /></svg>
           Resume
         </button>
-        <button
-          onclick="window.aetherisWebRTCTransfer && window.aetherisWebRTCTransfer.cancelTransfer('${transfer.id}')"
+        <button data-action="call-global" data-raw-click="window.aetherisWebRTCTransfer && window.aetherisWebRTCTransfer.cancelTransfer('${transfer.id}')"
           class="px-2.5 py-1 text-xs font-mono rounded-lg bg-surface-base hover:bg-crimson/20 text-crimson border border-white/10 hover:border-crimson/30 transition-colors flex items-center gap-1 cursor-pointer"
           title="Cancel Transfer"
         >
@@ -1949,8 +1942,7 @@ export class WebRTCFileTransfer {
       `;
     } else if (isError) {
       actionsHtml = `
-        <button
-          onclick="window.aetherisWebRTCTransfer && window.aetherisWebRTCTransfer.resumeTransfer('${transfer.id}')"
+        <button data-action="call-global" data-raw-click="window.aetherisWebRTCTransfer && window.aetherisWebRTCTransfer.resumeTransfer('${transfer.id}')"
           class="px-2.5 py-1 text-xs font-mono rounded-lg bg-surface-base hover:bg-signal/20 text-signal border border-white/10 hover:border-signal/30 transition-colors flex items-center gap-1 cursor-pointer"
           title="Retry Transfer"
         >
@@ -1960,8 +1952,7 @@ export class WebRTCFileTransfer {
       `;
     } else if (isComplete && !isSend) {
       actionsHtml = `
-        <button
-          onclick="window.aetherisWebRTCTransfer && window.aetherisWebRTCTransfer.downloadReceivedFile('${transfer.id}')"
+        <button data-action="call-global" data-raw-click="window.aetherisWebRTCTransfer && window.aetherisWebRTCTransfer.downloadReceivedFile('${transfer.id}')"
           class="px-3 py-1.5 text-xs font-mono rounded-lg bg-signal/15 hover:bg-signal/25 text-signal border border-signal/30 shadow-[0_0_10px_rgba(34,197,94,0.15)] transition-all flex items-center gap-1.5 cursor-pointer font-semibold"
           title="Save file to local disk"
         >
@@ -2044,8 +2035,7 @@ export class WebRTCFileTransfer {
             ${
               transfer.sha256
                 ? `
-                  <button
-                    onclick="navigator.clipboard.writeText('${transfer.sha256}')"
+                  <button data-action="call-global" data-global-method="navigator.clipboard.writeText" data-global-args='["${transfer.sha256}"]'
                     class="text-slate-400 hover:text-cyphr ml-1 p-0.5 rounded transition-colors cursor-pointer"
                     title="Copy SHA-256 Checksum"
                   >
@@ -2101,15 +2091,13 @@ export class WebRTCFileTransfer {
             </div>
 
             <div class="flex items-center space-x-2">
-              <button
-                onclick="window.aetherisWebRTCTransfer && window.aetherisWebRTCTransfer.acceptIncomingOffer('${offer.offerId}')"
+              <button data-action="call-global" data-raw-click="window.aetherisWebRTCTransfer && window.aetherisWebRTCTransfer.acceptIncomingOffer('${offer.offerId}')"
                 class="px-3 py-1.5 text-xs rounded-lg bg-signal/20 hover:bg-signal/30 text-signal border border-signal/40 font-bold flex items-center gap-1 transition-colors cursor-pointer shadow-sm"
               >
                 <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" /></svg>
                 Accept & Stream
               </button>
-              <button
-                onclick="window.aetherisWebRTCTransfer && window.aetherisWebRTCTransfer.declineIncomingOffer('${offer.offerId}')"
+              <button data-action="call-global" data-raw-click="window.aetherisWebRTCTransfer && window.aetherisWebRTCTransfer.declineIncomingOffer('${offer.offerId}')"
                 class="px-3 py-1.5 text-xs rounded-lg bg-surface-base hover:bg-crimson/20 text-slate-400 hover:text-crimson border border-white/10 transition-colors cursor-pointer"
               >
                 Decline
@@ -2195,8 +2183,7 @@ export class WebRTCFileTransfer {
               </div>
             </div>
 
-            <button
-              onclick="window.aetherisWebRTCTransfer && window.aetherisWebRTCTransfer.triggerUploadToR2()"
+            <button data-action="call-global" data-raw-click="window.aetherisWebRTCTransfer && window.aetherisWebRTCTransfer.triggerUploadToR2()"
               class="px-3 py-1.5 text-xs font-mono font-medium rounded-lg bg-cyphr/15 hover:bg-cyphr/25 text-cyphr border border-cyphr/30 shadow-[0_0_12px_rgba(0,229,255,0.15)] transition-all flex items-center gap-1.5 cursor-pointer font-bold"
               title="Upload verified release binary directly to Cloudflare R2 Vault"
             >
@@ -2206,8 +2193,7 @@ export class WebRTCFileTransfer {
               <span>⚡ Upload to R2</span>
             </button>
 
-            <button
-              onclick="window.aetherisWebRTCTransfer && window.aetherisWebRTCTransfer.clearCompleted()"
+            <button data-action="call-global" data-raw-click="window.aetherisWebRTCTransfer && window.aetherisWebRTCTransfer.clearCompleted()"
               class="px-3 py-1.5 text-xs font-mono font-medium rounded-lg bg-surface-raised hover:bg-surface-overlay text-slate-300 border border-white/10 hover:border-white/20 transition-all flex items-center gap-1.5 cursor-pointer"
               title="Clear completed transfers"
             >
@@ -2271,8 +2257,7 @@ export class WebRTCFileTransfer {
       <div
         id="webrtc-floating-transfer-widget"
         class="fixed left-4 bottom-28 md:bottom-14 z-40 font-mono select-none"
-        title="Click to open P2P Transfer Manager"
-        onclick="document.getElementById('download-manager-modal')?.classList.remove('hidden')"
+        title="Click to open P2P Transfer Manager" data-action="call-global" data-global-method="document.getElementById" data-global-args='["download-manager-modal')?.classList.remove('hidden"]'
       >
         <!-- Compact pill — always visible during active transfer -->
         <div class="group flex items-center gap-2.5 px-3 py-2 rounded-2xl bg-surface-base/95 backdrop-blur-xl border border-cyphr/25 hover:border-cyphr/50 shadow-lg hover:shadow-[0_4px_20px_rgba(0,229,255,0.18)] transition-all duration-200 cursor-pointer">
@@ -2320,8 +2305,7 @@ export class WebRTCFileTransfer {
           <button
             type="button"
             class="opacity-0 group-hover:opacity-100 p-0.5 rounded-lg text-slate-500 hover:text-slate-200 transition-all shrink-0"
-            title="Dismiss indicator"
-            onclick="event.stopPropagation(); document.getElementById('webrtc-transfer-indicator')?.remove()"
+            title="Dismiss indicator" data-action="stop-propagation"
           >
             <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/>

@@ -363,7 +363,7 @@ export class MeshTopologyMatrix {
     const isDOMeshActive = this.doMeshStatus.includes('SYNCHRONIZED');
 
     return `
-      <div id="mesh-modal-backdrop" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 select-none animate-in fade-in duration-150 font-mono text-xs" onclick="if(event.target.id === 'mesh-modal-backdrop') window.meshMatrix && window.meshMatrix.close();">
+      <div id="mesh-modal-backdrop" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 select-none animate-in fade-in duration-150 font-mono text-xs" data-action="call-global" data-global-method="if" data-global-args='[event.target.id === "mesh-modal-backdrop") window.meshMatrix && window.meshMatrix.close(]'>
         <div class="relative w-full max-w-4xl bg-surface-base border border-white/10 rounded-2xl p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
           
           <!-- HEADER -->
@@ -526,10 +526,10 @@ export class MeshTopologyMatrix {
           <div class="flex items-center justify-between pt-1 border-subtle-t">
             <span class="text-[10px] text-slate-500">RFC 9420 MLS TreeKEM Cryptography · Cloudflare Sovereign Edge Relay</span>
             <div class="flex items-center space-x-2">
-              <button id="btn-sync-edge-infra" onclick="window.meshMatrix && window.meshMatrix.syncEdgeStatus()" class="px-3.5 py-2 rounded-xl bg-cyan-900/60 hover:bg-cyan-800 text-cyan-300 font-bold transition-all border border-cyan-500/30 shadow-md cursor-pointer flex items-center space-x-1.5">
+              <button id="btn-sync-edge-infra" data-action="call-global" data-raw-click="window.meshMatrix && window.meshMatrix.syncEdgeStatus()" class="px-3.5 py-2 rounded-xl bg-cyan-900/60 hover:bg-cyan-800 text-cyan-300 font-bold transition-all border border-cyan-500/30 shadow-md cursor-pointer flex items-center space-x-1.5">
                 <span>🔄 Sync Edge Telemetry</span>
               </button>
-              <button id="btn-ping-mesh-peers" onclick="window.meshMatrix && window.meshMatrix.pingAllPeers()" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-all shadow-md cursor-pointer flex items-center space-x-1.5">
+              <button id="btn-ping-mesh-peers" data-action="call-global" data-raw-click="window.meshMatrix && window.meshMatrix.pingAllPeers()" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-all shadow-md cursor-pointer flex items-center space-x-1.5">
                 <span>Ping Swarm Nodes</span>
                 <span>⚡</span>
               </button>

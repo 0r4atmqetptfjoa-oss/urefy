@@ -337,8 +337,7 @@ class NetworkActivityFeed {
       <span class="text-white/90 text-sm font-semibold tracking-tight">⚡ Live Network Activity</span>
     </div>
     <button
-      class="px-2 py-0.5 rounded border text-xs font-mono transition-all ${pauseButtonClass}"
-      onclick="networkActivityFeed.isPaused ? networkActivityFeed.resume() : networkActivityFeed.pause()"
+      class="px-2 py-0.5 rounded border text-xs font-mono transition-all ${pauseButtonClass}" data-action="call-global" data-raw-click="networkActivityFeed.isPaused ? networkActivityFeed.resume() : networkActivityFeed.pause()"
       title="${this.isPaused ? 'Resume activity stream' : 'Pause activity stream'}"
     >
       ${pauseButtonLabel}

@@ -27,8 +27,7 @@ export function renderProfilePrivacyHTML(profile: UserProfileData): string {
           <!-- SIMPLE -->
           <button
             type="button"
-            id="btn-set-mode-simple"
-            onclick="if(window.clientStore){ window.clientStore.setUiMode('simple'); if(window.profileView) window.profileView.openSettings('privacy'); }"
+            id="btn-set-mode-simple" data-action="call-global" data-raw-click="if(window.clientStore){ window.clientStore.setUiMode('simple'); if(window.profileView) window.profileView.openSettings('privacy'); }"
             class="p-4 rounded-2xl text-left border transition-all cursor-pointer space-y-2 ${
               currentMode === 'simple'
                 ? 'bg-cyan-950/40 border-cyan-500/50 shadow-lg shadow-cyan-500/10 ring-1 ring-cyan-500/30'
@@ -48,8 +47,7 @@ export function renderProfilePrivacyHTML(profile: UserProfileData): string {
           <!-- ADVANCED -->
           <button
             type="button"
-            id="btn-set-mode-advanced"
-            onclick="if(window.clientStore){ window.clientStore.setUiMode('advanced'); if(window.profileView) window.profileView.openSettings('privacy'); }"
+            id="btn-set-mode-advanced" data-action="call-global" data-raw-click="if(window.clientStore){ window.clientStore.setUiMode('advanced'); if(window.profileView) window.profileView.openSettings('privacy'); }"
             class="p-4 rounded-2xl text-left border transition-all cursor-pointer space-y-2 ${
               currentMode === 'advanced'
                 ? 'bg-indigo-950/40 border-indigo-500/50 shadow-lg shadow-indigo-500/10 ring-1 ring-indigo-500/30'
@@ -69,8 +67,7 @@ export function renderProfilePrivacyHTML(profile: UserProfileData): string {
           <!-- TECHNICAL -->
           <button
             type="button"
-            id="btn-set-mode-technical"
-            onclick="if(window.clientStore){ window.clientStore.setUiMode('technical'); if(window.profileView) window.profileView.openSettings('privacy'); }"
+            id="btn-set-mode-technical" data-action="call-global" data-raw-click="if(window.clientStore){ window.clientStore.setUiMode('technical'); if(window.profileView) window.profileView.openSettings('privacy'); }"
             class="p-4 rounded-2xl text-left border transition-all cursor-pointer space-y-2 ${
               currentMode === 'technical' || currentMode === 'sovereign'
                 ? 'bg-amber-950/40 border-amber-500/50 shadow-lg shadow-amber-500/10 ring-1 ring-amber-500/30'
@@ -103,8 +100,7 @@ export function renderProfilePrivacyHTML(profile: UserProfileData): string {
           min="0"
           max="100"
           value="${clientStore?.minFeedTrustThreshold || 0}"
-          id="input-settings-trust-threshold"
-          onchange="if(window.clientStore) window.clientStore.setMinFeedTrustThreshold(parseInt(this.value, 10));"
+          id="input-settings-trust-threshold" data-change="call-global" data-global-method="if"
           class="w-full accent-cyan-400 h-1.5 bg-surface-raised rounded-lg cursor-pointer"
         />
       </div>
@@ -117,8 +113,7 @@ export function renderProfilePrivacyHTML(profile: UserProfileData): string {
         </div>
         <button
           type="button"
-          id="btn-settings-zeroize-memory"
-          onclick="if(window.localDiagnostics){ window.localDiagnostics.zeroizeMemory(); } if(window.clientStore){ window.clientStore.showToast('Volatile memory zeroized successfully.', 'success'); }"
+          id="btn-settings-zeroize-memory" data-action="call-global" data-raw-click="if(window.localDiagnostics){ window.localDiagnostics.zeroizeMemory(); } if(window.clientStore){ window.clientStore.showToast('Volatile memory zeroized successfully.', 'success'); }"
           class="px-3.5 py-1.5 rounded-xl bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border border-rose-500/30 text-xs font-bold transition-colors cursor-pointer"
         >
           Zeroize Memory

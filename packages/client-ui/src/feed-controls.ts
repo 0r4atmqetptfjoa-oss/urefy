@@ -333,7 +333,7 @@ export class FeedControlsEngine {
         data-open-detail="${p.id}"
       >
         <!-- VOTE PILL (HORIZONTAL) -->
-        <div class="flex items-center space-x-1 shrink-0 font-mono text-xs" onclick="event.stopPropagation();">
+        <div class="flex items-center space-x-1 shrink-0 font-mono text-xs" data-action="stop-propagation">
           <button data-vote-id="${p.id}" data-dir="1" class="btn-upvote p-1 rounded hover:bg-surface-overlay text-slate-400 hover:text-indigo-400 transition-colors ${p.userVoted === 1 ? 'text-indigo-400 font-bold' : ''}" title="Endorse (+1)">
             ▲
           </button>
@@ -407,7 +407,7 @@ export class FeedControlsEngine {
         data-open-detail="${p.id}"
       >
         <!-- LEFT COLUMN: VOTES PILL -->
-        <div class="flex flex-col items-center justify-start space-y-0.5 bg-surface-base/80 rounded-xl p-1 shrink-0 font-mono text-xs h-fit" onclick="event.stopPropagation();">
+        <div class="flex flex-col items-center justify-start space-y-0.5 bg-surface-base/80 rounded-xl p-1 shrink-0 font-mono text-xs h-fit" data-action="stop-propagation">
           <button data-vote-id="${p.id}" data-dir="1" class="btn-upvote p-1 rounded-lg hover:bg-surface-overlay text-slate-400 hover:text-indigo-400 transition-colors ${p.userVoted === 1 ? 'text-indigo-400 font-bold' : ''}" title="Endorse (+1)">
             ▲
           </button>
@@ -467,7 +467,7 @@ export class FeedControlsEngine {
           </div>
 
           <!-- COMPACT ACTION BAR -->
-          <div class="flex items-center space-x-3 pt-1 text-xs text-slate-400 font-mono" onclick="event.stopPropagation();">
+          <div class="flex items-center space-x-3 pt-1 text-xs text-slate-400 font-mono" data-action="stop-propagation">
             <button data-open-detail="${p.id}" class="btn-open-detail flex items-center space-x-1 px-2.5 py-1 rounded-xl bg-surface-base hover:bg-surface-overlay text-slate-300 hover:text-white transition-all">
               <span>💬</span>
               <span>${p.replyCount || 0} Comments</span>
@@ -513,7 +513,7 @@ export class FeedControlsEngine {
       <article class="p-3 sm:p-4 md:p-5 rounded-2xl bg-surface-raised border border-white/5 hover:border-white/10 transition-all shadow-sm flex space-x-2.5 sm:space-x-3.5 group select-text ${demoteClass}">
         
         <!-- MERIT VOTING COLUMN -->
-        <div class="flex flex-col items-center justify-start space-y-1 shrink-0 pt-0.5 select-none" onclick="event.stopPropagation();">
+        <div class="flex flex-col items-center justify-start space-y-1 shrink-0 pt-0.5 select-none" data-action="stop-propagation">
           <button data-vote-id="${p.id}" data-dir="1" class="btn-upvote text-slate-400 hover:text-indigo-400 transition-colors p-1.5 rounded-xl hover:bg-surface-overlay cursor-pointer ${p.userVoted === 1 ? 'text-indigo-400 font-bold bg-indigo-950/60' : ''}" title="Endorse (+1 Merit)">
             ▲
           </button>

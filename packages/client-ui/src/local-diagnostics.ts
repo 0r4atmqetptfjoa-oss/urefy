@@ -331,8 +331,7 @@ export class LocalDiagnosticsManager {
             <input 
               type="checkbox" 
               id="toggle-local-diagnostics"
-              ${this.diagnosticsEnabled ? 'checked' : ''}
-              onchange="if(window.localDiagnostics) { window.localDiagnostics.diagnosticsEnabled = this.checked; }"
+              ${this.diagnosticsEnabled ? 'checked' : ''} data-change="call-global" data-raw-change="if(window.localDiagnostics) { window.localDiagnostics.diagnosticsEnabled = this.checked; }"
               class="w-4 h-4 rounded text-cyan-400 focus:ring-0 cursor-pointer"
             />
           </label>
@@ -349,8 +348,7 @@ export class LocalDiagnosticsManager {
             <div class="flex items-center space-x-2">
               <button
                 type="button"
-                id="btn-export-diagnostics-report"
-                onclick="if(window.localDiagnostics) window.localDiagnostics.exportDiagnosticReportJSON();"
+                id="btn-export-diagnostics-report" data-action="call-global" data-global-method="if" data-global-args='[window.localDiagnostics) window.localDiagnostics.exportDiagnosticReportJSON(]'
                 class="px-3 py-1.5 rounded-lg bg-surface-overlay hover:bg-surface-raised border border-white/10 text-xs font-mono text-cyan-300 hover:text-white transition-all flex items-center space-x-1.5 cursor-pointer"
                 title="Download diagnostic JSON"
               >
@@ -360,8 +358,7 @@ export class LocalDiagnosticsManager {
 
               <button
                 type="button"
-                id="btn-clear-diagnostics"
-                onclick="if(window.localDiagnostics) { window.localDiagnostics.clearRecords(); const st = document.getElementById('diagnostics-record-status'); if(st) st.textContent = '0 local error records stored on device'; }"
+                id="btn-clear-diagnostics" data-action="call-global" data-raw-click="if(window.localDiagnostics) { window.localDiagnostics.clearRecords(); const st = document.getElementById('diagnostics-record-status'); if(st) st.textContent = '0 local error records stored on device'; }"
                 class="px-2.5 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-xs font-mono text-rose-300 transition-all flex items-center space-x-1 cursor-pointer"
                 title="Clear stored diagnostic records"
               >

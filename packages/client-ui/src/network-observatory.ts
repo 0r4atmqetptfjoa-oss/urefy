@@ -893,8 +893,7 @@ export class NetworkObservatory {
   public renderObservatoryButton(): string {
     return `
       <button
-        id="btn-network-observatory-trigger"
-        onclick="window.__aetheris_observatory_toggle && window.__aetheris_observatory_toggle()"
+        id="btn-network-observatory-trigger" data-action="call-global" data-raw-click="window.__aetheris_observatory_toggle && window.__aetheris_observatory_toggle()"
         class="group inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface-raised hover:bg-surface-overlay border border-white/10 hover:border-cyphr/40 text-slate-200 hover:text-white transition-all text-xs font-medium shadow-sm hover:shadow-cyan-950/30 active:scale-95 cursor-pointer select-none"
         title="Open Aetheris Network Observatory (Statistics & P2P Topology)"
       >
@@ -927,8 +926,7 @@ export class NetworkObservatory {
     return `
       <div 
         id="network-observatory-modal-root" 
-        class="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/85 backdrop-blur-md animate-in fade-in duration-200 overflow-y-auto"
-        onclick="if(event.target.id === 'network-observatory-modal-root') { (window.__aetheris_close_observatory && window.__aetheris_close_observatory()) || (window.__aetheris_observatory_close && window.__aetheris_observatory_close()); }"
+        class="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/85 backdrop-blur-md animate-in fade-in duration-200 overflow-y-auto" data-action="call-global" data-raw-click="if(event.target.id === 'network-observatory-modal-root') { (window.__aetheris_close_observatory && window.__aetheris_close_observatory()) || (window.__aetheris_observatory_close && window.__aetheris_observatory_close()); }"
       >
         <!-- Global Reusable SVG Definitions -->
         ${this.renderAllSvgDefs()}
@@ -1009,16 +1007,14 @@ export class NetworkObservatory {
             <span>LIVE SYNC</span>
           </div>
 
-          <button
-            onclick="window.__aetheris_observatory_refresh && window.__aetheris_observatory_refresh()"
+          <button data-action="call-global" data-raw-click="window.__aetheris_observatory_refresh && window.__aetheris_observatory_refresh()"
             class="flex items-center justify-center w-8 h-8 rounded-lg bg-surface-overlay hover:bg-slate-700 border border-white/10 text-slate-300 hover:text-white transition-all text-sm cursor-pointer"
             title="Force telemetry data refresh"
           >
             🔄
           </button>
 
-          <button
-            onclick="window.__aetheris_observatory_export && window.__aetheris_observatory_export()"
+          <button data-action="call-global" data-raw-click="window.__aetheris_observatory_export && window.__aetheris_observatory_export()"
             class="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-overlay hover:bg-slate-700 border border-white/10 text-slate-300 hover:text-white transition-all text-xs font-medium cursor-pointer"
             title="Export observatory data as JSON"
           >
@@ -1026,8 +1022,7 @@ export class NetworkObservatory {
           </button>
 
           <button
-            id="btn-close-observatory-modal"
-            onclick="window.__aetheris_close_observatory && window.__aetheris_close_observatory();"
+            id="btn-close-observatory-modal" data-action="call-global" data-raw-click="window.__aetheris_close_observatory && window.__aetheris_close_observatory()"
             class="flex items-center justify-center w-8 h-8 rounded-lg bg-surface-overlay hover:bg-crimson/20 hover:border-crimson/40 border border-white/10 text-slate-400 hover:text-crimson transition-all text-base font-bold cursor-pointer"
             title="Close Observatory (ESC)"
           >
@@ -1222,8 +1217,7 @@ export class NetworkObservatory {
   private renderFilterPill(filter: TopologyFilter, label: string, count: number, color?: string): string {
     const isActive = this.activeFilter === filter;
     return `
-      <button
-        onclick="window.__aetheris_observatory_set_filter && window.__aetheris_observatory_set_filter('${filter}')"
+      <button data-action="call-global" data-raw-click="window.__aetheris_observatory_set_filter && window.__aetheris_observatory_set_filter('${filter}')"
         class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md transition-all cursor-pointer ${
           isActive
             ? 'bg-cyphr/20 border border-cyphr/50 text-cyphr font-bold shadow-sm'
@@ -1288,8 +1282,7 @@ export class NetworkObservatory {
       <g
         id="svg-node-${node.id}"
         transform="translate(${node.x}, ${node.y})"
-        class="cursor-pointer transition-transform hover:scale-125"
-        onclick="window.__aetheris_observatory_select_node && window.__aetheris_observatory_select_node('${node.id}')"
+        class="cursor-pointer transition-transform hover:scale-125" data-action="call-global" data-raw-click="window.__aetheris_observatory_select_node && window.__aetheris_observatory_select_node('${node.id}')"
       >
         <!-- Pulsing Circle for Active Nodes -->
         ${node.status === 'active' ? `
@@ -1359,8 +1352,7 @@ export class NetworkObservatory {
             <span class="w-2.5 h-2.5 rounded-full ${node.status === 'active' ? 'bg-signal' : 'bg-amber'} animate-pulse"></span>
             <span class="font-bold text-white font-mono text-[13px]">${node.name}</span>
           </div>
-          <button
-            onclick="window.__aetheris_observatory_select_node && window.__aetheris_observatory_select_node(null)"
+          <button data-action="call-global" data-raw-click="window.__aetheris_observatory_select_node && window.__aetheris_observatory_select_node(null)"
             class="text-slate-400 hover:text-white text-xs p-1 cursor-pointer"
           >
             ✕
@@ -1405,8 +1397,7 @@ export class NetworkObservatory {
         </div>
 
         <div class="mt-3 pt-2 border-t border-white/5 flex gap-2">
-          <button
-            onclick="if(window.clientStore) window.clientStore.showToast('ICMP Zero-Knowledge Ping to ${node.name}: ${node.latencyMs}ms', 'info');"
+          <button data-action="call-global" data-global-method="if" data-global-args='[window.clientStore) window.clientStore.showToast("ICMP Zero-Knowledge Ping to ${node.name}: ${node.latencyMs}ms", "info"]'
             class="flex-1 py-1 rounded bg-cyphr/10 hover:bg-cyphr/20 border border-cyphr/30 text-cyphr text-center text-[10px] font-mono cursor-pointer"
           >
             ⚡ ZK Ping Test
@@ -1869,8 +1860,7 @@ export class NetworkObservatory {
         </div>
 
         <div class="flex items-center gap-2">
-          <button
-            onclick="window.__aetheris_close_observatory && window.__aetheris_close_observatory();"
+          <button data-action="call-global" data-raw-click="window.__aetheris_close_observatory && window.__aetheris_close_observatory()"
             class="px-4 py-1.5 rounded-lg bg-surface-overlay hover:bg-slate-700 border border-white/10 text-slate-200 hover:text-white transition-all text-xs font-semibold cursor-pointer"
           >
             Close Observatory

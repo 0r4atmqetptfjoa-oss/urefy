@@ -1127,7 +1127,7 @@ export class ExportBackupManager {
             </div>
 
             <!-- Password inputs (collapsible) -->
-            <form id="export-password-container" onsubmit="return false;" autocomplete="off" class="pt-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <form id="export-password-container" data-submit="call-global" data-raw-submit="return false" autocomplete="off" class="pt-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div class="relative">
                 <input
                   type="password"

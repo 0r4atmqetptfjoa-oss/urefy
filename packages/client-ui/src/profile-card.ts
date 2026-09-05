@@ -633,8 +633,7 @@ export class ProfileCardEngine {
               type="button"
               class="btn-copy-federated-handle px-2 py-1 rounded-lg bg-surface-overlay hover:bg-indigo-950 text-slate-300 hover:text-indigo-200 border border-white/10 hover:border-indigo-500/30 text-[10px] font-mono transition-all flex items-center gap-1 cursor-pointer shrink-0"
               data-copy-handle="${cardFederatedHandle}"
-              title="Copy standard federated handle for Mastodon and fediverse instances"
-              onclick="if(window.__aetheris_copy_federated_handle){window.__aetheris_copy_federated_handle('${cardFederatedHandle}');}else{navigator.clipboard&&navigator.clipboard.writeText('${cardFederatedHandle}');}"
+              title="Copy standard federated handle for Mastodon and fediverse instances" data-action="call-global" data-raw-click="if(window.__aetheris_copy_federated_handle){window.__aetheris_copy_federated_handle('${cardFederatedHandle}');}else{navigator.clipboard&&navigator.clipboard.writeText('${cardFederatedHandle}');}"
             >
               <span>📋</span>
               <span>Copy Federated Handle</span>

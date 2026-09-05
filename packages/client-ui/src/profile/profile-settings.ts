@@ -43,8 +43,7 @@ export function renderProfileSettingsHTML(
           <button
             type="button"
             id="btn-settings-cat-${cat.id}"
-            data-settings-cat="${cat.id}"
-            onclick="if(window.__aetheris_set_settings_cat){window.__aetheris_set_settings_cat('${cat.id}');}else if(window.profileView){window.profileView.setActiveSettingsCategory('${cat.id}');}"
+            data-settings-cat="${cat.id}" data-action="call-global" data-raw-click="if(window.__aetheris_set_settings_cat){window.__aetheris_set_settings_cat('${cat.id}');}else if(window.profileView){window.profileView.setActiveSettingsCategory('${cat.id}');}"
             class="px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center space-x-2 cursor-pointer border ${
               currentCat === cat.id
                 ? 'bg-cyan-500/20 text-cyan-200 border-cyan-400/40 shadow-sm shadow-cyan-500/10'
@@ -95,8 +94,7 @@ export function renderSettingsCategoryContentHTML(
             </div>
             <button
               type="button"
-              id="btn-settings-edit-profile-modal"
-              onclick="if(window.profileView){ window.profileView.isEditProfileModalOpen = true; if(window.clientStore) window.clientStore.notify(); }"
+              id="btn-settings-edit-profile-modal" data-action="call-global" data-raw-click="if(window.profileView){ window.profileView.isEditProfileModalOpen = true; if(window.clientStore) window.clientStore.notify(); }"
               class="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition-colors shadow"
             >
               Edit Full Profile
@@ -115,8 +113,7 @@ export function renderSettingsCategoryContentHTML(
               <div class="text-xs font-mono font-bold text-indigo-300">${federatedHandle}</div>
               <button
                 type="button"
-                id="btn-settings-copy-fed-handle"
-                onclick="if(window.__aetheris_copy_federated_handle){window.__aetheris_copy_federated_handle('${federatedHandle}');}else{navigator.clipboard&&navigator.clipboard.writeText('${federatedHandle}');}"
+                id="btn-settings-copy-fed-handle" data-action="call-global" data-raw-click="if(window.__aetheris_copy_federated_handle){window.__aetheris_copy_federated_handle('${federatedHandle}');}else{navigator.clipboard&&navigator.clipboard.writeText('${federatedHandle}');}"
                 class="px-2.5 py-1 rounded-lg bg-surface-raised hover:bg-surface-overlay border border-white/10 text-[11px] font-mono text-slate-300 hover:text-white transition-colors flex items-center space-x-1 cursor-pointer"
               >
                 <span>📋</span>
@@ -158,8 +155,7 @@ export function renderSettingsCategoryContentHTML(
             </div>
             <button
               type="button"
-              id="btn-settings-toggle-push"
-              onclick="if(window.sovereignWebPush){ window.sovereignWebPush.requestPermission(); }"
+              id="btn-settings-toggle-push" data-action="call-global" data-raw-click="if(window.sovereignWebPush){ window.sovereignWebPush.requestPermission(); }"
               class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition-colors shadow cursor-pointer"
             >
               Enable Push
@@ -196,8 +192,7 @@ export function renderSettingsCategoryContentHTML(
             </div>
             <button
               type="button"
-              id="btn-settings-open-theme-builder"
-              onclick="if(window.customThemeBuilder) window.customThemeBuilder.openModal();"
+              id="btn-settings-open-theme-builder" data-action="open-feature" data-feature="custom-theme"
               class="px-3.5 py-1.5 rounded-xl bg-surface-raised hover:bg-surface-overlay border border-white/10 text-slate-200 text-xs font-bold transition-colors cursor-pointer"
             >
               Custom Theme Studio
@@ -208,8 +203,7 @@ export function renderSettingsCategoryContentHTML(
             ${THEMES.map(t => `
               <button
                 type="button"
-                data-theme-id="${t.id}"
-                onclick="if(window.themeEngine){ window.themeEngine.setTheme('${t.id}'); if(window.profileView) window.profileView.openSettings('appearance'); }"
+                data-theme-id="${t.id}" data-action="call-global" data-raw-click="if(window.themeEngine){ window.themeEngine.setTheme('${t.id}'); if(window.profileView) window.profileView.openSettings('appearance'); }"
                 class="p-3 rounded-2xl text-left border transition-all cursor-pointer space-y-2 ${
                   themeEngine.currentThemeId === t.id
                     ? 'bg-indigo-950/40 border-indigo-500/50 ring-1 ring-indigo-500/30'
@@ -228,8 +222,7 @@ export function renderSettingsCategoryContentHTML(
             <div class="grid grid-cols-3 gap-3">
               ${(['compact', 'balanced', 'media'] as const).map(d => `
                 <button
-                  type="button"
-                  onclick="if(window.clientStore){ window.clientStore.setDensity('${d}'); if(window.profileView) window.profileView.openSettings('appearance'); }"
+                  type="button" data-action="call-global" data-raw-click="if(window.clientStore){ window.clientStore.setDensity('${d}'); if(window.profileView) window.profileView.openSettings('appearance'); }"
                   class="py-2 px-3 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
                     clientStore?.density === d
                       ? 'bg-indigo-600/30 text-indigo-200 border-indigo-500/40'
@@ -270,8 +263,7 @@ export function renderSettingsCategoryContentHTML(
             </div>
             <button
               type="button"
-              id="btn-settings-open-transparency"
-              onclick="if(window.__aetheris_open_transparency_mode) window.__aetheris_open_transparency_mode();"
+              id="btn-settings-open-transparency" data-action="call-global" data-global-method="if" data-global-args='[window.__aetheris_open_transparency_mode) window.__aetheris_open_transparency_mode(]'
               class="px-3.5 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs transition-colors shadow cursor-pointer"
             >
               Open Inspector

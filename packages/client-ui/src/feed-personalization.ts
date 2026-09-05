@@ -957,11 +957,8 @@ export class FeedPersonalizationEngine {
       <div class="relative inline-block text-left font-sans" data-personalization-post-id="${targetPostId}">
         <!-- Collapsed Trigger Pill -->
         <button
-          type="button"
-          onclick="
-            const pop = document.getElementById('${widgetUniqueId}');
-            if (pop) pop.classList.toggle('hidden');
-          "
+          type="button" data-action="call-global" data-raw-click="const pop = document.getElementById('${widgetUniqueId}');
+            if (pop) pop.classList.toggle('hidden')"
           class="group inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-[11px] font-mono font-medium border ${badgeBg} ${glowClass} hover:bg-surface-overlay hover:border-white/20 transition-all duration-200 cursor-pointer"
           title="Sovereign Recommendation Score: ${score}%. Click for full algorithmic breakdown."
         >
@@ -998,8 +995,7 @@ export class FeedPersonalizationEngine {
               </div>
             </div>
             <button
-              type="button"
-              onclick="document.getElementById('${widgetUniqueId}')?.classList.add('hidden')"
+              type="button" data-action="call-global" data-global-method="document.getElementById" data-global-args='["${widgetUniqueId}')?.classList.add('hidden"]'
               class="text-slate-400 hover:text-slate-200 p-1 rounded-md hover:bg-surface-overlay transition-colors"
             >
               <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1123,12 +1119,9 @@ export class FeedPersonalizationEngine {
               <span>100% On-Device • Zero Cloud Tracking</span>
             </span>
             <button
-              type="button"
-              onclick="
-                const panel = document.getElementById('sovereign-interests-panel-modal');
+              type="button" data-action="call-global" data-raw-click="const panel = document.getElementById('sovereign-interests-panel-modal');
                 if (panel) panel.classList.remove('hidden');
-                document.getElementById('${widgetUniqueId}')?.classList.add('hidden');
-              "
+                document.getElementById('${widgetUniqueId}')?.classList.add('hidden')"
               class="text-cyphr hover:underline"
             >
               Adjust Profile →
@@ -1341,8 +1334,7 @@ export class FeedPersonalizationEngine {
                 min="0"
                 max="100"
                 value="80"
-                class="w-full sm:w-28 accent-cyphr cursor-pointer"
-                oninput="const lbl = document.getElementById('lbl-custom-weight'); if (lbl) lbl.textContent = this.value + '%';"
+                class="w-full sm:w-28 accent-cyphr cursor-pointer" data-input="call-global" data-raw-input="const lbl = document.getElementById('lbl-custom-weight'); if (lbl) lbl.textContent = this.value + '%'"
               />
               <span id="lbl-custom-weight" class="text-xs font-mono text-cyphr font-bold w-10 text-right">80%</span>
               <button
