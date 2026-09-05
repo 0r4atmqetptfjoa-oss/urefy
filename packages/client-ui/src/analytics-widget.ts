@@ -2,6 +2,8 @@
 // Aetheris Omni-Sphere — Local Analytics Dashboard
 // Zero external dependencies. All data stays on device.
 
+import { isLocalDev } from './admin-auth.js';
+
 export interface DailyMetric {
   date: string;          // ISO date string: 'YYYY-MM-DD'
   postsRead: number;
@@ -76,15 +78,18 @@ class LocalAnalyticsDashboard {
     }
   }
 
-  /** Generates realistic seed data for the last 7 days. */
+  /** Generates realistic seed data in dev, or starts clean at zero in live production. */
   private _seedData(): DailyMetric[] {
     const result: DailyMetric[] = [];
     const now = new Date();
+    const isDev = isLocalDev();
     for (let i = 6; i >= 0; i--) {
       const d = new Date(now);
       d.setDate(d.getDate() - i);
       const dateKey = toDateKey(d);
-      const [postsRead, upvotes, replies, sessionMinutes] = SEED_OFFSETS[6 - i];
+      const [postsRead, upvotes, replies, sessionMinutes] = (isDev && SEED_OFFSETS[6 - i])
+        ? SEED_OFFSETS[6 - i]
+        : [0, 0, 0, 0];
       result.push({ date: dateKey, postsRead, upvotes, replies, sessionMinutes });
     }
     return result;

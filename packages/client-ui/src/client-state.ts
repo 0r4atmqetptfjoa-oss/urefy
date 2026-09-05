@@ -19,6 +19,8 @@ import { toastManager } from './toast.js';
 import { localSearchIndex } from './search-index.js';
 import { crossTabSync } from './cross-tab-sync.js';
 import { sovereignWebPush } from './web-push.js';
+import { pulseActionsEngine } from './pulse-actions.js';
+import { networkActivityFeed } from './activity-feed.js';
 
 export type SpaceType = 'relays' | 'vault' | 'pulse';
 export type DensityMode = 'compact' | 'balanced' | 'media';
@@ -149,6 +151,7 @@ export class AetherisClientStore {
   public activeQuarantineAlert: QuarantineEvent | null = null;
 
   public isConnected: boolean = false;
+  public isSyncing: boolean = false;
   public latencyMs: number = 14;
   public peersOnline: number = 12;
   public edgeStorageBackend: string = 'Cloudflare-D1 / Cloudflare-R2';
@@ -511,6 +514,7 @@ export class AetherisClientStore {
     this.syncAbortController = new AbortController();
     const signal = this.syncAbortController.signal;
 
+    this.isSyncing = true;
     let hasChanged = false;
 
     // 0. Sync Public Server Announcement & Status from /api/admin?public=true
@@ -666,6 +670,9 @@ export class AetherisClientStore {
           if (hasChanged) {
             localSearchIndex.indexPosts(this.posts);
           }
+          if (this.posts.length > 0) {
+            pulseActionsEngine.syncInteractions(this.posts.map((p) => p.id), this.keypair?.fingerprint);
+          }
         }
       }
     } catch (err: any) {
@@ -741,6 +748,8 @@ export class AetherisClientStore {
     } catch (err: any) {
       if (err?.name === 'AbortError') return;
       // Offline / local mesh fallback
+    } finally {
+      this.isSyncing = false;
     }
 
     if (hasChanged) {
@@ -773,6 +782,18 @@ export class AetherisClientStore {
     this.notify('VOTE', { postId, direction, meritVotes: p.meritVotes, userVoted: p.userVoted });
     crossTabSync.broadcast('POST_VOTED', { postId, direction, meritVotes: p.meritVotes });
 
+    if (p.userVoted !== 0) {
+      networkActivityFeed.addEvent({
+        type: 'vote',
+        actorFP: this.keypair.fingerprint,
+        actorRole: 'member',
+        targetTitle: p.title,
+        targetId: p.id,
+        timestamp: Date.now(),
+        meta: { direction: p.userVoted > 0 ? 'up' : 'down' },
+      });
+    }
+
     // Coalesced non-blocking sync with Edge Functions
     this._enqueueVoteSync(postId, p.userVoted);
   }
@@ -789,6 +810,16 @@ export class AetherisClientStore {
       p.boostCount = (p.boostCount || 0) + 1;
       p.userBoosted = true;
       this.showToast('⟳ Boosted to Sovereign Chrono-Stream!', 'success');
+
+      networkActivityFeed.addEvent({
+        type: 'boost',
+        actorFP: this.keypair.fingerprint,
+        actorRole: 'member',
+        targetTitle: p.title,
+        targetId: p.id,
+        timestamp: Date.now(),
+        meta: { boostAmount: p.boostCount },
+      });
     }
 
     this.notify('BOOST', { postId, boostCount: p.boostCount, userBoosted: p.userBoosted });
@@ -834,6 +865,15 @@ export class AetherisClientStore {
     this.posts.unshift(newPost);
     localSearchIndex.indexPost(newPost);
     crossTabSync.broadcast('POST_CREATED', newPost);
+    networkActivityFeed.addEvent({
+      type: 'post',
+      actorFP: this.keypair.fingerprint,
+      actorRole: 'member',
+      targetTitle: newPost.title,
+      targetId: newPost.id,
+      timestamp: newPost.createdAt,
+      meta: { flair: newPost.flair },
+    });
     this.showToast('✨ Broadcasted to Sovereign Network!', 'success');
     this.notify();
 

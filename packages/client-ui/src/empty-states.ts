@@ -7,7 +7,10 @@
  * - Vault Releases (No audited releases)
  * - Live Relays (No relays connected or empty channels)
  * Each state provides a clear, friendly message and an actionable primary button.
+ * All user-visible strings are translated via i18n.t() — zero hardcoded UI text.
  */
+
+import { t } from './i18n.js';
 
 export interface EmptyStateOptions {
   title?: string;
@@ -22,9 +25,9 @@ export interface EmptyStateOptions {
  * 1. Empty state for Pulse Stream when no posts are available
  */
 export function renderPulseEmptyState(options?: EmptyStateOptions): string {
-  const title = options?.title || 'Fluxul de publicații este liniștit';
-  const desc = options?.description || 'Nu există nicio publicație disponibilă în acest canal. Fii primul care împărtășește o idee, o știre sau un articol în rețeaua suverană.';
-  const actionText = options?.actionText || '✍️ Scrie prima publicație';
+  const title = options?.title || t('emptyState.pulseTitle', undefined, 'The feed is quiet');
+  const desc = options?.description || t('emptyState.pulseDesc', undefined, 'No posts yet in this channel. Be the first to share a thought in the sovereign network.');
+  const actionText = options?.actionText || t('emptyState.pulseAction', undefined, '✍️ Write the first post');
   const actionId = options?.actionId || 'btn-empty-pulse-composer';
   const icon = options?.icon || '⚡';
 
@@ -56,9 +59,9 @@ export function renderPulseEmptyState(options?: EmptyStateOptions): string {
  * 2. Empty state for Knowledge Vault when no files are uploaded
  */
 export function renderVaultFilesEmptyState(options?: EmptyStateOptions): string {
-  const title = options?.title || 'Seiful de fișiere este gol';
-  const desc = options?.description || 'Nu ai salvat încă niciun fișier criptat în seiful local sau în rețeaua peer-to-peer. Fișierele tale sunt stocate doar pe dispozitivele tale.';
-  const actionText = options?.actionText || '📦 Încarcă primul fișier în Seif';
+  const title = options?.title || t('emptyState.vaultFilesTitle', undefined, 'Your vault is empty');
+  const desc = options?.description || t('emptyState.vaultFilesDesc', undefined, 'No encrypted files saved yet. Your files are stored only on your devices.');
+  const actionText = options?.actionText || t('emptyState.vaultFilesAction', undefined, '📦 Upload your first file');
   const actionId = options?.actionId || 'btn-empty-vault-upload';
   const icon = options?.icon || '🗄️';
 
@@ -90,9 +93,9 @@ export function renderVaultFilesEmptyState(options?: EmptyStateOptions): string 
  * 3. Empty state for Vault Releases when no audited releases match
  */
 export function renderVaultReleasesEmptyState(options?: EmptyStateOptions): string {
-  const title = options?.title || 'Fără release-uri auditate în această categorie';
-  const desc = options?.description || 'Toate versiunile au fost verificate sau filtrul curent nu a găsit pachete. Poți publica un release verificabil cu semnătură criptografică.';
-  const actionText = options?.actionText || '✨ Publică un nou Release auditat';
+  const title = options?.title || t('emptyState.vaultReleasesTitle', undefined, 'No audited releases in this category');
+  const desc = options?.description || t('emptyState.vaultReleasesDesc', undefined, 'All versions verified or current filter found no packages. Publish a cryptographically signed release.');
+  const actionText = options?.actionText || t('emptyState.vaultReleasesAction', undefined, '✨ Publish a new audited release');
   const actionId = options?.actionId || 'btn-empty-vault-release';
   const icon = options?.icon || '🚀';
 
@@ -124,9 +127,10 @@ export function renderVaultReleasesEmptyState(options?: EmptyStateOptions): stri
  * 4. Empty state for Live Relays when no relays are connected or channel has no messages
  */
 export function renderRelaysEmptyState(options?: EmptyStateOptions): string {
-  const title = options?.title || 'Fără servere conectate sau mesaje';
-  const desc = options?.description || 'Nu ești conectat la niciun server live sau acest canal nu conține încă mesaje. Conectează un server sau trimite primul mesaj criptat E2EE.';
-  const actionText = options?.actionText || '💬 Trimite primul mesaj în canal';
+  const title = options?.title || t('emptyState.relaysTitle', undefined, 'No servers connected or messages');
+  const desc = options?.description || t('emptyState.relaysDesc', undefined, 'Not connected to any live server or this channel has no messages yet. Connect a server or send the first E2EE encrypted message.');
+  const actionText = options?.actionText || t('emptyState.relaysAction', undefined, '💬 Send the first message');
+  const connectText = t('emptyState.relaysConnectServer', undefined, '🔗 Connect Server');
   const actionId = options?.actionId || 'btn-empty-relays-chat';
   const icon = options?.icon || '📡';
 
@@ -158,9 +162,41 @@ export function renderRelaysEmptyState(options?: EmptyStateOptions): string {
           class="px-4 py-2.5 rounded-xl bg-surface-raised hover:bg-surface-overlay text-slate-200 hover:text-white border border-white/10 text-xs font-semibold transition-all cursor-pointer"
           data-empty-action="add-relay"
         >
-          <span>🔗 Conectează Server</span>
+          <span>${connectText}</span>
         </button>
       </div>
+    </div>
+  `;
+}
+
+/**
+ * 5. Visual loading skeleton for Pulse Stream while initializing or synchronizing
+ */
+export function renderPulseFeedSkeleton(count = 3): string {
+  const loadingLabel = t('emptyState.loadingPulses', undefined, 'Loading pulses...');
+  return `
+    <div class="space-y-4 animate-pulse w-full max-w-3xl mx-auto" aria-busy="true" aria-label="${loadingLabel}">
+      ${Array.from({ length: count }).map(() => `
+        <div class="p-4 rounded-2xl bg-surface-raised/50 border border-white/5 space-y-3">
+          <div class="flex items-center space-x-3">
+            <div class="w-9 h-9 rounded-full bg-slate-800/80 shrink-0"></div>
+            <div class="space-y-1.5 flex-1">
+              <div class="h-3.5 bg-slate-800/80 rounded w-1/4"></div>
+              <div class="h-2.5 bg-slate-800/50 rounded w-1/6"></div>
+            </div>
+          </div>
+          <div class="space-y-2 pt-1">
+            <div class="h-3.5 bg-slate-800/70 rounded w-3/4"></div>
+            <div class="h-3 bg-slate-800/50 rounded w-full"></div>
+            <div class="h-3 bg-slate-800/40 rounded w-2/3"></div>
+          </div>
+          <div class="flex items-center space-x-6 pt-2">
+            <div class="h-3.5 bg-slate-800/60 rounded w-12"></div>
+            <div class="h-3.5 bg-slate-800/60 rounded w-12"></div>
+            <div class="h-3.5 bg-slate-800/60 rounded w-12"></div>
+          </div>
+        </div>
+      `).join('')}
     </div>
   `;
 }

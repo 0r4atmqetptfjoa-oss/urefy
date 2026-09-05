@@ -6,6 +6,8 @@
 import './window-augmentation.js';
 import { serviceRegistry, SERVICES } from './service-registry.js';
 import { sovereignWebPush } from './web-push.js';
+import { isLocalDev } from './admin-auth.js';
+import { t } from './i18n.js';
 
 export interface NotificationItem {
   id: string;
@@ -59,7 +61,9 @@ class NotificationCenter {
   private static readonly MAX_ITEMS = 50;
 
   constructor() {
-    this._seedDemoNotifications();
+    if (isLocalDev()) {
+      this._seedDemoNotifications();
+    }
     this._attachGlobalHandlers();
   }
 
@@ -201,7 +205,7 @@ class NotificationCenter {
           <div class="flex items-center justify-between px-4 py-3.5 border-b border-white/10 flex-shrink-0 bg-surface-raised/60">
             <div class="flex items-center space-x-2">
               <span class="text-base">🔔</span>
-              <h3 class="text-sm font-bold text-white tracking-wide">Notifications</h3>
+              <h3 class="text-sm font-bold text-white tracking-wide">${t('notifications.title', undefined, 'Notifications')}</h3>
               ${this.unreadCount > 0 ? `<span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">${this.unreadCount} new</span>` : ''}
             </div>
             <div class="flex items-center gap-2">
@@ -210,7 +214,7 @@ class NotificationCenter {
                 class="text-xs text-indigo-400 hover:text-white transition-colors cursor-pointer ${markAllDisabled}"
                 onclick="if(window.__aetherisNotifCenter){window.__aetherisNotifCenter.markAllRead(); if(window.clientStore)window.clientStore.notify();}"
               >
-                Mark read
+                ${t('notifications.markAllRead', undefined, 'Mark read')}
               </button>
               <span class="text-white/20 text-xs">|</span>
               <button
@@ -218,7 +222,7 @@ class NotificationCenter {
                 class="text-xs text-slate-500 hover:text-rose-400 transition-colors cursor-pointer"
                 onclick="if(window.__aetherisNotifCenter){window.__aetherisNotifCenter.clearAll(); if(window.clientStore)window.clientStore.notify();}"
               >
-                Clear
+                ${t('notifications.clearAll', undefined, 'Clear')}
               </button>
               <span class="text-white/20 text-xs">|</span>
               <button
@@ -238,7 +242,7 @@ class NotificationCenter {
               class="notif-filter-btn px-2.5 py-1 rounded-lg font-mono text-[11px] transition-all cursor-pointer ${this.activeFilter === 'all' ? 'bg-indigo-500/20 text-indigo-300 font-bold border border-indigo-500/30' : 'text-slate-400 hover:text-white'}"
               onclick="if(window.__aetherisNotifCenter){window.__aetherisNotifCenter.setFilter('all'); if(window.clientStore)window.clientStore.notify();}"
             >
-              All (${this._notifications.length})
+              ${t('notifications.filterAll', undefined, 'All')} (${this._notifications.length})
             </button>
             <button
               type="button"
@@ -252,14 +256,14 @@ class NotificationCenter {
               class="notif-filter-btn px-2.5 py-1 rounded-lg font-mono text-[11px] transition-all cursor-pointer ${this.activeFilter === 'mentions' ? 'bg-indigo-500/20 text-indigo-300 font-bold border border-indigo-500/30' : 'text-slate-400 hover:text-white'}"
               onclick="if(window.__aetherisNotifCenter){window.__aetherisNotifCenter.setFilter('mentions'); if(window.clientStore)window.clientStore.notify();}"
             >
-              Mentions
+              ${t('notifications.filterMentions', undefined, 'Mentions')}
             </button>
             <button
               type="button"
               class="notif-filter-btn px-2.5 py-1 rounded-lg font-mono text-[11px] transition-all cursor-pointer ${this.activeFilter === 'awards' ? 'bg-indigo-500/20 text-indigo-300 font-bold border border-indigo-500/30' : 'text-slate-400 hover:text-white'}"
               onclick="if(window.__aetherisNotifCenter){window.__aetherisNotifCenter.setFilter('awards'); if(window.clientStore)window.clientStore.notify();}"
             >
-              Awards
+              ${t('notifications.filterAwards', undefined, 'Awards')}
             </button>
           </div>
 
@@ -316,8 +320,8 @@ class NotificationCenter {
   private _renderEmptyState(): string {
     return `<div class="flex flex-col items-center justify-center py-14 gap-3 text-center select-none">
   <span class="text-3xl opacity-30">🔔</span>
-  <p class="text-sm font-medium text-slate-500">No notifications yet</p>
-  <p class="text-xs text-slate-600 max-w-[180px] leading-relaxed">Activity on your posts and mentions will appear here.</p>
+  <p class="text-sm font-medium text-slate-500">${t('notifications.noNotifications', undefined, 'No notifications yet')}</p>
+  <p class="text-xs text-slate-600 max-w-[180px] leading-relaxed">${t('notifications.title', undefined, 'Activity on your posts and mentions will appear here.')}</p>
 </div>`.trim();
   }
 

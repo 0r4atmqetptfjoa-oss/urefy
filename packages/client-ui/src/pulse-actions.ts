@@ -7,12 +7,16 @@
  * 4. Bookmarks and cryptographic permalink sharing.
  */
 
+import { isLocalDev } from './admin-auth.js';
+import { safeLocalStorage } from './dry-utils.js';
+
 export interface PulseInteractionState {
   liked: boolean;
   reposted: boolean;
   bookmarked: boolean;
   likesCount: number;
   repostsCount: number;
+  bookmarksCount?: number;
   viewsCount: number;
   repliesCount: number;
 }
@@ -29,9 +33,12 @@ export interface QuotedPulseItem {
 export class PulseActionsEngine {
   private postInteractions: Map<string, PulseInteractionState> = new Map();
   private repostMenuOpenId: string | null = null;
+  private syncedPostIds: Set<string> = new Set();
 
   constructor() {
-    this._seedDemoInteractions();
+    if (isLocalDev()) {
+      this._seedDemoInteractions();
+    }
   }
 
   private _seedDemoInteractions(): void {
@@ -73,15 +80,41 @@ export class PulseActionsEngine {
     });
   }
 
+  private _getLocalKey(postId: string, flag: 'liked' | 'reposted' | 'bookmarked'): string {
+    return `aeth_pulse_${flag}_${postId}`;
+  }
+
+  private _getLocalFlag(postId: string, flag: 'liked' | 'reposted' | 'bookmarked'): boolean {
+    const storage = safeLocalStorage();
+    if (!storage) return false;
+    try {
+      return storage.getItem(this._getLocalKey(postId, flag)) === 'true';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  private _setLocalFlag(postId: string, flag: 'liked' | 'reposted' | 'bookmarked', val: boolean): void {
+    const storage = safeLocalStorage();
+    if (!storage) return;
+    try {
+      if (val) {
+        storage.setItem(this._getLocalKey(postId, flag), 'true');
+      } else {
+        storage.removeItem(this._getLocalKey(postId, flag));
+      }
+    } catch (_) {}
+  }
+
   public getInteractions(postId: string): PulseInteractionState {
     if (!this.postInteractions.has(postId)) {
       this.postInteractions.set(postId, {
-        liked: false,
-        reposted: false,
-        bookmarked: false,
-        likesCount: Math.floor(Math.random() * 45) + 3,
-        repostsCount: Math.floor(Math.random() * 12),
-        viewsCount: Math.floor(Math.random() * 1200) + 120,
+        liked: this._getLocalFlag(postId, 'liked'),
+        reposted: this._getLocalFlag(postId, 'reposted'),
+        bookmarked: this._getLocalFlag(postId, 'bookmarked'),
+        likesCount: 0,
+        repostsCount: 0,
+        viewsCount: 0,
         repliesCount: 0,
       });
     }
@@ -89,9 +122,58 @@ export class PulseActionsEngine {
   }
 
   /**
-   * Toggles Like status and returns whether particle burst should fire.
+   * Synchronizes real post interaction counts from Cloudflare D1
    */
-  public toggleLike(postId: string): { isLiked: boolean; newCount: number; burst: boolean } {
+  public async syncInteractions(postIds: string[], userFingerprint?: string): Promise<void> {
+    if (!postIds || postIds.length === 0 || typeof window === 'undefined' || typeof fetch === 'undefined') return;
+
+    const toSync = postIds.filter(id => !this.syncedPostIds.has(id));
+    if (toSync.length === 0) return;
+
+    toSync.forEach(id => this.syncedPostIds.add(id));
+
+    try {
+      const params = new URLSearchParams();
+      params.set('postIds', toSync.join(','));
+      if (userFingerprint) params.set('userFingerprint', userFingerprint);
+
+      const res = await fetch(`/api/interactions?${params.toString()}`);
+      if (!res.ok) return;
+
+      const data = await res.json() as any;
+      if (data?.success && data.interactions) {
+        for (const [id, info] of Object.entries<any>(data.interactions)) {
+          const state = this.getInteractions(id);
+          state.likesCount = Number(info.likesCount) || 0;
+          state.repostsCount = Number(info.repostsCount) || 0;
+          state.bookmarksCount = Number(info.bookmarksCount) || 0;
+          state.viewsCount = Number(info.viewsCount) || 0;
+
+          if (info.userInteractions) {
+            if (info.userInteractions.liked !== undefined) {
+              state.liked = Boolean(info.userInteractions.liked);
+              this._setLocalFlag(id, 'liked', state.liked);
+            }
+            if (info.userInteractions.reposted !== undefined) {
+              state.reposted = Boolean(info.userInteractions.reposted);
+              this._setLocalFlag(id, 'reposted', state.reposted);
+            }
+            if (info.userInteractions.bookmarked !== undefined) {
+              state.bookmarked = Boolean(info.userInteractions.bookmarked);
+              this._setLocalFlag(id, 'bookmarked', state.bookmarked);
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[PulseActions] Failed to sync interactions from edge API:', err);
+    }
+  }
+
+  /**
+   * Toggles Like status, dispatches to Cloudflare D1, and returns whether particle burst should fire.
+   */
+  public toggleLike(postId: string, userFingerprint?: string): { isLiked: boolean; newCount: number; burst: boolean } {
     const state = this.getInteractions(postId);
     state.liked = !state.liked;
     if (state.liked) {
@@ -99,13 +181,38 @@ export class PulseActionsEngine {
     } else {
       state.likesCount = Math.max(0, state.likesCount - 1);
     }
+    this._setLocalFlag(postId, 'liked', state.liked);
+
+    // Asynchronously persist to Cloudflare D1
+    if (typeof window !== 'undefined' && typeof fetch !== 'undefined') {
+      fetch('/api/interactions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          targetId: postId,
+          targetType: 'post',
+          userFingerprint: userFingerprint || 'anon-peer',
+          action: 'like',
+        }),
+      })
+        .then(r => r.json())
+        .then((data: any) => {
+          if (data?.success && typeof data.newCount === 'number') {
+            state.likesCount = data.newCount;
+            state.liked = Boolean(data.active);
+            this._setLocalFlag(postId, 'liked', state.liked);
+          }
+        })
+        .catch(err => console.warn('[PulseActions] Like sync error:', err));
+    }
+
     return { isLiked: state.liked, newCount: state.likesCount, burst: state.liked };
   }
 
   /**
-   * Toggles Repost status.
+   * Toggles Repost status and dispatches to Cloudflare D1.
    */
-  public toggleRepost(postId: string): { isReposted: boolean; newCount: number } {
+  public toggleRepost(postId: string, userFingerprint?: string): { isReposted: boolean; newCount: number } {
     const state = this.getInteractions(postId);
     state.reposted = !state.reposted;
     if (state.reposted) {
@@ -113,25 +220,80 @@ export class PulseActionsEngine {
     } else {
       state.repostsCount = Math.max(0, state.repostsCount - 1);
     }
+    this._setLocalFlag(postId, 'reposted', state.reposted);
     this.repostMenuOpenId = null;
+
+    // Asynchronously persist to Cloudflare D1
+    if (typeof window !== 'undefined' && typeof fetch !== 'undefined') {
+      fetch('/api/interactions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          targetId: postId,
+          targetType: 'post',
+          userFingerprint: userFingerprint || 'anon-peer',
+          action: 'repost',
+        }),
+      })
+        .then(r => r.json())
+        .then((data: any) => {
+          if (data?.success && typeof data.newCount === 'number') {
+            state.repostsCount = data.newCount;
+            state.reposted = Boolean(data.active);
+            this._setLocalFlag(postId, 'reposted', state.reposted);
+          }
+        })
+        .catch(err => console.warn('[PulseActions] Repost sync error:', err));
+    }
+
     return { isReposted: state.reposted, newCount: state.repostsCount };
   }
 
   /**
-   * Toggles Bookmark status.
+   * Toggles Bookmark status and dispatches to Cloudflare D1.
    */
-  public toggleBookmark(postId: string): boolean {
+  public toggleBookmark(postId: string, userFingerprint?: string): boolean {
     const state = this.getInteractions(postId);
     state.bookmarked = !state.bookmarked;
+    this._setLocalFlag(postId, 'bookmarked', state.bookmarked);
+
+    // Asynchronously persist to Cloudflare D1
+    if (typeof window !== 'undefined' && typeof fetch !== 'undefined') {
+      fetch('/api/interactions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          targetId: postId,
+          targetType: 'post',
+          userFingerprint: userFingerprint || 'anon-peer',
+          action: 'bookmark',
+        }),
+      }).catch(err => console.warn('[PulseActions] Bookmark sync error:', err));
+    }
+
     return state.bookmarked;
   }
 
   /**
-   * Increments view impressions.
+   * Increments view impressions and records in Cloudflare D1.
    */
-  public recordImpression(postId: string): number {
+  public recordImpression(postId: string, userFingerprint?: string): number {
     const state = this.getInteractions(postId);
     state.viewsCount += 1;
+
+    if (typeof window !== 'undefined' && typeof fetch !== 'undefined') {
+      fetch('/api/interactions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          targetId: postId,
+          targetType: 'post',
+          userFingerprint: userFingerprint || 'anon-peer',
+          action: 'view',
+        }),
+      }).catch(() => {});
+    }
+
     return state.viewsCount;
   }
 
@@ -189,6 +351,7 @@ export class PulseActionsEngine {
           data-post-id="${postId}"
           class="btn-pulse-reply flex items-center space-x-1.5 group hover:text-cyan-400 transition-colors cursor-pointer"
           title="Reply to pulse"
+          aria-label="Reply to pulse"
         >
           <div class="p-2 rounded-full group-hover:bg-cyan-500/10 transition-colors">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -206,6 +369,7 @@ export class PulseActionsEngine {
             data-post-id="${postId}"
             class="btn-pulse-repost-menu flex items-center space-x-1.5 group transition-colors cursor-pointer ${state.reposted ? 'text-emerald-400 font-bold' : 'hover:text-emerald-400'}"
             title="Repost or Quote Pulse"
+            aria-label="Repost or Quote pulse"
           >
             <div class="p-2 rounded-full group-hover:bg-emerald-500/10 transition-colors">
               <svg class="w-4 h-4 ${state.reposted ? 'rotate-180 transition-transform duration-300' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -222,6 +386,7 @@ export class PulseActionsEngine {
                 data-pulse-action="do-repost"
                 data-post-id="${postId}"
                 class="w-full flex items-center space-x-2.5 px-4 py-2.5 hover:bg-white/10 text-xs font-bold ${state.reposted ? 'text-emerald-400' : 'text-slate-200'} transition-colors cursor-pointer"
+                aria-label="${state.reposted ? 'Undo Repost' : 'Re-broadcast'}"
               >
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
                 <span>${state.reposted ? 'Undo Repost' : 'Re-broadcast'}</span>
@@ -232,6 +397,7 @@ export class PulseActionsEngine {
                 data-pulse-action="do-quote"
                 data-post-id="${postId}"
                 class="w-full flex items-center space-x-2.5 px-4 py-2.5 hover:bg-white/10 text-xs font-bold text-slate-200 transition-colors cursor-pointer border-t border-white/5"
+                aria-label="Quote Pulse"
               >
                 <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"></path></svg>
                 <span>Quote Pulse</span>
@@ -247,6 +413,7 @@ export class PulseActionsEngine {
           data-post-id="${postId}"
           class="btn-pulse-like relative flex items-center space-x-1.5 group transition-colors cursor-pointer ${state.liked ? 'text-[#f91880]' : 'hover:text-[#f91880]'}"
           title="Like pulse"
+          aria-label="${state.liked ? 'Unlike pulse' : 'Like pulse'}"
         >
           <div class="relative p-2 rounded-full group-hover:bg-[#f91880]/10 transition-colors">
             <svg class="w-4 h-4 ${state.liked ? 'fill-[#f91880] animate-heart-pop scale-110' : ''} transition-transform duration-150" viewBox="0 0 24 24" fill="${state.liked ? '#f91880' : 'none'}" stroke="currentColor" stroke-width="2">
@@ -276,6 +443,7 @@ export class PulseActionsEngine {
             data-post-id="${postId}"
             class="btn-pulse-bookmark p-2 rounded-full transition-colors cursor-pointer ${state.bookmarked ? 'text-amber-400' : 'hover:text-amber-400 hover:bg-amber-400/10'}"
             title="Bookmark"
+            aria-label="${state.bookmarked ? 'Remove bookmark' : 'Bookmark pulse'}"
           >
             <svg class="w-4 h-4 ${state.bookmarked ? 'fill-amber-400' : ''}" fill="${state.bookmarked ? 'currentColor' : 'none'}" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path>
@@ -288,6 +456,7 @@ export class PulseActionsEngine {
             data-post-id="${postId}"
             class="btn-pulse-share p-2 rounded-full hover:text-cyan-400 hover:bg-cyan-500/10 transition-colors cursor-pointer"
             title="Share sovereign permalink"
+            aria-label="Share sovereign permalink"
           >
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path>
@@ -300,6 +469,7 @@ export class PulseActionsEngine {
             data-post-id="${postId}"
             class="btn-pulse-report p-2 rounded-full hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
             title="Raportează conținut ilegal / Abuz (DSA Notice & Takedown)"
+            aria-label="Raportează conținut ilegal / DSA Notice and Takedown"
           >
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"></path>

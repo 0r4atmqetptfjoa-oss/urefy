@@ -8,10 +8,12 @@ import {
   renderRelaysEmptyState 
 } from '../src/empty-states.js';
 import { clientStore } from '../src/client-state.js';
+import { i18n } from '../src/i18n.js';
 
 describe('Milestones 1–5: Onboarding, Navigation, Empty States & Performance Verification', () => {
   beforeEach(() => {
     clientStore.activeChannelId = 'pulse-global';
+    i18n.setLanguage('ro');
   });
 
   describe('Milestone 1 — Onboarding & Plain Language', () => {
@@ -58,27 +60,30 @@ describe('Milestones 1–5: Onboarding, Navigation, Empty States & Performance V
       const html = renderPulseEmptyState();
 
       expect(html).toContain('empty-state-pulse');
-      expect(html).toContain('Fluxul de publicații este liniștit');
       expect(html).toContain('btn-empty-pulse-composer');
-      expect(html).toContain('Scrie prima publicație');
+      expect(html).toContain('data-empty-action="pulse"');
+      // i18n text (RO set in beforeEach)
+      expect(html).toContain('Feed-ul este liniștit');
     });
 
     it('5. renderVaultFilesEmptyState provides title, explanation, and upload action', () => {
       const html = renderVaultFilesEmptyState();
 
       expect(html).toContain('empty-state-vault-files');
-      expect(html).toContain('Seiful de fișiere este gol');
       expect(html).toContain('btn-empty-vault-upload');
-      expect(html).toContain('Încarcă primul fișier în Seif');
+      expect(html).toContain('data-empty-action="vault-files"');
+      // i18n text (RO set in beforeEach)
+      expect(html).toContain('Vault-ul tău este gol');
     });
 
     it('6. renderVaultReleasesEmptyState provides audited release guidance and action', () => {
       const html = renderVaultReleasesEmptyState();
 
       expect(html).toContain('empty-state-vault-releases');
-      expect(html).toContain('Fără release-uri auditate');
       expect(html).toContain('btn-empty-vault-release');
-      expect(html).toContain('Publică un nou Release auditat');
+      expect(html).toContain('data-empty-action="vault-releases"');
+      // i18n text (RO set in beforeEach)
+      expect(html).toContain('Nicio versiune auditată');
     });
 
     it('7. renderRelaysEmptyState provides clear empty channel guidance and chat action', () => {
@@ -86,8 +91,9 @@ describe('Milestones 1–5: Onboarding, Navigation, Empty States & Performance V
 
       expect(html).toContain('empty-state-relays');
       expect(html).toContain('btn-empty-relays-chat');
-      expect(html).toContain('Trimite primul mesaj în canal');
       expect(html).toContain('btn-empty-add-relay');
+      // i18n text (RO set in beforeEach)
+      expect(html).toContain('Trimite primul mesaj');
     });
   });
 

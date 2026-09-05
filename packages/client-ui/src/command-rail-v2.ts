@@ -8,6 +8,7 @@ import {
   ClientNanopublication,
   SpaceType,
 } from './client-state.js';
+import { isLocalDev } from './admin-auth.js';
 
 export type CommandRailFilter = 'ALL' | 'POSTS' | 'MEMBERS' | 'BINARIES' | 'COMMANDS';
 export type SearchItemType = 'post' | 'member' | 'binary' | 'command';
@@ -172,7 +173,9 @@ export class CommandRailV2Engine {
 
   constructor() {
     this._initCommands();
-    this._seedFallbackData();
+    if (isLocalDev()) {
+      this._seedFallbackData();
+    }
   }
 
   /**
@@ -575,7 +578,7 @@ export class CommandRailV2Engine {
     // 1. Gather Posts
     const posts: ClientPost[] = (typeof clientStore !== 'undefined' && clientStore.posts && clientStore.posts.length > 0)
       ? clientStore.posts
-      : this._cachedPosts;
+      : (isLocalDev() ? this._cachedPosts : []);
 
     if (filter === 'ALL' || filter === 'POSTS') {
       for (const p of posts) {
@@ -614,7 +617,7 @@ export class CommandRailV2Engine {
     // 2. Gather Members
     const members: CommunityMember[] = (typeof clientStore !== 'undefined' && clientStore.members && clientStore.members.length > 0)
       ? clientStore.members
-      : this._cachedMembers;
+      : (isLocalDev() ? this._cachedMembers : []);
 
     if (filter === 'ALL' || filter === 'MEMBERS') {
       for (const m of members) {
@@ -649,7 +652,7 @@ export class CommandRailV2Engine {
     // 3. Gather Binaries / Nanopublications
     const binaries: ClientNanopublication[] = (typeof clientStore !== 'undefined' && clientStore.nanopublications && clientStore.nanopublications.length > 0)
       ? clientStore.nanopublications
-      : this._cachedBinaries;
+      : (isLocalDev() ? this._cachedBinaries : []);
 
     if (filter === 'ALL' || filter === 'BINARIES') {
       for (const b of binaries) {

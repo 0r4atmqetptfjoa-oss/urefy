@@ -488,11 +488,12 @@ export class TransparencyModeManager {
     // STAGE 5: ZERO-KNOWLEDGE VERIFIED DELIVERY (Unlinkable Receipt Nullifier)
     // ──────────────────────────────────────────────────────────────────────────
     const t4 = performance.now();
-    const recipientMockPrivKey = new Uint8Array(32);
-    recipientMockPrivKey.fill(3);
+    const recipientPrivKey = clientStore?.keypair?.privateKey
+      ? clientStore.keypair.privateKey
+      : (typeof crypto !== 'undefined' ? crypto.getRandomValues(new Uint8Array(32)) : new Uint8Array(32));
     const deliveryProof = generateZkDeliveryProof({
       messageId,
-      recipientPrivateKey: recipientMockPrivKey,
+      recipientPrivateKey: recipientPrivKey,
       proofType: 'snark-groth16',
     });
     const stage5Latency = +(performance.now() - t4).toFixed(2);

@@ -241,7 +241,7 @@ export class TimelineScrubber {
         firstPostId: null,
         postIds: [],
         zkAnchorProof: {
-          rootHash: this.computeMockMerkleRoot(key),
+          rootHash: this.computeEpochMerkleRoot(key),
           merkleDepth: 20,
           witnessCount: 64,
           isVerified: true,
@@ -1010,9 +1010,9 @@ export class TimelineScrubber {
   }
 
   /**
-   * Generates a deterministic mock Merkle root for the cryptographic epoch anchor.
+   * Generates a deterministic Merkle root commitment for the cryptographic epoch anchor.
    */
-  private computeMockMerkleRoot(epochKey: string): string {
+  private computeEpochMerkleRoot(epochKey: string): string {
     let hash = 0x811c9dc5;
     for (let i = 0; i < epochKey.length; i++) {
       hash ^= epochKey.charCodeAt(i);

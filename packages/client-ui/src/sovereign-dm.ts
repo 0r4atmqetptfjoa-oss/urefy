@@ -17,6 +17,7 @@ import {
   bytesToHex,
 } from '@aetheris/core-crypto';
 import { encodeSteganography, decodeSteganography } from './steganography.js';
+import { isLocalDev } from './admin-auth.js';
 
 export interface DirectMessage {
   id: string;
@@ -243,7 +244,7 @@ export class SovereignDMManager {
 
   constructor() {
     this._loadFromStorage();
-    if (this.conversations.size === 0) {
+    if (this.conversations.size === 0 && isLocalDev()) {
       this._seedDemoData();
     }
     this._setupGlobalBindings();

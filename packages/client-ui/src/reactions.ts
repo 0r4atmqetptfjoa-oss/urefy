@@ -3,6 +3,7 @@
 
 import './window-augmentation.js';
 import { serviceRegistry, SERVICES } from './service-registry.js';
+import { isLocalDev } from './admin-auth.js';
 
 export interface Reaction {
   emoji: string;
@@ -22,18 +23,21 @@ export class ReactionsEngine {
   public postReactions: PostReactions = new Map();
 
   public readonly AVAILABLE_REACTIONS: AvailableReaction[] = [
-    { emoji: '❤️', label: 'Love' },
+    { emoji: '👍', label: 'Like' },
     { emoji: '🔥', label: 'Fire' },
+    { emoji: '❤️', label: 'Love' },
+    { emoji: '⚡', label: 'Pulse' },
     { emoji: '💡', label: 'Insight' },
-    { emoji: '⚡', label: 'Power' },
-    { emoji: '🛡️', label: 'Security' },
+    { emoji: '🛡️', label: 'Shield' },
     { emoji: '🎯', label: 'Precise' },
     { emoji: '🚀', label: 'Launch' },
     { emoji: '🤔', label: 'Think' },
   ];
 
   constructor() {
-    this._seedDemoReactions();
+    if (isLocalDev()) {
+      this._seedDemoReactions();
+    }
   }
 
   // ─── Core Methods ───────────────────────────────────────────────────────────
@@ -55,8 +59,7 @@ export class ReactionsEngine {
     this.initPost(postId);
     const reactions = this.postReactions.get(postId)!;
 
-    const available = this.AVAILABLE_REACTIONS.find((r) => r.emoji === emoji);
-    if (!available) return;
+    const available = this.AVAILABLE_REACTIONS.find((r) => r.emoji === emoji) || { emoji, label: 'Reaction' };
 
     // Detect if the user already has any reaction on this post
     let previousEmoji: string | null = null;
@@ -100,6 +103,20 @@ export class ReactionsEngine {
       const newRx = reactions.get(emoji)!;
       newRx.reactedBy.add(userFP);
       newRx.count = newRx.reactedBy.size;
+    }
+
+    if (typeof fetch !== 'undefined') {
+      fetch('/api/interactions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          targetId: postId,
+          targetType: 'post',
+          userFingerprint: userFP || 'anon-peer',
+          action: 'reaction',
+          value: emoji,
+        }),
+      }).catch(() => {});
     }
   }
 

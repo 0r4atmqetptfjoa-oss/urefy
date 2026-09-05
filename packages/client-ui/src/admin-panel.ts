@@ -8,7 +8,7 @@ import { wotGraphViz } from './network-wot-graph.js';
 import { toastManager } from './toast.js';
 import { fetchAndRenderR2Quota } from './admin.js';
 
-export type AdminTab = 'dashboard' | 'users' | 'channels' | 'waf' | 'config' | 'moderation' | 'gossip' | 'cve' | 'observatory' | 'wot';
+export type AdminTab = 'dashboard' | 'users' | 'channels' | 'waf' | 'config' | 'moderation' | 'gossip' | 'cve' | 'observatory' | 'wot' | 'dsa';
 
 export interface AdminUser {
   fingerprint: string;
@@ -159,11 +159,51 @@ export class AdminPanelManager {
         if (data.logs && Array.isArray(data.logs)) this.adminLogs = data.logs;
         this.lastSyncTimestamp = Date.now();
       }
+      await this.fetchDsaReports();
     } catch (_) {
       // Local fallback
     } finally {
       this.isSyncing = false;
     }
+  }
+
+  public dsaReports: any[] = [];
+  public isFetchingDsaReports: boolean = false;
+
+  public async fetchDsaReports(): Promise<void> {
+    if (typeof fetch === 'undefined') return;
+    this.isFetchingDsaReports = true;
+    try {
+      const res = await fetch('/api/report', {
+        headers: this._getAuthHeaders(),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.reports && Array.isArray(data.reports)) {
+          this.dsaReports = data.reports;
+        }
+      }
+    } catch (_) {} finally {
+      this.isFetchingDsaReports = false;
+    }
+  }
+
+  public async updateDsaReportStatus(reportId: string, status: 'reviewed' | 'actioned' | 'dismissed', notes?: string): Promise<void> {
+    if (typeof fetch === 'undefined') return;
+    try {
+      const res = await fetch('/api/report', {
+        method: 'PATCH',
+        headers: this._getAuthHeaders(),
+        body: JSON.stringify({ reportId, status, resolutionNotes: notes || `Marked ${status} by admin` }),
+      });
+      if (res.ok) {
+        const rep = this.dsaReports.find(r => r.id === reportId);
+        if (rep) {
+          rep.status = status;
+          rep.reviewedAt = Date.now();
+        }
+      }
+    } catch (_) {}
   }
 
   private async _apiPost(action: string, payload: Record<string, any> = {}): Promise<any> {
@@ -443,6 +483,7 @@ export class AdminPanelManager {
               ${this._renderNavTab('wot', '🕸️', 'Trust Graph (WoT)')}
               ${this._renderNavTab('config', '🔧', 'Server Config')}
               ${this._renderNavTab('moderation', '📝', 'Moderation')}
+              ${this._renderNavTab('dsa', '🚩', 'DSA Reports')}
             </div>
           </div>
 
@@ -524,7 +565,7 @@ export class AdminPanelManager {
   private _getTabIcon(): string {
     const icons: Record<AdminTab, string> = {
       dashboard: '📊', users: '👥', channels: '📢', waf: '🛡️', config: '🔧', moderation: '📝',
-      gossip: '🌐', cve: '🔍', observatory: '📡', wot: '🕸️'
+      gossip: '🌐', cve: '🔍', observatory: '📡', wot: '🕸️', dsa: '🚩'
     };
     return icons[this.activeTab] || '⚙️';
   }
@@ -541,6 +582,7 @@ export class AdminPanelManager {
       cve: 'CVE & Zero-Day Threat Intelligence Matrix',
       observatory: 'Network Observatory & Peer Slashing Radar',
       wot: 'Web of Trust Graph Inspector & Physics Simulation',
+      dsa: 'EU DSA Notice & Takedown Queue (Art. 16)',
     };
     return titles[this.activeTab] || 'Admin Settings';
   }
@@ -553,6 +595,7 @@ export class AdminPanelManager {
       case 'waf': return this._renderWAF();
       case 'config': return this._renderConfig();
       case 'moderation': return this._renderModeration();
+      case 'dsa': return this._renderDSAReports();
       case 'gossip': return `<div id="gossip-container-root">${gossipViz.renderGossipPanel()}</div>`;
       case 'cve': return `<div id="cve-container-root">${cveMonitor.renderCVEDashboard()}</div>`;
       case 'observatory': return `<div id="observatory-container-root">${networkObservatory.renderObservatoryModal()}</div>`;
@@ -1200,7 +1243,113 @@ export class AdminPanelManager {
                 <span class="text-slate-600 shrink-0">${Math.round((Date.now() - l.timestamp) / 1000)}s ago</span>
               </div>
             `).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  private _renderDSAReports(): string {
+    const totalReports = this.dsaReports.length;
+    const pendingReports = this.dsaReports.filter(r => r.status === 'pending').length;
+    const actionedReports = this.dsaReports.filter(r => r.status === 'actioned').length;
+
+    return `
+      <div class="space-y-6">
+        <!-- STATS ROW -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          ${this._statCard('🚩', 'Total DSA Reports', totalReports.toString(), 'text-amber')}
+          ${this._statCard('⏳', 'Pending Review', pendingReports.toString(), 'text-crimson')}
+          ${this._statCard('✅', 'Actioned / Resolved', actionedReports.toString(), 'text-signal')}
+        </div>
+
+        <!-- DSA BANNER -->
+        <div class="p-4 rounded-2xl bg-surface-raised border border-white/10 flex items-center justify-between">
+          <div class="space-y-1">
+            <h4 class="text-sm font-bold text-white flex items-center space-x-2">
+              <span>⚖️</span>
+              <span>EU Digital Services Act (DSA) Compliance Register</span>
+              <span class="text-[10px] px-2 py-0.5 rounded bg-amber/20 text-amber border border-amber/30 font-mono">Art. 16 Notice & Takedown</span>
+            </h4>
+            <p class="text-xs text-slate-400">Sesizările sunt sincronizate direct din registrul securizat Cloudflare D1 (tabela <code>dsa_reports</code>).</p>
           </div>
+          <button
+            id="btn-refresh-dsa-reports"
+            class="px-3 py-1.5 rounded-xl bg-amber/10 hover:bg-amber/20 text-amber border border-amber/30 text-xs font-mono transition-all cursor-pointer"
+          >
+            ⟳ Reîncarcă Sesizări
+          </button>
+        </div>
+
+        <!-- REPORTS LIST -->
+        <div class="bg-surface-raised border border-white/10 rounded-2xl overflow-hidden">
+          <div class="p-4 border-b border-white/10 flex items-center justify-between">
+            <h3 class="text-sm font-bold text-white">Coada de Moderare Conținut Ilegal</h3>
+            <span class="text-xs text-slate-500 font-mono">${pendingReports} în așteptare</span>
+          </div>
+
+          ${this.dsaReports.length === 0 ? `
+            <div class="p-12 text-center text-slate-500 text-xs font-mono">
+              <span class="text-2xl block mb-2">🎉</span>
+              Nu există sesizări DSA în așteptare. Rețeaua este curată.
+            </div>
+          ` : `
+            <div class="divide-y divide-white/5">
+              ${this.dsaReports.map(report => `
+                <div class="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-white/[0.02] transition-colors">
+                  <div class="space-y-1.5 flex-1 min-w-0">
+                    <div class="flex items-center space-x-2">
+                      <span class="font-mono text-xs font-bold text-cyan-300">#${report.id}</span>
+                      <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase font-mono ${
+                        report.status === 'pending'
+                          ? 'bg-crimson/20 text-crimson border border-crimson/30'
+                          : report.status === 'actioned'
+                          ? 'bg-signal/20 text-signal border border-signal/30'
+                          : 'bg-slate-800 text-slate-400 border border-white/10'
+                      }">${report.status}</span>
+                      <span class="text-xs text-amber font-mono font-bold">${report.reason}</span>
+                    </div>
+
+                    <div class="text-xs text-white">
+                      <strong>Țintă:</strong> <code class="text-slate-300 px-1 bg-black/40 rounded">${report.targetId}</code> (${report.targetType || 'post'})
+                    </div>
+
+                    ${report.details ? `
+                      <p class="text-xs text-slate-400 bg-surface-base/60 p-2.5 rounded-xl border border-white/5 font-sans">${report.details}</p>
+                    ` : ''}
+
+                    <div class="text-[10px] text-slate-500 font-mono flex items-center space-x-3">
+                      <span>Reporter: ${report.reporterFingerprint || 'anon'}</span>
+                      ${report.reporterEmail ? `<span>Email: ${report.reporterEmail}</span>` : ''}
+                      <span>Data: ${new Date(report.createdAt).toLocaleString()}</span>
+                    </div>
+                  </div>
+
+                  <div class="flex items-center space-x-2 shrink-0">
+                    ${report.status === 'pending' ? `
+                      <button
+                        data-dsa-action="actioned"
+                        data-report-id="${report.id}"
+                        data-target-id="${report.targetId}"
+                        class="btn-dsa-action px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-all shadow-sm cursor-pointer"
+                        title="Șterge conținutul și marchează sesizarea ca rezolvată"
+                      >
+                        🗑️ Șterge & Rezolvă
+                      </button>
+                      <button
+                        data-dsa-dismiss="${report.id}"
+                        class="btn-dsa-dismiss px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-medium border border-white/10 transition-all cursor-pointer"
+                        title="Respinge sesizarea ca nefondată"
+                      >
+                        ✕ Respinge
+                      </button>
+                    ` : `
+                      <span class="text-xs text-slate-500 font-mono italic">Rezolvat</span>
+                    `}
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          `}
         </div>
       </div>
     `;
@@ -1241,7 +1390,10 @@ export class AdminPanelManager {
       btn.addEventListener('click', () => {
         const tab = btn.getAttribute('data-admin-tab') as AdminTab;
         if (tab) {
-          this.activeTab = tab;
+          this.setTab(tab);
+          if (tab === 'dsa') {
+            this.fetchDsaReports().then(() => onStateChange()).catch(() => {});
+          }
           onStateChange();
         }
       });
@@ -1478,6 +1630,50 @@ export class AdminPanelManager {
     // Export Audit Log
     document.getElementById('btn-admin-export-audit')?.addEventListener('click', () => {
       this.exportAuditLogs();
+    });
+
+    // DSA Reports Refresh
+    document.getElementById('btn-refresh-dsa-reports')?.addEventListener('click', async () => {
+      const btn = document.getElementById('btn-refresh-dsa-reports');
+      if (btn) btn.textContent = '⏳ Se încarcă...';
+      await this.fetchDsaReports();
+      onStateChange();
+    });
+
+    // DSA Reports Action (Delete content & resolve report)
+    document.querySelectorAll('.btn-dsa-action').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const reportId = btn.getAttribute('data-report-id');
+        const targetId = btn.getAttribute('data-target-id');
+        if (!reportId) return;
+
+        if (confirm(`Ești sigur că vrei să elimini conținutul țintă "${targetId}" și să marchezi sesizarea ca rezolvată?`)) {
+          if (targetId) {
+            this.deletePost(targetId);
+          }
+          await this.updateDsaReportStatus(reportId, 'actioned', 'Content taken down and report resolved by administrator');
+          if (typeof window !== 'undefined' && (window as any).toastManager) {
+            (window as any).toastManager.success(`Sesizarea #${reportId} a fost rezolvată, iar conținutul a fost eliminat.`, '⚖️');
+          }
+          onStateChange();
+        }
+      });
+    });
+
+    // DSA Reports Dismiss (Mark as unfounded / dismissed)
+    document.querySelectorAll('.btn-dsa-dismiss').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const reportId = btn.getAttribute('data-dsa-dismiss');
+        if (!reportId) return;
+
+        if (confirm(`Respingi sesizarea #${reportId} ca nefondată?`)) {
+          await this.updateDsaReportStatus(reportId, 'dismissed', 'Report reviewed and dismissed as unfounded');
+          if (typeof window !== 'undefined' && (window as any).toastManager) {
+            (window as any).toastManager.info(`Sesizarea #${reportId} a fost respinsă.`, '⚖️');
+          }
+          onStateChange();
+        }
+      });
     });
 
     // Logout

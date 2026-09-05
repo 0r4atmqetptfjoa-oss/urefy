@@ -118,5 +118,27 @@ describe('Ticket 3.2: Native Mobile Bottom Tab Bar (Feed / Vault / Cerc / Profil
 
     delete (globalThis as any).window;
   });
+
+  it('8. should contain robust dynamic height and safe area insets for ultra-tall displays (ROG Phone 7)', () => {
+    const html = tabBar.renderTabBarHTML();
+
+    // Verifies fixed anchoring and z-50 elevation
+    expect(html).toContain('fixed bottom-0');
+    expect(html).toContain('z-50');
+
+    // Verifies safe area inset support for Android navigation bars & gesture pills
+    expect(html).toContain('pb-[env(safe-area-inset-bottom)]');
+    expect(html).toContain('calc(3.5rem + env(safe-area-inset-bottom, 0px))');
+    expect(html).toContain('padding-bottom: max(env(safe-area-inset-bottom, 0px), 0px)');
+  });
+
+  it('9. should provide accessible touch target heights (min-h-[44px]) for all mobile tabs', () => {
+    const html = tabBar.renderTabBarHTML();
+
+    expect(html).toContain('min-h-[44px]');
+    // Verifies all 5 tabs are rendered with touch target classes
+    const matches = (html.match(/min-h-\[44px\]/g) || []).length;
+    expect(matches).toBe(5);
+  });
 });
 

@@ -9,6 +9,7 @@
 import './window-augmentation.js';
 import { serviceRegistry, SERVICES } from './service-registry.js';
 import { toastManager } from './toast.js';
+import { isLocalDev } from './admin-auth.js';
 
 /**
  * Display non-blocking HUD toast notification for storage & transfer operations.
@@ -421,7 +422,9 @@ export class WebRTCFileTransfer {
   };
 
   constructor() {
-    this.seedInitialTransfers();
+    if (isLocalDev()) {
+      this.seedInitialTransfers();
+    }
     this.bindWindowGlobals();
     this.initSignaling();
   }
@@ -2269,8 +2272,7 @@ export class WebRTCFileTransfer {
     return `
       <div
         id="webrtc-floating-transfer-widget"
-        class="fixed left-3 z-40 font-mono select-none"
-        style="bottom: calc(3.75rem + env(safe-area-inset-bottom, 0px) + 0.5rem)"
+        class="fixed left-4 bottom-28 md:bottom-14 z-40 font-mono select-none"
         title="Click to open P2P Transfer Manager"
         onclick="document.getElementById('download-manager-modal')?.classList.remove('hidden')"
       >

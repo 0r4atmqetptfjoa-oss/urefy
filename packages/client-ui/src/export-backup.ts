@@ -976,12 +976,6 @@ export class ExportBackupManager {
       // ignore
     }
 
-    // Default mock reference if brand new instance to show rich UI
-    if (lastExportTime === 0) {
-      lastExportTime = Date.now() - 3 * 86400 * 1000; // 3 days ago
-      lastExportCount = 1247;
-    }
-
     return { lastExportTime, lastExportCount };
   }
 
@@ -1181,7 +1175,10 @@ export class ExportBackupManager {
               </button>
 
               <div class="text-xs text-slate-400 text-center sm:text-right font-mono" id="aether-export-telemetry-text">
-                Last export: <span class="text-slate-200 font-semibold">${escapeHtml(relativeTime)}</span> | <span class="text-cyphr font-semibold">${lastExportCount.toLocaleString()} items</span>
+                ${lastExportTime === 0
+                  ? `<span class="text-slate-500">No backups exported yet</span>`
+                  : `Last export: <span class="text-slate-200 font-semibold">${escapeHtml(relativeTime)}</span> | <span class="text-cyphr font-semibold">${lastExportCount.toLocaleString()} items</span>`
+                }
               </div>
             </div>
 

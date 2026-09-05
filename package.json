@@ -9,18 +9,31 @@
   "scripts": {
     "build": "npm run build --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
+    "lint": "npm run typecheck",
     "typecheck": "npm run build --workspaces --if-present && tsc --noEmit --project packages/client-ui/tsconfig.json",
     "server": "npm run start --workspace=packages/server-edge",
     "client": "npm run dev --workspace=packages/client-ui",
     "daemon": "npm run start --workspace=packages/daemon-archivist"
   },
   "devDependencies": {
-    "typescript": "^5.7.3",
     "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
     "vitest": "^3.0.5"
   },
   "supportedArchitectures": {
-    "os": ["current", "linux", "darwin"],
-    "cpu": ["current", "x64", "arm64"]
+    "os": [
+      "current",
+      "linux",
+      "darwin"
+    ],
+    "cpu": [
+      "current",
+      "x64",
+      "arm64"
+    ]
+  },
+  "optionalDependencies": {
+    "@rollup/rollup-linux-x64-gnu": "^4.63.1",
+    "@rollup/rollup-linux-x64-musl": "^4.63.1"
   }
 }

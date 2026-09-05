@@ -1,6 +1,8 @@
 // profile-card.ts — Aetheris Omni-Sphere Profile Hover Card Engine
 // Self-contained, zero external dependencies, 100% functional implementation.
 
+import { isLocalDev } from './admin-auth.js';
+
 export interface ProfileData {
   fingerprint: string;
   role: 'GUARDIAN' | 'ARCHIVIST' | 'MODERATOR' | 'MEMBER';
@@ -205,7 +207,9 @@ export class ProfileCardEngine {
   private readonly _mountId: string = 'aetheris-profile-card-mount';
 
   constructor() {
-    this._seedKnownMembers();
+    if (isLocalDev()) {
+      this._seedKnownMembers();
+    }
   }
 
   /**

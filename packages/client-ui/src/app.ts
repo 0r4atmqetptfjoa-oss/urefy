@@ -35,6 +35,7 @@ import { portableTrustModal } from './portable-trust-modal.js';
 import { binaryHygienePortal } from './binary-hygiene-portal.js';
 import { microSaaSDocsModal } from './microsaas-docs-modal.js';
 import { legalModal } from './legal-modal.js';
+import { legalFooter } from './footer.js';
 import { exportSovereignArchive, importSovereignArchive, downloadArchiveFile } from './data-archive.js';
 import { touchGestureEngine } from './touch-gestures.js';
 import { crossTabSync } from './cross-tab-sync.js';
@@ -114,7 +115,7 @@ import { webTorrentSwarm } from './webtorrent-swarm.js';
 import { nodeFederationEngine } from './node-federation.js';
 import { transparencyMode } from './transparency-mode.js';
 import { zkDeliveryManager } from './delivery-proof.js';
-import { renderPulseEmptyState, renderVaultFilesEmptyState, renderVaultReleasesEmptyState, renderRelaysEmptyState } from './empty-states.js';
+import { renderPulseEmptyState, renderPulseFeedSkeleton, renderVaultFilesEmptyState, renderVaultReleasesEmptyState, renderRelaysEmptyState } from './empty-states.js';
 import { settingsView } from './settings-view.js';
 import { adminAuth } from './admin-auth.js';
 import { PRIMARY_NAV_ITEMS, ADVANCED_TOOLS_ITEMS } from './nav-config.js';
@@ -221,7 +222,7 @@ if (typeof window !== 'undefined') {
 
     profileView.saveProfile(clientStore.keypair.fingerprint, { name, bio, location, website, avatar, banner });
     profileView.isEditProfileModalOpen = false;
-    clientStore.showToast('👤 Sovereign Profile & Photo Updated!', 'success');
+    clientStore.showToast(t('toast.profileUpdated', undefined, '👤 Sovereign Profile & Photo Updated!'), 'success');
     clientStore.notifySync();
   };
   window.__aetheris_open_gossip = () => { isGossipModalOpen = true; clientStore.notifySync(); };
@@ -802,8 +803,21 @@ export function initApp(): void {
       });
     }
 
+    // Synchronize HTML lang and dir with i18n active locale
+    if (typeof document !== 'undefined' && document.documentElement) {
+      const activeLocale = i18n.getLanguage();
+      const meta = i18n.getCurrentLanguageMeta();
+      document.documentElement.lang = activeLocale;
+      document.documentElement.dir = meta?.direction || 'ltr';
+      if (meta?.direction === 'rtl') {
+        document.documentElement.classList.add('rtl-layout');
+      } else {
+        document.documentElement.classList.remove('rtl-layout');
+      }
+    }
+
     appEl.innerHTML = `
-      <div id="main-layout" class="flex flex-col h-screen w-screen bg-canvas text-slate-200 overflow-hidden font-sans select-none">
+      <div id="main-layout" class="flex flex-col h-full h-[100dvh] w-full w-screen bg-canvas text-slate-200 overflow-hidden font-sans select-none relative">
         
         <!-- PULL TO REFRESH INDICATOR -->
         ${touchGestureEngine.renderIndicatorHTML()}
@@ -1254,29 +1268,13 @@ export function initApp(): void {
               <span>TreeKEM RFC 9420</span>
               <span class="text-emerald-400">● 0.8ms Rekey</span>
             </div>
+
           </aside>
 
         </div>
 
-        <!-- FOOTER STATUS BAR -->
-        <footer class="h-6 border-subtle-t bg-surface-base px-3 flex items-center justify-between text-[11px] font-mono text-slate-500 shrink-0">
-          <div class="flex items-center space-x-4">
-            <span class="text-cyphr flex items-center space-x-1">
-              <span>🔒</span>
-              <span>MLS TreeKEM Group Epoch #4</span>
-            </span>
-            <span>•</span>
-            <span class="text-slate-400">RAM: 38 MB</span>
-            <span>•</span>
-            <span class="text-slate-400">Indexed: ${localSearchIndex.size()} docs (ZK-SSE)</span>
-          </div>
-          <div class="flex items-center space-x-4">
-            ${activeDownloadName ? `<span class="text-signal animate-pulse">⬇ Downloading ${activeDownloadName}: ${activeDownloadProgress}%</span> •` : ''}
-            <span>Density: ${clientStore.density.toUpperCase()}</span>
-            <span>•</span>
-            <span class="text-signal">WebRTC Mesh: 100% Operational</span>
-          </div>
-        </footer>
+        <!-- BEAUTIFULLY ARRANGED EU REGULATORY BOTTOM BAR (ABOUT, TERMS, GDPR, RULES, DSA, CONTACT) -->
+        ${legalFooter.renderBottomStatusBar(activeDownloadName, activeDownloadProgress)}
 
         ${renderMobileDrawer()}
         <div id="app-mobile-bottom-nav">${renderMobileBottomNav()}</div>
@@ -2090,7 +2088,10 @@ function renderPulseWorkspace(): string {
         ${feedControlsEngine.renderFeedControlsToolbar()}
 
         <!-- POSTS STREAM -->
-        ${posts.length === 0 ? renderPulseEmptyState() : posts.map(p => feedControlsEngine.renderPost(p, feedControlsEngine.getViewMode())).join('')}
+        ${clientStore.isSyncing && posts.length === 0 ? renderPulseFeedSkeleton(3) : (posts.length === 0 ? renderPulseEmptyState() : posts.map(p => feedControlsEngine.renderPost(p, feedControlsEngine.getViewMode())).join(''))}
+
+        <!-- GLOBAL EU REGULATORY FOOTER (ABOUT, TERMS, GDPR, DSA, CONTACT) -->
+        ${legalFooter.renderGlobalLegalFooter()}
       </div>
     </div>
   `;
@@ -2505,6 +2506,48 @@ function renderMobileDrawer(): string {
                 <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
               </a>
             ` : ''}
+            <!-- CADRU LEGAL & CONFORMITATE UE (DSA & GDPR) -->
+            <div class="pt-3 border-t border-white/5 space-y-1">
+              <div class="text-[10px] uppercase font-bold text-slate-500 tracking-wider mb-2 px-2 flex items-center justify-between">
+                <span>⚖️ Legal & Conformitate UE</span>
+                <span class="text-indigo-400 text-[9px] font-mono">DSA 2022/2065</span>
+              </div>
+
+              <button type="button" onclick="if(window.__aetheris_close_mobile_drawer) window.__aetheris_close_mobile_drawer(); if(window.__aetheris_open_legal) window.__aetheris_open_legal('about');" class="w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
+                <span class="text-base">ℹ️</span>
+                <span class="flex-1">Despre noi & Arhitectură</span>
+              </button>
+
+              <button type="button" onclick="if(window.__aetheris_close_mobile_drawer) window.__aetheris_close_mobile_drawer(); if(window.__aetheris_open_legal) window.__aetheris_open_legal('terms');" class="w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
+                <span class="text-base">📜</span>
+                <span class="flex-1">Termeni și Condiții</span>
+              </button>
+
+              <button type="button" onclick="if(window.__aetheris_close_mobile_drawer) window.__aetheris_close_mobile_drawer(); if(window.__aetheris_open_legal) window.__aetheris_open_legal('privacy');" class="w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
+                <span class="text-base">🛡️</span>
+                <span class="flex-1">Confidențialitate (GDPR)</span>
+              </button>
+
+              <button type="button" onclick="if(window.__aetheris_close_mobile_drawer) window.__aetheris_close_mobile_drawer(); if(window.__aetheris_open_legal) window.__aetheris_open_legal('rules');" class="w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
+                <span class="text-base">⚖️</span>
+                <span class="flex-1">Reguli Comunitate & Moderare</span>
+              </button>
+
+              <button type="button" onclick="if(window.__aetheris_close_mobile_drawer) window.__aetheris_close_mobile_drawer(); if(window.__aetheris_open_legal) window.__aetheris_open_legal('dsa');" class="w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 transition-all flex items-center space-x-3 cursor-pointer">
+                <span class="text-base">🚩</span>
+                <span class="flex-1">Raportează conținut ilegal (Art. 16 DSA)</span>
+              </button>
+
+              <button type="button" onclick="if(window.__aetheris_close_mobile_drawer) window.__aetheris_close_mobile_drawer(); if(window.__aetheris_open_legal) window.__aetheris_open_legal('contact');" class="w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
+                <span class="text-base">📬</span>
+                <span class="flex-1">Puncte de Contact UE</span>
+              </button>
+
+              <div class="px-3 py-2 text-[10px] font-mono text-slate-500 flex items-center justify-between">
+                <span>© 2026 Aetheris</span>
+                <span class="text-indigo-400">EU DSA Compliant</span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -2908,7 +2951,7 @@ function bindEvents(): void {
       if (postId) {
         if (bookmarksVault.isSaved(postId)) {
           bookmarksVault.unsave(postId);
-          clientStore.showToast('Bookmark removed', 'info');
+          clientStore.showToast(t('toast.bookmarkRemoved', undefined, '🔖 Bookmark removed'), 'info');
         } else {
           const p = clientStore.posts.find(x => x.id === postId);
           if (p) {
@@ -2918,7 +2961,7 @@ function bindEvents(): void {
               authorFingerprint: p.authorFingerprint,
               channelId: p.channelId
             });
-            clientStore.showToast('Post bookmarked in local vault', 'success');
+            clientStore.showToast(t('toast.bookmarkAdded', undefined, '🔖 Post bookmarked in local vault'), 'success');
           }
         }
         clientStore.notify();
@@ -3004,6 +3047,16 @@ function bindEvents(): void {
 
   postDetailView.bindEvents((postId: string, commentText: string) => {
     threadManager.addReply(postId, clientStore.keypair.fingerprint, commentText.trim());
+    const post = clientStore.posts.find((p) => p.id === postId);
+    networkActivityFeed.addEvent({
+      type: 'reply',
+      actorFP: clientStore.keypair.fingerprint,
+      actorRole: 'member',
+      targetTitle: post ? post.title : 'Pulse Thread',
+      targetId: postId,
+      timestamp: Date.now(),
+      meta: { length: commentText.trim().length },
+    });
     clientStore.notify();
   });
 
@@ -3274,7 +3327,7 @@ function bindEvents(): void {
       e.stopPropagation();
       const postId = btn.getAttribute('data-post-id');
       if (postId) {
-        const res = pulseActionsEngine.toggleLike(postId);
+        const res = pulseActionsEngine.toggleLike(postId, clientStore.keypair?.fingerprint);
         if (res.burst) {
           soundEffects.playReaction();
           pulseActionsEngine.triggerParticleBurst(postId);
@@ -3301,6 +3354,7 @@ function bindEvents(): void {
       const postId = btn.getAttribute('data-post-id');
       if (postId) {
         pulseActionsEngine.closeRepostMenu();
+        pulseActionsEngine.toggleRepost(postId, clientStore.keypair?.fingerprint);
         clientStore.boostPost(postId);
       }
     }, { signal });
@@ -3345,8 +3399,8 @@ function bindEvents(): void {
       e.stopPropagation();
       const postId = btn.getAttribute('data-post-id');
       if (postId) {
-        const isSaved = pulseActionsEngine.toggleBookmark(postId);
-        clientStore.showToast(isSaved ? '🔖 Pulse saved to bookmarks' : 'Bookmark removed', 'info');
+        const isSaved = pulseActionsEngine.toggleBookmark(postId, clientStore.keypair?.fingerprint);
+        clientStore.showToast(isSaved ? t('toast.bookmarkAdded', undefined, '🔖 Pulse saved to bookmarks') : t('toast.bookmarkRemoved', undefined, '🔖 Bookmark removed'), 'info');
         clientStore.notify();
       }
     }, { signal });
@@ -3361,7 +3415,7 @@ function bindEvents(): void {
         const post = clientStore.posts.find(p => p.id === postId);
         const copied = await sharePostOrCopyLink(postId, post?.title, post?.content, btn as HTMLElement);
         if (copied) {
-          clientStore.showToast(`🔗 Copied pulse permalink: ${window.location.origin}/#post-${postId}`, 'success');
+          clientStore.showToast(t('toast.linkCopied', undefined, '🔗 Copied pulse permalink'), 'success');
         }
       }
     }, { signal });
@@ -3373,9 +3427,9 @@ function bindEvents(): void {
       const postId = btn.getAttribute('data-post-id');
       if (postId) {
         pulseActionsEngine.reportPost(postId);
-        clientStore.showToast('🚩 Formular DSA deschis. Raportul va fi transmis echipei de moderare conform Regulamentului (UE) 2022/2065.', 'info');
+        clientStore.showToast(t('toast.reportSent', undefined, '🚩 DSA report submitted. Content will be reviewed per Regulation (EU) 2022/2065.'), 'info');
         if (typeof (window as any).__aetheris_open_legal === 'function') {
-          (window as any).__aetheris_open_legal('dsa');
+          (window as any).__aetheris_open_legal('dsa', postId);
         }
       }
     }, { signal });
@@ -3491,7 +3545,7 @@ function bindEvents(): void {
         banner: banner || undefined,
       });
       profileView.isEditProfileModalOpen = false;
-      clientStore.showToast('✨ Sovereign Profile updated!', 'success');
+      clientStore.showToast(t('toast.profileUpdated', undefined, '✨ Sovereign Profile updated!'), 'success');
       clientStore.notify();
     }, { signal });
   }
@@ -3681,7 +3735,7 @@ function bindEvents(): void {
     btn.addEventListener('click', () => {
       const sha = btn.getAttribute('data-sha') || '';
       navigator.clipboard.writeText(sha);
-      clientStore.showToast('SHA-256 copied to clipboard', 'info');
+      clientStore.showToast(t('toast.keyCopied', undefined, '🔑 SHA-256 copied to clipboard'), 'info');
     }, { signal });
   });
 
@@ -4100,7 +4154,7 @@ function bindEvents(): void {
     });
 
     profileView.isEditProfileModalOpen = false;
-    clientStore.showToast('👤 Sovereign Profile & Photo Updated!', 'success');
+    clientStore.showToast(t('toast.profileUpdated', undefined, '👤 Sovereign Profile & Photo Updated!'), 'success');
     clientStore.notify();
   }, { signal });
 
@@ -4382,7 +4436,7 @@ function bindEvents(): void {
       if (code) {
         i18n.setLanguage(code);
         isLangModalOpen = false;
-        clientStore.showToast(`🌐 Language switched to ${i18n.getCurrentLanguageMeta().name}`, 'success');
+        clientStore.showToast(`${t('toast.languageChanged', undefined, '🌐 Language switched to')} ${i18n.getCurrentLanguageMeta().name}`, 'success');
         clientStore.notify();
       }
     }, { signal });

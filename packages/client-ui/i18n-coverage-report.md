@@ -1,6 +1,6 @@
 # i18n Coverage Report — Aetheris Omni-Sphere
 
-> Generated: 2026-09-04 19:47 UTC
+> Generated: 2026-09-04 21:32 UTC
 > Audit tool: `packages/client-ui/scripts/i18n-audit.ts`
 > Scope: `packages/client-ui/src/*.ts`
 
@@ -11,7 +11,7 @@
 | Metric | Value |
 |--------|-------|
 | Total i18n dictionary keys (EN baseline) | **153** |
-| Unique hardcoded template strings found | **1093** |
+| Unique hardcoded template strings found | **1115** |
 | Strings likely needing i18n attention | **50** (sample capped at 50) |
 | Registered translation keys | **154** |
 
@@ -43,52 +43,52 @@
 | `acoustic-dsp.ts` | L109 | Parametric Frequency Bands |
 | `acoustic-dsp.ts` | L135 | Reset Flat |
 | `acoustic-dsp.ts` | L139 | Apply to Soundstage |
-| `activity-feed.ts` | L277 | Fingerprint: ${evt.actorFP} |
-| `activity-feed.ts` | L298 | No activity yet |
-| `activity-feed.ts` | L353 | NETWORK ACTIVITY STREAM |
-| `admin-app.ts` | L84 | Enter PIN... |
+| `activity-feed.ts` | L281 | Fingerprint: ${evt.actorFP} |
+| `activity-feed.ts` | L302 | No activity yet |
+| `activity-feed.ts` | L357 | NETWORK ACTIVITY STREAM |
+| `admin-app.ts` | L93 | Introdu parola sau PIN-ul... |
 | `admin-app.ts` | L59 | Admin Control Panel |
 | `admin-app.ts` | L72 | RESTRICTED ACCESS |
-| `admin-app.ts` | L78 | Admin PIN |
-| `admin-auth.ts` | L249 | Unlock Admin Panel |
-| `admin-auth.ts` | L223 | Admin Access |
+| `admin-auth.ts` | L308 | Unlock Admin Panel |
+| `admin-auth.ts` | L282 | Admin Access |
 | `webrtc-transfer.ts` | L1941 | Cancel |
-| `admin-panel.ts` | L406 | Admin Control Panel (Ctrl+Shift+A) |
-| `admin-panel.ts` | L483 | Sync live state with Cloudflare Edge D1/KV |
-| `admin-panel.ts` | L487 | Toggle 10s auto-refresh |
-| `admin-panel.ts` | L777 | Promote |
-| `admin-panel.ts` | L778 | Demote |
-| `admin-panel.ts` | L836 | Delete Channel |
-| `admin-panel.ts` | L1190 | Export cryptographic event ledger as formatted JSON |
-| `admin-panel.ts` | L733 | Search by fingerprint... |
-| `admin-panel.ts` | L798 | channel-name |
-| `admin-panel.ts` | L1002 | IP address... |
-| `admin-panel.ts` | L1057 | Type system announcement (or leave blank to clear)... |
-| `admin-panel.ts` | L1164 | post-1... |
-| `admin-panel.ts` | L1156 | msg-1... |
-| `admin-panel.ts` | L427 | Admin Panel |
-| `admin-panel.ts` | L480 | ADMIN ONLY |
-| `admin-panel.ts` | L582 | CLOUDFLARE ANYCAST EDGE |
-| `admin-panel.ts` | L588 | Live Throughput |
-| `admin-panel.ts` | L592 | Avg Edge RTT |
-| `admin-panel.ts` | L635 | Live Inbound Ingress Stream |
+| `admin-panel.ts` | L446 | Admin Control Panel (Ctrl+Shift+A) |
+| `admin-panel.ts` | L524 | Sync live state with Cloudflare Edge D1/KV |
+| `admin-panel.ts` | L528 | Toggle 10s auto-refresh |
+| `admin-panel.ts` | L820 | Promote |
+| `admin-panel.ts` | L821 | Demote |
+| `admin-panel.ts` | L879 | Delete Channel |
+| `admin-panel.ts` | L1233 | Export cryptographic event ledger as formatted JSON |
+| `admin-panel.ts` | L1341 | Respinge sesizarea ca nefondată |
+| `admin-panel.ts` | L776 | Search by fingerprint... |
+| `admin-panel.ts` | L841 | channel-name |
+| `admin-panel.ts` | L1045 | IP address... |
+| `admin-panel.ts` | L1100 | Type system announcement (or leave blank to clear)... |
+| `admin-panel.ts` | L1207 | post-1... |
+| `admin-panel.ts` | L1199 | msg-1... |
+| `admin-panel.ts` | L467 | Admin Panel |
+| `admin-panel.ts` | L521 | ADMIN ONLY |
+| `admin-panel.ts` | L625 | CLOUDFLARE ANYCAST EDGE |
+| `admin-panel.ts` | L631 | Live Throughput |
+| `admin-panel.ts` | L635 | Avg Edge RTT |
+| `admin-panel.ts` | L678 | Live Inbound Ingress Stream |
 | `mesh-matrix.ts` | L486 | Status |
-| `admin-panel.ts` | L644 | Edge PoP |
-| `admin-panel.ts` | L645 | Protocol |
-| `admin-panel.ts` | L659 | WebSocket |
-| `admin-panel.ts` | L682 | Recent Sovereign Admin Audit Trail |
-| `admin-panel.ts` | L748 | Fingerprint |
-| `admin-panel.ts` | L751 | Messages |
-| `admin-panel.ts` | L752 | ZK Verified |
-| `admin-panel.ts` | L817 | Actions |
-| `admin-panel.ts` | L796 | Create New Channel |
-| `admin-panel.ts` | L813 | Channel |
-| `admin-panel.ts` | L815 | Encrypted |
-| `admin-panel.ts` | L816 | Members |
-| `admin-panel.ts` | L939 | Trigger Backup Now |
-| `admin-panel.ts` | L973 | Run WAF Stress Probe |
+| `admin-panel.ts` | L687 | Edge PoP |
+| `admin-panel.ts` | L688 | Protocol |
+| `admin-panel.ts` | L702 | WebSocket |
+| `admin-panel.ts` | L725 | Recent Sovereign Admin Audit Trail |
+| `admin-panel.ts` | L791 | Fingerprint |
+| `admin-panel.ts` | L794 | Messages |
+| `admin-panel.ts` | L795 | ZK Verified |
+| `admin-panel.ts` | L860 | Actions |
+| `admin-panel.ts` | L839 | Create New Channel |
+| `admin-panel.ts` | L856 | Channel |
+| `admin-panel.ts` | L858 | Encrypted |
+| `admin-panel.ts` | L859 | Members |
+| `admin-panel.ts` | L982 | Trigger Backup Now |
+| `admin-panel.ts` | L1016 | Run WAF Stress Probe |
 
-_...and 1043 more. Run the full audit to see all._
+_...and 1065 more. Run the full audit to see all._
 
 ---
 

@@ -5,6 +5,8 @@
 // ============================================================================
 
 import { serviceRegistry, SERVICES } from './service-registry.js';
+import { isLocalDev } from './admin-auth.js';
+import { networkActivityFeed } from './activity-feed.js';
 
 export type ProposalCategory = 'protocol' | 'community' | 'security' | 'funding';
 export type ProposalStatus = 'draft' | 'active' | 'passed' | 'rejected' | 'expired';
@@ -100,7 +102,50 @@ export class GovernanceDAO {
   public isTransparencyModalOpen: boolean = false;
 
   constructor() {
-    this.seedInitialProposals();
+    const savedProposals = typeof localStorage !== 'undefined' ? localStorage.getItem('aetheris_dao_proposals') : null;
+    const savedVotes = typeof localStorage !== 'undefined' ? localStorage.getItem('aetheris_dao_votes') : null;
+    const savedMyVotes = typeof localStorage !== 'undefined' ? localStorage.getItem('aetheris_dao_my_votes') : null;
+
+    if (savedProposals) {
+      try {
+        this.proposals = JSON.parse(savedProposals);
+      } catch {
+        this.proposals = [];
+      }
+    } else if (isLocalDev()) {
+      this.seedInitialProposals();
+    }
+
+    if (savedVotes) {
+      try {
+        const parsed = JSON.parse(savedVotes);
+        for (const [k, v] of Object.entries(parsed)) {
+          this.allVotes.set(k, v as Vote[]);
+        }
+      } catch {}
+    }
+
+    if (savedMyVotes) {
+      try {
+        const parsed = JSON.parse(savedMyVotes);
+        for (const [k, v] of Object.entries(parsed)) {
+          this.myVotes.set(k, v as Vote);
+        }
+      } catch {}
+    }
+  }
+
+  private _saveToLocalStorage(): void {
+    if (typeof localStorage === 'undefined') return;
+    try {
+      localStorage.setItem('aetheris_dao_proposals', JSON.stringify(this.proposals));
+      const allVotesObj: Record<string, Vote[]> = {};
+      this.allVotes.forEach((votes, k) => { allVotesObj[k] = votes; });
+      localStorage.setItem('aetheris_dao_votes', JSON.stringify(allVotesObj));
+      const myVotesObj: Record<string, Vote> = {};
+      this.myVotes.forEach((vote, k) => { myVotesObj[k] = vote; });
+      localStorage.setItem('aetheris_dao_my_votes', JSON.stringify(myVotesObj));
+    } catch {}
   }
 
   /**
@@ -303,6 +348,18 @@ export class GovernanceDAO {
 
     this.proposals.unshift(newProposal);
     this.allVotes.set(id, []);
+    this._saveToLocalStorage();
+
+    networkActivityFeed.addEvent({
+      type: 'post',
+      actorFP: authorFP,
+      actorRole: 'member',
+      targetTitle: newProposal.title,
+      targetId: newProposal.id,
+      timestamp: newProposal.createdAt,
+      meta: { category: newProposal.category, quorumRequired: newProposal.quorumRequired },
+    });
+
     return newProposal;
   }
 
@@ -359,6 +416,17 @@ export class GovernanceDAO {
     // Recalculate tally
     proposal.votes = this.tallyVotes(proposalId);
     this.checkAndUpdateStatuses();
+    this._saveToLocalStorage();
+
+    networkActivityFeed.addEvent({
+      type: 'vote',
+      actorFP: voterFP,
+      actorRole: 'member',
+      targetTitle: proposal.title,
+      targetId: proposal.id,
+      timestamp: Date.now(),
+      meta: { choice, weight },
+    });
   }
 
   /**

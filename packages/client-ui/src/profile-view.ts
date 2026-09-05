@@ -12,6 +12,7 @@ import { ClientPost } from './client-state.js';
 import { obsidianMediaPlayer } from './media-player.js';
 import { pulseActionsEngine } from './pulse-actions.js';
 import { markdownRenderer } from './markdown-renderer.js';
+import { isLocalDev } from './admin-auth.js';
 
 export type ProfileTab = 'pulses' | 'replies' | 'highlights' | 'media' | 'likes';
 
@@ -71,12 +72,27 @@ export class ProfileView {
   public activeTab: ProfileTab = 'pulses';
   public targetFingerprint: string = '';
   public isEditProfileModalOpen: boolean = false;
-  public followingSet: Set<string> = new Set(['c3dc28cb705e', 'a89104fa2211', 'f40019bc88a2']);
+  public followingSet: Set<string>;
 
   public profileData: Map<string, UserProfileData> = new Map();
 
   constructor() {
-    this._seedProfiles();
+    const savedFollowing = typeof localStorage !== 'undefined' ? localStorage.getItem('aetheris_following_set') : null;
+    if (savedFollowing) {
+      try {
+        this.followingSet = new Set(JSON.parse(savedFollowing));
+      } catch {
+        this.followingSet = new Set();
+      }
+    } else if (isLocalDev()) {
+      this.followingSet = new Set(['c3dc28cb705e', 'a89104fa2211', 'f40019bc88a2']);
+    } else {
+      this.followingSet = new Set();
+    }
+
+    if (isLocalDev()) {
+      this._seedProfiles();
+    }
     if (typeof window !== 'undefined') {
       (window as any).profileView = this;
     }
@@ -170,17 +186,26 @@ export class ProfileView {
   }
 
   public toggleFollow(fp: string): boolean {
+    let result = false;
     if (this.followingSet.has(fp)) {
       this.followingSet.delete(fp);
       const profile = this.getProfile(fp);
       profile.followersCount = Math.max(0, profile.followersCount - 1);
-      return false;
+      result = false;
     } else {
       this.followingSet.add(fp);
       const profile = this.getProfile(fp);
       profile.followersCount += 1;
-      return true;
+      result = true;
     }
+
+    if (typeof localStorage !== 'undefined') {
+      try {
+        localStorage.setItem('aetheris_following_set', JSON.stringify(Array.from(this.followingSet)));
+      } catch {}
+    }
+
+    return result;
   }
 
   public isFollowing(fp: string): boolean {

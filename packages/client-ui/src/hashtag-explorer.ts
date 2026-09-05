@@ -1,5 +1,7 @@
-﻿// hashtag-explorer.ts
+// hashtag-explorer.ts
 // Aetheris Omni-Sphere — Hashtag Explorer Module
+
+import { isLocalDev } from './admin-auth.js';
 
 type TagChangeListener = (tag: string | null) => void;
 
@@ -45,7 +47,9 @@ export class HashtagExplorer {
   private postTagIndex: Map<string, Set<string>> = new Map();
 
   constructor() {
-    this._seedData();
+    if (isLocalDev()) {
+      this._seedData();
+    }
   }
 
   private _seedData(): void {

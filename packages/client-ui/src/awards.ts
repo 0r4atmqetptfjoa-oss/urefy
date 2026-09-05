@@ -6,6 +6,8 @@
 
 import './window-augmentation.js';
 import { serviceRegistry, SERVICES } from './service-registry.js';
+import { isLocalDev } from './admin-auth.js';
+import { networkActivityFeed } from './activity-feed.js';
 
 export type SovereignAwardType =
   | 'PLATINUM'
@@ -162,11 +164,36 @@ export class AwardsSystem {
   private selectedAwardType: SovereignAwardType = 'SILVER';
 
   constructor() {
-    this._seedDemoAwards();
+    const savedAwards = typeof localStorage !== 'undefined' ? localStorage.getItem('aetheris_awards_cache') : null;
+    const savedBalance = typeof localStorage !== 'undefined' ? localStorage.getItem('aetheris_user_merit_balance') : null;
+    if (savedBalance !== null) {
+      const b = parseInt(savedBalance, 10);
+      if (!isNaN(b)) this.userMeritBalance = b;
+    }
+    if (savedAwards) {
+      try {
+        const parsed = JSON.parse(savedAwards);
+        for (const [k, v] of Object.entries(parsed)) {
+          this.postAwards.set(k, v as PostAward[]);
+        }
+      } catch {}
+    } else if (isLocalDev()) {
+      this._seedDemoAwards();
+    }
     this._initGlobalDomListeners();
     if (typeof window !== 'undefined') {
       awardPopoverManager.init();
     }
+  }
+
+  private _saveAwardsToStorage(): void {
+    if (typeof localStorage === 'undefined') return;
+    try {
+      const obj: Record<string, PostAward[]> = {};
+      this.postAwards.forEach((v, k) => { obj[k] = v; });
+      localStorage.setItem('aetheris_awards_cache', JSON.stringify(obj));
+      localStorage.setItem('aetheris_user_merit_balance', this.userMeritBalance.toString());
+    } catch {}
   }
 
   // ─── Merit Balance Management ─────────────────────────────────────────────
@@ -489,6 +516,17 @@ export class AwardsSystem {
     };
 
     this.postAwards.get(postId)!.push(newAward);
+    this._saveAwardsToStorage();
+
+    networkActivityFeed.addEvent({
+      type: 'award',
+      actorFP: giverFP,
+      actorRole: (giverRole.toLowerCase() === 'guardian' ? 'admin' : (giverRole.toLowerCase() === 'moderator' ? 'moderator' : 'member')) as any,
+      targetTitle: award.label,
+      targetId: postId,
+      timestamp: newAward.givenAt,
+      meta: { badge: award.label, recipient: postId, meritPoints: award.meritPoints },
+    });
 
     // Dispatch sovereign broadcast event
     if (typeof window !== 'undefined') {
@@ -548,6 +586,17 @@ export class AwardsSystem {
     };
 
     this.commentAwards.get(commentId)!.push(newAward);
+    this._saveAwardsToStorage();
+
+    networkActivityFeed.addEvent({
+      type: 'award',
+      actorFP: giverFP,
+      actorRole: (giverRole.toLowerCase() === 'guardian' ? 'admin' : (giverRole.toLowerCase() === 'moderator' ? 'moderator' : 'member')) as any,
+      targetTitle: award.label,
+      targetId: commentId,
+      timestamp: newAward.givenAt,
+      meta: { badge: award.label, recipient: commentId, meritPoints: award.meritPoints },
+    });
 
     if (typeof window !== 'undefined') {
       window.dispatchEvent(

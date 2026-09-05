@@ -193,7 +193,8 @@ export class MobileTabBar {
       <!-- NATIVE MOBILE BOTTOM TAB BAR (lg:hidden) -->
       <nav 
         id="native-mobile-tab-bar" 
-        class="fixed bottom-0 left-0 right-0 z-40 lg:hidden bg-surface-base/90 backdrop-blur-lg border-t border-white/10 h-14 pb-[env(safe-area-inset-bottom)] flex items-center justify-around px-3 select-none shadow-2xl transition-all"
+        class="fixed bottom-0 left-0 right-0 z-50 lg:hidden bg-surface-base/95 backdrop-blur-xl border-t border-white/10 pb-[env(safe-area-inset-bottom)] flex items-center justify-around px-3 select-none shadow-2xl transition-all"
+        style="min-height: 3.5rem; height: calc(3.5rem + env(safe-area-inset-bottom, 0px)); padding-bottom: max(env(safe-area-inset-bottom, 0px), 0px);"
         aria-label="Mobile Sovereign Navigation"
       >
         ${tabs.map(tab => {

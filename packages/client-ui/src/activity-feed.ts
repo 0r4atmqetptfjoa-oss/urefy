@@ -1,7 +1,9 @@
-﻿// ─── activity-feed.ts ────────────────────────────────────────────────────────
+// ─── activity-feed.ts ────────────────────────────────────────────────────────
 // Live Network Activity stream for Aetheris Omni-Sphere — Right Rail widget
 // Self-contained, no external dependencies.
 // ─────────────────────────────────────────────────────────────────────────────
+
+import { isLocalDev } from './admin-auth.js';
 
 export interface ActivityEvent {
   id: string;
@@ -124,7 +126,16 @@ class NetworkActivityFeed {
   private _simulatorHandle: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
-    this._seedDemoEvents();
+    const saved = typeof localStorage !== 'undefined' ? localStorage.getItem('aetheris_live_activity_events') : null;
+    if (saved) {
+      try {
+        this.events = JSON.parse(saved);
+      } catch {
+        this.events = [];
+      }
+    } else if (isLocalDev()) {
+      this._seedDemoEvents();
+    }
   }
 
   // ─── Seed 5 demo events ───────────────────────────────────────────────────
@@ -188,6 +199,14 @@ class NetworkActivityFeed {
     this.events.unshift(full);
     if (this.events.length > 50) {
       this.events = this.events.slice(0, 50);
+    }
+    if (typeof localStorage !== 'undefined') {
+      try {
+        localStorage.setItem('aetheris_live_activity_events', JSON.stringify(this.events));
+      } catch {}
+    }
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('aetheris:activity-event', { detail: full }));
     }
   }
 
@@ -367,6 +386,7 @@ class NetworkActivityFeed {
    * Call once; self-reschedules until stopped.
    */
   startSimulator(): void {
+    if (!isLocalDev()) return; // Never run simulation loop in live production
     if (this._simulatorHandle !== null) return; // already running
 
     const schedule = (): void => {

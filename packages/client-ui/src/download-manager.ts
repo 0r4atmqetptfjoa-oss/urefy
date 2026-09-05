@@ -7,6 +7,7 @@
 
 import './window-augmentation.js';
 import { serviceRegistry, SERVICES } from './service-registry.js';
+import { isLocalDev } from './admin-auth.js';
 
 export interface DownloadTask {
   id: string;
@@ -47,7 +48,9 @@ export class P2PDownloadManager {
   private taskMerkleRoots: Map<string, string> = new Map();
 
   constructor() {
-    this.seedInitialSwarmTasks();
+    if (isLocalDev()) {
+      this.seedInitialSwarmTasks();
+    }
   }
 
   /**

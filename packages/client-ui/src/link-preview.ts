@@ -2,6 +2,8 @@
 // Aetheris Omni-Sphere — Link Preview Card Engine
 // Generates rich preview cards for URLs extracted from post content
 
+import { isLocalDev } from './admin-auth.js';
+
 export interface LinkPreview {
   url: string;
   domain: string;
@@ -175,9 +177,11 @@ class LinkPreviewEngine {
     },
   };
 
-  // Seed 5 demo previews on construction
+  // Seed 5 demo previews on construction (dev only)
   constructor() {
-    this._seedDemoPreviews();
+    if (isLocalDev()) {
+      this._seedDemoPreviews();
+    }
   }
 
   private _seedDemoPreviews(): void {

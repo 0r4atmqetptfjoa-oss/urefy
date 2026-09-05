@@ -1,4 +1,5 @@
 import { serviceRegistry, SERVICES } from './service-registry.js';
+import { isLocalDev } from './admin-auth.js';
 
 /**
  * Interface representing an individual encrypted bookmark entry stored in local vault.
@@ -66,7 +67,11 @@ export class BookmarksVault {
    */
   private load(): void {
     if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
-      this.initDemoBookmarks();
+      if (isLocalDev()) {
+        this.initDemoBookmarks();
+      } else {
+        this.bookmarks = [];
+      }
       return;
     }
 
@@ -92,8 +97,12 @@ export class BookmarksVault {
       console.warn('[BookmarksVault] Failed to parse bookmarks from localStorage. Re-initializing default seeds.', err);
     }
 
-    this.initDemoBookmarks();
-    this.persist();
+    if (isLocalDev()) {
+      this.initDemoBookmarks();
+      this.persist();
+    } else {
+      this.bookmarks = [];
+    }
   }
 
   /**
