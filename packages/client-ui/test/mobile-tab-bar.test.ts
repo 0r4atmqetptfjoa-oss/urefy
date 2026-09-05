@@ -70,8 +70,8 @@ describe('Ticket 3.2: Native Mobile Bottom Tab Bar (Feed / Vault / Cerc / Profil
     expect(html).toContain('btn-mobile-tab-profile');
     expect(html).toContain('Feed');
     expect(html).toContain('Vault');
-    expect(html).toContain('Cerc');
-    expect(html).toContain('Profil');
+    expect(html).toContain('Relays');
+    expect(html).toContain('Profile');
   });
 
   it('5. should highlight active tab with cyan text and indicator dot', () => {
@@ -104,9 +104,9 @@ describe('Ticket 3.2: Native Mobile Bottom Tab Bar (Feed / Vault / Cerc / Profil
     const html = tabBar.renderTabBarHTML();
 
     expect(html).toContain('btn-mobile-tab-more');
-    expect(html).toContain('Mai multe');
+    expect(html).toContain('More');
     expect(html).toContain('☰');
-    expect(html).toContain('title="Mai multe opțiuni & unelte"');
+    expect(html).toContain('title="More Options & Tools"');
     expect(html).toContain("if(window.__aetheris_open_mobile_drawer) window.__aetheris_open_mobile_drawer(); else if(window.mobileTabBar) window.mobileTabBar.setTab('more');");
 
     const drawerMock = vi.fn();

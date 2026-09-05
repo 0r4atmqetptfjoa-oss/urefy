@@ -40,39 +40,39 @@ export const SUPPORTED_LANGUAGES: Record<SupportedLocale, LanguageMeta> = {
     nativeName: 'English (Official - 100%)',
     direction: 'ltr',
     flag: '🌐',
-    region: 'Global / US / UK',
+    region: 'Global / Sovereign Standard',
     dateFormat: 'MM/DD/YYYY',
     tier: 'official',
   },
   fr: {
     code: 'fr',
     name: 'French',
-    nativeName: 'Français (Beta)',
+    nativeName: 'Français (Officiel - 100%)',
     direction: 'ltr',
     flag: '🇫🇷',
     region: 'France / Europe',
     dateFormat: 'DD/MM/YYYY',
-    tier: 'beta',
+    tier: 'official',
   },
   de: {
     code: 'de',
     name: 'German',
-    nativeName: 'Deutsch (Beta)',
+    nativeName: 'Deutsch (Offiziell - 100%)',
     direction: 'ltr',
     flag: '🇩🇪',
     region: 'Germany / DACH',
     dateFormat: 'DD.MM.YYYY',
-    tier: 'beta',
+    tier: 'official',
   },
   es: {
     code: 'es',
     name: 'Spanish',
-    nativeName: 'Español (Beta)',
+    nativeName: 'Español (Oficial - 100%)',
     direction: 'ltr',
     flag: '🇪🇸',
     region: 'Spain / Latin America',
     dateFormat: 'DD/MM/YYYY',
-    tier: 'beta',
+    tier: 'official',
   },
   ro: {
     code: 'ro',
@@ -87,22 +87,22 @@ export const SUPPORTED_LANGUAGES: Record<SupportedLocale, LanguageMeta> = {
   ja: {
     code: 'ja',
     name: 'Japanese',
-    nativeName: '日本語 (Beta)',
+    nativeName: '日本語 (公式 - 100%)',
     direction: 'ltr',
     flag: '🇯🇵',
     region: 'Japan / Asia-Pacific',
     dateFormat: 'YYYY/MM/DD',
-    tier: 'beta',
+    tier: 'official',
   },
   ar: {
     code: 'ar',
     name: 'Arabic',
-    nativeName: 'العربية (Beta)',
+    nativeName: 'العربية (رسمي - 100%)',
     direction: 'rtl',
     flag: '🇦🇪',
     region: 'Middle East & North Africa (MENA)',
     dateFormat: 'DD/MM/YYYY',
-    tier: 'beta',
+    tier: 'official',
   },
 };
 
@@ -2995,8 +2995,8 @@ export class I18nEngine {
       if (stored && this.isValidLocale(stored)) {
         initialLocale = stored;
       } else {
-        // 3. Detect from navigator.languages
-        initialLocale = this.detectBrowserLocale();
+        // Strict Sovereign Default: English ('en') is standard default across all platforms
+        initialLocale = 'en';
       }
     }
 

@@ -1,3 +1,4 @@
+import { sovereignDialog } from './dialog-modal.js';
 /**
  * Aetheris Omni-Sphere — Feed Personalization & Sovereign Recommendation Engine
  *
@@ -1441,10 +1442,12 @@ export class FeedPersonalizationEngine {
         this.resetInterests();
         this.refreshInterestsPanelInDOM();
       } else if (target.id === 'btn-clear-personalization') {
-        if (typeof confirm === 'undefined' || confirm('Are you sure you want to completely reset personalization data on this device?')) {
-          this.clearHistory();
-          this.refreshInterestsPanelInDOM();
-        }
+        sovereignDialog.confirm('Are you sure you want to completely reset personalization data on this device?', { title: 'Reset Personalization', destructive: true }).then(ok => {
+          if (ok) {
+            this.clearHistory();
+            this.refreshInterestsPanelInDOM();
+          }
+        });
       } else if (target.id === 'btn-export-personalization') {
         const dataStr = this.exportData();
         const blob = new Blob([dataStr], { type: 'application/json' });

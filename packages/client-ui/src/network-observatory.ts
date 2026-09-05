@@ -1406,7 +1406,7 @@ export class NetworkObservatory {
 
         <div class="mt-3 pt-2 border-t border-white/5 flex gap-2">
           <button
-            onclick="alert('Sending ICMP Zero-Knowledge Ping packet to ${node.name}... Latency: ${node.latencyMs}ms')"
+            onclick="if(window.clientStore) window.clientStore.showToast('ICMP Zero-Knowledge Ping to ${node.name}: ${node.latencyMs}ms', 'info');"
             class="flex-1 py-1 rounded bg-cyphr/10 hover:bg-cyphr/20 border border-cyphr/30 text-cyphr text-center text-[10px] font-mono cursor-pointer"
           >
             ⚡ ZK Ping Test

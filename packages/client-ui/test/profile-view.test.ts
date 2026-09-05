@@ -127,4 +127,38 @@ describe('ProfileView - Sovereign Profile Hero Header & Multi-Tab Timeline', () 
     expect(modalHtml).toContain('id="edit-profile-location"');
     expect(modalHtml).toContain('id="edit-profile-website"');
   });
+
+  it('should render the embedded Settings subtab with all 7 categories without opening a popup modal', () => {
+    const genesis = profile.getProfile('genesis-core');
+    profile.openSettings('account');
+    expect(profile.activeTab).toBe('settings');
+    expect(profile.activeSettingsCategory).toBe('account');
+
+    // Render full view for own profile
+    const html = profile.renderProfileView(samplePosts, 'genesis-core');
+    expect(html).toContain('id="profile-settings-panel"');
+    expect(html).toContain('data-settings-cat="account"');
+    expect(html).toContain('data-settings-cat="security"');
+    expect(html).toContain('data-settings-cat="privacy"');
+    expect(html).toContain('data-settings-cat="notifications"');
+    expect(html).toContain('data-settings-cat="appearance"');
+    expect(html).toContain('data-settings-cat="data"');
+    expect(html).toContain('data-settings-cat="advanced"');
+    expect(html).toContain('data-settings-section="account"');
+
+    // Switch to privacy category and check 3-tier progressive disclosure
+    profile.setActiveSettingsCategory('privacy');
+    const privacyHtml = profile.renderSettingsCategoryContent('privacy', genesis, 'genesis-core');
+    expect(privacyHtml).toContain('id="btn-set-mode-simple"');
+    expect(privacyHtml).toContain('id="btn-set-mode-advanced"');
+    expect(privacyHtml).toContain('id="btn-set-mode-technical"');
+    expect(privacyHtml).toContain('Simple (Default)');
+
+    // Switch to security category and check passkeys + seed + guardians
+    profile.setActiveSettingsCategory('security');
+    const secHtml = profile.renderSettingsCategoryContent('security', genesis, 'genesis-core');
+    expect(secHtml).toContain('WebAuthn / Biometric Passkey');
+    expect(secHtml).toContain('BIP-39 Cryptographic Recovery Seed');
+    expect(secHtml).toContain('btn-settings-open-social-guardians');
+  });
 });

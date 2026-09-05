@@ -1,3 +1,4 @@
+import { sovereignDialog } from './dialog-modal.js';
 // ============================================================================
 // sovereign-dm.ts — Aetheris Omni-Sphere Sovereign E2EE Direct Messaging
 // 100% Self-contained, Zero External Dependencies, Production-Ready Implementation.
@@ -626,7 +627,9 @@ export class SovereignDMManager {
       this.revealedStegoMap.set(msgId, decoded.payload);
       this.syncDOM();
     } catch (err: any) {
-      alert('Steganography Decryption Notice: ' + (err?.message || 'Invalid passphrase or corrupt image carrier.'));
+      if (typeof window !== 'undefined' && (window as any).clientStore) {
+        (window as any).clientStore.showToast('Steganography Decryption Notice: ' + (err?.message || 'Invalid passphrase or corrupt image carrier.'), 'warning');
+      }
     }
   }
 
@@ -1553,14 +1556,14 @@ export class SovereignDMManager {
           <div class="pt-2 flex gap-2">
             <button
               type="button"
-              onclick="const t = window.__aetherisDM.exportTranscriptJSON('${escapeHtml(peerFP)}'); navigator.clipboard && navigator.clipboard.writeText(t); alert('Encrypted transcript copied to clipboard!');"
+              onclick="const t = window.__aetherisDM.exportTranscriptJSON('${escapeHtml(peerFP)}'); navigator.clipboard && navigator.clipboard.writeText(t); if(window.clientStore) window.clientStore.showToast('Encrypted transcript copied to clipboard!', 'success');"
               class="flex-1 py-2 rounded-lg bg-surface-overlay text-slate-200 hover:bg-surface-overlay/80 border border-white/10 text-center font-bold"
             >
               Export JSON Transcript
             </button>
             <button
               type="button"
-              onclick="if(confirm('Clear all messages with this peer?')){ window.__aetherisDM.clearConversation('${escapeHtml(peerFP)}'); }"
+              onclick="if(window.sovereignDialog){ window.sovereignDialog.confirm('Clear all messages with this peer?', { title: 'Clear Conversation', destructive: true }).then(ok => { if(ok) window.__aetherisDM.clearConversation('${escapeHtml(peerFP)}'); }); } else { window.__aetherisDM.clearConversation('${escapeHtml(peerFP)}'); }"
               class="py-2 px-3 rounded-lg bg-crimson/20 text-crimson hover:bg-crimson/30 border border-crimson/30 font-bold"
             >
               Clear
@@ -1618,7 +1621,7 @@ export class SovereignDMManager {
 
           <button
             type="button"
-            onclick="alert('Safety numbers confirmed! Session marked as Verified.'); window.__aetherisDM.toggleSafetyModal();"
+            onclick="if(window.clientStore) window.clientStore.showToast('Safety numbers confirmed! Session marked as Verified.', 'success'); window.__aetherisDM.toggleSafetyModal();"
             class="w-full py-2.5 rounded-xl bg-gradient-to-r from-signal/80 to-emerald-600 hover:from-signal hover:to-emerald-500 text-canvas font-bold text-xs uppercase tracking-wider shadow-lg transition-all cursor-pointer"
           >
             Mark as Verified

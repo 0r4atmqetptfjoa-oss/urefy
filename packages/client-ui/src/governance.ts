@@ -1,3 +1,4 @@
+import { sovereignDialog } from './dialog-modal.js';
 // ============================================================================
 // governance.ts — Aetheris Omni-Sphere Sovereign DAO & Cryptographic Governance
 // Complete, 100% functional merit-weighted sovereign voting engine with ZK proofs.
@@ -1646,7 +1647,7 @@ export class GovernanceDAO {
     // SUBMIT CREATE PROPOSAL
     const submitPropBtn = container.querySelector<HTMLButtonElement>('#btn-submit-proposal');
     if (submitPropBtn) {
-      submitPropBtn.addEventListener('click', () => {
+      submitPropBtn.addEventListener('click', async () => {
         const titleInput = container.querySelector<HTMLInputElement>('#prop-form-title');
         const descInput = container.querySelector<HTMLTextAreaElement>('#prop-form-description');
         const catSelect = container.querySelector<HTMLSelectElement>('#prop-form-category');
@@ -1660,13 +1661,13 @@ export class GovernanceDAO {
         const quorum = quorumInput ? parseInt(quorumInput.value, 10) : 500;
 
         if (!title.trim()) {
-          alert('Please enter a title for the proposal.');
+          await sovereignDialog.alert('Please enter a title for the proposal.', { title: 'Title Required', type: 'warning' });
           titleInput?.focus();
           return;
         }
 
         if (!desc.trim()) {
-          alert('Please enter a technical description.');
+          await sovereignDialog.alert('Please enter a technical description.', { title: 'Description Required', type: 'warning' });
           descInput?.focus();
           return;
         }

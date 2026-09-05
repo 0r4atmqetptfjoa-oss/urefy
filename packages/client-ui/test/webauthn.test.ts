@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { sovereignDialog } from '../src/dialog-modal.js';
 import {
   WebAuthnManager,
   webAuthnManager,
@@ -755,6 +756,7 @@ describe('WebAuthn FIDO2 / Biometrics Security Manager', () => {
         timestamp: Date.now(),
       };
       mockConfirm.mockReturnValue(true);
+      vi.spyOn(sovereignDialog, 'confirm').mockResolvedValue(true);
       const lockSpy = vi.spyOn(manager, 'lockVault').mockResolvedValue();
       await manager.handleHeaderButtonClick();
       expect(lockSpy).toHaveBeenCalled();

@@ -4,7 +4,7 @@
  * @description Sovereign Unified Settings Engine for Aetheris Omni-Sphere.
  * Provides a responsive obsidian-styled modal dialog unifying:
  * 1. Appearance (Teme & Aspect) - Theme switcher, OLED black mode, font family, Custom Theme Studio launcher.
- * 2. Preferences (Preferințe Rețea & WoT) - Web-of-Trust badges, demote low trust, merit threshold, proactive AI, zen mode.
+ * 2. Preferences (Network & WoT Preferences) - Web-of-Trust badges, demote low trust, merit threshold, proactive AI, zen mode.
  * 3. Footprint (Amprentă & Resurse) - Audits storage, bundle size, zero trackers, and network efficiency.
  * 4. Backup (Salvare & Export Cont) - Encrypted AES-256-GCM backup, restore, and JSON export.
  * 5. Telemetry (Diagnostic & Confidențialitate) - 100% on-device error logs and memory zeroization.
@@ -33,33 +33,33 @@ export interface SettingsSectionDefinition {
 export const SETTINGS_SECTIONS: SettingsSectionDefinition[] = [
   {
     id: 'appearance',
-    label: 'Teme & Aspect',
+    label: 'Appearance & Themes',
     icon: '🎨',
-    description: 'Palete de culori, modul OLED și tipografie',
+    description: 'Color palettes, OLED mode, and typography',
   },
   {
     id: 'preferences',
-    label: 'Preferințe Rețea & WoT',
+    label: 'Network & WoT Preferences',
     icon: '⚙️',
-    description: 'Insigne Web-of-Trust, praguri de merit și asistent AI',
+    description: 'Web-of-Trust badges, merit thresholds, and AI assistant',
   },
   {
     id: 'footprint',
-    label: 'Amprentă & Resurse',
+    label: 'Storage & Footprint',
     icon: '📊',
-    description: 'Audit stocare locală, trackeri zero și eficiență',
+    description: 'Local storage audit, zero tracking, and efficiency',
   },
   {
     id: 'backup',
-    label: 'Salvare & Export Cont',
+    label: 'Backup & Account Export',
     icon: '💾',
-    description: 'Copii de rezervă criptate și restaurare date',
+    description: 'Encrypted backups and cryptographic key restoration',
   },
   {
     id: 'telemetry',
-    label: 'Diagnostic & Confidențialitate',
+    label: 'Diagnostics & Privacy',
     icon: '🛡️',
-    description: 'Jurnal local de erori și zeroizare memorie',
+    description: 'Local error telemetry and zero-knowledge memory wipe',
   },
 ];
 
@@ -255,10 +255,10 @@ export class SettingsView {
               </div>
               <div>
                 <h2 id="settings-modal-title" class="text-lg md:text-xl font-bold text-white tracking-wide flex items-center gap-2">
-                  <span>⚙️ Setări Suverane (Settings)</span>
+                  <span>⚙️ Sovereign Settings</span>
                   <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 font-semibold">SOVEREIGN CORE</span>
                 </h2>
-                <p class="text-xs text-slate-400">Control total, zero telemetrie terță și autonomie completă pe dispozitiv</p>
+                <p class="text-xs text-slate-400">Total sovereign control, zero third-party telemetry, 100% on-device autonomy</p>
               </div>
             </div>
             <button
@@ -266,7 +266,7 @@ export class SettingsView {
               id="btn-close-settings-modal"
               onclick="if(window.__aetheris_close_settings) { window.__aetheris_close_settings(); } else if(window.settingsView) { window.settingsView.close(); }"
               class="text-slate-400 hover:text-white p-2 rounded-xl hover:bg-white/10 transition-colors cursor-pointer text-sm font-mono flex items-center justify-center"
-              title="Închide Setări"
+              title="Close Settings"
               aria-label="Close settings"
             >
               ✕
@@ -290,8 +290,8 @@ export class SettingsView {
           <div class="px-6 py-3.5 border-t border-white/10 bg-surface-raised/60 flex items-center justify-between shrink-0">
             <div class="flex items-center space-x-2 text-xs text-slate-400 font-mono">
               <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span class="hidden sm:inline">Modificările se sincronizează automat pe dispozitiv</span>
-              <span class="sm:hidden">Auto-salvat</span>
+              <span class="hidden sm:inline">Changes persist automatically to sovereign storage</span>
+              <span class="sm:hidden">Auto-saved</span>
             </div>
             <div class="flex items-center space-x-3">
               <button
@@ -301,7 +301,7 @@ export class SettingsView {
                 class="px-5 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white font-bold text-xs shadow-lg shadow-cyan-500/20 transition-all cursor-pointer flex items-center space-x-1.5"
               >
                 <span>✓</span>
-                <span>Salvează & Închide (Save Changes)</span>
+                <span>Save &amp; Close</span>
               </button>
             </div>
           </div>
@@ -391,10 +391,10 @@ export class SettingsView {
           <div class="space-y-0.5 pr-4">
             <span class="text-xs font-semibold text-white flex items-center gap-1.5">
               <span>🌑</span>
-              <span>Mod Pure OLED Black (#000000)</span>
+              <span>Pure OLED Black Mode (#000000)</span>
             </span>
             <p class="text-[11px] text-slate-400">
-              Activează fundalul negru absolut pentru conservare maximă a bateriei pe ecrane OLED și contrast optimizat.
+              Enables pure absolute black background for maximum OLED battery savings and crisp contrast.
             </p>
           </div>
           <label class="relative inline-flex items-center cursor-pointer shrink-0">
@@ -414,7 +414,7 @@ export class SettingsView {
           <div class="flex items-center justify-between">
             <span class="text-xs font-semibold text-white flex items-center gap-1.5">
               <span>🔤</span>
-              <span>Tipografie Sistem (Font Family)</span>
+              <span>System Typography (Font Family)</span>
             </span>
             <span class="text-[11px] font-mono text-cyan-300 uppercase">${currentFont}</span>
           </div>
@@ -468,10 +468,10 @@ export class SettingsView {
           <div class="space-y-1">
             <span class="text-xs font-bold text-cyan-200 flex items-center gap-1.5">
               <span>🎨</span>
-              <span>Custom Theme Studio &amp; Paletă Live</span>
+              <span>Custom Theme Studio &amp; Live Palette</span>
             </span>
             <p class="text-[11px] text-slate-300 leading-relaxed">
-              Creează propria temă vizuală personalizată, alege culorile hexazecimale de accent, previzualizează componentele și exportă JSON.
+              Design your own custom sovereign theme, select hex accents, live preview components, and export JSON.
             </p>
           </div>
           <button
@@ -479,10 +479,10 @@ export class SettingsView {
             id="btn-settings-open-theme-builder"
             onclick="if(window.customThemeBuilder) window.customThemeBuilder.openModal();"
             class="shrink-0 px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-400 to-indigo-500 hover:from-cyan-300 hover:to-indigo-400 text-slate-950 font-bold text-xs flex items-center space-x-2 shadow-lg shadow-cyan-500/25 transition-all cursor-pointer active:scale-95"
-            title="Deschide Custom Theme Studio"
+            title="Open Custom Theme Studio"
           >
             <span>⚡</span>
-            <span>Deschide Theme Studio</span>
+            <span>Open Theme Studio</span>
           </button>
         </div>
       </div>
@@ -490,7 +490,7 @@ export class SettingsView {
   }
 
   /**
-   * Renders the Preferences (Preferințe Rețea & WoT) tab content.
+   * Renders the Preferences (Network & WoT) tab content.
    */
   private renderPreferencesTab(): string {
     const showTrustBadges = typeof window !== 'undefined'
@@ -520,9 +520,9 @@ export class SettingsView {
           <div>
             <h3 class="text-base font-bold text-white flex items-center gap-2">
               <span>⚙️</span>
-              <span>Preferințe Rețea &amp; Web-of-Trust</span>
+              <span>Network &amp; Web-of-Trust Preferences</span>
             </h3>
-            <p class="text-xs text-slate-400">Configurează regulile de atestare criptografică, filtrarea fluxului și asistentul AI.</p>
+            <p class="text-xs text-slate-400">Configure cryptographic attestations, feed filtering thresholds, and local AI assistant.</p>
           </div>
           <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/30">
             WOT &amp; AI GOVERNANCE
@@ -535,10 +535,10 @@ export class SettingsView {
             <div class="space-y-0.5 pr-4">
               <span class="text-xs font-semibold text-white flex items-center gap-1.5">
                 <span>🛡️</span>
-                <span>Insigne Web-of-Trust (WoT Badges)</span>
+                <span>Web-of-Trust Badges</span>
               </span>
               <p class="text-[11px] text-slate-400">
-                Afișează nivelul de încredere criptografic și calea de atestare ZK-Human lângă numele autorilor.
+                Display cryptographic trust level and ZK-Human attestation path next to author handles.
               </p>
             </div>
             <input
@@ -555,10 +555,10 @@ export class SettingsView {
             <div class="space-y-0.5 pr-4">
               <span class="text-xs font-semibold text-white flex items-center gap-1.5">
                 <span>📉</span>
-                <span>Retrogradare Conținut Low-Trust</span>
+                <span>Demote Low-Trust Content</span>
               </span>
               <p class="text-[11px] text-slate-400">
-                Deplasează automat la sfârșitul fluxului postările venite de la noduri neverificate sau cu flux de încredere scăzut.
+                Automatically deprioritizes posts from unverified or low-trust nodes to the end of the feed.
               </p>
             </div>
             <input
@@ -575,14 +575,14 @@ export class SettingsView {
             <div class="flex items-center justify-between">
               <span class="text-xs font-semibold text-white flex items-center gap-1.5">
                 <span>⭐</span>
-                <span>Prag Minim de Merit (Score Threshold)</span>
+                <span>Minimum Merit Threshold</span>
               </span>
               <span class="text-xs font-mono font-bold text-cyan-300 px-2.5 py-0.5 rounded bg-surface-base border border-cyan-500/30">
                 <span id="merit-threshold-value">${meritThreshold}</span> Merit
               </span>
             </div>
             <p class="text-[11px] text-slate-400">
-              Filtrează din fluxul principal publicațiile care au un scor de merit cumulat sub această valoare.
+              Hides publications from the primary feed if their cumulative merit score falls below this value.
             </p>
             <input
               type="range"
@@ -595,10 +595,10 @@ export class SettingsView {
               class="w-full h-2 bg-surface-base rounded-lg appearance-none cursor-pointer accent-cyan-400"
             />
             <div class="flex justify-between text-[10px] font-mono text-slate-500">
-              <span>0 (Toate)</span>
-              <span>50 (Standard)</span>
-              <span>200 (Filtru Înalt)</span>
-              <span>500 (Numai Archon)</span>
+              <span>0 (All)</span>
+              <span>50 (Default)</span>
+              <span>200 (High Filter)</span>
+              <span>500 (Archon Only)</span>
             </div>
           </div>
 
@@ -607,10 +607,10 @@ export class SettingsView {
             <div class="space-y-0.5 pr-4">
               <span class="text-xs font-semibold text-white flex items-center gap-1.5">
                 <span>🤖</span>
-                <span>Asistent AI Proactiv Local (On-Device)</span>
+                <span>Proactive On-Device AI Assistant</span>
               </span>
               <p class="text-[11px] text-slate-400">
-                Permite asistentului AI local să ofere sugestii proactive, avertismente de securitate și sumarizări fără date externe.
+                Allows local zero-telemetry AI to suggest context, security warnings, and summaries.
               </p>
             </div>
             <input
@@ -627,10 +627,10 @@ export class SettingsView {
             <div class="space-y-0.5 pr-4">
               <span class="text-xs font-semibold text-white flex items-center gap-1.5">
                 <span>🧘</span>
-                <span>Mod Zen / Concentrare Imersivă</span>
+                <span>Zen Mode / Immersive Focus</span>
               </span>
               <p class="text-[11px] text-slate-400">
-                Ascunde panourile laterale și maximizează lizibilitatea fluxului de lectură pentru o experiență minimalistă.
+                Hides side rails and maximizes feed reading area for a distraction-free experience.
               </p>
             </div>
             <input

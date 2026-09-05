@@ -282,6 +282,7 @@ export const SERVICES = {
   LocalDiagnostics: createServiceToken<unknown>('LocalDiagnostics'),
   SettingsView: createServiceToken<unknown>('SettingsView'),
   LegalModal: createServiceToken<unknown>('LegalModal'),
+  SovereignDialog: createServiceToken<unknown>('SovereignDialog'),
 } as const;
 
 // ── Default Global Container Instance ──────────────────────────────────────────────

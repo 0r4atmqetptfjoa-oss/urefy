@@ -567,6 +567,24 @@ export class CommandRailV2Engine {
     }
   }
 
+  public attachEvents(root: HTMLElement = document.body, onClose?: () => void): void {
+    if (!root) return;
+    const cancelBtn = root.querySelector('#btn-rail-v2-cancel');
+    cancelBtn?.addEventListener('click', () => {
+      this.close();
+      if (onClose) onClose();
+    });
+    const confirmBtn = root.querySelector('#btn-rail-v2-confirm');
+    confirmBtn?.addEventListener('click', () => {
+      this.executeSelected();
+      if (onClose) onClose();
+    });
+    const input = root.querySelector('#command-rail-v2-input') as HTMLInputElement | null;
+    input?.addEventListener('input', (e) => {
+      this.setQuery((e.target as HTMLInputElement).value);
+    });
+  }
+
   /**
    * Search across all categories with BM25 weighted ranking.
    */

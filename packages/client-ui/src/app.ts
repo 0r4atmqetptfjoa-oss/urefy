@@ -23,6 +23,7 @@ import { notificationCenter } from './notifications.js';
 import { reactionsEngine } from './reactions.js';
 import { bookmarksVault } from './bookmarks.js';
 import { relaysManager } from './relays-manager.js';
+import { sovereignDialog } from './dialog-modal.js';
 import { awardsSystem, awardPopoverManager } from './awards.js';
 import { crossPostEngine } from './crosspost.js';
 import { profileCardEngine } from './profile-card.js';
@@ -641,29 +642,29 @@ export function initApp(): void {
   };
 
   const renderHeaderPrimaryNav = (): string => `
-    <button type="button" data-nav-mode="pulse" class="btn-nav-mode px-3 py-1.5 rounded-xl font-semibold transition-all flex items-center space-x-1.5 cursor-pointer ${clientStore.activeChannelId.startsWith('pulse-') ? 'is-active nav-item-active shadow-sm' : 'text-slate-400 hover:text-slate-200 hover:bg-surface-overlay/50'}" title="Feed de publicații și știri suverane">
+    <button type="button" data-nav-mode="pulse" class="btn-nav-mode px-3 py-1.5 rounded-xl font-semibold transition-all flex items-center space-x-1.5 cursor-pointer ${clientStore.activeChannelId.startsWith('pulse-') ? 'is-active nav-item-active shadow-sm' : 'text-slate-400 hover:text-slate-200 hover:bg-surface-overlay/50'}" title="Feed & sovereign pulse stream">
       <span>⚡</span>
       <span>Feed (Pulse)</span>
     </button>
 
-    <button type="button" data-nav-mode="explore" class="btn-nav-mode px-3 py-1.5 rounded-xl font-semibold transition-all flex items-center space-x-1.5 cursor-pointer ${clientStore.activeChannelId === 'explore' ? 'is-active nav-item-active shadow-sm' : 'text-slate-400 hover:text-slate-200 hover:bg-surface-overlay/50'}" title="Explorează rețeaua și tendințele">
+    <button type="button" data-nav-mode="explore" class="btn-nav-mode px-3 py-1.5 rounded-xl font-semibold transition-all flex items-center space-x-1.5 cursor-pointer ${clientStore.activeChannelId === 'explore' ? 'is-active nav-item-active shadow-sm' : 'text-slate-400 hover:text-slate-200 hover:bg-surface-overlay/50'}" title="Explore network and trending nodes">
       <span>🔍</span>
-      <span>Explorează</span>
+      <span>Explore</span>
     </button>
 
-    <button type="button" data-nav-mode="profile" class="btn-nav-mode px-3 py-1.5 rounded-xl font-semibold transition-all flex items-center space-x-1.5 cursor-pointer ${clientStore.activeChannelId.startsWith('profile') ? 'is-active nav-item-active shadow-sm' : 'text-slate-400 hover:text-slate-200 hover:bg-surface-overlay/50'}" title="Profilul tău de identitate suverană">
+    <button type="button" data-nav-mode="profile" class="btn-nav-mode px-3 py-1.5 rounded-xl font-semibold transition-all flex items-center space-x-1.5 cursor-pointer ${clientStore.activeChannelId.startsWith('profile') ? 'is-active nav-item-active shadow-sm' : 'text-slate-400 hover:text-slate-200 hover:bg-surface-overlay/50'}" title="Your sovereign cryptographic identity">
       <span>👤</span>
-      <span>Profil</span>
+      <span>Profile</span>
     </button>
 
-    <button type="button" data-nav-mode="vault" class="btn-nav-mode px-3 py-1.5 rounded-xl font-semibold transition-all flex items-center space-x-1.5 cursor-pointer ${clientStore.activeChannelId.startsWith('vault-') ? 'is-active nav-item-active shadow-sm' : 'text-slate-400 hover:text-slate-200 hover:bg-surface-overlay/50'}" title="Seif de fișiere criptate și release-uri auditate">
+    <button type="button" data-nav-mode="vault" class="btn-nav-mode px-3 py-1.5 rounded-xl font-semibold transition-all flex items-center space-x-1.5 cursor-pointer ${clientStore.activeChannelId.startsWith('vault-') ? 'is-active nav-item-active shadow-sm' : 'text-slate-400 hover:text-slate-200 hover:bg-surface-overlay/50'}" title="Encrypted files vault & audited releases">
       <span>📚</span>
-      <span>Seif (Vault)</span>
+      <span>Vault</span>
     </button>
 
-    <button type="button" data-nav-mode="relays" class="btn-nav-mode px-3 py-1.5 rounded-xl font-semibold transition-all flex items-center space-x-1.5 cursor-pointer ${clientStore.activeChannelId.startsWith('relays-') ? 'is-active nav-item-active shadow-sm' : 'text-slate-400 hover:text-slate-200 hover:bg-surface-overlay/50'}" title="Servere de comunicare și chat E2EE">
+    <button type="button" data-nav-mode="relays" class="btn-nav-mode px-3 py-1.5 rounded-xl font-semibold transition-all flex items-center space-x-1.5 cursor-pointer ${clientStore.activeChannelId.startsWith('relays-') ? 'is-active nav-item-active shadow-sm' : 'text-slate-400 hover:text-slate-200 hover:bg-surface-overlay/50'}" title="Communication servers and E2EE chat">
       <span>💬</span>
-      <span>Servere (Relays)</span>
+      <span>Relays</span>
     </button>
   `;
 
@@ -728,6 +729,207 @@ export function initApp(): void {
       </button>
     </div>
   `;
+
+  const getDynamicTrendingTopics = (): Array<{ tag: string; count: number; category: string }> => {
+    const tagCounts = new Map<string, number>();
+    for (const p of clientStore.posts) {
+      const matches = p.content.match(/#([a-zA-Z0-9_]+)/g);
+      if (matches) {
+        for (const tag of matches) {
+          tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
+        }
+      }
+    }
+    if (tagCounts.size === 0) {
+      return [
+        { tag: '#ZeroKnowledge', count: Math.max(1, clientStore.posts.length), category: 'Cryptography' },
+        { tag: '#TreeKEM', count: Math.max(1, Math.floor(clientStore.posts.length * 0.7)), category: 'Protocol' },
+        { tag: '#SovereignMesh', count: Math.max(1, Math.floor(clientStore.posts.length * 0.4)), category: 'Network' },
+      ];
+    }
+    return [...tagCounts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 4)
+      .map(([tag, count]) => ({
+        tag,
+        count,
+        category: 'Community',
+      }));
+  };
+
+  const renderRightRailContent = (): string => {
+    const channel = clientStore.activeChannelId;
+
+    // 1. Vault Route
+    if (channel.startsWith('vault-')) {
+      return `
+        <!-- VAULT CONTEXT: STORAGE STATUS & AUDITED RELEASES -->
+        <div class="p-4 rounded-2xl bg-surface-raised/90 border border-white/5 space-y-3 shadow-sm">
+          <div class="flex items-center justify-between">
+            <h4 class="text-xs font-bold text-white tracking-wide">Knowledge Vault</h4>
+            <span class="text-[9px] font-mono px-2 py-0.5 rounded-full bg-cyan-950 text-cyan-400 border border-cyan-500/30">P2P Swarm</span>
+          </div>
+          <div class="space-y-2 text-xs">
+            <div class="flex justify-between text-[11px] font-mono text-slate-400">
+              <span>Cloudflare Storage:</span>
+              <span class="text-cyan-300 font-bold">0.00 GB / 8.0 GB</span>
+            </div>
+            <div class="w-full h-1.5 bg-surface-base rounded-full overflow-hidden">
+              <div class="h-full bg-gradient-to-r from-cyan-500 to-emerald-400 rounded-full" style="width: 2%;"></div>
+            </div>
+            <div class="text-[10px] text-slate-500 font-mono flex justify-between">
+              <span>Zero-Overage Protected</span>
+              <span class="text-emerald-400">Safe Ceiling Active</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="p-4 rounded-2xl bg-surface-raised/90 border border-white/5 space-y-3 shadow-sm">
+          <h4 class="text-xs font-bold text-white tracking-wide">Vault Categories</h4>
+          <div class="space-y-1 text-xs">
+            ${(() => {
+            const nanos = clientStore.nanopublications || [];
+            const rCount = nanos.filter(n => n.channelId === 'vault-releases' || /\.(bin|exe|iso|tar|gz)$/i.test(n.fileName)).length;
+            const gCount = nanos.filter(n => n.channelId === 'vault-guides' || /\.(md|pdf|txt|doc)$/i.test(n.fileName)).length;
+            const dCount = nanos.filter(n => n.channelId === 'vault-datasets' || /\.(json|csv|parquet|sql)$/i.test(n.fileName)).length;
+            return `
+            <button type="button" onclick="if(window.clientStore) window.clientStore.joinChannel('vault-releases')" class="w-full text-left px-3 py-2 rounded-xl text-xs flex items-center justify-between transition-colors \${channel === 'vault-releases' ? 'bg-cyan-500/20 text-cyan-300 font-bold' : 'hover:bg-surface-overlay text-slate-300'}">
+              <span>📦 Audited Binary Releases</span>
+              <span class="text-[10px] font-mono text-cyan-400 font-bold">\${rCount}</span>
+            </button>
+            <button type="button" onclick="if(window.clientStore) window.clientStore.joinChannel('vault-guides')" class="w-full text-left px-3 py-2 rounded-xl text-xs flex items-center justify-between transition-colors \${channel === 'vault-guides' ? 'bg-cyan-500/20 text-cyan-300 font-bold' : 'hover:bg-surface-overlay text-slate-300'}">
+              <span>📖 Technical Whitepapers</span>
+              <span class="text-[10px] font-mono text-cyan-400 font-bold">\${gCount}</span>
+            </button>
+            <button type="button" onclick="if(window.clientStore) window.clientStore.joinChannel('vault-datasets')" class="w-full text-left px-3 py-2 rounded-xl text-xs flex items-center justify-between transition-colors \${channel === 'vault-datasets' ? 'bg-cyan-500/20 text-cyan-300 font-bold' : 'hover:bg-surface-overlay text-slate-300'}">
+              <span>📊 Open Datasets</span>
+              <span class="text-[10px] font-mono text-cyan-400 font-bold">\${dCount}</span>
+            </button>
+            `;
+          })()}
+          </div>
+        </div>
+
+        ${downloadManager.renderSidebarCard()}
+      `;
+    }
+
+    // 2. Messages / Relays / DM Route
+    if (channel.startsWith('relays-') || channel.startsWith('relay-') || channel.startsWith('dm-')) {
+      return `
+        <!-- SOVEREIGN CIRCLE & COMMUNITY CARD -->
+        ${sovereignCircleEngine.renderSidebarCircleCard(clientStore.activeChannelId)}
+
+        <!-- ACTIVE CHANNEL MEMBERS -->
+        <div class="p-4 rounded-2xl bg-surface-raised/90 border border-white/5 space-y-3 shadow-sm">
+          <div class="flex items-center justify-between">
+            <h4 class="text-xs font-bold text-white tracking-wide">Channel Members</h4>
+            <span class="text-[9px] font-mono text-emerald-400">${clientStore.peersOnline} active</span>
+          </div>
+          <div class="space-y-2.5">
+            ${(clientStore.members || []).slice(0, 5).map(m => `
+              <div class="flex items-center justify-between text-xs">
+                <div class="flex items-center space-x-2 min-w-0">
+                  <div class="w-6 h-6 rounded-full bg-surface-overlay flex items-center justify-center text-[10px] font-bold text-white shrink-0 font-mono">
+                    ${m.fingerprint.substring(0, 2).toUpperCase()}
+                  </div>
+                  <span class="font-mono text-slate-300 truncate">@id:${m.fingerprint.substring(0, 8)}</span>
+                </div>
+                <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-surface-overlay text-slate-400 border border-white/5">${m.role}</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+
+        ${downloadManager.renderSidebarCard()}
+      `;
+    }
+
+    // 3. Explore Route
+    if (channel === 'explore') {
+      return `
+        <div class="p-4 rounded-2xl bg-surface-raised/90 border border-white/5 space-y-3 shadow-sm">
+          <div class="flex items-center justify-between">
+            <h4 class="text-xs font-bold text-white tracking-wide">Trending Topics</h4>
+            <span class="text-[9px] font-mono text-slate-500">Algorithm-Free</span>
+          </div>
+          <div class="space-y-2.5">
+            ${getDynamicTrendingTopics().map(t => `
+              <div class="cursor-pointer group" onclick="if(window.clientStore){ window.clientStore.searchQuery = '${t.tag}'; window.clientStore.notify(); }">
+                <div class="text-[10px] text-slate-500 font-mono">${t.category} · Trending</div>
+                <div class="text-xs font-bold text-slate-200 group-hover:text-indigo-400 transition-colors">${t.tag}</div>
+                <div class="text-[10px] text-slate-500 font-mono">${t.count} pulse${t.count === 1 ? '' : 's'}</div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+
+        ${networkActivityFeed.renderActivityWidget()}
+        ${downloadManager.renderSidebarCard()}
+      `;
+    }
+
+    // 4. Default / Feed (Pulse)
+    return `
+      ${sovereignCircleEngine.renderSidebarCircleCard(clientStore.activeChannelId)}
+
+      <!-- TRENDING IN SOVEREIGN NET -->
+      <div class="p-4 rounded-2xl bg-surface-raised/90 border border-white/5 space-y-3 shadow-sm">
+        <div class="flex items-center justify-between">
+          <h4 class="text-xs font-bold text-white tracking-wide">Trending Topics</h4>
+          <span class="text-[9px] font-mono text-slate-500">Algorithm-Free</span>
+        </div>
+
+        <div class="space-y-2.5">
+            ${getDynamicTrendingTopics().map(t => `
+              <div class="cursor-pointer group" onclick="if(window.clientStore){ window.clientStore.searchQuery = '${t.tag}'; window.clientStore.notify(); }">
+                <div class="text-[10px] text-slate-500 font-mono">${t.category} · Trending</div>
+                <div class="text-xs font-bold text-slate-200 group-hover:text-indigo-400 transition-colors">${t.tag}</div>
+                <div class="text-[10px] text-slate-500 font-mono">${t.count} pulse${t.count === 1 ? '' : 's'}</div>
+              </div>
+            `).join('')}
+          </div>
+      </div>
+
+      <!-- WEB OF TRUST: RECOMMENDED NODES -->
+      <div class="p-4 rounded-2xl bg-surface-raised/90 border border-white/5 space-y-3 shadow-sm">
+        <div class="flex items-center justify-between">
+          <h4 class="text-xs font-bold text-white tracking-wide">Web of Trust (WoT)</h4>
+          <button type="button" id="btn-open-wot-graph-right" class="text-[9px] font-mono text-emerald-400 hover:text-emerald-300 cursor-pointer underline">View Graph</button>
+        </div>
+
+        <div class="space-y-3">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-2 min-w-0">
+              <div class="w-7 h-7 rounded-full bg-gradient-to-tr from-indigo-600 to-slate-700 flex items-center justify-center font-mono text-[9px] font-bold text-white shrink-0">C3</div>
+              <div class="min-w-0">
+                <div class="text-xs font-bold text-white truncate">@id:c3dc28cb</div>
+                <div class="text-[9px] font-mono text-emerald-400">Archivist · 342 Merit</div>
+              </div>
+            </div>
+            <button type="button" data-peer-id="c3dc28cb705e" class="btn-wot-trust px-3 py-1 rounded-xl bg-white text-black text-[11px] font-bold hover:bg-slate-200 transition-all cursor-pointer shrink-0">Trust</button>
+          </div>
+
+          <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-2 min-w-0">
+              <div class="w-7 h-7 rounded-full bg-gradient-to-tr from-purple-600 to-slate-700 flex items-center justify-center font-mono text-[9px] font-bold text-white shrink-0">A8</div>
+              <div class="min-w-0">
+                <div class="text-xs font-bold text-white truncate">@id:a89104fa</div>
+                <div class="text-[9px] font-mono text-indigo-300">Moderator · 276 Merit</div>
+              </div>
+            </div>
+            <button type="button" data-peer-id="a89104fa2211" class="btn-wot-trust px-3 py-1 rounded-xl bg-white text-black text-[11px] font-bold hover:bg-slate-200 transition-all cursor-pointer shrink-0">Trust</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- LIVE NETWORK ACTIVITY FEED -->
+      ${networkActivityFeed.renderActivityWidget()}
+
+      <!-- P2P SWARM INGRESS & DOWNLOAD MANAGER -->
+      ${downloadManager.renderSidebarCard()}
+    `;
+  };
 
   const updateNavigationActiveClasses = (): void => {
     const currentChannel = clientStore.activeChannelId;
@@ -910,58 +1112,58 @@ export function initApp(): void {
             <div id="left-rail-scroll" class="p-3 overflow-y-auto space-y-4">
               
               <!-- PRIMARY NAVIGATION DOCK (LEVEL 1: 5 ITEMS) -->
-              <div class="space-y-1" aria-label="Navigare principală">
-                <button type="button" data-nav-mode="pulse" class="btn-nav-mode w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center space-x-3 cursor-pointer ${clientStore.activeChannelId.startsWith('pulse-') ? 'is-active nav-item-active shadow-sm' : 'text-slate-300 hover:text-white hover:bg-surface-raised'}" title="Feed de publicații și știri suverane">
+              <div class="space-y-1" aria-label="Primary navigation">
+                <button type="button" data-nav-mode="pulse" class="btn-nav-mode w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center space-x-3 cursor-pointer ${clientStore.activeChannelId.startsWith('pulse-') ? 'is-active nav-item-active shadow-sm' : 'text-slate-300 hover:text-white hover:bg-surface-raised'}" title="Feed & sovereign pulse stream">
                   <span class="text-base shrink-0">⚡</span>
                   <div class="flex flex-col text-left flex-1 min-w-0">
                     <span class="font-bold leading-tight">Feed (Pulse)</span>
-                    <span class="text-[10px] text-slate-400 font-normal">Flux publicații & știri</span>
+                    <span class="text-[10px] text-slate-400 font-normal">Decentralized stream & news</span>
                   </div>
                   ${clientStore.activeChannelId.startsWith('pulse-') ? '<span class="w-2 h-2 rounded-full nav-indicator-active shrink-0"></span>' : ''}
                 </button>
 
-                <button type="button" data-nav-mode="explore" class="btn-nav-mode w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center space-x-3 cursor-pointer ${clientStore.activeChannelId === 'explore' ? 'is-active nav-item-active shadow-sm' : 'text-slate-300 hover:text-white hover:bg-surface-raised'}" title="Explorează rețeaua și tendințele">
+                <button type="button" data-nav-mode="explore" class="btn-nav-mode w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center space-x-3 cursor-pointer ${clientStore.activeChannelId === 'explore' ? 'is-active nav-item-active shadow-sm' : 'text-slate-300 hover:text-white hover:bg-surface-raised'}" title="Explore network and trending nodes">
                   <span class="text-base shrink-0">🔍</span>
                   <div class="flex flex-col text-left flex-1 min-w-0">
-                    <span class="font-bold leading-tight">Explorează</span>
-                    <span class="text-[10px] text-slate-400 font-normal">Tendințe & noduri</span>
+                    <span class="font-bold leading-tight">Explore</span>
+                    <span class="text-[10px] text-slate-400 font-normal">Trends & nodes</span>
                   </div>
                   ${clientStore.activeChannelId === 'explore' ? '<span class="w-2 h-2 rounded-full nav-indicator-active shrink-0"></span>' : ''}
                 </button>
 
-                <button type="button" data-nav-mode="profile" class="btn-nav-mode w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center space-x-3 cursor-pointer ${clientStore.activeChannelId.startsWith('profile') ? 'is-active nav-item-active shadow-sm' : 'text-slate-300 hover:text-white hover:bg-surface-raised'}" title="Profilul tău de identitate suverană">
+                <button type="button" data-nav-mode="profile" class="btn-nav-mode w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center space-x-3 cursor-pointer ${clientStore.activeChannelId.startsWith('profile') ? 'is-active nav-item-active shadow-sm' : 'text-slate-300 hover:text-white hover:bg-surface-raised'}" title="Your sovereign cryptographic identity">
                   <span class="text-base shrink-0">👤</span>
                   <div class="flex flex-col text-left flex-1 min-w-0">
-                    <span class="font-bold leading-tight">Profil</span>
-                    <span class="text-[10px] text-slate-400 font-normal">Identitatea ta suverană</span>
+                    <span class="font-bold leading-tight">Profile</span>
+                    <span class="text-[10px] text-slate-400 font-normal">Your sovereign identity</span>
                   </div>
                   ${clientStore.activeChannelId.startsWith('profile') ? '<span class="w-2 h-2 rounded-full nav-indicator-active shrink-0"></span>' : ''}
                 </button>
 
-                <button type="button" data-nav-mode="vault" class="btn-nav-mode w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center space-x-3 cursor-pointer ${clientStore.activeChannelId.startsWith('vault-') ? 'is-active nav-item-active shadow-sm' : 'text-slate-300 hover:text-white hover:bg-surface-raised'}" title="Seif de fișiere criptate și release-uri auditate">
+                <button type="button" data-nav-mode="vault" class="btn-nav-mode w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center space-x-3 cursor-pointer ${clientStore.activeChannelId.startsWith('vault-') ? 'is-active nav-item-active shadow-sm' : 'text-slate-300 hover:text-white hover:bg-surface-raised'}" title="Encrypted files vault & audited releases">
                   <span class="text-base shrink-0">📚</span>
                   <div class="flex flex-col text-left flex-1 min-w-0">
-                    <span class="font-bold leading-tight">Seif (Vault)</span>
-                    <span class="text-[10px] text-slate-400 font-normal">Fișiere & release-uri</span>
+                    <span class="font-bold leading-tight">Vault</span>
+                    <span class="text-[10px] text-slate-400 font-normal">Files & releases</span>
                   </div>
                   ${clientStore.activeChannelId.startsWith('vault-') ? '<span class="w-2 h-2 rounded-full nav-indicator-active shrink-0"></span>' : ''}
                 </button>
 
-                <button type="button" data-nav-mode="relays" class="btn-nav-mode w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center space-x-3 cursor-pointer ${clientStore.activeChannelId.startsWith('relays-') || clientStore.activeChannelId.startsWith('relay-') ? 'is-active nav-item-active shadow-sm' : 'text-slate-300 hover:text-white hover:bg-surface-raised'}" title="Servere de comunicare și chat E2EE">
+                <button type="button" data-nav-mode="relays" class="btn-nav-mode w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center space-x-3 cursor-pointer ${clientStore.activeChannelId.startsWith('relays-') || clientStore.activeChannelId.startsWith('relay-') ? 'is-active nav-item-active shadow-sm' : 'text-slate-300 hover:text-white hover:bg-surface-raised'}" title="Communication servers and E2EE chat">
                   <span class="text-base shrink-0">📡</span>
                   <div class="flex flex-col text-left flex-1 min-w-0">
-                    <span class="font-bold leading-tight">Servere (Relays)</span>
-                    <span class="text-[10px] text-slate-400 font-normal">Canale & chat E2EE</span>
+                    <span class="font-bold leading-tight">Relays</span>
+                    <span class="text-[10px] text-slate-400 font-normal">Channels & E2EE chat</span>
                   </div>
                   ${clientStore.activeChannelId.startsWith('relays-') || clientStore.activeChannelId.startsWith('relay-') ? '<span class="w-2 h-2 rounded-full nav-indicator-active shrink-0"></span>' : ''}
                 </button>
               </div>
 
-              <!-- ADVANCED TOOLS PANEL (UNELTE AVANSATE) -->
-              <div class="pt-2 border-t border-white/5 space-y-1" aria-label="Unelte avansate">
+              <!-- ADVANCED TOOLS PANEL -->
+              <div class="pt-2 border-t border-white/5 space-y-1" aria-label="Advanced tools">
                 <div class="text-[10px] uppercase font-bold text-slate-500 tracking-wider mb-2 px-2 flex items-center justify-between">
-                  <span>🛠️ Unelte Avansate</span>
-                  <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-surface-raised text-cyan-400 border border-white/5">10 unelte</span>
+                  <span>🛠️ Advanced Tools</span>
+                  <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-surface-raised text-cyan-400 border border-white/5">10 tools</span>
                 </div>
 
                 <button type="button" id="rail-btn-bookmarks" class="w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
@@ -1045,15 +1247,6 @@ export function initApp(): void {
                   <span class="flex-1">Micro-SaaS & Dev APIs</span>
                   <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-300 border border-emerald-500/30">EDGE</span>
                 </button>
-
-                ${adminAuth && adminAuth.isAdmin ? `
-                  <!-- SOVEREIGN ADMIN PANEL (Admin Authenticated Only) -->
-                  <a href="/admin.html" id="link-open-admin-panel" class="w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 border border-amber-500/20 transition-all flex items-center space-x-3 cursor-pointer" title="Open Sovereign Admin Control Panel">
-                    <span class="text-base">⚙️</span>
-                    <span class="flex-1 font-mono">Admin Console</span>
-                    <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
-                  </a>
-                ` : ''}
               </div>
 
               <!-- SOVEREIGN CIRCLES & COLLECTIVES -->
@@ -1100,7 +1293,7 @@ export function initApp(): void {
               <div class="pt-2">
                 <button type="button" id="btn-open-composer" class="w-full py-3 px-4 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition-all shadow-md flex items-center justify-center space-x-2 cursor-pointer group">
                   <span class="text-base group-hover:scale-110 transition-transform">✍️</span>
-                  <span>Broadcast Publication</span>
+                  <span>Post</span>
                 </button>
               </div>
 
@@ -1174,93 +1367,7 @@ export function initApp(): void {
           <!-- RIGHT SOVEREIGN DISCOVERY & NETWORK RAIL -->
           <aside id="right-rail-container" class="w-80 bg-surface-base border-subtle-l flex flex-col justify-between shrink-0 select-none hidden xl:flex">
             <div id="right-rail-scroll" class="p-3.5 overflow-y-auto space-y-4">
-              
-              <!-- SOVEREIGN CIRCLE & COMMUNITY GOVERNANCE CARD -->
-              ${sovereignCircleEngine.renderSidebarCircleCard(clientStore.activeChannelId)}
-
-              <!-- TRENDING IN SOVEREIGN NET -->
-              <div class="p-4 rounded-2xl bg-surface-raised/90 border border-white/5 space-y-3 shadow-sm">
-                <div class="flex items-center justify-between">
-                  <h4 class="text-xs font-bold text-white tracking-wide">Trending Topics</h4>
-                  <span class="text-[9px] font-mono text-slate-500">Algorithm-Free</span>
-                </div>
-
-                <div class="space-y-2.5">
-                  <div class="cursor-pointer group">
-                    <div class="text-[10px] text-slate-500 font-mono">Cryptography · Trending</div>
-                    <div class="text-xs font-bold text-slate-200 group-hover:text-indigo-400 transition-colors">#ZeroKnowledge</div>
-                    <div class="text-[10px] text-slate-500 font-mono">184 pulses</div>
-                  </div>
-
-                  <div class="cursor-pointer group">
-                    <div class="text-[10px] text-slate-500 font-mono">Protocol · Trending</div>
-                    <div class="text-xs font-bold text-slate-200 group-hover:text-indigo-400 transition-colors">#TreeKEM_MLS</div>
-                    <div class="text-[10px] text-slate-500 font-mono">142 pulses</div>
-                  </div>
-
-                  <div class="cursor-pointer group">
-                    <div class="text-[10px] text-slate-500 font-mono">Security · Trending</div>
-                    <div class="text-xs font-bold text-slate-200 group-hover:text-indigo-400 transition-colors">#ReverseEngineering</div>
-                    <div class="text-[10px] text-slate-500 font-mono">98 releases</div>
-                  </div>
-
-                  <div class="cursor-pointer group">
-                    <div class="text-[10px] text-slate-500 font-mono">Vault · Trending</div>
-                    <div class="text-xs font-bold text-slate-200 group-hover:text-indigo-400 transition-colors">#BinaryHygiene</div>
-                    <div class="text-[10px] text-slate-500 font-mono">76 releases</div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- WEB OF TRUST: RECOMMENDED NODES -->
-              <div class="p-4 rounded-2xl bg-surface-raised/90 border border-white/5 space-y-3 shadow-sm">
-                <div class="flex items-center justify-between">
-                  <h4 class="text-xs font-bold text-white tracking-wide">Web of Trust (WoT)</h4>
-                  <button type="button" id="btn-open-wot-graph-right" class="text-[9px] font-mono text-emerald-400 hover:text-emerald-300 cursor-pointer underline">View Graph</button>
-                </div>
-
-                <div class="space-y-3">
-                  <div class="flex items-center justify-between">
-                    <div class="flex items-center space-x-2 min-w-0">
-                      <div class="w-7 h-7 rounded-full bg-gradient-to-tr from-indigo-600 to-slate-700 flex items-center justify-center font-mono text-[9px] font-bold text-white shrink-0">C3</div>
-                      <div class="min-w-0">
-                        <div class="text-xs font-bold text-white truncate">@id:c3dc28cb</div>
-                        <div class="text-[9px] font-mono text-emerald-400">Archivist · 342 Merit</div>
-                      </div>
-                    </div>
-                    <button type="button" data-peer-id="c3dc28cb705e" class="btn-wot-trust px-3 py-1 rounded-xl bg-white text-black text-[11px] font-bold hover:bg-slate-200 transition-all cursor-pointer shrink-0">Trust</button>
-                  </div>
-
-                  <div class="flex items-center justify-between">
-                    <div class="flex items-center space-x-2 min-w-0">
-                      <div class="w-7 h-7 rounded-full bg-gradient-to-tr from-purple-600 to-slate-700 flex items-center justify-center font-mono text-[9px] font-bold text-white shrink-0">A8</div>
-                      <div class="min-w-0">
-                        <div class="text-xs font-bold text-white truncate">@id:a89104fa</div>
-                        <div class="text-[9px] font-mono text-indigo-300">Moderator · 276 Merit</div>
-                      </div>
-                    </div>
-                    <button type="button" data-peer-id="a89104fa2211" class="btn-wot-trust px-3 py-1 rounded-xl bg-white text-black text-[11px] font-bold hover:bg-slate-200 transition-all cursor-pointer shrink-0">Trust</button>
-                  </div>
-
-                  <div class="flex items-center justify-between">
-                    <div class="flex items-center space-x-2 min-w-0">
-                      <div class="w-7 h-7 rounded-full bg-gradient-to-tr from-blue-600 to-slate-700 flex items-center justify-center font-mono text-[9px] font-bold text-white shrink-0">F4</div>
-                      <div class="min-w-0">
-                        <div class="text-xs font-bold text-white truncate">@id:f40019bc</div>
-                        <div class="text-[9px] font-mono text-emerald-400">Security Lab · 194 Merit</div>
-                      </div>
-                    </div>
-                    <button type="button" data-peer-id="f40019bc1337" class="btn-wot-trust px-3 py-1 rounded-xl bg-white text-black text-[11px] font-bold hover:bg-slate-200 transition-all cursor-pointer shrink-0">Trust</button>
-                  </div>
-                </div>
-              </div>
-
-              <!-- LIVE NETWORK ACTIVITY FEED -->
-              ${networkActivityFeed.renderActivityWidget()}
-
-              <!-- P2P SWARM INGRESS & DOWNLOAD MANAGER -->
-              ${downloadManager.renderSidebarCard()}
-
+              ${renderRightRailContent()}
             </div>
 
             <!-- SYSTEM INTEGRITY TICKER -->
@@ -1373,6 +1480,7 @@ export function initApp(): void {
     ${onboardingWizard.renderWizardModal(clientStore.keypair?.fingerprint)}
     ${settingsView.isOpen ? settingsView.renderSettingsModal() : ''}
     ${legalModal.render()}
+    ${commandRailV2.isOpen ? commandRailV2.renderModal() : ''}
   `;
 
   const patchRender = (event?: string, data?: any) => {
@@ -1688,7 +1796,7 @@ function renderMainStage(): string {
   const isVault = clientStore.activeChannelId.startsWith('vault-');
   const isExplore = clientStore.activeChannelId === 'explore';
   const isProfile = clientStore.activeChannelId.startsWith('profile');
-  const onboardingHTML = sovereignOnboarding.renderWelcomeBanner();
+  const onboardingHTML = (onboardingWizard && (onboardingWizard.isOpen || onboardingWizard.isCompleted)) ? '' : sovereignOnboarding.renderWelcomeBanner();
 
   if (clientStore.isDualHorizon) {
     return `
@@ -1749,14 +1857,14 @@ function renderRelaysWorkspace(): string {
       <!-- 2. RELAY CHANNELS LIST & MAIN CHAT AREA -->
       <div class="flex-1 flex flex-col overflow-hidden">
         <!-- RELAY TOP BANNER WITH INVITE FRIENDS BUTTON -->
-        ${relaysManager.renderRelayHeader(activeRelay, channelName)}
+        ${relaysManager.renderRelayHeader(activeRelay, channelName, clientStore.keypair?.fingerprint)}
 
         <!-- MESSAGES FEED -->
         <div id="messages-container" class="flex-1 p-3 sm:p-4 md:p-6 overflow-y-auto space-y-${clientStore.density === 'compact' ? '1' : clientStore.density === 'balanced' ? '3' : '5'} max-w-4xl mx-auto w-full pb-20 md:pb-6">
           ${messages.length === 0 ? renderRelaysEmptyState({
-            title: `Canalul #${channelName} nu conține încă mesaje`,
-            description: `Acesta este începutul canalului #${channelName} pe serverul ${escapeHtml(activeRelay.name)}. Toate mesajele sunt criptate la nivel de client folosind TreeKEM MLS.`,
-            actionText: '💬 Trimite primul mesaj',
+            title: `Channel #${channelName} has no messages yet`,
+            description: `This is the beginning of #${channelName} on server ${escapeHtml(activeRelay.name)}. All messages are encrypted client-side using TreeKEM MLS.`,
+            actionText: '💬 Send the first message',
           }) : messages.map(m => renderMessageItem(m)).join('')}
         </div>
 
@@ -2259,11 +2367,11 @@ function renderMobileBottomNavButtons(): string {
         id="btn-mobile-relays"
         onclick="if(window.clientStore) { window.clientStore.joinChannel('relays-general'); }"
         class="btn-nav-mode min-w-[44px] min-h-[44px] flex flex-col items-center justify-center rounded-xl p-1 transition-all cursor-pointer ${isRelays ? 'is-active text-cyan-400 font-bold' : 'text-slate-400 hover:text-white'}"
-        title="Servere & Chat (Relays)"
-        aria-label="Servere și Chat Relays"
+        title="Relays & Chat"
+        aria-label="Relays and Chat"
       >
         <span class="text-base leading-none">📡</span>
-        <span class="text-[9px] mt-0.5 font-sans">Servere</span>
+        <span class="text-[9px] mt-0.5 font-sans">Relays</span>
       </button>
 
       <!-- 3. FAB FLOATING ACTION BUTTON (OVERSIZED CENTRAL BUTTON) -->
@@ -2272,8 +2380,8 @@ function renderMobileBottomNavButtons(): string {
         id="btn-mobile-composer" 
         onclick="if(window.clientStore) { window.clientStore.isComposerOpen = true; window.clientStore.notify(); }"
         class="w-12 h-12 -mt-5 rounded-full bg-gradient-to-tr from-cyan-500 via-indigo-500 to-cyan-500 hover:from-cyan-400 hover:to-indigo-400 text-black flex items-center justify-center text-xl font-bold shadow-lg shadow-cyan-500/30 border-2 border-surface-base transform active:scale-90 transition-all cursor-pointer shrink-0" 
-        title="Publică o notă sau un articol nou"
-        aria-label="Creează publicație nouă"
+        title="Publish a new pulse note or article"
+        aria-label="Create new publication"
       >
         <span>➕</span>
       </button>
@@ -2284,12 +2392,12 @@ function renderMobileBottomNavButtons(): string {
         id="btn-mobile-notifs" 
         onclick="if(window.__aetherisToggleNotifs) window.__aetherisToggleNotifs();"
         class="relative min-w-[44px] min-h-[44px] flex flex-col items-center justify-center rounded-xl p-1 transition-all cursor-pointer ${isNotificationPanelOpen ? 'is-active text-cyan-400 font-bold' : 'text-slate-400 hover:text-white'}"
-        title="Notificări și alerte"
-        aria-label="Notificări"
+        title="Notifications & alerts"
+        aria-label="Notifications"
       >
         <span class="text-base leading-none">🔔</span>
         ${notificationCenter.unreadCount > 0 ? `<span class="px-1.5 py-0.2 rounded-full bg-rose-500 text-white text-[9px] font-mono absolute -top-1 right-1 font-bold shadow-sm">${notificationCenter.unreadCount}</span>` : ''}
-        <span class="text-[9px] mt-0.5 font-sans">Alerte</span>
+        <span class="text-[9px] mt-0.5 font-sans">Alerts</span>
       </button>
 
       <!-- 5. PROFILE (USER AVATAR) -->
@@ -2299,13 +2407,13 @@ function renderMobileBottomNavButtons(): string {
         id="btn-mobile-profile"
         onclick="if(window.clientStore) { window.clientStore.activeChannelId = 'profile'; window.clientStore.notify(); }"
         class="btn-nav-mode min-w-[44px] min-h-[44px] flex flex-col items-center justify-center rounded-xl p-1 transition-all cursor-pointer ${isProfile ? 'is-active text-cyan-400 font-bold' : 'text-slate-400 hover:text-white'}"
-        title="Profilul tău de identitate suverană"
-        aria-label="Profil"
+        title="Your sovereign cryptographic identity"
+        aria-label="Profile"
       >
         <div class="w-5 h-5 rounded-full bg-gradient-to-tr from-cyan-500 to-slate-700 flex items-center justify-center text-[9px] font-mono font-bold text-white shrink-0 border ${isProfile ? 'border-cyan-400' : 'border-transparent'}">
           ${clientStore.keypair.fingerprint.substring(0, 2).toUpperCase()}
         </div>
-        <span class="text-[9px] mt-0.5 font-sans">Profil</span>
+        <span class="text-[9px] mt-0.5 font-sans">Profile</span>
       </button>
   `;
 }
@@ -2347,46 +2455,46 @@ function renderMobileDrawer(): string {
           <!-- WORKSPACES -->
           <div class="space-y-1">
             <div class="text-[10px] uppercase font-bold text-slate-500 tracking-wider mb-2 px-2 flex items-center justify-between">
-              <span>🧭 Spații de Lucru</span>
+              <span>🧭 Workspaces</span>
               <span class="text-cyan-400 text-[9px] font-mono">V4 Engine</span>
             </div>
-            <button type="button" data-nav-mode="pulse" class="btn-drawer-item w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center space-x-3 cursor-pointer ${clientStore.activeChannelId.startsWith('pulse-') ? 'is-active nav-item-active shadow-sm' : 'text-slate-300 hover:text-white hover:bg-surface-raised'}" title="Feed de publicații și știri suverane">
+            <button type="button" data-nav-mode="pulse" class="btn-drawer-item w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center space-x-3 cursor-pointer ${clientStore.activeChannelId.startsWith('pulse-') ? 'is-active nav-item-active shadow-sm' : 'text-slate-300 hover:text-white hover:bg-surface-raised'}" title="Feed & sovereign pulse stream">
               <span class="text-base shrink-0">⚡</span>
               <div class="flex flex-col text-left flex-1 min-w-0">
                 <span class="font-bold leading-tight">Feed (Pulse)</span>
-                <span class="text-[10px] text-slate-400 font-normal">Flux publicații & știri</span>
+                <span class="text-[10px] text-slate-400 font-normal">Decentralized stream & news</span>
               </div>
               ${clientStore.activeChannelId.startsWith('pulse-') ? '<span class="w-2 h-2 rounded-full nav-indicator-active shrink-0"></span>' : ''}
             </button>
-            <button type="button" data-nav-mode="explore" class="btn-drawer-item w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center space-x-3 cursor-pointer ${clientStore.activeChannelId === 'explore' ? 'is-active nav-item-active shadow-sm' : 'text-slate-300 hover:text-white hover:bg-surface-raised'}" title="Explorează rețeaua și tendințele">
+            <button type="button" data-nav-mode="explore" class="btn-drawer-item w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center space-x-3 cursor-pointer ${clientStore.activeChannelId === 'explore' ? 'is-active nav-item-active shadow-sm' : 'text-slate-300 hover:text-white hover:bg-surface-raised'}" title="Explore network and trending nodes">
               <span class="text-base shrink-0">🔍</span>
               <div class="flex flex-col text-left flex-1 min-w-0">
-                <span class="font-bold leading-tight">Explorează</span>
-                <span class="text-[10px] text-slate-400 font-normal">Tendințe & noduri</span>
+                <span class="font-bold leading-tight">Explore</span>
+                <span class="text-[10px] text-slate-400 font-normal">Trends & nodes</span>
               </div>
               ${clientStore.activeChannelId === 'explore' ? '<span class="w-2 h-2 rounded-full nav-indicator-active shrink-0"></span>' : ''}
             </button>
-            <button type="button" data-nav-mode="vault" class="btn-drawer-item w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center space-x-3 cursor-pointer ${clientStore.activeChannelId.startsWith('vault-') ? 'is-active nav-item-active shadow-sm' : 'text-slate-300 hover:text-white hover:bg-surface-raised'}" title="Seif de fișiere criptate și release-uri auditate">
+            <button type="button" data-nav-mode="vault" class="btn-drawer-item w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center space-x-3 cursor-pointer ${clientStore.activeChannelId.startsWith('vault-') ? 'is-active nav-item-active shadow-sm' : 'text-slate-300 hover:text-white hover:bg-surface-raised'}" title="Encrypted files vault & audited releases">
               <span class="text-base shrink-0">📚</span>
               <div class="flex flex-col text-left flex-1 min-w-0">
-                <span class="font-bold leading-tight">Seif (Vault)</span>
-                <span class="text-[10px] text-slate-400 font-normal">Fișiere & release-uri</span>
+                <span class="font-bold leading-tight">Vault</span>
+                <span class="text-[10px] text-slate-400 font-normal">Files & releases</span>
               </div>
               ${clientStore.activeChannelId.startsWith('vault-') ? '<span class="w-2 h-2 rounded-full nav-indicator-active shrink-0"></span>' : ''}
             </button>
-            <button type="button" data-nav-mode="relays" class="btn-drawer-item w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center space-x-3 cursor-pointer ${clientStore.activeChannelId.startsWith('relays-') ? 'is-active nav-item-active shadow-sm' : 'text-slate-300 hover:text-white hover:bg-surface-raised'}" title="Servere de comunicare și chat E2EE">
+            <button type="button" data-nav-mode="relays" class="btn-drawer-item w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center space-x-3 cursor-pointer ${clientStore.activeChannelId.startsWith('relays-') ? 'is-active nav-item-active shadow-sm' : 'text-slate-300 hover:text-white hover:bg-surface-raised'}" title="Communication servers and E2EE chat">
               <span class="text-base shrink-0">📡</span>
               <div class="flex flex-col text-left flex-1 min-w-0">
-                <span class="font-bold leading-tight">Servere (Relays)</span>
-                <span class="text-[10px] text-slate-400 font-normal">Canale & chat E2EE</span>
+                <span class="font-bold leading-tight">Relays</span>
+                <span class="text-[10px] text-slate-400 font-normal">Channels & E2EE chat</span>
               </div>
               ${clientStore.activeChannelId.startsWith('relays-') ? '<span class="w-2 h-2 rounded-full nav-indicator-active shrink-0"></span>' : ''}
             </button>
-            <button type="button" data-nav-mode="profile" class="btn-drawer-item w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center space-x-3 cursor-pointer ${clientStore.activeChannelId.startsWith('profile') ? 'is-active nav-item-active shadow-sm' : 'text-slate-300 hover:text-white hover:bg-surface-raised'}" title="Profilul tău de identitate suverană">
+            <button type="button" data-nav-mode="profile" class="btn-drawer-item w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center space-x-3 cursor-pointer ${clientStore.activeChannelId.startsWith('profile') ? 'is-active nav-item-active shadow-sm' : 'text-slate-300 hover:text-white hover:bg-surface-raised'}" title="Your sovereign cryptographic identity">
               <span class="text-base shrink-0">👤</span>
               <div class="flex flex-col text-left flex-1 min-w-0">
-                <span class="font-bold leading-tight">Profil</span>
-                <span class="text-[10px] text-slate-400 font-normal">Identitatea ta suverană</span>
+                <span class="font-bold leading-tight">Profile</span>
+                <span class="text-[10px] text-slate-400 font-normal">Your sovereign identity</span>
               </div>
               ${clientStore.activeChannelId.startsWith('profile') ? '<span class="w-2 h-2 rounded-full nav-indicator-active shrink-0"></span>' : ''}
             </button>
@@ -2435,7 +2543,7 @@ function renderMobileDrawer(): string {
             </div>
             <button type="button" id="drawer-btn-settings" onclick="if(window.__aetheris_close_mobile_drawer) window.__aetheris_close_mobile_drawer(); if(window.__aetheris_open_settings) window.__aetheris_open_settings();" class="w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold text-cyan-300 hover:text-white bg-cyan-950/30 hover:bg-surface-raised border border-cyan-500/30 transition-all flex items-center space-x-3 cursor-pointer">
               <span class="text-base">⚙️</span>
-              <span class="flex-1">Setări Suverane (Settings)</span>
+              <span class="flex-1">Sovereign Settings</span>
               <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">CONFIG</span>
             </button>
             <button type="button" id="drawer-btn-theme" onclick="if(window.__aetheris_close_mobile_drawer) window.__aetheris_close_mobile_drawer(); if(window.__aetheris_open_theme) window.__aetheris_open_theme();" class="w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold text-amber-300 hover:text-white bg-amber-950/30 hover:bg-surface-raised border border-amber-500/30 transition-all flex items-center space-x-3 cursor-pointer">
@@ -2499,48 +2607,41 @@ function renderMobileDrawer(): string {
               <span class="flex-1">Micro-SaaS & Dev APIs</span>
               <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-300 border border-emerald-500/30">EDGE</span>
             </button>
-            ${adminAuth && adminAuth.isAdmin ? `
-              <a href="/admin.html" class="w-full text-left px-3.5 py-2 rounded-xl text-xs font-bold text-amber-400 hover:text-white bg-amber-950/30 hover:bg-surface-raised border border-amber-500/30 transition-all flex items-center space-x-3 cursor-pointer">
-                <span class="text-base">⚙️</span>
-                <span class="flex-1 font-mono">Admin Console</span>
-                <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
-              </a>
-            ` : ''}
             <!-- CADRU LEGAL & CONFORMITATE UE (DSA & GDPR) -->
             <div class="pt-3 border-t border-white/5 space-y-1">
               <div class="text-[10px] uppercase font-bold text-slate-500 tracking-wider mb-2 px-2 flex items-center justify-between">
-                <span>⚖️ Legal & Conformitate UE</span>
+                <span>⚖️ Legal & EU Compliance</span>
                 <span class="text-indigo-400 text-[9px] font-mono">DSA 2022/2065</span>
               </div>
 
               <button type="button" onclick="if(window.__aetheris_close_mobile_drawer) window.__aetheris_close_mobile_drawer(); if(window.__aetheris_open_legal) window.__aetheris_open_legal('about');" class="w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
                 <span class="text-base">ℹ️</span>
-                <span class="flex-1">Despre noi & Arhitectură</span>
+                <span class="flex-1">About Us & Architecture</span>
               </button>
 
               <button type="button" onclick="if(window.__aetheris_close_mobile_drawer) window.__aetheris_close_mobile_drawer(); if(window.__aetheris_open_legal) window.__aetheris_open_legal('terms');" class="w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
                 <span class="text-base">📜</span>
-                <span class="flex-1">Termeni și Condiții</span>
+                <span class="flex-1">Terms & Conditions</span>
               </button>
 
               <button type="button" onclick="if(window.__aetheris_close_mobile_drawer) window.__aetheris_close_mobile_drawer(); if(window.__aetheris_open_legal) window.__aetheris_open_legal('privacy');" class="w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
                 <span class="text-base">🛡️</span>
-                <span class="flex-1">Confidențialitate (GDPR)</span>
+                <span class="flex-1">Privacy Policy (GDPR)</span>
               </button>
 
               <button type="button" onclick="if(window.__aetheris_close_mobile_drawer) window.__aetheris_close_mobile_drawer(); if(window.__aetheris_open_legal) window.__aetheris_open_legal('rules');" class="w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
                 <span class="text-base">⚖️</span>
-                <span class="flex-1">Reguli Comunitate & Moderare</span>
+                <span class="flex-1">Community Guidelines & Rules</span>
               </button>
 
               <button type="button" onclick="if(window.__aetheris_close_mobile_drawer) window.__aetheris_close_mobile_drawer(); if(window.__aetheris_open_legal) window.__aetheris_open_legal('dsa');" class="w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 transition-all flex items-center space-x-3 cursor-pointer">
                 <span class="text-base">🚩</span>
-                <span class="flex-1">Raportează conținut ilegal (Art. 16 DSA)</span>
+                <span class="flex-1">Report Illegal Content (Art. 16 DSA)</span>
               </button>
 
               <button type="button" onclick="if(window.__aetheris_close_mobile_drawer) window.__aetheris_close_mobile_drawer(); if(window.__aetheris_open_legal) window.__aetheris_open_legal('contact');" class="w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
                 <span class="text-base">📬</span>
-                <span class="flex-1">Puncte de Contact UE</span>
+                <span class="flex-1">EU Points of Contact</span>
               </button>
 
               <div class="px-3 py-2 text-[10px] font-mono text-slate-500 flex items-center justify-between">
@@ -3716,14 +3817,8 @@ function bindEvents(): void {
       const data = new Uint8Array(arrayBuffer);
       const hygiene = inspectBinary(data);
 
-      alert(`🛡️ BINARY HYGIENE INSPECTION AUDIT\n\n` +
-        `File: ${file.name}\n` +
-        `Format: ${hygiene.format} (${hygiene.architecture})\n` +
-        `Shannon Entropy: ${hygiene.overallEntropy.toFixed(3)} bits/byte\n` +
-        `Verdict: ${hygiene.verdict}\n` +
-        `Anomalies Detected: ${hygiene.anomalies.length ? hygiene.anomalies.join(', ') : 'None (Clean sections)'}\n\n` +
-        `Clicking OK will publish this to the Sovereign Vault.`
-      );
+      const proceedPublish = await sovereignDialog.confirm(`File: ${file.name}\nFormat: ${hygiene.format} (${hygiene.architecture})\nShannon Entropy: ${hygiene.overallEntropy.toFixed(3)} bits/byte\nVerdict: ${hygiene.verdict}\nAnomalies: ${hygiene.anomalies.length ? hygiene.anomalies.join(', ') : 'None (Clean sections)'}\n\nPublish this audited file to the Sovereign Knowledge Vault?`, { title: '🛡️ Binary Hygiene Inspection Audit', confirmText: 'Publish to Vault' });
+      if (!proceedPublish) return;
 
       await clientStore.auditAndPublishLocalFile(file, `Community Release: ${file.name}`);
       clientStore.showToast(`Verified clean file published: ${file.name}`, 'success');
@@ -4578,7 +4673,92 @@ function bindEvents(): void {
     }
   }, { signal });
 
+  // Delete Relay Listener
+  document.querySelectorAll('[data-delete-relay]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const relayId = btn.getAttribute('data-delete-relay');
+      if (!relayId) return;
+      const relay = relaysManager.getRelayById(relayId);
+      const name = relay ? relay.name : 'this Relay';
+      const proceedDel = await sovereignDialog.confirm(`Are you sure you want to permanently delete Sovereign Relay "${name}"?\nAll associated channels and messages will be removed.`, { title: 'Delete Sovereign Relay', destructive: true });
+      if (proceedDel) {
+        const ok = relaysManager.deleteRelay(relayId, clientStore.keypair?.fingerprint);
+        if (ok) {
+          clientStore.showToast(`🗑️ Sovereign Relay "${name}" deleted.`, 'info');
+        } else {
+          clientStore.showToast('Could not delete relay.', 'warning');
+        }
+      }
+    }, { signal });
+  });
+
+  // Leave Relay Listener
+  document.querySelectorAll('[data-leave-relay]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const relayId = btn.getAttribute('data-leave-relay');
+      if (!relayId) return;
+      const relay = relaysManager.getRelayById(relayId);
+      const name = relay ? relay.name : 'this Relay';
+      const proceedLeave = await sovereignDialog.confirm(`Leave Sovereign Relay "${name}"?\nYou can rejoin anytime with the invite code.`, { title: 'Leave Sovereign Relay', confirmText: 'Leave' });
+      if (proceedLeave) {
+        const ok = relaysManager.leaveRelay(relayId, clientStore.keypair?.fingerprint);
+        if (ok) {
+          clientStore.showToast(`🚪 Left Sovereign Relay "${name}".`, 'info');
+        } else {
+          clientStore.showToast('Could not leave relay.', 'warning');
+        }
+      }
+    }, { signal });
+  });
+
   // Sovereign Mnemonic Vault & Steganography & Archive & Social Recovery & Keyboard Shortcuts Modals
+  
+  // Command Rail 2.0 Global Keyboard Shortcut (Ctrl+K / Cmd+K) & Header Search Trigger
+  if (!(window as any)._cmdRailBound) {
+    (window as any)._cmdRailBound = true;
+    window.addEventListener('keydown', (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        if (commandRailV2.isOpen) {
+          commandRailV2.close();
+        } else {
+          commandRailV2.open();
+        }
+        clientStore.notify();
+      }
+    });
+
+    document.querySelectorAll('[data-open-command-rail], #btn-header-search').forEach(btn => {
+      btn.addEventListener('click', () => {
+        commandRailV2.open();
+        clientStore.notify();
+      });
+    });
+  }
+
+  if (commandRailV2.isOpen) {
+    commandRailV2.attachEvents(document.body, () => {
+      commandRailV2.close();
+      clientStore.notify();
+    });
+  }
+
+  // Preload interactive modules during idle cycles via moduleLoader
+  if (typeof window !== 'undefined' && !(window as any)._modulesPreloaded) {
+    (window as any)._modulesPreloaded = true;
+    moduleLoader.preloadOnIdle(
+      ['custom-theme-builder', 'slide-deck', 'cve-monitor'],
+      [
+        () => import('./custom-theme-builder.js'),
+        () => import('./slide-deck.js'),
+        () => import('./cve-monitor.js'),
+      ]
+    );
+  }
+
+  // Code Sandbox: attach in-browser sandbox runner to any code blocks in posts
+  attachSandboxRunnersToDOM(document.body);
+
   sovereignMnemonicModal.bindEvents();
   steganographyModal.bindEvents();
   sovereignArchiveModal.bindEvents();
@@ -4602,6 +4782,14 @@ function bindEvents(): void {
   if (!_escListenerAdded) {
     _escListenerAdded = true;
     sovereignWebPush.attachPushDomListeners();
+    
+    // Virtual Scroll optimization for large feeds (>15 items)
+    const feedList = document.getElementById('pulse-feed-container');
+    if (feedList && clientStore.posts.length > 15) {
+      virtualScroll.attachContainer(feedList);
+      virtualScroll.setItems(clientStore.posts);
+    }
+  
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         let changed = false;

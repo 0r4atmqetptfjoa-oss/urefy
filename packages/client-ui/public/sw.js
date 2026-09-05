@@ -1,4 +1,4 @@
-﻿// ════════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════════
 // sw.js — Aetheris Omni-Sphere  ·  Service Worker v3 ULTRA
 // Strategy: Cache-First Assets · SWR Navigation · Background Sync · Push
 // ════════════════════════════════════════════════════════════════════════════
@@ -19,12 +19,17 @@ const PRECACHE = [
   '/favicon.ico',
 ];
 
-// Assets that are NEVER cached (live feeds, auth endpoints)
+// Assets that are NEVER cached (live feeds, admin, push, auth endpoints)
 const NEVER_CACHE_PATTERNS = [
   /\/api\/ws/,
   /\/api\/analytics/,
   /oauth/,
   /\/api\/auth/,
+  /\/api\/admin/,
+  /\/api\/push/,
+  /\/api\/cron-backup/,
+  /\/api\/report/,
+  /\/admin\.html/,
 ];
 
 // ─── INSTALL ──────────────────────────────────────────────────────────────────

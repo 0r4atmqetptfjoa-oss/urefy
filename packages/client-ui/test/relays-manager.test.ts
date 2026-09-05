@@ -105,4 +105,47 @@ describe('Sovereign Relays & Guilds Manager', () => {
     const joinModalHTML = manager.renderJoinRelayModal();
     expect(joinModalHTML).toContain('form-join-relay');
   });
+
+  it('should prevent deleting or leaving the protected Global Sovereign Nexus', () => {
+    const deleted = manager.deleteRelay('relay-global-nexus');
+    expect(deleted).toBe(false);
+
+    const left = manager.leaveRelay('relay-global-nexus', 'any-fingerprint');
+    expect(left).toBe(false);
+
+    expect(manager.getRelayById('relay-global-nexus')).toBeDefined();
+  });
+
+  it('should successfully delete a user-created relay', () => {
+    const relay = manager.createRelay('Ephemeral Hub', '⚡', 'Temporary', 'my-fp');
+    expect(manager.getRelayById(relay.id)).toBeDefined();
+
+    const deleted = manager.deleteRelay(relay.id, 'my-fp');
+    expect(deleted).toBe(true);
+    expect(manager.getRelayById(relay.id)).toBeUndefined();
+    expect(manager.activeRelayId).toBe('relay-global-nexus');
+  });
+
+  it('should successfully leave a joined relay', () => {
+    const relay = manager.createRelay('Friends Guild', '🛡️', 'Club', 'owner-fp');
+    manager.joinRelay(relay.inviteCode, 'guest-user');
+
+    const left = manager.leaveRelay(relay.id, 'guest-user');
+    expect(left).toBe(true);
+    expect(manager.getRelayById(relay.id)).toBeUndefined();
+    expect(manager.activeRelayId).toBe('relay-global-nexus');
+  });
+
+  it('should render delete and leave buttons in header for custom relays', () => {
+    const relay = manager.createRelay('Header Test', '🪐', 'Testing header', 'test-fp');
+    const headerHTML = manager.renderRelayHeader(relay, 'general');
+    expect(headerHTML).toContain('data-leave-relay');
+    expect(headerHTML).toContain('data-delete-relay');
+    expect(headerHTML).toContain('data-open-relay-invite');
+
+    const globalRelay = manager.getRelayById('relay-global-nexus')!;
+    const globalHeaderHTML = manager.renderRelayHeader(globalRelay, 'general');
+    expect(globalHeaderHTML).not.toContain('data-delete-relay');
+    expect(globalHeaderHTML).not.toContain('data-leave-relay');
+  });
 });

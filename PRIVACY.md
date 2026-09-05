@@ -1,41 +1,59 @@
-﻿# Politică de Confidențialitate — Aetheris Omni-Sphere
+# Privacy Policy — Aetheris Omni-Sphere
 
-**Conformă cu**: Regulamentul General privind Protecția Datelor (GDPR - Regulamentul UE 2016/679).  
-**Data Intrării în Vigoare**: 4 Septembrie 2026
-
----
-
-## 1. Principiul Fundamental: Privacy by Design & Zero Colectare Centralizată
-
-Aetheris Omni-Sphere a fost proiectat de la zero pe principiul **minimizării radicale a datelor**:
-- **Fără Creare de Conturi cu Date Personale**: Nu solicităm și nu stocăm adrese de email, numere de telefon, nume reale, date bancare sau parole.
-- **Identitate Autonomă (Self-Sovereign Identity)**: Identitatea ta este reprezentată de o pereche de chei Ed25519 derivată local din fraza ta BIP-39. Cheia privată nu părăsește niciodată browserul tău.
-- **Zero Cookie-uri de Urmărire**: Nu folosim cookie-uri de tracking, pixel tags, servicii de analiză a traficului de la terți (fără Google Analytics, fără Facebook Pixel). Toate setările de interfață sunt păstrate strict în `localStorage` local.
+**Compliance Framework**: European Union General Data Protection Regulation (GDPR — Regulation (EU) 2016/679).  
+**Effective Date**: September 5, 2026  
+**Language**: English (Official Legal Text) / Română (Traducere Oficială)
 
 ---
 
-## 2. Ce Date Tehnice sunt Prelucrate?
+## 1. Fundamental Principle: Privacy by Design & Zero Centralized Collection
 
-### 2.1 Conținutul Public Publicat Voluntar
-Orice mesaj, binar sau postare transmisă în canale publice devine vizibilă în rețeaua peer-to-peer. Nu include date cu caracter personal decât dacă alegi voluntar să le divulgi.
-
-### 2.2 Conținutul Mesajelor Private (E2EE)
-Mesajele directe sunt criptate cu algoritmul hibrid ML-KEM-768 + AES-256-GCM pe dispozitivul tău. Doar destinatarul deține cheia de decriptare. Releele intermediare văd doar date binare ininteligibile.
-
-### 2.3 Date de Rețea (Adrese IP la Nivel de Releu)
-Conexiunile WebSocket către relee implică în mod inerent adresa IP tehnică pentru rutarea pachetelor. Aceste adrese sunt păstrate exclusiv în memorie volatilă pentru protecția anti-DDoS (WAF honeypot) și nu sunt asociate cu identități reale sau comercializate terților.
+Aetheris Omni-Sphere was engineered from its mathematical foundations on the principle of **radical data minimization** (GDPR Article 5(1)(c)):
+- **Zero Account Registration**: We do not solicit, collect, or store personal data, including email addresses, phone numbers, real names, KYC credentials, or passwords.
+- **Self-Sovereign Cryptographic Identity**: Your identity is defined entirely by an Ed25519 keypair deterministically generated client-side from a local BIP-39 12-word mnemonic. Private keys never transmit across network boundaries or touch any server.
+- **Zero Third-Party Trackers & Telemetry**: The platform operates with strictly zero tracking cookies, zero tracking pixels, and zero third-party analytics engines (No Google Analytics, no Facebook Pixels, no Datadog/Sentry beacons). All interface preferences reside exclusively within local device storage (`localStorage` and `IndexedDB`).
+- **Post-Quantum End-to-End Encryption (E2EE)**: Direct and group conversations employ hybrid ML-KEM-768 + X25519 authenticated key encapsulation paired with AES-256-GCM. Intermediary relays and edge nodes process solely opaque cryptographic payloads.
 
 ---
 
-## 3. Drepturile Utilizatorilor (GDPR Art. 15-22)
+## 2. Technical Data Processing & Network Hygiene
 
-Conform GDPR, beneficiezi de dreptul de acces, rectificare, ștergere și portabilitate:
-- **Portabilitate Totală**: Toate datele tale locale pot fi exportate oricând într-un pachet criptat din secțiunea *Export & Backup*.
-- **Dreptul la Ștergere**: Ștergerea memoriei locale și a bazei IndexedDB din browser elimină instant toate datele de pe dispozitivul tău.
+### 2.1 Public Content Voluntarily Broadcast
+Any message, cryptographic nanorelease, or document published to public channels (Pulse Stream, Knowledge Vault, Relay Channels) is distributed across peer-to-peer swarms and edge caching nodes. Do not include personal or confidential data in public broadcasts.
+
+### 2.2 Private End-to-End Encrypted Messages
+Direct Messages and Sovereign Circle communications are encrypted client-side prior to network egress. Only intended recipients possessing corresponding private keys can decrypt payloads.
+
+### 2.3 Ephemeral IP Addresses at Relay Ingress
+Connecting to decentralized relay nodes via WebSockets or WebRTC inherently transmits technical IP addresses necessary for packet routing. Relay software maintains IP addresses strictly in transient, volatile RAM buffers to defend against DDoS attacks (Layer 7 WAF honeypots). Technical IP logs are never mapped to cryptographic identities or shared with third parties.
 
 ---
 
-## 4. Contact pentru Protecția Datelor (DPO)
+## 3. User Rights under GDPR (Articles 15–22)
 
-Pentru orice solicitare legată de protecția datelor sau confidențialitate:
-- **Email**: `privacy@aetheris.network`
+Under Regulation (EU) 2016/679, users maintain explicit rights:
+- **Right to Erasure & Cryptographic Zeroization (Art. 17)**: Users may immediately purge all local state, cryptographic private keys, drafts, and cached messages via the "Purge & Zeroize Memory" command. This triggers secure volatile memory overwriting (`crypto.getRandomValues`) and complete deletion of browser IndexedDB instances.
+- **Right to Data Portability (Art. 20)**: Users can export a 100% complete, encrypted offline backup package of their keys, contacts, saved nanopublications, and configuration via the *Export & Backup* facility.
+- **Zero-Knowledge Anonymity & Anti-Surveillance**: Voting and community participation leverage Chaumian blind signatures and ZK-SNARK membership proofs, guaranteeing mathematical unlinkability between user identity and voting actions.
+
+---
+
+## 4. Data Protection Contact
+
+For technical questions regarding cryptographic privacy guarantees or GDPR compliance:
+- **Designated Security & Privacy Contact**: `privacy@aetheris.network`
+- **Source Code & Audit Verification**: All cryptographic primitives and edge worker scripts are open-source and subject to deterministic builds.
+
+---
+
+## Traducere în Limba Română (Informativă)
+
+### 1. Principiu Fundamental: Minimizare Radicală
+Aetheris Omni-Sphere nu colectează, nu stochează și nu comercializează date cu caracter personal. Identitatea aparține exclusiv utilizatorului prin chei Ed25519 gestionate local.
+
+### 2. Dreptul la Ștergere și Zeroizare
+Utilizatorul poate activa oricând funcția de zeroizare criptografică a memoriei, ștergând ireversibil toate datele locale de pe dispozitiv.
+
+### 3. Contact GDPR
+Pentru orice solicitare: `privacy@aetheris.network`.
+

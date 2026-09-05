@@ -203,20 +203,6 @@ code, kbd, samp, pre, .font-mono {
   box-shadow: 0 8px 30px -4px rgba(0, 0, 0, 0.45), 0 4px 12px -2px rgba(0, 0, 0, 0.25);
 }
 
-/* ─── 1. DAYLIGHT / ALABASTER LIGHT MODE (SOVEREIGN DUAL HORIZON) ────────── */
-
-[data-theme="alabaster-light"] {
-  color-scheme: light;
-  --bg-canvas: #f8fafc;
-  --bg-surface-base: #ffffff;
-  --bg-surface-raised: #ffffff;
-  --bg-surface-overlay: #f1f5f9;
-  --text-primary: #0f172a;
-  --text-secondary: #536471;
-  --text-muted: #64748b;
-  --border-color: #e2e8f0;
-}
-
 /* ─── 1. DAYLIGHT / ALABASTER LIGHT MODE (SOVEREIGN DUAL HORIZON) ──────────── */
 
 [data-theme="alabaster-light"] {

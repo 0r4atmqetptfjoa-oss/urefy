@@ -1,3 +1,4 @@
+import { sovereignDialog } from './dialog-modal.js';
 /**
  * @file draft-autosave.ts
  * @package @aetheris/client-ui
@@ -1037,7 +1038,7 @@ export class DraftAutosaveManager {
     if (!root) return;
 
     // Delegated click listener
-    root.addEventListener('click', (event: Event) => {
+    root.addEventListener('click', async (event: Event) => {
       const target = (event.target as HTMLElement)?.closest('[data-draft-action], [data-draft-filter]') as HTMLElement | null;
       if (!target) return;
 
@@ -1077,7 +1078,8 @@ export class DraftAutosaveManager {
           break;
         }
         case 'clear-all': {
-          if (typeof window !== 'undefined' && window.confirm('Are you sure you want to delete all saved drafts?')) {
+          const okDelete = await (window.sovereignDialog ? window.sovereignDialog.confirm('Are you sure you want to delete all saved drafts?', { title: 'Delete All Drafts', destructive: true }) : Promise.resolve(true));
+          if (okDelete) {
             this.clearAllDrafts();
             this.updateDrawerDom();
           }
@@ -1155,7 +1157,7 @@ export class DraftAutosaveManager {
             const text = e.target?.result as string;
             if (text) {
               const result = this.importDraftsJSON(text);
-              alert(`Import complete: ${result.imported} drafts imported, ${result.failed} failed.`);
+              sovereignDialog.alert(`Import complete: ${result.imported} drafts imported, ${result.failed} failed.`, { title: 'Draft Import', type: 'success' });
               this.updateDrawerDom();
             }
           };

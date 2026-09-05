@@ -37,29 +37,29 @@ describe('Unified Sovereign Settings Screen (SettingsView)', () => {
     expect(ids).toEqual(['appearance', 'preferences', 'footprint', 'backup', 'telemetry']);
 
     const appearance = SETTINGS_SECTIONS.find((s) => s.id === 'appearance')!;
-    expect(appearance.label).toBe('Teme & Aspect');
+    expect(appearance.label).toBe('Appearance & Themes');
     expect(appearance.icon).toBe('🎨');
-    expect(appearance.description).toBe('Palete de culori, modul OLED și tipografie');
+    expect(appearance.description).toBe('Color palettes, OLED mode, and typography');
 
     const preferences = SETTINGS_SECTIONS.find((s) => s.id === 'preferences')!;
-    expect(preferences.label).toBe('Preferințe Rețea & WoT');
+    expect(preferences.label).toBe('Network & WoT Preferences');
     expect(preferences.icon).toBe('⚙️');
-    expect(preferences.description).toBe('Insigne Web-of-Trust, praguri de merit și asistent AI');
+    expect(preferences.description).toBe('Web-of-Trust badges, merit thresholds, and AI assistant');
 
     const footprint = SETTINGS_SECTIONS.find((s) => s.id === 'footprint')!;
-    expect(footprint.label).toBe('Amprentă & Resurse');
+    expect(footprint.label).toBe('Storage & Footprint');
     expect(footprint.icon).toBe('📊');
-    expect(footprint.description).toBe('Audit stocare locală, trackeri zero și eficiență');
+    expect(footprint.description).toBe('Local storage audit, zero tracking, and efficiency');
 
     const backup = SETTINGS_SECTIONS.find((s) => s.id === 'backup')!;
-    expect(backup.label).toBe('Salvare & Export Cont');
+    expect(backup.label).toBe('Backup & Account Export');
     expect(backup.icon).toBe('💾');
-    expect(backup.description).toBe('Copii de rezervă criptate și restaurare date');
+    expect(backup.description).toBe('Encrypted backups and cryptographic key restoration');
 
     const telemetry = SETTINGS_SECTIONS.find((s) => s.id === 'telemetry')!;
-    expect(telemetry.label).toBe('Diagnostic & Confidențialitate');
+    expect(telemetry.label).toBe('Diagnostics & Privacy');
     expect(telemetry.icon).toBe('🛡️');
-    expect(telemetry.description).toBe('Jurnal local de erori și zeroizare memorie');
+    expect(telemetry.description).toBe('Local error telemetry and zero-knowledge memory wipe');
   });
 
   it('3. should open, close, and toggle modal state correctly', () => {
@@ -127,7 +127,7 @@ describe('Unified Sovereign Settings Screen (SettingsView)', () => {
 
     expect(html).toContain('fixed inset-0 z-50 flex items-center justify-center p-3 md:p-6 bg-black/80 backdrop-blur-md');
     expect(html).toContain('id="unified-settings-modal"');
-    expect(html).toContain('⚙️ Setări Suverane (Settings)');
+    expect(html).toContain('⚙️ Sovereign Settings');
     expect(html).toContain('id="btn-close-settings-modal"');
     expect(html).toContain('window.__aetheris_close_settings()');
 
@@ -219,7 +219,7 @@ describe('Unified Sovereign Settings Screen (SettingsView)', () => {
 
     expect(html).toContain('id="btn-profile-settings"');
     expect(html).toContain('window.__aetheris_open_settings()');
-    expect(html).toContain('Setări');
+    expect(html).toContain('Settings');
   });
 
   it('13. should be registered in serviceRegistry with SERVICES.SettingsView token', () => {

@@ -21,12 +21,12 @@ describe('Milestones 1–5: Onboarding, Navigation, Empty States & Performance V
       sovereignOnboarding.reset();
       const html = sovereignOnboarding.renderWelcomeBanner();
 
-      expect(html).toContain('Mesajele tale nu pot fi citite de nimeni altcineva');
-      expect(html).toContain('fișierele tale rămân doar la tine');
-      expect(html).toContain('1. Mesaje Confidențiale');
-      expect(html).toContain('2. Fișiere în Siguranță');
-      expect(html).toContain('3. Protecție Automată');
-      expect(html).toContain('Cum funcționează?');
+      expect(html).toContain('Your messages cannot be read by anyone else');
+      expect(html).toContain('your files remain strictly yours');
+      expect(html).toContain('1. Confidential Messages');
+      expect(html).toContain('2. Secure Storage');
+      expect(html).toContain('3. Automatic Protection');
+      expect(html).toContain('How does it work?');
       expect(html).toContain('btn-onboarding-how-it-works');
       expect(html).toContain('btn-dismiss-onboarding-tour');
     });
@@ -38,7 +38,7 @@ describe('Milestones 1–5: Onboarding, Navigation, Empty States & Performance V
       expect(html).toContain('id="onboarding-tech-specs"');
       expect(html).toContain('TreeKEM MLS Chat');
       expect(html).toContain('Merkle Vault');
-      expect(html).toContain('Active WAF & Zero-Trust');
+      expect(html).toContain('Active WAF &amp; Zero-Trust');
     });
   });
 
@@ -48,10 +48,10 @@ describe('Milestones 1–5: Onboarding, Navigation, Empty States & Performance V
 
       expect(html).toContain('Feed');
       expect(html).toContain('Vault');
-      expect(html).toContain('Servere');
-      expect(html).toContain('Profil');
-      expect(html).toContain('Feed (Flux Pulse)');
-      expect(html).toContain('Servere & Canale Chat (Cerc)');
+      expect(html).toContain('Relays');
+      expect(html).toContain('Profile');
+      expect(html).toContain('Feed (Pulse Stream)');
+      expect(html).toContain('Relay Servers & Chat Channels');
     });
   });
 

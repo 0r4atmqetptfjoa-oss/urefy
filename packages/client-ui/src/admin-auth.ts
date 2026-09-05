@@ -112,7 +112,7 @@ export class AdminAuthManager {
   private _activePin: string = '';
 
   public get activePin(): string {
-    return this._activePin || safeGet('aetheris_admin_pin') || ADMIN_DEFAULT_PIN;
+    return this._activePin || ADMIN_DEFAULT_PIN;
   }
 
   private _activateSession(pin: string): void {
@@ -123,10 +123,10 @@ export class AdminAuthManager {
     this.pinError = '';
     this._failedAttempts = 0;
     this._lockedUntil = 0;
-    safeSet('aetheris_admin_pin', pin);
+    // PIN stored strictly in-memory during session (zero disk/localStorage persistence)
   }
 
-  /** Verify PIN synchronously against local memory/storage or default dev pin */
+  /** Verify PIN synchronously against in-memory session or default dev pin */
   public verifyPin(pin: string): boolean {
     const now = Date.now();
     if (this._lockedUntil > now) {
@@ -135,8 +135,8 @@ export class AdminAuthManager {
       return false;
     }
 
-    const storedPin = safeGet('aetheris_admin_pin') || ADMIN_DEFAULT_PIN;
-    if (storedPin && pin && pin === storedPin) {
+    const expectedPin = this._activePin || ADMIN_DEFAULT_PIN;
+    if (expectedPin && pin && pin === expectedPin) {
       this._activateSession(pin);
       return true;
     }
@@ -212,16 +212,17 @@ export class AdminAuthManager {
 
   /** Change admin PIN */
   public changePin(currentPin: string, newPin: string): boolean {
-    const storedPin = safeGet('aetheris_admin_pin') || ADMIN_DEFAULT_PIN;
-    if (storedPin && currentPin !== storedPin) return false;
+    const expectedPin = this._activePin || ADMIN_DEFAULT_PIN;
+    if (expectedPin && currentPin !== expectedPin) return false;
     if (newPin.length < 4) return false;
-    safeSet('aetheris_admin_pin', newPin);
+    this._activePin = newPin;
     return true;
   }
 
   /** Log out of admin session */
   public logout(): void {
     this._isAdmin = false;
+    this._activePin = '';
     this._sessionStartedAt = 0;
   }
 

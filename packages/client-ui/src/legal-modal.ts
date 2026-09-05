@@ -87,7 +87,7 @@ export class LegalModal {
     }
 
     if (!payload || !payload.targetId) {
-      this._reportError = 'Specifică identificatorul conținutului raportat.';
+      this._reportError = 'Please specify the identifier of the reported content.';
       this._isSubmittingReport = false;
       if (typeof window !== 'undefined' && (window as any).clientStore) (window as any).clientStore.notifySync();
       return null;
@@ -112,18 +112,18 @@ export class LegalModal {
         this._reportSubmittedId = data.reportId;
         this._isSubmittingReport = false;
         if (typeof window !== 'undefined' && (window as any).clientStore) {
-          (window as any).clientStore.showToast?.('🚩 Sesizare DSA transmisă către echipa legală și nodurile rețelei.', 'success');
+          (window as any).clientStore.showToast?.('🚩 DSA report submitted to legal compliance team.', 'success');
           (window as any).clientStore.notifySync();
         }
         return data;
       } else {
-        this._reportError = data?.error || 'Eroare la trimiterea sesizării.';
+        this._reportError = data?.error || 'Error submitting report.';
         this._isSubmittingReport = false;
         if (typeof window !== 'undefined' && (window as any).clientStore) (window as any).clientStore.notifySync();
         return null;
       }
     } catch (err: any) {
-      this._reportError = err?.message || 'Eroare de rețea.';
+      this._reportError = err?.message || 'Network error.';
       this._isSubmittingReport = false;
       if (typeof window !== 'undefined' && (window as any).clientStore) (window as any).clientStore.notifySync();
       return null;
@@ -142,8 +142,8 @@ export class LegalModal {
             <div class="flex items-center space-x-2.5 sm:space-x-3 min-w-0">
               <span class="text-lg sm:text-xl shrink-0">⚖️</span>
               <div class="min-w-0">
-                <h3 class="font-bold text-xs sm:text-sm text-white tracking-wide truncate">Cadru Legal, Termeni & Confidențialitate</h3>
-                <p class="text-[10px] sm:text-[11px] text-slate-400 truncate">Conformitate UE: Regulamentul DSA (2022/2065) & GDPR</p>
+                <h3 class="font-bold text-xs sm:text-sm text-white tracking-wide truncate">Legal Framework, Terms & Privacy</h3>
+                <p class="text-[10px] sm:text-[11px] text-slate-400 truncate">EU Compliance: DSA Regulation (2022/2065) & GDPR</p>
               </div>
             </div>
             <button
@@ -167,7 +167,7 @@ export class LegalModal {
                   : 'border-transparent text-slate-400 hover:text-slate-200'
               }"
             >
-              ℹ️ Despre Noi
+              ℹ️ About Us
             </button>
             <button
               type="button"
@@ -178,7 +178,7 @@ export class LegalModal {
                   : 'border-transparent text-slate-400 hover:text-slate-200'
               }"
             >
-              📜 Termeni și Condiții
+              📜 Terms of Service
             </button>
             <button
               type="button"
@@ -189,7 +189,7 @@ export class LegalModal {
                   : 'border-transparent text-slate-400 hover:text-slate-200'
               }"
             >
-              🛡️ Confidențialitate (GDPR)
+              🛡️ Privacy Policy (GDPR)
             </button>
             <button
               type="button"
@@ -200,7 +200,7 @@ export class LegalModal {
                   : 'border-transparent text-slate-400 hover:text-slate-200'
               }"
             >
-              ⚖️ Reguli & Moderare
+              ⚖️ Rules & Moderation
             </button>
             <button
               type="button"
@@ -213,7 +213,7 @@ export class LegalModal {
             >
               <span>🚩</span>
               <span class="hidden sm:inline">Notice & Takedown (DSA)</span>
-              <span class="sm:hidden">Raportează (DSA)</span>
+              <span class="sm:hidden">Report (DSA)</span>
             </button>
             <button
               type="button"
@@ -224,7 +224,7 @@ export class LegalModal {
                   : 'border-transparent text-slate-400 hover:text-slate-200'
               }"
             >
-              📬 Contact UE
+              📬 EU Contact Points
             </button>
           </div>
 
@@ -241,7 +241,7 @@ export class LegalModal {
               onclick="if(window.__aetheris_close_legal) window.__aetheris_close_legal();"
               class="px-3 sm:px-4 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white font-medium transition-colors cursor-pointer shrink-0"
             >
-              Închide
+              Close
             </button>
           </div>
 
@@ -256,74 +256,74 @@ export class LegalModal {
         return `
           <div class="space-y-4">
             <div class="p-3.5 rounded-xl bg-cyan-950/30 border border-cyan-500/20 space-y-1.5">
-              <h4 class="font-bold text-sm text-cyan-300">Ce este Aetheris Omni-Sphere?</h4>
+              <h4 class="font-bold text-sm text-cyan-300">What is Aetheris Omni-Sphere?</h4>
               <p class="text-slate-300">
-                Aetheris este o platformă descentralizată suverană de comunicare și schimb de cunoștințe, proiectată pe principii criptografice avansate (Zero-Knowledge proofs, criptografie post-cuantică hibridă ML-KEM-768 și rețele mesh peer-to-peer WebRTC).
+                Aetheris is a sovereign decentralized communication and knowledge exchange platform, engineered on advanced cryptographic primitives (Zero-Knowledge proofs, hybrid post-quantum ML-KEM-768 cryptography, and peer-to-peer WebRTC mesh networks).
               </p>
             </div>
 
             <div class="space-y-3">
-              <h5 class="font-bold text-xs text-white">1. Arhitectură Non-Custodială & Fără Baze de Date Centrale de Identitate</h5>
-              <p>Spre deosebire de rețelele sociale tradiționale, Aetheris nu stochează datele tale de identitate pe servere centrale. Identitatea este generată pe dispozitivul tău sub forma unei perechi de chei asimetrice Ed25519. Tu ești unicul deținător al cheilor tale.</p>
+              <h5 class="font-bold text-xs text-white">1. Non-Custodial Architecture & Zero Central Identity Databases</h5>
+              <p>Unlike traditional social networks, Aetheris never stores your identity credentials on central servers. Identity is generated directly on your device as an Ed25519 asymmetric keypair. You are the sole sovereign custodian of your cryptographic keys.</p>
 
-              <h5 class="font-bold text-xs text-white">2. Transparență Algoritmică & Cod Deschis (Open Source)</h5>
-              <p>Întregul cod sursă este auditat și transparent. Nu există algoritmi opaci de recomandare gândiți pentru dependență comportamentală sau monetizare din publicitate.</p>
+              <h5 class="font-bold text-xs text-white">2. Algorithmic Transparency & Open Source</h5>
+              <p>The entire source code is audited, verifiable, and open source. There are no opaque recommendation algorithms engineered for behavioral addiction or advertising monetization.</p>
 
-              <h5 class="font-bold text-xs text-white">3. Tehnologie Europeană & Suveranitate Digitală</h5>
-              <p>Platforma respectă pe deplin directivele europene privind suveranitatea datelor, drepturile fundamentale ale utilizatorilor la viață privată și libertatea de exprimare responsabilă.</p>
+              <h5 class="font-bold text-xs text-white">3. European Engineering & Digital Sovereignty</h5>
+              <p>The platform strictly complies with European directives regarding data sovereignty, fundamental privacy rights, and responsible freedom of expression.</p>
             </div>
           </div>
         `;
       case 'terms':
         return `
           <div class="space-y-3">
-            <h4 class="font-bold text-sm text-white">1. Arhitectura Rețelei și Responsabilitatea Identității</h4>
-            <p>Aetheris Omni-Sphere operează exclusiv pe baza identificatorilor criptografici Ed25519 autogestionați. Fiecare utilizator controlează integral propria cheie privată stocată pe dispozitivul local.</p>
+            <h4 class="font-bold text-sm text-white">1. Network Architecture & Identity Custody</h4>
+            <p>Aetheris Omni-Sphere operates exclusively via self-managed Ed25519 cryptographic identifiers. Each user maintains complete and sole custody over their private key stored locally on their device.</p>
             
-            <h4 class="font-bold text-sm text-white">2. Conținutul Public și Semnăturile Criptografice</h4>
-            <p>Toate articolele, mesajele din canale deschise și fișierele din Seif sunt semnate digital de către autor. Autorul este unicul răspunzător legal pentru conținutul semnat și distribuit în rețea.</p>
+            <h4 class="font-bold text-sm text-white">2. Public Content & Cryptographic Signatures</h4>
+            <p>All pulses, open channel messages, and Knowledge Vault artifacts are cryptographically signed by their author. The author bears sole legal responsibility for signed content broadcast across the network.</p>
 
-            <h4 class="font-bold text-sm text-white">3. Conținut Interzis în Mod Absolut</h4>
-            <p>Sunt interzise categoric: materialele de exploatare a minorilor (CSAM), terorismul, instigarea la ură/violență, malware-ul și programele malițioase. Încălcările atrag raportarea imediată și izolarea automată prin ZK-RLN Slashing.</p>
+            <h4 class="font-bold text-sm text-white">3. Strictly Prohibited Content</h4>
+            <p>The following are categorically prohibited: Child Sexual Abuse Material (CSAM), terrorism, incitement to hatred or violence, malware, and malicious exploits. Violations result in immediate reporting and automated network isolation via ZK-RLN Slashing.</p>
           </div>
         `;
       case 'privacy':
         return `
           <div class="space-y-3">
             <div class="p-3.5 rounded-xl bg-emerald-950/30 border border-emerald-500/20 space-y-1">
-              <span class="text-[10px] font-mono uppercase text-emerald-400 font-bold">Declarație de Conformitate GDPR (Regulamentul UE 2016/679)</span>
-              <p class="text-slate-300">Aetheris aplică conceptul de <em>Privacy by Design and by Default</em> (Art. 25 GDPR). Nu colectăm date cu caracter personal.</p>
+              <span class="text-[10px] font-mono uppercase text-emerald-400 font-bold">GDPR Compliance Statement (EU Regulation 2016/679)</span>
+              <p class="text-slate-300">Aetheris enforces Privacy by Design and by Default (Art. 25 GDPR). We do not collect personal data.</p>
             </div>
-            <h4 class="font-bold text-sm text-white">1. Principiul Zero-Data & Fără Urmărire</h4>
-            <p>Platforma nu solicită și nu colectează nume reale, adrese de email, parole sau numere de telefon. Nu există trackere de la terți, Google Analytics sau cookie-uri de profilare comercială.</p>
+            <h4 class="font-bold text-sm text-white">1. Zero-Data Principle & No Tracking</h4>
+            <p>The platform does not solicit or collect real names, email addresses, passwords, or phone numbers. There are zero third-party trackers, Google Analytics, or commercial profiling cookies.</p>
 
-            <h4 class="font-bold text-sm text-white">2. Criptare Hibridă Post-Cuantică (E2EE)</h4>
-            <p>Comunicațiile directe sunt criptate cu ML-KEM-768 și AES-256-GCM. Niciun operator de nod, furnizor de cloud sau entitate externă nu poate citi mesajele dumneavoastră private.</p>
+            <h4 class="font-bold text-sm text-white">2. Hybrid Post-Quantum Encryption (E2EE)</h4>
+            <p>Direct communications are end-to-end encrypted with ML-KEM-768 and AES-256-GCM. No node operator, cloud provider, or external entity can decrypt or inspect your private messages.</p>
 
-            <h4 class="font-bold text-sm text-white">3. Dreptul la Ștergere și Portabilitate</h4>
-            <p>Aveți control total asupra datelor: ștergerea bazei IndexedDB locale elimină complet datele din browser. Puteți exporta arhiva completă oricând din secțiunea Export & Backup.</p>
+            <h4 class="font-bold text-sm text-white">3. Right to Erasure & Data Portability</h4>
+            <p>You retain full custody over your data: clearing your local IndexedDB storage completely purges all data from your browser. You can export a complete cryptographic archive at any time from the Export & Backup section.</p>
           </div>
         `;
       case 'rules':
         return `
           <div class="space-y-3">
             <div class="p-3.5 rounded-xl bg-amber-950/30 border border-amber-500/20 space-y-1">
-              <span class="text-[10px] font-mono uppercase text-amber-400 font-bold">Politica de Moderare și Transparență conform Art. 14 DSA</span>
-              <p class="text-slate-300">Această secțiune descrie clar regulile comunității, măsurile tehnice de protecție și procedurile aplicabile conținutului semnalat.</p>
+              <span class="text-[10px] font-mono uppercase text-amber-400 font-bold">Moderation & Transparency Policy under Art. 14 DSA</span>
+              <p class="text-slate-300">This section outlines community guidelines, technical defense mechanisms, and enforcement procedures applicable to flagged content.</p>
             </div>
 
-            <h4 class="font-bold text-sm text-white">1. Criterii de Conținut și Categorii Incompatibile</h4>
+            <h4 class="font-bold text-sm text-white">1. Content Standards & Prohibited Categories</h4>
             <ul class="list-disc pl-5 space-y-1 text-slate-300">
-              <li><strong>Zero toleranță pentru CSAM și terorism:</strong> conținutul semnalat este eliminat necondiționat, iar amprentele sunt izolate.</li>
-              <li><strong>Distribuire de fișiere malițioase (Malware):</strong> executabilele încărcate în Seif sunt scanate euristic pentru semnături de împachetare malițioasă (UPX packere, secțiuni cu entropie suspectă) prin modulul Binary Hygiene.</li>
-              <li><strong>Spam și atacuri de tip Sybil:</strong> rețeaua folosește provocări Proof-of-Work (PoW) și limitare cu cunoștință nulă (ZK-RLN) pentru a împiedica flood-ul automat.</li>
+              <li><strong>Zero tolerance for CSAM and terrorism:</strong> Flagged content is unconditionally removed, and offending fingerprints are isolated.</li>
+              <li><strong>Malicious file distribution (Malware):</strong> Binaries uploaded to the Vault undergo heuristic analysis for malicious packer signatures (UPX packers, suspicious entropy sections) via the Binary Hygiene engine.</li>
+              <li><strong>Spam & Sybil attacks:</strong> The network enforces Proof-of-Work (PoW) challenges and Zero-Knowledge Rate Limiting (ZK-RLN) to prevent automated flooding.</li>
             </ul>
 
-            <h4 class="font-bold text-sm text-white">2. Procedura de Acțiune și Soluționare</h4>
-            <p>Sesizările primite prin mecanismul de notificare sunt analizate de moderatori în termen de maximum 24-48 de ore. În cazul în care o postare încalcă regulile, aceasta este retrasă din feed-ul public și marcată în registrul de transparență D1.</p>
+            <h4 class="font-bold text-sm text-white">2. Action & Resolution Procedures</h4>
+            <p>Reports submitted through the notice mechanism are reviewed by compliance moderators within 24-48 hours. If content violates guidelines, it is withdrawn from the public feed and recorded in the D1 transparency ledger.</p>
 
-            <h4 class="font-bold text-sm text-white">3. Dreptul la Contestație (Art. 20 DSA)</h4>
-            <p>Dacă considerați că o măsură de moderare (eliminare sau marcare) a fost aplicată eronat conținutului dumneavoastră, puteți trimite o cerere de reexaminare către <code class="text-cyan-300">legal@aetheris.network</code> sau <code class="text-cyan-300">love4jpx@gmail.com</code>, indicând identificatorul postării.</p>
+            <h4 class="font-bold text-sm text-white">3. Right to Appeal (Art. 20 DSA)</h4>
+            <p>If you believe a moderation action (removal or restriction) was applied in error to your content, you may file an appeal to <code class="text-cyan-300">legal@aetheris.network</code> or <code class="text-cyan-300">love4jpx@gmail.com</code>, citing the content identifier.</p>
           </div>
         `;
       case 'dsa':
@@ -332,79 +332,79 @@ export class LegalModal {
             <div class="p-3.5 rounded-xl bg-surface-raised/40 border border-white/5 space-y-2">
               <h4 class="font-bold text-xs text-white flex items-center space-x-2">
                 <span>⚖️</span>
-                <span>Procedura de Notificare și Eliminare (DSA Art. 16)</span>
+                <span>Notice and Takedown Procedure (DSA Art. 16)</span>
               </h4>
               <p class="text-[11px] text-slate-400">
-                Conform Regulamentului UE privind Serviciile Digitale (DSA 2022/2065), orice utilizator sau titular de drepturi poate semnala conținut ilegal sau vătămător. Punct unic de contact UE: <code class="text-cyan-300">legal@aetheris.network</code>.
+                Under the EU Digital Services Act (DSA 2022/2065), any user or rights holder may report illegal or harmful content. Designated EU Single Point of Contact: <code class="text-cyan-300">legal@aetheris.network</code>.
               </p>
             </div>
 
             ${this._reportSubmittedId ? `
               <div class="p-5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 space-y-3 text-center animate-in fade-in">
                 <span class="text-3xl">✅</span>
-                <h4 class="font-bold text-sm text-emerald-400">Sesizare Înregistrată cu Succes</h4>
+                <h4 class="font-bold text-sm text-emerald-400">Notice Successfully Registered</h4>
                 <p class="text-[11px] text-slate-300">
-                  Număr de înregistrare DSA: <code class="px-2 py-0.5 rounded bg-black/40 text-emerald-300 font-mono">${this._reportSubmittedId}</code>
+                  DSA Registration ID: <code class="px-2 py-0.5 rounded bg-black/40 text-emerald-300 font-mono">${this._reportSubmittedId}</code>
                 </p>
                 <p class="text-[11px] text-slate-400">
-                  Sesizarea a fost stocată în registrul Cloudflare D1 și transmisă responsabililor legali.
+                  The report has been recorded in the Cloudflare D1 ledger and dispatched to compliance moderators.
                 </p>
                 <button
                   type="button"
                   onclick="if(window.__aetheris_open_legal) window.__aetheris_open_legal('dsa');"
                   class="px-4 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 text-xs font-semibold cursor-pointer transition-colors"
                 >
-                  Trimite altă sesizare
+                  Submit another report
                 </button>
               </div>
             ` : `
               <form id="dsa-report-form" onsubmit="event.preventDefault(); if(window.__aetheris_submit_dsa_report) window.__aetheris_submit_dsa_report();" class="space-y-3 bg-black/30 p-4 rounded-xl border border-white/5">
-                <div class="font-bold text-xs text-white">Formular Oficial de Notificare Conținut Ilegal (Notice & Takedown)</div>
+                <div class="font-bold text-xs text-white">Official Illegal Content Notification Form (Notice & Takedown)</div>
 
                 <div>
-                  <label for="dsa-target-id" class="block text-[11px] text-slate-400 mb-1">Identificator Conținut (ID Postare / Fișier) *</label>
+                  <label for="dsa-target-id" class="block text-[11px] text-slate-400 mb-1">Content Identifier (Post ID / File Hash) *</label>
                   <input
                     type="text"
                     id="dsa-target-id"
                     value="${this._targetPostId || ''}"
-                    placeholder="Ex: post-1 sau hash-ul fișierului..."
+                    placeholder="E.g.: post-1 or file SHA-256 hash..."
                     required
                     class="w-full bg-surface-raised border border-white/10 rounded-lg px-3 py-2 text-xs font-mono text-white placeholder-slate-600 focus:outline-none focus:border-cyan-400"
                   />
                 </div>
 
                 <div>
-                  <label for="dsa-reason-select" class="block text-[11px] text-slate-400 mb-1">Motivul Notificării (Categorie Legală) *</label>
+                  <label for="dsa-reason-select" class="block text-[11px] text-slate-400 mb-1">Reason for Notification (Legal Category) *</label>
                   <select
                     id="dsa-reason-select"
                     class="w-full bg-surface-raised border border-white/10 rounded-lg px-3 py-2 text-xs font-sans text-white focus:outline-none focus:border-cyan-400"
                   >
-                    <option value="CSAM">1. Exploatare / Abuz Asupra Minorilor (CSAM)</option>
-                    <option value="TERRORISM">2. Terorism / Conținut Extremist Violent</option>
-                    <option value="HATE_SPEECH">3. Discurs de Ură / Instigare la Discriminare și Violență</option>
-                    <option value="COPYRIGHT">4. Încălcare Proprietate Intelectuală / Drepturi de Autor</option>
-                    <option value="MALWARE_PHISHING">5. Programe Malițioase, Malware, Phishing sau Exploit-uri</option>
-                    <option value="DEFAMATION_DOXXING">6. Defăimare, Doxxing sau Încălcare Date cu Caracter Personal</option>
-                    <option value="OTHER_ILLEGAL">7. Alt Conținut Ilegal conform Legislației UE / Naționale</option>
+                    <option value="CSAM">1. Child Sexual Abuse Material (CSAM)</option>
+                    <option value="TERRORISM">2. Terrorism / Violent Extremist Content</option>
+                    <option value="HATE_SPEECH">3. Hate Speech / Incitement to Violence or Discrimination</option>
+                    <option value="COPYRIGHT">4. Intellectual Property / Copyright Infringement</option>
+                    <option value="MALWARE_PHISHING">5. Malicious Software, Malware, Phishing or Exploits</option>
+                    <option value="DEFAMATION_DOXXING">6. Defamation, Doxxing or Personal Data Breach</option>
+                    <option value="OTHER_ILLEGAL">7. Other Illegal Content under EU / National Law</option>
                   </select>
                 </div>
 
                 <div>
-                  <label for="dsa-details" class="block text-[11px] text-slate-400 mb-1">Descriere Detaliată a Conținutului Ilegal (Art. 16 DSA) *</label>
+                  <label for="dsa-details" class="block text-[11px] text-slate-400 mb-1">Detailed Description of Illegal Content (Art. 16 DSA) *</label>
                   <textarea
                     id="dsa-details"
                     rows="3"
-                    placeholder="Descrieți motivele concrete pentru care considerați că informațiile constituie conținut ilegal..."
+                    placeholder="Describe the specific reasons why you consider this information to constitute illegal content..."
                     class="w-full bg-surface-raised border border-white/10 rounded-lg px-3 py-2 text-xs font-sans text-white placeholder-slate-600 focus:outline-none focus:border-cyan-400"
                   ></textarea>
                 </div>
 
                 <div>
-                  <label for="dsa-reporter-email" class="block text-[11px] text-slate-400 mb-1">Email Notificare Decizie (Opțional conform DSA Art. 16)</label>
+                  <label for="dsa-reporter-email" class="block text-[11px] text-slate-400 mb-1">Decision Notification Email (Optional under DSA Art. 16)</label>
                   <input
                     type="email"
                     id="dsa-reporter-email"
-                    placeholder="nume@exemplu.com (dacă doriți comunicarea deciziei de moderare)"
+                    placeholder="name@example.com (if you wish to receive the moderation outcome)"
                     class="w-full bg-surface-raised border border-white/10 rounded-lg px-3 py-2 text-xs font-sans text-white placeholder-slate-600 focus:outline-none focus:border-cyan-400"
                   />
                 </div>
@@ -420,7 +420,7 @@ export class LegalModal {
                     ${this._isSubmittingReport ? 'disabled' : ''}
                     class="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-lg shadow-rose-600/20 transition-all cursor-pointer disabled:opacity-50"
                   >
-                    ${this._isSubmittingReport ? 'Se transmite sesizarea...' : '🚩 Transmite Sesizare DSA către Moderatori'}
+                    ${this._isSubmittingReport ? 'Submitting report...' : '🚩 Submit DSA Report to Moderators'}
                   </button>
                 </div>
               </form>
@@ -431,9 +431,9 @@ export class LegalModal {
         return `
           <div class="space-y-4">
             <div class="p-3.5 rounded-xl bg-indigo-950/30 border border-indigo-500/20 space-y-1.5">
-              <h4 class="font-bold text-sm text-indigo-300">Puncte Unice de Contact (Single Point of Contact - SPOC)</h4>
+              <h4 class="font-bold text-sm text-indigo-300">Single Points of Contact (SPOC)</h4>
               <p class="text-slate-300">
-                În conformitate cu Articolul 11 (autorități publice) și Articolul 12 (destinatari ai serviciului) din Regulamentul (UE) 2022/2065 (DSA) și Directiva privind comerțul electronic 2000/31/CE:
+                In accordance with Article 11 (public authorities) and Article 12 (recipients of service) of Regulation (EU) 2022/2065 (DSA) and Directive 2000/31/EC on electronic commerce:
               </p>
             </div>
 
@@ -441,33 +441,33 @@ export class LegalModal {
               <div class="p-3.5 rounded-xl bg-surface-raised border border-white/5 space-y-2">
                 <span class="text-xs font-bold text-white flex items-center space-x-1.5">
                   <span>🏛️</span>
-                  <span>Pentru Autoritățile din Statele Membre UE & Comisia Europeană (Art. 11)</span>
+                  <span>For EU Member State Authorities & European Commission (Art. 11)</span>
                 </span>
-                <p class="text-[11px] text-slate-400">Punct de contact desemnat pentru comunicarea oficială:</p>
+                <p class="text-[11px] text-slate-400">Designated point of contact for official communications:</p>
                 <div class="font-mono text-xs text-cyan-300 bg-black/40 p-2 rounded-lg border border-white/5 break-all">
                   legal@aetheris.network
                 </div>
-                <p class="text-[10px] text-slate-500">Limbi de comunicare acceptate: Română, Engleză.</p>
+                <p class="text-[10px] text-slate-500">Accepted communication languages: English, Romanian.</p>
               </div>
 
               <div class="p-3.5 rounded-xl bg-surface-raised border border-white/5 space-y-2">
                 <span class="text-xs font-bold text-white flex items-center space-x-1.5">
                   <span>👥</span>
-                  <span>Pentru Utilizatori & Destinatari ai Serviciului (Art. 12)</span>
+                  <span>For Users & Service Recipients (Art. 12)</span>
                 </span>
-                <p class="text-[11px] text-slate-400">Pentru asistență, contestații și clarificări legale:</p>
+                <p class="text-[11px] text-slate-400">For assistance, appeals, and legal inquiries:</p>
                 <div class="font-mono text-xs text-cyan-300 bg-black/40 p-2 rounded-lg border border-white/5 break-all">
                   legal@aetheris.network<br>
-                  <span class="text-slate-400 text-[10px]">Punct secundar: love4jpx@gmail.com</span>
+                  <span class="text-slate-400 text-[10px]">Secondary contact: love4jpx@gmail.com</span>
                 </div>
-                <p class="text-[10px] text-slate-500">Timp mediu de răspuns: 24 - 48 ore.</p>
+                <p class="text-[10px] text-slate-500">Average response time: 24 - 48 hours.</p>
               </div>
             </div>
 
             <div class="p-3.5 rounded-xl bg-surface-base border border-white/5 space-y-1.5">
-              <h5 class="font-bold text-xs text-white">Mențiuni Legale / Identificare Furnizor (Impressum)</h5>
+              <h5 class="font-bold text-xs text-white">Legal Information / Provider Identification (Impressum)</h5>
               <p class="text-slate-400 text-[11px]">
-                Serviciul digital Aetheris Omni-Sphere este operat ca protocol suveran descentralizat pe infrastructura globală Anycast Cloudflare Pages & Edge Workers, cu baze de date stocate securizat pe Cloudflare D1.
+                The Aetheris Omni-Sphere digital service operates as a sovereign decentralized protocol across Cloudflare Pages Anycast & Edge Workers infrastructure, with data securely persisted on Cloudflare D1.
               </p>
             </div>
           </div>

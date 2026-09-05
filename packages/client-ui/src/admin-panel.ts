@@ -1,5 +1,6 @@
 import './window-augmentation.js';
 import { serviceRegistry, SERVICES } from './service-registry.js';
+import { sovereignDialog } from './dialog-modal.js';
 import { adminAuth } from './admin-auth.js';
 import { gossipViz } from './gossip-viz.js';
 import { cveMonitor } from './cve-monitor.js';
@@ -1270,27 +1271,27 @@ export class AdminPanelManager {
               <span>EU Digital Services Act (DSA) Compliance Register</span>
               <span class="text-[10px] px-2 py-0.5 rounded bg-amber/20 text-amber border border-amber/30 font-mono">Art. 16 Notice & Takedown</span>
             </h4>
-            <p class="text-xs text-slate-400">Sesizările sunt sincronizate direct din registrul securizat Cloudflare D1 (tabela <code>dsa_reports</code>).</p>
+            <p class="text-xs text-slate-400">Reports are synchronized directly from the Cloudflare D1 ledger (<code>dsa_reports</code> table).</p>
           </div>
           <button
             id="btn-refresh-dsa-reports"
             class="px-3 py-1.5 rounded-xl bg-amber/10 hover:bg-amber/20 text-amber border border-amber/30 text-xs font-mono transition-all cursor-pointer"
           >
-            ⟳ Reîncarcă Sesizări
+            ⟳ Reload Reports
           </button>
         </div>
 
         <!-- REPORTS LIST -->
         <div class="bg-surface-raised border border-white/10 rounded-2xl overflow-hidden">
           <div class="p-4 border-b border-white/10 flex items-center justify-between">
-            <h3 class="text-sm font-bold text-white">Coada de Moderare Conținut Ilegal</h3>
-            <span class="text-xs text-slate-500 font-mono">${pendingReports} în așteptare</span>
+            <h3 class="text-sm font-bold text-white">Illegal Content Moderation Queue</h3>
+            <span class="text-xs text-slate-500 font-mono">${pendingReports} pending</span>
           </div>
 
           ${this.dsaReports.length === 0 ? `
             <div class="p-12 text-center text-slate-500 text-xs font-mono">
               <span class="text-2xl block mb-2">🎉</span>
-              Nu există sesizări DSA în așteptare. Rețeaua este curată.
+              No pending DSA reports found. The network is clean.
             </div>
           ` : `
             <div class="divide-y divide-white/5">
@@ -1310,7 +1311,7 @@ export class AdminPanelManager {
                     </div>
 
                     <div class="text-xs text-white">
-                      <strong>Țintă:</strong> <code class="text-slate-300 px-1 bg-black/40 rounded">${report.targetId}</code> (${report.targetType || 'post'})
+                      <strong>Target:</strong> <code class="text-slate-300 px-1 bg-black/40 rounded">${report.targetId}</code> (${report.targetType || 'post'})
                     </div>
 
                     ${report.details ? `
@@ -1320,7 +1321,7 @@ export class AdminPanelManager {
                     <div class="text-[10px] text-slate-500 font-mono flex items-center space-x-3">
                       <span>Reporter: ${report.reporterFingerprint || 'anon'}</span>
                       ${report.reporterEmail ? `<span>Email: ${report.reporterEmail}</span>` : ''}
-                      <span>Data: ${new Date(report.createdAt).toLocaleString()}</span>
+                      <span>Date: ${new Date(report.createdAt).toLocaleString()}</span>
                     </div>
                   </div>
 
@@ -1331,19 +1332,19 @@ export class AdminPanelManager {
                         data-report-id="${report.id}"
                         data-target-id="${report.targetId}"
                         class="btn-dsa-action px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-all shadow-sm cursor-pointer"
-                        title="Șterge conținutul și marchează sesizarea ca rezolvată"
+                        title="Delete content and mark report as resolved"
                       >
-                        🗑️ Șterge & Rezolvă
+                        🗑️ Delete &amp; Resolve
                       </button>
                       <button
                         data-dsa-dismiss="${report.id}"
                         class="btn-dsa-dismiss px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-medium border border-white/10 transition-all cursor-pointer"
-                        title="Respinge sesizarea ca nefondată"
+                        title="Dismiss report as unfounded"
                       >
-                        ✕ Respinge
+                        ✕ Dismiss
                       </button>
                     ` : `
-                      <span class="text-xs text-slate-500 font-mono italic">Rezolvat</span>
+                      <span class="text-xs text-slate-500 font-mono italic">Resolved</span>
                     `}
                   </div>
                 </div>
@@ -1618,7 +1619,7 @@ export class AdminPanelManager {
     document.getElementById('btn-admin-run-stress-test')?.addEventListener('click', async () => {
       const msg = await this.runDefenseSimulation();
       onStateChange();
-      alert(msg);
+      await sovereignDialog.alert(msg, { title: 'WAF Defense Stress Probe', type: 'info' });
     });
 
     // Cloudflare R2 Free Tier Quota Guardian Refresh
@@ -1635,7 +1636,7 @@ export class AdminPanelManager {
     // DSA Reports Refresh
     document.getElementById('btn-refresh-dsa-reports')?.addEventListener('click', async () => {
       const btn = document.getElementById('btn-refresh-dsa-reports');
-      if (btn) btn.textContent = '⏳ Se încarcă...';
+      if (btn) btn.textContent = '⏳ Loading...';
       await this.fetchDsaReports();
       onStateChange();
     });
@@ -1647,13 +1648,13 @@ export class AdminPanelManager {
         const targetId = btn.getAttribute('data-target-id');
         if (!reportId) return;
 
-        if (confirm(`Ești sigur că vrei să elimini conținutul țintă "${targetId}" și să marchezi sesizarea ca rezolvată?`)) {
+        if (await sovereignDialog.confirm(`Are you sure you want to delete target content "${targetId}" and mark this report as resolved?`, { title: 'Delete Content', destructive: true })) {
           if (targetId) {
             this.deletePost(targetId);
           }
           await this.updateDsaReportStatus(reportId, 'actioned', 'Content taken down and report resolved by administrator');
           if (typeof window !== 'undefined' && (window as any).toastManager) {
-            (window as any).toastManager.success(`Sesizarea #${reportId} a fost rezolvată, iar conținutul a fost eliminat.`, '⚖️');
+            (window as any).toastManager.success(`Report #${reportId} resolved and content deleted.`, '⚖️');
           }
           onStateChange();
         }
@@ -1666,10 +1667,10 @@ export class AdminPanelManager {
         const reportId = btn.getAttribute('data-dsa-dismiss');
         if (!reportId) return;
 
-        if (confirm(`Respingi sesizarea #${reportId} ca nefondată?`)) {
+        if (await sovereignDialog.confirm(`Dismiss report #${reportId} as unfounded?`, { title: 'Dismiss Report', confirmText: 'Dismiss' })) {
           await this.updateDsaReportStatus(reportId, 'dismissed', 'Report reviewed and dismissed as unfounded');
           if (typeof window !== 'undefined' && (window as any).toastManager) {
-            (window as any).toastManager.info(`Sesizarea #${reportId} a fost respinsă.`, '⚖️');
+            (window as any).toastManager.info(`Report #${reportId} was dismissed.`, '⚖️');
           }
           onStateChange();
         }

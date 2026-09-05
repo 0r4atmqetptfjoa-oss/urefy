@@ -229,7 +229,7 @@ export class SovereignFootprint {
             <button
               type="button"
               id="btn-clear-local-cache"
-              onclick="if(confirm('Clear local caches? Your seed phrase will remain safely stored.')){ if(window.sovereignFootprint) window.sovereignFootprint.clearLocalData(true); }"
+              onclick="if(window.sovereignDialog){ window.sovereignDialog.confirm('Clear local caches? Your seed phrase will remain safely stored.', { title: 'Clear Local Cache', destructive: true }).then(ok => { if(ok && window.sovereignFootprint) window.sovereignFootprint.clearLocalData(true); }); } else if(window.sovereignFootprint) { window.sovereignFootprint.clearLocalData(true); }"
               class="px-3 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-xs font-mono text-rose-300 transition-all flex items-center space-x-1.5 cursor-pointer"
             >
               <span>🧹</span>

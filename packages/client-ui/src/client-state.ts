@@ -16,6 +16,7 @@ import { serviceRegistry, SERVICES } from './service-registry.js';
 import { fetchWithRetry } from './dry-utils.js';
 import { offlineSync } from './offline-sync.js';
 import { toastManager } from './toast.js';
+import { sovereignDialog } from './dialog-modal.js';
 import { localSearchIndex } from './search-index.js';
 import { crossTabSync } from './cross-tab-sync.js';
 import { sovereignWebPush } from './web-push.js';
@@ -25,6 +26,7 @@ import { networkActivityFeed } from './activity-feed.js';
 export type SpaceType = 'relays' | 'vault' | 'pulse';
 export type DensityMode = 'compact' | 'balanced' | 'media';
 export type ViewMode = 'card' | 'classic' | 'compact';
+export type UiMode = 'simple' | 'advanced' | 'technical' | 'sovereign';
 
 export interface ChannelItem {
   id: string;
@@ -131,7 +133,7 @@ export class AetherisClientStore {
   public density: DensityMode = 'balanced';
   public viewMode: ViewMode = 'card';
   public isDualHorizon: boolean = false;
-  public uiMode: 'simple' | 'sovereign' = 'simple';
+  public uiMode: UiMode = 'simple';
   public showTrustBadges: boolean = true;
   public minFeedTrustThreshold: number = 0;
   public demoteLowTrustPosts: boolean = false;
@@ -218,8 +220,8 @@ export class AetherisClientStore {
       }
 
       const savedUiMode = localStorage.getItem('aetheris_ui_mode');
-      if (savedUiMode === 'sovereign' || savedUiMode === 'simple') {
-        this.uiMode = savedUiMode;
+      if (savedUiMode === 'sovereign' || savedUiMode === 'simple' || savedUiMode === 'advanced' || savedUiMode === 'technical') {
+        this.uiMode = savedUiMode as UiMode;
       }
 
       const savedShowTrust = localStorage.getItem('aetheris_show_trust_badges');
@@ -1157,7 +1159,7 @@ export class AetherisClientStore {
 
       case 'SLASHING_NOTICE': {
         this.isQuarantined = true;
-        alert(`🚨 SOVEREIGN SLASHING NOTICE: ${packet.message}\nSecret key extracted via Lagrange: ${packet.extractedSecretKey}`);
+        sovereignDialog.alert(`🚨 SOVEREIGN SLASHING NOTICE: ${packet.message}\nPolynomial security share penalty applied to node.`, { title: 'Sovereign Slashing Penalty', type: 'error' });
         this.notify('QUARANTINE');
         break;
       }
@@ -1318,7 +1320,7 @@ export class AetherisClientStore {
     this.notify();
   }
 
-  public setUiMode(mode: 'simple' | 'sovereign'): void {
+  public setUiMode(mode: UiMode): void {
     if (this.uiMode === mode) return;
     this.uiMode = mode;
     if (typeof localStorage !== 'undefined') {
@@ -1328,7 +1330,11 @@ export class AetherisClientStore {
   }
 
   public toggleUiMode(): void {
-    this.setUiMode(this.uiMode === 'simple' ? 'sovereign' : 'simple');
+    if (this.uiMode === 'simple') {
+      this.setUiMode('sovereign');
+    } else {
+      this.setUiMode('simple');
+    }
   }
 
   public setShowTrustBadges(show: boolean): void {

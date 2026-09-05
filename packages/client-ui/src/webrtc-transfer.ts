@@ -26,9 +26,7 @@ function showTransferNotification(message: string, type: 'info' | 'warning' | 'e
       if (typeof (window as any).showToast === 'function') {
         (window as any).showToast(message, type);
       }
-      if (typeof (window as any).alert === 'function' && ((window as any).alert as any).mock) {
-        (window as any).alert(message);
-      }
+      // Direct toast notification used
     }
   } catch {
     // Non-blocking notification fallback

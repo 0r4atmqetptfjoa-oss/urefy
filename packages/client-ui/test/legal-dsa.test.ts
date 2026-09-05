@@ -20,7 +20,7 @@ describe('Legal & DSA Compliance Suite', () => {
     expect(modal.isOpen).toBe(true);
     expect(modal.getActiveTab()).toBe('terms');
     const html = modal.render();
-    expect(html).toContain('Termeni și Condiții');
+    expect(html).toContain('Terms of Service');
     expect(html).toContain('ZK-RLN Slashing');
   });
 
@@ -29,8 +29,8 @@ describe('Legal & DSA Compliance Suite', () => {
     expect(modal.isOpen).toBe(true);
     expect(modal.getActiveTab()).toBe('privacy');
     const html = modal.render();
-    expect(html).toContain('Confidențialitate (GDPR)');
-    expect(html).toContain('Principiul Zero-Data');
+    expect(html).toContain('Privacy Policy (GDPR)');
+    expect(html).toContain('Zero-Data Principle');
     expect(html).toContain('ML-KEM-768');
   });
 
@@ -40,7 +40,7 @@ describe('Legal & DSA Compliance Suite', () => {
     expect(modal.getActiveTab()).toBe('dsa');
     const html = modal.render();
     expect(html).toContain('Notice & Takedown (DSA)');
-    expect(html).toContain('Procedura de Notificare și Eliminare (DSA Art. 16)');
+    expect(html).toContain('Notice and Takedown Procedure (DSA Art. 16)');
     expect(html).toContain('legal@aetheris.network');
   });
 

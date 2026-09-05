@@ -1,7 +1,11 @@
+/// <reference types="vitest" />
 import { defineConfig } from 'vite';
 import { resolve } from 'path';
 
 export default defineConfig({
+  test: {
+    exclude: ['**/node_modules/**', '**/dist/**', '**/e2e/**', '**/.{idea,git,cache,output,temp}/**'],
+  },
   server: {
     port: 3000,
     host: true,

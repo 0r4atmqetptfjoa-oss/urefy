@@ -4,6 +4,7 @@
  * Provides real-time telemetry, zero-overage quota protection,
  * and edge observability for Cloudflare R2 and Sovereign Storage.
  */
+import { adminAuth } from './admin-auth.js';
 
 export interface R2StorageQuota {
   usedBytes: number;
@@ -210,7 +211,7 @@ export async function triggerManualBackup(): Promise<any> {
   });
 
   try {
-    const pin = typeof localStorage !== 'undefined' ? (localStorage.getItem('aetheris_admin_pin') || '11223') : '11223';
+    const pin = adminAuth.activePin;
     const res = await fetch('/api/cron-backup', {
       method: 'POST',
       headers: {

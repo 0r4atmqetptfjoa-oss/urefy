@@ -182,17 +182,18 @@ export class MobileTabBar {
     const unreadFeed = this.getUnreadFeedCount();
 
     const tabs: Array<{ id: MobileTab; label: string; sublabel?: string; icon: string; title: string; badge?: number }> = [
-      { id: 'feed', label: 'Feed', icon: '📰', title: 'Feed (Flux Pulse)', badge: unreadFeed > 0 ? unreadFeed : undefined },
-      { id: 'vault', label: 'Vault', icon: '🗄️', title: 'Seif Fișiere (Vault)' },
-      { id: 'circle', label: 'Servere', sublabel: 'Cerc', icon: '📡', title: 'Servere & Canale Chat (Cerc)', badge: unreadCircle > 0 ? unreadCircle : undefined },
-      { id: 'profile', label: 'Profil', icon: '👤', title: 'Profil Suveran' },
-      { id: 'more' as any, label: 'Mai multe', icon: '☰', title: 'Mai multe opțiuni & unelte' },
+      { id: 'feed', label: 'Feed', icon: '📰', title: 'Feed (Pulse Stream)', badge: unreadFeed > 0 ? unreadFeed : undefined },
+      { id: 'vault', label: 'Vault', icon: '🗄️', title: 'Knowledge Vault' },
+      { id: 'circle', label: 'Relays', sublabel: 'Circle', icon: '📡', title: 'Relay Servers & Chat Channels', badge: unreadCircle > 0 ? unreadCircle : undefined },
+      { id: 'profile', label: 'Profile', icon: '👤', title: 'Sovereign Profile' },
+      { id: 'more' as any, label: 'More', icon: '☰', title: 'More Options & Tools' },
     ];
 
     return `
       <!-- NATIVE MOBILE BOTTOM TAB BAR (lg:hidden) -->
       <nav 
         id="native-mobile-tab-bar" 
+        role="navigation"
         class="fixed bottom-0 left-0 right-0 z-50 lg:hidden bg-surface-base/95 backdrop-blur-xl border-t border-white/10 pb-[env(safe-area-inset-bottom)] flex items-center justify-around px-3 select-none shadow-2xl transition-all"
         style="min-height: 3.5rem; height: calc(3.5rem + env(safe-area-inset-bottom, 0px)); padding-bottom: max(env(safe-area-inset-bottom, 0px), 0px);"
         aria-label="Mobile Sovereign Navigation"

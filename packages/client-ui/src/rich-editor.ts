@@ -1,3 +1,4 @@
+import { sovereignDialog } from './dialog-modal.js';
 /**
  * Aetheris Omni-Sphere — Complete Rich Blocks Editor (Notion / Obsidian Style)
  * (rich-editor.ts)
@@ -2276,8 +2277,8 @@ export async function verifySwarmPayload(payload: Uint8Array, epoch: string): Pr
 
     // Clear All
     const btnClearAll = rootElement.querySelector('#btn-editor-clear-all');
-    btnClearAll?.addEventListener('click', () => {
-      if (confirm('Are you sure you want to reset all editor blocks?')) {
+    btnClearAll?.addEventListener('click', async () => {
+      if (await sovereignDialog.confirm('Are you sure you want to reset all editor blocks?', { title: 'Reset Editor', destructive: true })) {
         this.clear();
         rootElement.innerHTML = this.renderEditor();
         this.attachEvents(rootElement, onUpdate);

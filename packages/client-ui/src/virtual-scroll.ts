@@ -157,6 +157,15 @@ export class VirtualScrollEngine<T = unknown> {
     window.addEventListener('resize', this.boundResizeHandler, PASSIVE_EVENT_OPTIONS);
   }
 
+  public attachContainer(container: HTMLElement): void {
+    if (!container) return;
+    this.containerElement = container;
+    this.containerHeight = container.clientHeight || this.containerHeight;
+    container.addEventListener('scroll', () => {
+      this.onScroll(container.scrollTop);
+    }, PASSIVE_EVENT_OPTIONS);
+  }
+
   // -------------------------------------------------------------------------
   // Item Management
   // -------------------------------------------------------------------------

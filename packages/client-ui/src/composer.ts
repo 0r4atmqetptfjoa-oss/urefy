@@ -203,7 +203,7 @@ export class OmniComposer {
               <div class="flex items-center space-x-2.5">
                 <button type="button" id="btn-cancel-composer" class="px-4 py-2 text-xs text-slate-400 hover:text-white cursor-pointer font-medium">Cancel</button>
                 <button type="submit" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-full shadow-lg transition-all hover:brightness-110 active:scale-95 cursor-pointer">
-                  Broadcast to Network
+                  Post
                 </button>
               </div>
             </div>

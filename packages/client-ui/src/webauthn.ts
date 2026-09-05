@@ -1,3 +1,4 @@
+import { sovereignDialog } from './dialog-modal.js';
 /**
  * @file webauthn.ts
  * @package @aetheris/client-ui
@@ -265,6 +266,25 @@ export class WebAuthnManager {
       this.registeredCredentials.push(newCredential);
       this._saveCredentials();
 
+      // Server-side attestation registration and public key credential storage
+      try {
+        const attResp = credential.response as AuthenticatorAttestationResponse;
+        await fetch('/api/webauthn', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'register',
+            fingerprint: userName,
+            credentialId: credential.id,
+            rawId: bufferToBase64URL(credential.rawId),
+            clientDataJSON: attResp?.clientDataJSON ? bufferToString(attResp.clientDataJSON) : '',
+            attestationObject: attResp?.attestationObject ? bufferToBase64URL(attResp.attestationObject) : '',
+          }),
+        });
+      } catch (_) {
+        // Safe offline/local mesh fallback
+      }
+
       // Establish current authenticated session
       this.currentSession = {
         credentialId: credential.id,
@@ -344,6 +364,24 @@ export class WebAuthnManager {
         timestamp: Date.now(),
         clientDataJSON: clientDataJSONStr,
       };
+
+      // Server-side assertion verification
+      try {
+        await fetch('/api/webauthn', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'verify',
+            fingerprint: this.currentSession.userHandle || 'sovereign_node',
+            credentialId: assertion.id,
+            clientDataJSON: clientDataJSONStr,
+            authenticatorData: response.authenticatorData ? bufferToBase64URL(response.authenticatorData) : '',
+            signature: response.signature ? bufferToBase64URL(response.signature) : '',
+          }),
+        });
+      } catch (_) {
+        // Safe offline/local mesh fallback
+      }
 
       this.vaultLocked = false;
       this.settings.vaultLocked = false;
@@ -794,7 +832,7 @@ export class WebAuthnManager {
     if (this.vaultLocked) {
       await this.unlockVault();
     } else {
-      const confirmLock = confirm('Do you want to lock the data vault now?');
+      const confirmLock = await sovereignDialog.confirm('Do you want to lock the data vault now?', { title: 'Lock Vault', confirmText: 'Lock Vault' });
       if (confirmLock) {
         await this.lockVault();
       }

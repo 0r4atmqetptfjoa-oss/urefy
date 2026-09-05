@@ -284,6 +284,80 @@ export class RelaysManager {
     return true;
   }
 
+  public deleteRelay(relayId: string, userFingerprint?: string): boolean {
+    if (relayId === 'relay-global-nexus') return false; // Protected root nexus enclave
+
+    const relayIndex = this.relays.findIndex(r => r.id === relayId);
+    if (relayIndex === -1) return false;
+
+    const relay = this.relays[relayIndex];
+    // If userFingerprint provided, verify ownership or permit if creator/standalone
+    if (userFingerprint && relay.ownerFingerprint && relay.ownerFingerprint !== 'remote-peer' && relay.ownerFingerprint !== userFingerprint) {
+      return false;
+    }
+
+    // Remove relay channels from clientStore
+    if (typeof window !== 'undefined' && window.clientStore) {
+      const channelIds = new Set(relay.channels.map(c => c.id));
+      window.clientStore.channels = window.clientStore.channels.filter((c: any) => !channelIds.has(c.id));
+
+      if (channelIds.has(window.clientStore.activeChannelId)) {
+        window.clientStore.activeChannelId = 'relays-general';
+      }
+    }
+
+    this.relays.splice(relayIndex, 1);
+
+    if (this.activeRelayId === relayId) {
+      this.activeRelayId = this.relays[0]?.id || 'relay-global-nexus';
+    }
+
+    this._saveRelays();
+
+    if (typeof window !== 'undefined' && window.clientStore) {
+      window.clientStore.notify();
+    }
+
+    return true;
+  }
+
+  public leaveRelay(relayId: string, userFingerprint: string): boolean {
+    if (relayId === 'relay-global-nexus') return false; // Protected root nexus enclave
+
+    const relayIndex = this.relays.findIndex(r => r.id === relayId);
+    if (relayIndex === -1) return false;
+
+    const relay = this.relays[relayIndex];
+
+    // Remove user fingerprint from members
+    relay.members = relay.members.filter(m => m !== userFingerprint);
+
+    // Remove channels from clientStore
+    if (typeof window !== 'undefined' && window.clientStore) {
+      const channelIds = new Set(relay.channels.map(c => c.id));
+      window.clientStore.channels = window.clientStore.channels.filter((c: any) => !channelIds.has(c.id));
+
+      if (channelIds.has(window.clientStore.activeChannelId)) {
+        window.clientStore.activeChannelId = 'relays-general';
+      }
+    }
+
+    // Remove from local relays list so it no longer appears in the rail
+    this.relays.splice(relayIndex, 1);
+
+    if (this.activeRelayId === relayId) {
+      this.activeRelayId = this.relays[0]?.id || 'relay-global-nexus';
+    }
+
+    this._saveRelays();
+
+    if (typeof window !== 'undefined' && window.clientStore) {
+      window.clientStore.notify();
+    }
+
+    return true;
+  }
+
   public generateInviteLink(relayId: string): string {
     const relay = this.getRelayById(relayId);
     const code = relay?.inviteCode || 'NEXUS-01';
@@ -348,8 +422,17 @@ export class RelaysManager {
     `;
   }
 
-  /** Relay Header Bar with Invite Friends Button */
-  public renderRelayHeader(relay: SovereignRelay, activeChannelName: string): string {
+  /** Relay Header Bar with Invite Friends, Leave & Delete Buttons */
+  public renderRelayHeader(relay: SovereignRelay, activeChannelName: string, userFingerprint?: string): string {
+    const isGlobal = relay.id === 'relay-global-nexus';
+    const currentFp = userFingerprint || (typeof window !== 'undefined' && (window as any).clientStore?.keypair?.fingerprint) || '';
+    const isOwner = !isGlobal && (
+      !relay.ownerFingerprint ||
+      relay.ownerFingerprint === 'remote-peer' ||
+      (Boolean(currentFp) && relay.ownerFingerprint === currentFp) ||
+      (!currentFp)
+    );
+
     return `
       <div class="h-14 border-b border-white/10 bg-surface-base/80 px-4 flex items-center justify-between shrink-0 select-none">
         <div class="flex items-center space-x-3 truncate">
@@ -376,7 +459,7 @@ export class RelaysManager {
             title="Inspect Cryptographic Delivery & Pipeline"
           >
             <span>🛡️🛡️</span>
-            <span class="hidden md:inline">ZK Verified Delivery</span>
+            <span class="hidden lg:inline">ZK Verified Delivery</span>
           </button>
 
           <!-- Invite Friends Button -->
@@ -387,8 +470,34 @@ export class RelaysManager {
             title="Invite peers to this Relay"
           >
             <span>🔗</span>
-            <span class="hidden sm:inline">Invite Friends</span>
+            <span class="hidden sm:inline">Invite</span>
           </button>
+
+          ${!isGlobal ? `
+            <!-- Leave Relay Button -->
+            <button
+              type="button"
+              data-leave-relay="${relay.id}"
+              class="btn-leave-relay px-2.5 py-1.5 rounded-xl bg-amber-950/40 hover:bg-amber-900/50 border border-amber-500/30 text-amber-300 hover:text-amber-200 text-xs font-semibold flex items-center space-x-1.5 transition-all cursor-pointer active:scale-95"
+              title="Leave this Sovereign Relay"
+            >
+              <span>🚪</span>
+              <span class="hidden sm:inline">Leave</span>
+            </button>
+          ` : ''}
+
+          ${isOwner ? `
+            <!-- Delete Relay Button (Owner) -->
+            <button
+              type="button"
+              data-delete-relay="${relay.id}"
+              class="btn-delete-relay px-2.5 py-1.5 rounded-xl bg-rose-950/40 hover:bg-rose-900/50 border border-rose-500/30 text-rose-300 hover:text-rose-200 text-xs font-semibold flex items-center space-x-1.5 transition-all cursor-pointer active:scale-95"
+              title="Delete this Sovereign Relay permanently"
+            >
+              <span>🗑️</span>
+              <span class="hidden sm:inline">Delete</span>
+            </button>
+          ` : ''}
         </div>
       </div>
     `;

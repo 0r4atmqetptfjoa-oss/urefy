@@ -28,13 +28,15 @@ describe('Aetheris Omni-Sphere — Zero-Trust Security & OWASP Top 10 Hardening 
 
       expect(res.status).toBe(200);
 
-      // Content-Security-Policy
+      // Content-Security-Policy (Sovereign Zero-Tracker: Google Fonts purged)
       const csp = res.headers.get('Content-Security-Policy');
       expect(csp).toBeDefined();
       expect(csp).toContain("default-src 'self'");
       expect(csp).toContain("script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'");
-      expect(csp).toContain("style-src 'self' 'unsafe-inline' https://fonts.googleapis.com");
-      expect(csp).toContain("font-src 'self' https://fonts.gstatic.com data:");
+      expect(csp).toContain("style-src 'self' 'unsafe-inline'");
+      expect(csp).toContain("font-src 'self' data:");
+      expect(csp).not.toContain("fonts.googleapis.com");
+      expect(csp).not.toContain("fonts.gstatic.com");
       expect(csp).toContain("object-src 'none'");
       expect(csp).toContain("frame-ancestors 'none'");
 

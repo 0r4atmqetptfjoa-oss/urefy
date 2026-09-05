@@ -76,13 +76,13 @@ function renderLoginPage(): string {
             <form id="admin-login-form" onsubmit="event.preventDefault();" class="space-y-4">
               <div class="space-y-1.5">
                 <div class="flex items-center justify-between">
-                  <label for="login-pin-input" class="text-xs text-slate-400 font-medium">Parolă / PIN Administrator</label>
+                  <label for="login-pin-input" class="text-xs text-slate-400 font-medium">Administrator Password / PIN</label>
                   <button
                     type="button"
                     id="btn-toggle-pin-visibility"
                     class="text-[11px] text-slate-500 hover:text-amber transition-colors cursor-pointer font-mono"
                   >
-                    👁 Arată parola
+                    👁 Show password
                   </button>
                 </div>
                 <input
@@ -90,7 +90,7 @@ function renderLoginPage(): string {
                   id="login-pin-input"
                   name="admin-pin"
                   maxlength="128"
-                  placeholder="Introdu parola sau PIN-ul..."
+                  placeholder="Enter admin password or PIN..."
                   class="w-full bg-[#1a1d27] border border-white/10 rounded-xl px-4 py-3 text-center text-base font-mono text-white placeholder-slate-600 focus:outline-none focus:border-amber/50 focus:ring-2 focus:ring-amber/10 transition-all"
                   autocomplete="current-password"
                   autofocus
@@ -168,10 +168,10 @@ function bindLoginEvents(): void {
     if (!input) return;
     if (input.type === 'password') {
       input.type = 'text';
-      toggleBtn.textContent = '🔒 Ascunde parola';
+      toggleBtn.textContent = '🔒 Hide password';
     } else {
       input.type = 'password';
-      toggleBtn.textContent = '👁 Arată parola';
+      toggleBtn.textContent = '👁 Show password';
     }
   });
 

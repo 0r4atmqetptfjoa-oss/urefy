@@ -14,7 +14,8 @@ export interface IngestedArtifact {
 }
 
 /**
- * Generates technical synthesis using local Ollama (if available) or local expert engine.
+ * Generates technical synthesis using hosted LLM / Cloudflare Workers AI (if configured)
+ * or deterministic static analysis engine.
  */
 export async function generateTechnicalSynthesis(
   title: string,
@@ -24,34 +25,52 @@ export async function generateTechnicalSynthesis(
 ): Promise<string> {
   const prompt = `Synthesize a technical release note for ${title} (${fileName}) with SHA256 ${sha256} and entropy ${hygiene.overallEntropy}. Format as concise Markdown.`;
 
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 1500); // Fast timeout for local Ollama
+  const aiEndpoint = process.env.AI_API_ENDPOINT || (process.env.OLLAMA_HOST ? `${process.env.OLLAMA_HOST}/api/generate` : '');
+  const aiKey = process.env.AI_API_KEY || '';
+  const aiModel = process.env.AI_MODEL || 'llama-3-8b-instruct';
 
+  if (aiEndpoint) {
     try {
-      const res = await fetch('http://127.0.0.1:11434/api/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'deepseek-r1:8b',
-          prompt,
-          stream: false,
-        }),
-        signal: controller.signal,
-      });
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 4000);
 
-      if (res.ok) {
-        const data = await res.json() as { response?: string };
-        if (data.response) return data.response.trim();
+      try {
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (aiKey) headers['Authorization'] = `Bearer ${aiKey}`;
+
+        const isOllama = aiEndpoint.includes('/api/generate');
+        const body = isOllama
+          ? JSON.stringify({ model: aiModel, prompt, stream: false })
+          : JSON.stringify({
+              model: aiModel,
+              messages: [
+                { role: 'system', content: 'You are a technical binary security analyst.' },
+                { role: 'user', content: prompt },
+              ],
+              max_tokens: 300,
+            });
+
+        const res = await fetch(aiEndpoint, {
+          method: 'POST',
+          headers,
+          body,
+          signal: controller.signal,
+        });
+
+        if (res.ok) {
+          const data = (await res.json()) as any;
+          const text = data.response || data.choices?.[0]?.message?.content;
+          if (text) return text.trim();
+        }
+      } finally {
+        clearTimeout(timeout);
       }
-    } finally {
-      clearTimeout(timeout);
+    } catch {
+      // Remote AI unreachable; proceed with deterministic static analysis engine
     }
-  } catch {
-    // Local Ollama is offline or warming up; use our deterministic technical synthesis engine
   }
 
-  // Fallback high-fidelity technical synthesis
+  // Deterministic high-fidelity technical synthesis with transparent attestation
   return `### 📦 Technical Release & Archival Summary: ${title}
 
 - **Artifact Name:** \`${fileName}\`
@@ -65,7 +84,7 @@ export async function generateTechnicalSynthesis(
 SHA-256: ${sha256}
 \`\`\`
 
-> *Archival Daemon Attestation: This artifact has been parsed by the local Aetheris Static Inspector. Sections verified without unauthorized RWX memory violations.*`;
+> *Static Binary Analysis Attestation: Deterministic technical synthesis generated via Aetheris Binary Hygiene Inspector (Zero Cloud/Third-Party Telemetry).*`;
 }
 
 /**

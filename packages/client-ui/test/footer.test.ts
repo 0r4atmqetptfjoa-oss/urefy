@@ -12,19 +12,19 @@ describe('EU Legal & Regulatory Footer Suite', () => {
     expect(html).toContain('aetheris-global-footer');
     expect(html).toContain('AETHERIS OMNI-SPHERE');
     // EU DSA Art. 14 / Terms
-    expect(html).toContain('Termeni și Condiții de Utilizare');
+    expect(html).toContain('Terms & Conditions of Use');
     expect(html).toContain('terms');
     // GDPR
-    expect(html).toContain('Confidențialitate & GDPR (UE 2016/679)');
+    expect(html).toContain('Privacy & GDPR (EU 2016/679)');
     expect(html).toContain('privacy');
     // Rules / Content Moderation DSA Art. 14
-    expect(html).toContain('Regulament & Moderare (Art. 14 DSA)');
+    expect(html).toContain('Community Rules & Moderation (Art. 14 DSA)');
     expect(html).toContain('rules');
     // Notice & Takedown DSA Art. 16
-    expect(html).toContain('Raportează Conținut Ilegal (Art. 16 DSA)');
+    expect(html).toContain('Report Illegal Content (Art. 16 DSA)');
     expect(html).toContain('dsa');
     // Point of Contact DSA Art. 11/12
-    expect(html).toContain('Puncte Unice de Contact (Art. 11/12)');
+    expect(html).toContain('Single Points of Contact (Art. 11/12)');
     expect(html).toContain('contact');
     // Zero-Tracker / Certificates
     expect(html).toContain('Zero Tracking Cookies');
@@ -73,42 +73,42 @@ describe('EU Legal & Regulatory Footer Suite', () => {
     expect(legalModal.isOpen).toBe(true);
     expect(legalModal.activeTab).toBe('about');
     let content = legalModal.render();
-    expect(content).toContain('Ce este Aetheris Omni-Sphere?');
-    expect(content).toContain('Arhitectură Non-Custodială');
+    expect(content).toContain('What is Aetheris Omni-Sphere?');
+    expect(content).toContain('Non-Custodial Architecture');
 
     // 2. Terms
     legalModal.setTab('terms');
     expect(legalModal.activeTab).toBe('terms');
     content = legalModal.render();
-    expect(content).toContain('Termeni și Condiții');
+    expect(content).toContain('Terms of Service');
     expect(content).toContain('ZK-RLN Slashing');
 
     // 3. Privacy
     legalModal.setTab('privacy');
     expect(legalModal.activeTab).toBe('privacy');
     content = legalModal.render();
-    expect(content).toContain('Declarație de Conformitate GDPR');
-    expect(content).toContain('Principiul Zero-Data');
+    expect(content).toContain('GDPR Compliance Statement');
+    expect(content).toContain('Zero-Data Principle');
 
     // 4. Rules
     legalModal.setTab('rules');
     expect(legalModal.activeTab).toBe('rules');
     content = legalModal.render();
-    expect(content).toContain('Politica de Moderare și Transparență conform Art. 14 DSA');
-    expect(content).toContain('Zero toleranță pentru CSAM');
+    expect(content).toContain('Moderation & Transparency Policy under Art. 14 DSA');
+    expect(content).toContain('Zero tolerance for CSAM');
 
     // 5. DSA Notice & Action
     legalModal.setTab('dsa');
     expect(legalModal.activeTab).toBe('dsa');
     content = legalModal.render();
-    expect(content).toContain('Formular Oficial de Notificare Conținut Ilegal');
-    expect(content).toContain('Procedura de Notificare și Eliminare (DSA Art. 16)');
+    expect(content).toContain('Official Illegal Content Notification Form');
+    expect(content).toContain('Notice and Takedown Procedure (DSA Art. 16)');
 
     // 6. Contact & SPOC
     legalModal.setTab('contact');
     expect(legalModal.activeTab).toBe('contact');
     content = legalModal.render();
-    expect(content).toContain('Puncte Unice de Contact');
+    expect(content).toContain('Single Points of Contact');
     expect(content).toContain('legal@aetheris.network');
     expect(content).toContain('love4jpx@gmail.com');
 

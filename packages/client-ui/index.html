@@ -2,6 +2,15 @@
 <html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
+    <script>
+      try {
+        var savedLang = localStorage.getItem('aetheris_locale');
+        if (savedLang) {
+          document.documentElement.lang = savedLang;
+          if (savedLang === 'ar') document.documentElement.dir = 'rtl';
+        }
+      } catch (e) {}
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
     <!-- ─── SEO & Social ──────────────────────────────────────────────────── -->
     <title>Aetheris — Sovereign Communication &amp; Knowledge Vault</title>
@@ -20,8 +29,7 @@
     <meta name="twitter:card" content="summary" />
     <meta name="twitter:title" content="Aetheris — Sovereign Communication" />
     <meta name="twitter:description" content="Encrypted P2P messaging and decentralized knowledge vault." />
-    <meta name="twitter:image" content="/favicon.svg" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; manifest-src 'self' blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https://images.unsplash.com https://*.ytimg.com https://*.youtube.com https://*; media-src 'self' blob: data: https://*; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com blob:; child-src 'self' blob: https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com; connect-src 'self' wss: ws: https:; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests;" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; manifest-src 'self' blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://images.unsplash.com https://*.ytimg.com https://*.youtube.com https://*; media-src 'self' blob: data: https://*; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com blob:; child-src 'self' blob: https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com; connect-src 'self' wss: ws: https:; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests;" />
     <meta http-equiv="X-Content-Type-Options" content="nosniff" />
     <meta name="referrer" content="strict-origin-when-cross-origin" />
     <!-- ─── Theme & PWA ────────────────────────────────────────────────────── -->
@@ -62,13 +70,6 @@
         if(d)document.documentElement.setAttribute('data-density',d);
       }catch(e){}}());
     </script>
-    <!-- ─── RESOURCE HINTS: DNS + Preconnect for fastest possible asset load ─── -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
-    <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
-    <!-- Fonts: Inter + JetBrains Mono -->
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" />
     <!-- ─── Speculation Rules API — Prerender next likely navigation (Chrome 108+) -->
     <script type="speculationrules">
     {

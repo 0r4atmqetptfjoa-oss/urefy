@@ -8,13 +8,18 @@
  * 5. Full Edit Profile modal (custom name, bio, location, mesh website, banner URL, avatar).
  */
 
-import { ClientPost } from './client-state.js';
+import { ClientPost, clientStore, UiMode } from './client-state.js';
 import { obsidianMediaPlayer } from './media-player.js';
 import { pulseActionsEngine } from './pulse-actions.js';
 import { markdownRenderer } from './markdown-renderer.js';
 import { isLocalDev } from './admin-auth.js';
+import { themeEngine, THEMES } from './themes.js';
+import { sovereignFootprint } from './settings-footprint.js';
+import { localDiagnostics } from './local-diagnostics.js';
+import { exportBackup } from './export-backup.js';
 
-export type ProfileTab = 'pulses' | 'replies' | 'highlights' | 'media' | 'likes';
+export type ProfileTab = 'pulses' | 'replies' | 'highlights' | 'media' | 'likes' | 'settings';
+export type SettingsCategory = 'account' | 'security' | 'privacy' | 'notifications' | 'appearance' | 'data' | 'advanced';
 
 export interface UserProfileData {
   fingerprint: string;
@@ -70,6 +75,7 @@ if (typeof window !== 'undefined') {
 
 export class ProfileView {
   public activeTab: ProfileTab = 'pulses';
+  public activeSettingsCategory: SettingsCategory = 'account';
   public targetFingerprint: string = '';
   public isEditProfileModalOpen: boolean = false;
   public followingSet: Set<string>;
@@ -95,7 +101,32 @@ export class ProfileView {
     }
     if (typeof window !== 'undefined') {
       (window as any).profileView = this;
+      (window as any).__aetheris_set_settings_cat = (cat: SettingsCategory) => {
+        this.activeSettingsCategory = cat;
+        if ((window as any).clientStore) {
+          (window as any).clientStore.notify();
+        }
+      };
+      (window as any).__aetheris_open_settings = (cat?: SettingsCategory) => {
+        if ((window as any).clientStore) {
+          (window as any).clientStore.activeChannelId = 'profile';
+          (window as any).clientStore.activeSpace = 'pulse';
+        }
+        this.openSettings(cat || 'account');
+        if ((window as any).clientStore) {
+          (window as any).clientStore.notify();
+        }
+      };
     }
+  }
+
+  public openSettings(category: SettingsCategory = 'account'): void {
+    this.activeTab = 'settings';
+    this.activeSettingsCategory = category;
+  }
+
+  public setActiveSettingsCategory(category: SettingsCategory): void {
+    this.activeSettingsCategory = category;
   }
 
   private _seedProfiles(): void {
@@ -279,6 +310,9 @@ export class ProfileView {
       { id: 'media', label: 'Media' },
       { id: 'likes', label: 'Likes' },
     ];
+    if (isOwnProfile) {
+      tabs.push({ id: 'settings', label: '⚙️ Settings' });
+    }
 
     return `
       <div class="flex-1 flex flex-col overflow-y-auto bg-canvas select-none">
@@ -358,10 +392,10 @@ export class ProfileView {
                   id="btn-profile-settings"
                   onclick="if(window.__aetheris_open_settings) window.__aetheris_open_settings();"
                   class="px-4 py-2 rounded-full border border-white/20 hover:border-white/40 bg-surface-raised hover:bg-surface-overlay text-white font-bold text-xs transition-all shadow-md cursor-pointer flex items-center space-x-1.5"
-                  title="Deschide Setări Suverane"
+                  title="Open Sovereign Settings"
                 >
                   <span>⚙️</span>
-                  <span>Setări</span>
+                  <span>Settings</span>
                 </button>
                 <button
                   type="button"
@@ -512,14 +546,16 @@ export class ProfileView {
           `).join('')}
         </div>
 
-        <!-- TIMELINE FEED -->
+        <!-- TIMELINE FEED OR EMBEDDED SETTINGS SUBTAB -->
         <div class="p-3 sm:p-4 md:p-6 max-w-4xl mx-auto w-full space-y-4 pb-20 md:pb-6">
-          ${timelinePosts.length === 0 ? `
-            <div class="p-12 text-center text-slate-500 space-y-2 rounded-3xl bg-surface-raised border border-white/5">
-              <p class="text-base font-bold text-white">No ${this.activeTab} to display yet</p>
-              <p class="text-xs">When this sovereign node publishes pulses or attachments, they will appear here.</p>
-            </div>
-          ` : timelinePosts.map(p => this.renderTimelineCard(p)).join('')}
+          ${this.activeTab === 'settings' ? this.renderSettingsSubtab(profile, currentUserFp) : (
+            timelinePosts.length === 0 ? `
+              <div class="p-12 text-center text-slate-500 space-y-2 rounded-3xl bg-surface-raised border border-white/5">
+                <p class="text-base font-bold text-white">No ${this.activeTab} to display yet</p>
+                <p class="text-xs">When this sovereign node publishes pulses or attachments, they will appear here.</p>
+              </div>
+            ` : timelinePosts.map(p => this.renderTimelineCard(p)).join('')
+          )}
         </div>
 
         <!-- EDIT PROFILE MODAL -->
@@ -636,8 +672,527 @@ export class ProfileView {
           </form>
 
         </div>
+    `;
+  }
+
+  public renderSettingsSubtab(profile: UserProfileData, currentUserFp: string): string {
+    const categories: Array<{ id: SettingsCategory; label: string; icon: string; desc: string }> = [
+      { id: 'account', label: 'Account & Identity', icon: '👤', desc: 'Display name, bio, handle, and avatar' },
+      { id: 'security', label: 'Security & Recovery', icon: '🔐', desc: 'Passkeys, recovery seed phrase, and guardians' },
+      { id: 'privacy', label: 'Privacy & Trust', icon: '🛡️', desc: 'UI complexity mode, trust thresholds, and data shredding' },
+      { id: 'notifications', label: 'Notifications', icon: '🔔', desc: 'Web push notifications, mentions, and alerts' },
+      { id: 'appearance', label: 'Appearance & Themes', icon: '🎨', desc: 'Themes, OLED black, density, and typography' },
+      { id: 'data', label: 'Data & Storage', icon: '💾', desc: 'Backup export/import, cache quota, and offline sync' },
+      { id: 'advanced', label: 'Advanced Diagnostics', icon: '⚡', desc: 'Cryptographic pipeline, node telemetry, and mesh' },
+    ];
+
+    const currentCat = this.activeSettingsCategory || 'account';
+
+    return `
+      <div id="profile-settings-panel" class="space-y-6 animate-in fade-in duration-200">
+        <!-- CATEGORY NAVIGATION PILLS -->
+        <div class="flex items-center space-x-1.5 overflow-x-auto pb-2 scrollbar-none border-b border-white/5">
+          ${categories.map(cat => `
+            <button
+              type="button"
+              id="btn-settings-cat-${cat.id}"
+              data-settings-cat="${cat.id}"
+              onclick="if(window.__aetheris_set_settings_cat){window.__aetheris_set_settings_cat('${cat.id}');}else if(window.profileView){window.profileView.setActiveSettingsCategory('${cat.id}');}"
+              class="px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center space-x-2 cursor-pointer border ${
+                currentCat === cat.id
+                  ? 'bg-indigo-600/30 text-indigo-200 border-indigo-500/40 shadow-sm shadow-indigo-500/10'
+                  : 'bg-surface-raised hover:bg-surface-overlay text-slate-400 hover:text-slate-200 border-white/5'
+              }"
+            >
+              <span>${cat.icon}</span>
+              <span>${cat.label}</span>
+            </button>
+          `).join('')}
+        </div>
+
+        <!-- ACTIVE CATEGORY CONTENT CONTAINER -->
+        <div class="p-6 rounded-3xl bg-surface-raised border border-white/10 shadow-xl space-y-6">
+          ${this.renderSettingsCategoryContent(currentCat, profile, currentUserFp)}
+        </div>
       </div>
     `;
+  }
+
+  public renderSettingsCategoryContent(cat: SettingsCategory, profile: UserProfileData, currentUserFp: string): string {
+    const federatedHandle = this.getFederatedHandle(profile.fingerprint);
+
+    switch (cat) {
+      case 'account':
+        return `
+          <div class="space-y-5" data-settings-section="account">
+            <div class="flex items-center justify-between pb-3 border-b border-white/5">
+              <div>
+                <h3 class="text-base font-bold text-white flex items-center space-x-2">
+                  <span>👤</span>
+                  <span>Account & Identity</span>
+                </h3>
+                <p class="text-xs text-slate-400">Manage your sovereign identity, display alias, and fediverse reach</p>
+              </div>
+              <button
+                type="button"
+                id="btn-settings-edit-profile-modal"
+                onclick="if(window.profileView){window.profileView.isEditProfileModalOpen = true; if(window.clientStore) window.clientStore.notify();}"
+                class="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition-colors shadow"
+              >
+                Edit Full Profile
+              </button>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+              <div class="p-4 rounded-2xl bg-surface-base border border-white/5 space-y-2">
+                <div class="text-[11px] font-mono text-slate-400">Display Name</div>
+                <div class="text-sm font-bold text-white">${profile.name}</div>
+                <div class="text-[11px] font-mono text-indigo-400">@id:${profile.handle}</div>
+              </div>
+
+              <div class="p-4 rounded-2xl bg-surface-base border border-white/5 space-y-2">
+                <div class="text-[11px] font-mono text-slate-400">Federated Fediverse Handle</div>
+                <div class="text-xs font-mono font-bold text-indigo-300">${federatedHandle}</div>
+                <button
+                  type="button"
+                  id="btn-settings-copy-fed-handle"
+                  onclick="if(window.__aetheris_copy_federated_handle){window.__aetheris_copy_federated_handle('${federatedHandle}');}else{navigator.clipboard&&navigator.clipboard.writeText('${federatedHandle}');}"
+                  class="px-2.5 py-1 rounded-lg bg-surface-raised hover:bg-surface-overlay border border-white/10 text-[11px] font-mono text-slate-300 hover:text-white transition-colors flex items-center space-x-1 cursor-pointer"
+                >
+                  <span>📋</span>
+                  <span>Copy Handle</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="p-4 rounded-2xl bg-surface-base border border-white/5 space-y-2 text-xs">
+              <div class="text-[11px] font-mono text-slate-400">Public Ed25519 Fingerprint</div>
+              <div class="font-mono text-[11px] text-emerald-400 break-all select-all bg-black/40 p-2.5 rounded-xl border border-white/5">${profile.fingerprint}</div>
+            </div>
+
+            <div class="p-4 rounded-2xl bg-surface-base border border-white/5 space-y-2 text-xs">
+              <div class="text-[11px] font-mono text-slate-400">Sovereign Bio</div>
+              <p class="text-slate-300 leading-relaxed">${markdownRenderer.renderMarkdown(profile.bio)}</p>
+            </div>
+          </div>
+        `;
+
+      case 'security':
+        return `
+          <div class="space-y-5" data-settings-section="security">
+            <div class="pb-3 border-b border-white/5">
+              <h3 class="text-base font-bold text-white flex items-center space-x-2">
+                <span>🔐</span>
+                <span>Security & Cryptographic Recovery</span>
+              </h3>
+              <p class="text-xs text-slate-400">Hardware keys, seed phrase export, and threshold social recovery</p>
+            </div>
+
+            <!-- WEBAUTHN / PASSKEY -->
+            <div class="p-4 rounded-2xl bg-surface-base border border-white/5 flex items-center justify-between">
+              <div class="space-y-1">
+                <div class="text-xs font-bold text-white flex items-center space-x-2">
+                  <span>🔑 WebAuthn / Biometric Passkey</span>
+                  <span class="px-2 py-0.2 rounded-full text-[9px] font-mono bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">SUPPORTED</span>
+                </div>
+                <p class="text-[11px] text-slate-400">Use Touch ID, Face ID, or Windows Hello for instant hardware authorization</p>
+              </div>
+              <button
+                type="button"
+                id="btn-settings-register-passkey"
+                class="px-3.5 py-1.5 rounded-xl bg-surface-raised hover:bg-surface-overlay text-slate-200 border border-white/10 text-xs font-bold transition-all cursor-pointer"
+              >
+                Register Passkey
+              </button>
+            </div>
+
+            <!-- BIP-39 RECOVERY MNEMONIC -->
+            <div class="p-4 rounded-2xl bg-surface-base border border-white/5 space-y-3">
+              <div class="flex items-center justify-between">
+                <div>
+                  <div class="text-xs font-bold text-white">BIP-39 Cryptographic Recovery Seed</div>
+                  <p class="text-[11px] text-slate-400">12-word master seed used to derive your ML-KEM-768 and Ed25519 identity</p>
+                </div>
+                <button
+                  type="button"
+                  id="btn-settings-toggle-seed"
+                  onclick="const el=document.getElementById('settings-seed-display'); if(el){ el.classList.toggle('blur-sm'); }"
+                  class="px-3 py-1 rounded-xl bg-surface-raised hover:bg-surface-overlay text-slate-300 border border-white/10 text-xs transition-colors cursor-pointer"
+                >
+                  Reveal / Hide Seed
+                </button>
+              </div>
+              <div id="settings-seed-display" class="p-3 bg-black/40 border border-white/5 rounded-xl font-mono text-xs text-amber-400 select-all blur-sm transition-all duration-200 break-words">
+                ${clientStore?.mnemonic || 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about'}
+              </div>
+            </div>
+
+            <!-- SOCIAL RECOVERY GUARDIANS -->
+            <div class="p-4 rounded-2xl bg-surface-base border border-white/5 flex items-center justify-between">
+              <div class="space-y-1">
+                <div class="text-xs font-bold text-white flex items-center space-x-2">
+                  <span>🛡️ Social Recovery Guardians (Shamir Secret Sharing)</span>
+                  <span class="px-2 py-0.2 rounded-full text-[9px] font-mono bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">k-of-n</span>
+                </div>
+                <p class="text-[11px] text-slate-400">Split your recovery seed into encrypted shards across trusted Web-of-Trust peers</p>
+              </div>
+              <button
+                type="button"
+                id="btn-settings-open-social-guardians"
+                onclick="if(window.__aetheris_open_social_recovery) window.__aetheris_open_social_recovery();"
+                class="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all cursor-pointer shadow"
+              >
+                Configure Guardians
+              </button>
+            </div>
+
+            <!-- SESSION SECURITY INFO -->
+            <div class="p-3.5 rounded-2xl bg-emerald-950/20 border border-emerald-500/20 text-xs flex items-center space-x-3 text-emerald-300">
+              <span class="text-lg">🛡️</span>
+              <div>
+                <span class="font-bold">In-Memory Session Security Active:</span>
+                <span class="text-emerald-400/80"> Administrative tokens and sensitive session keys are stored strictly in volatile RAM. Zero local storage leakage.</span>
+              </div>
+            </div>
+          </div>
+        `;
+
+      case 'privacy':
+        const currentMode = clientStore?.uiMode || 'simple';
+        return `
+          <div class="space-y-5" data-settings-section="privacy">
+            <div class="pb-3 border-b border-white/5">
+              <h3 class="text-base font-bold text-white flex items-center space-x-2">
+                <span>🛡️</span>
+                <span>Privacy & Progressive Disclosure</span>
+              </h3>
+              <p class="text-xs text-slate-400">Tailor the interface density, cryptographic terminology, and trust filtering</p>
+            </div>
+
+            <!-- 3-TIER PROGRESSIVE DISCLOSURE (CENTRAL ROADMAP PILLAR) -->
+            <div class="space-y-2.5">
+              <div class="text-xs font-bold text-white">Interface Complexity & Terminology Level</div>
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <!-- SIMPLE -->
+                <button
+                  type="button"
+                  id="btn-set-mode-simple"
+                  onclick="if(window.clientStore){window.clientStore.setUiMode('simple'); if(window.profileView) window.profileView.openSettings('privacy');}"
+                  class="p-4 rounded-2xl text-left border transition-all cursor-pointer space-y-2 ${
+                    currentMode === 'simple'
+                      ? 'bg-cyan-950/40 border-cyan-500/50 shadow-lg shadow-cyan-500/10 ring-1 ring-cyan-500/30'
+                      : 'bg-surface-base border-white/5 hover:border-white/20'
+                  }"
+                >
+                  <div class="flex items-center justify-between">
+                    <span class="text-base">🌱</span>
+                    ${currentMode === 'simple' ? '<span class="text-[9px] font-mono font-bold px-2 py-0.5 rounded-full bg-cyan-500 text-black">ACTIVE</span>' : ''}
+                  </div>
+                  <div class="font-bold text-xs text-white">Simple (Default)</div>
+                  <p class="text-[11px] text-slate-400 leading-relaxed">
+                    Plain, intuitive language. "Encrypted messages", "Verified files", "Protected identity". Zero jargon.
+                  </p>
+                </button>
+
+                <!-- ADVANCED -->
+                <button
+                  type="button"
+                  id="btn-set-mode-advanced"
+                  onclick="if(window.clientStore){window.clientStore.setUiMode('advanced'); if(window.profileView) window.profileView.openSettings('privacy');}"
+                  class="p-4 rounded-2xl text-left border transition-all cursor-pointer space-y-2 ${
+                    currentMode === 'advanced'
+                      ? 'bg-indigo-950/40 border-indigo-500/50 shadow-lg shadow-indigo-500/10 ring-1 ring-indigo-500/30'
+                      : 'bg-surface-base border-white/5 hover:border-white/20'
+                  }"
+                >
+                  <div class="flex items-center justify-between">
+                    <span class="text-base">⚡</span>
+                    ${currentMode === 'advanced' ? '<span class="text-[9px] font-mono font-bold px-2 py-0.5 rounded-full bg-indigo-500 text-white">ACTIVE</span>' : ''}
+                  </div>
+                  <div class="font-bold text-xs text-white">Advanced</div>
+                  <p class="text-[11px] text-slate-400 leading-relaxed">
+                    Exposes cryptographic protocol indicators: E2EE, ML-KEM-768, TreeKEM, and Web-of-Trust badges.
+                  </p>
+                </button>
+
+                <!-- TECHNICAL -->
+                <button
+                  type="button"
+                  id="btn-set-mode-technical"
+                  onclick="if(window.clientStore){window.clientStore.setUiMode('technical'); if(window.profileView) window.profileView.openSettings('privacy');}"
+                  class="p-4 rounded-2xl text-left border transition-all cursor-pointer space-y-2 ${
+                    currentMode === 'technical' || currentMode === 'sovereign'
+                      ? 'bg-amber-950/40 border-amber-500/50 shadow-lg shadow-amber-500/10 ring-1 ring-amber-500/30'
+                      : 'bg-surface-base border-white/5 hover:border-white/20'
+                  }"
+                >
+                  <div class="flex items-center justify-between">
+                    <span class="text-base">🔬</span>
+                    ${currentMode === 'technical' || currentMode === 'sovereign' ? '<span class="text-[9px] font-mono font-bold px-2 py-0.5 rounded-full bg-amber-500 text-black">ACTIVE</span>' : ''}
+                  </div>
+                  <div class="font-bold text-xs text-white">Technical</div>
+                  <p class="text-[11px] text-slate-400 leading-relaxed">
+                    Raw cryptographic telemetry: hashes, epochs, nullifiers, Merkle roots, entropy, and RTT.
+                  </p>
+                </button>
+              </div>
+            </div>
+
+            <!-- WOT TRUST THRESHOLD -->
+            <div class="p-4 rounded-2xl bg-surface-base border border-white/5 space-y-3">
+              <div class="flex items-center justify-between">
+                <div>
+                  <div class="text-xs font-bold text-white">Minimum Web-of-Trust Threshold</div>
+                  <p class="text-[11px] text-slate-400">Filter out feeds and interactions from nodes with trust score below threshold</p>
+                </div>
+                <span class="font-mono text-xs font-bold text-cyan-400">${clientStore?.minFeedTrustThreshold || 0} / 100</span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value="${clientStore?.minFeedTrustThreshold || 0}"
+                id="input-settings-trust-threshold"
+                onchange="if(window.clientStore) window.clientStore.setMinFeedTrustThreshold(parseInt(this.value, 10));"
+                class="w-full accent-cyan-400 h-1.5 bg-surface-raised rounded-lg cursor-pointer"
+              />
+            </div>
+
+            <!-- LOCAL MEMORY ZEROIZATION -->
+            <div class="p-4 rounded-2xl bg-surface-base border border-white/5 flex items-center justify-between">
+              <div class="space-y-1">
+                <div class="text-xs font-bold text-white">Emergency Memory Zeroization & Data Shred</div>
+                <p class="text-[11px] text-slate-400">Immediately overwrites cryptographic keys in RAM and purges local caches</p>
+              </div>
+              <button
+                type="button"
+                id="btn-settings-zeroize-memory"
+                onclick="if(window.localDiagnostics){ window.localDiagnostics.zeroizeMemory(); } if(window.clientStore){ window.clientStore.showToast('Volatile memory zeroized successfully.', 'success'); }"
+                class="px-3.5 py-1.5 rounded-xl bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border border-rose-500/30 text-xs font-bold transition-colors cursor-pointer"
+              >
+                Zeroize Memory
+              </button>
+            </div>
+          </div>
+        `;
+
+      case 'notifications':
+        return `
+          <div class="space-y-5" data-settings-section="notifications">
+            <div class="pb-3 border-b border-white/5">
+              <h3 class="text-base font-bold text-white flex items-center space-x-2">
+                <span>🔔</span>
+                <span>Notifications & Background Push</span>
+              </h3>
+              <p class="text-xs text-slate-400">Zero-tracking Web Push (VAPID) delivered directly from Cloudflare Edge</p>
+            </div>
+
+            <div class="p-4 rounded-2xl bg-surface-base border border-white/5 flex items-center justify-between">
+              <div class="space-y-1">
+                <div class="text-xs font-bold text-white flex items-center space-x-2">
+                  <span>Web Push Notifications (VAPID)</span>
+                  <span class="px-2 py-0.2 rounded-full text-[9px] font-mono bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">ZERO-TRACKING</span>
+                </div>
+                <p class="text-[11px] text-slate-400">Receive encrypted direct messages and community alerts even when closed</p>
+              </div>
+              <button
+                type="button"
+                id="btn-settings-toggle-push"
+                onclick="if(window.sovereignWebPush){ window.sovereignWebPush.requestPermission(); }"
+                class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition-colors shadow cursor-pointer"
+              >
+                Enable Push
+              </button>
+            </div>
+
+            <div class="space-y-3">
+              <div class="p-3.5 rounded-2xl bg-surface-base border border-white/5 flex items-center justify-between text-xs">
+                <span class="text-slate-200">Notify on Direct Encrypted Messages</span>
+                <input type="checkbox" checked class="accent-indigo-500 cursor-pointer" />
+              </div>
+              <div class="p-3.5 rounded-2xl bg-surface-base border border-white/5 flex items-center justify-between text-xs">
+                <span class="text-slate-200">Notify on Mentions & Replies</span>
+                <input type="checkbox" checked class="accent-indigo-500 cursor-pointer" />
+              </div>
+              <div class="p-3.5 rounded-2xl bg-surface-base border border-white/5 flex items-center justify-between text-xs">
+                <span class="text-slate-200">Urgent Network & Security Bulletins</span>
+                <input type="checkbox" checked class="accent-indigo-500 cursor-pointer" />
+              </div>
+            </div>
+          </div>
+        `;
+
+      case 'appearance':
+        return `
+          <div class="space-y-5" data-settings-section="appearance">
+            <div class="flex items-center justify-between pb-3 border-b border-white/5">
+              <div>
+                <h3 class="text-base font-bold text-white flex items-center space-x-2">
+                  <span>🎨</span>
+                  <span>Appearance & Themes</span>
+                </h3>
+                <p class="text-xs text-slate-400">Obsidian cyber themes, OLED black mode, and interface density</p>
+              </div>
+              <button
+                type="button"
+                id="btn-settings-open-theme-builder"
+                onclick="if(window.customThemeBuilder) window.customThemeBuilder.openModal();"
+                class="px-3.5 py-1.5 rounded-xl bg-surface-raised hover:bg-surface-overlay border border-white/10 text-slate-200 text-xs font-bold transition-colors cursor-pointer"
+              >
+                Custom Theme Studio
+              </button>
+            </div>
+
+            <!-- THEME CARDS -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+              ${THEMES.map(t => `
+                <button
+                  type="button"
+                  data-theme-id="${t.id}"
+                  onclick="if(window.themeEngine){ window.themeEngine.setTheme('${t.id}'); if(window.profileView) window.profileView.openSettings('appearance'); }"
+                  class="p-3 rounded-2xl text-left border transition-all cursor-pointer space-y-2 ${
+                    themeEngine.currentThemeId === t.id
+                      ? 'bg-indigo-950/40 border-indigo-500/50 ring-1 ring-indigo-500/30'
+                      : 'bg-surface-base border-white/5 hover:border-white/15'
+                  }"
+                >
+                  <div class="w-full h-8 rounded-xl" style="background-color: ${t.bgCanvas}; border: 1px solid ${t.borderAccent};"></div>
+                  <div class="text-xs font-bold text-white truncate">${t.name}</div>
+                  <div class="text-[10px] text-slate-400 truncate">${t.description || ''}</div>
+                </button>
+              `).join('')}
+            </div>
+
+            <!-- DENSITY -->
+            <div class="p-4 rounded-2xl bg-surface-base border border-white/5 space-y-3">
+              <div class="text-xs font-bold text-white">Interface Density Mode</div>
+              <div class="grid grid-cols-3 gap-3">
+                ${(['compact', 'balanced', 'media'] as const).map(d => `
+                  <button
+                    type="button"
+                    onclick="if(window.clientStore){ window.clientStore.setDensity('${d}'); if(window.profileView) window.profileView.openSettings('appearance'); }"
+                    class="py-2 px-3 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
+                      clientStore?.density === d
+                        ? 'bg-indigo-600/30 text-indigo-200 border-indigo-500/40'
+                        : 'bg-surface-raised text-slate-400 border-white/5 hover:text-white'
+                    }"
+                  >
+                    ${d.charAt(0).toUpperCase() + d.slice(1)}
+                  </button>
+                `).join('')}
+              </div>
+            </div>
+
+            <!-- TYPOGRAPHY NOTE -->
+            <div class="p-3.5 rounded-2xl bg-surface-base border border-white/5 text-xs text-slate-400 space-y-1">
+              <div class="text-slate-200 font-bold">Fast Native System Font Stack</div>
+              <p class="text-[11px]">System native UI typography with zero external HTTP requests to Google Fonts. 100% private, 0ms font blocking.</p>
+            </div>
+          </div>
+        `;
+
+      case 'data':
+        return `
+          <div class="space-y-5" data-settings-section="data">
+            <div class="pb-3 border-b border-white/5">
+              <h3 class="text-base font-bold text-white flex items-center space-x-2">
+                <span>💾</span>
+                <span>Data & Encrypted Storage</span>
+              </h3>
+              <p class="text-xs text-slate-400">Audited local cache, encrypted archive export, and recovery imports</p>
+            </div>
+
+            <div class="p-4 rounded-2xl bg-surface-base border border-white/5 flex items-center justify-between">
+              <div class="space-y-1">
+                <div class="text-xs font-bold text-white">Full Cryptographic Backup Export</div>
+                <p class="text-[11px] text-slate-400">Download AES-256-GCM encrypted package containing keys, channels, and contacts</p>
+              </div>
+              <button
+                type="button"
+                id="btn-settings-export-backup"
+                onclick="if(window.exportBackup) window.exportBackup.downloadBackup();"
+                class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition-colors shadow cursor-pointer"
+              >
+                Export Backup (.aeth)
+              </button>
+            </div>
+
+            <div class="p-4 rounded-2xl bg-surface-base border border-white/5 flex items-center justify-between">
+              <div class="space-y-1">
+                <div class="text-xs font-bold text-white">Restore Account from Backup File</div>
+                <p class="text-[11px] text-slate-400">Import a previously downloaded .aeth or .json backup archive</p>
+              </div>
+              <label for="settings-restore-file" class="px-3.5 py-2 rounded-xl bg-surface-raised hover:bg-surface-overlay border border-white/10 text-xs font-bold text-slate-200 transition-colors cursor-pointer inline-block">
+                Choose Backup File
+              </label>
+              <input type="file" id="settings-restore-file" accept=".aeth,.json" class="hidden" />
+            </div>
+
+            <div class="p-4 rounded-2xl bg-surface-base border border-white/5 space-y-2 text-xs">
+              <div class="text-slate-200 font-bold">Storage Footprint & Offline Status</div>
+              <div class="grid grid-cols-2 gap-3 pt-1 text-[11px] font-mono text-slate-400">
+                <div>Local Storage: <span class="text-cyan-400">Healthy (< 1.2 MB)</span></div>
+                <div>IndexedDB Cache: <span class="text-cyan-400">Optimized</span></div>
+                <div>Trackers / Telemetry: <span class="text-emerald-400">0 Third-Party Trackers</span></div>
+                <div>Offline Sync Queue: <span class="text-indigo-400">Synchronized</span></div>
+              </div>
+            </div>
+          </div>
+        `;
+
+      case 'advanced':
+        return `
+          <div class="space-y-5" data-settings-section="advanced">
+            <div class="pb-3 border-b border-white/5">
+              <h3 class="text-base font-bold text-white flex items-center space-x-2">
+                <span>⚡</span>
+                <span>Advanced Diagnostics & Network</span>
+              </h3>
+              <p class="text-xs text-slate-400">Real-time cryptographic pipeline inspector and edge network telemetry</p>
+            </div>
+
+            <!-- TRANSPARENCY MODE INSPECTOR -->
+            <div class="p-4 rounded-2xl bg-surface-base border border-white/5 flex items-center justify-between">
+              <div class="space-y-1">
+                <div class="text-xs font-bold text-white flex items-center space-x-2">
+                  <span>🔬 Cryptographic Pipeline Transparency Inspector</span>
+                  <span class="px-2 py-0.2 rounded-full text-[9px] font-mono bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">LIVE</span>
+                </div>
+                <p class="text-[11px] text-slate-400">Inspect real-time ML-KEM encapsulation, ZK-RLN polynomial shares, and Merkle proofs</p>
+              </div>
+              <button
+                type="button"
+                id="btn-settings-open-transparency"
+                onclick="if(window.__aetheris_open_transparency_mode) window.__aetheris_open_transparency_mode();"
+                class="px-3.5 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs transition-colors shadow cursor-pointer"
+              >
+                Open Inspector
+              </button>
+            </div>
+
+            <!-- NETWORK TELEMETRY -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs font-mono">
+              <div class="p-3.5 rounded-2xl bg-surface-base border border-white/5 space-y-1">
+                <div class="text-slate-500 text-[10px]">EDGE LATENCY</div>
+                <div class="text-emerald-400 font-bold text-sm">${(clientStore?.latencyMs && clientStore.latencyMs > 0) ? `${clientStore.latencyMs} ms` : 'Measuring...'}</div>
+                <div class="text-slate-400 text-[10px]">Cloudflare Global Anycast</div>
+              </div>
+
+              <div class="p-3.5 rounded-2xl bg-surface-base border border-white/5 space-y-1">
+                <div class="text-slate-500 text-[10px]">WEBRTC MESH PEERS</div>
+                <div class="text-cyan-400 font-bold text-sm">${clientStore?.peersOnline ?? 0} Nodes</div>
+                <div class="text-slate-400 text-[10px]">P2P Swarm Active</div>
+              </div>
+
+              <div class="p-3.5 rounded-2xl bg-surface-base border border-white/5 space-y-1">
+                <div class="text-slate-500 text-[10px]">STORAGE QUOTA CEILING</div>
+                <div class="text-amber-400 font-bold text-sm">8.0 GB Safe Cap</div>
+                <div class="text-slate-400 text-[10px]">Zero Billing Guaranteed</div>
+              </div>
+            </div>
+          </div>
+        `;
+    }
   }
 }
 

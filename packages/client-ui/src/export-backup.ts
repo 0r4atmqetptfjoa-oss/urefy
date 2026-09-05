@@ -1,3 +1,4 @@
+import { sovereignDialog } from './dialog-modal.js';
 /**
  * @file export-backup.ts
  * @package @aetheris/client-ui
@@ -1303,7 +1304,7 @@ export class ExportBackupManager {
         const format = ((root.querySelector('#select-export-format') as HTMLSelectElement)?.value || 'json') as 'json' | 'zip-json' | 'encrypted-json';
 
         if (encryptChecked && !password) {
-          alert('Please enter a password to generate the encrypted backup.');
+          await sovereignDialog.alert('Please enter a password to generate the encrypted backup.', { title: 'Password Required', type: 'warning' });
           pwdInput?.focus();
           return;
         }
@@ -1354,7 +1355,7 @@ export class ExportBackupManager {
           }, 3000);
         } catch (err) {
           if (progressStatus) progressStatus.textContent = `Error: ${(err as Error).message}`;
-          alert(`Failed to export backup: ${(err as Error).message}`);
+          await sovereignDialog.alert(`Failed to export backup: ${(err as Error).message}`, { title: 'Export Failed', type: 'error' });
         }
       });
     }

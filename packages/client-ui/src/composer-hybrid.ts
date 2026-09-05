@@ -17,6 +17,7 @@
 import { clientStore, ClientPost } from './client-state.js';
 import { pollEngine } from './polls.js';
 import { soundEffects } from './sound-effects.js';
+import { sovereignDialog } from './dialog-modal.js';
 import { markdownRenderer } from './markdown-renderer.js';
 import { aethDB } from './indexed-db.js';
 import { draftAutosave } from './draft-autosave.js';
@@ -530,7 +531,7 @@ export class HybridComposer {
 
                 <button type="button" id="btn-submit-hybrid-composer" class="px-5 py-2 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white font-bold text-xs rounded-xl shadow-lg shadow-indigo-500/20 transition-all flex items-center space-x-2 cursor-pointer active:scale-95">
                   <span>🚀</span>
-                  <span>Broadcast to Network</span>
+                  <span>Post</span>
                 </button>
               </div>
             </div>
@@ -1185,7 +1186,7 @@ export class HybridComposer {
 
     // 5. Discard Draft
     document.getElementById('btn-discard-draft')?.addEventListener('click', async () => {
-      if (confirm('Discard your current draft and clear storage?')) {
+      if (await sovereignDialog.confirm('Discard your current draft and clear storage?', { title: 'Discard Draft', destructive: true })) {
         soundEffects.playClick();
         await this.clearDraft();
         clientStore.showToast('Draft discarded.', 'info');

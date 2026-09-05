@@ -78,6 +78,7 @@ export interface WindowAugmentation {
   adminPanel?: any;
   cyberDefenseHub?: any;
   sovereignDM?: any;
+  sovereignDialog?: any;
   __aetherisDM?: any;
   webAuthnManager?: any;
   aetherisWebRTCTransfer?: any;

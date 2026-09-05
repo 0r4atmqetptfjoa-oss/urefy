@@ -67,11 +67,11 @@ describe('Ticket 2.1: Narrative 4-Step User Onboarding Flow', () => {
     expect(wizard.isOpen).toBe(false);
   });
 
-  it('3. should provide exactly 4 narrative steps explaining values before mechanics', () => {
+  it('3. should provide exactly 3 narrative steps explaining values before mechanics', () => {
     const wizard = new OnboardingWizard();
     const steps = wizard.getSteps('aeth1_test_fingerprint');
 
-    expect(steps.length).toBe(4);
+    expect(steps.length).toBe(3);
 
     // Step 1: Identity
     expect(steps[0].icon).toBe('🌱');
@@ -79,22 +79,17 @@ describe('Ticket 2.1: Narrative 4-Step User Onboarding Flow', () => {
     expect(steps[0].componentHtml).toContain('Zero Central Servers');
     expect(steps[0].componentHtml).toContain('aeth1_test_fingerprint'.substring(0, 16));
 
-    // Step 2: Protection / E2EE
+    // Step 2: Protection / E2EE & Network
     expect(steps[1].icon).toBe('🔒');
     expect(steps[1].title).toBe('Your Content is Fully Protected');
     expect(steps[1].componentHtml).toContain('AES-GCM / ML-KEM');
 
-    // Step 3: P2P Network
-    expect(steps[2].icon).toBe('🌐');
-    expect(steps[2].title).toBe('The Network Belongs to Everyone');
-    expect(steps[2].componentHtml).toContain('Direct WebRTC Mesh');
-
-    // Step 4: Recovery Key
-    expect(steps[3].icon).toBe('🔐');
-    expect(steps[3].title).toBe('Save Your Recovery Key');
-    expect(steps[3].componentHtml).toContain('12-Word Master Recovery Phrase');
-    expect(steps[3].componentHtml).toContain('btn-copy-seed-words');
-    expect(steps[3].componentHtml).toContain('Download Encrypted Backup');
+    // Step 3: Recovery Key
+    expect(steps[2].icon).toBe('🔐');
+    expect(steps[2].title).toBe('Save Your Recovery Key');
+    expect(steps[2].componentHtml).toContain('12-Word Master Recovery Phrase');
+    expect(steps[2].componentHtml).toContain('btn-copy-seed-words');
+    expect(steps[2].componentHtml).toContain('Download Encrypted Backup');
   });
 
   it('4. should render modal HTML only when isOpen is true', () => {
@@ -108,7 +103,7 @@ describe('Ticket 2.1: Narrative 4-Step User Onboarding Flow', () => {
     expect(wizard.renderWizardModal()).toBe('');
   });
 
-  it('5. should progress smoothly through all 4 steps and complete', () => {
+  it('5. should progress smoothly through all 3 steps and complete', () => {
     const wizard = new OnboardingWizard();
     expect(wizard.currentStep).toBe(0);
 
@@ -118,10 +113,7 @@ describe('Ticket 2.1: Narrative 4-Step User Onboarding Flow', () => {
     wizard.next();
     expect(wizard.currentStep).toBe(2);
 
-    wizard.next();
-    expect(wizard.currentStep).toBe(3);
-
-    // Finishing on step 3 persists to storage
+    // Finishing on step 2 persists to storage
     wizard.finish();
     expect(wizard.isOpen).toBe(false);
     expect(wizard.isCompleted).toBe(true);
@@ -143,8 +135,7 @@ describe('Ticket 2.1: Narrative 4-Step User Onboarding Flow', () => {
 
     expect(steps[0].title).toBe('Identitatea ta \u00ee\u021bi apar\u021bine');
     expect(steps[1].title).toBe('Con\u021binutul t\u0103u e protejat');
-    expect(steps[2].title).toBe('Re\u021beaua e a tuturor');
-    expect(steps[3].title).toBe('Salveaz\u0103-\u021bi cheia de salvare');
+    expect(steps[2].title).toBe('Salveaz\u0103-\u021bi cheia de salvare');
 
     // Reset back to English
     i18n.setLanguage('en');

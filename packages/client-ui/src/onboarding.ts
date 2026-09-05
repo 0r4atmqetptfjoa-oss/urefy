@@ -14,6 +14,7 @@ import './window-augmentation.js';
 import { serviceRegistry, SERVICES } from './service-registry.js';
 import { i18n } from './i18n.js';
 import { clientStore } from './client-state.js';
+import { sovereignDialog } from './dialog-modal.js';
 
 export interface OnboardingStep {
   stepIndex: number;
@@ -49,6 +50,7 @@ export class OnboardingWizard {
     if (typeof window !== 'undefined') {
       (window as any).onboardingWizard = this;
     }
+    (globalThis as any).onboardingWizard = this;
   }
 
   /**
@@ -65,7 +67,7 @@ export class OnboardingWizard {
    * Advances to next step or finishes on the final step
    */
   public next(): void {
-    if (this.currentStep < 3) {
+    if (this.currentStep < 2) {
       this.currentStep++;
       this.syncUI();
     } else {
@@ -86,17 +88,19 @@ export class OnboardingWizard {
   /**
    * Skips onboarding with caution on step 4
    */
-  public skip(): void {
-    if (this.currentStep === 3) {
+  public async skip(): Promise<void> {
+    if (this.currentStep === 2) {
       const warningText = i18n.t(
         'onboardingNarrative.step4Warning',
         undefined,
         'This 12-word phrase is the only way to recover your account. Aetheris never holds your keys.'
       );
-      if (typeof window !== 'undefined' && window.confirm) {
-        const proceed = window.confirm(`${warningText}\n\nAre you sure you want to skip without saving?`);
-        if (!proceed) return;
-      }
+      const proceed = await sovereignDialog.confirm(`${warningText}\n\nAre you sure you want to skip without saving?`, {
+        title: 'Skip Key Backup',
+        confirmText: 'Skip Anyway',
+        destructive: true,
+      });
+      if (!proceed) return;
     }
 
     this.isOpen = false;
@@ -104,6 +108,7 @@ export class OnboardingWizard {
     if (typeof window !== 'undefined' && window.localStorage) {
       window.localStorage.setItem(this.STORAGE_KEY, 'true');
       window.localStorage.setItem(this.LEGACY_STORAGE_KEY, 'true');
+      window.localStorage.setItem('aetheris_onboarding_completed_v4', 'true');
     }
     this.syncUI();
   }
@@ -114,9 +119,11 @@ export class OnboardingWizard {
   public finish(): void {
     this.isOpen = false;
     this.isCompleted = true;
-    if (typeof window !== 'undefined' && window.localStorage) {
-      window.localStorage.setItem(this.STORAGE_KEY, 'true');
-      window.localStorage.setItem(this.LEGACY_STORAGE_KEY, 'true');
+    const storage = (typeof window !== 'undefined' && window.localStorage) ? window.localStorage : (typeof localStorage !== 'undefined' ? localStorage : null);
+    if (storage) {
+      storage.setItem(this.STORAGE_KEY, 'true');
+      storage.setItem(this.LEGACY_STORAGE_KEY, 'true');
+      storage.setItem('aetheris_onboarding_completed_v4', 'true');
     }
     this.syncUI();
   }
@@ -570,19 +577,12 @@ export class OnboardingWizard {
       {
         stepIndex: 1,
         title: i18n.t('onboardingNarrative.step2Title', undefined, 'Your Content is Fully Protected'),
-        subtitle: i18n.t('onboardingNarrative.step2Subtitle', undefined, 'End-to-end zero-knowledge security'),
+        subtitle: i18n.t('onboardingNarrative.step2Subtitle', undefined, 'End-to-end zero-knowledge privacy & P2P network'),
         icon: '🔒',
         componentHtml: this.renderStep2Privacy(),
       },
       {
         stepIndex: 2,
-        title: i18n.t('onboardingNarrative.step3Title', undefined, 'The Network Belongs to Everyone'),
-        subtitle: i18n.t('onboardingNarrative.step3Subtitle', undefined, 'Decentralized peer-to-peer distribution'),
-        icon: '🌐',
-        componentHtml: this.renderStep3Mesh(),
-      },
-      {
-        stepIndex: 3,
         title: i18n.t('onboardingNarrative.step4Title', undefined, 'Save Your Recovery Key'),
         subtitle: i18n.t('onboardingNarrative.step4Subtitle', undefined, 'Your 12-word master seed phrase'),
         icon: '🔐',
@@ -595,7 +595,7 @@ export class OnboardingWizard {
    * Renders step indicators for 4 narrative screens
    */
   private renderStepIndicators(): string {
-    const labels = ['Identity', 'Protection', 'Network', 'Recovery'];
+    const labels = ['Identity', 'Protection', 'Recovery'];
     return `
       <div class="flex items-center justify-between w-full max-w-lg mx-auto px-6 py-3 select-none">
         ${labels.map((label, idx) => {
