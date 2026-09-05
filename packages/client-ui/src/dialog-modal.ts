@@ -225,6 +225,109 @@ export class SovereignDialog {
     });
   }
 
+  public prompt(message: string, options?: (DialogOptions & { defaultValue?: string; placeholder?: string; inputType?: string }) | string): Promise<string | null> {
+    const opts = typeof options === 'string' ? { title: options } : (options || {});
+    const title = opts.title || 'Input Required';
+    const defaultValue = opts.defaultValue || '';
+    const placeholder = opts.placeholder || '';
+    const inputType = opts.inputType || 'text';
+    const confirmText = opts.confirmText || 'Submit';
+    const cancelText = opts.cancelText || 'Cancel';
+
+    return new Promise((resolve) => {
+      if (typeof document === 'undefined') {
+        resolve(null);
+        return;
+      }
+
+      const container = this._ensureContainer();
+      this.activeResolver = resolve;
+
+      container.innerHTML = `
+        <div class="w-full max-w-md bg-surface-overlay border border-white/10 rounded-3xl p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150">
+          <div class="flex items-center space-x-3 border-b border-white/10 pb-3">
+            <div class="w-9 h-9 rounded-2xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 flex items-center justify-center text-lg font-bold">
+              ✎
+            </div>
+            <div>
+              <h3 id="sovereign-dialog-title" class="text-sm font-bold text-white tracking-tight">${this._escapeHtml(title)}</h3>
+              <p class="text-[11px] text-slate-400 font-mono">Sovereign secure input</p>
+            </div>
+          </div>
+          <div class="text-xs text-slate-300 leading-relaxed font-sans max-h-60 overflow-y-auto whitespace-pre-wrap select-text">
+            ${this._escapeHtml(message)}
+          </div>
+          <div class="pt-1">
+            <input
+              type="${this._escapeHtml(inputType)}"
+              id="sovereign-dialog-input"
+              value="${this._escapeHtml(defaultValue)}"
+              placeholder="${this._escapeHtml(placeholder)}"
+              class="w-full px-3 py-2 bg-surface-base border border-white/15 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
+            />
+          </div>
+          <div class="pt-2 flex items-center justify-end space-x-3">
+            <button
+              type="button"
+              id="sovereign-dialog-cancel-btn"
+              class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-surface-raised transition-all cursor-pointer"
+            >
+              ${this._escapeHtml(cancelText)}
+            </button>
+            <button
+              type="button"
+              id="sovereign-dialog-confirm-btn"
+              class="px-5 py-2 rounded-xl bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white shadow-cyan-600/30 text-xs font-bold shadow-lg transition-all cursor-pointer active:scale-95"
+            >
+              ${this._escapeHtml(confirmText)}
+            </button>
+          </div>
+        </div>
+      `;
+
+      container.classList.remove('hidden');
+
+      const inputEl = document.getElementById('sovereign-dialog-input') as HTMLInputElement | null;
+      const confirmBtn = document.getElementById('sovereign-dialog-confirm-btn');
+      const cancelBtn = document.getElementById('sovereign-dialog-cancel-btn');
+
+      if (inputEl) {
+        if (typeof inputEl.focus === 'function') inputEl.focus();
+        if (typeof inputEl.select === 'function') inputEl.select();
+      }
+
+      const cleanup = (val: string | null) => {
+        container.classList.add('hidden');
+        container.innerHTML = '';
+        if (typeof window !== 'undefined') {
+          window.removeEventListener('keydown', onKeyDown);
+        }
+        this.activeResolver = null;
+        resolve(val);
+      };
+
+      const onKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          cleanup(null);
+        } else if (e.key === 'Enter') {
+          e.preventDefault();
+          cleanup(inputEl ? inputEl.value : null);
+        }
+      };
+
+      if (typeof confirmBtn?.addEventListener === 'function') {
+        confirmBtn.addEventListener('click', () => cleanup(inputEl ? inputEl.value : null));
+      }
+      if (typeof cancelBtn?.addEventListener === 'function') {
+        cancelBtn.addEventListener('click', () => cleanup(null));
+      }
+      if (typeof window !== 'undefined') {
+        window.addEventListener('keydown', onKeyDown);
+      }
+    });
+  }
+
   private _escapeHtml(str: string): string {
     return String(str)
       .replace(/&/g, '&amp;')

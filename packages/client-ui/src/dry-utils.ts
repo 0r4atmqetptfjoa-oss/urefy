@@ -355,8 +355,8 @@ export async function sharePostOrCopyLink(
   }
 
   // 4. Prompt fallback if clipboard is strictly blocked
-  if (!copied && typeof window !== 'undefined' && typeof window.prompt === 'function') {
-    window.prompt('Copy post permalink:', url);
+  if (!copied && typeof window !== 'undefined' && (window as any).sovereignDialog) {
+    (window as any).sovereignDialog.prompt('Copy post permalink:', { defaultValue: url, title: 'Share Link' });
     copied = true;
   }
 

@@ -7,7 +7,9 @@
     "build": "vite build",
     "test": "vitest run",
     "preview": "vite preview",
-    "i18n-audit": "tsx scripts/i18n-audit.ts"
+    "i18n-audit": "tsx scripts/i18n-audit.ts",
+    "audit:production": "tsx scripts/audit-production.ts",
+    "audit:ux": "tsx scripts/audit-ux.ts"
   },
   "dependencies": {
     "@aetheris/core-crypto": "*",

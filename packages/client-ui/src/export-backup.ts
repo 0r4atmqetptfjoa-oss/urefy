@@ -751,8 +751,8 @@ export class ExportBackupManager {
       const envelope = parsedJson as EncryptedBackupEnvelope;
       let password = providedPassword;
       if (!password) {
-        if (typeof window !== 'undefined') {
-          password = window.prompt('Enter the decryption password for this Aetheris backup:') || undefined;
+        if (typeof window !== 'undefined' && (window as any).sovereignDialog) {
+          password = (await (window as any).sovereignDialog.prompt('Enter the decryption password for this Aetheris backup:', { title: 'Decryption Password', inputType: 'password' })) || undefined;
         }
       }
       if (!password) {

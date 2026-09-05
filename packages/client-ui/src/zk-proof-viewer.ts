@@ -896,7 +896,9 @@ export class ZKProofVisualizer {
           }, 2000);
         } catch {
           // Fallback
-          prompt('Copy Witness JSON:', json);
+          if (typeof window !== 'undefined' && (window as any).sovereignDialog) {
+            (window as any).sovereignDialog.prompt('Copy Witness JSON:', { defaultValue: json, title: 'Witness JSON' });
+          }
         }
       };
     }

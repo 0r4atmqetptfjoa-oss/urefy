@@ -13,7 +13,9 @@
     "typecheck": "npm run build --workspaces --if-present && tsc --noEmit --project packages/client-ui/tsconfig.json",
     "server": "npm run start --workspace=packages/server-edge",
     "client": "npm run dev --workspace=packages/client-ui",
-    "daemon": "npm run start --workspace=packages/daemon-archivist"
+    "daemon": "npm run start --workspace=packages/daemon-archivist",
+    "audit:production": "npm run audit:production --workspace=packages/client-ui",
+    "audit:ux": "npm run audit:ux --workspace=packages/client-ui"
   },
   "devDependencies": {
     "tsx": "^4.19.2",

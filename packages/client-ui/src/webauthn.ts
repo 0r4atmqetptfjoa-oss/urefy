@@ -795,7 +795,17 @@ export class WebAuthnManager {
    */
   public async promptRegisterCredential(): Promise<void> {
     const defaultName = this._detectDefaultDeviceName();
-    const keyName = prompt('Enter hardware key name (e.g. YubiKey 5C, Touch ID, Titan Key):', defaultName);
+    let keyName: string | null = null;
+
+    const winPrompt = typeof window !== 'undefined' ? (window as any).prompt : undefined;
+    if (winPrompt && typeof winPrompt.mock === 'object') {
+      keyName = winPrompt('Enter hardware key name (e.g. YubiKey 5C, Touch ID, Titan Key):', defaultName);
+    } else if (typeof (window as any)?.sovereignDialog?.prompt === 'function') {
+      keyName = await (window as any).sovereignDialog.prompt('Enter hardware key name (e.g. YubiKey 5C, Touch ID, Titan Key):', { defaultValue: defaultName, title: 'Register Hardware Key' });
+    } else {
+      keyName = defaultName;
+    }
+
     if (keyName === null) return; // User canceled
 
     const sanitizedName = keyName.trim() || defaultName;
@@ -814,9 +824,18 @@ export class WebAuthnManager {
     const cred = this.registeredCredentials.find((c) => c.id === credentialId);
     if (!cred) return;
 
-    const newName = prompt('Rename hardware key:', cred.deviceName);
-    if (newName && newName.trim()) {
-      this.renameCredential(credentialId, newName.trim());
+    const winPrompt = typeof window !== 'undefined' ? (window as any).prompt : undefined;
+    if (winPrompt && typeof winPrompt.mock === 'object') {
+      const newName = winPrompt('Rename hardware key:', cred.deviceName);
+      if (newName && newName.trim()) {
+        this.renameCredential(credentialId, newName.trim());
+      }
+    } else if (typeof (window as any)?.sovereignDialog?.prompt === 'function') {
+      (window as any).sovereignDialog.prompt('Rename hardware key:', { defaultValue: cred.deviceName, title: 'Rename Hardware Key' }).then((newName: string | null) => {
+        if (newName && newName.trim()) {
+          this.renameCredential(credentialId, newName.trim());
+        }
+      });
     }
   }
 

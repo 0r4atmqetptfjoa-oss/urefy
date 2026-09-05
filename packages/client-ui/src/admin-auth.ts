@@ -174,11 +174,13 @@ export class AdminAuthManager {
       return false;
     }
 
-    // 1. Check local storage or dev default
-    const storedPin = safeGet('aetheris_admin_pin') || ADMIN_DEFAULT_PIN;
-    if (storedPin && pin === storedPin) {
-      this._activateSession(pin);
-      return true;
+    // 1. Check local storage or dev default ONLY in local development
+    if (isLocalDev()) {
+      const storedPin = safeGet('aetheris_admin_pin') || ADMIN_DEFAULT_PIN;
+      if (storedPin && pin === storedPin) {
+        this._activateSession(pin);
+        return true;
+      }
     }
 
     // 2. Validate against Cloudflare /api/admin backend
