@@ -103,7 +103,7 @@ class CrossPostEngine {
       `<button`,
       `  type="button"`,
       `  data-crosspost-btn="${eid}"`,
-      ` data-action="call-global" data-global-method="document.dispatchEvent" data-global-args='[new CustomEvent("crosspost:open", { detail: { postId: "${eid}" } })]'`,
+      ` data-action="call-global" data-raw-click="document.dispatchEvent(new CustomEvent(&quot;crosspost:open&quot;, { detail: { postId: &quot;${eid}&quot; } }))"`,
       `  title="Share to another Hub"`,
       `  class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium`,
       `         bg-surface-raised hover:bg-surface-overlay border border-white/10`,

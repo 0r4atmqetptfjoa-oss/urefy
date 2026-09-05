@@ -271,6 +271,7 @@ function classifySeedOccurrence(relPath: string, line: string): Category {
     line.includes('SEED VAULT') ||
     line.includes('Vault Seed') ||
     line.includes('Backup Seed') ||
+    line.includes('backup-seed') ||
     line.includes('Identity & Seed') ||
     line.includes('seeder') ||
     line.includes('seeders') ||

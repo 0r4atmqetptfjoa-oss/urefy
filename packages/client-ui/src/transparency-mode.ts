@@ -627,7 +627,7 @@ export class TransparencyModeManager {
 
       return `
         <!-- Stage Node ${st.stageId} -->
-        <g class="cursor-pointer transition-transform hover:scale-105" data-action="call-global" data-global-method="if" data-global-args='[window.__aetherisTransparency) window.__aetherisTransparency.selectStage(${st.stageId}]'>
+        <g class="cursor-pointer transition-transform hover:scale-105" data-action="call-global" data-raw-click="if(window.__aetherisTransparency) window.__aetherisTransparency.selectStage(${st.stageId})">
           <circle cx="${x}" cy="${y}" r="32" fill="#0f172a" stroke="${strokeColor}" stroke-width="${isSelected ? '3' : '1.5'}" ${glowFilter} />
           <circle cx="${x}" cy="${y}" r="26" fill="${isSelected ? 'rgba(56, 189, 248, 0.15)' : 'rgba(99, 102, 241, 0.08)'}" />
           <text x="${x}" y="${y + 6}" font-size="20" text-anchor="middle" dominant-baseline="middle">${icon}</text>
@@ -700,7 +700,7 @@ export class TransparencyModeManager {
       const isTabActive = this.selectedPayloadIndex === idx;
       return `
         <button
-          type="button" data-action="call-global" data-global-method="if" data-global-args='[window.__aetherisTransparency) window.__aetherisTransparency.selectPayload(${idx}]'
+          type="button" data-action="call-global" data-raw-click="if(window.__aetherisTransparency) window.__aetherisTransparency.selectPayload(${idx})"
           class="px-3 py-1.5 rounded-lg text-xs font-mono font-medium transition-all ${
             isTabActive
               ? 'bg-sky-500/20 text-sky-300 border border-sky-500/40 shadow-sm'
@@ -958,7 +958,7 @@ export class TransparencyModeManager {
                 <div class="p-6 rounded-2xl bg-black/40 border border-white/10 text-center space-y-4">
                   <p class="text-xs text-slate-400">Gossip protocol active with fanout=3 and infection probability P=0.70 across 24 peers.</p>
                   <button
-                    type="button" data-action="call-global" data-global-method="if" data-global-args='[window.__aetherisToggleGossip) window.__aetherisToggleGossip(]'
+                    type="button" data-action="call-global" data-raw-click="if(window.__aetherisToggleGossip) window.__aetherisToggleGossip();"
                     class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all shadow-lg"
                   >
                     Launch Dedicated Gossip Topology Canvas

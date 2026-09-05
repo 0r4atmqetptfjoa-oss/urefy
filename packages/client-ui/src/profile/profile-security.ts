@@ -67,7 +67,7 @@ export function renderProfileSecurityHTML(profile: UserProfileData): string {
         </div>
         <button
           type="button"
-          id="btn-settings-open-social-guardians" data-action="call-global" data-global-method="if" data-global-args='[window.__aetheris_open_social_recovery) window.__aetheris_open_social_recovery(]'
+          id="btn-settings-open-social-guardians" data-action="call-global" data-raw-click="if(window.__aetheris_open_social_recovery) window.__aetheris_open_social_recovery();"
           class="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all cursor-pointer shadow"
         >
           Configure Guardians

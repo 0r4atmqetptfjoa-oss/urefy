@@ -263,7 +263,7 @@ export function renderSettingsCategoryContentHTML(
             </div>
             <button
               type="button"
-              id="btn-settings-open-transparency" data-action="call-global" data-global-method="if" data-global-args='[window.__aetheris_open_transparency_mode) window.__aetheris_open_transparency_mode(]'
+              id="btn-settings-open-transparency" data-action="call-global" data-raw-click="if(window.__aetheris_open_transparency_mode) window.__aetheris_open_transparency_mode();"
               class="px-3.5 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs transition-colors shadow cursor-pointer"
             >
               Open Inspector

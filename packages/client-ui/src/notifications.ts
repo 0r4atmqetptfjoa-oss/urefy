@@ -191,7 +191,7 @@ class NotificationCenter {
     return `
       <div id="notification-modal-wrapper" class="fixed inset-0 z-[9999] pointer-events-none flex justify-center sm:justify-end">
         <!-- BACKDROP -->
-        <div id="notification-backdrop" class="fixed inset-0 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150 cursor-pointer pointer-events-auto" data-action="call-global" data-global-method="if" data-global-args='[window.__aetherisCloseNotifs) window.__aetherisCloseNotifs(]'></div>
+        <div id="notification-backdrop" class="fixed inset-0 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150 cursor-pointer pointer-events-auto" data-action="call-global" data-raw-click="if(window.__aetherisCloseNotifs) window.__aetherisCloseNotifs();"></div>
 
         <!-- NOTIFICATION PANEL -->
         <div
@@ -224,7 +224,7 @@ class NotificationCenter {
               <span class="text-white/20 text-xs">|</span>
               <button
                 type="button"
-                class="text-xs text-slate-400 hover:text-white transition-colors cursor-pointer p-1" data-action="call-global" data-global-method="if" data-global-args='[window.__aetherisCloseNotifs) window.__aetherisCloseNotifs(]'
+                class="text-xs text-slate-400 hover:text-white transition-colors cursor-pointer p-1" data-action="call-global" data-raw-click="if(window.__aetherisCloseNotifs) window.__aetherisCloseNotifs();"
               >
                 ✕
               </button>

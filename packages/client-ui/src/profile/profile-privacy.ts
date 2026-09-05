@@ -100,7 +100,7 @@ export function renderProfilePrivacyHTML(profile: UserProfileData): string {
           min="0"
           max="100"
           value="${clientStore?.minFeedTrustThreshold || 0}"
-          id="input-settings-trust-threshold" data-change="call-global" data-global-method="if"
+          id="input-settings-trust-threshold" data-change="call-global" data-raw-change="if(window.clientStore) window.clientStore.setMinFeedTrustThreshold(parseInt(this.value, 10));"
           class="w-full accent-cyan-400 h-1.5 bg-surface-raised rounded-lg cursor-pointer"
         />
       </div>

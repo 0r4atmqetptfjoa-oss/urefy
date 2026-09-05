@@ -221,7 +221,7 @@ export class SovereignFootprint {
           <div class="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-white/5">
             <button
               type="button"
-              id="btn-export-footprint-audit" data-action="call-global" data-global-method="if" data-global-args='[window.sovereignFootprint) window.sovereignFootprint.exportAuditReportJSON(]'
+              id="btn-export-footprint-audit" data-action="call-global" data-raw-click="if(window.sovereignFootprint) window.sovereignFootprint.exportAuditReportJSON()"
               class="px-3 py-1.5 rounded-lg bg-surface-overlay hover:bg-surface-raised border border-white/10 text-xs font-mono text-cyan-300 hover:text-white transition-all flex items-center space-x-1.5 cursor-pointer"
             >
               <span>📊</span>

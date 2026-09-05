@@ -679,6 +679,13 @@ export class CustomThemeBuilder {
     if (modalEl) {
       modalEl.focus();
     }
+
+    const closeBtn = container.querySelector('#btn-close-custom-theme-builder');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => this.closeModal());
+    }
+    const doneBtns = container.querySelectorAll('[data-action="close-feature"]');
+    doneBtns.forEach(btn => btn.addEventListener('click', () => this.closeModal()));
   }
 
   /**
@@ -838,7 +845,7 @@ export class CustomThemeBuilder {
               <input
                 type="color"
                 id="theme-input-${field.key}"
-                value="${currentValue}" data-input="call-global" data-global-method="if"
+                value="${currentValue}" data-input="call-global" data-raw-input="if(window.customThemeBuilder) window.customThemeBuilder.updateColor('${field.key}', this.value)"
                 class="absolute -top-3 -left-3 w-16 h-16 cursor-pointer border-none bg-transparent"
                 title="Select color for ${this.escapeHtml(field.label)}"
               />
@@ -851,7 +858,7 @@ export class CustomThemeBuilder {
                 type="text"
                 id="theme-input-${field.key}-hex"
                 value="${currentValue.replace(/^#/, '')}"
-                maxlength="7" data-input="call-global" data-global-method="if"
+                maxlength="7" data-input="call-global" data-raw-input="if(window.customThemeBuilder) window.customThemeBuilder.updateColor('${field.key}', '#' + this.value.replace(/#/g, ''))"
                 class="w-full pl-6 pr-2.5 py-1.5 rounded-lg bg-canvas border border-white/10 text-xs font-mono text-white placeholder-slate-600 focus:outline-none focus:border-cyphr focus:ring-1 focus:ring-cyphr"
                 placeholder="00e5ff"
               />
@@ -865,7 +872,7 @@ export class CustomThemeBuilder {
     const presetsHtml = DEFAULT_THEME_PRESETS.map((preset) => {
       return `
         <button
-          type="button" data-action="call-global" data-global-method="if" data-global-args='[window.customThemeBuilder) window.customThemeBuilder.applyPreset("${preset.id}"]'
+          type="button" data-action="call-global" data-raw-click="if(window.customThemeBuilder) window.customThemeBuilder.applyPreset('${preset.id}')"
           class="flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-surface-base hover:bg-surface-overlay border border-white/5 hover:border-cyphr/40 text-[11px] font-mono text-slate-300 hover:text-white transition-all cursor-pointer"
           title="Load palette ${this.escapeHtml(preset.name)}"
         >
@@ -903,12 +910,12 @@ export class CustomThemeBuilder {
                     </div>
                     <div class="flex items-center space-x-1">
                       <button
-                        type="button" data-action="call-global" data-global-method="if" data-global-args='[window.customThemeBuilder) window.customThemeBuilder.duplicateSavedTheme("${st.id}"]'
+                        type="button" data-action="call-global" data-raw-click="if(window.customThemeBuilder) window.customThemeBuilder.duplicateSavedTheme('${st.id}')"
                         class="p-1 rounded bg-surface-raised hover:bg-surface-overlay text-[10px] text-slate-400 hover:text-white"
                         title="Duplicate theme"
                       >📋</button>
                       <button
-                        type="button" data-action="call-global" data-global-method="if" data-global-args='[window.customThemeBuilder) window.customThemeBuilder.deleteSavedTheme("${st.id}"]'
+                        type="button" data-action="call-global" data-raw-click="if(window.customThemeBuilder) window.customThemeBuilder.deleteSavedTheme('${st.id}')"
                         class="p-1 rounded bg-surface-raised hover:bg-crimson/20 text-[10px] text-slate-400 hover:text-crimson"
                         title="Delete theme"
                       >🗑️</button>
@@ -925,7 +932,7 @@ export class CustomThemeBuilder {
                     </div>
 
                     <button
-                      type="button" data-action="call-global" data-global-method="if" data-global-args='[window.customThemeBuilder) window.customThemeBuilder.loadSavedTheme("${st.id}"]'
+                      type="button" data-action="call-global" data-raw-click="if(window.customThemeBuilder) window.customThemeBuilder.loadSavedTheme('${st.id}')"
                       class="px-2 py-0.5 text-[10px] font-mono font-bold rounded bg-cyphr/15 hover:bg-cyphr/30 text-cyphr border border-cyphr/30 transition-colors"
                     >
                       Load
@@ -965,7 +972,7 @@ export class CustomThemeBuilder {
             <!-- Quick Action Header Buttons -->
             <div class="flex items-center space-x-2">
               <button
-                type="button" data-action="call-global" data-global-method="if" data-global-args='[window.customThemeBuilder) window.customThemeBuilder.applyDraftLive(]'
+                type="button" data-action="call-global" data-raw-click="if(window.customThemeBuilder) window.customThemeBuilder.applyDraftLive()"
                 class="px-3 py-1.5 rounded-lg bg-cyphr/20 hover:bg-cyphr/30 border border-cyphr/40 text-cyphr text-xs font-semibold flex items-center space-x-1.5 transition-all cursor-pointer"
                 title="Apply current theme to interface"
               >
@@ -974,7 +981,7 @@ export class CustomThemeBuilder {
               </button>
               <button
                 type="button"
-                id="btn-close-custom-theme-builder" data-action="call-global" data-raw-click="window.__aetheris_close_custom_theme_builder && window.__aetheris_close_custom_theme_builder()"
+                id="btn-close-custom-theme-builder" data-action="close-feature" data-raw-click="if(window.customThemeBuilder) window.customThemeBuilder.closeModal(); if(window.__aetheris_close_custom_theme_builder) window.__aetheris_close_custom_theme_builder();"
                 class="w-8 h-8 rounded-lg bg-surface-raised hover:bg-surface-overlay border border-white/10 text-slate-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
                 title="Close window (Esc)"
                 aria-label="Close modal"
@@ -1003,7 +1010,7 @@ export class CustomThemeBuilder {
                     <input
                       type="text"
                       id="theme-builder-name-input"
-                      value="${this.escapeHtml(draft.name)}" data-input="call-global" data-global-method="if"
+                      value="${this.escapeHtml(draft.name)}" data-input="call-global" data-raw-input="if(window.customThemeBuilder) window.customThemeBuilder.updateMetadata('name', this.value)"
                       class="w-full px-3 py-1.5 rounded-lg bg-canvas border border-white/10 text-xs font-sans text-white focus:outline-none focus:border-cyphr focus:ring-1 focus:ring-cyphr"
                       placeholder="e.g. Cyberpunk Neon"
                     />
@@ -1014,7 +1021,7 @@ export class CustomThemeBuilder {
                     <input
                       type="text"
                       id="theme-builder-author-input"
-                      value="${this.escapeHtml(draft.author)}" data-input="call-global" data-global-method="if"
+                      value="${this.escapeHtml(draft.author)}" data-input="call-global" data-raw-input="if(window.customThemeBuilder) window.customThemeBuilder.updateMetadata('author', this.value)"
                       class="w-full px-3 py-1.5 rounded-lg bg-canvas border border-white/10 text-xs font-mono text-slate-300 focus:outline-none focus:border-cyphr focus:ring-1 focus:ring-cyphr"
                       placeholder="e.g. 0xCyphr...88fa"
                     />
@@ -1052,7 +1059,7 @@ export class CustomThemeBuilder {
               <div class="grid grid-cols-2 gap-2 pt-1">
                 <button
                   type="button"
-                  id="btn-save-custom-theme" data-action="call-global" data-global-method="if" data-global-args='[window.customThemeBuilder) window.customThemeBuilder.saveDraftAsTheme(]'
+                  id="btn-save-custom-theme" data-action="call-global" data-raw-click="if(window.customThemeBuilder) window.customThemeBuilder.saveDraftAsTheme()"
                   class="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-cyphr to-cyan-400 hover:from-cyan-400 hover:to-cyphr text-black text-xs font-bold shadow-lg shadow-cyan-500/20 transition-all flex items-center justify-center space-x-1.5 cursor-pointer"
                 >
                   <span>💾</span>
@@ -1060,7 +1067,7 @@ export class CustomThemeBuilder {
                 </button>
 
                 <button
-                  type="button" data-action="call-global" data-global-method="if" data-global-args='[window.customThemeBuilder) window.customThemeBuilder.resetDraft(]'
+                  type="button" data-action="call-global" data-raw-click="if(window.customThemeBuilder) window.customThemeBuilder.resetDraft()"
                   class="w-full py-2.5 px-3 rounded-xl bg-surface-base hover:bg-surface-overlay border border-white/10 text-slate-300 hover:text-white text-xs font-mono transition-all flex items-center justify-center space-x-1.5 cursor-pointer"
                 >
                   <span>⟲</span>
@@ -1077,7 +1084,7 @@ export class CustomThemeBuilder {
 
                 <div class="grid grid-cols-2 gap-2">
                   <button
-                    type="button" data-action="call-global" data-global-method="if" data-global-args='[window.customThemeBuilder) window.customThemeBuilder.downloadThemeJSON(]'
+                    type="button" data-action="call-global" data-raw-click="if(window.customThemeBuilder) window.customThemeBuilder.downloadThemeJSON()"
                     class="py-2 px-2.5 rounded-lg bg-surface-base hover:bg-surface-overlay border border-white/10 text-xs text-slate-200 hover:text-white transition-all flex items-center justify-center space-x-1.5"
                   >
                     <span>📤</span>
@@ -1085,7 +1092,7 @@ export class CustomThemeBuilder {
                   </button>
 
                   <button
-                    type="button" data-action="call-global" data-global-method="if" data-global-args='[window.customThemeBuilder) window.customThemeBuilder.copyJSONToClipboard(]'
+                    type="button" data-action="call-global" data-raw-click="if(window.customThemeBuilder) window.customThemeBuilder.copyJSONToClipboard()"
                     class="py-2 px-2.5 rounded-lg bg-surface-base hover:bg-surface-overlay border border-white/10 text-xs text-slate-200 hover:text-white transition-all flex items-center justify-center space-x-1.5"
                   >
                     <span>📋</span>
@@ -1094,7 +1101,7 @@ export class CustomThemeBuilder {
                 </div>
 
                 <button
-                  type="button" data-action="call-global" data-global-method="if" data-global-args='[window.customThemeBuilder) window.customThemeBuilder.openImportModal(]'
+                  type="button" data-action="call-global" data-raw-click="if(window.customThemeBuilder) window.customThemeBuilder.openImportModal()"
                   class="w-full py-2 px-3 rounded-lg bg-surface-base hover:bg-surface-overlay border border-dashed border-white/20 hover:border-cyphr/50 text-xs text-cyphr font-mono transition-all flex items-center justify-center space-x-1.5"
                 >
                   <span>📥</span>
@@ -1348,7 +1355,7 @@ export class CustomThemeBuilder {
 
             <div class="flex items-center space-x-2.5">
               <button
-                type="button" data-action="call-global" data-global-method="if" data-global-args='[window.customThemeBuilder) window.customThemeBuilder.saveDraftAsTheme(]'
+                type="button" data-action="call-global" data-raw-click="if(window.customThemeBuilder) window.customThemeBuilder.saveDraftAsTheme()"
                 class="px-4 py-1.5 rounded-lg bg-surface-base hover:bg-surface-overlay border border-white/10 text-xs font-semibold text-slate-200 hover:text-white transition-all cursor-pointer"
               >
                 Save as Theme

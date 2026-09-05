@@ -453,7 +453,7 @@ export class RelaysManager {
         <div class="flex items-center space-x-2">
           <!-- ZK Delivery & Cryptographic Transparency Badge -->
           <button
-            type="button" data-action="call-global" data-global-method="if" data-global-args='[window.__aetherisTransparency) window.__aetherisTransparency.open("pipeline"]'
+            type="button" data-action="call-global" data-raw-click="if(window.__aetherisTransparency) window.__aetherisTransparency.open('pipeline');"
             class="px-2.5 py-1.5 rounded-xl bg-cyan-950/40 hover:bg-cyan-900/40 border border-cyan-500/30 text-cyan-300 text-xs font-mono font-semibold flex items-center space-x-1.5 transition-all cursor-pointer"
             title="Inspect Cryptographic Delivery & Pipeline"
           >

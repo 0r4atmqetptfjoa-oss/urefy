@@ -363,7 +363,7 @@ export class MeshTopologyMatrix {
     const isDOMeshActive = this.doMeshStatus.includes('SYNCHRONIZED');
 
     return `
-      <div id="mesh-modal-backdrop" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 select-none animate-in fade-in duration-150 font-mono text-xs" data-action="call-global" data-global-method="if" data-global-args='[event.target.id === "mesh-modal-backdrop") window.meshMatrix && window.meshMatrix.close(]'>
+      <div id="mesh-modal-backdrop" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 select-none animate-in fade-in duration-150 font-mono text-xs" data-action="call-global" data-raw-click="if(event.target.id === 'mesh-modal-backdrop') window.meshMatrix && window.meshMatrix.close();">
         <div class="relative w-full max-w-4xl bg-surface-base border border-white/10 rounded-2xl p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
           
           <!-- HEADER -->

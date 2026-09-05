@@ -348,7 +348,7 @@ export class LocalDiagnosticsManager {
             <div class="flex items-center space-x-2">
               <button
                 type="button"
-                id="btn-export-diagnostics-report" data-action="call-global" data-global-method="if" data-global-args='[window.localDiagnostics) window.localDiagnostics.exportDiagnosticReportJSON(]'
+                id="btn-export-diagnostics-report" data-action="call-global" data-raw-click="if(window.localDiagnostics) window.localDiagnostics.exportDiagnosticReportJSON();"
                 class="px-3 py-1.5 rounded-lg bg-surface-overlay hover:bg-surface-raised border border-white/10 text-xs font-mono text-cyan-300 hover:text-white transition-all flex items-center space-x-1.5 cursor-pointer"
                 title="Download diagnostic JSON"
               >

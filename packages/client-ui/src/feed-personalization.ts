@@ -995,7 +995,7 @@ export class FeedPersonalizationEngine {
               </div>
             </div>
             <button
-              type="button" data-action="call-global" data-global-method="document.getElementById" data-global-args='["${widgetUniqueId}')?.classList.add('hidden"]'
+              type="button" data-action="call-global" data-raw-click="document.getElementById('${widgetUniqueId}')?.classList.add('hidden')"
               class="text-slate-400 hover:text-slate-200 p-1 rounded-md hover:bg-surface-overlay transition-colors"
             >
               <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

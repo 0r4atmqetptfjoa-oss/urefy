@@ -343,7 +343,7 @@ export class StoriesEngine {
     if (!this.isCreatorOpen) return '';
 
     return `
-      <div id="story-creator-backdrop" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-150" data-action="call-global" data-global-method="if" data-global-args='[event.target.id === "story-creator-backdrop") window.__aetheris_close_story_creator && window.__aetheris_close_story_creator(]'>
+      <div id="story-creator-backdrop" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-150" data-action="call-global" data-raw-click="if(event.target.id === 'story-creator-backdrop') window.__aetheris_close_story_creator && window.__aetheris_close_story_creator();">
         <div class="relative w-full max-w-lg bg-surface-base border border-white/10 rounded-2xl p-5 sm:p-6 shadow-2xl space-y-4">
           
           <!-- MODAL HEADER -->

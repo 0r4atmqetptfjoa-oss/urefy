@@ -1295,7 +1295,7 @@ export class SovereignDMManager {
           <span>•</span>
           <span>${timeStr}</span>
           ${isMine ? `<span class="text-signal font-bold" title="Delivered & Verified">✓✓</span>` : ''}
-          <span class="cursor-pointer" data-action="call-global" data-global-method="if" data-global-args='[window.__aetherisTransparency) window.__aetherisTransparency.open("pipeline"]'>
+          <span class="cursor-pointer" data-action="call-global" data-raw-click="if(window.__aetherisTransparency) window.__aetherisTransparency.open('pipeline');">
             ${renderZKDeliveryBadge(msg.id, { compact: false, verified: msg.isRead || zkDeliveryManager.isZKVerified(msg.id) })}
           </span>
         </div>
@@ -1596,7 +1596,7 @@ export class SovereignDMManager {
           </div>
 
           <button
-            type="button" data-action="call-global" data-global-method="if" data-global-args='[window.clientStore) window.clientStore.showToast("Safety numbers confirmed! Session marked as Verified.", "success"); window.__aetherisDM.toggleSafetyModal(]'
+            type="button" data-action="call-global" data-raw-click="if(window.clientStore) window.clientStore.showToast('Safety numbers confirmed! Session marked as Verified.', 'success'); window.__aetherisDM.toggleSafetyModal();"
             class="w-full py-2.5 rounded-xl bg-gradient-to-r from-signal/80 to-emerald-600 hover:from-signal hover:to-emerald-500 text-canvas font-bold text-xs uppercase tracking-wider shadow-lg transition-all cursor-pointer"
           >
             Mark as Verified

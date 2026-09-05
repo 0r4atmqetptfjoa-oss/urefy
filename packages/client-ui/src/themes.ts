@@ -542,7 +542,7 @@ export class ThemeEngine {
       const isSel = this.fontSize === preset.size;
       return `
         <button
-          type="button" data-action="call-global" data-global-method="if" data-global-args='[window.themeEngine) window.themeEngine.setFontSize(${preset.size}]'
+          type="button" data-action="call-global" data-raw-click="if(window.themeEngine) window.themeEngine.setFontSize(${preset.size})"
           class="py-2 px-3 rounded-xl text-xs font-mono font-medium text-center transition-all cursor-pointer ${
             isSel
               ? 'bg-cyphr/20 border border-cyphr text-cyphr font-bold shadow-md'
@@ -692,7 +692,7 @@ export class ThemeEngine {
                   min="12"
                   max="18"
                   step="1"
-                  value="${this.fontSize}" data-input="call-global" data-global-method="if"
+                  value="${this.fontSize}" data-input="call-global" data-raw-input="if(window.themeEngine) window.themeEngine.handleFontSizeInput(this.value)"
                   class="w-full h-2 bg-surface-overlay rounded-lg appearance-none cursor-pointer accent-cyphr"
                   style="accent-color: ${effectiveAccent};"
                   aria-label="Font Size Slider"
@@ -752,7 +752,7 @@ export class ThemeEngine {
 
               <div class="grid grid-cols-2 gap-3">
                 <button
-                  type="button" data-action="call-global" data-global-method="if" data-global-args='[window.themeEngine) window.themeEngine.setFontFamily("sans"]'
+                  type="button" data-action="call-global" data-raw-click="if(window.themeEngine) window.themeEngine.setFontFamily('sans')"
                   class="p-3 rounded-xl text-left transition-all flex items-center space-x-3 cursor-pointer ${
                     this.fontFamily === 'sans'
                       ? 'bg-aether/20 border border-aether text-white shadow-sm'
@@ -767,7 +767,7 @@ export class ThemeEngine {
                 </button>
 
                 <button
-                  type="button" data-action="call-global" data-global-method="if" data-global-args='[window.themeEngine) window.themeEngine.setFontFamily("mono"]'
+                  type="button" data-action="call-global" data-raw-click="if(window.themeEngine) window.themeEngine.setFontFamily('mono')"
                   class="p-3 rounded-xl text-left transition-all flex items-center space-x-3 cursor-pointer ${
                     this.fontFamily === 'mono'
                       ? 'bg-aether/20 border border-aether text-white shadow-sm'
@@ -866,7 +866,7 @@ export class ThemeEngine {
                   <input 
                     type="checkbox" 
                     id="checkbox-proactive-ai"
-                    ${(typeof window !== 'undefined' && (window as any).clientStore?.proactiveAiEnabled !== false) ? 'checked' : ''} data-change="call-global" data-global-method="if"
+                    ${(typeof window !== 'undefined' && (window as any).clientStore?.proactiveAiEnabled !== false) ? 'checked' : ''} data-change="call-global" data-raw-change="if(window.clientStore) window.clientStore.setProactiveAiEnabled(this.checked)"
                     class="w-4 h-4 rounded text-cyan-400 focus:ring-0 cursor-pointer"
                   />
                 </label>
@@ -894,7 +894,7 @@ export class ThemeEngine {
           <!-- MODAL FOOTER -->
           <div class="px-6 py-4 border-t border-white/10 bg-surface-raised/80 flex items-center justify-between shrink-0">
             <button
-              type="button" data-action="call-global" data-global-method="if" data-global-args='[window.themeEngine) window.themeEngine.resetToDefaults(]'
+              type="button" data-action="call-global" data-raw-click="if(window.themeEngine) window.themeEngine.resetToDefaults()"
               class="px-3.5 py-1.5 rounded-lg bg-surface-overlay hover:bg-surface-base border border-white/10 text-xs font-mono text-slate-300 hover:text-white transition-colors cursor-pointer"
             >
               ⟲ Reset Defaults

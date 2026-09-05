@@ -432,7 +432,7 @@ export class ModuleLoader {
       : 0;
 
     return `
-      <div id="bundle-stats-widget" class="inline-flex items-center gap-2.5 px-3 py-1.5 rounded-lg bg-surface-base border border-white/5 hover:border-cyphr/30 hover:bg-surface-raised text-xs font-mono text-slate-300 shadow-lg transition-all duration-200 cursor-pointer select-none group" title="Click to view Code Splitting & Dynamic Imports Dashboard" data-action="call-global" data-global-method="if" data-global-args='[window.toggleBundleManagerModal) window.toggleBundleManagerModal(]'>
+      <div id="bundle-stats-widget" class="inline-flex items-center gap-2.5 px-3 py-1.5 rounded-lg bg-surface-base border border-white/5 hover:border-cyphr/30 hover:bg-surface-raised text-xs font-mono text-slate-300 shadow-lg transition-all duration-200 cursor-pointer select-none group" title="Click to view Code Splitting & Dynamic Imports Dashboard" data-action="call-global" data-raw-click="if(window.toggleBundleManagerModal) window.toggleBundleManagerModal();">
         <!-- Package Icon with Glow -->
         <span class="flex items-center justify-center text-cyphr group-hover:scale-110 transition-transform">
           <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -618,7 +618,7 @@ export class ModuleLoader {
           <td class="py-2.5 px-3 text-right">
             ${!isLoaded && !isLoading ? `
               <button 
-                class="px-2.5 py-1 text-xs font-mono font-medium rounded bg-surface-raised hover:bg-cyphr/20 border border-white/10 hover:border-cyphr/40 text-cyphr transition-all" data-action="call-global" data-global-method="dispatchEvent" data-global-args='[new CustomEvent("aetheris-load-module", { detail: "${this.escapeHtml(mod.name)}" })]'
+                class="px-2.5 py-1 text-xs font-mono font-medium rounded bg-surface-raised hover:bg-cyphr/20 border border-white/10 hover:border-cyphr/40 text-cyphr transition-all" data-action="call-global" data-raw-click="window.dispatchEvent(new CustomEvent(&quot;aetheris-load-module&quot;, { detail: &quot;${this.escapeHtml(mod.name)}&quot; }))"
               >
                 Force Load
               </button>
@@ -649,7 +649,7 @@ export class ModuleLoader {
               </div>
             </div>
             <button 
-              class="text-slate-400 hover:text-slate-100 p-1.5 rounded-lg hover:bg-surface-overlay transition-colors" data-action="call-global" data-global-method="if" data-global-args='[window.toggleBundleManagerModal) window.toggleBundleManagerModal(]'
+              class="text-slate-400 hover:text-slate-100 p-1.5 rounded-lg hover:bg-surface-overlay transition-colors" data-action="call-global" data-raw-click="if(window.toggleBundleManagerModal) window.toggleBundleManagerModal();"
             >
               <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -699,7 +699,7 @@ export class ModuleLoader {
           <div class="px-6 py-3 bg-surface-raised border-t border-white/5 flex items-center justify-between text-xs font-mono text-slate-400">
             <span>Dynamic imports execute on demand via Webpack/Vite runtime</span>
             <button 
-              class="px-4 py-1.5 rounded-lg bg-surface-overlay hover:bg-slate-700 text-slate-200 font-semibold border border-white/10 transition-all" data-action="call-global" data-global-method="if" data-global-args='[window.toggleBundleManagerModal) window.toggleBundleManagerModal(]'
+              class="px-4 py-1.5 rounded-lg bg-surface-overlay hover:bg-slate-700 text-slate-200 font-semibold border border-white/10 transition-all" data-action="call-global" data-raw-click="if(window.toggleBundleManagerModal) window.toggleBundleManagerModal();"
             >
               Close
             </button>

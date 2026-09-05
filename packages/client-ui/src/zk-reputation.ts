@@ -269,7 +269,7 @@ export class ZKReputationAggregator {
       : 100;
 
     return `
-      <div id="reputation-modal-backdrop" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 select-none animate-in fade-in duration-150" data-action="call-global" data-global-method="if" data-global-args='[event.target.id === "reputation-modal-backdrop") window.zkReputation && window.zkReputation.close(]'>
+      <div id="reputation-modal-backdrop" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 select-none animate-in fade-in duration-150" data-action="call-global" data-raw-click="if(event.target.id === 'reputation-modal-backdrop') window.zkReputation && window.zkReputation.close();">
         <div class="relative w-full max-w-2xl bg-surface-base border border-white/10 rounded-2xl p-6 shadow-2xl space-y-5">
           
           <!-- MODAL HEADER -->

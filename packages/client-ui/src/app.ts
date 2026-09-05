@@ -96,6 +96,7 @@ import { renderIcon } from './ui/icons.js';
 import { contextualSidebar } from './sidebar.js';
 import { sovereignRouter } from './router.js';
 import { modalManager, buildModalRootHTML as orchestrateModalRootHTML } from './modal-manager.js';
+import { settingsView } from './settings-view.js';
 import { actionDispatcher } from './ui/action-dispatcher.js';
 import { renderHeaderPrimaryNav, renderHeaderTools, renderBroadcastBanner as renderHeaderBroadcastBanner } from './header.js';
 
@@ -183,6 +184,9 @@ if (typeof window !== 'undefined') {
   // codeSandbox is loaded on-demand
   window.chaumianVotingManager = chaumianVotingManager;
   window.sovereignWebPush = sovereignWebPush;
+  (window as any).settingsView = settingsView;
+  (window as any).__aetheris_open_settings = (tab?: any) => { settingsView.open(tab); };
+  (window as any).__aetheris_close_settings = () => { settingsView.close(); };
   // webTorrentSwarm is loaded on-demand
   // window.spatialAudioMesh initialized on demand
   // window.soundPacks initialized on demand
@@ -225,7 +229,12 @@ if (typeof window !== 'undefined') {
   window.__aetheris_close_lang = () => { isLangModalOpen = false; clientStore.notifySync(); };
   window.__aetheris_close_observatory = () => { modalManager.closeFeature(); };
   window.__aetheris_close_wot_graph = () => { modalManager.closeFeature(); };
-  window.__aetheris_close_custom_theme_builder = () => { modalManager.closeFeature(); };
+  window.__aetheris_close_custom_theme_builder = () => {
+    if (typeof window !== 'undefined' && (window as any).customThemeBuilder) {
+      (window as any).customThemeBuilder.closeModal();
+    }
+    modalManager.closeFeature();
+  };
   window.__aetheris_close_wallet = () => { modalManager.closeFeature(); };
   window.__aetheris_close_reputation = () => { modalManager.closeFeature(); };
   window.__aetheris_close_merkle = () => { modalManager.closeFeature(); };
@@ -4432,6 +4441,7 @@ function bindEvents(): void {
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         let changed = false;
+        if (settingsView.isOpen) { settingsView.close(); changed = true; }
         if (obsidianMediaPlayer.isLightboxOpen()) { obsidianMediaPlayer.closeLightbox(); changed = true; }
         if (storiesEngine.activeStoryId) { storiesEngine.activeStoryId = null; changed = true; }
         if (storiesEngine.isCreatorOpen) { storiesEngine.closeCreator(); changed = true; }

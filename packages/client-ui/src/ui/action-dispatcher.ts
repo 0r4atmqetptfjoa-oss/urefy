@@ -103,8 +103,37 @@ export class ActionDispatcher {
         break;
       }
 
+      case 'close-modal':
       case 'close-feature': {
+        // If element is a backdrop, only close when clicking backdrop directly, not inside modal
+        if (el.id.includes('backdrop') && event.target !== el) {
+          break;
+        }
         modalManager.closeFeature();
+        if (typeof window !== 'undefined') {
+          (window as any).__aetheris_close_legal?.();
+          (window as any).__aetheris_close_custom_theme_builder?.();
+          (window as any).__aetheris_close_defense?.();
+          (window as any).__aetheris_close_observatory?.();
+          (window as any).__aetheris_close_binary_hygiene?.();
+          (window as any).customThemeBuilder?.closeModal?.();
+          (window as any).binaryHygienePortal?.close?.();
+          (window as any).portableTrustModal?.close?.();
+          (window as any).paperWallet?.close?.();
+          (window as any).acousticDSP?.close?.();
+          (window as any).merkleVisualizer?.close?.();
+          (window as any).offlineSync?.close?.();
+          (window as any).meshMatrix?.close?.();
+          (window as any).keyboardNavigator?.closeHelpModal?.();
+          (window as any).themeEngine?.closeModal?.();
+          if ((window as any).themeEngine) (window as any).themeEngine.isModalOpen = false;
+          if ((window as any).clientStore) (window as any).clientStore.notifySync();
+        }
+        const parent = el.closest<HTMLElement>('.fixed, .modal-backdrop, [role="dialog"], [data-modal-root]');
+        if (parent) {
+          parent.classList.add('hidden');
+          parent.remove();
+        }
         break;
       }
 
@@ -117,10 +146,154 @@ export class ActionDispatcher {
         break;
       }
 
+      case 'close-settings': {
+        if (el.id === 'settings-modal-backdrop' && event.target !== el) {
+          break;
+        }
+        if (typeof window !== 'undefined') {
+          if ((window as any).settingsView) (window as any).settingsView.close();
+          if ((window as any).__aetheris_close_settings) (window as any).__aetheris_close_settings();
+        }
+        const settingsBackdrop = document.getElementById('settings-modal-backdrop');
+        if (settingsBackdrop) {
+          settingsBackdrop.remove();
+        }
+        const settingsContainer = document.getElementById('unified-settings-modal-container');
+        if (settingsContainer) {
+          settingsContainer.innerHTML = '';
+          settingsContainer.style.display = 'none';
+        }
+        break;
+      }
+
+      case 'open-settings': {
+        if (typeof window !== 'undefined') {
+          if ((window as any).settingsView) {
+            (window as any).settingsView.open();
+          } else if ((window as any).__aetheris_open_settings) {
+            (window as any).__aetheris_open_settings();
+          } else {
+            sovereignRouter.navigateTo('profile', { subtab: 'settings' });
+          }
+        }
+        break;
+      }
+
+      case 'set-settings-tab': {
+        const tab = el.getAttribute('data-settings-tab') as any;
+        if (tab && typeof window !== 'undefined' && (window as any).settingsView) {
+          (window as any).settingsView.setActiveTab(tab);
+        }
+        break;
+      }
+
+      case 'set-settings-theme': {
+        const themeId = el.getAttribute('data-theme-id');
+        if (themeId && typeof window !== 'undefined') {
+          if ((window as any).__aetheris_apply_theme) {
+            (window as any).__aetheris_apply_theme(themeId);
+          } else if ((window as any).themeEngine) {
+            (window as any).themeEngine.setTheme(themeId);
+          }
+          if ((window as any).settingsView) {
+            (window as any).settingsView.setActiveTab('appearance');
+          }
+        }
+        break;
+      }
+
+      case 'dismiss-suggestion': {
+        const sugId = el.getAttribute('data-suggestion-id') || el.closest('[id^="sug-"]')?.id;
+        if (sugId) {
+          if (typeof window !== 'undefined' && (window as any).aiAssistant) {
+            (window as any).aiAssistant.dismissSuggestion(sugId);
+          }
+          const card = document.getElementById(sugId);
+          if (card) {
+            card.remove();
+            const container = document.getElementById('proactive-ai-container');
+            if (container && container.children.length === 0) container.remove();
+          }
+        }
+        break;
+      }
+
+      case 'dismiss-suggestion-type': {
+        const sugType = el.getAttribute('data-suggestion-type') as any;
+        if (sugType && typeof window !== 'undefined' && (window as any).aiAssistant) {
+          (window as any).aiAssistant.dismissSuggestionType(sugType);
+        }
+        const card = el.closest('[id^="sug-"]');
+        if (card) {
+          card.remove();
+          const container = document.getElementById('proactive-ai-container');
+          if (container && container.children.length === 0) container.remove();
+        }
+        break;
+      }
+
+      case 'backup-seed': {
+        if (typeof window !== 'undefined' && (window as any).__aetheris_open_mnemonic) {
+          (window as any).__aetheris_open_mnemonic();
+        }
+        break;
+      }
+
+      case 'close-notifs': {
+        if (typeof window !== 'undefined' && (window as any).__aetherisCloseNotifs) {
+          (window as any).__aetherisCloseNotifs();
+        }
+        const notifBackdrop = document.getElementById('notification-backdrop');
+        if (notifBackdrop) notifBackdrop.remove();
+        break;
+      }
+
+      case 'close-parent': {
+        const parent = el.closest<HTMLElement>('.fixed, .modal-backdrop, [role="dialog"], [data-modal-root]');
+        if (parent) {
+          parent.classList.add('hidden');
+          parent.remove();
+        }
+        break;
+      }
+
       case 'call-global': {
+        // If element is a backdrop, only proceed if click was directly on the backdrop
+        if (el.id.includes('backdrop') && event.target !== el) {
+          break;
+        }
+
+        // 1. Check for data-raw-click
+        const rawClick = el.getAttribute('data-raw-click');
+        if (rawClick) {
+          try {
+            const fn = new Function('event', rawClick);
+            fn.call(el, event);
+            break;
+          } catch (err) {
+            console.error('[ActionDispatcher] Error in data-raw-click:', err, rawClick);
+          }
+        }
+
+        // 2. Check for data-global-method
         const method = el.getAttribute('data-global-method');
         const argsRaw = el.getAttribute('data-global-args');
-        if (method) {
+
+        if (method === 'if' && argsRaw) {
+          try {
+            let code = argsRaw.trim();
+            if (code.startsWith('[')) code = code.substring(1);
+            if (code.endsWith(']')) code = code.substring(0, code.length - 1);
+            if (code.endsWith('(')) code = code.substring(0, code.length - 1) + '()';
+            const fn = new Function('event', `if (${code};`);
+            fn.call(el, event);
+            break;
+          } catch (err) {
+            console.error('[ActionDispatcher] Error evaluating if statement:', err, argsRaw);
+          }
+        }
+
+        if (method && method !== 'if') {
           let args: any[] = [];
           if (argsRaw) {
             try {
@@ -131,12 +304,6 @@ export class ActionDispatcher {
           }
           this.invokeMethodPath(method, args);
         }
-        break;
-      }
-
-      case 'close-parent': {
-        const parent = el.closest<HTMLElement>('.fixed, .modal-backdrop, [role="dialog"], [data-modal-root]');
-        if (parent) parent.remove();
         break;
       }
 
@@ -213,11 +380,6 @@ export class ActionDispatcher {
         break;
       }
 
-      case 'open-settings': {
-        sovereignRouter.navigateTo('profile', { subtab: 'settings' });
-        break;
-      }
-
       case 'open-mobile-drawer': {
         if (typeof window !== 'undefined' && (window as any).__aetheris_open_mobile_drawer) {
           (window as any).__aetheris_open_mobile_drawer();
@@ -290,8 +452,31 @@ export class ActionDispatcher {
 
   public dispatchChange(action: string, el: HTMLInputElement | HTMLSelectElement, event: Event): void {
     if (action === 'call-global') {
+      const rawChange = el.getAttribute('data-raw-change');
+      if (rawChange) {
+        try {
+          const fn = new Function('event', rawChange);
+          fn.call(el, event);
+          return;
+        } catch (err) {
+          console.error('[ActionDispatcher] Error in data-raw-change:', err);
+        }
+      }
       const method = el.getAttribute('data-global-method');
-      if (method) {
+      if (method === 'if') {
+        const argsRaw = el.getAttribute('data-global-args');
+        if (argsRaw) {
+          try {
+            let code = argsRaw.trim();
+            if (code.startsWith('[')) code = code.substring(1);
+            if (code.endsWith(']')) code = code.substring(0, code.length - 1);
+            if (code.endsWith('(')) code = code.substring(0, code.length - 1) + '()';
+            const fn = new Function('event', `if (${code};`);
+            fn.call(el, event);
+            return;
+          } catch (_) {}
+        }
+      } else if (method) {
         const val = el.type === 'checkbox' ? (el as HTMLInputElement).checked : el.value;
         this.invokeMethodPath(method, [val, el]);
       }
@@ -305,8 +490,31 @@ export class ActionDispatcher {
 
   public dispatchInput(action: string, el: HTMLInputElement | HTMLTextAreaElement, event: Event): void {
     if (action === 'call-global') {
+      const rawInput = el.getAttribute('data-raw-input');
+      if (rawInput) {
+        try {
+          const fn = new Function('event', rawInput);
+          fn.call(el, event);
+          return;
+        } catch (err) {
+          console.error('[ActionDispatcher] Error in data-raw-input:', err);
+        }
+      }
       const method = el.getAttribute('data-global-method');
-      if (method) {
+      if (method === 'if') {
+        const argsRaw = el.getAttribute('data-global-args');
+        if (argsRaw) {
+          try {
+            let code = argsRaw.trim();
+            if (code.startsWith('[')) code = code.substring(1);
+            if (code.endsWith(']')) code = code.substring(0, code.length - 1);
+            if (code.endsWith('(')) code = code.substring(0, code.length - 1) + '()';
+            const fn = new Function('event', `if (${code};`);
+            fn.call(el, event);
+            return;
+          } catch (_) {}
+        }
+      } else if (method) {
         this.invokeMethodPath(method, [el.value, el]);
       }
     } else if (typeof window !== 'undefined') {
@@ -319,7 +527,21 @@ export class ActionDispatcher {
 
   public dispatchSubmit(action: string, el: HTMLFormElement, event: Event): void {
     if (action === 'call-global') {
+      const rawSubmit = el.getAttribute('data-raw-submit');
+      if (rawSubmit) {
+        try {
+          const fn = new Function('event', rawSubmit);
+          fn.call(el, event);
+          return;
+        } catch (err) {
+          console.error('[ActionDispatcher] Error in data-raw-submit:', err);
+        }
+      }
       const method = el.getAttribute('data-global-method');
+      if (method === 'event.preventDefault') {
+        event.preventDefault();
+        return;
+      }
       if (method) {
         this.invokeMethodPath(method, [el, event]);
       }
