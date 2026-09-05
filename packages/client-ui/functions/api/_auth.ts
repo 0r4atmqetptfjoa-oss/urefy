@@ -6,7 +6,14 @@
 
 import { Env } from './_db.js';
 import { verifyAdminAuthorization } from './admin.js';
-import { verifySignature, computeFingerprint, hexToBytes } from '@aetheris/core-crypto';
+import {
+  verifySignature,
+  computeFingerprint,
+  hexToBytes,
+  verifySignedEnvelope,
+  SovereignSignedEnvelope,
+  SovereignIdentity,
+} from '@aetheris/core-crypto';
 
 export interface IdentityAuthResult {
   valid: boolean;
@@ -234,7 +241,109 @@ export function verifyIdentitySignature(body: any, request: Request): IdentityAu
  * Enforces resource ownership (requester fingerprint must match resource owner fingerprint,
  * unless requester is an authenticated admin).
  */
-export function requireOwnership(requesterFingerprint, resourceOwnerFingerprint) {
+export function requireOwnership(requesterFingerprint?: string, resourceOwnerFingerprint?: string): boolean {
   if (!requesterFingerprint || !resourceOwnerFingerprint) return false;
   return requesterFingerprint === resourceOwnerFingerprint;
 }
+
+export interface UnifiedAuthResult<T = any> {
+  authorized: boolean;
+  fingerprint?: string;
+  publicKey?: string;
+  identity?: SovereignIdentity;
+  payload?: T;
+  response?: Response;
+}
+
+const NONCE_CACHE_TTL_MS = 300000; // 5 minutes
+const globalReplayNonceCache = new Map<string, number>();
+
+export function resetReplayNonceCache(): void {
+  globalReplayNonceCache.clear();
+}
+
+function cleanExpiredNonces(): void {
+  const now = Date.now();
+  for (const [nonce, ts] of globalReplayNonceCache.entries()) {
+    if (now - ts > NONCE_CACHE_TTL_MS) {
+      globalReplayNonceCache.delete(nonce);
+    }
+  }
+}
+
+const nonceTracker = {
+  has(nonce: string): boolean {
+    cleanExpiredNonces();
+    return globalReplayNonceCache.has(nonce);
+  },
+  add(nonce: string): void {
+    globalReplayNonceCache.set(nonce, Date.now());
+  },
+};
+
+/**
+ * Verifies either a canonical SovereignSignedEnvelope or legacy flat signed payload.
+ * When an envelope is received, executes the 5-stage sequential verification:
+ * 1. Signature -> 2. Fingerprint -> 3. Authorization (Capabilities) -> 4. Replay -> 5. Action
+ */
+export function verifyEnvelopeOrLegacyAuth<T = any>(
+  context: { request: Request; env?: Env },
+  body: any,
+  requiredCapability?: string
+): UnifiedAuthResult<T> {
+  // 1. Detect SovereignSignedEnvelope schema
+  if (
+    body &&
+    typeof body === 'object' &&
+    body.payload !== undefined &&
+    body.signature &&
+    body.nonce &&
+    body.identity &&
+    typeof body.identity === 'object'
+  ) {
+    const result = verifySignedEnvelope<T>(body as SovereignSignedEnvelope<T>, {
+      requiredCapability,
+      seenNonces: nonceTracker,
+    });
+
+    if (!result.authorized) {
+      const status = result.stage === 'authorization' ? 403 : 401;
+      return {
+        authorized: false,
+        response: new Response(
+          JSON.stringify({
+            success: false,
+            error: result.error || 'Sovereign envelope authorization failed',
+            stage: result.stage,
+          }),
+          { status, headers: { 'Content-Type': 'application/json' } }
+        ),
+      };
+    }
+
+    return {
+      authorized: true,
+      fingerprint: result.fingerprint,
+      publicKey: result.identity?.signingPublicKey,
+      identity: result.identity,
+      payload: result.payload,
+    };
+  }
+
+  // 2. Fallback to Phase 1 signature validation
+  const legacy = verifyIdentitySignature(body, context.request);
+  if (!legacy.valid) {
+    return {
+      authorized: false,
+      response: legacy.response,
+    };
+  }
+
+  return {
+    authorized: true,
+    fingerprint: legacy.fingerprint,
+    publicKey: legacy.publicKey,
+    payload: body,
+  };
+}
+

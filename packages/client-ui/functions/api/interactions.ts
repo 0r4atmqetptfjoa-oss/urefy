@@ -5,7 +5,7 @@
 // ===========================================================================
 
 import { Env, getD1Database } from './_db.js';
-import { requireAdmin, verifyIdentitySignature } from './_auth.js';
+import { requireAdmin, verifyIdentitySignature, verifyEnvelopeOrLegacyAuth } from './_auth.js';
 
 export interface InteractionRecord {
   id: string;
@@ -166,17 +166,21 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
 // Toggle like/repost/bookmark or record reaction/award/view
 export async function onRequestPost(context: { request: Request; env?: Env }): Promise<Response> {
   try {
-    const body = await context.request.json().catch(() => null) as Record<string, any> | null;
-    if (!body) {
+    const rawBody = await context.request.json().catch(() => null) as Record<string, any> | null;
+    if (!rawBody) {
       return new Response(
         JSON.stringify({ success: false, error: 'Malformed JSON payload' }),
         { status: 400, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
       );
     }
+    const body = rawBody.payload && typeof rawBody.payload === 'object' ? rawBody.payload : rawBody;
 
-    const targetId = typeof body.targetId === 'string' ? body.targetId.trim() : '';
+    const targetId = typeof body.targetId === 'string' ? body.targetId.trim() : (typeof body.postId === 'string' ? body.postId.trim() : '');
     const targetType = typeof body.targetType === 'string' ? body.targetType.trim() : 'post';
-    const userFingerprint = typeof body.userFingerprint === 'string' ? body.userFingerprint.trim() : '';
+    let userFingerprint = typeof body.userFingerprint === 'string' ? body.userFingerprint.trim() : '';
+    if (!userFingerprint && rawBody.identity?.fingerprint) {
+      userFingerprint = rawBody.identity.fingerprint;
+    }
     const action = typeof body.action === 'string' ? body.action.trim().toLowerCase() : '';
     const value = typeof body.value === 'string' ? body.value.trim() : null;
 
@@ -206,11 +210,12 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
     if (action !== 'view') {
       const adminCheck = await requireAdmin(context);
       if (!adminCheck.authorized) {
-        const auth = verifyIdentitySignature(
-          { targetId, action, authorFingerprint: userFingerprint, ...body },
-          context.request
+        const auth = verifyEnvelopeOrLegacyAuth(
+          context,
+          rawBody.payload ? rawBody : { targetId, action, authorFingerprint: userFingerprint, ...body },
+          'post:vote'
         );
-        if (!auth.valid) {
+        if (!auth.authorized) {
           return (
             auth.response ||
             new Response(

@@ -19,7 +19,7 @@ import {
   TOTAL_MESSAGES_COUNTER,
   INITIAL_NODES,
 } from './_db.js';
-import { requireAdmin, verifyIdentitySignature } from './_auth.js';
+import { requireAdmin, verifyIdentitySignature, verifyEnvelopeOrLegacyAuth } from './_auth.js';
 
 export interface AnalyticsSummary {
   status: 'healthy' | 'degraded' | 'syncing';
@@ -185,7 +185,11 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
 
 export async function onRequestPost(context: { request: Request; env?: Env }): Promise<Response> {
   try {
-    const body = (await context.request.json()) as Partial<EdgeNodeTelemetry>;
+    const rawBody = (await context.request.json()) as any;
+    let body: Partial<EdgeNodeTelemetry> = rawBody;
+    if (rawBody.payload && typeof rawBody.payload === 'object' && rawBody.signature && rawBody.identity) {
+      body = rawBody.payload;
+    }
     const db = getD1Database(context.env);
 
     if (!body.nodeId || !body.name) {
@@ -198,8 +202,8 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
     // ─── AUTHORIZATION GUARD ───
     const adminCheck = await requireAdmin(context);
     if (!adminCheck.authorized) {
-      const auth = verifyIdentitySignature(body, context.request);
-      if (!auth.valid) {
+      const auth = verifyEnvelopeOrLegacyAuth(context, rawBody, 'node:telemetry');
+      if (!auth.authorized) {
         return (
           auth.response ||
           new Response(

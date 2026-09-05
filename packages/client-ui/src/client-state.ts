@@ -10,6 +10,11 @@ import {
   validateMnemonic,
   mnemonicToSeed,
   entropyToMnemonic,
+  createSovereignIdentity,
+  createSignedEnvelope,
+  SovereignIdentity,
+  SovereignKeyPairSet,
+  SovereignSignedEnvelope,
 } from '@aetheris/core-crypto';
 import { inspectBinary, computeFileChecksums, createSwarmManifest, BinaryHygieneReport } from '@aetheris/vault-engine';
 import { serviceRegistry, SERVICES } from './service-registry.js';
@@ -126,6 +131,8 @@ export class AetherisClientStore {
   public keypair: KeyPair;
   public secretKey: bigint;
   public nullifier: string;
+  public sovereignIdentity: SovereignIdentity;
+  public sovereignKeySet?: SovereignKeyPairSet;
 
   public activeSpace: SpaceType = 'relays';
   public activeChannelId: string = 'relays-general';
@@ -214,8 +221,14 @@ export class AetherisClientStore {
       seed = mnemonicToSeed(this.mnemonic).subarray(0, 32);
     }
 
+    this.keypair = generateKeyPair(seed);
+    this.secretKey = Field.hashToField(bytesToHex(seed));
+    this.nullifier = ZKRLN.computeNullifier(this.secretKey);
+    this.sovereignKeySet = createSovereignIdentity({ seed });
+    this.sovereignIdentity = this.sovereignKeySet.identity;
+
     // Persist securely to Encrypted Vault and purge any legacy plaintext in localStorage
-    secureStorage.saveIdentity(this.mnemonic, seed, '');
+    secureStorage.saveIdentity(this.mnemonic, seed, this.keypair.fingerprint, this.sovereignIdentity);
     secureStorage.purgeLegacyLocalStorage();
 
     if (typeof localStorage !== 'undefined') {
@@ -244,14 +257,7 @@ export class AetherisClientStore {
       if (savedProactive !== null) {
         this.proactiveAiEnabled = savedProactive === 'true';
       }
-    } else {
-      this.mnemonic = generateMnemonic(128);
-      seed = mnemonicToSeed(this.mnemonic).subarray(0, 32);
     }
-
-    this.keypair = generateKeyPair(seed);
-    this.secretKey = Field.hashToField(bytesToHex(seed));
-    this.nullifier = ZKRLN.computeNullifier(this.secretKey);
 
     this.seedInitialPostsAndMembers();
     this.loadCachedMessages();
@@ -264,6 +270,19 @@ export class AetherisClientStore {
         this.syncFromEdge();
       }, 15000);
     }
+  }
+
+  /**
+   * Signs a payload using the canonical Sovereign Signed Envelope Protocol.
+   * Produces { payload, signature, nonce, timestamp, identity } with SHA-256 fingerprint,
+   * Ed25519 signature over canonical JSON digest, and replay nonce.
+   */
+  public createSignedEnvelope<T>(payload: T): SovereignSignedEnvelope<T> {
+    if (!this.sovereignKeySet) {
+      this.sovereignKeySet = createSovereignIdentity();
+      this.sovereignIdentity = this.sovereignKeySet.identity;
+    }
+    return createSignedEnvelope(payload, this.sovereignKeySet);
   }
 
   /** Load previously stored messages from localStorage and IndexedDB into active memory */

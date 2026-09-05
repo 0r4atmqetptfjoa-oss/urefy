@@ -12,7 +12,7 @@ import {
   globalChannelsStore,
   INITIAL_CHANNELS,
 } from './_db.js';
-import { requireAdmin, verifyIdentitySignature } from './_auth.js';
+import { requireAdmin, verifyIdentitySignature, verifyEnvelopeOrLegacyAuth } from './_auth.js';
 
 export { EdgeChannel };
 
@@ -141,18 +141,21 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
  */
 export async function onRequestPost(context: { request: Request; env?: Env }): Promise<Response> {
   try {
-    const body = (await context.request.json()) as any;
+    const rawBody = (await context.request.json()) as any;
+    let body = rawBody;
     const db = getD1Database(context.env);
     const kv = getKVStore(context.env);
 
-    if (!body.name || !body.name.trim()) {
+    const candidateBody = rawBody.payload && typeof rawBody.payload === 'object' ? rawBody.payload : rawBody;
+
+    if (!candidateBody.name || !candidateBody.name.trim()) {
       return new Response(
         JSON.stringify({ success: false, error: 'Channel name is required' }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
-    const space = body.space || 'relays';
+    const space = candidateBody.space || 'relays';
     if (!['relays', 'vault', 'pulse'].includes(space)) {
       return new Response(
         JSON.stringify({ success: false, error: 'Invalid space. Must be relays, vault, or pulse' }),
@@ -160,13 +163,18 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
       );
     }
 
-    // Protect channel creation: require admin or cryptographically signed request
+    // Protect channel creation: require admin or cryptographically signed request / envelope
     const adminCheck = await requireAdmin(context);
     if (!adminCheck.authorized) {
-      const authResult = verifyIdentitySignature(body, context.request);
-      if (!authResult.valid) {
+      const authResult = verifyEnvelopeOrLegacyAuth(context, rawBody, 'channel:create');
+      if (!authResult.authorized) {
         return authResult.response!;
       }
+      if (authResult.payload) {
+        body = authResult.payload;
+      }
+    } else if (rawBody.payload) {
+      body = rawBody.payload;
     }
 
     const channelId = body.id || `${space}-${body.name.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '-')}`;

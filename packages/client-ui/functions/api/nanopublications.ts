@@ -13,7 +13,7 @@ import {
   globalNanopublicationsStore,
   INITIAL_NANOPUBLICATIONS,
 } from './_db.js';
-import { requireAdmin, verifyIdentitySignature } from './_auth.js';
+import { requireAdmin, verifyIdentitySignature, verifyEnvelopeOrLegacyAuth } from './_auth.js';
 
 export { EdgeNanopublication };
 
@@ -191,6 +191,11 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
       );
     }
 
+    const rawBody = body;
+    if (rawBody.payload && typeof rawBody.payload === 'object' && rawBody.signature && rawBody.identity) {
+      body = rawBody.payload;
+    }
+
     if (!body.title || !body.fileName || !body.sha256) {
       return new Response(
         JSON.stringify({ success: false, error: 'Missing mandatory fields: title, fileName, sha256' }),
@@ -201,8 +206,8 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
     // ─── CRYPTOGRAPHIC AUTHORIZATION GUARD ───
     const adminCheck = await requireAdmin(context);
     if (!adminCheck.authorized) {
-      const auth = verifyIdentitySignature(body, context.request);
-      if (!auth.valid) {
+      const auth = verifyEnvelopeOrLegacyAuth(context, rawBody, 'storage:upload');
+      if (!auth.authorized) {
         return (
           auth.response ||
           new Response(

@@ -15,7 +15,7 @@ import {
   globalSpentNullifiers,
   INITIAL_POSTS,
 } from './_db.js';
-import { requireAdmin, verifyIdentitySignature } from './_auth.js';
+import { requireAdmin, verifyIdentitySignature, verifyEnvelopeOrLegacyAuth } from './_auth.js';
 
 export { EdgePost };
 
@@ -224,7 +224,11 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
 
 export async function onRequestPost(context: { request: Request; env?: Env }): Promise<Response> {
   try {
-    const body = (await context.request.json()) as any;
+    const rawBody = (await context.request.json()) as any;
+    let body = rawBody;
+    if (rawBody.payload && typeof rawBody.payload === 'object' && rawBody.signature && rawBody.identity) {
+      body = rawBody.payload;
+    }
     const db = getD1Database(context.env);
     const kv = getKVStore(context.env);
     const r2 = getR2Bucket(context.env);
@@ -234,11 +238,12 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
       const adminCheck = await requireAdmin(context);
       let userFingerprint = body.userFingerprint || 'anon-voter';
       if (!adminCheck.authorized) {
-        const auth = verifyIdentitySignature(
-          { targetId: body.postId, action: 'vote', authorFingerprint: body.userFingerprint, ...body },
-          context.request
+        const auth = verifyEnvelopeOrLegacyAuth(
+          context,
+          rawBody.payload ? rawBody : { targetId: body.postId, action: 'vote', authorFingerprint: body.userFingerprint, ...body },
+          'post:vote'
         );
-        if (!auth.valid) {
+        if (!auth.authorized) {
           return (
             auth.response ||
             new Response(
@@ -388,11 +393,12 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
     if (body.action === 'boost') {
       const adminCheck = await requireAdmin(context);
       if (!adminCheck.authorized) {
-        const auth = verifyIdentitySignature(
-          { targetId: body.postId, action: 'boost', authorFingerprint: body.userFingerprint, ...body },
-          context.request
+        const auth = verifyEnvelopeOrLegacyAuth(
+          context,
+          rawBody.payload ? rawBody : { targetId: body.postId, action: 'boost', authorFingerprint: body.userFingerprint, ...body },
+          'post:vote'
         );
-        if (!auth.valid) {
+        if (!auth.authorized) {
           return (
             auth.response ||
             new Response(
@@ -453,8 +459,8 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
     const adminCheck = await requireAdmin(context);
     let authorFingerprint = body.authorFingerprint || 'anon-peer';
     if (!adminCheck.authorized) {
-      const auth = verifyIdentitySignature(body, context.request);
-      if (!auth.valid) {
+      const auth = verifyEnvelopeOrLegacyAuth(context, rawBody, 'post:create');
+      if (!auth.authorized) {
         return (
           auth.response ||
           new Response(
@@ -464,6 +470,9 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
         );
       }
       authorFingerprint = auth.fingerprint || authorFingerprint;
+      if (auth.payload) {
+        body = auth.payload;
+      }
     }
 
     const newPost: EdgePost = {

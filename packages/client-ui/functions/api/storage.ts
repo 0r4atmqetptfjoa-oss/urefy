@@ -17,7 +17,7 @@ import {
   R2ObjectBody,
   getR2Bucket,
 } from './_db.js';
-import { requireAdmin, verifyIdentitySignature, requireOwnership } from './_auth.js';
+import { requireAdmin, verifyIdentitySignature, requireOwnership, verifyEnvelopeOrLegacyAuth } from './_auth.js';
 
 export interface StorageMetadata {
   sha256: string;
@@ -470,6 +470,7 @@ export async function onRequestPost(context: {
     let title = req.headers.get('X-Title') || '';
     let customKey = req.headers.get('X-Key') || '';
     let detectedContentType = rawContentType.split(';')[0].trim();
+    let envelopeObj: any = null;
 
     // 1. Multipart Form-Data
     if (rawContentType.includes('multipart/form-data')) {
@@ -484,26 +485,22 @@ export async function onRequestPost(context: {
       } else if (typeof formPayload === 'string') {
         binaryData = new TextEncoder().encode(formPayload);
       } else {
-        return new Response(
-          JSON.stringify({
-            success: false,
-            error: 'No valid file or payload attached in multipart/form-data',
-          }),
-          {
-            status: 400,
-            headers: { 'Content-Type': 'application/json', ...STORAGE_CORS_HEADERS },
-          }
-        );
+        binaryData = new Uint8Array(0);
       }
 
+      fileName = (formData.get('fileName') as string) || fileName;
       author = (formData.get('author') as string) || author;
       title = (formData.get('title') as string) || title;
-      fileName = (formData.get('fileName') as string) || fileName;
       customKey = (formData.get('key') as string) || customKey;
     }
     // 2. Application JSON (Base64 payload or structured data)
     else if (rawContentType.includes('application/json')) {
-      const jsonBody = (await req.json()) as any;
+      const rawJson = (await req.json()) as any;
+      let jsonBody = rawJson;
+      if (rawJson && rawJson.payload && typeof rawJson.payload === 'object' && rawJson.signature && rawJson.identity) {
+        envelopeObj = rawJson;
+        jsonBody = rawJson.payload;
+      }
       if (!jsonBody || (!jsonBody.data && !jsonBody.base64 && !jsonBody.content)) {
         return new Response(
           JSON.stringify({
@@ -640,18 +637,20 @@ export async function onRequestPost(context: {
         authorFingerprint: author,
         timestamp: req.headers.get('X-Timestamp') || Date.now(),
       };
-      const identityAuth = verifyIdentitySignature(authPayload, req);
-      if (!identityAuth.valid) {
-        return new Response(
-          JSON.stringify({
-            success: false,
-            error: 'Authentication required for storage upload: valid Admin session or signed identity required.',
-            detail: identityAuth.response ? await identityAuth.response.text() : undefined,
-          }),
-          {
-            status: 401,
-            headers: { 'Content-Type': 'application/json', ...STORAGE_CORS_HEADERS },
-          }
+      const identityAuth = verifyEnvelopeOrLegacyAuth(context, envelopeObj || authPayload, 'storage:upload');
+      if (!identityAuth.authorized) {
+        return (
+          identityAuth.response ||
+          new Response(
+            JSON.stringify({
+              success: false,
+              error: 'Authentication required for storage upload: valid Admin session or signed identity required.',
+            }),
+            {
+              status: 401,
+              headers: { 'Content-Type': 'application/json', ...STORAGE_CORS_HEADERS },
+            }
+          )
         );
       }
       if (identityAuth.fingerprint) {
@@ -1366,11 +1365,12 @@ export async function onRequestDelete(context: {
     const bucket = getStorageBucket(context.env);
 
     if (!adminCheck.authorized) {
-      const identityAuth = verifyIdentitySignature(
+      const identityAuth = verifyEnvelopeOrLegacyAuth(
+        context,
         { key, timestamp: url.searchParams.get('timestamp') },
-        context.request
+        'storage:delete'
       );
-      if (!identityAuth.valid) {
+      if (!identityAuth.authorized) {
         return new Response(
           JSON.stringify({
             success: false,

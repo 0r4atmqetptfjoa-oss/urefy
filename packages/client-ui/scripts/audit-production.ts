@@ -317,6 +317,7 @@ function classifySeedOccurrence(relPath: string, line: string): Category {
     line.includes('Seed-42') ||
     line.includes('aetheris_core_sovereign_identity_seed') ||
     line.includes('generateKeyPair(seed)') ||
+    line.includes('createSovereignIdentity') ||
     line.includes('hashToField(bytesToHex(seed))') ||
     line.includes('saveIdentity(this.mnemonic, seed') ||
     line.includes('let seed: Uint8Array') ||

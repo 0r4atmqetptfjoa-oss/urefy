@@ -47,6 +47,7 @@ export interface SovereignIdentityRecord {
   seedHex: string;
   fingerprint: string;
   createdAt: number;
+  sovereignIdentity?: any;
 }
 
 export interface StoredChannelMessages {
@@ -336,13 +337,19 @@ export class SecureStorageEngine {
    * Encrypts and saves the sovereign identity into the secure vault.
    * NEVER touches localStorage.
    */
-  public async saveIdentity(mnemonic: string, seed: Uint8Array, fingerprint: string): Promise<void> {
+  public async saveIdentity(
+    mnemonic: string,
+    seed: Uint8Array,
+    fingerprint: string,
+    sovereignIdentity?: any
+  ): Promise<void> {
     const seedHex = bytesToHex(seed);
     const identity: SovereignIdentityRecord = {
       mnemonic: mnemonic.trim().toLowerCase(),
       seedHex,
       fingerprint,
       createdAt: Date.now(),
+      sovereignIdentity,
     };
 
     this.volatileIdentity = identity;

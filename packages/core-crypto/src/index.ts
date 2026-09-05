@@ -17,3 +17,4 @@ export * from './zk-snark.js';
 export * from './zk-delivery-proof.js';
 export * from './zk-wot-reputation.js';
 export * from './social-recovery.js';
+export * from './identity.js';

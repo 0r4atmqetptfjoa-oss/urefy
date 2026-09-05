@@ -13,7 +13,7 @@ import {
   incrementMessageCounter,
   INITIAL_MESSAGES,
 } from './_db.js';
-import { requireAdmin, verifyIdentitySignature } from './_auth.js';
+import { requireAdmin, verifyIdentitySignature, verifyEnvelopeOrLegacyAuth } from './_auth.js';
 
 export { EdgeMessage };
 
@@ -120,11 +120,13 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
 
 export async function onRequestPost(context: { request: Request; env?: Env }): Promise<Response> {
   try {
-    const body = (await context.request.json()) as Partial<EdgeMessage>;
+    const rawBody = (await context.request.json()) as any;
+    let body: Partial<EdgeMessage> = rawBody;
     const db = getD1Database(context.env);
     const kv = getKVStore(context.env);
 
-    const textContent = (body.ciphertext || body.text || '').trim();
+    const candidateBody = rawBody.payload && typeof rawBody.payload === 'object' ? rawBody.payload : rawBody;
+    const textContent = (candidateBody.ciphertext || candidateBody.text || '').trim();
     if (!textContent) {
       return new Response(
         JSON.stringify({ success: false, error: 'Message content cannot be empty' }),
@@ -133,7 +135,7 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
     }
 
     // Enforce E2EE: ciphertext must be present. Reject pure plaintext payloads.
-    const ciphertext = (body.ciphertext || '').trim();
+    const ciphertext = (candidateBody.ciphertext || '').trim();
     if (!ciphertext) {
       return new Response(
         JSON.stringify({
@@ -144,13 +146,13 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
       );
     }
 
-    // Authentication: Require Admin OR Cryptographic Identity Signature
+    // Authentication: Require Admin OR Cryptographic Identity Signature / SovereignSignedEnvelope
     const adminCheck = await requireAdmin(context);
-    let authorFingerprint = body.authorFingerprint || 'anon-peer';
+    let authorFingerprint = rawBody.authorFingerprint || 'anon-peer';
 
     if (!adminCheck.authorized) {
-      const auth = verifyIdentitySignature(body, context.request);
-      if (!auth.valid) {
+      const auth = verifyEnvelopeOrLegacyAuth(context, rawBody, 'relay:publish');
+      if (!auth.authorized) {
         return (
           auth.response ||
           new Response(
@@ -160,6 +162,11 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
         );
       }
       authorFingerprint = auth.fingerprint || authorFingerprint;
+      if (auth.payload) {
+        body = auth.payload;
+      }
+    } else if (rawBody.payload) {
+      body = rawBody.payload;
     }
 
     const newMsg: EdgeMessage = {
