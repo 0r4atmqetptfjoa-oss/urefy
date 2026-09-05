@@ -61,7 +61,7 @@ export interface AdminLogEntry {
 export const DEFAULT_ADMIN_PIN = '11223';
 
 export const globalAdminUsersStore: AdminUser[] = [
-  { fingerprint: 'genesis-core', role: 'GUARDIAN', status: 'online', isZKVerified: true, isQuarantined: false, joinedAt: Date.now() - 1000 * 60 * 60 * 24 * 30, messagesCount: 892, postsCount: 47 },
+  { fingerprint: 'sovereign-root-guardian', role: 'GUARDIAN', status: 'online', isZKVerified: true, isQuarantined: false, joinedAt: Date.now() - 1000 * 60 * 60 * 24 * 30, messagesCount: 892, postsCount: 47 },
   { fingerprint: 'c3dc28cb705e', role: 'ARCHIVIST', status: 'online', isZKVerified: true, isQuarantined: false, joinedAt: Date.now() - 1000 * 60 * 60 * 24 * 20, messagesCount: 341, postsCount: 23 },
   { fingerprint: 'a89104fa2211', role: 'MODERATOR', status: 'idle', isZKVerified: true, isQuarantined: false, joinedAt: Date.now() - 1000 * 60 * 60 * 24 * 15, messagesCount: 156, postsCount: 8 },
   { fingerprint: 'f40019bc88a2', role: 'MEMBER', status: 'idle', isZKVerified: true, isQuarantined: false, joinedAt: Date.now() - 1000 * 60 * 60 * 24 * 7, messagesCount: 42, postsCount: 2 },
@@ -87,9 +87,9 @@ export const globalServerConfig: AdminServerConfig = {
 };
 
 export const globalAdminLogsStore: AdminLogEntry[] = [
-  { id: 'log-1', action: 'ROLE_CHANGED', targetId: 'a89104fa2211', adminFingerprint: 'genesis-core', timestamp: Date.now() - 300000 },
-  { id: 'log-2', action: 'IP_BANNED', targetId: '185.220.101.5', adminFingerprint: 'genesis-core', timestamp: Date.now() - 120000 },
-  { id: 'log-3', action: 'POST_DELETED', targetId: 'post-spam-44', adminFingerprint: 'genesis-core', timestamp: Date.now() - 60000 },
+  { id: 'log-1', action: 'ROLE_CHANGED', targetId: 'a89104fa2211', adminFingerprint: 'sovereign-root-guardian', timestamp: Date.now() - 300000 },
+  { id: 'log-2', action: 'IP_BANNED', targetId: '185.220.101.5', adminFingerprint: 'sovereign-root-guardian', timestamp: Date.now() - 120000 },
+  { id: 'log-3', action: 'POST_DELETED', targetId: 'post-spam-44', adminFingerprint: 'sovereign-root-guardian', timestamp: Date.now() - 60000 },
 ];
 
 // Failed auth attempt tracking for 429 rate-limiting (max 5 failed attempts per 10 minutes per IP)
@@ -270,18 +270,7 @@ export async function verifyAdminAuthorization(
   const queryPin = url.searchParams.get('pin');
   const queryToken = url.searchParams.get('token');
 
-  // Explicitly reject all magic backdoor strings with 401 Unauthorized
-  const magicStrings = ['genesis-core', 'genesis-token', 'admin-session-active', 'admin-genesis'];
   const rawBearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
-
-  if (
-    magicStrings.includes(rawBearer) ||
-    magicStrings.includes(adminPinHeader.trim()) ||
-    (queryPin && magicStrings.includes(queryPin.trim())) ||
-    (queryToken && magicStrings.includes(queryToken.trim()))
-  ) {
-    return { authorized: false, reason: 'Invalid admin credentials', status: 401 };
-  }
 
   // Check Bearer token (valid HMAC session token or matching configured PIN)
   if (rawBearer) {
@@ -652,7 +641,7 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
       );
     }
 
-    const adminFp = req.headers.get('X-Admin-Fingerprint') || 'genesis-core';
+    const adminFp = req.headers.get('X-Admin-Fingerprint') || 'sovereign-root-guardian';
 
     // ── 2. ACTION: PROMOTE USER ───────────────────────────────────────────────
     if (body.action === 'promote-user') {

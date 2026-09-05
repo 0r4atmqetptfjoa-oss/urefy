@@ -1,3 +1,4 @@
+import { secureStorage } from './secure-storage.js';
 /**
  * Aetheris Admin Application
  *
@@ -18,7 +19,7 @@ export function initAdminApp(): void {
 
   // Bind admin fingerprint — loads from localStorage
   // Admin is whoever owns this device's crypto identity
-  const savedSeed = localStorage.getItem('aetheris_identity_seed');
+  const savedSeed = secureStorage.getIdentitySync()?.seedHex || null;
   const adminFp = localStorage.getItem('aetheris_admin_fingerprint') || 'admin';
   adminAuth.bindFirstAdmin(adminFp);
 

@@ -85,6 +85,23 @@ class MockDOMElement {
   public textContent: string = '';
   private _attributes: Map<string, string> = new Map();
   private _innerHTML: string = '';
+  private _listeners: Map<string, Array<(...args: any[]) => void>> = new Map();
+
+  public addEventListener(type: string, listener: (...args: any[]) => void): void {
+    const list = this._listeners.get(type) || [];
+    list.push(listener);
+    this._listeners.set(type, list);
+    if (type === 'click') this.onclick = listener;
+    if (type === 'input') this.oninput = listener;
+    if (type === 'pointerdown') this.onpointerdown = listener;
+  }
+
+  public removeEventListener(type: string, listener: (...args: any[]) => void): void {
+    const list = this._listeners.get(type);
+    if (list) {
+      this._listeners.set(type, list.filter(l => l !== listener));
+    }
+  }
 
   public classList = {
     _classes: new Set<string>(),

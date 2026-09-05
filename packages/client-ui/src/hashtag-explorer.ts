@@ -2,6 +2,7 @@
 // Aetheris Omni-Sphere — Hashtag Explorer Module
 
 import { isLocalDev } from './admin-auth.js';
+import { escapeHtml } from './dry-utils.js';
 
 type TagChangeListener = (tag: string | null) => void;
 
@@ -210,11 +211,12 @@ export class HashtagExplorer {
 
   renderHashtagChip(tag: string, count: number): string {
     const normalized = tag.toLowerCase().replace(/^#/, "");
+    const safeTag = escapeHtml(normalized);
     const isActive = this.activeTag === normalized;
     const activeClass = isActive
       ? "ring-1 ring-cyphr bg-cyphr/10"
       : "bg-surface-overlay hover:bg-surface-highlight";
-    return `<button class="btn-hashtag px-2 py-1 text-xs font-mono rounded-full ${activeClass} border border-white/10 text-cyphr transition-all" data-tag="${normalized}" data-action="call-global" data-global-method="hashtagExplorer.setActiveTag" data-global-args='[hashtagExplorer.activeTag === "${normalized}" ? null : "${normalized}"]' title="Filter by #${normalized}">#${normalized} <span class="text-slate-400 text-[10px]">${count}</span></button>`;
+    return `<button class="btn-hashtag px-2 py-1 text-xs font-mono rounded-full ${activeClass} border border-white/10 text-cyphr transition-all" data-tag="${safeTag}" data-action="call-global" data-global-method="hashtagExplorer.setActiveTag" data-global-args='[hashtagExplorer.activeTag === "${safeTag}" ? null : "${safeTag}"]' title="Filter by #${safeTag}">#${safeTag} <span class="text-slate-400 text-[10px]">${count}</span></button>`;
   }
 
   renderTagExplorerPanel(): string {
@@ -230,7 +232,7 @@ export class HashtagExplorer {
     const header = `<div class="flex items-center justify-between px-4 pt-4 pb-2 border-b border-white/5">
   <span class="text-xs font-semibold text-slate-400 uppercase tracking-widest"># Explorer</span>
   ${this.activeTag
-    ? `<button class="text-[10px] font-mono text-cyphr hover:text-white transition-colors px-2 py-0.5 rounded bg-cyphr/10 border border-cyphr/30" data-action="call-global" data-global-method="hashtagExplorer.setActiveTag" data-global-args='[null]' title="Clear active tag">✕ #${this.activeTag}</button>`
+    ? `<button class="text-[10px] font-mono text-cyphr hover:text-white transition-colors px-2 py-0.5 rounded bg-cyphr/10 border border-cyphr/30" data-action="call-global" data-global-method="hashtagExplorer.setActiveTag" data-global-args='[null]' title="Clear active tag">✕ #${escapeHtml(this.activeTag)}</button>`
     : `<span class="text-[10px] text-slate-600 font-mono">no filter</span>`}
 </div>`;
 
@@ -245,8 +247,8 @@ export class HashtagExplorer {
       ? `<div class="px-4 pb-3">
   <div class="rounded-lg bg-surface-overlay border border-cyphr/20 px-3 py-2.5">
     <div class="flex items-center justify-between mb-1">
-      <span class="text-cyphr font-mono text-sm font-semibold">#${this.activeTag}</span>
-      <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-aether/20 text-aether border border-aether/30">${activeCat}</span>
+      <span class="text-cyphr font-mono text-sm font-semibold">#${escapeHtml(this.activeTag)}</span>
+      <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-aether/20 text-aether border border-aether/30">${escapeHtml(activeCat)}</span>
     </div>
     <div class="text-slate-400 text-[11px]">${activeStat.count} posts • last used ${this._relativeTime(activeStat.lastUsed)}</div>
     ${related.length > 0 ? `<div class="mt-2 pt-2 border-t border-white/5">
@@ -302,8 +304,8 @@ ${statsFooter}
     return `<div id="active-tag-banner" class="flex items-center justify-between px-4 py-2.5 bg-surface-overlay border-b border-cyphr/20 animate-in fade-in" role="status" aria-live="polite">
   <div class="flex items-center gap-2.5 min-w-0">
     <div class="w-1.5 h-1.5 rounded-full bg-cyphr animate-pulse shrink-0"></div>
-    <span class="text-xs text-slate-300 truncate">Showing posts tagged <span class="font-mono ${colorClass} font-semibold">#${this.activeTag}</span> <span class="text-slate-500 ml-1">(${count} result${count !== 1 ? "s" : ""})</span></span>
-    <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-surface-raised border border-white/10 ${colorClass} shrink-0">${cat}</span>
+    <span class="text-xs text-slate-300 truncate">Showing posts tagged <span class="font-mono ${colorClass} font-semibold">#${escapeHtml(this.activeTag)}</span> <span class="text-slate-500 ml-1">(${count} result${count !== 1 ? "s" : ""})</span></span>
+    <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-surface-raised border border-white/10 ${colorClass} shrink-0">${escapeHtml(cat)}</span>
   </div>
   <button class="ml-3 shrink-0 text-[11px] font-mono text-slate-400 hover:text-white transition-colors px-2 py-0.5 rounded hover:bg-surface-raised border border-transparent hover:border-white/10" data-action="call-global" data-global-method="hashtagExplorer.setActiveTag" data-global-args='[null]' aria-label="Clear tag filter">✕ Clear</button>
 </div>`;
@@ -338,7 +340,7 @@ ${statsFooter}
       .sort((a, b) => b[1].count - a[1].count)
       .slice(0, 10);
     if (matches.length === 0) {
-      grid.innerHTML = `<p class="text-slate-600 text-[11px] font-mono px-1">No tags match "#${q}"</p>`;
+      grid.innerHTML = `<p class="text-slate-600 text-[11px] font-mono px-1">No tags match "#${escapeHtml(q)}"</p>`;
       return;
     }
     grid.innerHTML = matches.map(([tag, stat], i) => {

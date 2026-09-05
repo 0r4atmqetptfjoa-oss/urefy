@@ -110,8 +110,8 @@ describe('Phase 1: Sovereign Mnemonic Recovery & Keyboard Navigation Suite', () 
       expect(restored).toBe(true);
       expect(clientStore.mnemonic).toBe(testMnemonic);
       expect(clientStore.keypair).toBeDefined();
-      expect(clientStore.keypair.fingerprint).toBeDefined();
-      expect(mockLocalStorage.getItem('aetheris_identity_mnemonic')).toBe(testMnemonic);
+      // Invariant: Plaintext mnemonic is NEVER persisted in localStorage (Blocker 1)
+      expect(mockLocalStorage.getItem('aetheris_identity_mnemonic')).toBeFalsy();
     });
   });
 

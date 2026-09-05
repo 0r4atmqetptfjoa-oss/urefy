@@ -1323,7 +1323,7 @@ export class WebRTCFileTransfer {
     if (typeof document === 'undefined') return;
     const input = document.createElement('input');
     input.type = 'file';
-    input.onchange = async (e: Event) => {
+    input.addEventListener('change', async (e: Event) => {
       const target = e.target as HTMLInputElement;
       if (target && target.files && target.files.length > 0) {
         const file = target.files[0];
@@ -1333,7 +1333,7 @@ export class WebRTCFileTransfer {
           console.error('[WebRTCFileTransfer] Failed to initiate transfer:', err);
         }
       }
-    };
+    });
     input.click();
   }
 
@@ -1636,7 +1636,7 @@ export class WebRTCFileTransfer {
     if (typeof document === 'undefined') return;
     const input = document.createElement('input');
     input.type = 'file';
-    input.onchange = async (e: Event) => {
+    input.addEventListener('change', async (e: Event) => {
       const target = e.target as HTMLInputElement;
       if (target && target.files && target.files.length > 0) {
         const file = target.files[0];
@@ -1646,7 +1646,7 @@ export class WebRTCFileTransfer {
           console.error('[WebRTCFileTransfer] Failed to upload to Cloudflare R2:', err);
         }
       }
-    };
+    });
     input.click();
   }
 
@@ -2257,7 +2257,7 @@ export class WebRTCFileTransfer {
       <div
         id="webrtc-floating-transfer-widget"
         class="fixed left-4 bottom-28 md:bottom-14 z-40 font-mono select-none"
-        title="Click to open P2P Transfer Manager" data-action="call-global" data-global-method="document.getElementById" data-global-args='["download-manager-modal')?.classList.remove('hidden"]'
+        title="Click to open P2P Transfer Manager" data-action="open-download-manager"
       >
         <!-- Compact pill — always visible during active transfer -->
         <div class="group flex items-center gap-2.5 px-3 py-2 rounded-2xl bg-surface-base/95 backdrop-blur-xl border border-cyphr/25 hover:border-cyphr/50 shadow-lg hover:shadow-[0_4px_20px_rgba(0,229,255,0.18)] transition-all duration-200 cursor-pointer">

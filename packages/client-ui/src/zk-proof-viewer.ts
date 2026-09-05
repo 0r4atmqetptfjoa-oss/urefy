@@ -812,39 +812,39 @@ export class ZKProofVisualizer {
   public attachEvents(root: Document | HTMLElement = document): void {
     // Open buttons from UI
     root.querySelectorAll<HTMLButtonElement>('.btn-open-zk-proof, [data-open-zk-proof]').forEach((btn) => {
-      btn.onclick = (e) => {
+      btn.addEventListener('click', (e) => {
         e.preventDefault();
         const type = (btn.getAttribute('data-open-zk-proof') || 'rln') as ProofType;
         this.open(type);
         this.reRenderIfMounted();
-      };
+      });
     });
 
     // Close button
     const closeBtn = root.querySelector('#btn-close-zk-proof');
     if (closeBtn) {
-      (closeBtn as HTMLElement).onclick = () => {
+      (closeBtn as HTMLElement).addEventListener('click', () => {
         this.close();
         this.reRenderIfMounted();
-      };
+      });
     }
 
     // Dot Close button
     const dotClose = root.querySelector('#btn-zk-dot-close');
     if (dotClose) {
-      (dotClose as HTMLElement).onclick = () => {
+      (dotClose as HTMLElement).addEventListener('click', () => {
         this.close();
         this.reRenderIfMounted();
-      };
+      });
     }
 
     // Dismiss button in footer
     const dismissBtn = root.querySelector('#btn-dismiss-zk');
     if (dismissBtn) {
-      (dismissBtn as HTMLElement).onclick = () => {
+      (dismissBtn as HTMLElement).addEventListener('click', () => {
         this.close();
         this.reRenderIfMounted();
-      };
+      });
     }
 
     // Overlay backdrop click to close
@@ -860,29 +860,29 @@ export class ZKProofVisualizer {
 
     // Tab buttons
     root.querySelectorAll<HTMLButtonElement>('.btn-zk-tab, [data-zk-tab]').forEach((tab) => {
-      tab.onclick = (e) => {
+      tab.addEventListener('click', (e) => {
         e.preventDefault();
         const tabType = tab.getAttribute('data-zk-tab') as ProofType;
         if (tabType) {
           this.setProofType(tabType);
           this.reRenderIfMounted();
         }
-      };
+      });
     });
 
     // Toggle Witness Drawer
     const toggleWitnessBtn = root.querySelector('#btn-toggle-witness');
     if (toggleWitnessBtn) {
-      (toggleWitnessBtn as HTMLElement).onclick = () => {
+      (toggleWitnessBtn as HTMLElement).addEventListener('click', () => {
         this.isWitnessExpanded = !this.isWitnessExpanded;
         this.reRenderIfMounted();
-      };
+      });
     }
 
     // Copy Witness JSON
     const copyWitnessBtn = root.querySelector('#btn-copy-witness');
     if (copyWitnessBtn) {
-      (copyWitnessBtn as HTMLElement).onclick = async () => {
+      (copyWitnessBtn as HTMLElement).addEventListener('click', async () => {
         const json = this.getWitnessJSON(this.activeProofType);
         try {
           if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -900,13 +900,13 @@ export class ZKProofVisualizer {
             (window as any).sovereignDialog.prompt('Copy Witness JSON:', { defaultValue: json, title: 'Witness JSON' });
           }
         }
-      };
+      });
     }
 
     // Re-verify Circuit button
     const reverifyBtn = root.querySelector('#btn-reverify-proof');
     if (reverifyBtn) {
-      (reverifyBtn as HTMLElement).onclick = () => {
+      (reverifyBtn as HTMLElement).addEventListener('click', () => {
         reverifyBtn.innerHTML = `<span>⏳</span><span>Verifying BN254...</span>`;
         setTimeout(() => {
           reverifyBtn.innerHTML = `<span>✅</span><span>100% Constraints OK</span>`;
@@ -916,7 +916,7 @@ export class ZKProofVisualizer {
             }
           }, 2000);
         }, 300);
-      };
+      });
     }
 
     // Escape key handler

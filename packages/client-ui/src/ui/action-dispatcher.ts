@@ -207,6 +207,12 @@ export class ActionDispatcher {
         break;
       }
 
+      case 'open-download-manager': {
+        const modal = document.getElementById('download-manager-modal');
+        if (modal) modal.classList.remove('hidden');
+        break;
+      }
+
       case 'open-settings': {
         sovereignRouter.navigateTo('profile', { subtab: 'settings' });
         break;

@@ -1089,80 +1089,80 @@ export class SpatialAudioEngine {
     // 1. Close Modal Handlers
     const closeBtn = doc.getElementById('spatial-modal-close-btn');
     if (closeBtn) {
-      closeBtn.onclick = () => this.closeModal();
+      closeBtn.addEventListener('click', () => this.closeModal());
     }
     const doneBtn = doc.getElementById('spatial-modal-done-btn');
     if (doneBtn) {
-      doneBtn.onclick = () => this.closeModal();
+      doneBtn.addEventListener('click', () => this.closeModal());
     }
 
     // 2. Room Preset Switching
     const presetBtns = (root as HTMLElement).querySelectorAll?.('.room-preset-btn') || doc.querySelectorAll('.room-preset-btn');
     presetBtns.forEach((btn) => {
-      (btn as HTMLElement).onclick = (e) => {
+      (btn as HTMLElement).addEventListener('click', (e) => {
         const target = (e.currentTarget as HTMLElement).getAttribute('data-room-preset') as RoomAcousticType;
         if (target && this.roomPresets[target]) {
           this.setRoomPreset(target);
           this.refreshModalDOM();
         }
-      };
+      });
     });
 
     // 3. Master Volume Slider
     const volumeSlider = doc.getElementById('spatial-master-volume') as HTMLInputElement | null;
     if (volumeSlider) {
-      volumeSlider.oninput = (e) => {
+      volumeSlider.addEventListener('input', (e) => {
         const val = parseInt((e.target as HTMLInputElement).value, 10) / 100;
         this.setMasterVolume(val);
-      };
+      });
     }
 
     // 4. Self Mute & Deafen Toggles
     const muteBtn = doc.getElementById('spatial-btn-self-mute');
     if (muteBtn) {
-      muteBtn.onclick = () => {
+      muteBtn.addEventListener('click', () => {
         this.toggleSelfMute();
         this.refreshModalDOM();
-      };
+      });
     }
 
     const deafenBtn = doc.getElementById('spatial-btn-self-deafen');
     if (deafenBtn) {
-      deafenBtn.onclick = () => {
+      deafenBtn.addEventListener('click', () => {
         this.toggleSelfDeafen();
         this.refreshModalDOM();
-      };
+      });
     }
 
     // 5. Test Spatial Chirp Button
     const chirpBtn = doc.getElementById('spatial-btn-test-chirp');
     if (chirpBtn) {
-      chirpBtn.onclick = () => {
+      chirpBtn.addEventListener('click', () => {
         // Play acoustic test sweep at top-right position
         this.playSpatialChirp(280, 130, 520);
-      };
+      });
     }
 
     // 6. Grid Auxiliary Buttons
     const resetBtn = doc.getElementById('spatial-btn-reset-grid');
     if (resetBtn) {
-      resetBtn.onclick = () => {
+      resetBtn.addEventListener('click', () => {
         this.resetGridPositions();
         this.refreshModalDOM();
-      };
+      });
     }
 
     const randomBtn = doc.getElementById('spatial-btn-randomize-grid');
     if (randomBtn) {
-      randomBtn.onclick = () => {
+      randomBtn.addEventListener('click', () => {
         this.randomizePositions();
         this.refreshModalDOM();
-      };
+      });
     }
 
     const addPeerBtn = doc.getElementById('spatial-btn-add-peer');
     if (addPeerBtn) {
-      addPeerBtn.onclick = () => {
+      addPeerBtn.addEventListener('click', () => {
         const roles = ['ARCHON', 'SENTINEL', 'SCRIBE', 'OPERATIVE', 'GUEST'];
         const randomRole = roles[Math.floor(Math.random() * roles.length)];
         this.addParticipant({
@@ -1170,40 +1170,40 @@ export class SpatialAudioEngine {
           role: randomRole,
         });
         this.refreshModalDOM();
-      };
+      });
     }
 
     // 7. Remote Participant HUD Action Buttons (Ping, Mute, Remove)
     const listHUD = doc.getElementById('spatial-participant-list-hud');
     if (listHUD) {
       listHUD.querySelectorAll('[data-chirp-fp]').forEach((btn: Element) => {
-        (btn as HTMLElement).onclick = (e) => {
+        (btn as HTMLElement).addEventListener('click', (e) => {
           const fp = (e.currentTarget as HTMLElement).getAttribute('data-chirp-fp');
           const p = this.participants.find((item) => item.fingerprint === fp);
           if (p) {
             this.playSpatialChirp(p.x, p.y, p.audioFrequency || 440);
           }
-        };
+        });
       });
 
       listHUD.querySelectorAll('[data-mute-fp]').forEach((btn: Element) => {
-        (btn as HTMLElement).onclick = (e) => {
+        (btn as HTMLElement).addEventListener('click', (e) => {
           const fp = (e.currentTarget as HTMLElement).getAttribute('data-mute-fp');
           if (fp) {
             this.toggleParticipantMute(fp);
             this.refreshModalDOM();
           }
-        };
+        });
       });
 
       listHUD.querySelectorAll('[data-remove-fp]').forEach((btn: Element) => {
-        (btn as HTMLElement).onclick = (e) => {
+        (btn as HTMLElement).addEventListener('click', (e) => {
           const fp = (e.currentTarget as HTMLElement).getAttribute('data-remove-fp');
           if (fp) {
             this.removeParticipant(fp);
             this.refreshModalDOM();
           }
-        };
+        });
       });
     }
 
@@ -1221,7 +1221,7 @@ export class SpatialAudioEngine {
     const draggableNodes = radarCanvas.querySelectorAll<HTMLElement>('.spatial-draggable-node');
 
     draggableNodes.forEach((node) => {
-      node.onpointerdown = (e: PointerEvent) => {
+      node.addEventListener('pointerdown', (e: PointerEvent) => {
         e.preventDefault();
         e.stopPropagation();
 
@@ -1273,7 +1273,7 @@ export class SpatialAudioEngine {
 
         window.addEventListener('pointermove', onPointerMove, { passive: true });
         window.addEventListener('pointerup', onPointerUp, { passive: true });
-      };
+      });
     });
   }
 

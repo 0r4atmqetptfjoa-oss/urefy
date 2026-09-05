@@ -6,6 +6,8 @@
  * reverse-engineering guides, and binary hygiene audits into structured pedagogical tracks.
  */
 
+import { isLocalDev } from './admin-auth.js';
+
 export interface SeriesItem {
   id: string;
   title: string;
@@ -241,10 +243,12 @@ export class CollectionsEngine {
       },
     ];
 
-    // Seed default read markers for realistic progress visualization
-    this.readPostIds.add('post-2');
-    this.readPostIds.add('zk-series-2');
-    this.readPostIds.add('post-1');
+    // Seed default read markers for realistic progress visualization in local dev only
+    if (isLocalDev()) {
+      this.readPostIds.add('post-2');
+      this.readPostIds.add('zk-series-2');
+      this.readPostIds.add('post-1');
+    }
   }
 
   private loadPersistedProgress(): void {

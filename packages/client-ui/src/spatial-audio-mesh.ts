@@ -1234,41 +1234,41 @@ export class SpatialAudioMeshEngine {
 
     // 1. Close Modal Handlers
     const closeBtn = doc.getElementById('mesh-modal-close-btn');
-    if (closeBtn) closeBtn.onclick = () => this.closeModal();
+    if (closeBtn) closeBtn.addEventListener('click', () => this.closeModal());
 
     const doneBtn = doc.getElementById('mesh-modal-done-btn');
-    if (doneBtn) doneBtn.onclick = () => this.closeModal();
+    if (doneBtn) doneBtn.addEventListener('click', () => this.closeModal());
 
     // 2. Head Orientation Rotation Buttons
     const rotLeft = doc.getElementById('mesh-btn-rotate-left');
     if (rotLeft) {
-      rotLeft.onclick = () => {
+      rotLeft.addEventListener('click', () => {
         this.setListenerHeadOrientation(this.listener.yawDeg - 15);
         this.refreshModalDOM();
-      };
+      });
     }
 
     const rotRight = doc.getElementById('mesh-btn-rotate-right');
     if (rotRight) {
-      rotRight.onclick = () => {
+      rotRight.addEventListener('click', () => {
         this.setListenerHeadOrientation(this.listener.yawDeg + 15);
         this.refreshModalDOM();
-      };
+      });
     }
 
     // 3. Reset Layout Button
     const resetBtn = doc.getElementById('mesh-btn-reset-layout');
     if (resetBtn) {
-      resetBtn.onclick = () => {
+      resetBtn.addEventListener('click', () => {
         this.resetPositions();
         this.refreshModalDOM();
-      };
+      });
     }
 
     // 4. Add Participant Button
     const addPeerBtn = doc.getElementById('mesh-btn-add-participant');
     if (addPeerBtn) {
-      addPeerBtn.onclick = () => {
+      addPeerBtn.addEventListener('click', () => {
         const roles = ['ARCHON', 'SENTINEL', 'SCRIBE', 'OPERATIVE', 'GUEST'];
         const randomRole = roles[Math.floor(Math.random() * roles.length)];
         this.addParticipant({
@@ -1276,80 +1276,80 @@ export class SpatialAudioMeshEngine {
           role: randomRole,
         });
         this.refreshModalDOM();
-      };
+      });
     }
 
     // 5. Test Spatial Chirp Button
     const testChirpBtn = doc.getElementById('mesh-btn-test-chirp');
     if (testChirpBtn) {
-      testChirpBtn.onclick = () => {
+      testChirpBtn.addEventListener('click', () => {
         this.playSpatialChirp({ x: 290, y: 140, z: 15 }, 520);
-      };
+      });
     }
 
     // 6. Master Volume Slider
     const volumeSlider = doc.getElementById('mesh-master-volume') as HTMLInputElement | null;
     if (volumeSlider) {
-      volumeSlider.oninput = (e) => {
+      volumeSlider.addEventListener('input', (e) => {
         const val = parseInt((e.target as HTMLInputElement).value, 10) / 100;
         this.setMasterVolume(val);
-      };
+      });
     }
 
     // 7. VAD Threshold Slider
     const vadSlider = doc.getElementById('mesh-vad-threshold') as HTMLInputElement | null;
     if (vadSlider) {
-      vadSlider.oninput = (e) => {
+      vadSlider.addEventListener('input', (e) => {
         const val = parseInt((e.target as HTMLInputElement).value, 10) / 1000;
         this.setVADThreshold(val);
-      };
+      });
     }
 
     // 8. Self Mute & Deafen Buttons
     const muteBtn = doc.getElementById('mesh-btn-self-mute');
     if (muteBtn) {
-      muteBtn.onclick = () => {
+      muteBtn.addEventListener('click', () => {
         this.toggleSelfMute();
         this.refreshModalDOM();
-      };
+      });
     }
 
     const deafenBtn = doc.getElementById('mesh-btn-self-deafen');
     if (deafenBtn) {
-      deafenBtn.onclick = () => {
+      deafenBtn.addEventListener('click', () => {
         this.toggleSelfDeafen();
         this.refreshModalDOM();
-      };
+      });
     }
 
     // 9. Participant HUD Action Buttons
     const hudList = doc.getElementById('mesh-participant-hud-list');
     if (hudList) {
       hudList.querySelectorAll('[data-mesh-chirp-id]').forEach((btn) => {
-        (btn as HTMLElement).onclick = (e) => {
+        (btn as HTMLElement).addEventListener('click', (e) => {
           const id = (e.currentTarget as HTMLElement).getAttribute('data-mesh-chirp-id');
           if (id) this.playSpatialChirp(id);
-        };
+        });
       });
 
       hudList.querySelectorAll('[data-mesh-mute-id]').forEach((btn) => {
-        (btn as HTMLElement).onclick = (e) => {
+        (btn as HTMLElement).addEventListener('click', (e) => {
           const id = (e.currentTarget as HTMLElement).getAttribute('data-mesh-mute-id');
           if (id) {
             this.toggleParticipantMute(id);
             this.refreshModalDOM();
           }
-        };
+        });
       });
 
       hudList.querySelectorAll('[data-mesh-remove-id]').forEach((btn) => {
-        (btn as HTMLElement).onclick = (e) => {
+        (btn as HTMLElement).addEventListener('click', (e) => {
           const id = (e.currentTarget as HTMLElement).getAttribute('data-mesh-remove-id');
           if (id) {
             this.removeParticipant(id);
             this.refreshModalDOM();
           }
-        };
+        });
       });
     }
 
@@ -1369,7 +1369,7 @@ export class SpatialAudioMeshEngine {
 
     draggableNodes.forEach((node) => {
       // Mousewheel adjusts 3D Z elevation
-      node.onwheel = (e: WheelEvent) => {
+      node.addEventListener('wheel', (e: WheelEvent) => {
         e.preventDefault();
         const nodeId = node.getAttribute('data-node-id');
         if (!nodeId) return;
@@ -1384,9 +1384,9 @@ export class SpatialAudioMeshEngine {
           }
         }
         this.refreshModalDOM();
-      };
+      });
 
-      node.onpointerdown = (e: PointerEvent) => {
+      node.addEventListener('pointerdown', (e: PointerEvent) => {
         e.preventDefault();
         e.stopPropagation();
 
@@ -1438,7 +1438,7 @@ export class SpatialAudioMeshEngine {
 
         window.addEventListener('pointermove', onPointerMove, { passive: true });
         window.addEventListener('pointerup', onPointerUp, { passive: true });
-      };
+      });
     });
   }
 

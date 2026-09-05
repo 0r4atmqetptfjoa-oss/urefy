@@ -1,3 +1,4 @@
+import { secureStorage } from './secure-storage.js';
 /**
  * @file data-archive.ts
  * @package @aetheris/client-ui
@@ -97,7 +98,7 @@ export async function exportSovereignArchive(passphrase: string): Promise<Blob> 
   // 1. Gather user identity
   let seedHex = '';
   if (typeof localStorage !== 'undefined') {
-    seedHex = localStorage.getItem('aetheris_identity_seed') || '';
+    seedHex = secureStorage.getIdentitySync()?.seedHex || '';
   }
   if (!seedHex && clientStore.mnemonic) {
     try {

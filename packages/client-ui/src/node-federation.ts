@@ -803,29 +803,29 @@ export class NodeFederationEngine {
         }
       };
 
-      connectBtn.onclick = handleConnect;
-      input.onkeydown = (e) => {
+      connectBtn.addEventListener('click', handleConnect);
+      input.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
           e.preventDefault();
           handleConnect();
         }
-      };
+      });
     }
 
     // Sync all nodes button
     const syncAllBtn = document.getElementById('btn-federation-sync-all');
     if (syncAllBtn) {
-      syncAllBtn.onclick = async () => {
+      syncAllBtn.addEventListener('click', async () => {
         const count = await this.syncAllPeers();
         this.updateWidgetDOM();
         console.log(`[NodeFederation] Synchronized ${count} pulses across federated mesh.`);
-      };
+      });
     }
 
     // Broadcast test pulse button
     const broadcastBtn = document.getElementById('btn-federation-broadcast-test');
     if (broadcastBtn) {
-      broadcastBtn.onclick = async () => {
+      broadcastBtn.addEventListener('click', async () => {
         const testPost = {
           id: `pulse-fed-${Date.now()}`,
           title: 'Sovereign Federated Mesh Verification Pulse',
@@ -835,7 +835,7 @@ export class NodeFederationEngine {
         const res = await this.broadcastFederatedPulse(testPost);
         this.updateWidgetDOM();
         console.log(`[NodeFederation] Pulse broadcast result: ${res.successful}/${res.totalPeers} successful.`);
-      };
+      });
     }
 
     // Individual peer actions

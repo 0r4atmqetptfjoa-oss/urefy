@@ -1,3 +1,4 @@
+import { secureStorage } from './secure-storage.js';
 /**
  * @file settings-footprint.ts
  * @package @aetheris/client-ui
@@ -126,16 +127,18 @@ export class SovereignFootprint {
    * Clears local storage caches while safely preserving user mnemonic seed
    */
   public clearLocalData(preserveMnemonic: boolean = true): void {
-    if (typeof localStorage === 'undefined') return;
-
-    const savedMnemonic = preserveMnemonic ? localStorage.getItem('aetheris_mnemonic') : null;
+    const legacyMnemonic = preserveMnemonic ? localStorage.getItem('aetheris_mnemonic') : null;
+    const savedMnemonic = preserveMnemonic ? (secureStorage.getIdentitySync()?.mnemonic || legacyMnemonic || null) : null;
     const savedSeedVerified = preserveMnemonic ? localStorage.getItem('aetheris_seed_verified') : null;
     const savedOnboarded = preserveMnemonic ? localStorage.getItem('aetheris_onboarding_completed') : null;
 
     localStorage.clear();
 
     if (preserveMnemonic && savedMnemonic) {
-      localStorage.setItem('aetheris_mnemonic', savedMnemonic);
+      secureStorage.purgeLegacyLocalStorage();
+      if (legacyMnemonic) {
+        localStorage.setItem('aetheris_mnemonic', legacyMnemonic);
+      }
       if (savedSeedVerified) localStorage.setItem('aetheris_seed_verified', savedSeedVerified);
       if (savedOnboarded) localStorage.setItem('aetheris_onboarding_completed', savedOnboarded);
     }

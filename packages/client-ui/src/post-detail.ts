@@ -976,17 +976,17 @@ export class PostDetailView {
     // Close button
     const btnClose = document.getElementById('btn-close-post-detail');
     if (btnClose) {
-      btnClose.onclick = () => this.closePost();
+      btnClose.addEventListener('click', () => this.closePost());
     }
 
     const btnBack = document.getElementById('btn-back-to-feed');
     if (btnBack) {
-      btnBack.onclick = () => this.closePost();
+      btnBack.addEventListener('click', () => this.closePost());
     }
 
     const btnFallbackClose = document.getElementById('btn-close-post-detail-fallback');
     if (btnFallbackClose) {
-      btnFallbackClose.onclick = () => this.closePost();
+      btnFallbackClose.addEventListener('click', () => this.closePost());
     }
 
     // Escape Key Listener
@@ -1019,20 +1019,20 @@ export class PostDetailView {
     const inputReply = document.getElementById('input-detail-reply-text') as HTMLTextAreaElement | null;
 
     if (btnWrite) {
-      btnWrite.onclick = () => {
+      btnWrite.addEventListener('click', () => {
         this.isPreviewMode = false;
         window.dispatchEvent(new CustomEvent('aetheris-detail-view-refresh'));
-      };
+      });
     }
 
     if (btnPreview) {
-      btnPreview.onclick = () => {
+      btnPreview.addEventListener('click', () => {
         if (inputReply) {
           this.replyDraft = inputReply.value;
         }
         this.isPreviewMode = true;
         window.dispatchEvent(new CustomEvent('aetheris-detail-view-refresh'));
-      };
+      });
     }
 
     // Markdown Toolbar actions
@@ -1078,7 +1078,7 @@ export class PostDetailView {
     // Form Fast Reply submit
     const formReply = document.getElementById('form-post-detail-reply') as HTMLFormElement | null;
     if (formReply) {
-      formReply.onsubmit = (e: Event) => {
+      formReply.addEventListener('submit', (e: Event) => {
         e.preventDefault();
         const text = inputReply ? inputReply.value.trim() : this.replyDraft.trim();
         if (text && this.activePostId) {
@@ -1087,7 +1087,7 @@ export class PostDetailView {
           if (inputReply) inputReply.value = '';
           this.isPreviewMode = false;
         }
-      };
+      });
     }
 
     // Comment Collapse toggles

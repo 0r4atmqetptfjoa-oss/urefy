@@ -23,6 +23,7 @@ import { sovereignWebPush } from './web-push.js';
 import { pulseActionsEngine } from './pulse-actions.js';
 import { networkActivityFeed } from './activity-feed.js';
 import { isLocalDev } from './admin-auth.js';
+import { secureStorage } from './secure-storage.js';
 
 export type SpaceType = 'relays' | 'vault' | 'pulse';
 export type DensityMode = 'compact' | 'balanced' | 'media';
@@ -195,31 +196,30 @@ export class AetherisClientStore {
   }
 
   constructor() {
-    // Load or generate sovereign Ed25519 identity and BIP-39 mnemonic seed phrase
+    // Load or generate sovereign Ed25519 identity via SecureStorage (Encrypted IndexedDB & Zero Plaintext in localStorage)
     let seed: Uint8Array;
-    if (typeof localStorage !== 'undefined') {
-      const savedMnemonic = localStorage.getItem('aetheris_identity_mnemonic');
-      const savedSeed = localStorage.getItem('aetheris_identity_seed');
+    const syncIdentity = secureStorage.getIdentitySync();
 
-      if (savedMnemonic && validateMnemonic(savedMnemonic)) {
-        this.mnemonic = savedMnemonic.trim().toLowerCase();
-        seed = mnemonicToSeed(this.mnemonic).subarray(0, 32);
-        localStorage.setItem('aetheris_identity_seed', bytesToHex(seed));
-      } else if (savedSeed) {
-        seed = hexToBytes(savedSeed);
-        try {
-          this.mnemonic = entropyToMnemonic(seed.subarray(0, 16));
-        } catch {
-          this.mnemonic = generateMnemonic(128);
-        }
-        localStorage.setItem('aetheris_identity_mnemonic', this.mnemonic);
-      } else {
+    if (syncIdentity && syncIdentity.mnemonic && validateMnemonic(syncIdentity.mnemonic)) {
+      this.mnemonic = syncIdentity.mnemonic.trim().toLowerCase();
+      seed = mnemonicToSeed(this.mnemonic).subarray(0, 32);
+    } else if (syncIdentity && syncIdentity.seedHex) {
+      seed = hexToBytes(syncIdentity.seedHex);
+      try {
+        this.mnemonic = entropyToMnemonic(seed.subarray(0, 16));
+      } catch {
         this.mnemonic = generateMnemonic(128);
-        seed = mnemonicToSeed(this.mnemonic).subarray(0, 32);
-        localStorage.setItem('aetheris_identity_mnemonic', this.mnemonic);
-        localStorage.setItem('aetheris_identity_seed', bytesToHex(seed));
       }
+    } else {
+      this.mnemonic = generateMnemonic(128);
+      seed = mnemonicToSeed(this.mnemonic).subarray(0, 32);
+    }
 
+    // Persist securely to Encrypted Vault and purge any legacy plaintext in localStorage
+    secureStorage.saveIdentity(this.mnemonic, seed, '');
+    secureStorage.purgeLegacyLocalStorage();
+
+    if (typeof localStorage !== 'undefined') {
       const savedUiMode = localStorage.getItem('aetheris_ui_mode');
       if (savedUiMode === 'sovereign' || savedUiMode === 'simple' || savedUiMode === 'advanced' || savedUiMode === 'technical') {
         this.uiMode = savedUiMode as UiMode;
@@ -269,25 +269,21 @@ export class AetherisClientStore {
 
   /** Load previously stored messages from localStorage and IndexedDB into active memory */
   private loadCachedMessages(): void {
-    if (typeof localStorage !== 'undefined') {
-      try {
-        const raw = localStorage.getItem('aetheris_messages_cache');
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          for (const [chId, msgs] of Object.entries(parsed)) {
-            if (Array.isArray(msgs)) {
-              const currentMsgs = this.messages.get(chId) || [];
-              for (const m of msgs as ClientMessage[]) {
-                if (!currentMsgs.some((x) => x.id === m.id || (x.text === m.text && x.authorFingerprint === m.authorFingerprint && Math.abs(x.createdAt - m.createdAt) < 15000))) {
-                  currentMsgs.push(m);
-                }
-              }
-              this.messages.set(chId, currentMsgs);
+    // Encrypted Vault: load private messages from SecureStorage
+    secureStorage.getAllChannelMessages().then((cachedMap) => {
+      if (cachedMap && cachedMap.size > 0) {
+        for (const [chId, msgs] of cachedMap.entries()) {
+          const currentMsgs = this.messages.get(chId) || [];
+          for (const m of msgs as ClientMessage[]) {
+            if (!currentMsgs.some((x) => x.id === m.id || (x.text === m.text && x.authorFingerprint === m.authorFingerprint && Math.abs(x.createdAt - m.createdAt) < 15000))) {
+              currentMsgs.push(m);
             }
           }
+          this.messages.set(chId, currentMsgs);
         }
-      } catch (_) {}
-    }
+        this.notify();
+      }
+    }).catch(() => {});
 
     // Async hydration from IndexedDB storage
     if (typeof window !== 'undefined') {
@@ -327,13 +323,13 @@ export class AetherisClientStore {
 
   /** Persist all in-memory messages to localStorage and IndexedDB */
   public persistMessagesLocally(): void {
+    // Encrypted Vault: persist private messages via AES-GCM-256 in SecureStorage (zero plaintext in localStorage)
+    for (const [ch, msgs] of this.messages.entries()) {
+      secureStorage.saveChannelMessages(ch, msgs.slice(-100)).catch(() => {});
+    }
     if (typeof localStorage !== 'undefined') {
       try {
-        const obj: Record<string, ClientMessage[]> = {};
-        for (const [ch, msgs] of this.messages.entries()) {
-          obj[ch] = msgs.slice(-100);
-        }
-        localStorage.setItem('aetheris_messages_cache', JSON.stringify(obj));
+        localStorage.removeItem('aetheris_messages_cache');
       } catch (_) {}
     }
 
@@ -1523,10 +1519,8 @@ export class AetherisClientStore {
     this.secretKey = Field.hashToField(bytesToHex(seed));
     this.nullifier = ZKRLN.computeNullifier(this.secretKey);
 
-    if (typeof localStorage !== 'undefined') {
-      localStorage.setItem('aetheris_identity_mnemonic', this.mnemonic);
-      localStorage.setItem('aetheris_identity_seed', bytesToHex(seed));
-    }
+    secureStorage.saveIdentity(this.mnemonic, seed, this.keypair.fingerprint);
+    secureStorage.purgeLegacyLocalStorage();
 
     this.showToast('✨ Sovereign identity successfully restored from seed phrase!', 'success');
     this.notify();
