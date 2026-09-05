@@ -269,6 +269,7 @@ describe('Cloudflare Pages Functions - R2 & Edge Vault Storage Architecture (sto
           'X-Author': 'c3dc28cb705e',
           'X-Title': 'Aetheris Microkernel Release',
           'X-Key': 'releases/microkernel.bin',
+          'X-Admin-PIN': '11223',
         },
         body: payloadBytes,
       });
@@ -310,6 +311,7 @@ describe('Cloudflare Pages Functions - R2 & Edge Vault Storage Architecture (sto
           'X-Author': 'archivist-alpha',
           'X-Title': 'ZK Tree Verifier ELF Binary',
           'X-Key': 'releases/zk-tree-verifier',
+          'X-Admin-PIN': '11223',
         },
         body: payloadBytes,
       });
@@ -348,6 +350,7 @@ describe('Cloudflare Pages Functions - R2 & Edge Vault Storage Architecture (sto
           'Content-Type': 'application/octet-stream',
           'X-File-Name': 'kyber1024-params.bin',
           'X-Key': 'crypto/kyber1024-params.bin',
+          'X-Admin-PIN': '11223',
         },
         body: payloadBytes,
       });
@@ -376,6 +379,7 @@ describe('Cloudflare Pages Functions - R2 & Edge Vault Storage Architecture (sto
 
       const req = new Request('https://aetheris.pages.dev/api/storage', {
         method: 'POST',
+        headers: { 'X-Admin-PIN': '11223' },
         body: formData,
       });
 
@@ -399,7 +403,7 @@ describe('Cloudflare Pages Functions - R2 & Edge Vault Storage Architecture (sto
 
       const req = new Request('https://aetheris.pages.dev/api/storage', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Admin-PIN': '11223' },
         body: JSON.stringify({
           base64: base64Data,
           fileName: 'b64-payload.txt',
@@ -591,6 +595,7 @@ describe('Cloudflare Pages Functions - R2 & Edge Vault Storage Architecture (sto
         headers: {
           'Content-Type': 'application/octet-stream',
           'X-Key': 'temp/artifact-to-delete.bin',
+          'X-Admin-PIN': '11223',
         },
         body: new Uint8Array([1, 2, 3]),
       });
@@ -599,7 +604,12 @@ describe('Cloudflare Pages Functions - R2 & Edge Vault Storage Architecture (sto
       // Delete it
       const deleteReq = new Request(
         'https://aetheris.pages.dev/api/storage?key=temp/artifact-to-delete.bin',
-        { method: 'DELETE' }
+        {
+          method: 'DELETE',
+          headers: {
+            'X-Admin-PIN': '11223',
+          },
+        }
       );
       const delRes = await onRequestDelete({ request: deleteReq });
       expect(delRes.status).toBe(200);
@@ -621,7 +631,12 @@ describe('Cloudflare Pages Functions - R2 & Edge Vault Storage Architecture (sto
 
       const deleteReq = new Request(
         'https://aetheris.pages.dev/api/storage?key=releases/obsolete.bin',
-        { method: 'DELETE' }
+        {
+          method: 'DELETE',
+          headers: {
+            'X-Admin-PIN': '11223',
+          },
+        }
       );
       const res = await onRequestDelete({
         request: deleteReq,
@@ -753,6 +768,7 @@ describe('Cloudflare Pages Functions - R2 & Edge Vault Storage Architecture (sto
           headers: {
             'Content-Type': 'application/octet-stream',
             'X-Key': 'releases/new-file-invalidation.bin',
+            'X-Admin-PIN': '11223',
           },
           body: new Uint8Array([55, 66, 77]),
         }),
@@ -781,6 +797,7 @@ describe('Cloudflare Pages Functions - R2 & Edge Vault Storage Architecture (sto
           'X-Key': 'vault/original-binary.bin',
           'X-Author': 'originator',
           'X-Title': 'Original Binary',
+          'X-Admin-PIN': '11223',
         },
         body: originalPayload,
       });
@@ -804,6 +821,7 @@ describe('Cloudflare Pages Functions - R2 & Edge Vault Storage Architecture (sto
         headers: {
           'Content-Type': 'application/octet-stream',
           'X-Key': 'vault/duplicate-binary.bin',
+          'X-Admin-PIN': '11223',
         },
         body: originalPayload,
       });

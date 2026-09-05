@@ -118,7 +118,6 @@ export interface ToastItem {
 
 export interface QuarantineEvent {
   nullifier: string;
-  extractedSecretKey: string;
   epoch: string;
   reason: string;
 }
@@ -1151,7 +1150,6 @@ export class AetherisClientStore {
       case 'QUARANTINE_ALERT': {
         this.activeQuarantineAlert = {
           nullifier: packet.nullifier,
-          extractedSecretKey: packet.extractedSecretKey,
           epoch: packet.epoch,
           reason: packet.reason,
         };

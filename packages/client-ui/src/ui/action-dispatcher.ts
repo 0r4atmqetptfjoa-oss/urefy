@@ -12,6 +12,194 @@ import { clientStore } from '../client-state.js';
 import { sovereignRouter } from '../router.js';
 import { themeEngine } from '../themes.js';
 
+export function safeExecuteStatement(stmt: string, el: HTMLElement, event: Event): void {
+  stmt = stmt.trim();
+  if (!stmt) return;
+
+  // 1. Handle if condition: if (...) stmt
+  if (stmt.startsWith('if(') || stmt.startsWith('if (')) {
+    const openParen = stmt.indexOf('(');
+    let depth = 0;
+    let closeParen = -1;
+    for (let i = openParen; i < stmt.length; i++) {
+      if (stmt[i] === '(') depth++;
+      else if (stmt[i] === ')') {
+        depth--;
+        if (depth === 0) {
+          closeParen = i;
+          break;
+        }
+      }
+    }
+    if (closeParen !== -1) {
+      const cond = stmt.substring(openParen + 1, closeParen).trim();
+      const body = stmt.substring(closeParen + 1).trim();
+
+      // Evaluate condition safely without eval
+      let condResult = false;
+      if (cond.includes('event.target.id ===') || cond.includes('event.target.id===')) {
+        const expectedId = cond.split('===')[1].trim().replace(/['"]/g, '');
+        condResult = Boolean(event && event.target && (event.target as HTMLElement).id === expectedId);
+      } else if (cond.includes('event.target === this') || cond.includes('event.target===this')) {
+        condResult = Boolean(event && event.target === el);
+      } else if (cond.includes('event.target.id !==') || cond.includes('event.target.id!==')) {
+        const expectedId = cond.split('!==')[1].trim().replace(/['"]/g, '');
+        condResult = Boolean(event && event.target && (event.target as HTMLElement).id !== expectedId);
+      } else {
+        if (typeof window !== 'undefined') {
+          const varPath = cond.replace(/^!/, '').trim();
+          const parts = varPath.replace(/^window\./, '').split('.');
+          let val: any = window;
+          for (const p of parts) {
+            val = val ? val[p] : undefined;
+          }
+          condResult = cond.startsWith('!') ? !val : Boolean(val);
+        }
+      }
+
+      if (condResult) {
+        safeExecuteStatement(body, el, event);
+      }
+      return;
+    }
+  }
+
+  // 2. Handle ternary: cond ? a : b
+  if (stmt.includes('?') && stmt.includes(':') && !stmt.startsWith('{')) {
+    const qIdx = stmt.indexOf('?');
+    const colonIdx = stmt.lastIndexOf(':');
+    const cond = stmt.substring(0, qIdx).trim();
+    const branchA = stmt.substring(qIdx + 1, colonIdx).trim();
+    const branchB = stmt.substring(colonIdx + 1).trim();
+
+    if (typeof window !== 'undefined') {
+      const varPath = cond.replace(/^!/, '').trim();
+      const parts = varPath.replace(/^window\./, '').split('.');
+      let val: any = window;
+      for (const p of parts) {
+        val = val ? val[p] : undefined;
+      }
+      const truthy = cond.startsWith('!') ? !val : Boolean(val);
+      if (truthy) {
+        safeExecuteStatement(branchA, el, event);
+      } else {
+        safeExecuteStatement(branchB, el, event);
+      }
+    }
+    return;
+  }
+
+  // 3. Handle document.getElementById('...')?.click() or .classList.toggle(...)
+  if (stmt.includes('document.getElementById(')) {
+    const m = stmt.match(/document\.getElementById\(['"]([^'"]+)['"]\)(\??\.)([a-zA-Z0-9_.]+)(\((.*)\))?/);
+    if (m) {
+      const id = m[1];
+      const method = m[3];
+      const argsRaw = m[5];
+      const targetEl = typeof document !== 'undefined' ? document.getElementById(id) : null;
+      if (targetEl) {
+        if (method === 'click') targetEl.click();
+        else if (method.startsWith('classList.toggle')) {
+          const cls = argsRaw ? argsRaw.replace(/['"]/g, '').trim() : '';
+          if (cls) targetEl.classList.toggle(cls);
+        } else if (method.startsWith('classList.remove')) {
+          const cls = argsRaw ? argsRaw.replace(/['"]/g, '').trim() : '';
+          if (cls) targetEl.classList.remove(cls);
+        } else if (method.startsWith('classList.add')) {
+          const cls = argsRaw ? argsRaw.replace(/['"]/g, '').trim() : '';
+          if (cls) targetEl.classList.add(cls);
+        } else if (method === 'remove') {
+          targetEl.remove();
+        }
+      }
+      return;
+    }
+  }
+
+  // 4. Handle navigator.clipboard.writeText(...)
+  if (stmt.includes('navigator.clipboard') && stmt.includes('writeText')) {
+    const m = stmt.match(/writeText\((.*)\)/);
+    if (m && typeof navigator !== 'undefined' && navigator.clipboard) {
+      let textToCopy = m[1].trim().replace(/^['"]|['"]$/g, '');
+      if (textToCopy.includes('document.getElementById')) {
+        const idMatch = textToCopy.match(/document\.getElementById\(['"]([^'"]+)['"]\)\.(value|innerText)/);
+        if (idMatch && typeof document !== 'undefined') {
+          const field = document.getElementById(idMatch[1]) as any;
+          textToCopy = field ? (field[idMatch[2]] || '') : '';
+        }
+      }
+      navigator.clipboard.writeText(textToCopy).catch(() => {});
+      return;
+    }
+  }
+
+  // 5. Handle method call: [window.]path.to.func(arg1, arg2)
+  const callMatch = stmt.match(/^([a-zA-Z0-9_$.]+)\((.*)\)$/);
+  if (callMatch && typeof window !== 'undefined') {
+    let funcPath = callMatch[1];
+    const argsString = callMatch[2].trim();
+    if (funcPath.startsWith('window.')) funcPath = funcPath.substring(7);
+
+    let args: any[] = [];
+    if (argsString.length > 0) {
+      const argTokens = argsString.split(/,(?=(?:[^'"]*['"][^'"]*['"])*[^'"]*$)/);
+      args = argTokens.map(a => {
+        a = a.trim();
+        if ((a.startsWith("'") && a.endsWith("'")) || (a.startsWith('"') && a.endsWith('"'))) {
+          return a.slice(1, -1);
+        }
+        if (a === 'true') return true;
+        if (a === 'false') return false;
+        if (a === 'null') return null;
+        if (!isNaN(Number(a))) return Number(a);
+        return a;
+      });
+    }
+
+    const parts = funcPath.split('.');
+    let obj: any = window;
+    for (let i = 0; i < parts.length - 1; i++) {
+      obj = obj ? obj[parts[i]] : undefined;
+    }
+    const fn = obj ? obj[parts[parts.length - 1]] : undefined;
+    if (typeof fn === 'function') {
+      try {
+        fn.apply(obj, args);
+      } catch (e) {
+        console.error('[ActionDispatcher] Error invoking ' + funcPath, e);
+      }
+    }
+  }
+}
+
+export function safeExecuteExpression(code: string, el: HTMLElement, event: Event): void {
+  if (!code || typeof code !== 'string') return;
+  code = code.replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+
+  const statements: string[] = [];
+  let current = '';
+  let inSingleQuote = false;
+  let inDoubleQuote = false;
+  let parenDepth = 0;
+
+  for (let i = 0; i < code.length; i++) {
+    const ch = code[i];
+    if (ch === "'" && !inDoubleQuote) inSingleQuote = !inSingleQuote;
+    else if (ch === '"' && !inSingleQuote) inDoubleQuote = !inDoubleQuote;
+    else if (ch === '(' && !inSingleQuote && !inDoubleQuote) parenDepth++;
+    else if (ch === ')' && !inSingleQuote && !inDoubleQuote) parenDepth--;
+    else if (ch === ';' && !inSingleQuote && !inDoubleQuote && parenDepth === 0) {
+      if (current.trim()) statements.push(current.trim());
+      current = '';
+      continue;
+    }
+    current += ch;
+  }
+  if (current.trim()) statements.push(current.trim());
+
+  statements.forEach(stmt => safeExecuteStatement(stmt, el, event));
+}
+
 export class ActionDispatcher {
   private isInitialized = false;
 
@@ -240,11 +428,195 @@ export class ActionDispatcher {
       }
 
       case 'close-notifs': {
-        if (typeof window !== 'undefined' && (window as any).__aetherisCloseNotifs) {
-          (window as any).__aetherisCloseNotifs();
+        if (el.id === 'notification-backdrop' && event.target !== el) {
+          break;
         }
+        if (typeof window !== 'undefined') {
+          if ((window as any).__aetherisCloseNotifs) {
+            (window as any).__aetherisCloseNotifs();
+          }
+          if ((window as any).clientStore) {
+            (window as any).clientStore.notifySync();
+          }
+        }
+        const notifWrapper = document.getElementById('notification-modal-wrapper');
+        if (notifWrapper) notifWrapper.remove();
         const notifBackdrop = document.getElementById('notification-backdrop');
         if (notifBackdrop) notifBackdrop.remove();
+        break;
+      }
+
+      case 'set-notif-filter': {
+        const filter = (el.getAttribute('data-filter') || 'all') as any;
+        if (typeof window !== 'undefined') {
+          if ((window as any).__aetherisNotifCenter) {
+            (window as any).__aetherisNotifCenter.setFilter(filter);
+          }
+          if ((window as any).clientStore) {
+            (window as any).clientStore.notifySync();
+          }
+        }
+        break;
+      }
+
+      case 'notif-mark-all-read': {
+        if (typeof window !== 'undefined') {
+          if ((window as any).__aetherisNotifCenter) {
+            (window as any).__aetherisNotifCenter.markAllRead();
+          }
+          if ((window as any).clientStore) {
+            (window as any).clientStore.notifySync();
+          }
+        }
+        break;
+      }
+
+      case 'notif-clear-all': {
+        if (typeof window !== 'undefined') {
+          if ((window as any).__aetherisNotifCenter) {
+            (window as any).__aetherisNotifCenter.clearAll();
+          }
+          if ((window as any).clientStore) {
+            (window as any).clientStore.notifySync();
+          }
+        }
+        break;
+      }
+
+      case 'notif-open-item': {
+        const notifId = el.getAttribute('data-notif-id');
+        const postId = el.getAttribute('data-post-id');
+        if (typeof window !== 'undefined') {
+          if (notifId && (window as any).__aetherisNotifCenter) {
+            (window as any).__aetherisNotifCenter.markRead(notifId);
+          }
+          if ((window as any).__aetherisCloseNotifs) {
+            (window as any).__aetherisCloseNotifs();
+          }
+          if (postId && (window as any).postDetailView) {
+            (window as any).postDetailView.open(postId);
+          }
+          if ((window as any).clientStore) {
+            (window as any).clientStore.notifySync();
+          }
+        }
+        break;
+      }
+
+      case 'set-legal-tab': {
+        const tab = (el.getAttribute('data-tab') || el.getAttribute('data-legal-tab') || 'about') as any;
+        if (typeof window !== 'undefined') {
+          if ((window as any).legalModal) {
+            (window as any).legalModal.setTab(tab);
+          } else if ((window as any).__aetheris_set_legal_tab) {
+            (window as any).__aetheris_set_legal_tab(tab);
+          }
+          if ((window as any).clientStore) {
+            (window as any).clientStore.notifySync();
+          }
+        }
+        break;
+      }
+
+      case 'close-legal': {
+        if (el.id.includes('backdrop') && event.target !== el) break;
+        if (typeof window !== 'undefined') {
+          if ((window as any).legalModal) (window as any).legalModal.close();
+          if ((window as any).__aetheris_close_legal) (window as any).__aetheris_close_legal();
+          modalManager.closeFeature();
+          if ((window as any).clientStore) (window as any).clientStore.notifySync();
+        }
+        const parent = el.closest<HTMLElement>('.fixed, .modal-backdrop, [role="dialog"], #legal-modal-backdrop');
+        if (parent) parent.remove();
+        break;
+      }
+
+      case 'set-archive-tab': {
+        const tab = (el.getAttribute('data-tab') || 'export') as 'export' | 'restore';
+        if (typeof window !== 'undefined') {
+          const archiveModal = (window as any).archiveModal;
+          if (archiveModal) archiveModal.setTab(tab);
+          if ((window as any).clientStore) (window as any).clientStore.notifySync();
+        }
+        break;
+      }
+
+      case 'set-social-recovery-tab': {
+        const tab = (el.getAttribute('data-tab') || 'setup') as 'setup' | 'recover';
+        if (typeof window !== 'undefined') {
+          const srm = (window as any).socialRecoveryModal;
+          if (srm) srm.setTab(tab);
+          if ((window as any).clientStore) (window as any).clientStore.notifySync();
+        }
+        break;
+      }
+
+      case 'set-portable-trust-tab': {
+        const tab = (el.getAttribute('data-tab') || 'export') as 'export' | 'verify';
+        if (typeof window !== 'undefined') {
+          const ptm = (window as any).portableTrustModal;
+          if (ptm) ptm.setTab(tab);
+          if ((window as any).clientStore) (window as any).clientStore.notifySync();
+        }
+        break;
+      }
+
+      case 'set-mnemonic-tab': {
+        const tab = (el.getAttribute('data-tab') || 'backup') as any;
+        if (typeof window !== 'undefined') {
+          const smm = (window as any).sovereignMnemonicModal;
+          if (smm) smm.setTab(tab);
+          if ((window as any).clientStore) (window as any).clientStore.notifySync();
+        }
+        break;
+      }
+
+      case 'set-transparency-tab': {
+        const tab = (el.getAttribute('data-tab') || 'pipeline') as any;
+        if (typeof window !== 'undefined') {
+          const tm = (window as any).transparencyMode || (window as any).__aetherisTransparency;
+          if (tm) tm.activeTab = tab;
+          if ((window as any).clientStore) (window as any).clientStore.notifySync();
+        }
+        break;
+      }
+
+      case 'set-profile-tab': {
+        const tab = (el.getAttribute('data-tab') || el.getAttribute('data-profile-tab') || 'pulses') as any;
+        if (typeof window !== 'undefined') {
+          if ((window as any).profileView) (window as any).profileView.setActiveTab(tab);
+          if ((window as any).clientStore) (window as any).clientStore.notifySync();
+        }
+        break;
+      }
+
+      case 'set-profile-settings-cat': {
+        const cat = (el.getAttribute('data-cat') || el.getAttribute('data-settings-cat') || 'account') as any;
+        if (typeof window !== 'undefined') {
+          if ((window as any).__aetheris_set_settings_cat) {
+            (window as any).__aetheris_set_settings_cat(cat);
+          } else if ((window as any).profileView) {
+            (window as any).profileView.setActiveSettingsCategory(cat);
+          }
+          if ((window as any).clientStore) (window as any).clientStore.notifySync();
+        }
+        break;
+      }
+
+      case 'save-settings': {
+        if (typeof window !== 'undefined') {
+          if ((window as any).settingsView) {
+            (window as any).settingsView.save();
+            (window as any).settingsView.close();
+          }
+          if ((window as any).__aetheris_close_settings) (window as any).__aetheris_close_settings();
+          if ((window as any).clientStore) {
+            (window as any).clientStore.showToast?.('✓ Settings saved successfully', 'success');
+            (window as any).clientStore.notifySync();
+          }
+        }
+        const settingsBackdrop = document.getElementById('settings-modal-backdrop');
+        if (settingsBackdrop) settingsBackdrop.remove();
         break;
       }
 
@@ -263,12 +635,11 @@ export class ActionDispatcher {
           break;
         }
 
-        // 1. Check for data-raw-click
+        // 1. Check for data-raw-click (Safe zero-eval execution)
         const rawClick = el.getAttribute('data-raw-click');
         if (rawClick) {
           try {
-            const fn = new Function('event', rawClick);
-            fn.call(el, event);
+            safeExecuteExpression(rawClick, el, event);
             break;
           } catch (err) {
             console.error('[ActionDispatcher] Error in data-raw-click:', err, rawClick);
@@ -285,8 +656,7 @@ export class ActionDispatcher {
             if (code.startsWith('[')) code = code.substring(1);
             if (code.endsWith(']')) code = code.substring(0, code.length - 1);
             if (code.endsWith('(')) code = code.substring(0, code.length - 1) + '()';
-            const fn = new Function('event', `if (${code};`);
-            fn.call(el, event);
+            safeExecuteExpression(`if (${code};`, el, event);
             break;
           } catch (err) {
             console.error('[ActionDispatcher] Error evaluating if statement:', err, argsRaw);
@@ -455,8 +825,7 @@ export class ActionDispatcher {
       const rawChange = el.getAttribute('data-raw-change');
       if (rawChange) {
         try {
-          const fn = new Function('event', rawChange);
-          fn.call(el, event);
+          safeExecuteExpression(rawChange, el, event);
           return;
         } catch (err) {
           console.error('[ActionDispatcher] Error in data-raw-change:', err);
@@ -471,8 +840,7 @@ export class ActionDispatcher {
             if (code.startsWith('[')) code = code.substring(1);
             if (code.endsWith(']')) code = code.substring(0, code.length - 1);
             if (code.endsWith('(')) code = code.substring(0, code.length - 1) + '()';
-            const fn = new Function('event', `if (${code};`);
-            fn.call(el, event);
+            safeExecuteExpression(`if (${code};`, el, event);
             return;
           } catch (_) {}
         }
@@ -493,8 +861,7 @@ export class ActionDispatcher {
       const rawInput = el.getAttribute('data-raw-input');
       if (rawInput) {
         try {
-          const fn = new Function('event', rawInput);
-          fn.call(el, event);
+          safeExecuteExpression(rawInput, el, event);
           return;
         } catch (err) {
           console.error('[ActionDispatcher] Error in data-raw-input:', err);
@@ -509,8 +876,7 @@ export class ActionDispatcher {
             if (code.startsWith('[')) code = code.substring(1);
             if (code.endsWith(']')) code = code.substring(0, code.length - 1);
             if (code.endsWith('(')) code = code.substring(0, code.length - 1) + '()';
-            const fn = new Function('event', `if (${code};`);
-            fn.call(el, event);
+            safeExecuteExpression(`if (${code};`, el, event);
             return;
           } catch (_) {}
         }
@@ -530,8 +896,7 @@ export class ActionDispatcher {
       const rawSubmit = el.getAttribute('data-raw-submit');
       if (rawSubmit) {
         try {
-          const fn = new Function('event', rawSubmit);
-          fn.call(el, event);
+          safeExecuteExpression(rawSubmit, el, event);
           return;
         } catch (err) {
           console.error('[ActionDispatcher] Error in data-raw-submit:', err);

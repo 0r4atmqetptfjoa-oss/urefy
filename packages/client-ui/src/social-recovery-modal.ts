@@ -422,7 +422,7 @@ export class SocialRecoveryModal {
 
           <!-- TAB SWITCHER -->
           <div class="flex rounded-xl bg-surface-raised/80 p-1 border border-white/5 text-xs font-mono">
-            <button id="tab-btn-setup-guardians" class="flex-1 py-2 rounded-lg font-bold flex items-center justify-center space-x-2 transition-all cursor-pointer ${
+            <button id="tab-btn-setup-guardians" data-action="set-social-recovery-tab" data-tab="setup" class="flex-1 py-2 rounded-lg font-bold flex items-center justify-center space-x-2 transition-all cursor-pointer ${
               this.activeTab === 'setup'
                 ? 'bg-emerald-600 text-white shadow'
                 : 'text-slate-400 hover:text-white hover:bg-white/5'
@@ -430,7 +430,7 @@ export class SocialRecoveryModal {
               <span>🛡️</span>
               <span>Setup Social Guardians</span>
             </button>
-            <button id="tab-btn-recover-account" class="flex-1 py-2 rounded-lg font-bold flex items-center justify-center space-x-2 transition-all cursor-pointer ${
+            <button id="tab-btn-recover-account" data-action="set-social-recovery-tab" data-tab="recover" class="flex-1 py-2 rounded-lg font-bold flex items-center justify-center space-x-2 transition-all cursor-pointer ${
               this.activeTab === 'recover'
                 ? 'bg-emerald-600 text-white shadow'
                 : 'text-slate-400 hover:text-white hover:bg-white/5'

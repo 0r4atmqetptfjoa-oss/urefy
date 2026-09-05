@@ -348,8 +348,8 @@ export class PortableTrustModal {
     const result = this.verificationResult;
 
     return `
-      <div id="portable-trust-backdrop" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md select-none animate-in fade-in duration-150 font-sans" data-action="call-global" data-raw-click="if(event.target.id==='portable-trust-backdrop') window.portableTrustModal && window.portableTrustModal.close();">
-        <div class="relative w-full max-w-2xl max-h-[92vh] overflow-y-auto bg-slate-900 border border-white/10 rounded-2xl p-6 shadow-2xl space-y-5 text-slate-200">
+      <div id="portable-trust-backdrop" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md select-none animate-in fade-in duration-150 font-sans pointer-events-auto cursor-pointer" data-action="close-feature">
+        <div class="relative w-full max-w-2xl max-h-[92vh] overflow-y-auto bg-slate-900 border border-white/10 rounded-2xl p-6 shadow-2xl space-y-5 text-slate-200 pointer-events-auto cursor-default" data-action="stop-propagation">
           
           <!-- MODAL HEADER -->
           <div class="flex items-center justify-between pb-3 border-b border-white/10">
@@ -365,14 +365,14 @@ export class PortableTrustModal {
                 <p class="text-[10px] text-slate-400 font-mono">Cross-domain Groth16 range proofs · BN254 zero-infrastructure attestation</p>
               </div>
             </div>
-            <button id="btn-close-portable-trust" data-action="call-global" data-raw-click="if(window.__aetheris_close_portable_trust) { window.__aetheris_close_portable_trust(); } else if(window.portableTrustModal) { window.portableTrustModal.close(); }" class="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center text-sm border border-white/10 transition-colors cursor-pointer" title="Close (Esc)">
+            <button id="btn-close-portable-trust" data-action="close-feature" class="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center text-sm border border-white/10 transition-colors cursor-pointer" title="Close (Esc)">
               ✕
             </button>
           </div>
 
           <!-- TAB SWITCHER -->
           <div class="flex rounded-xl bg-slate-800/80 p-1 border border-white/5 text-xs font-mono">
-            <button id="tab-btn-export-cert" data-action="call-global" data-raw-click="if(window.portableTrustModal) window.portableTrustModal.setTab('export');" class="flex-1 py-2 rounded-lg font-bold flex items-center justify-center space-x-2 transition-all cursor-pointer ${
+            <button id="tab-btn-export-cert" data-action="set-portable-trust-tab" data-tab="export" class="flex-1 py-2 rounded-lg font-bold flex items-center justify-center space-x-2 transition-all cursor-pointer ${
               this.activeTab === 'export'
                 ? 'bg-amber-600 text-white shadow'
                 : 'text-slate-400 hover:text-white hover:bg-white/5'
@@ -380,7 +380,7 @@ export class PortableTrustModal {
               <span>🏆</span>
               <span>Export ZK Certificate</span>
             </button>
-            <button id="tab-btn-verify-cert" data-action="call-global" data-raw-click="if(window.portableTrustModal) window.portableTrustModal.setTab('verify');" class="flex-1 py-2 rounded-lg font-bold flex items-center justify-center space-x-2 transition-all cursor-pointer ${
+            <button id="tab-btn-verify-cert" data-action="set-portable-trust-tab" data-tab="verify" class="flex-1 py-2 rounded-lg font-bold flex items-center justify-center space-x-2 transition-all cursor-pointer ${
               this.activeTab === 'verify'
                 ? 'bg-amber-600 text-white shadow'
                 : 'text-slate-400 hover:text-white hover:bg-white/5'

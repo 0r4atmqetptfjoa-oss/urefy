@@ -1,4 +1,4 @@
-﻿import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import {
   onRequestGet,
   onRequestPost,
@@ -41,7 +41,7 @@ describe('Real Interactions API (/api/interactions)', () => {
     // 1. First Like
     const req1 = new Request('https://aetheris.network/api/interactions', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Admin-PIN': '11223' },
       body: JSON.stringify({
         targetId: 'post-100',
         userFingerprint: 'user-alpha',
@@ -66,7 +66,7 @@ describe('Real Interactions API (/api/interactions)', () => {
     // 3. Second Like (Toggle / Unlike)
     const req2 = new Request('https://aetheris.network/api/interactions', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Admin-PIN': '11223' },
       body: JSON.stringify({
         targetId: 'post-100',
         userFingerprint: 'user-alpha',
@@ -89,7 +89,7 @@ describe('Real Interactions API (/api/interactions)', () => {
     // Repost
     const repostReq = new Request('https://aetheris.network/api/interactions', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Admin-PIN': '11223' },
       body: JSON.stringify({
         targetId: 'post-200',
         userFingerprint: 'user-beta',
@@ -104,7 +104,7 @@ describe('Real Interactions API (/api/interactions)', () => {
     // Bookmark
     const bkmkReq = new Request('https://aetheris.network/api/interactions', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Admin-PIN': '11223' },
       body: JSON.stringify({
         targetId: 'post-200',
         userFingerprint: 'user-beta',
@@ -130,7 +130,7 @@ describe('Real Interactions API (/api/interactions)', () => {
     await onRequestPost({
       request: new Request('https://aetheris.network/api/interactions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Admin-PIN': '11223' },
         body: JSON.stringify({ targetId: 'post-a', userFingerprint: 'user-1', action: 'like' }),
       }),
     });
@@ -139,7 +139,7 @@ describe('Real Interactions API (/api/interactions)', () => {
     await onRequestPost({
       request: new Request('https://aetheris.network/api/interactions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Admin-PIN': '11223' },
         body: JSON.stringify({ targetId: 'post-b', userFingerprint: 'user-1', action: 'like' }),
       }),
     });

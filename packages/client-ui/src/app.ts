@@ -1414,9 +1414,9 @@ function renderQuarantineAlert(): string {
       <div class="flex items-center space-x-3">
         <span class="text-base">🚨</span>
         <div>
-          <span class="font-bold uppercase tracking-wider">ZK-RLN Anti-Spam Slashing Executed:</span>
+          <span class="font-bold uppercase tracking-wider">RLN Anti-Spam Revocation Executed:</span>
           <span class="ml-1">Identity <code class="bg-black/30 px-1 py-0.5 rounded font-mono">${a.nullifier.substring(0, 16)}...</code> has breached rate limit.</span>
-          <span class="ml-1 font-mono text-[10px]">Extracted Secret: ${a.extractedSecretKey.substring(0, 20)}...</span>
+          <span class="ml-1 font-mono text-[10px] text-amber-200/80">Nullifier Quarantined</span>
         </div>
       </div>
       <button id="btn-dismiss-alert" class="px-2 py-0.5 bg-black/40 hover:bg-black/60 rounded text-[11px]">Dismiss</button>

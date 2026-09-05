@@ -19,6 +19,7 @@ import {
   TOTAL_MESSAGES_COUNTER,
   INITIAL_NODES,
 } from './_db.js';
+import { requireAdmin, verifyIdentitySignature } from './_auth.js';
 
 export interface AnalyticsSummary {
   status: 'healthy' | 'degraded' | 'syncing';
@@ -192,6 +193,24 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
         JSON.stringify({ success: false, error: 'nodeId and name are required' }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
+    }
+
+    // ─── AUTHORIZATION GUARD ───
+    const adminCheck = await requireAdmin(context);
+    if (!adminCheck.authorized) {
+      const auth = verifyIdentitySignature(body, context.request);
+      if (!auth.valid) {
+        return (
+          auth.response ||
+          new Response(
+            JSON.stringify({
+              success: false,
+              error: 'Cryptographic node signature or Admin authorization required to post node telemetry',
+            }),
+            { status: 401, headers: { 'Content-Type': 'application/json' } }
+          )
+        );
+      }
     }
 
     const updatedNode: EdgeNodeTelemetry = {

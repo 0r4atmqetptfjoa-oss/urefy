@@ -311,11 +311,10 @@ export class AetherisServer {
     if (nullifier && this.activeShares.has(shareKey)) {
       const existingShare = this.activeShares.get(shareKey)!;
       try {
-        const proof = ZKRLN.extractSecretFromViolation(existingShare, currentShare);
-        if (proof.verified && proof.extractedSecretKey) {
+        const verification = ZKRLN.verifyRateLimitBreach(existingShare, currentShare);
+        if (verification.verified) {
           this.db.addRevocation({
             nullifier,
-            extractedSecretKey: proof.extractedSecretKey,
             breachedEpoch: String(epoch),
             timestamp: Date.now(),
           });
@@ -323,20 +322,20 @@ export class AetherisServer {
           this.broadcast({
             type: 'QUARANTINE_ALERT',
             nullifier,
-            extractedSecretKey: proof.extractedSecretKey,
             epoch,
-            reason: 'ZK-RLN Rate Limit Violation: Double message broadcast in single epoch',
+            reason: 'RLN Rate Limit Violation: Double message broadcast in single epoch',
           });
 
           this.send(ws, {
             type: 'SLASHING_NOTICE',
-            message: 'Your identity has been slashed and revoked due to spam violation.',
-            extractedSecretKey: proof.extractedSecretKey,
+            message: 'Your identity nullifier has been revoked due to rate limit violation.',
+            nullifier,
+            epoch,
           });
           return;
         }
       } catch (err: any) {
-        console.error('Lagrange extraction error:', err.message);
+        console.error('RLN violation verification error:', err.message);
       }
     }
 

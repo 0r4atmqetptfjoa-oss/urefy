@@ -303,10 +303,10 @@ export class SovereignRelayDurableObject {
           // Double message in same epoch with distinct payload polynomial evaluation
           if (existingShare.x !== currentShare.x) {
             try {
-              const proof = ZKRLN.extractSecretFromViolation(existingShare, currentShare);
+              const verification = ZKRLN.verifyRateLimitBreach(existingShare, currentShare);
 
-              if (proof.verified && proof.extractedSecretKey) {
-                // Slashes offender
+              if (verification.verified) {
+                // Revokes offender's nullifier
                 this.revokedNullifiers.add(rawNullifier);
 
                 // Persist revoked nullifiers in DO storage
@@ -316,30 +316,28 @@ export class SovereignRelayDurableObject {
                   );
                 }
 
-                // Global alert broadcast across all connected hibernated sockets
+                // Global alert broadcast across all connected hibernated sockets (zero secret disclosure)
                 this.broadcastGlobal({
                   type: 'QUARANTINE_ALERT',
                   nullifier: rawNullifier,
-                  extractedSecretKey: proof.extractedSecretKey,
                   epoch,
                   breachedEpoch: epoch,
-                  reason: 'ZK-RLN Rate Limit Violation: Double message broadcast in single epoch',
+                  reason: 'RLN Rate Limit Violation: Double message broadcast in single epoch',
                   timestamp: Date.now(),
                 });
 
-                // Send slashing notification directly to the offending peer
+                // Send slashing notification directly to the offending peer (zero secret disclosure)
                 this.send(ws, {
                   type: 'SLASHING_NOTICE',
-                  message: 'Your identity has been slashed and revoked due to ZK-RLN double-broadcast spam.',
+                  message: 'Your identity nullifier has been revoked due to rate limit violation.',
                   nullifier: rawNullifier,
-                  extractedSecretKey: proof.extractedSecretKey,
                   epoch,
                 });
 
                 return; // Drop message immediately
               }
             } catch (rlnErr: any) {
-              console.warn('[SovereignRelayDurableObject] ZK-RLN secret extraction warning:', rlnErr.message);
+              console.warn('[SovereignRelayDurableObject] RLN breach verification warning:', rlnErr.message);
             }
           }
         } else {

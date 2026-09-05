@@ -87,10 +87,33 @@ export interface SlashingProof {
   verified: boolean;
 }
 
+export interface RateLimitBreachVerification {
+  breachedEpoch: string;
+  nullifier: string;
+  verified: boolean;
+  share1: { x: string; y: string };
+  share2: { x: string; y: string };
+}
+
 /**
  * Rate-Limiting Nullifier (ZK-RLN) Generator & Lagrange Interpolator
  */
 export class ZKRLN {
+  /**
+   * Verifies that two shares prove a rate-limiting breach for the same epoch and nullifier,
+   * mathematically validating the polynomial violation WITHOUT exposing or leaking
+   * the secret key across network or protocol boundaries.
+   */
+  static verifyRateLimitBreach(share1: RLNShare, share2: RLNShare): RateLimitBreachVerification {
+    const proof = this.extractSecretFromViolation(share1, share2);
+    return {
+      breachedEpoch: proof.breachedEpoch,
+      nullifier: proof.nullifier,
+      verified: proof.verified,
+      share1: proof.share1,
+      share2: proof.share2,
+    };
+  }
   /**
    * Computes the public nullifier commitment from the user's secret key a_0.
    */

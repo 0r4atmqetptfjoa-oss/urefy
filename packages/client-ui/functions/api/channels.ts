@@ -12,6 +12,7 @@ import {
   globalChannelsStore,
   INITIAL_CHANNELS,
 } from './_db.js';
+import { requireAdmin, verifyIdentitySignature } from './_auth.js';
 
 export { EdgeChannel };
 
@@ -23,7 +24,7 @@ export function parseD1ChannelRow(row: any): EdgeChannel {
     id: row.id,
     space: row.space,
     name: row.name,
-    description: row.description || '',
+    description: row.description,
     isEncrypted: Boolean(row.isEncrypted !== undefined ? row.isEncrypted : row.is_encrypted),
     createdAt: Number(row.createdAt !== undefined ? row.createdAt : row.created_at) || Date.now(),
   };
@@ -32,7 +33,7 @@ export function parseD1ChannelRow(row: any): EdgeChannel {
 /**
  * GET /api/channels
  * Query parameters:
- *  - space: 'relays' | 'vault' | 'pulse' | 'all' (default: 'all')
+ *  - space: 'relays' | 'vault' | 'pulse' | 'all' (default: 'relays')
  *  - limit: number (default: 50, max: 100)
  *  - offset: number (default: 0)
  */
@@ -46,18 +47,18 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
     const db = getD1Database(context.env);
     const kv = getKVStore(context.env);
 
-    // 1. Check Edge KV Cache
+    // Check KV cache
     const cacheKey = `channels:${space}:${limit}:${offset}`;
     if (kv) {
       try {
-        const cached = await kv.get<{ success: boolean; count: number; channels: EdgeChannel[] }>(cacheKey, 'json');
-        if (cached && Array.isArray(cached.channels)) {
+        const cached = await kv.get<{ success: boolean; channels: EdgeChannel[] }>(cacheKey, 'json');
+        if (cached && cached.channels) {
           return new Response(JSON.stringify(cached), {
             status: 200,
             headers: {
               'Content-Type': 'application/json',
-              'X-Edge-Cache': 'HIT',
-              'Cache-Control': 'public, max-age=30, stale-while-revalidate=60',
+              'Cache-Control': 'public, max-age=15, stale-while-revalidate=30',
+              'X-Edge-Storage': 'Cloudflare-KV',
             },
           });
         }
@@ -66,14 +67,14 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
 
     let channels: EdgeChannel[] = [];
 
-    // 2. Query Cloudflare D1 Database if binding available
+    // 1. Query D1
     if (db) {
       try {
-        let query = 'SELECT * FROM channels';
+        let query = 'SELECT * FROM channels WHERE 1=1';
         const params: any[] = [];
 
         if (space && space !== 'all') {
-          query += ' WHERE space = ?';
+          query += ' AND space = ?';
           params.push(space);
         }
 
@@ -85,16 +86,15 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
 
         if (results && results.length > 0) {
           channels = results.map(parseD1ChannelRow);
-        } else {
-          // If D1 is empty on initial migration, fallback to in-memory seed channels
+        } else if (offset === 0) {
           channels = globalChannelsStore.filter((c) => (space === 'all' ? true : c.space === space));
         }
-      } catch (dbError) {
-        console.warn('[D1 Channels Fallback]', dbError);
+      } catch (dbErr) {
+        console.warn('[D1 Channels Fallback]', dbErr);
         channels = globalChannelsStore.filter((c) => (space === 'all' ? true : c.space === space));
       }
     } else {
-      // 3. In-Memory Edge Store Fallback
+      // 2. Fallback to in-memory store
       let result = [...globalChannelsStore];
 
       if (space && space !== 'all') {
@@ -141,7 +141,7 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
  */
 export async function onRequestPost(context: { request: Request; env?: Env }): Promise<Response> {
   try {
-    const body = (await context.request.json()) as Partial<EdgeChannel>;
+    const body = (await context.request.json()) as any;
     const db = getD1Database(context.env);
     const kv = getKVStore(context.env);
 
@@ -158,6 +158,15 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
         JSON.stringify({ success: false, error: 'Invalid space. Must be relays, vault, or pulse' }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
+    }
+
+    // Protect channel creation: require admin or cryptographically signed request
+    const adminCheck = await requireAdmin(context);
+    if (!adminCheck.authorized) {
+      const authResult = verifyIdentitySignature(body, context.request);
+      if (!authResult.valid) {
+        return authResult.response!;
+      }
     }
 
     const channelId = body.id || `${space}-${body.name.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '-')}`;
@@ -237,6 +246,12 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
  * or JSON body: { id: string }
  */
 export async function onRequestDelete(context: { request: Request; env?: Env }): Promise<Response> {
+  // Enforce administrative authorization for channel deletion
+  const adminCheck = await requireAdmin(context);
+  if (!adminCheck.authorized) {
+    return adminCheck.response!;
+  }
+
   try {
     const url = new URL(context.request.url);
     let channelId = url.searchParams.get('id');

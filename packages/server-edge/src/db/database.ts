@@ -59,7 +59,6 @@ export interface AuditRecord {
 
 export interface RevocationRecord {
   nullifier: string;
-  extractedSecretKey: string;
   breachedEpoch: string;
   timestamp: number;
 }
@@ -126,7 +125,6 @@ export class AetherisDatabase {
 
       CREATE TABLE IF NOT EXISTS revocations (
         nullifier TEXT PRIMARY KEY,
-        extractedSecretKey TEXT NOT NULL,
         breachedEpoch TEXT NOT NULL,
         timestamp INTEGER NOT NULL
       );
@@ -262,13 +260,13 @@ export class AetherisDatabase {
     return stmt.all() as unknown as NanopublicationRecord[];
   }
 
-  // Revocations (ZK-RLN Slashing table)
+  // Revocations (RLN Slashing table)
   public addRevocation(rev: RevocationRecord): void {
     const stmt = this.db.prepare(`
-      INSERT OR REPLACE INTO revocations (nullifier, extractedSecretKey, breachedEpoch, timestamp)
-      VALUES (?, ?, ?, ?)
+      INSERT OR REPLACE INTO revocations (nullifier, breachedEpoch, timestamp)
+      VALUES (?, ?, ?)
     `);
-    stmt.run(rev.nullifier, rev.extractedSecretKey, rev.breachedEpoch, rev.timestamp);
+    stmt.run(rev.nullifier, rev.breachedEpoch, rev.timestamp);
     this.setQuarantine(rev.nullifier, true);
   }
 

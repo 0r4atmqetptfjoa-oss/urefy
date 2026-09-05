@@ -1,10 +1,11 @@
-﻿// ===========================================================================
+// ===========================================================================
 // AETHERIS OMNI-SPHERE — INTERACTIONS & ENGAGEMENT EDGE API (/api/interactions)
 // Handles real likes, reposts, bookmarks, emoji reactions, awards & views.
 // Persists directly to Cloudflare D1 SQL table 'interactions' with memory fallback.
 // ===========================================================================
 
 import { Env, getD1Database } from './_db.js';
+import { requireAdmin, verifyIdentitySignature } from './_auth.js';
 
 export interface InteractionRecord {
   id: string;
@@ -199,6 +200,29 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
         JSON.stringify({ success: false, error: `Invalid action. Must be one of: ${validActions.join(', ')}` }),
         { status: 400, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
       );
+    }
+
+    // Verify identity signature for mutating actions (prevent forged likes/reactions/awards)
+    if (action !== 'view') {
+      const adminCheck = await requireAdmin(context);
+      if (!adminCheck.authorized) {
+        const auth = verifyIdentitySignature(
+          { targetId, action, authorFingerprint: userFingerprint, ...body },
+          context.request
+        );
+        if (!auth.valid) {
+          return (
+            auth.response ||
+            new Response(
+              JSON.stringify({
+                success: false,
+                error: 'Cryptographic identity signature required for mutating interactions',
+              }),
+              { status: 401, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
+            )
+          );
+        }
+      }
     }
 
     const db = getD1Database(context.env);

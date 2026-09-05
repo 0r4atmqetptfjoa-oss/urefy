@@ -137,9 +137,8 @@ describe('Server Edge & Real-time Signaling Engine', () => {
       expect(alert).toBeDefined();
       expect(alert.nullifier).toBe(nullifier);
 
-      // Extracted secret key must match original secret
-      const originalSecretHex = Field.mod(userSecret).toString(16).padStart(64, '0');
-      expect(alert.extractedSecretKey).toBe(originalSecretHex);
+      // Secret keys must NEVER be broadcast over the wire
+      expect(alert.extractedSecretKey).toBeUndefined();
 
       ws.close();
     });

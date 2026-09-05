@@ -13,6 +13,7 @@ import {
   globalNanopublicationsStore,
   INITIAL_NANOPUBLICATIONS,
 } from './_db.js';
+import { requireAdmin, verifyIdentitySignature } from './_auth.js';
 
 export { EdgeNanopublication };
 
@@ -195,6 +196,24 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
         JSON.stringify({ success: false, error: 'Missing mandatory fields: title, fileName, sha256' }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
+    }
+
+    // ─── CRYPTOGRAPHIC AUTHORIZATION GUARD ───
+    const adminCheck = await requireAdmin(context);
+    if (!adminCheck.authorized) {
+      const auth = verifyIdentitySignature(body, context.request);
+      if (!auth.valid) {
+        return (
+          auth.response ||
+          new Response(
+            JSON.stringify({
+              success: false,
+              error: 'Cryptographic identity signature or Admin authorization required to publish nanopublications',
+            }),
+            { status: 401, headers: { 'Content-Type': 'application/json' } }
+          )
+        );
+      }
     }
 
     const newNanopub: EdgeNanopublication = {

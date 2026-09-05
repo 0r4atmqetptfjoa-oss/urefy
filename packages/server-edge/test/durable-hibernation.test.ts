@@ -410,16 +410,17 @@ describe('SovereignRelayDurableObject — Cloudflare WebSocket Hibernation API',
         })
       );
 
-      // Spammer should receive SLASHING_NOTICE
+      // Spammer should receive SLASHING_NOTICE with zero secret key disclosure
       const slashNotice = spammerWs.getLastMessageParsed();
       expect(slashNotice.type).toBe('SLASHING_NOTICE');
       expect(slashNotice.nullifier).toBe(nullifier);
-      expect(slashNotice.extractedSecretKey).toBe(Field.mod(secretKey).toString(16).padStart(64, '0'));
+      expect(slashNotice.extractedSecretKey).toBeUndefined();
 
-      // Peer should receive QUARANTINE_ALERT
+      // Peer should receive QUARANTINE_ALERT with zero secret key disclosure
       const quarantineAlert = peerWs.getLastMessageParsed();
       expect(quarantineAlert.type).toBe('QUARANTINE_ALERT');
       expect(quarantineAlert.nullifier).toBe(nullifier);
+      expect(quarantineAlert.extractedSecretKey).toBeUndefined();
 
       // Offender nullifier is marked revoked
       expect(relayDO.getRevokedNullifiers().has(nullifier)).toBe(true);

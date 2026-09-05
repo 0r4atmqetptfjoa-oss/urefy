@@ -342,25 +342,23 @@ export async function onRequest(context: {
               const existingShare = activeShares.get(shareKey)!;
               if (existingShare.x !== currentShare.x) {
                 try {
-                  const proof = ZKRLN.extractSecretFromViolation(existingShare, currentShare);
-                  if (proof.verified && proof.extractedSecretKey) {
+                  const verification = ZKRLN.verifyRateLimitBreach(existingShare, currentShare);
+                  if (verification.verified) {
                     revokedNullifiers.add(rawNullifier);
 
-                    // Broadcast QUARANTINE_ALERT globally
+                    // Broadcast QUARANTINE_ALERT globally (zero secret key disclosure)
                     broadcast({
                       type: 'QUARANTINE_ALERT',
                       nullifier: rawNullifier,
-                      extractedSecretKey: proof.extractedSecretKey,
                       epoch: rawEpoch,
-                      reason: 'ZK-RLN Rate Limit Violation: Double message broadcast in single epoch',
+                      reason: 'RLN Rate Limit Violation: Double message broadcast in single epoch',
                     });
 
                     serverWs.send(
                       JSON.stringify({
                         type: 'SLASHING_NOTICE',
-                        message: 'Your identity has been slashed and revoked due to ZK-RLN spam violation.',
+                        message: 'Your identity nullifier has been revoked due to rate limit violation.',
                         nullifier: rawNullifier,
-                        extractedSecretKey: proof.extractedSecretKey,
                         epoch: rawEpoch,
                       })
                     );

@@ -681,10 +681,10 @@ export class RelayDurableObject {
         // Collision detected: check if message shares are distinct
         if (existingShare.x !== currentShare.x) {
           try {
-            const proof = ZKRLN.extractSecretFromViolation(existingShare, currentShare);
+            const verification = ZKRLN.verifyRateLimitBreach(existingShare, currentShare);
 
-            if (proof.verified && proof.extractedSecretKey) {
-              // Slash offender
+            if (verification.verified) {
+              // Revoke offender's nullifier
               this.revokedNullifiers.add(rawNullifier);
 
               // Persist to storage
@@ -692,30 +692,28 @@ export class RelayDurableObject {
                 this.ctx.waitUntil(this.ctx.storage.put('revoked_nullifiers', Array.from(this.revokedNullifiers)));
               }
 
-              // Broadcast global QUARANTINE_ALERT to all connected sockets
+              // Broadcast global QUARANTINE_ALERT to all connected sockets (zero secret key disclosure)
               this.broadcast({
                 type: 'QUARANTINE_ALERT',
                 nullifier: rawNullifier,
-                extractedSecretKey: proof.extractedSecretKey,
                 epoch,
                 breachedEpoch: epoch,
-                reason: 'ZK-RLN Rate Limit Violation: Double message broadcast in single epoch',
+                reason: 'RLN Rate Limit Violation: Double message broadcast in single epoch',
                 timestamp: Date.now(),
               });
 
-              // Send SLASHING_NOTICE directly to the offending client
+              // Send SLASHING_NOTICE directly to the offending client (zero secret key disclosure)
               this.send(ws, {
                 type: 'SLASHING_NOTICE',
-                message: 'Your identity has been slashed and revoked due to ZK-RLN double-broadcast spam.',
+                message: 'Your identity nullifier has been revoked due to rate limit violation.',
                 nullifier: rawNullifier,
-                extractedSecretKey: proof.extractedSecretKey,
                 epoch,
               });
 
               return; // Drop message!
             }
           } catch (err: any) {
-            console.warn('[RelayDurableObject] ZK-RLN extraction warning:', err.message);
+            console.warn('[RelayDurableObject] RLN breach verification warning:', err.message);
           }
         }
       } else {

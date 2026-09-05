@@ -15,6 +15,7 @@ import {
   globalSpentNullifiers,
   INITIAL_POSTS,
 } from './_db.js';
+import { requireAdmin, verifyIdentitySignature } from './_auth.js';
 
 export { EdgePost };
 
@@ -230,7 +231,25 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
 
     // ─── ACTION: VOTE ──────────────────────────────────────────────────────────
     if (body.action === 'vote') {
-      const { postId, direction, userFingerprint = 'anon-voter' } = body;
+      const adminCheck = await requireAdmin(context);
+      let userFingerprint = body.userFingerprint || 'anon-voter';
+      if (!adminCheck.authorized) {
+        const auth = verifyIdentitySignature(
+          { targetId: body.postId, action: 'vote', authorFingerprint: body.userFingerprint, ...body },
+          context.request
+        );
+        if (!auth.valid) {
+          return (
+            auth.response ||
+            new Response(
+              JSON.stringify({ success: false, error: 'Identity signature required to vote' }),
+              { status: 401, headers: { 'Content-Type': 'application/json' } }
+            )
+          );
+        }
+        userFingerprint = auth.fingerprint || userFingerprint;
+      }
+      const { postId, direction } = body;
       const voteDir = Number(direction) || 0;
 
       // Update in D1 if available
@@ -367,6 +386,22 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
 
     // ─── ACTION: BOOST ─────────────────────────────────────────────────────────
     if (body.action === 'boost') {
+      const adminCheck = await requireAdmin(context);
+      if (!adminCheck.authorized) {
+        const auth = verifyIdentitySignature(
+          { targetId: body.postId, action: 'boost', authorFingerprint: body.userFingerprint, ...body },
+          context.request
+        );
+        if (!auth.valid) {
+          return (
+            auth.response ||
+            new Response(
+              JSON.stringify({ success: false, error: 'Identity signature required to boost' }),
+              { status: 401, headers: { 'Content-Type': 'application/json' } }
+            )
+          );
+        }
+      }
       const { postId } = body;
 
       if (db) {
@@ -415,10 +450,26 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
     }
 
     // ─── ACTION: CREATE / UPDATE POST ──────────────────────────────────────────
+    const adminCheck = await requireAdmin(context);
+    let authorFingerprint = body.authorFingerprint || 'anon-peer';
+    if (!adminCheck.authorized) {
+      const auth = verifyIdentitySignature(body, context.request);
+      if (!auth.valid) {
+        return (
+          auth.response ||
+          new Response(
+            JSON.stringify({ success: false, error: 'Identity signature required to create posts' }),
+            { status: 401, headers: { 'Content-Type': 'application/json' } }
+          )
+        );
+      }
+      authorFingerprint = auth.fingerprint || authorFingerprint;
+    }
+
     const newPost: EdgePost = {
       id: body.id || `post-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       channelId: body.channelId || 'pulse-global',
-      authorFingerprint: body.authorFingerprint || 'anon-peer',
+      authorFingerprint,
       authorRole: body.authorRole || 'MEMBER',
       title: body.title || 'Sovereign Pulse',
       content: body.content || '',

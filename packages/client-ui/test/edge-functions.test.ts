@@ -428,14 +428,17 @@ describe('Cloudflare Pages Functions - Full-Stack Edge Backend & D1/KV/R2 Bindin
       const payload = {
         channelId: 'relays-general',
         authorFingerprint: 'tester-node-1',
-        text: 'Live E2EE sovereign transmission test',
+        ciphertext: 'Live E2EE sovereign transmission test',
         epoch: '#999',
         signature: 'deadbeef0123',
       };
 
       const req = new Request('https://aetheris.pages.dev/api/messages', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Admin-PIN': '11223',
+        },
         body: JSON.stringify(payload),
       });
 
@@ -462,11 +465,14 @@ describe('Cloudflare Pages Functions - Full-Stack Edge Backend & D1/KV/R2 Bindin
 
       const postReq = new Request('https://aetheris.pages.dev/api/messages', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Admin-PIN': '11223',
+        },
         body: JSON.stringify({
           channelId: 'relays-dev',
           authorFingerprint: 'd1-tester',
-          text: 'D1 backed E2EE packet',
+          ciphertext: 'D1 backed E2EE packet',
         }),
       });
 
@@ -528,7 +534,10 @@ describe('Cloudflare Pages Functions - Full-Stack Edge Backend & D1/KV/R2 Bindin
 
       const req = new Request('https://aetheris.pages.dev/api/posts', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Admin-PIN': '11223',
+        },
         body: JSON.stringify(postPayload),
       });
 
@@ -550,7 +559,10 @@ describe('Cloudflare Pages Functions - Full-Stack Edge Backend & D1/KV/R2 Bindin
 
       const req = new Request('https://aetheris.pages.dev/api/posts', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Admin-PIN': '11223',
+        },
         body: JSON.stringify(votePayload),
       });
 
@@ -571,7 +583,10 @@ describe('Cloudflare Pages Functions - Full-Stack Edge Backend & D1/KV/R2 Bindin
 
       const req = new Request('https://aetheris.pages.dev/api/posts', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Admin-PIN': '11223',
+        },
         body: JSON.stringify(boostPayload),
       });
 
@@ -589,7 +604,10 @@ describe('Cloudflare Pages Functions - Full-Stack Edge Backend & D1/KV/R2 Bindin
 
       const postReq = new Request('https://aetheris.pages.dev/api/posts', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Admin-PIN': '11223',
+        },
         body: JSON.stringify({
           id: 'post-d1-test',
           channelId: 'vault-releases',
@@ -652,7 +670,10 @@ describe('Cloudflare Pages Functions - Full-Stack Edge Backend & D1/KV/R2 Bindin
 
       const req = new Request('https://aetheris.pages.dev/api/nanopublications', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Admin-PIN': '11223',
+        },
         body: JSON.stringify(payload),
       });
 
@@ -729,7 +750,10 @@ describe('Cloudflare Pages Functions - Full-Stack Edge Backend & D1/KV/R2 Bindin
 
       const req = new Request('https://aetheris.pages.dev/api/analytics', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Admin-PIN': '11223',
+        },
         body: JSON.stringify(heartbeat),
       });
 
@@ -835,7 +859,7 @@ describe('Cloudflare Pages Functions - Full-Stack Edge Backend & D1/KV/R2 Bindin
 
       const req = new Request('https://aetheris.pages.dev/api/channels', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Admin-PIN': '11223' },
         body: JSON.stringify(payload),
       });
 
@@ -855,7 +879,7 @@ describe('Cloudflare Pages Functions - Full-Stack Edge Backend & D1/KV/R2 Bindin
 
       const postReq = new Request('https://aetheris.pages.dev/api/channels', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Admin-PIN': '11223' },
         body: JSON.stringify({
           name: 'quantum-mesh',
           space: 'relays',

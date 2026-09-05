@@ -508,16 +508,15 @@ describe('Cloudflare Durable Objects — RelayDurableObject & WebSocket Hibernat
       expect(slashingNotice).toBeDefined();
       expect(slashingNotice.nullifier).toBe(nullifier);
 
-      // The extracted secret key must match the original secret!
-      const expectedSecretHex = Field.mod(spammerSecret).toString(16).padStart(64, '0');
-      expect(slashingNotice.extractedSecretKey).toBe(expectedSecretHex);
+      // Secret key must NEVER be leaked or broadcast over the wire!
+      expect(slashingNotice.extractedSecretKey).toBeUndefined();
 
       // Victim must receive global QUARANTINE_ALERT broadcast
       const victimMsgs = victimWs.getAllMessagesParsed();
       const quarantineAlert = victimMsgs.find((m) => m.type === 'QUARANTINE_ALERT');
       expect(quarantineAlert).toBeDefined();
       expect(quarantineAlert.nullifier).toBe(nullifier);
-      expect(quarantineAlert.extractedSecretKey).toBe(expectedSecretHex);
+      expect(quarantineAlert.extractedSecretKey).toBeUndefined();
 
       // Verify nullifier is added to revoked set
       expect(relayDO.getRevokedNullifiers().has(nullifier)).toBe(true);

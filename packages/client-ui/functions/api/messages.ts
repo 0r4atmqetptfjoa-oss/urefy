@@ -13,16 +13,18 @@ import {
   incrementMessageCounter,
   INITIAL_MESSAGES,
 } from './_db.js';
+import { requireAdmin, verifyIdentitySignature } from './_auth.js';
 
 export { EdgeMessage };
 
 export function parseD1MessageRow(row: any): EdgeMessage {
+  const cipher = row.ciphertext || row.text || '';
   return {
     id: row.id,
     channelId: row.channelId ?? row.channel_id ?? 'relays-general',
     authorFingerprint: row.authorFingerprint ?? row.author_fingerprint ?? 'anon-peer',
-    text: row.text || row.ciphertext || '',
-    ciphertext: row.ciphertext || row.text || '',
+    text: cipher,
+    ciphertext: cipher,
     epoch: row.epoch || '#1',
     status: row.status || 'verified',
     signature: row.signature || undefined,
@@ -122,28 +124,58 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
     const db = getD1Database(context.env);
     const kv = getKVStore(context.env);
 
-    const textContent = body.text || body.ciphertext || '';
-    if (!textContent.trim()) {
+    const textContent = (body.ciphertext || body.text || '').trim();
+    if (!textContent) {
       return new Response(
         JSON.stringify({ success: false, error: 'Message content cannot be empty' }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
+    // Enforce E2EE: ciphertext must be present. Reject pure plaintext payloads.
+    const ciphertext = (body.ciphertext || '').trim();
+    if (!ciphertext) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'E2EE violation: ciphertext is required. Plaintext message transmission and storage are strictly prohibited.',
+        }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Authentication: Require Admin OR Cryptographic Identity Signature
+    const adminCheck = await requireAdmin(context);
+    let authorFingerprint = body.authorFingerprint || 'anon-peer';
+
+    if (!adminCheck.authorized) {
+      const auth = verifyIdentitySignature(body, context.request);
+      if (!auth.valid) {
+        return (
+          auth.response ||
+          new Response(
+            JSON.stringify({ success: false, error: 'Identity authentication required' }),
+            { status: 401, headers: { 'Content-Type': 'application/json' } }
+          )
+        );
+      }
+      authorFingerprint = auth.fingerprint || authorFingerprint;
+    }
+
     const newMsg: EdgeMessage = {
       id: body.id || `msg-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       channelId: body.channelId || 'relays-general',
-      authorFingerprint: body.authorFingerprint || 'anon-peer',
-      text: textContent.trim(),
-      ciphertext: body.ciphertext || textContent.trim(),
+      authorFingerprint,
+      text: ciphertext, // Prohibit plaintext storage - text is set to ciphertext
+      ciphertext,
       epoch: body.epoch || '#1',
-      status: body.status || 'verified',
+      status: 'verified',
       signature: body.signature || '',
       createdAt: body.createdAt || Date.now(),
       isMine: false,
     };
 
-    // Insert into Cloudflare D1 if available
+    // Insert into Cloudflare D1 if available (only ciphertexts stored)
     if (db) {
       try {
         await db
@@ -159,7 +191,7 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
             newMsg.channelId,
             newMsg.authorFingerprint,
             newMsg.authorFingerprint,
-            newMsg.text,
+            newMsg.ciphertext,
             newMsg.ciphertext,
             newMsg.epoch,
             newMsg.status,

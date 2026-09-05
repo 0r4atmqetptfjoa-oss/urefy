@@ -199,8 +199,8 @@ describe('Cloudflare Pages Functions /api/ws — WebSocket & Durable Object Rout
       expect(slashingNotice).toBeDefined();
       expect(slashingNotice.nullifier).toBe(nullifier);
 
-      const expectedSecretHex = Field.mod(spammerSecret).toString(16).padStart(64, '0');
-      expect(slashingNotice.extractedSecretKey).toBe(expectedSecretHex);
+      // Extracted secret key must NEVER be sent over the wire!
+      expect(slashingNotice.extractedSecretKey).toBeUndefined();
     });
 
     it('replies to PING with PONG and timestamp', async () => {

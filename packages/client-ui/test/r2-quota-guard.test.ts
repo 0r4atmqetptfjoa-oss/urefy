@@ -225,6 +225,7 @@ describe('Cloudflare R2 Zero-Overage Quota Guardian Verification Suite', () => {
           'Content-Type': 'application/octet-stream',
           'X-File-Name': 'valid-release.bin',
           'X-Author': 'genesis-core',
+          'X-Admin-PIN': '11223',
         },
         body: validPayload,
       });
@@ -255,6 +256,7 @@ describe('Cloudflare R2 Zero-Overage Quota Guardian Verification Suite', () => {
           'X-Author': 'c3dc28cb705e',
           'X-Title': 'ZK Prover Original Canonical',
           'X-Key': 'releases/zk-prover-original.bin',
+          'X-Admin-PIN': '11223',
         },
         body: binaryPayload,
       });
@@ -276,6 +278,7 @@ describe('Cloudflare R2 Zero-Overage Quota Guardian Verification Suite', () => {
           'X-File-Name': 'zk-prover-mirror-copy.bin',
           'X-Author': 'a89104fa2211',
           'X-Title': 'ZK Prover Mirror Upload',
+          'X-Admin-PIN': '11223',
         },
         body: binaryPayload,
       });

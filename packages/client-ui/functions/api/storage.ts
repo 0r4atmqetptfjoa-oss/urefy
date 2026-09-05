@@ -17,6 +17,7 @@ import {
   R2ObjectBody,
   getR2Bucket,
 } from './_db.js';
+import { requireAdmin, verifyIdentitySignature, requireOwnership } from './_auth.js';
 
 export interface StorageMetadata {
   sha256: string;
@@ -593,6 +594,71 @@ export async function onRequestPost(context: {
       title = fileName;
     }
 
+    // ─── HARD SAFETY LIMIT CHECKS (Class A Ceiling & Storage Cap) ───────────────
+    if (monthlyClassAOps >= MAX_CLASS_A_MONTHLY_OPS) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error:
+            'SOVEREIGN_R2_QUOTA_GUARD: Class A operation safety ceiling reached (750,000 / 1,000,000 free cap). Failover to P2P WebRTC Direct Swarm.',
+        }),
+        {
+          status: 429,
+          headers: {
+            'Content-Type': 'application/json',
+            ...STORAGE_CORS_HEADERS,
+          },
+        }
+      );
+    }
+
+    const currentTotalStorage = getTotalStorageBytes();
+    if (currentTotalStorage + byteSize > MAX_STORAGE_CAP_BYTES) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error:
+            'SOVEREIGN_R2_QUOTA_GUARD: Sovereign storage safety cap (8.0 GB / 10.0 GB free tier) reached. Upload rejected to preserve Cloudflare free tier. Failover to P2P WebRTC Direct Swarm.',
+        }),
+        {
+          status: 507,
+          headers: {
+            'Content-Type': 'application/json',
+            ...STORAGE_CORS_HEADERS,
+          },
+        }
+      );
+    }
+
+    // ─── AUTHENTICATION & IDENTITY VERIFICATION GUARD ───
+    const adminCheck = await requireAdmin(context);
+    if (!adminCheck.authorized) {
+      const authPayload = {
+        sha256,
+        key: customKey,
+        fileName,
+        authorFingerprint: author,
+        timestamp: req.headers.get('X-Timestamp') || Date.now(),
+      };
+      const identityAuth = verifyIdentitySignature(authPayload, req);
+      if (!identityAuth.valid) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'Authentication required for storage upload: valid Admin session or signed identity required.',
+            detail: identityAuth.response ? await identityAuth.response.text() : undefined,
+          }),
+          {
+            status: 401,
+            headers: { 'Content-Type': 'application/json', ...STORAGE_CORS_HEADERS },
+          }
+        );
+      }
+      if (identityAuth.fingerprint) {
+        author = identityAuth.fingerprint;
+      }
+    }
+
     const bucket = getStorageBucket(context.env);
 
     // ─── SHA-256 DEDUPLICATION (Zero Class A ops, Zero storage consumed) ────────
@@ -635,42 +701,6 @@ export async function onRequestPost(context: {
           ...STORAGE_CORS_HEADERS,
         },
       });
-    }
-
-    // ─── HARD SAFETY LIMIT CHECKS (Class A Ceiling & Storage Cap) ───────────────
-    if (monthlyClassAOps >= MAX_CLASS_A_MONTHLY_OPS) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error:
-            'SOVEREIGN_R2_QUOTA_GUARD: Class A operation safety ceiling reached (750,000 / 1,000,000 free cap). Failover to P2P WebRTC Direct Swarm.',
-        }),
-        {
-          status: 429,
-          headers: {
-            'Content-Type': 'application/json',
-            ...STORAGE_CORS_HEADERS,
-          },
-        }
-      );
-    }
-
-    const currentTotalStorage = getTotalStorageBytes();
-    if (currentTotalStorage + byteSize > MAX_STORAGE_CAP_BYTES) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error:
-            'SOVEREIGN_R2_QUOTA_GUARD: Sovereign storage safety cap (8.0 GB / 10.0 GB free tier) reached. Upload rejected to preserve Cloudflare free tier. Failover to P2P WebRTC Direct Swarm.',
-        }),
-        {
-          status: 507,
-          headers: {
-            'Content-Type': 'application/json',
-            ...STORAGE_CORS_HEADERS,
-          },
-        }
-      );
     }
 
     // Determine storage key
@@ -1331,7 +1361,69 @@ export async function onRequestDelete(context: {
       );
     }
 
+    // ─── AUTHENTICATION & OWNERSHIP AUTHORIZATION GUARD ───
+    const adminCheck = await requireAdmin(context);
     const bucket = getStorageBucket(context.env);
+
+    if (!adminCheck.authorized) {
+      const identityAuth = verifyIdentitySignature(
+        { key, timestamp: url.searchParams.get('timestamp') },
+        context.request
+      );
+      if (!identityAuth.valid) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'Unauthorized: Admin authorization or owner signature required to delete storage objects.',
+          }),
+          {
+            status: 401,
+            headers: { 'Content-Type': 'application/json', ...STORAGE_CORS_HEADERS },
+          }
+        );
+      }
+
+      // Check object existence and author in R2 or memory
+      let objectAuthor: string | undefined;
+      if (bucket) {
+        try {
+          const headObj = await bucket.head(key);
+          if (headObj) {
+            objectAuthor = headObj.customMetadata?.author;
+          }
+        } catch (_) {}
+      }
+      if (!objectAuthor) {
+        const memObj = globalEdgeStorageMap.get(key);
+        if (memObj) {
+          objectAuthor = memObj.customMetadata?.author || memObj.author;
+        }
+      }
+
+      if (!objectAuthor) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Object not found.' }),
+          {
+            status: 404,
+            headers: { 'Content-Type': 'application/json', ...STORAGE_CORS_HEADERS },
+          }
+        );
+      }
+
+      if (!requireOwnership(identityAuth.fingerprint, objectAuthor)) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'Forbidden: You do not have permission to delete this object (author mismatch).',
+          }),
+          {
+            status: 403,
+            headers: { 'Content-Type': 'application/json', ...STORAGE_CORS_HEADERS },
+          }
+        );
+      }
+    }
+
     let deletedFromR2 = false;
 
     if (bucket) {

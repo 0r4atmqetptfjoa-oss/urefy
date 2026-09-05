@@ -236,7 +236,7 @@ export function isNonLocalEnvironment(req: Request, env?: Env): boolean {
     if (host.endsWith('.local')) {
       return false;
     }
-    if (host.endsWith('.pages.dev')) {
+    if (host.endsWith('.pages.dev') || host.endsWith('.network') || host.endsWith('.internal')) {
       return env?.ENVIRONMENT === 'production';
     }
     return true;
