@@ -38,6 +38,12 @@ export default defineConfig({
             }
             return 'vendor';
           }
+          if (normalized.includes('packages/core-crypto')) {
+            return 'core-crypto';
+          }
+          if (normalized.includes('packages/vault-engine')) {
+            return 'vault-engine';
+          }
           if (normalized.includes('/src/custom-theme-builder') || normalized.includes('/src/themes')) {
             return 'theme-studio';
           }
@@ -58,6 +64,57 @@ export default defineConfig({
           }
           if (normalized.includes('/src/i18n/locales/')) {
             return 'i18n-locales';
+          }
+          if (normalized.includes('/src/ai-assistant')) {
+            return 'ai-assistant';
+          }
+          if (normalized.includes('/src/governance') || normalized.includes('/src/time-travel-consensus')) {
+            return 'governance-dao';
+          }
+          if (normalized.includes('/src/rich-editor')) {
+            return 'rich-editor';
+          }
+          if (normalized.includes('/src/webrtc-transfer') || normalized.includes('/src/p2p-client')) {
+            return 'p2p-transfer';
+          }
+          if (normalized.includes('/src/wallet-bridge')) {
+            return 'wallet-bridge';
+          }
+          if (normalized.includes('/src/cve-monitor')) {
+            return 'cve-monitor';
+          }
+          if (normalized.includes('/src/slide-deck')) {
+            return 'slide-deck';
+          }
+          if (normalized.includes('/src/rss-import')) {
+            return 'rss-import';
+          }
+          if (normalized.includes('/src/transparency-mode')) {
+            return 'transparency-mode';
+          }
+          if (normalized.includes('/src/audio-dsp') || normalized.includes('/src/acoustic-dsp') || normalized.includes('/src/sound-packs')) {
+            return 'audio-dsp';
+          }
+          if (
+            normalized.includes('/src/binary-hygiene-portal') ||
+            normalized.includes('/src/steganography-modal') ||
+            normalized.includes('/src/steganography-transport') ||
+            normalized.includes('/src/social-recovery-modal') ||
+            normalized.includes('/src/portable-trust-modal') ||
+            normalized.includes('/src/archive-modal') ||
+            normalized.includes('/src/paper-wallet') ||
+            normalized.includes('/src/mnemonic-modal') ||
+            normalized.includes('/src/microsaas-docs-modal')
+          ) {
+            return 'security-modals';
+          }
+          if (
+            normalized.includes('/src/merkle-viz') ||
+            normalized.includes('/src/mesh-matrix') ||
+            normalized.includes('/src/zk-proof-viewer') ||
+            normalized.includes('/src/global-scale')
+          ) {
+            return 'advanced-viz';
           }
         },
       },

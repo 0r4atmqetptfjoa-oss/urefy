@@ -2,15 +2,7 @@
 <html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
-    <script>
-      try {
-        var savedLang = localStorage.getItem('aetheris_locale');
-        if (savedLang) {
-          document.documentElement.lang = savedLang;
-          if (savedLang === 'ar') document.documentElement.dir = 'rtl';
-        }
-      } catch (e) {}
-    </script>
+    <script type="module" src="/src/theme-boot.ts"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
     <!-- ─── SEO & Social ──────────────────────────────────────────────────── -->
     <title>Aetheris — Sovereign Communication &amp; Knowledge Vault</title>
@@ -29,7 +21,7 @@
     <meta name="twitter:card" content="summary" />
     <meta name="twitter:title" content="Aetheris — Sovereign Communication" />
     <meta name="twitter:description" content="Encrypted P2P messaging and decentralized knowledge vault." />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; manifest-src 'self' blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://images.unsplash.com https://*.ytimg.com https://*.youtube.com https://*; media-src 'self' blob: data: https://*; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com blob:; child-src 'self' blob: https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com; connect-src 'self' wss: ws: https:; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests;" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; manifest-src 'self' blob:; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://images.unsplash.com https://*.ytimg.com https://*.youtube.com https://avatars.githubusercontent.com; media-src 'self' blob: data: https://commondatastorage.googleapis.com; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com blob:; child-src 'self' blob: https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com; connect-src 'self' wss: ws: https:; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests;" />
     <meta http-equiv="X-Content-Type-Options" content="nosniff" />
     <meta name="referrer" content="strict-origin-when-cross-origin" />
     <!-- ─── Theme & PWA ────────────────────────────────────────────────────── -->
@@ -56,20 +48,7 @@
       #app:empty::before{content:'';display:block;width:100%;height:100%;background:#090a0f}
     </style>
     <!-- ─── THEME RESTORE: Apply saved theme BEFORE first paint to prevent flash -->
-    <script>
-      (function(){try{
-        var raw=localStorage.getItem('aetheris_theme_pref');
-        var t='';
-        if(raw){try{t=(JSON.parse(raw)||{}).activeThemeId||'';}catch(e){t=raw;}}
-        var bg={'alabaster-light':'#f8fafc','matrix-monolith':'#000000','obsidian-cyber':'#0f172a'}[t]||'#090a0f';
-        document.documentElement.style.backgroundColor=bg;
-        document.body&&(document.body.style.backgroundColor=bg);
-        if(t)document.documentElement.setAttribute('data-theme',t);
-        // Restore density class
-        var d=localStorage.getItem('aetheris_density');
-        if(d)document.documentElement.setAttribute('data-density',d);
-      }catch(e){}}());
-    </script>
+    <!-- theme-boot restored via external module -->
     <!-- ─── Speculation Rules API — Prerender next likely navigation (Chrome 108+) -->
     <script type="speculationrules">
     {

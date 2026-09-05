@@ -42,31 +42,31 @@ export class LegalFooter {
               </h4>
               <ul class="space-y-1.5 text-[11px]">
                 <li>
-                  <button type="button" onclick="if(window.__aetheris_open_legal) window.__aetheris_open_legal('terms');" class="hover:text-cyan-300 transition-colors text-left cursor-pointer flex items-center space-x-1">
+                  <button type="button" data-action="open-legal" data-legal-tab="terms" class="hover:text-cyan-300 transition-colors text-left cursor-pointer flex items-center space-x-1">
                     <span>📜</span>
                     <span>Terms & Conditions of Use</span>
                   </button>
                 </li>
                 <li>
-                  <button type="button" onclick="if(window.__aetheris_open_legal) window.__aetheris_open_legal('privacy');" class="hover:text-cyan-300 transition-colors text-left cursor-pointer flex items-center space-x-1">
+                  <button type="button" data-action="open-legal" data-legal-tab="privacy" class="hover:text-cyan-300 transition-colors text-left cursor-pointer flex items-center space-x-1">
                     <span>🛡️</span>
                     <span>Privacy & GDPR (EU 2016/679)</span>
                   </button>
                 </li>
                 <li>
-                  <button type="button" onclick="if(window.__aetheris_open_legal) window.__aetheris_open_legal('rules');" class="hover:text-cyan-300 transition-colors text-left cursor-pointer flex items-center space-x-1">
+                  <button type="button" data-action="open-legal" data-legal-tab="rules" class="hover:text-cyan-300 transition-colors text-left cursor-pointer flex items-center space-x-1">
                     <span>⚖️</span>
                     <span>Community Rules & Moderation (Art. 14 DSA)</span>
                   </button>
                 </li>
                 <li>
-                  <button type="button" onclick="if(window.__aetheris_open_legal) window.__aetheris_open_legal('dsa');" class="hover:text-rose-400 font-medium transition-colors text-left cursor-pointer flex items-center space-x-1">
+                  <button type="button" data-action="open-legal" data-legal-tab="dsa" class="hover:text-rose-400 font-medium transition-colors text-left cursor-pointer flex items-center space-x-1">
                     <span>🚩</span>
                     <span>Report Illegal Content (Art. 16 DSA)</span>
                   </button>
                 </li>
                 <li>
-                  <button type="button" onclick="if(window.__aetheris_open_legal) window.__aetheris_open_legal('contact');" class="hover:text-cyan-300 transition-colors text-left cursor-pointer flex items-center space-x-1">
+                  <button type="button" data-action="open-legal" data-legal-tab="contact" class="hover:text-cyan-300 transition-colors text-left cursor-pointer flex items-center space-x-1">
                     <span>📬</span>
                     <span>Single Points of Contact (Art. 11/12)</span>
                   </button>
@@ -82,31 +82,31 @@ export class LegalFooter {
               </h4>
               <ul class="space-y-1.5 text-[11px]">
                 <li>
-                  <button type="button" onclick="if(window.__aetheris_open_legal) window.__aetheris_open_legal('about');" class="hover:text-cyan-300 transition-colors text-left cursor-pointer flex items-center space-x-1">
+                  <button type="button" data-action="open-legal" data-legal-tab="about" class="hover:text-cyan-300 transition-colors text-left cursor-pointer flex items-center space-x-1">
                     <span>ℹ️</span>
                     <span>About Aetheris Architecture</span>
                   </button>
                 </li>
                 <li>
-                  <button type="button" onclick="if(window.__aetheris_open_governance) window.__aetheris_open_governance();" class="hover:text-cyan-300 transition-colors text-left cursor-pointer flex items-center space-x-1">
+                  <button type="button" data-action="open-feature" data-feature="governance" class="hover:text-cyan-300 transition-colors text-left cursor-pointer flex items-center space-x-1">
                     <span>🏛️</span>
                     <span>Decentralized DAO Governance</span>
                   </button>
                 </li>
                 <li>
-                  <button type="button" onclick="if(window.networkObservatory) window.networkObservatory.open();" class="hover:text-cyan-300 transition-colors text-left cursor-pointer flex items-center space-x-1">
+                  <button type="button" data-action="open-feature" data-feature="observatory" class="hover:text-cyan-300 transition-colors text-left cursor-pointer flex items-center space-x-1">
                     <span>📡</span>
                     <span>Network Observatory &amp; Slashing Radar</span>
                   </button>
                 </li>
                 <li>
-                  <button type="button" onclick="if(window.__aetheris_open_cve) window.__aetheris_open_cve();" class="hover:text-cyan-300 transition-colors text-left cursor-pointer flex items-center space-x-1">
+                  <button type="button" data-action="open-feature" data-feature="cve" class="hover:text-cyan-300 transition-colors text-left cursor-pointer flex items-center space-x-1">
                     <span>🛡️</span>
                     <span>Vulnerability &amp; CVE Monitor</span>
                   </button>
                 </li>
                 <li>
-                  <button type="button" onclick="if(window.__aetheris_open_export) window.__aetheris_open_export();" class="hover:text-cyan-300 transition-colors text-left cursor-pointer flex items-center space-x-1">
+                  <button type="button" data-action="open-feature" data-feature="export-backup" class="hover:text-cyan-300 transition-colors text-left cursor-pointer flex items-center space-x-1">
                     <span>💾</span>
                     <span>Export Date & Backup Local</span>
                   </button>
@@ -158,7 +158,7 @@ export class LegalFooter {
               <span class="text-slate-400">EU Point of Contact:</span>
               <a href="mailto:legal@aetheris.network" class="text-cyan-400 hover:underline font-mono">legal@aetheris.network</a>
               <span>·</span>
-              <button type="button" onclick="if(window.__aetheris_open_legal) window.__aetheris_open_legal('dsa');" class="px-2.5 py-1 rounded bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/20 text-[10px] font-bold cursor-pointer transition-colors">
+              <button type="button" data-action="open-legal" data-legal-tab="dsa" class="px-2.5 py-1 rounded bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/20 text-[10px] font-bold cursor-pointer transition-colors">
                 🚩 Report Content
               </button>
             </div>
@@ -176,17 +176,17 @@ export class LegalFooter {
     return `
       <div id="sidebar-legal-snippet" class="p-3 text-[11px] text-slate-500 font-sans border-t border-white/5 space-y-2 bg-surface-base/40">
         <div class="flex flex-wrap gap-x-2 gap-y-1 text-slate-400">
-          <button type="button" onclick="if(window.__aetheris_open_legal) window.__aetheris_open_legal('about');" class="hover:text-cyan-300 cursor-pointer">${t('footer.about', undefined, 'About')}</button>
+          <button type="button" data-action="open-legal" data-legal-tab="about" class="hover:text-cyan-300 cursor-pointer">${t('footer.about', undefined, 'About')}</button>
           <span>•</span>
-          <button type="button" onclick="if(window.__aetheris_open_legal) window.__aetheris_open_legal('terms');" class="hover:text-cyan-300 cursor-pointer">${t('footer.terms', undefined, 'Terms')}</button>
+          <button type="button" data-action="open-legal" data-legal-tab="terms" class="hover:text-cyan-300 cursor-pointer">${t('footer.terms', undefined, 'Terms')}</button>
           <span>•</span>
-          <button type="button" onclick="if(window.__aetheris_open_legal) window.__aetheris_open_legal('privacy');" class="hover:text-cyan-300 cursor-pointer">${t('footer.privacy', undefined, 'Privacy')}</button>
+          <button type="button" data-action="open-legal" data-legal-tab="privacy" class="hover:text-cyan-300 cursor-pointer">${t('footer.privacy', undefined, 'Privacy')}</button>
           <span>•</span>
-          <button type="button" onclick="if(window.__aetheris_open_legal) window.__aetheris_open_legal('rules');" class="hover:text-cyan-300 cursor-pointer">${t('footer.rules', undefined, 'Rules')}</button>
+          <button type="button" data-action="open-legal" data-legal-tab="rules" class="hover:text-cyan-300 cursor-pointer">${t('footer.rules', undefined, 'Rules')}</button>
           <span>•</span>
-          <button type="button" onclick="if(window.__aetheris_open_legal) window.__aetheris_open_legal('dsa');" class="hover:text-rose-400 font-semibold cursor-pointer">${t('footer.dsa', undefined, 'Report Abuse')}</button>
+          <button type="button" data-action="open-legal" data-legal-tab="dsa" class="hover:text-rose-400 font-semibold cursor-pointer">${t('footer.dsa', undefined, 'Report Abuse')}</button>
           <span>•</span>
-          <button type="button" onclick="if(window.__aetheris_open_legal) window.__aetheris_open_legal('contact');" class="hover:text-cyan-300 cursor-pointer">${t('footer.contact', undefined, 'Contact')}</button>
+          <button type="button" data-action="open-legal" data-legal-tab="contact" class="hover:text-cyan-300 cursor-pointer">${t('footer.contact', undefined, 'Contact')}</button>
         </div>
 
         <div class="text-[10px] text-slate-500 flex items-center justify-between">
@@ -230,7 +230,7 @@ export class LegalFooter {
         <nav class="flex items-center justify-center space-x-1 sm:space-x-2 text-[11px] sm:text-xs font-sans mx-1 sm:mx-2 overflow-x-auto no-scrollbar scroll-smooth" style="-webkit-overflow-scrolling: touch;" aria-label="EU Legal and Regulatory Footer Navigation">
           <button
             type="button"
-            onclick="if(window.__aetheris_open_legal) window.__aetheris_open_legal('about');"
+            data-action="open-legal" data-legal-tab="about"
             class="px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition-all cursor-pointer flex items-center space-x-1 whitespace-nowrap font-medium"
             title="About Aetheris Omni-Sphere, decentralized architecture and open source"
           >
@@ -243,7 +243,7 @@ export class LegalFooter {
 
           <button
             type="button"
-            onclick="if(window.__aetheris_open_legal) window.__aetheris_open_legal('terms');"
+            data-action="open-legal" data-legal-tab="terms"
             class="px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition-all cursor-pointer flex items-center space-x-1 whitespace-nowrap font-medium"
             title="Terms and Conditions of Use under EU regulations"
           >
@@ -255,7 +255,7 @@ export class LegalFooter {
 
           <button
             type="button"
-            onclick="if(window.__aetheris_open_legal) window.__aetheris_open_legal('privacy');"
+            data-action="open-legal" data-legal-tab="privacy"
             class="px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition-all cursor-pointer flex items-center space-x-1 whitespace-nowrap font-medium"
             title="Privacy Policy under GDPR (EU Regulation 2016/679)"
           >
@@ -268,7 +268,7 @@ export class LegalFooter {
 
           <button
             type="button"
-            onclick="if(window.__aetheris_open_legal) window.__aetheris_open_legal('rules');"
+            data-action="open-legal" data-legal-tab="rules"
             class="hidden sm:flex px-2.5 py-1 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition-all cursor-pointer items-center space-x-1.5 whitespace-nowrap font-medium"
             title="Community Guidelines & Moderation Policy (Art. 14 DSA)"
           >
@@ -280,7 +280,7 @@ export class LegalFooter {
 
           <button
             type="button"
-            onclick="if(window.__aetheris_open_legal) window.__aetheris_open_legal('dsa');"
+            data-action="open-legal" data-legal-tab="dsa"
             class="px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 hover:text-rose-200 border border-rose-500/30 transition-all cursor-pointer flex items-center space-x-1 whitespace-nowrap font-bold shadow-sm"
             title="Official Notice &amp; Takedown Mechanism (Art. 16 DSA)"
           >
@@ -293,7 +293,7 @@ export class LegalFooter {
 
           <button
             type="button"
-            onclick="if(window.__aetheris_open_legal) window.__aetheris_open_legal('contact');"
+            data-action="open-legal" data-legal-tab="contact"
             class="hidden md:flex px-2.5 py-1 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition-all cursor-pointer items-center space-x-1.5 whitespace-nowrap font-medium"
             title="Single Points of Contact (Art. 11 &amp; 12 DSA)"
           >
@@ -326,17 +326,17 @@ export class LegalFooter {
   public renderStatusBarLegalSnippet(): string {
     return `
       <div class="flex items-center space-x-2 text-[10px] font-mono text-slate-400">
-        <button type="button" onclick="if(window.__aetheris_open_legal) window.__aetheris_open_legal('about');" class="hover:text-cyan-300 transition-colors cursor-pointer">ℹ️ ${t('footer.about', undefined, 'About')}</button>
+        <button type="button" data-action="open-legal" data-legal-tab="about" class="hover:text-cyan-300 transition-colors cursor-pointer">ℹ️ ${t('footer.about', undefined, 'About')}</button>
         <span>•</span>
-        <button type="button" onclick="if(window.__aetheris_open_legal) window.__aetheris_open_legal('terms');" class="hover:text-cyan-300 transition-colors cursor-pointer">📜 ${t('footer.terms', undefined, 'Terms')}</button>
+        <button type="button" data-action="open-legal" data-legal-tab="terms" class="hover:text-cyan-300 transition-colors cursor-pointer">📜 ${t('footer.terms', undefined, 'Terms')}</button>
         <span>•</span>
-        <button type="button" onclick="if(window.__aetheris_open_legal) window.__aetheris_open_legal('privacy');" class="hover:text-cyan-300 transition-colors cursor-pointer">🛡️ ${t('footer.gdpr', undefined, 'GDPR')}</button>
+        <button type="button" data-action="open-legal" data-legal-tab="privacy" class="hover:text-cyan-300 transition-colors cursor-pointer">🛡️ ${t('footer.gdpr', undefined, 'GDPR')}</button>
         <span>•</span>
-        <button type="button" onclick="if(window.__aetheris_open_legal) window.__aetheris_open_legal('rules');" class="hover:text-cyan-300 transition-colors cursor-pointer">⚖️ ${t('footer.rules', undefined, 'Rules')}</button>
+        <button type="button" data-action="open-legal" data-legal-tab="rules" class="hover:text-cyan-300 transition-colors cursor-pointer">⚖️ ${t('footer.rules', undefined, 'Rules')}</button>
         <span>•</span>
-        <button type="button" onclick="if(window.__aetheris_open_legal) window.__aetheris_open_legal('dsa');" class="hover:text-rose-400 transition-colors cursor-pointer font-bold">🚩 ${t('footer.dsa', undefined, 'Report')}</button>
+        <button type="button" data-action="open-legal" data-legal-tab="dsa" class="hover:text-rose-400 transition-colors cursor-pointer font-bold">🚩 ${t('footer.dsa', undefined, 'Report')}</button>
         <span>•</span>
-        <button type="button" onclick="if(window.__aetheris_open_legal) window.__aetheris_open_legal('contact');" class="hover:text-cyan-300 transition-colors cursor-pointer">📬 ${t('footer.contact', undefined, 'Contact')}</button>
+        <button type="button" data-action="open-legal" data-legal-tab="contact" class="hover:text-cyan-300 transition-colors cursor-pointer">📬 ${t('footer.contact', undefined, 'Contact')}</button>
       </div>
     `;
   }

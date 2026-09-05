@@ -129,7 +129,7 @@ export class ContextualSidebar {
           <button
             type="button"
             id="btn-sidebar-join-voice"
-            onclick="const btn=document.getElementById('btn-toggle-voice'); if(btn) btn.click();"
+            data-action="toggle-voice"
             class="w-full py-2 rounded-xl bg-surface-raised hover:bg-surface-overlay text-slate-200 text-xs font-semibold transition-all border border-white/10 cursor-pointer flex items-center justify-center gap-1.5"
           >
             ${renderIcon('radio', { size: 14 })}
@@ -167,11 +167,11 @@ export class ContextualSidebar {
             ${renderIcon('vault', { size: 15, class: 'text-cyan-400' })}
             <span>Categories</span>
           </h3>
-          <button type="button" onclick="clientStore.joinChannel('vault-releases')" class="w-full text-left px-3 py-2 rounded-xl text-xs flex items-center justify-between bg-white/5 hover:bg-white/10 text-slate-200 transition-colors cursor-pointer">
+          <button type="button" data-action="join-channel" data-channel="vault-releases" class="w-full text-left px-3 py-2 rounded-xl text-xs flex items-center justify-between bg-white/5 hover:bg-white/10 text-slate-200 transition-colors cursor-pointer">
             <span class="flex items-center gap-2">${renderIcon('checkCircle', { size: 14, class: 'text-emerald-400' })}<span>Verified Releases</span></span>
             <span class="text-[10px] font-mono text-slate-400">14 files</span>
           </button>
-          <button type="button" onclick="clientStore.joinChannel('vault-guides')" class="w-full text-left px-3 py-2 rounded-xl text-xs flex items-center justify-between hover:bg-white/5 text-slate-300 transition-colors cursor-pointer">
+          <button type="button" data-action="join-channel" data-channel="vault-guides" class="w-full text-left px-3 py-2 rounded-xl text-xs flex items-center justify-between hover:bg-white/5 text-slate-300 transition-colors cursor-pointer">
             <span class="flex items-center gap-2">${renderIcon('fileText', { size: 14, class: 'text-indigo-400' })}<span>Security Guides</span></span>
             <span class="text-[10px] font-mono text-slate-400">8 docs</span>
           </button>
@@ -227,7 +227,7 @@ export class ContextualSidebar {
           <div class="pt-2 border-t border-white/5">
             <button
               type="button"
-              onclick="if(window.__aetheris_open_settings) window.__aetheris_open_settings('security');"
+              data-action="open-settings" data-subtab="security"
               class="w-full py-2 rounded-xl bg-surface-raised hover:bg-surface-overlay text-slate-200 text-xs font-semibold transition-all border border-white/10 cursor-pointer flex items-center justify-center gap-1.5"
             >
               ${renderIcon('settings', { size: 14 })}

@@ -87,9 +87,30 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 
-  // ── 3. API requests → Network-First with offline JSON fallback ────────────
+// Whitelist of explicitly approved public read-only endpoints that can be cached
+const CACHEABLE_PUBLIC_API = [
+  /^\/api\/posts(\?.*)?$/,
+  /^\/api\/federation\/nodeinfo$/,
+  /^\/api\/stats$/,
+  /^\/api\/health$/,
+];
+
+  // ── 3. API requests → Safe-By-Default Network-Only, cache ONLY explicit public whitelist ──
   if (url.pathname.startsWith('/api/')) {
-    e.respondWith(networkFirst(req, CACHE_API));
+    const isPublicCacheable = CACHEABLE_PUBLIC_API.some((pattern) => pattern.test(url.pathname));
+    if (isPublicCacheable) {
+      e.respondWith(networkFirst(req, CACHE_API));
+    } else {
+      // Network-Only default for all other APIs, private routes, and unknown endpoints
+      e.respondWith(
+        fetch(req, { cache: 'no-store' }).catch(() =>
+          new Response(JSON.stringify({ error: 'Endpoint unreachable or offline', success: false }), {
+            status: 503,
+            headers: { 'Content-Type': 'application/json' },
+          })
+        )
+      );
+    }
     return;
   }
 

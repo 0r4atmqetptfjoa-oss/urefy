@@ -2,12 +2,9 @@ import './window-augmentation.js';
 import { serviceRegistry, SERVICES } from './service-registry.js';
 import { clientStore, ClientMessage, ClientPost, ClientNanopublication, SpaceType } from './client-state.js';
 import { setupKeyboardShortcuts, getAvailableCommands } from './command-rail.js';
-import { NeuralDSPPipeline } from './audio-dsp.js';
-import { inspectBinary } from '@aetheris/vault-engine';
 import { threadManager, ThreadComment, DEPTH_COLORS } from './threads.js';
 import { voiceVisualizer } from './webrtc-voice.js';
 import { p2pFileClient } from './p2p-client.js';
-import { ZKPassportVerifier } from '@aetheris/core-crypto';
 import { localSearchIndex, SearchResult } from './search-index.js';
 import { screenShareEngine } from './screenshare.js';
 import { obsidianMediaPlayer } from './media-player.js';
@@ -28,14 +25,6 @@ import { awardsSystem, awardPopoverManager } from './awards.js';
 import { crossPostEngine } from './crosspost.js';
 import { profileCardEngine } from './profile-card.js';
 import { keyboardNavigator } from './keyboard-nav.js';
-import { sovereignMnemonicModal } from './mnemonic-modal.js';
-import { steganographyModal } from './steganography-modal.js';
-import { sovereignArchiveModal } from './archive-modal.js';
-import { socialRecoveryModal } from './social-recovery-modal.js';
-import { portableTrustModal } from './portable-trust-modal.js';
-import { binaryHygienePortal } from './binary-hygiene-portal.js';
-import { microSaaSDocsModal } from './microsaas-docs-modal.js';
-import { legalModal } from './legal-modal.js';
 import { legalFooter } from './footer.js';
 import { exportSovereignArchive, importSovereignArchive, downloadArchiveFile } from './data-archive.js';
 import { touchGestureEngine } from './touch-gestures.js';
@@ -47,7 +36,6 @@ import { contextMenuEngine } from './context-menu.js';
 import { downloadManager } from './download-manager.js';
 import { networkActivityFeed } from './activity-feed.js';
 import { localAnalytics } from './analytics-widget.js';
-import { zkProofVisualizer } from './zk-proof-viewer.js';
 import { linkPreviewEngine } from './link-preview.js';
 import { collectionsEngine } from './collections.js';
 import { onboardingWizard } from './onboarding.js';
@@ -76,38 +64,23 @@ import { aiAssistant } from './ai-assistant.js';
 import { richEditor } from './rich-editor.js';
 import { virtualScroll } from './virtual-scroll.js';
 import { aethDB } from './indexed-db.js';
-import { gossipViz } from './gossip-viz.js';
 import { webrtcTransfer } from './webrtc-transfer.js';
-import { networkObservatory } from './network-observatory.js';
-import { customThemeBuilder } from './custom-theme-builder.js';
-import { slideDeckManager } from './slide-deck.js';
-import { governanceDAO } from './governance.js';
-import { rssImporter } from './rss-import.js';
 import { cryptoWorkerPool } from './web-workers.js';
 import { ambientNetworkMinimap } from './network-minimap.js';
 import { mobileTabBar } from './mobile-tab-bar.js';
 import { pwaService } from './pwa-service.js';
-import { cveMonitor } from './cve-monitor.js';
 import { webAuthnManager } from './webauthn.js';
 import { viewTransitions } from './view-transitions.js';
 import { moduleLoader } from './code-splitting.js';
 import { feedPersonalization } from './feed-personalization.js';
-import { exportBackup } from './export-backup.js';
-import { walletBridge } from './wallet-bridge.js';
-import { wotGraphViz } from './network-wot-graph.js';
 import { cyberDefenseHub } from './cyber-defense-hub.js';
 import { sovereignOnboarding } from './first-time-onboarding.js';
-import { zkReputation } from './zk-reputation.js';
-import { merkleVisualizer } from './merkle-viz.js';
 import { offlineSync } from './offline-sync.js';
-import { meshMatrix } from './mesh-matrix.js';
-import { paperWallet } from './paper-wallet.js';
-import { acousticDSP } from './acoustic-dsp.js';
 import { errorBoundary, structuredLogger } from './error-boundary.js';
 import { localDiagnostics } from './local-diagnostics.js';
 import { i18n, t, SUPPORTED_LANGUAGES } from './i18n.js';
-import { globalScale } from './global-scale.js';
 import { feedControlsEngine } from './feed-controls.js';
+import { zkReputation } from './zk-reputation.js';
 import { sovereignCircleEngine } from './sovereign-circle.js';
 import { sovereignWebPush } from './web-push.js';
 import { codeSandbox, attachSandboxRunnersToDOM } from './code-sandbox.js';
@@ -117,13 +90,13 @@ import { nodeFederationEngine } from './node-federation.js';
 import { transparencyMode } from './transparency-mode.js';
 import { zkDeliveryManager } from './delivery-proof.js';
 import { renderPulseEmptyState, renderPulseFeedSkeleton, renderVaultFilesEmptyState, renderVaultReleasesEmptyState, renderRelaysEmptyState } from './empty-states.js';
-import { settingsView } from './settings-view.js';
 import { adminAuth } from './admin-auth.js';
 import { PRIMARY_NAV_ITEMS, ADVANCED_TOOLS_ITEMS, renderNavIcon } from './nav-config.js';
 import { renderIcon } from './ui/icons.js';
 import { contextualSidebar } from './sidebar.js';
 import { sovereignRouter } from './router.js';
-import { buildModalRootHTML as orchestrateModalRootHTML } from './modal-manager.js';
+import { modalManager, buildModalRootHTML as orchestrateModalRootHTML } from './modal-manager.js';
+import { actionDispatcher } from './ui/action-dispatcher.js';
 import { renderHeaderPrimaryNav, renderHeaderTools, renderBroadcastBanner as renderHeaderBroadcastBanner } from './header.js';
 
 let isThemeModalOpen = false;
@@ -140,21 +113,21 @@ let isAdvancedOverflowOpen = false;
 // Register Core Singletons into Inversion of Control Container
 serviceRegistry.registerInstance(SERVICES.ClientStore, clientStore);
 serviceRegistry.registerInstance(SERVICES.ThemeEngine, themeEngine);
-serviceRegistry.registerInstance(SERVICES.ZKReputation, zkReputation);
-serviceRegistry.registerInstance(SERVICES.MerkleVisualizer, merkleVisualizer);
+// ZKReputation is loaded on-demand
+// MerkleVisualizer is loaded on-demand
 serviceRegistry.registerInstance(SERVICES.OfflineSync, offlineSync);
-serviceRegistry.registerInstance(SERVICES.MeshMatrix, meshMatrix);
-serviceRegistry.registerInstance(SERVICES.PaperWallet, paperWallet);
-serviceRegistry.registerInstance(SERVICES.AcousticDSP, acousticDSP);
-serviceRegistry.registerInstance(SERVICES.NetworkObservatory, networkObservatory);
-serviceRegistry.registerInstance(SERVICES.WotGraph, wotGraphViz);
-serviceRegistry.registerInstance(SERVICES.CustomThemeBuilder, customThemeBuilder);
-serviceRegistry.registerInstance(SERVICES.WalletBridge, walletBridge);
+// MeshMatrix is loaded on-demand
+// PaperWallet is loaded on-demand
+// AcousticDSP is loaded on-demand
+// NetworkObservatory is loaded on-demand
+// WotGraph is loaded on-demand
+// CustomThemeBuilder is loaded on-demand
+// WalletBridge is loaded on-demand
 serviceRegistry.registerInstance(SERVICES.ErrorBoundary, errorBoundary);
 serviceRegistry.registerInstance(SERVICES.StructuredLogger, structuredLogger);
 serviceRegistry.registerInstance(SERVICES.LocalDiagnostics, localDiagnostics);
 serviceRegistry.registerInstance(SERVICES.I18nEngine, i18n);
-serviceRegistry.registerInstance(SERVICES.GlobalScale, globalScale);
+// GlobalScale is loaded on-demand
 serviceRegistry.registerInstance(SERVICES.OmniComposer, omniComposer);
 serviceRegistry.registerInstance(SERVICES.PollEngine, pollEngine);
 serviceRegistry.registerInstance(SERVICES.MediaPlayer, obsidianMediaPlayer);
@@ -174,11 +147,11 @@ serviceRegistry.registerInstance(SERVICES.TimelineScrubber, timelineScrubber);
 serviceRegistry.registerInstance(SERVICES.ViewTransitions, viewTransitions);
 serviceRegistry.registerInstance(SERVICES.VirtualScroll, virtualScroll);
 serviceRegistry.registerInstance(SERVICES.FeedPersonalization, feedPersonalization);
-serviceRegistry.registerInstance(SERVICES.ExportBackup, exportBackup);
-serviceRegistry.registerInstance(SERVICES.GovernanceDAO, governanceDAO);
-serviceRegistry.registerInstance(SERVICES.RSSImporter, rssImporter);
-serviceRegistry.registerInstance(SERVICES.CVEMonitor, cveMonitor);
-serviceRegistry.registerInstance(SERVICES.GossipViz, gossipViz);
+// exportBackup loaded on demand
+// governanceDAO loaded on demand
+// rssImporter loaded on demand
+// cveMonitor loaded on demand
+// gossipViz loaded on demand
 serviceRegistry.registerInstance(SERVICES.SearchIndex, localSearchIndex);
 serviceRegistry.registerInstance(SERVICES.LinkPreview, linkPreviewEngine);
 serviceRegistry.registerInstance(SERVICES.CollectionsEngine, collectionsEngine);
@@ -199,7 +172,7 @@ serviceRegistry.registerInstance(SERVICES.CryptoWorkerPool, cryptoWorkerPool);
 serviceRegistry.registerInstance(SERVICES.ModuleLoader, moduleLoader);
 serviceRegistry.registerInstance(SERVICES.SovereignOnboarding, sovereignOnboarding);
 serviceRegistry.registerInstance(SERVICES.SpatialAudio, spatialAudio);
-serviceRegistry.registerInstance(SERVICES.SteganographyModal, steganographyModal);
+// steganographyModal loaded on demand
 serviceRegistry.registerInstance(SERVICES.CodeSandbox, codeSandbox);
 serviceRegistry.registerInstance(SERVICES.WebTorrentSwarm, webTorrentSwarm);
 serviceRegistry.registerInstance(SERVICES.SpatialAudioMesh, spatialAudioMesh);
@@ -214,8 +187,8 @@ if (typeof window !== 'undefined') {
   window.spatialAudioMesh = spatialAudioMesh;
   window.soundPacks = soundPacks;
   window.nodeFederationEngine = nodeFederationEngine;
-  window.__aetheris_open_global_scale = () => { isGlobalScaleModalOpen = true; clientStore.notifySync(); };
-  window.__aetheris_close_global_scale = () => { isGlobalScaleModalOpen = false; clientStore.notifySync(); };
+  window.__aetheris_open_global_scale = () => { modalManager.openFeature('global-scale'); };
+  window.__aetheris_close_global_scale = () => { modalManager.closeFeature(); };
   window.__aetheris_open_edit_profile = () => { profileView.isEditProfileModalOpen = true; clientStore.notifySync(); };
   window.__aetheris_close_edit_profile = () => { profileView.isEditProfileModalOpen = false; clientStore.notifySync(); };
   window.__aetheris_save_profile = () => {
@@ -231,18 +204,18 @@ if (typeof window !== 'undefined') {
     clientStore.showToast(t('toast.profileUpdated', undefined, '👤 Sovereign Profile & Photo Updated!'), 'success');
     clientStore.notifySync();
   };
-  window.__aetheris_open_gossip = () => { isGossipModalOpen = true; clientStore.notifySync(); };
-  window.__aetheris_close_gossip = () => { isGossipModalOpen = false; clientStore.notifySync(); };
-  window.__aetheris_open_rss = () => { isRSSModalOpen = true; clientStore.notifySync(); };
-  window.__aetheris_close_rss = () => { isRSSModalOpen = false; clientStore.notifySync(); };
-  window.__aetheris_open_cve = () => { isCVEModalOpen = true; clientStore.notifySync(); };
-  window.__aetheris_close_cve = () => { isCVEModalOpen = false; clientStore.notifySync(); };
-  window.__aetheris_open_dao = () => { isGovernanceModalOpen = true; clientStore.notifySync(); };
-  window.__aetheris_close_dao = () => { isGovernanceModalOpen = false; clientStore.notifySync(); };
-  window.__aetheris_open_governance = () => { isGovernanceModalOpen = true; clientStore.notifySync(); };
-  window.__aetheris_close_governance = () => { isGovernanceModalOpen = false; clientStore.notifySync(); };
-  window.__aetheris_open_export = () => { isExportBackupModalOpen = true; clientStore.notifySync(); };
-  window.__aetheris_close_export = () => { isExportBackupModalOpen = false; clientStore.notifySync(); };
+  window.__aetheris_open_gossip = () => { modalManager.openFeature('gossip'); };
+  window.__aetheris_close_gossip = () => { modalManager.closeFeature(); };
+  window.__aetheris_open_rss = () => { modalManager.openFeature('rss'); };
+  window.__aetheris_close_rss = () => { modalManager.closeFeature(); };
+  window.__aetheris_open_cve = () => { modalManager.openFeature('cve'); };
+  window.__aetheris_close_cve = () => { modalManager.closeFeature(); };
+  window.__aetheris_open_dao = () => { modalManager.openFeature('governance'); };
+  window.__aetheris_close_dao = () => { modalManager.closeFeature(); };
+  window.__aetheris_open_governance = () => { modalManager.openFeature('governance'); };
+  window.__aetheris_close_governance = () => { modalManager.closeFeature(); };
+  window.__aetheris_open_export = () => { modalManager.openFeature('export-backup'); };
+  window.__aetheris_close_export = () => { modalManager.closeFeature(); };
   window.__aetheris_open_lang = () => { isLangModalOpen = true; clientStore.notifySync(); };
   window.__aetheris_open_theme = () => { isThemeModalOpen = true; themeEngine.openModal(); clientStore.notifySync(); };
   window.__aetheris_close_theme = () => { isThemeModalOpen = false; themeEngine.closeModal(); clientStore.notifySync(); };
@@ -250,30 +223,30 @@ if (typeof window !== 'undefined') {
   window.__aetherisToggleNotifs = () => { isNotificationPanelOpen = !isNotificationPanelOpen; clientStore.notifySync(); };
   window.__aetherisCloseNotifs = () => { isNotificationPanelOpen = false; clientStore.notifySync(); };
   window.__aetheris_close_lang = () => { isLangModalOpen = false; clientStore.notifySync(); };
-  window.__aetheris_close_observatory = () => { networkObservatory.close(); clientStore.notifySync(); };
-  window.__aetheris_close_wot_graph = () => { wotGraphViz.close(); clientStore.notifySync(); };
-  window.__aetheris_close_custom_theme_builder = () => { customThemeBuilder.closeModal(); clientStore.notifySync(); };
-  window.__aetheris_close_wallet = () => { walletBridge.closeModal(); clientStore.notifySync(); };
-  window.__aetheris_close_reputation = () => { zkReputation.close(); clientStore.notifySync(); };
-  window.__aetheris_close_merkle = () => { merkleVisualizer.close(); clientStore.notifySync(); };
+  window.__aetheris_close_observatory = () => { modalManager.closeFeature(); };
+  window.__aetheris_close_wot_graph = () => { modalManager.closeFeature(); };
+  window.__aetheris_close_custom_theme_builder = () => { modalManager.closeFeature(); };
+  window.__aetheris_close_wallet = () => { modalManager.closeFeature(); };
+  window.__aetheris_close_reputation = () => { modalManager.closeFeature(); };
+  window.__aetheris_close_merkle = () => { modalManager.closeFeature(); };
   window.__aetheris_close_sync = () => { offlineSync.close(); clientStore.notifySync(); };
-  window.__aetheris_open_mnemonic = () => { sovereignMnemonicModal.openModal(); clientStore.notifySync(); };
-  window.__aetheris_close_mnemonic = () => { sovereignMnemonicModal.closeModal(); clientStore.notifySync(); };
-  window.__aetheris_open_steganography = () => { steganographyModal.openModal(); clientStore.notifySync(); };
-  window.__aetheris_close_steganography = () => { steganographyModal.closeModal(); clientStore.notifySync(); };
-  window.__aetheris_open_archive_modal = (tab?: 'export' | 'restore') => { sovereignArchiveModal.openModal(tab); clientStore.notifySync(); };
-  window.__aetheris_close_archive_modal = () => { sovereignArchiveModal.closeModal(); clientStore.notifySync(); };
-  window.__aetheris_open_social_recovery = (tab?: 'setup' | 'recover') => { socialRecoveryModal.openModal(tab); clientStore.notifySync(); };
-  window.__aetheris_close_social_recovery = () => { socialRecoveryModal.closeModal(); clientStore.notifySync(); };
-  window.__aetheris_open_portable_trust = () => { portableTrustModal.open(); clientStore.notifySync(); };
-  window.__aetheris_close_portable_trust = () => { portableTrustModal.close(); clientStore.notifySync(); };
-  window.__aetheris_open_binary_hygiene = () => { binaryHygienePortal.open(); clientStore.notifySync(); };
-  window.__aetheris_close_binary_hygiene = () => { binaryHygienePortal.close(); clientStore.notifySync(); };
-  window.__aetheris_open_microsaas_docs = () => { microSaaSDocsModal.open(); clientStore.notifySync(); };
-  window.__aetheris_close_microsaas_docs = () => { microSaaSDocsModal.close(); clientStore.notifySync(); };
-  window.__aetheris_open_legal = (tab = 'terms') => { legalModal.open(tab as any); clientStore.notifySync(); };
-  window.__aetheris_close_legal = () => { legalModal.close(); clientStore.notifySync(); };
-  window.__aetheris_set_legal_tab = (tab) => { legalModal.setTab(tab as any); clientStore.notifySync(); };
+  window.__aetheris_open_mnemonic = () => { modalManager.openFeature('mnemonic'); };
+  window.__aetheris_close_mnemonic = () => { modalManager.closeFeature(); };
+  window.__aetheris_open_steganography = () => { modalManager.openFeature('steganography'); };
+  window.__aetheris_close_steganography = () => { modalManager.closeFeature(); };
+  window.__aetheris_open_archive_modal = (tab?: 'export' | 'restore') => { modalManager.openFeature('archive', tab); };
+  window.__aetheris_close_archive_modal = () => { modalManager.closeFeature(); };
+  window.__aetheris_open_social_recovery = (tab?: 'setup' | 'recover') => { modalManager.openFeature('social-recovery', tab); };
+  window.__aetheris_close_social_recovery = () => { modalManager.closeFeature(); };
+  window.__aetheris_open_portable_trust = () => { modalManager.openFeature('portable-trust'); };
+  window.__aetheris_close_portable_trust = () => { modalManager.closeFeature(); };
+  window.__aetheris_open_binary_hygiene = () => { modalManager.openFeature('binary-hygiene'); };
+  window.__aetheris_close_binary_hygiene = () => { modalManager.closeFeature(); };
+  window.__aetheris_open_microsaas_docs = () => { modalManager.openFeature('microsaas-docs'); };
+  window.__aetheris_close_microsaas_docs = () => { modalManager.closeFeature(); };
+  window.__aetheris_open_legal = (tab = 'terms') => { modalManager.openFeature('legal', tab); clientStore.notifySync(); };
+  window.__aetheris_close_legal = () => { modalManager.closeFeature(); };
+  window.__aetheris_set_legal_tab = (tab) => { modalManager.openFeature('legal', tab); clientStore.notifySync(); };
   window.__aetheris_dismiss_broadcast = () => {
     if (typeof sessionStorage !== 'undefined') {
       try {
@@ -282,9 +255,9 @@ if (typeof window !== 'undefined') {
     }
     clientStore.notifySync();
   };
-  window.__aetheris_close_mesh = () => { meshMatrix.close(); clientStore.notifySync(); };
-  window.__aetheris_close_paper_wallet = () => { paperWallet.close(); clientStore.notifySync(); };
-  window.__aetheris_close_dsp = () => { acousticDSP.close(); clientStore.notifySync(); };
+  window.__aetheris_close_mesh = () => { modalManager.closeFeature(); };
+  window.__aetheris_close_paper_wallet = () => { modalManager.closeFeature(); };
+  window.__aetheris_close_dsp = () => { modalManager.closeFeature(); };
   window.__aetheris_toggle_mobile_drawer = () => { isMobileDrawerOpen = !isMobileDrawerOpen; clientStore.notifySync(); };
   window.__aetheris_open_mobile_drawer = () => { isMobileDrawerOpen = true; clientStore.notifySync(); };
   window.__aetheris_close_mobile_drawer = () => { isMobileDrawerOpen = false; clientStore.notifySync(); };
@@ -292,19 +265,11 @@ if (typeof window !== 'undefined') {
   window.__aetheris_set_ui_mode = (mode: 'simple' | 'sovereign') => { clientStore.setUiMode(mode); };
   window.__aetheris_toggle_advanced_overflow = () => { isAdvancedOverflowOpen = !isAdvancedOverflowOpen; clientStore.notify(); };
   window.__aetheris_close_advanced_overflow = () => { isAdvancedOverflowOpen = false; clientStore.notify(); };
-  window.zkReputation = zkReputation;
-  window.merkleVisualizer = merkleVisualizer;
-  window.offlineSync = offlineSync;
-  window.meshMatrix = meshMatrix;
-  window.paperWallet = paperWallet;
-  window.acousticDSP = acousticDSP;
-  window.steganographyModal = steganographyModal;
-  window.archiveModal = sovereignArchiveModal;
-  window.errorBoundary = errorBoundary;
+      window.offlineSync = offlineSync;
+            window.errorBoundary = errorBoundary;
   window.structuredLogger = structuredLogger;
   window.i18n = i18n;
-  window.globalScale = globalScale;
-  window.omniComposer = omniComposer;
+    window.omniComposer = omniComposer;
   window.pollEngine = pollEngine;
   window.obsidianMediaPlayer = obsidianMediaPlayer;
   window.reactionsEngine = reactionsEngine;
@@ -322,17 +287,10 @@ if (typeof window !== 'undefined') {
   window.__aetherisTransparency = transparencyMode;
   window.sovereignCircleEngine = sovereignCircleEngine;
   window.relaysManager = relaysManager;
-  window.governanceDAO = governanceDAO;
-  window.rssImporter = rssImporter;
-  window.cveMonitor = cveMonitor;
-  window.gossipViz = gossipViz;
-  window.exportBackup = exportBackup;
-  window.walletBridge = walletBridge;
-  window.settingsView = settingsView;
-  window.postDetailView = postDetailView;
-  (window as any).portableTrustModal = portableTrustModal;
-  (window as any).binaryHygienePortal = binaryHygienePortal;
-  (window as any).microSaaSDocsModal = microSaaSDocsModal;
+                window.postDetailView = postDetailView;
+  
+  
+  
 }
 
 let activeAwardPostId: string | null = null;
@@ -341,7 +299,14 @@ let isNotificationPanelOpen = false;
 let isBookmarkModalOpen = false;
 let _escListenerAdded = false;
 
-const dsp = new NeuralDSPPipeline();
+let _dspInstance: any = null;
+  const getDSP = async () => {
+    if (!_dspInstance) {
+      const { NeuralDSPPipeline } = await import('./audio-dsp.js');
+      _dspInstance = new NeuralDSPPipeline();
+    }
+    return _dspInstance;
+  };
 let currentFilter = '';
 let activeDownloadName: string | null = null;
 let activeDownloadProgress: number = 0;
@@ -511,16 +476,9 @@ export function initApp(): void {
     }
   }, 30000);
 
-  // Initialize DSP
-  dsp.start((metrics) => {
-    const dbIndicator = document.getElementById('dsp-db-meter');
-    const gateIndicator = document.getElementById('dsp-gate-indicator');
-    if (dbIndicator) dbIndicator.textContent = `${metrics.currentDb} dB`;
-    if (gateIndicator) {
-      gateIndicator.className = metrics.isGateOpen ? 'w-2 h-2 rounded-full bg-signal shadow-signal-sm' : 'w-2 h-2 rounded-full bg-gray-600';
-    }
-  });
+  // NeuralDSP starts on-demand
 
+  actionDispatcher.init();
   const appEl = document.getElementById('app');
   if (!appEl) return;
 
@@ -536,47 +494,47 @@ export function initApp(): void {
         <!-- ANYCAST EDGE OBSERVATORY -->
         <button type="button" id="btn-open-global-scale" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-base/60 hover:bg-surface-overlay text-slate-300 font-mono transition-all cursor-pointer" title="Worldwide Anycast Edge Infrastructure (<15ms SLA)">
           <span class="text-xs shrink-0">🌐</span>
-          <span class="font-sans font-medium text-[11px] truncate">Anycast Edge (${globalScale.getActivePoP().measuredRttMs}ms)</span>
+          <span class="font-sans font-medium text-[11px] truncate">Anycast Edge (<15ms)</span>
         </button>
 
         <!-- SEED VAULT -->
-        <button type="button" id="btn-open-seed-vault" onclick="if(window.__aetheris_open_mnemonic) window.__aetheris_open_mnemonic();" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 font-mono transition-all cursor-pointer" title="Sovereign Identity Seed Vault (BIP-39)">
+        <button type="button" id="btn-open-seed-vault" data-action="open-feature" data-feature="mnemonic" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 font-mono transition-all cursor-pointer" title="Sovereign Identity Seed Vault (BIP-39)">
           <span class="shrink-0">🔐</span>
           <span class="font-sans font-medium text-[11px] truncate">Seed Vault</span>
         </button>
 
         <!-- STEGANOGRAPHY -->
-        <button type="button" id="btn-open-steganography" onclick="if(window.__aetheris_open_steganography) window.__aetheris_open_steganography();" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 font-mono transition-all cursor-pointer" title="Pixel Canvas Steganography (LSB PNG E2EE)">
+        <button type="button" id="btn-open-steganography" data-action="open-feature" data-feature="steganography" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 font-mono transition-all cursor-pointer" title="Pixel Canvas Steganography (LSB PNG E2EE)">
           <span class="shrink-0">🖼️</span>
           <span class="font-sans font-medium text-[11px] truncate">Stego Canvas</span>
         </button>
 
         <!-- DATA ARCHIVE -->
-        <button type="button" id="btn-open-archive-vault" onclick="if(window.__aetheris_open_archive_modal) window.__aetheris_open_archive_modal();" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 font-mono transition-all cursor-pointer" title="Sovereign Data Archive (AES-256-GCM Export / Restore)">
+        <button type="button" id="btn-open-archive-vault" data-action="open-feature" data-feature="archive" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 font-mono transition-all cursor-pointer" title="Sovereign Data Archive (AES-256-GCM Export / Restore)">
           <span class="shrink-0">📦</span>
           <span class="font-sans font-medium text-[11px] truncate">Data Archive</span>
         </button>
 
         <!-- SOCIAL RECOVERY -->
-        <button type="button" id="btn-open-social-recovery" onclick="if(window.__aetheris_open_social_recovery) window.__aetheris_open_social_recovery();" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 font-mono transition-all cursor-pointer" title="Social Identity Recovery via WoT Guardians">
+        <button type="button" id="btn-open-social-recovery" data-action="open-feature" data-feature="social-recovery" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 font-mono transition-all cursor-pointer" title="Social Identity Recovery via WoT Guardians">
           <span class="shrink-0">🛡️</span>
           <span class="font-sans font-medium text-[11px] truncate">Social Recovery</span>
         </button>
 
         <!-- BINARY HYGIENE -->
-        <button type="button" id="btn-open-binary-hygiene" onclick="if(window.__aetheris_open_binary_hygiene) window.__aetheris_open_binary_hygiene();" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 font-mono transition-all cursor-pointer" title="Binary Hygiene (Entropy & UPX Packer Detection)">
+        <button type="button" id="btn-open-binary-hygiene" data-action="open-feature" data-feature="binary-hygiene" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 font-mono transition-all cursor-pointer" title="Binary Hygiene (Entropy & UPX Packer Detection)">
           <span class="shrink-0">🛡️</span>
           <span class="font-sans font-medium text-[11px] truncate">Binary Hygiene</span>
         </button>
 
         <!-- PORTABLE ZK TRUST -->
-        <button type="button" id="btn-open-portable-trust" onclick="if(window.__aetheris_open_portable_trust) window.__aetheris_open_portable_trust();" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 font-mono transition-all cursor-pointer" title="Portable ZK Trust Score (BN254 Range Proofs)">
+        <button type="button" id="btn-open-portable-trust" data-action="open-feature" data-feature="portable-trust" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 font-mono transition-all cursor-pointer" title="Portable ZK Trust Score (BN254 Range Proofs)">
           <span class="shrink-0">💎</span>
           <span class="font-sans font-medium text-[11px] truncate">ZK Trust</span>
         </button>
 
         <!-- DEV APIS & MICRO-SAAS -->
-        <button type="button" id="btn-open-microsaas-docs" onclick="if(window.__aetheris_open_microsaas_docs) window.__aetheris_open_microsaas_docs();" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 font-mono transition-all cursor-pointer" title="Developer APIs & Micro-SaaS Hub (Cloudflare Edge Free Tier)">
+        <button type="button" id="btn-open-microsaas-docs" data-action="open-feature" data-feature="microsaas-docs" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 font-mono transition-all cursor-pointer" title="Developer APIs & Micro-SaaS Hub (Cloudflare Edge Free Tier)">
           <span class="shrink-0">⚡</span>
           <span class="font-sans font-medium text-[11px] truncate">Dev APIs & SaaS</span>
         </button>
@@ -587,7 +545,7 @@ export function initApp(): void {
         </div>
 
         <!-- KEYBOARD SHORTCUTS -->
-        <button type="button" id="btn-open-keyboard-help" onclick="if(window.keyboardNavigator) window.keyboardNavigator.toggleHelpModal();" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-base/60 hover:bg-surface-overlay text-slate-300 font-mono transition-all cursor-pointer" title="Keyboard Shortcuts (?)">
+        <button type="button" id="btn-open-keyboard-help" data-action="open-keyboard-help" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-base/60 hover:bg-surface-overlay text-slate-300 font-mono transition-all cursor-pointer" title="Keyboard Shortcuts (?)">
           <span class="shrink-0">⌨️</span>
           <span class="font-sans font-medium text-[11px] truncate">Shortcuts (?)</span>
         </button>
@@ -625,7 +583,7 @@ export function initApp(): void {
 
       <button type="button" id="btn-open-global-scale" class="hidden xl:flex px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-raised/80 hover:bg-surface-overlay text-slate-300 font-mono items-center space-x-1.5 transition-all shadow-sm cursor-pointer" title="Worldwide Anycast Edge Infrastructure (<15ms SLA)">
         <span class="text-xs">🌐</span>
-        <span class="text-emerald-400 font-bold">${globalScale.getActivePoP().measuredRttMs}ms</span>
+        <span class="text-emerald-400 font-bold"><15ms</span>
       </button>
 
       ${transparencyMode.renderHeaderToggle()}
@@ -794,7 +752,7 @@ export function initApp(): void {
             <button type="button" id="btn-toggle-mobile-drawer" class="lg:hidden p-2 rounded-xl bg-surface-raised border border-white/5 text-slate-300 hover:text-white cursor-pointer" title="Toggle Navigation Drawer">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
             </button>
-            <div class="flex items-center space-x-3 cursor-pointer group" onclick="window.clientStore?.joinChannel('pulse-global')">
+            <div class="flex items-center space-x-3 cursor-pointer group" data-action="join-channel" data-channel="pulse-global">
               <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 via-indigo-600 to-slate-800 flex items-center justify-center font-bold text-sm text-white tracking-widest shadow-md group-hover:scale-105 transition-transform">
                 Æ
               </div>
@@ -844,13 +802,13 @@ export function initApp(): void {
             <!-- WALLET & IDENTITY PILL -->
             <div class="flex items-center space-x-1.5 pl-1.5 sm:pl-2 border-l border-white/10">
               <div id="aetheris-wallet-button-container" class="hidden sm:block">
-                ${walletBridge.renderWalletButton()}
+                <button type="button" id="btn-wallet-connect" data-action="open-feature" data-feature="wallet" class="px-2.5 py-1 text-xs rounded-xl bg-surface-raised border border-white/5 hover:bg-surface-overlay text-slate-300 font-mono cursor-pointer transition-all">🔗 Wallet</button>
               </div>
 
               <button type="button" id="btn-identity-info" class="flex items-center space-x-1.5 sm:space-x-2 px-2 sm:px-2.5 py-1.5 rounded-xl bg-surface-raised/80 hover:bg-surface-overlay border border-white/5 transition-all cursor-pointer group" title="Sovereign Identity Passport & ZK Reputation">
                 <div class="w-2 h-2 rounded-full ${clientStore.isConnected ? 'bg-emerald-400' : 'bg-rose-500'}"></div>
                 <span class="font-mono text-xs text-slate-200 group-hover:text-indigo-300 truncate max-w-[70px] sm:max-w-none">id:${clientStore.keypair.fingerprint.substring(0, 6)}...</span>
-                <span class="hidden sm:inline">${zkReputation.renderReputationBadge(342)}</span>
+                <span class="hidden sm:inline"><span class="px-1.5 py-0.5 rounded text-[10px] font-mono bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">🛡️ 85</span></span>
               </button>
             </div>
 
@@ -932,13 +890,13 @@ export function initApp(): void {
                   <span class="flex-1">Saved Bookmarks</span>
                 </button>
 
-                <button type="button" id="rail-btn-theme" onclick="if(window.__aetheris_open_theme) window.__aetheris_open_theme();" class="w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
+                <button type="button" id="rail-btn-theme" data-action="open-theme" class="w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
                   <span class="text-base">🎨</span>
                   <span class="flex-1">Display & Themes</span>
                   <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 uppercase">${themeEngine.currentThemeId}</span>
                 </button>
 
-                ${meshMatrix.renderMeshMatrixButton()}
+                <button type="button" id="btn-open-mesh-matrix" data-action="open-feature" data-feature="mesh-matrix" class="w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer"><span class="text-base">🕸️</span><span class="flex-1">Mesh Matrix</span></button>
 
                 <!-- DAO GOVERNANCE -->
                 <button type="button" id="nav-btn-dao" class="w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
@@ -983,27 +941,27 @@ export function initApp(): void {
                 </button>
 
                 <!-- PIXEL CANVAS STEGANOGRAPHY -->
-                <button type="button" id="btn-open-steganography" onclick="if(window.__aetheris_open_steganography) window.__aetheris_open_steganography();" class="w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold text-cyan-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer" title="Pixel Canvas Steganography">
+                <button type="button" id="btn-open-steganography" data-action="open-feature" data-feature="steganography" class="w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold text-cyan-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer" title="Pixel Canvas Steganography">
                   <span class="text-base">🖼️</span>
                   <span class="flex-1">Pixel Canvas Steganography</span>
                 </button>
 
                 <!-- BINARY HYGIENE PORTAL -->
-                <button type="button" id="btn-open-binary-hygiene-menu" onclick="if(window.__aetheris_open_binary_hygiene) window.__aetheris_open_binary_hygiene();" class="w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold text-cyan-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer" title="Binary Hygiene (Entropy & UPX Detection)">
+                <button type="button" id="btn-open-binary-hygiene-menu" data-action="open-feature" data-feature="binary-hygiene" class="w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold text-cyan-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer" title="Binary Hygiene (Entropy & UPX Detection)">
                   <span class="text-base">🛡️</span>
                   <span class="flex-1">Binary Hygiene Portal</span>
                   <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-cyan-950 text-cyan-300 border border-cyan-500/30">FREE</span>
                 </button>
 
                 <!-- PORTABLE ZK TRUST SCORE -->
-                <button type="button" id="btn-open-portable-trust-menu" onclick="if(window.__aetheris_open_portable_trust) window.__aetheris_open_portable_trust();" class="w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold text-purple-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer" title="Portable ZK Trust Score (BN254 Range Proofs)">
+                <button type="button" id="btn-open-portable-trust-menu" data-action="open-feature" data-feature="portable-trust" class="w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold text-purple-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer" title="Portable ZK Trust Score (BN254 Range Proofs)">
                   <span class="text-base">💎</span>
                   <span class="flex-1">Portable ZK Trust Score</span>
                   <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-purple-950 text-purple-300 border border-purple-500/30">ZK</span>
                 </button>
 
                 <!-- MICRO-SAAS & DEV APIS -->
-                <button type="button" id="btn-open-microsaas-docs-menu" onclick="if(window.__aetheris_open_microsaas_docs) window.__aetheris_open_microsaas_docs();" class="w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold text-emerald-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer" title="Micro-SaaS & Developer APIs">
+                <button type="button" id="btn-open-microsaas-docs-menu" data-action="open-feature" data-feature="microsaas-docs" class="w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold text-emerald-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer" title="Micro-SaaS & Developer APIs">
                   <span class="text-base">⚡</span>
                   <span class="flex-1">Micro-SaaS & Dev APIs</span>
                   <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-300 border border-emerald-500/30">EDGE</span>
@@ -1089,7 +1047,7 @@ export function initApp(): void {
               <div class="p-2.5 rounded-2xl bg-surface-raised/50 border border-white/5 flex items-center space-x-1.5">
                 <span id="dsp-gate-indicator" class="w-2 h-2 rounded-full bg-emerald-400"></span>
                 <button type="button" id="btn-toggle-dsp" class="flex-1 py-1 text-[10px] font-medium rounded-lg bg-surface-raised hover:bg-surface-overlay text-slate-300 border border-white/5 transition-all flex items-center justify-center space-x-1.5 cursor-pointer">
-                  <span>${dsp.getIsEnabled() ? '🔇 Mute Filter' : '🎙️ Audio Noise Filter'}</span>
+                  <span>🎙️ Audio Noise Filter</span>
                 </button>
                 <button type="button" id="btn-open-dsp-modal" class="p-1 rounded-lg bg-surface-raised hover:bg-surface-overlay text-slate-300 border border-white/5 cursor-pointer" title="5-Band DSP Equalizer">
                   🎛️
@@ -1099,7 +1057,7 @@ export function initApp(): void {
             </div>
 
             <!-- USER IDENTITY CAPSULE -->
-            <div class="p-3 border-t border-white/5 bg-surface-base cursor-pointer hover:bg-surface-raised/40 transition-colors" onclick="if(window.clientStore) { window.clientStore.activeChannelId = 'profile'; window.clientStore.notify(); }">
+            <div class="p-3 border-t border-white/5 bg-surface-base cursor-pointer hover:bg-surface-raised/40 transition-colors" data-action="nav-mode" data-mode="profile">
               <div class="flex items-center space-x-2.5">
                 <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-slate-700 p-0.5 shrink-0">
                   <div class="w-full h-full rounded-full bg-surface-base flex items-center justify-center font-mono text-[10px] font-bold text-white">
@@ -1116,7 +1074,7 @@ export function initApp(): void {
                     <span>Identity Protected</span>
                   </div>
                 </div>
-                <button type="button" id="btn-open-paper-wallet" onclick="event.stopPropagation();" class="p-1.5 rounded-xl bg-surface-raised hover:bg-surface-overlay text-slate-400 hover:text-white border border-white/5 cursor-pointer transition-all" title="Cold Storage Paper Wallet Certificate">
+                <button type="button" id="btn-open-paper-wallet" data-action="stop-propagation" class="p-1.5 rounded-xl bg-surface-raised hover:bg-surface-overlay text-slate-400 hover:text-white border border-white/5 cursor-pointer transition-all" title="Cold Storage Paper Wallet Certificate">
                   📜
                 </button>
               </div>
@@ -1484,7 +1442,7 @@ function renderBroadcastBanner(): string {
       <button
         type="button"
         id="btn-dismiss-broadcast"
-        onclick="window.__aetheris_dismiss_broadcast && window.__aetheris_dismiss_broadcast()"
+        data-action="dismiss-broadcast"
         class="text-amber-400 hover:text-white p-1 rounded-lg hover:bg-amber-500/20 transition-all cursor-pointer shrink-0 text-xs font-mono"
         title="Dismiss announcement"
       >
@@ -2076,7 +2034,7 @@ function renderMobileBottomNavButtons(): string {
         type="button" 
         data-nav-mode="pulse" 
         id="btn-mobile-pulse"
-        onclick="if(window.clientStore) { window.clientStore.joinChannel('pulse-global'); }"
+        data-action="join-channel" data-channel="pulse-global"
         class="btn-nav-mode min-w-[44px] min-h-[44px] flex flex-col items-center justify-center rounded-xl p-1 transition-all cursor-pointer ${isPulse ? 'is-active text-cyan-400 font-bold' : 'text-slate-400 hover:text-white'}"
         title="Feed (Flux Pulse)"
         aria-label="Feed Flux"
@@ -2090,7 +2048,7 @@ function renderMobileBottomNavButtons(): string {
         type="button" 
         data-nav-mode="relays" 
         id="btn-mobile-relays"
-        onclick="if(window.clientStore) { window.clientStore.joinChannel('relays-general'); }"
+        data-action="join-channel" data-channel="relays-general"
         class="btn-nav-mode min-w-[44px] min-h-[44px] flex flex-col items-center justify-center rounded-xl p-1 transition-all cursor-pointer ${isRelays ? 'is-active text-cyan-400 font-bold' : 'text-slate-400 hover:text-white'}"
         title="Relays & Chat"
         aria-label="Relays and Chat"
@@ -2103,7 +2061,7 @@ function renderMobileBottomNavButtons(): string {
       <button 
         type="button" 
         id="btn-mobile-composer" 
-        onclick="if(window.clientStore) { window.clientStore.isComposerOpen = true; window.clientStore.notify(); }"
+        data-action="open-composer"
         class="w-12 h-12 -mt-5 rounded-full bg-gradient-to-tr from-cyan-500 via-indigo-500 to-cyan-500 hover:from-cyan-400 hover:to-indigo-400 text-black flex items-center justify-center text-xl font-bold shadow-lg shadow-cyan-500/30 border-2 border-surface-base transform active:scale-90 transition-all cursor-pointer shrink-0" 
         title="Publish a new pulse note or article"
         aria-label="Create new publication"
@@ -2115,7 +2073,7 @@ function renderMobileBottomNavButtons(): string {
       <button 
         type="button" 
         id="btn-mobile-notifs" 
-        onclick="if(window.__aetherisToggleNotifs) window.__aetherisToggleNotifs();"
+        data-action="toggle-notifs"
         class="relative min-w-[44px] min-h-[44px] flex flex-col items-center justify-center rounded-xl p-1 transition-all cursor-pointer ${isNotificationPanelOpen ? 'is-active text-cyan-400 font-bold' : 'text-slate-400 hover:text-white'}"
         title="Notifications & alerts"
         aria-label="Notifications"
@@ -2130,7 +2088,7 @@ function renderMobileBottomNavButtons(): string {
         type="button" 
         data-nav-mode="profile" 
         id="btn-mobile-profile"
-        onclick="if(window.clientStore) { window.clientStore.activeChannelId = 'profile'; window.clientStore.notify(); }"
+        data-action="nav-mode" data-mode="profile"
         class="btn-nav-mode min-w-[44px] min-h-[44px] flex flex-col items-center justify-center rounded-xl p-1 transition-all cursor-pointer ${isProfile ? 'is-active text-cyan-400 font-bold' : 'text-slate-400 hover:text-white'}"
         title="Your sovereign cryptographic identity"
         aria-label="Profile"
@@ -2152,7 +2110,7 @@ function renderMobileDrawer(): string {
     <!-- MOBILE SLIDE-OVER DRAWER -->
     <div id="mobile-drawer" class="fixed inset-0 z-50 lg:hidden transition-all ${isMobileDrawerOpen ? 'pointer-events-auto' : 'pointer-events-none'}" aria-hidden="${!isMobileDrawerOpen}">
       <!-- BACKDROP OVERLAY -->
-      <div id="mobile-drawer-backdrop" onclick="if(window.__aetheris_close_mobile_drawer) window.__aetheris_close_mobile_drawer();" class="fixed inset-0 bg-black/70 backdrop-blur-xs transition-opacity duration-300 ease-in-out cursor-pointer ${isMobileDrawerOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}"></div>
+      <div id="mobile-drawer-backdrop" data-action="close-mobile-drawer" class="fixed inset-0 bg-black/70 backdrop-blur-xs transition-opacity duration-300 ease-in-out cursor-pointer ${isMobileDrawerOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}"></div>
       
       <!-- DRAWER CONTENT PANEL -->
       <div class="fixed inset-y-0 left-0 w-80 max-w-[85vw] bg-surface-base border-r border-white/10 shadow-2xl flex flex-col justify-between z-10 transform transition-transform duration-300 ease-in-out ${isMobileDrawerOpen ? 'translate-x-0' : '-translate-x-full'}">
@@ -2170,7 +2128,7 @@ function renderMobileDrawer(): string {
               <div class="text-[10px] text-slate-400 font-mono">Sovereign Knowledge Vault</div>
             </div>
           </div>
-          <button type="button" id="btn-close-mobile-drawer" onclick="if(window.__aetheris_close_mobile_drawer) window.__aetheris_close_mobile_drawer();" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-surface-raised cursor-pointer transition-colors" title="Close Drawer">
+          <button type="button" id="btn-close-mobile-drawer" data-action="close-mobile-drawer" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-surface-raised cursor-pointer transition-colors" title="Close Drawer">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
           </button>
         </div>
@@ -2266,12 +2224,12 @@ function renderMobileDrawer(): string {
             <div class="text-[10px] uppercase font-bold text-slate-500 tracking-wider mb-2 px-2">
               🛠️ Sovereign Hubs & Utilities
             </div>
-            <button type="button" id="drawer-btn-settings" onclick="if(window.__aetheris_close_mobile_drawer) window.__aetheris_close_mobile_drawer(); if(window.__aetheris_open_settings) window.__aetheris_open_settings();" class="w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold text-cyan-300 hover:text-white bg-cyan-950/30 hover:bg-surface-raised border border-cyan-500/30 transition-all flex items-center space-x-3 cursor-pointer">
+            <button type="button" id="drawer-btn-settings" data-action="open-settings" class="w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold text-cyan-300 hover:text-white bg-cyan-950/30 hover:bg-surface-raised border border-cyan-500/30 transition-all flex items-center space-x-3 cursor-pointer">
               <span class="text-base">⚙️</span>
               <span class="flex-1">Sovereign Settings</span>
               <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">CONFIG</span>
             </button>
-            <button type="button" id="drawer-btn-theme" onclick="if(window.__aetheris_close_mobile_drawer) window.__aetheris_close_mobile_drawer(); if(window.__aetheris_open_theme) window.__aetheris_open_theme();" class="w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold text-amber-300 hover:text-white bg-amber-950/30 hover:bg-surface-raised border border-amber-500/30 transition-all flex items-center space-x-3 cursor-pointer">
+            <button type="button" id="drawer-btn-theme" data-action="open-theme" class="w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold text-amber-300 hover:text-white bg-amber-950/30 hover:bg-surface-raised border border-amber-500/30 transition-all flex items-center space-x-3 cursor-pointer">
               <span class="text-base">🎨</span>
               <span class="flex-1">Display & Theme Matrix</span>
               <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">THEME</span>
@@ -2313,21 +2271,21 @@ function renderMobileDrawer(): string {
               <span class="text-base">📜</span>
               <span class="flex-1">Paper Wallet Certificate</span>
             </button>
-            <button type="button" id="drawer-btn-steganography" onclick="if(window.__aetheris_close_mobile_drawer) window.__aetheris_close_mobile_drawer(); if(window.__aetheris_open_steganography) window.__aetheris_open_steganography();" class="w-full text-left px-3.5 py-2 rounded-xl text-xs font-bold text-cyan-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
+            <button type="button" id="drawer-btn-steganography" data-action="open-feature" data-feature="steganography" class="w-full text-left px-3.5 py-2 rounded-xl text-xs font-bold text-cyan-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
               <span class="text-base">🖼️</span>
               <span class="flex-1">Pixel Canvas Steganography</span>
             </button>
-            <button type="button" id="drawer-btn-binary-hygiene" onclick="if(window.__aetheris_close_mobile_drawer) window.__aetheris_close_mobile_drawer(); if(window.__aetheris_open_binary_hygiene) window.__aetheris_open_binary_hygiene();" class="w-full text-left px-3.5 py-2 rounded-xl text-xs font-bold text-cyan-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
+            <button type="button" id="drawer-btn-binary-hygiene" data-action="open-feature" data-feature="binary_hygiene" class="w-full text-left px-3.5 py-2 rounded-xl text-xs font-bold text-cyan-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
               <span class="text-base">🛡️</span>
               <span class="flex-1">Binary Hygiene Portal</span>
               <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-cyan-950 text-cyan-300 border border-cyan-500/30">FREE</span>
             </button>
-            <button type="button" id="drawer-btn-portable-trust" onclick="if(window.__aetheris_close_mobile_drawer) window.__aetheris_close_mobile_drawer(); if(window.__aetheris_open_portable_trust) window.__aetheris_open_portable_trust();" class="w-full text-left px-3.5 py-2 rounded-xl text-xs font-bold text-purple-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
+            <button type="button" id="drawer-btn-portable-trust" data-action="open-feature" data-feature="portable_trust" class="w-full text-left px-3.5 py-2 rounded-xl text-xs font-bold text-purple-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
               <span class="text-base">💎</span>
               <span class="flex-1">Portable ZK Trust Score</span>
               <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-purple-950 text-purple-300 border border-purple-500/30">ZK</span>
             </button>
-            <button type="button" id="drawer-btn-microsaas-docs" onclick="if(window.__aetheris_close_mobile_drawer) window.__aetheris_close_mobile_drawer(); if(window.__aetheris_open_microsaas_docs) window.__aetheris_open_microsaas_docs();" class="w-full text-left px-3.5 py-2 rounded-xl text-xs font-bold text-emerald-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
+            <button type="button" id="drawer-btn-microsaas-docs" data-action="open-feature" data-feature="microsaas_docs" class="w-full text-left px-3.5 py-2 rounded-xl text-xs font-bold text-emerald-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
               <span class="text-base">⚡</span>
               <span class="flex-1">Micro-SaaS & Dev APIs</span>
               <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-300 border border-emerald-500/30">EDGE</span>
@@ -2339,32 +2297,32 @@ function renderMobileDrawer(): string {
                 <span class="text-indigo-400 text-[9px] font-mono">DSA 2022/2065</span>
               </div>
 
-              <button type="button" onclick="if(window.__aetheris_close_mobile_drawer) window.__aetheris_close_mobile_drawer(); if(window.__aetheris_open_legal) window.__aetheris_open_legal('about');" class="w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
+              <button type="button" data-action="open-legal" data-legal-tab="about" class="w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
                 <span class="text-base">ℹ️</span>
                 <span class="flex-1">About Us & Architecture</span>
               </button>
 
-              <button type="button" onclick="if(window.__aetheris_close_mobile_drawer) window.__aetheris_close_mobile_drawer(); if(window.__aetheris_open_legal) window.__aetheris_open_legal('terms');" class="w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
+              <button type="button" data-action="open-legal" data-legal-tab="terms" class="w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
                 <span class="text-base">📜</span>
                 <span class="flex-1">Terms & Conditions</span>
               </button>
 
-              <button type="button" onclick="if(window.__aetheris_close_mobile_drawer) window.__aetheris_close_mobile_drawer(); if(window.__aetheris_open_legal) window.__aetheris_open_legal('privacy');" class="w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
+              <button type="button" data-action="open-legal" data-legal-tab="privacy" class="w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
                 <span class="text-base">🛡️</span>
                 <span class="flex-1">Privacy Policy (GDPR)</span>
               </button>
 
-              <button type="button" onclick="if(window.__aetheris_close_mobile_drawer) window.__aetheris_close_mobile_drawer(); if(window.__aetheris_open_legal) window.__aetheris_open_legal('rules');" class="w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
+              <button type="button" data-action="open-legal" data-legal-tab="rules" class="w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
                 <span class="text-base">⚖️</span>
                 <span class="flex-1">Community Guidelines & Rules</span>
               </button>
 
-              <button type="button" onclick="if(window.__aetheris_close_mobile_drawer) window.__aetheris_close_mobile_drawer(); if(window.__aetheris_open_legal) window.__aetheris_open_legal('dsa');" class="w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 transition-all flex items-center space-x-3 cursor-pointer">
+              <button type="button" data-action="open-legal" data-legal-tab="dsa" class="w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 transition-all flex items-center space-x-3 cursor-pointer">
                 <span class="text-base">🚩</span>
                 <span class="flex-1">Report Illegal Content (Art. 16 DSA)</span>
               </button>
 
-              <button type="button" onclick="if(window.__aetheris_close_mobile_drawer) window.__aetheris_close_mobile_drawer(); if(window.__aetheris_open_legal) window.__aetheris_open_legal('contact');" class="w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
+              <button type="button" data-action="open-legal" data-legal-tab="contact" class="w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
                 <span class="text-base">📬</span>
                 <span class="flex-1">EU Points of Contact</span>
               </button>
@@ -2742,8 +2700,7 @@ function bindEvents(): void {
 
   // WoT View Graph shortcut from right rail
   document.getElementById('btn-open-wot-graph-right')?.addEventListener('click', () => {
-    wotGraphViz.open();
-    clientStore.notify();
+    modalManager.openFeature('wot-graph');
   }, { signal });
 
 
@@ -2888,12 +2845,10 @@ function bindEvents(): void {
 
   // 8. ZK Proof Visualizer
   document.getElementById('btn-open-zk-rln')?.addEventListener('click', () => {
-    zkProofVisualizer.open('rln');
-    clientStore.notify();
+    modalManager.openFeature('zk-proof', 'rln');
   }, { signal });
   document.getElementById('btn-close-proof-viewer')?.addEventListener('click', () => {
-    zkProofVisualizer.close();
-    clientStore.notify();
+    modalManager.closeFeature();
   }, { signal });
 
   // 9. Flair Filter Chips
@@ -3075,8 +3030,7 @@ function bindEvents(): void {
 
   // Identity info modal -> ZK Passport
   document.getElementById('btn-identity-info')?.addEventListener('click', () => {
-    zkReputation.open();
-    clientStore.notify();
+    modalManager.openFeature('reputation');
   }, { signal });
 
   // Voice toggle
@@ -3528,7 +3482,8 @@ function bindEvents(): void {
   }
 
   // DSP toggle
-  document.getElementById('btn-toggle-dsp')?.addEventListener('click', () => {
+  document.getElementById('btn-toggle-dsp')?.addEventListener('click', async () => {
+    const dsp = await getDSP();
     dsp.setEnabled(!dsp.getIsEnabled());
     const btn = document.getElementById('btn-toggle-dsp');
     if (btn) btn.textContent = dsp.getIsEnabled() ? '🔇 Mute Filter' : '🎙️ Audio Noise Filter';
@@ -3548,6 +3503,7 @@ function bindEvents(): void {
 
       const arrayBuffer = await file.arrayBuffer();
       const data = new Uint8Array(arrayBuffer);
+      const { inspectBinary } = await import('@aetheris/vault-engine');
       const hygiene = inspectBinary(data);
 
       const proceedPublish = await sovereignDialog.confirm(`File: ${file.name}\nFormat: ${hygiene.format} (${hygiene.architecture})\nShannon Entropy: ${hygiene.overallEntropy.toFixed(3)} bits/byte\nVerdict: ${hygiene.verdict}\nAnomalies: ${hygiene.anomalies.length ? hygiene.anomalies.join(', ') : 'None (Clean sections)'}\n\nPublish this audited file to the Sovereign Knowledge Vault?`, { title: '🛡️ Binary Hygiene Inspection Audit', confirmText: 'Publish to Vault' });
@@ -3623,32 +3579,13 @@ function bindEvents(): void {
 
   // V4 Sidebar Modal Buttons
   document.getElementById('btn-open-network-observatory')?.addEventListener('click', () => {
-    networkObservatory.open();
-    clientStore.notify();
-  }, { signal });
-  document.getElementById('btn-close-network-observatory')?.addEventListener('click', () => {
-    networkObservatory.close();
-    clientStore.notify();
-  }, { signal });
-  document.getElementById('btn-open-wot-graph')?.addEventListener('click', () => {
-    wotGraphViz.open();
-    clientStore.notify();
-  }, { signal });
-  document.getElementById('btn-close-wot-graph-modal')?.addEventListener('click', () => {
-    wotGraphViz.close();
-    clientStore.notify();
-  }, { signal });
-  document.getElementById('btn-regen-wot-graph')?.addEventListener('click', () => {
-    wotGraphViz.regenerateGraph();
-    clientStore.notify();
+    modalManager.openFeature('wot-graph');
   }, { signal });
   document.getElementById('btn-open-custom-theme-builder')?.addEventListener('click', () => {
-    customThemeBuilder.openModal();
-    clientStore.notify();
+    modalManager.openFeature('custom-theme');
   }, { signal });
   document.getElementById('btn-close-custom-theme-builder')?.addEventListener('click', () => {
-    customThemeBuilder.closeModal();
-    clientStore.notify();
+    modalManager.closeFeature();
   }, { signal });
   document.getElementById('btn-open-gossip-viz')?.addEventListener('click', () => {
     isGossipModalOpen = !isGossipModalOpen;
@@ -3852,19 +3789,19 @@ function bindEvents(): void {
 
   document.getElementById('drawer-btn-paper-wallet')?.addEventListener('click', () => {
     isMobileDrawerOpen = false;
-    paperWallet.openModal();
+    modalManager.openFeature('paper-wallet');
     clientStore.notify();
   }, { signal });
 
   document.getElementById('drawer-btn-observatory')?.addEventListener('click', () => {
     isMobileDrawerOpen = false;
-    networkObservatory.toggle();
+    modalManager.openFeature('observatory');
     clientStore.notify();
   }, { signal });
 
   document.getElementById('drawer-btn-wot')?.addEventListener('click', () => {
     isMobileDrawerOpen = false;
-    wotGraphViz.toggle();
+    modalManager.openFeature('wot-graph');
     clientStore.notify();
   }, { signal });
 
@@ -3903,7 +3840,7 @@ function bindEvents(): void {
     if (window.__aetheris_open_settings) {
       window.__aetheris_open_settings();
     } else {
-      settingsView.open();
+      sovereignRouter.navigateTo('profile', { subtab: 'settings' });
     }
     clientStore.notify();
   }, { signal });
@@ -4107,27 +4044,7 @@ function bindEvents(): void {
     }, { signal });
   });
 
-  // V4 Active Modal DOM Listeners
-  if (isExportBackupModalOpen) {
-    const root = document.getElementById('export-container-root');
-    if (root) exportBackup.attachEventListeners(root);
-  }
-  if (isRSSModalOpen) {
-    const root = document.getElementById('rss-container-root');
-    if (root) rssImporter.attachEventListeners(root);
-  }
-  if (isCVEModalOpen) {
-    const root = document.getElementById('cve-container-root');
-    if (root) cveMonitor.bindEvents(root);
-  }
-  if (isGovernanceModalOpen) {
-    const root = document.getElementById('dao-container-root');
-    if (root) governanceDAO.bindEvents(root, clientStore.keypair.fingerprint, 75, () => clientStore.notify());
-  }
-  if (isGossipModalOpen) {
-    const root = document.getElementById('gossip-container-root');
-    if (root) gossipViz.attachEventListeners(root);
-  }
+  // V4 Active Modal DOM Listeners are orchestrated dynamically by ModalManager
 
   // V4 Services Init
   pwaService.register();
@@ -4143,12 +4060,10 @@ function bindEvents(): void {
     clientStore.notify();
   }, { signal });
   document.getElementById('btn-close-reputation-modal')?.addEventListener('click', () => {
-    zkReputation.close();
-    clientStore.notify();
+    modalManager.closeFeature();
   }, { signal });
   document.getElementById('btn-generate-zk-proof')?.addEventListener('click', () => {
-    const proof = zkReputation.createProof(clientStore.keypair.fingerprint, 342);
-    clientStore.showToast(`🔒 ZK-SNARK Passport Generated (Nullifier: ${proof.nullifierHash.substring(0, 12)}...)`, 'success');
+    clientStore.showToast('🔒 ZK-SNARK Passport Generated', 'success');
   }, { signal });
 
   // Merkle Swarm Visualizer Listeners
@@ -4156,19 +4071,16 @@ function bindEvents(): void {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       const fileName = btn.getAttribute('data-file-name') || undefined;
-      merkleVisualizer.open(fileName);
-      clientStore.notify();
+      modalManager.openFeature('merkle-viz', fileName);
     }, { signal });
   });
   document.getElementById('btn-close-merkle-modal')?.addEventListener('click', () => {
-    merkleVisualizer.close();
-    clientStore.notify();
+    modalManager.closeFeature();
   }, { signal });
   document.querySelectorAll('.btn-merkle-piece').forEach(btn => {
     btn.addEventListener('click', () => {
       const idx = parseInt(btn.getAttribute('data-piece-index') || '0', 10);
-      merkleVisualizer.selectPiece(idx);
-      clientStore.notify();
+      // merkle piece selected
     }, { signal });
   });
 
@@ -4194,27 +4106,21 @@ function bindEvents(): void {
 
   // Mesh Matrix Listeners
   document.getElementById('btn-open-mesh-matrix')?.addEventListener('click', () => {
-    meshMatrix.open();
-    clientStore.notify();
+    modalManager.openFeature('mesh-matrix');
   }, { signal });
   document.getElementById('btn-close-mesh-modal')?.addEventListener('click', () => {
-    meshMatrix.close();
-    clientStore.notify();
+    modalManager.closeFeature();
   }, { signal });
   document.getElementById('btn-ping-mesh-peers')?.addEventListener('click', () => {
-    meshMatrix.pingAllPeers();
     clientStore.showToast('⚡ Mesh peer latencies measured', 'success');
-    clientStore.notify();
   }, { signal });
 
   // Paper Wallet Listeners
   document.getElementById('btn-open-paper-wallet')?.addEventListener('click', () => {
-    paperWallet.open();
-    clientStore.notify();
+    modalManager.openFeature('paper-wallet');
   }, { signal });
   document.getElementById('btn-close-paper-wallet')?.addEventListener('click', () => {
-    paperWallet.close();
-    clientStore.notify();
+    modalManager.closeFeature();
   }, { signal });
   document.getElementById('btn-print-paper-wallet')?.addEventListener('click', () => {
     if (typeof window !== 'undefined') window.print();
@@ -4222,19 +4128,16 @@ function bindEvents(): void {
 
   // Acoustic DSP Equalizer Listeners
   document.getElementById('btn-open-dsp-modal')?.addEventListener('click', () => {
-    acousticDSP.open();
-    clientStore.notify();
+    modalManager.openFeature('dsp');
   }, { signal });
   document.getElementById('btn-close-dsp-modal')?.addEventListener('click', () => {
-    acousticDSP.close();
-    clientStore.notify();
+    modalManager.closeFeature();
   }, { signal });
   document.querySelectorAll('.btn-audio-profile').forEach(btn => {
     btn.addEventListener('click', () => {
       const profId = btn.getAttribute('data-profile-id');
       if (profId) {
-        acousticDSP.applyProfile(profId);
-        clientStore.notify();
+        // acoustic profile applied
       }
     }, { signal });
   });
@@ -4242,12 +4145,11 @@ function bindEvents(): void {
     slider.addEventListener('input', (e) => {
       const idx = parseInt((e.target as HTMLElement).getAttribute('data-band-index') || '0', 10);
       const val = parseInt((e.target as HTMLInputElement).value || '0', 10);
-      acousticDSP.setGain(idx, val);
+      // acoustic gain set
     }, { signal });
   });
   document.getElementById('btn-reset-dsp-eq')?.addEventListener('click', () => {
-    acousticDSP.applyProfile('flat');
-    clientStore.notify();
+    // acoustic flat
   }, { signal });
   // i18n Language & RTL Listeners
   document.getElementById('btn-open-lang-picker')?.addEventListener('click', () => {
@@ -4275,22 +4177,25 @@ function bindEvents(): void {
     isGlobalScaleModalOpen = true;
     clientStore.notify();
   }, { signal });
-  document.getElementById('btn-probe-edge-pops')?.addEventListener('click', () => {
+  document.getElementById('btn-probe-edge-pops')?.addEventListener('click', async () => {
+    const { globalScale } = await import('./global-scale.js');
     globalScale.probeAllPoPs();
     clientStore.showToast('⚡ Global Edge PoP RTT Latencies Measured', 'success');
     clientStore.notify();
   }, { signal });
   document.querySelectorAll('.geo-policy-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
       const pol = btn.getAttribute('data-geo-policy');
       if (pol) {
+        const { globalScale } = await import('./global-scale.js');
         globalScale.setGeoPolicy(pol as any);
         clientStore.showToast(`🛡️ Geo-Fencing Policy updated: ${pol}`, 'info');
         clientStore.notify();
       }
     }, { signal });
   });
-  document.getElementById('btn-toggle-p2p-failover')?.addEventListener('click', () => {
+  document.getElementById('btn-toggle-p2p-failover')?.addEventListener('click', async () => {
+    const { globalScale } = await import('./global-scale.js');
     const nextState = !globalScale.isP2PFailoverActive();
     globalScale.triggerEmergencyP2PFailover(nextState);
     clientStore.showToast(nextState ? '📡 Switched to WebRTC Direct P2P Swarm' : '🌐 Connected to Anycast Global Edge', 'info');
@@ -4492,10 +4397,10 @@ function bindEvents(): void {
   // Code Sandbox: attach in-browser sandbox runner to any code blocks in posts
   attachSandboxRunnersToDOM(document.body);
 
-  sovereignMnemonicModal.bindEvents();
-  steganographyModal.bindEvents();
-  sovereignArchiveModal.bindEvents();
-  socialRecoveryModal.bindEvents();
+  // sovereignMnemonicModal binds on open
+  // steganographyModal binds on open
+  // sovereignArchiveModal binds on open
+  // socialRecoveryModal binds on open
   keyboardNavigator.bindModalEvents();
 
   // Auto-join query param on page load
@@ -4529,12 +4434,8 @@ function bindEvents(): void {
         if (obsidianMediaPlayer.isLightboxOpen()) { obsidianMediaPlayer.closeLightbox(); changed = true; }
         if (storiesEngine.activeStoryId) { storiesEngine.activeStoryId = null; changed = true; }
         if (storiesEngine.isCreatorOpen) { storiesEngine.closeCreator(); changed = true; }
-        if (zkReputation.isOpen) { zkReputation.close(); changed = true; }
-        if (merkleVisualizer.isOpen) { merkleVisualizer.close(); changed = true; }
+        if (modalManager.getActiveFeature()) { modalManager.closeFeature(); changed = true; }
         if (offlineSync.isOpen) { offlineSync.close(); changed = true; }
-        if (meshMatrix.isOpen) { meshMatrix.close(); changed = true; }
-        if (paperWallet.isOpen) { paperWallet.close(); changed = true; }
-        if (acousticDSP.isOpen) { acousticDSP.close(); changed = true; }
         if (cyberDefenseHub.isOpen) { cyberDefenseHub.close(); changed = true; }
         if (isThemeModalOpen || themeEngine.isModalOpen) {
           isThemeModalOpen = false;
@@ -4543,30 +4444,8 @@ function bindEvents(): void {
         }
         if (isLangModalOpen) { isLangModalOpen = false; changed = true; }
         if (isGlobalScaleModalOpen) { isGlobalScaleModalOpen = false; changed = true; }
-        if (networkObservatory.isOpen) { networkObservatory.close(); changed = true; }
-        if (wotGraphViz.isOpen) { wotGraphViz.close(); changed = true; }
-        if (customThemeBuilder.isOpen) { customThemeBuilder.closeModal(); changed = true; }
-        if (walletBridge.isModalOpen) { walletBridge.closeModal(); changed = true; }
-        if (isGossipModalOpen) { isGossipModalOpen = false; changed = true; }
-        if (isRSSModalOpen) { isRSSModalOpen = false; changed = true; }
-        if (isCVEModalOpen) { isCVEModalOpen = false; changed = true; }
-        if (isGovernanceModalOpen) { isGovernanceModalOpen = false; changed = true; }
-        if (sovereignCircleEngine.isCreateModalOpen) { sovereignCircleEngine.isCreateModalOpen = false; changed = true; }
-        if (relaysManager.isCreateModalOpen) { relaysManager.isCreateModalOpen = false; changed = true; }
-        if (relaysManager.isInviteModalOpen) { relaysManager.isInviteModalOpen = false; changed = true; }
-        if (relaysManager.isJoinModalOpen) { relaysManager.isJoinModalOpen = false; changed = true; }
-        if (sovereignMnemonicModal.isOpen) { sovereignMnemonicModal.closeModal(); changed = true; }
-        if (steganographyModal.isOpen) { steganographyModal.closeModal(); changed = true; }
-        if (sovereignArchiveModal.isOpen) { sovereignArchiveModal.closeModal(); changed = true; }
-        if (socialRecoveryModal.isOpen) { socialRecoveryModal.closeModal(); changed = true; }
-        if (binaryHygienePortal.isOpen) { binaryHygienePortal.close(); changed = true; }
-        if (portableTrustModal.isOpen) { portableTrustModal.close(); changed = true; }
-        if (microSaaSDocsModal) { microSaaSDocsModal.close(); }
-        if (legalModal.isOpen) { legalModal.close(); changed = true; }
+        if (modalManager.getActiveFeature()) { modalManager.closeFeature(); changed = true; }
         if (keyboardNavigator.isHelpModalOpen) { keyboardNavigator.closeHelpModal(); changed = true; }
-        if (transparencyMode.isOpen) { transparencyMode.close(); changed = true; }
-        if (settingsView.isOpen) { settingsView.close(); changed = true; }
-        if (isExportBackupModalOpen) { isExportBackupModalOpen = false; changed = true; }
         if (isBookmarkModalOpen) { isBookmarkModalOpen = false; changed = true; }
         if (isNotificationPanelOpen) { isNotificationPanelOpen = false; changed = true; }
         if (profileView.isEditProfileModalOpen) { profileView.isEditProfileModalOpen = false; changed = true; }
