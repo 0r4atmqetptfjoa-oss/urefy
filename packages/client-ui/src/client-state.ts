@@ -22,6 +22,7 @@ import { crossTabSync } from './cross-tab-sync.js';
 import { sovereignWebPush } from './web-push.js';
 import { pulseActionsEngine } from './pulse-actions.js';
 import { networkActivityFeed } from './activity-feed.js';
+import { isLocalDev } from './admin-auth.js';
 
 export type SpaceType = 'relays' | 'vault' | 'pulse';
 export type DensityMode = 'compact' | 'balanced' | 'media';
@@ -359,6 +360,14 @@ export class AetherisClientStore {
   }
 
   private seedInitialPostsAndMembers(): void {
+    if (!isLocalDev()) {
+      this.members = [
+        { fingerprint: this.keypair.fingerprint, role: 'MEMBER', status: 'online', isZKVerified: true, avatarSeed: 'me' }
+      ];
+      this.posts = [];
+      return;
+    }
+
     this.members = [
       { fingerprint: 'genesis-core', role: 'GUARDIAN', status: 'online', isZKVerified: true, avatarSeed: 'gen' },
       { fingerprint: 'c3dc28cb705e', role: 'ARCHIVIST', status: 'online', isZKVerified: true, avatarSeed: 'arc' },

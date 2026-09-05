@@ -1,28 +1,28 @@
 /**
  * @file mobile-tab-bar.ts
  * @package @aetheris/client-ui
- * @description Native Mobile Bottom Tab Bar (Feed / Vault / Cerc / Profil) for viewports < 1024px (lg:hidden).
- * Provides clean, progressive disclosure on mobile devices with touch swipe navigation,
- * safe-area insets, and active tab indicator tracking.
+ * @description Native Mobile Bottom Tab Bar (Feed, Explore, Messages, Vault, Profile) for viewports < 1024px (lg:hidden).
+ * Provides clean, progressive disclosure on mobile devices conforming to Master UX Specification (Section 18).
+ * Eliminates emojis in favor of crisp Lucide vector icons. Touch target >= 44px.
  */
 
 import './window-augmentation.js';
 import { serviceRegistry, SERVICES } from './service-registry.js';
 import { clientStore } from './client-state.js';
-import { i18n } from './i18n.js';
+import { renderIcon, IconName } from './ui/icons.js';
 
-export type MobileTab = 'feed' | 'vault' | 'circle' | 'profile' | 'more';
+export type MobileTab = 'feed' | 'explore' | 'messages' | 'vault' | 'profile' | 'circle';
 
 export interface MobileTabDefinition {
   id: MobileTab;
   label: string;
-  icon: string;
+  iconName: IconName;
   channelTarget?: string;
 }
 
 export class MobileTabBar {
   public activeTab: MobileTab = 'feed';
-  private readonly tabsOrder: MobileTab[] = ['feed', 'vault', 'circle', 'profile'];
+  private readonly tabsOrder: MobileTab[] = ['feed', 'explore', 'messages', 'vault', 'profile'];
   private touchStartX: number = 0;
   private touchStartY: number = 0;
 
@@ -54,11 +54,14 @@ export class MobileTabBar {
    * Derives active MobileTab from current channel ID
    */
   public resolveTabFromChannel(channelId: string): MobileTab {
-    if (channelId.startsWith('vault-')) {
+    if (channelId.startsWith('vault-') || channelId === 'vault') {
       return 'vault';
     }
-    if (channelId.startsWith('relays-') || channelId.startsWith('dm-') || channelId === 'circle') {
-      return 'circle';
+    if (channelId.startsWith('explore-') || channelId === 'explore') {
+      return 'explore';
+    }
+    if (channelId.startsWith('relays-') || channelId.startsWith('dm-') || channelId === 'circle' || channelId === 'messages') {
+      return 'messages';
     }
     if (channelId.startsWith('profile')) {
       return 'profile';
@@ -76,11 +79,15 @@ export class MobileTabBar {
       case 'feed':
         clientStore.joinChannel('pulse-global');
         break;
-      case 'vault':
-        clientStore.joinChannel('vault-releases');
+      case 'explore':
+        clientStore.joinChannel('explore');
         break;
+      case 'messages':
       case 'circle':
         clientStore.joinChannel('relays-general');
+        break;
+      case 'vault':
+        clientStore.joinChannel('vault-releases');
         break;
       case 'profile':
         clientStore.activeChannelId = 'profile';
@@ -88,15 +95,6 @@ export class MobileTabBar {
           (window as any).profileView.setTargetFingerprint(clientStore.keypair.fingerprint);
         }
         clientStore.notify();
-        break;
-      case 'more':
-        if (typeof window !== 'undefined') {
-          if ((window as any).__aetheris_open_mobile_drawer) {
-            (window as any).__aetheris_open_mobile_drawer();
-          } else if ((window as any).__aetheris_toggle_mobile_drawer) {
-            (window as any).__aetheris_toggle_mobile_drawer();
-          }
-        }
         break;
     }
   }
@@ -148,9 +146,9 @@ export class MobileTabBar {
   }
 
   /**
-   * Computes unread count for circles/chat channels
+   * Computes unread count for messages
    */
-  public getUnreadCircleCount(): number {
+  public getUnreadMessagesCount(): number {
     let unread = 0;
     if (clientStore?.messages) {
       for (const [channelId, msgs] of clientStore.messages.entries()) {
@@ -178,15 +176,15 @@ export class MobileTabBar {
     const currentTab = this.resolveTabFromChannel(clientStore?.activeChannelId || 'pulse-global');
     this.activeTab = currentTab;
 
-    const unreadCircle = this.getUnreadCircleCount();
+    const unreadMessages = this.getUnreadMessagesCount();
     const unreadFeed = this.getUnreadFeedCount();
 
-    const tabs: Array<{ id: MobileTab; label: string; sublabel?: string; icon: string; title: string; badge?: number }> = [
-      { id: 'feed', label: 'Feed', icon: '📰', title: 'Feed (Pulse Stream)', badge: unreadFeed > 0 ? unreadFeed : undefined },
-      { id: 'vault', label: 'Vault', icon: '🗄️', title: 'Knowledge Vault' },
-      { id: 'circle', label: 'Relays', sublabel: 'Circle', icon: '📡', title: 'Relay Servers & Chat Channels', badge: unreadCircle > 0 ? unreadCircle : undefined },
-      { id: 'profile', label: 'Profile', icon: '👤', title: 'Sovereign Profile' },
-      { id: 'more' as any, label: 'More', icon: '☰', title: 'More Options & Tools' },
+    const tabs: Array<{ id: MobileTab; label: string; iconName: IconName; title: string; badge?: number }> = [
+      { id: 'feed', label: 'Feed', iconName: 'feed', title: 'Feed (Pulse Stream)', badge: unreadFeed > 0 ? unreadFeed : undefined },
+      { id: 'explore', label: 'Explore', iconName: 'explore', title: 'Explore' },
+      { id: 'messages', label: 'Messages', iconName: 'messages', title: 'Relays · Relay Servers & Chat Channels', badge: unreadMessages > 0 ? unreadMessages : undefined },
+      { id: 'vault', label: 'Vault', iconName: 'vault', title: 'Knowledge Vault' },
+      { id: 'profile', label: 'Profile', iconName: 'profile', title: 'Sovereign Profile' },
     ];
 
     return `
@@ -194,7 +192,7 @@ export class MobileTabBar {
       <nav 
         id="native-mobile-tab-bar" 
         role="navigation"
-        class="fixed bottom-0 left-0 right-0 z-50 lg:hidden bg-surface-base/95 backdrop-blur-xl border-t border-white/10 pb-[env(safe-area-inset-bottom)] flex items-center justify-around px-3 select-none shadow-2xl transition-all"
+        class="fixed bottom-0 left-0 right-0 z-50 lg:hidden bg-surface-base/95 backdrop-blur-xl border-t border-white/10 pb-[env(safe-area-inset-bottom)] flex items-center justify-around px-2 select-none shadow-2xl transition-all"
         style="min-height: 3.5rem; height: calc(3.5rem + env(safe-area-inset-bottom, 0px)); padding-bottom: max(env(safe-area-inset-bottom, 0px), 0px);"
         aria-label="Mobile Sovereign Navigation"
       >
@@ -202,34 +200,29 @@ export class MobileTabBar {
           const isActive = currentTab === tab.id;
           const activeClass = isActive 
             ? 'text-cyan-400 font-bold scale-105 is-active' 
-            : 'text-slate-400 hover:text-white';
+            : 'text-slate-400 hover:text-slate-200';
           const indicator = isActive
             ? '<span class="w-1 h-1 rounded-full bg-cyan-400 -mt-0.5"></span>'
             : '';
-
-          const clickAction = tab.id === 'more'
-            ? 'if(window.__aetheris_open_mobile_drawer) window.__aetheris_open_mobile_drawer(); else if(window.mobileTabBar) window.mobileTabBar.setTab(\'more\');'
-            : `if(window.mobileTabBar) window.mobileTabBar.setTab('${tab.id}')`;
 
           return `
             <button
               type="button"
               id="btn-mobile-tab-${tab.id}"
-              onclick="${clickAction}"
-              class="relative flex-1 min-h-[44px] flex flex-col items-center justify-center py-1 transition-all cursor-pointer ${activeClass}"
+              data-tab="${tab.id}"
+              class="relative flex-1 min-h-[44px] flex flex-col items-center justify-center py-1 transition-all cursor-pointer active:scale-95 ${activeClass}"
               title="${tab.title}"
-              aria-label="${tab.label} ${tab.sublabel || ''}"
+              aria-label="${tab.label}"
             >
               <div class="relative flex items-center justify-center">
-                <span class="text-lg leading-none">${tab.icon}</span>
+                ${renderIcon(tab.iconName, { size: 20 })}
                 ${tab.badge !== undefined && tab.badge > 0 ? `
                   <span class="absolute -top-1 -right-2 px-1.5 py-0.2 rounded-full bg-cyan-500 text-black text-[9px] font-mono font-bold shadow-xs">
                     ${tab.badge}
                   </span>
                 ` : ''}
               </div>
-              <span class="text-[10px] font-sans mt-0.5">${tab.label}</span>
-              ${tab.sublabel ? `<span class="sr-only">${tab.sublabel}</span>` : ''}
+              <span class="text-[10px] font-medium font-sans mt-1">${tab.label}</span>
               ${indicator}
             </button>
           `;

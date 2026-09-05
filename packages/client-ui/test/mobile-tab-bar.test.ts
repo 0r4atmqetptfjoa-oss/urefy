@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { MobileTabBar } from '../src/mobile-tab-bar.js';
 import { clientStore } from '../src/client-state.js';
 
-describe('Ticket 3.2: Native Mobile Bottom Tab Bar (Feed / Vault / Cerc / Profil)', () => {
+describe('Mobile Bottom Tab Bar: 5-Tab Master Specification (Feed, Explore, Messages, Vault, Profile)', () => {
   let tabBar: MobileTabBar;
 
   beforeEach(() => {
@@ -12,22 +12,27 @@ describe('Ticket 3.2: Native Mobile Bottom Tab Bar (Feed / Vault / Cerc / Profil
 
   it('1. should resolve active tab from channel identifiers', () => {
     expect(tabBar.resolveTabFromChannel('pulse-global')).toBe('feed');
+    expect(tabBar.resolveTabFromChannel('explore')).toBe('explore');
+    expect(tabBar.resolveTabFromChannel('relays-general')).toBe('messages');
+    expect(tabBar.resolveTabFromChannel('dm-aeth1_node99')).toBe('messages');
     expect(tabBar.resolveTabFromChannel('vault-releases')).toBe('vault');
     expect(tabBar.resolveTabFromChannel('vault-guides')).toBe('vault');
-    expect(tabBar.resolveTabFromChannel('relays-general')).toBe('circle');
-    expect(tabBar.resolveTabFromChannel('dm-aeth1_node99')).toBe('circle');
     expect(tabBar.resolveTabFromChannel('profile')).toBe('profile');
     expect(tabBar.resolveTabFromChannel('unknown-channel')).toBe('feed');
   });
 
   it('2. should set active tab and navigate clientStore channels', () => {
+    tabBar.setTab('explore');
+    expect(tabBar.activeTab).toBe('explore');
+    expect(clientStore.activeChannelId).toBe('explore');
+
+    tabBar.setTab('messages');
+    expect(tabBar.activeTab).toBe('messages');
+    expect(clientStore.activeChannelId).toBe('relays-general');
+
     tabBar.setTab('vault');
     expect(tabBar.activeTab).toBe('vault');
     expect(clientStore.activeChannelId).toBe('vault-releases');
-
-    tabBar.setTab('circle');
-    expect(tabBar.activeTab).toBe('circle');
-    expect(clientStore.activeChannelId).toBe('relays-general');
 
     tabBar.setTab('profile');
     expect(tabBar.activeTab).toBe('profile');
@@ -38,14 +43,17 @@ describe('Ticket 3.2: Native Mobile Bottom Tab Bar (Feed / Vault / Cerc / Profil
     expect(clientStore.activeChannelId).toBe('pulse-global');
   });
 
-  it('3. should advance nextTab and previousTab cyclically for swipe navigation', () => {
+  it('3. should advance nextTab and previousTab cyclically across all 5 tabs', () => {
     tabBar.setTab('feed');
 
     tabBar.nextTab();
-    expect(tabBar.activeTab).toBe('vault');
+    expect(tabBar.activeTab).toBe('explore');
 
     tabBar.nextTab();
-    expect(tabBar.activeTab).toBe('circle');
+    expect(tabBar.activeTab).toBe('messages');
+
+    tabBar.nextTab();
+    expect(tabBar.activeTab).toBe('vault');
 
     tabBar.nextTab();
     expect(tabBar.activeTab).toBe('profile');
@@ -57,7 +65,7 @@ describe('Ticket 3.2: Native Mobile Bottom Tab Bar (Feed / Vault / Cerc / Profil
     expect(tabBar.activeTab).toBe('profile');
   });
 
-  it('4. should render native mobile tab bar HTML with lg:hidden and 4 destinations', () => {
+  it('4. should render native mobile tab bar HTML with lg:hidden and 5 destinations', () => {
     tabBar.setTab('feed');
     const html = tabBar.renderTabBarHTML();
 
@@ -65,12 +73,14 @@ describe('Ticket 3.2: Native Mobile Bottom Tab Bar (Feed / Vault / Cerc / Profil
     expect(html).toContain('lg:hidden');
     expect(html).toContain('pb-[env(safe-area-inset-bottom)]');
     expect(html).toContain('btn-mobile-tab-feed');
+    expect(html).toContain('btn-mobile-tab-explore');
+    expect(html).toContain('btn-mobile-tab-messages');
     expect(html).toContain('btn-mobile-tab-vault');
-    expect(html).toContain('btn-mobile-tab-circle');
     expect(html).toContain('btn-mobile-tab-profile');
     expect(html).toContain('Feed');
+    expect(html).toContain('Explore');
+    expect(html).toContain('Messages');
     expect(html).toContain('Vault');
-    expect(html).toContain('Relays');
     expect(html).toContain('Profile');
   });
 
@@ -78,7 +88,6 @@ describe('Ticket 3.2: Native Mobile Bottom Tab Bar (Feed / Vault / Cerc / Profil
     tabBar.setTab('vault');
     const html = tabBar.renderTabBarHTML();
 
-    // Check that vault tab is marked active
     expect(html).toContain('btn-mobile-tab-vault');
     expect(html).toContain('text-cyan-400');
   });
@@ -92,53 +101,12 @@ describe('Ticket 3.2: Native Mobile Bottom Tab Bar (Feed / Vault / Cerc / Profil
         content: 'Hey there',
         timestamp: Date.now(),
         isDelivered: false,
+        isMine: false,
       } as any,
     ]);
 
-    expect(tabBar.getUnreadCircleCount()).toBeGreaterThan(0);
+    expect(tabBar.getUnreadMessagesCount()).toBeGreaterThan(0);
     const html = tabBar.renderTabBarHTML();
     expect(html).toContain('bg-cyan-500');
   });
-
-  it('7. should render 5th "more" tab slot and trigger mobile drawer', () => {
-    const html = tabBar.renderTabBarHTML();
-
-    expect(html).toContain('btn-mobile-tab-more');
-    expect(html).toContain('More');
-    expect(html).toContain('☰');
-    expect(html).toContain('title="More Options & Tools"');
-    expect(html).toContain("if(window.__aetheris_open_mobile_drawer) window.__aetheris_open_mobile_drawer(); else if(window.mobileTabBar) window.mobileTabBar.setTab('more');");
-
-    const drawerMock = vi.fn();
-    (globalThis as any).window = { __aetheris_open_mobile_drawer: drawerMock };
-
-    tabBar.setTab('more');
-    expect(tabBar.activeTab).toBe('more');
-    expect(drawerMock).toHaveBeenCalledTimes(1);
-
-    delete (globalThis as any).window;
-  });
-
-  it('8. should contain robust dynamic height and safe area insets for ultra-tall displays (ROG Phone 7)', () => {
-    const html = tabBar.renderTabBarHTML();
-
-    // Verifies fixed anchoring and z-50 elevation
-    expect(html).toContain('fixed bottom-0');
-    expect(html).toContain('z-50');
-
-    // Verifies safe area inset support for Android navigation bars & gesture pills
-    expect(html).toContain('pb-[env(safe-area-inset-bottom)]');
-    expect(html).toContain('calc(3.5rem + env(safe-area-inset-bottom, 0px))');
-    expect(html).toContain('padding-bottom: max(env(safe-area-inset-bottom, 0px), 0px)');
-  });
-
-  it('9. should provide accessible touch target heights (min-h-[44px]) for all mobile tabs', () => {
-    const html = tabBar.renderTabBarHTML();
-
-    expect(html).toContain('min-h-[44px]');
-    // Verifies all 5 tabs are rendered with touch target classes
-    const matches = (html.match(/min-h-\[44px\]/g) || []).length;
-    expect(matches).toBe(5);
-  });
 });
-

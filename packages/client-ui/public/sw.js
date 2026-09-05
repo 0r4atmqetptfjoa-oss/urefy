@@ -19,7 +19,7 @@ const PRECACHE = [
   '/favicon.ico',
 ];
 
-// Assets that are NEVER cached (live feeds, admin, push, auth endpoints)
+// Assets that are NEVER cached (live feeds, admin, push, auth endpoints, private vaults)
 const NEVER_CACHE_PATTERNS = [
   /\/api\/ws/,
   /\/api\/analytics/,
@@ -28,6 +28,10 @@ const NEVER_CACHE_PATTERNS = [
   /\/api\/admin/,
   /\/api\/push/,
   /\/api\/cron-backup/,
+  /\/api\/webauthn/,
+  /\/api\/messages/,
+  /\/api\/vault\/private/,
+  /\/api\/recovery/,
   /\/api\/report/,
   /\/admin\.html/,
 ];
@@ -77,8 +81,8 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 
-  // ── 2. Font requests → Cache-First (fonts never change) ───────────────────
-  if (url.hostname.includes('fonts.g') || url.pathname.match(/\.(woff2?|ttf|otf|eot)$/)) {
+  // ── 2. Font requests → Cache-First (local fonts only) ───────────────────
+  if (url.pathname.match(/\.(woff2?|ttf|otf|eot)$/)) {
     e.respondWith(cacheFirst(req, CACHE_FONTS));
     return;
   }

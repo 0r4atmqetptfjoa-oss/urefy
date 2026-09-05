@@ -20,6 +20,10 @@ export const ADMIN_DEFAULT_PIN = isLocalDev() ? '11223' : '';
 const memoryStorage: Record<string, string> = {};
 
 function safeGet(key: string): string | null {
+  // In production, strictly disallow reading admin PINs from persistent browser storage
+  if (!isLocalDev() && (key.includes('pin') || key.includes('admin') || key.includes('token'))) {
+    return memoryStorage[key] || null;
+  }
   const storage = safeLocalStorage();
   if (storage) {
     try { return storage.getItem(key); } catch (_) { return memoryStorage[key] || null; }
@@ -28,6 +32,11 @@ function safeGet(key: string): string | null {
 }
 
 function safeSet(key: string, value: string): void {
+  // In production, strictly store admin credentials in volatile RAM only (memoryStorage)
+  if (!isLocalDev() && (key.includes('pin') || key.includes('admin') || key.includes('token'))) {
+    memoryStorage[key] = value;
+    return;
+  }
   const storage = safeLocalStorage();
   if (storage) {
     try { storage.setItem(key, value); return; } catch (_) {}

@@ -17,6 +17,7 @@ import { themeEngine, THEMES } from './themes.js';
 import { sovereignFootprint } from './settings-footprint.js';
 import { localDiagnostics } from './local-diagnostics.js';
 import { exportBackup } from './export-backup.js';
+import { renderIcon } from './ui/icons.js';
 
 export type ProfileTab = 'pulses' | 'replies' | 'highlights' | 'media' | 'likes' | 'settings';
 export type SettingsCategory = 'account' | 'security' | 'privacy' | 'notifications' | 'appearance' | 'data' | 'advanced';
@@ -440,9 +441,9 @@ export class ProfileView {
               ` : ''}
             </div>
             <div class="flex items-center space-x-2 text-xs font-mono text-slate-400 mt-0.5 flex-wrap gap-y-1.5">
-              <span>@id:${profile.handle}</span>
+              <span class="text-slate-300 font-semibold" data-handle="${profile.handle}">@${profile.handle}</span>
               <span>·</span>
-              <span class="text-indigo-400 font-bold font-mono federated-handle" data-federated-handle="${federatedHandle}">${federatedHandle}</span>
+              <span class="text-cyan-400 font-bold font-mono federated-handle" data-federated-handle="${federatedHandle}">${federatedHandle}</span>
               <button
                 type="button"
                 id="btn-copy-federated-handle"
@@ -451,11 +452,36 @@ export class ProfileView {
                 data-copy-handle="${federatedHandle}"
                 onclick="if(window.__aetheris_copy_federated_handle){window.__aetheris_copy_federated_handle('${federatedHandle}');}else{navigator.clipboard&&navigator.clipboard.writeText('${federatedHandle}');}"
               >
-                <span>📋</span>
+                ${renderIcon('copy', { size: 12 })}
                 <span>Copy Federated Handle</span>
               </button>
               <span>·</span>
-              <span class="text-slate-500">Fingerprint: ${profile.fingerprint.substring(0, 12)}...</span>
+              <button
+                type="button"
+                id="btn-toggle-identity-details"
+                onclick="const el=document.getElementById('profile-identity-details'); if(el){ el.classList.toggle('hidden'); }"
+                class="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 text-[11px] hover:bg-emerald-500/20 transition-all cursor-pointer font-sans"
+                title="View Protected Cryptographic Identity Details"
+              >
+                ${renderIcon('shield', { size: 12 })}
+                <span>Identity Protected</span>
+                ${renderIcon('chevronDown', { size: 10 })}
+              </button>
+            </div>
+            <!-- EXPANDABLE TECHNICAL IDENTITY DETAILS (SECTION 7) -->
+            <div id="profile-identity-details" class="hidden p-3.5 rounded-2xl bg-surface-base/90 border border-white/10 text-xs font-mono space-y-2 mt-2 max-w-2xl">
+              <div class="flex items-center justify-between text-[11px] text-slate-400">
+                <span class="font-bold text-slate-200">Cryptographic Identity Specifications</span>
+                <span class="text-emerald-400 flex items-center space-x-1">${renderIcon('check', { size: 12 })}<span>Verified Sovereign Key</span></span>
+              </div>
+              <div class="space-y-1">
+                <span class="text-slate-500 text-[10px] uppercase font-bold">Ed25519 Fingerprint</span>
+                <div class="text-[11px] text-emerald-300 select-all break-all bg-black/40 p-2 rounded-lg border border-white/5">${profile.fingerprint}</div>
+              </div>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] pt-1 border-t border-white/5">
+                <div><span class="text-slate-500">Algorithm:</span> <span class="text-slate-200">Ed25519 + ML-KEM-768</span></div>
+                <div><span class="text-slate-500">Security:</span> <span class="text-slate-200">Zero-Trust Local Keypair</span></div>
+              </div>
             </div>
           </div>
 
@@ -676,14 +702,14 @@ export class ProfileView {
   }
 
   public renderSettingsSubtab(profile: UserProfileData, currentUserFp: string): string {
-    const categories: Array<{ id: SettingsCategory; label: string; icon: string; desc: string }> = [
-      { id: 'account', label: 'Account & Identity', icon: '👤', desc: 'Display name, bio, handle, and avatar' },
-      { id: 'security', label: 'Security & Recovery', icon: '🔐', desc: 'Passkeys, recovery seed phrase, and guardians' },
-      { id: 'privacy', label: 'Privacy & Trust', icon: '🛡️', desc: 'UI complexity mode, trust thresholds, and data shredding' },
-      { id: 'notifications', label: 'Notifications', icon: '🔔', desc: 'Web push notifications, mentions, and alerts' },
-      { id: 'appearance', label: 'Appearance & Themes', icon: '🎨', desc: 'Themes, OLED black, density, and typography' },
-      { id: 'data', label: 'Data & Storage', icon: '💾', desc: 'Backup export/import, cache quota, and offline sync' },
-      { id: 'advanced', label: 'Advanced Diagnostics', icon: '⚡', desc: 'Cryptographic pipeline, node telemetry, and mesh' },
+    const categories: Array<{ id: SettingsCategory; label: string; iconName: any; desc: string }> = [
+      { id: 'account', label: 'Account & Identity', iconName: 'profile', desc: 'Display name, bio, handle, and avatar' },
+      { id: 'security', label: 'Security & Recovery', iconName: 'shield', desc: 'Passkeys, recovery seed phrase, and guardians' },
+      { id: 'privacy', label: 'Privacy & Trust', iconName: 'lock', desc: 'UI complexity mode, trust thresholds, and data shredding' },
+      { id: 'notifications', label: 'Notifications', iconName: 'bell', desc: 'Web push notifications, mentions, and alerts' },
+      { id: 'appearance', label: 'Appearance & Themes', iconName: 'slidersHorizontal', desc: 'Themes, OLED black, density, and typography' },
+      { id: 'data', label: 'Data & Storage', iconName: 'database', desc: 'Backup export/import, cache quota, and offline sync' },
+      { id: 'advanced', label: 'Advanced Diagnostics', iconName: 'terminal', desc: 'Cryptographic pipeline, node telemetry, and mesh' },
     ];
 
     const currentCat = this.activeSettingsCategory || 'account';
@@ -700,11 +726,11 @@ export class ProfileView {
               onclick="if(window.__aetheris_set_settings_cat){window.__aetheris_set_settings_cat('${cat.id}');}else if(window.profileView){window.profileView.setActiveSettingsCategory('${cat.id}');}"
               class="px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center space-x-2 cursor-pointer border ${
                 currentCat === cat.id
-                  ? 'bg-indigo-600/30 text-indigo-200 border-indigo-500/40 shadow-sm shadow-indigo-500/10'
+                  ? 'bg-cyan-500/20 text-cyan-200 border-cyan-400/40 shadow-sm shadow-cyan-500/10'
                   : 'bg-surface-raised hover:bg-surface-overlay text-slate-400 hover:text-slate-200 border-white/5'
               }"
             >
-              <span>${cat.icon}</span>
+              <span>${renderIcon(cat.iconName, { size: 14 })}</span>
               <span>${cat.label}</span>
             </button>
           `).join('')}

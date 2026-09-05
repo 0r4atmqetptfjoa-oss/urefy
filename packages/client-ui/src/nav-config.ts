@@ -2,15 +2,20 @@
  * @file nav-config.ts
  * @package @aetheris/client-ui
  * @description Centralized navigation configuration for primary modes and advanced tools.
+ * Conforms to Master UX Specification: Feed, Explore, Messages, Vault, Profile, More.
+ * Strict exclusion of admin from all user navigation.
  */
+
+import { renderIcon, IconName } from './ui/icons.js';
 
 export interface NavItemConfig {
   id: string;
-  mode?: 'pulse' | 'explore' | 'vault' | 'relays' | 'profile';
+  mode?: 'pulse' | 'explore' | 'vault' | 'relays' | 'profile' | 'feed' | 'messages';
   action?: string;
   label: string;
   sublabel?: string;
-  icon: string;
+  iconName: IconName;
+  icon?: string; // Fallback string representation
   description: string;
   testId: string;
   badge?: string;
@@ -18,64 +23,167 @@ export interface NavItemConfig {
 
 export const PRIMARY_NAV_ITEMS: NavItemConfig[] = [
   {
-    id: 'pulse',
+    id: 'feed',
     mode: 'pulse',
-    label: 'Feed (Pulse)',
+    label: 'Feed',
     sublabel: 'Decentralized stream & news',
+    iconName: 'feed',
     icon: '⚡',
-    description: 'Decentralized pulse feed, sovereign publications, and real-time updates',
-    testId: 'nav-item-pulse',
+    description: 'Decentralized feed, sovereign publications, and real-time updates',
+    testId: 'nav-item-feed',
   },
   {
     id: 'explore',
     mode: 'explore',
     label: 'Explore',
-    sublabel: 'Trends & nodes',
+    sublabel: 'Trends & discovery',
+    iconName: 'explore',
     icon: '🔍',
     description: 'Discover active nodes, trending topics, and curated network content',
     testId: 'nav-item-explore',
   },
   {
+    id: 'messages',
+    mode: 'relays',
+    label: 'Messages',
+    sublabel: 'End-to-end encrypted',
+    iconName: 'messages',
+    icon: '💬',
+    description: 'Direct messages, discussion channels, and sovereign E2EE messaging',
+    testId: 'nav-item-messages',
+  },
+  {
     id: 'vault',
     mode: 'vault',
     label: 'Vault',
-    sublabel: 'Files & releases',
+    sublabel: 'Encrypted storage',
+    iconName: 'vault',
     icon: '📚',
     description: 'Decentralized encrypted storage, audited packages, and release files',
     testId: 'nav-item-vault',
   },
   {
-    id: 'relays',
-    mode: 'relays',
-    label: 'Relays',
-    sublabel: 'Channels & E2EE chat',
-    icon: '📡',
-    description: 'Federated servers, discussion channels, and sovereign E2EE messaging',
-    testId: 'nav-item-relays',
-  },
-  {
     id: 'profile',
     mode: 'profile',
     label: 'Profile',
-    sublabel: 'Your sovereign identity',
+    sublabel: 'Identity & settings',
+    iconName: 'profile',
     icon: '👤',
-    description: 'Cryptographic key management, Web-of-Trust reputation, and identity',
+    description: 'Cryptographic key management, Web-of-Trust reputation, and settings',
     testId: 'nav-item-profile',
+  },
+  {
+    id: 'more',
+    action: 'open_more',
+    label: 'More',
+    sublabel: 'Tools & settings',
+    iconName: 'more',
+    icon: '⋯',
+    description: 'Expanded sovereign tools, communities, governance, and diagnostics',
+    testId: 'nav-item-more',
+  },
+];
+
+export const MORE_MENU_ITEMS: NavItemConfig[] = [
+  {
+    id: 'bookmarks',
+    action: 'bookmarks',
+    label: 'Bookmarks',
+    iconName: 'bookmark',
+    icon: '🔖',
+    description: 'Saved articles, publications, and offline resources',
+    testId: 'rail-btn-bookmarks',
+  },
+  {
+    id: 'notifications',
+    action: 'notifications',
+    label: 'Notifications',
+    iconName: 'bell',
+    icon: '🔔',
+    description: 'Mentions, direct messages, and system security alerts',
+    testId: 'rail-btn-notifications',
+  },
+  {
+    id: 'communities',
+    action: 'communities',
+    label: 'Communities & Circles',
+    iconName: 'users',
+    icon: '👥',
+    description: 'Decentralized interest circles and sovereign groups',
+    testId: 'rail-btn-communities',
+  },
+  {
+    id: 'governance',
+    action: 'dao',
+    label: 'Governance & DAO',
+    iconName: 'layers',
+    icon: '🏛️',
+    description: 'Quadratic voting, community proposals, and transparency logs',
+    testId: 'nav-btn-dao',
+  },
+  {
+    id: 'security',
+    action: 'security',
+    label: 'Security & Recovery',
+    iconName: 'shield',
+    icon: '🛡️',
+    description: 'Passkeys, identity backup, active sessions, and social guardians',
+    testId: 'rail-btn-security',
+  },
+  {
+    id: 'backup',
+    action: 'backup',
+    label: 'Backup & Restore',
+    iconName: 'database',
+    icon: '💾',
+    description: 'Encrypted AES-256 backup archive and local recovery',
+    testId: 'btn-open-backup-export',
+  },
+  {
+    id: 'network',
+    action: 'observatory',
+    label: 'Network Observatory',
+    iconName: 'network',
+    icon: '🔭',
+    description: 'P2P network health, swarm peers, and telemetry',
+    testId: 'btn-open-network-observatory',
+  },
+  {
+    id: 'developer',
+    action: 'microsaas-docs',
+    label: 'Developer & APIs',
+    iconName: 'terminal',
+    icon: '⚡',
+    description: 'Protocol diagnostics, API documentation, and code runner',
+    testId: 'btn-open-microsaas-docs',
+    badge: 'API',
+  },
+  {
+    id: 'advanced',
+    action: 'advanced-tools',
+    label: 'Advanced Tools',
+    iconName: 'sliders',
+    icon: '⚙️',
+    description: 'Steganography, CVE monitor, trust graph, and binary scanner',
+    testId: 'rail-btn-advanced-tools',
+  },
+  {
+    id: 'help',
+    action: 'help',
+    label: 'Help & About',
+    iconName: 'help',
+    icon: '❓',
+    description: 'Zero-trust architecture guide, privacy terms, and sovereign FAQ',
+    testId: 'rail-btn-help',
   },
 ];
 
 export const ADVANCED_TOOLS_ITEMS: NavItemConfig[] = [
-  {
-    id: 'bookmarks',
-    label: 'Saved Bookmarks',
-    icon: '🔖',
-    description: 'Articles, publications, and offline-saved resources',
-    testId: 'rail-btn-bookmarks',
-    action: 'bookmarks',
-  },
+  ...MORE_MENU_ITEMS,
   {
     id: 'theme',
     label: 'Display & Themes',
+    iconName: 'slidersHorizontal',
     icon: '🎨',
     description: 'Visual theme customization, color palettes, and contrast settings',
     testId: 'rail-btn-theme',
@@ -84,6 +192,7 @@ export const ADVANCED_TOOLS_ITEMS: NavItemConfig[] = [
   {
     id: 'dao',
     label: 'DAO Governance',
+    iconName: 'layers',
     icon: '🏛️',
     description: 'Decentralized governance, community proposals, and quadratic voting',
     testId: 'nav-btn-dao',
@@ -92,6 +201,7 @@ export const ADVANCED_TOOLS_ITEMS: NavItemConfig[] = [
   {
     id: 'rss',
     label: 'RSS Importer',
+    iconName: 'radio',
     icon: '📡',
     description: 'External RSS/Atom feed import, parsing, and aggregation',
     testId: 'btn-open-rss-panel',
@@ -100,6 +210,7 @@ export const ADVANCED_TOOLS_ITEMS: NavItemConfig[] = [
   {
     id: 'cve',
     label: 'CVE Monitor',
+    iconName: 'shield',
     icon: '🛡️',
     description: 'Real-time security vulnerability monitoring and CVE threat alerts',
     testId: 'btn-open-cve-monitor',
@@ -108,6 +219,7 @@ export const ADVANCED_TOOLS_ITEMS: NavItemConfig[] = [
   {
     id: 'observatory',
     label: 'Network Observatory',
+    iconName: 'network',
     icon: '🔭',
     description: 'P2P network monitor, node telemetry, and swarm topology',
     testId: 'btn-open-network-observatory',
@@ -116,6 +228,7 @@ export const ADVANCED_TOOLS_ITEMS: NavItemConfig[] = [
   {
     id: 'wot',
     label: 'Trust Graph',
+    iconName: 'activity',
     icon: '🕸️',
     description: 'Interactive Web-of-Trust graph and cryptographic reputation scoring',
     testId: 'btn-open-wot-graph',
@@ -124,22 +237,16 @@ export const ADVANCED_TOOLS_ITEMS: NavItemConfig[] = [
   {
     id: 'gossip',
     label: 'Gossip Visualizer',
+    iconName: 'radio',
     icon: '📡',
     description: 'Real-time visualizer for mesh gossip message propagation',
     testId: 'btn-open-gossip-viz',
     action: 'gossip',
   },
   {
-    id: 'backup',
-    label: 'Export & Backup',
-    icon: '💾',
-    description: 'Encrypted archive export, sovereign keys backup, and data restore',
-    testId: 'btn-open-backup-export',
-    action: 'backup',
-  },
-  {
     id: 'steganography',
     label: 'Pixel Canvas Steganography',
+    iconName: 'eye',
     icon: '🖼️',
     description: 'Steganographic encoding and payload hiding in canvas pixels',
     testId: 'drawer-btn-steganography',
@@ -148,6 +255,7 @@ export const ADVANCED_TOOLS_ITEMS: NavItemConfig[] = [
   {
     id: 'binary-hygiene',
     label: 'Binary Hygiene Portal',
+    iconName: 'shield',
     icon: '🛡️',
     description: 'Secure PE/ELF binary analysis, Shannon entropy & UPX packer detection',
     testId: 'btn-open-binary-hygiene',
@@ -157,25 +265,18 @@ export const ADVANCED_TOOLS_ITEMS: NavItemConfig[] = [
   {
     id: 'portable-trust',
     label: 'Portable ZK Trust Score',
+    iconName: 'sparkles',
     icon: '💎',
     description: 'BN254 zero-knowledge reputation certificates and embeddable badges',
     testId: 'btn-open-portable-trust',
     action: 'portable-trust',
     badge: 'ZK',
   },
-  {
-    id: 'microsaas-docs',
-    label: 'Micro-SaaS & Dev APIs',
-    icon: '⚡',
-    description: 'Interactive developer documentation, cURL endpoints, and embed widgets',
-    testId: 'btn-open-microsaas-docs',
-    action: 'microsaas-docs',
-    badge: 'B2B',
-  },
 ];
 
 export const ALL_NAV_ITEMS: NavItemConfig[] = [
   ...PRIMARY_NAV_ITEMS,
+  ...MORE_MENU_ITEMS,
   ...ADVANCED_TOOLS_ITEMS,
 ];
 
@@ -184,5 +285,12 @@ export function getNavItemById(id: string): NavItemConfig | undefined {
 }
 
 export function getPrimaryNavItemByMode(mode: string): NavItemConfig | undefined {
-  return PRIMARY_NAV_ITEMS.find(item => item.mode === mode);
+  return PRIMARY_NAV_ITEMS.find(item => item.mode === mode || item.id === mode);
+}
+
+export function renderNavIcon(item: NavItemConfig, options = { size: 20 }): string {
+  if (item.iconName) {
+    return renderIcon(item.iconName, options);
+  }
+  return item.icon || '';
 }

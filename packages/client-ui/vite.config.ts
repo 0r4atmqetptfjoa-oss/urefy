@@ -56,6 +56,9 @@ export default defineConfig({
           if (normalized.includes('/src/export-backup') || normalized.includes('/src/data-archive')) {
             return 'backup-archive';
           }
+          if (normalized.includes('/src/i18n/locales/')) {
+            return 'i18n-locales';
+          }
         },
       },
     },

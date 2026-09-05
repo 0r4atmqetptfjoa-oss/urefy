@@ -59,7 +59,9 @@ body {
   color: var(--text-primary);
   font-family: var(--font-family-sans);
   font-size: var(--font-size-base);
-  user-select: none;
+  /* Text is selectable by default so users can copy hashes, text, and keys */
+  user-select: text;
+  -webkit-user-select: text;
   /* Font rendering */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -69,6 +71,12 @@ body {
   scrollbar-gutter: stable;
   /* Isolate compositing context — prevents repaints from bleeding up */
   isolation: isolate;
+}
+
+/* Prevent accidental text selection only on interactive chrome and drag surfaces */
+button, .btn, nav, .tab, .drag-handle, .icon-btn, .no-select, [role="button"], [role="tab"] {
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 /* Critical layout containment — prevents reflows from cascading outside */
