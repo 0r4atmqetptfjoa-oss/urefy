@@ -9,7 +9,7 @@ import { wotGraphViz } from './network-wot-graph.js';
 import { toastManager } from './toast.js';
 import { fetchAndRenderR2Quota } from './admin.js';
 
-export type AdminTab = 'dashboard' | 'users' | 'channels' | 'waf' | 'config' | 'moderation' | 'gossip' | 'cve' | 'observatory' | 'wot' | 'dsa';
+export type AdminTab = 'dashboard' | 'users' | 'channels' | 'waf' | 'config' | 'moderation' | 'sql' | 'r2' | 'gossip' | 'cve' | 'observatory' | 'wot' | 'dsa';
 
 export interface AdminUser {
   fingerprint: string;
@@ -17,6 +17,8 @@ export interface AdminUser {
   status: 'online' | 'idle' | 'dnd' | 'offline';
   isZKVerified: boolean;
   isQuarantined: boolean;
+  isShadowbanned?: boolean;
+  notes?: string;
   joinedAt: number;
   messagesCount: number;
   postsCount: number;
@@ -99,6 +101,12 @@ export class AdminPanelManager {
   public lastSyncTimestamp: number = 0;
   private autoSyncInterval: any = null;
 
+  public emergencyFreeze: boolean = false;
+  public r2Objects: any[] = [];
+  public lastSqlResult: any = null;
+  public isExecutingSql: boolean = false;
+  public isListingR2: boolean = false;
+
   public open(): void {
     this.isOpen = true;
     this.syncWithServer().catch(() => {});
@@ -116,6 +124,9 @@ export class AdminPanelManager {
       setTimeout(() => {
         fetchAndRenderR2Quota().catch(() => {});
       }, 0);
+    }
+    if (tab === 'r2') {
+      this.listR2Objects().catch(() => {});
     }
   }
 
@@ -160,6 +171,9 @@ export class AdminPanelManager {
         if (data.bannedIPs && Array.isArray(data.bannedIPs)) this.bannedIPs = data.bannedIPs;
         if (data.config && typeof data.config === 'object') Object.assign(this.serverConfig, data.config);
         if (data.logs && Array.isArray(data.logs)) this.adminLogs = data.logs;
+        if (data.emergencyFreeze !== undefined) {
+          this.emergencyFreeze = Boolean(data.emergencyFreeze);
+        }
         this.lastSyncTimestamp = Date.now();
       }
       await this.fetchDsaReports();
@@ -253,6 +267,102 @@ export class AdminPanelManager {
     user.isQuarantined = !user.isQuarantined;
     this._log(user.isQuarantined ? 'USER_QUARANTINED' : 'USER_UNQUARANTINED', fingerprint);
     this._apiPost('toggle-quarantine', { fingerprint, quarantined: user.isQuarantined }).catch(() => {});
+  }
+
+  public async assignUserRole(fingerprint: string, role: 'GUARDIAN' | 'ARCHIVIST' | 'MODERATOR' | 'MEMBER', notes?: string): Promise<boolean> {
+    const user = this.users.find(u => u.fingerprint === fingerprint);
+    if (user) {
+      user.role = role;
+      if (notes) user.notes = notes;
+    } else {
+      this.users.unshift({
+        fingerprint,
+        role,
+        status: 'offline',
+        isZKVerified: true,
+        isQuarantined: false,
+        isShadowbanned: false,
+        notes,
+        joinedAt: Date.now(),
+        messagesCount: 0,
+        postsCount: 0,
+      });
+    }
+    this._log('ROLE_ASSIGNED_D1', `${fingerprint} -> ${role}`);
+    const res = await this._apiPost('assign-role', { fingerprint, role, notes });
+    return Boolean(res?.success);
+  }
+
+  public async toggleShadowban(fingerprint: string, shadowbanned?: boolean): Promise<boolean> {
+    const user = this.users.find(u => u.fingerprint === fingerprint);
+    const targetState = shadowbanned !== undefined ? shadowbanned : !(user?.isShadowbanned);
+    if (user) {
+      user.isShadowbanned = targetState;
+    } else {
+      this.users.unshift({
+        fingerprint,
+        role: 'MEMBER',
+        status: 'offline',
+        isZKVerified: false,
+        isQuarantined: false,
+        isShadowbanned: targetState,
+        joinedAt: Date.now(),
+        messagesCount: 0,
+        postsCount: 0,
+      });
+    }
+    this._log(targetState ? 'USER_SHADOWBANNED_D1' : 'USER_UNSHADOWBANNED_D1', fingerprint);
+    const res = await this._apiPost('toggle-shadowban', { fingerprint, shadowbanned: targetState });
+    return Boolean(res?.success);
+  }
+
+  public async executeSQL(sql: string, params: any[] = []): Promise<any> {
+    this.isExecutingSql = true;
+    try {
+      this._log('SQL_EXECUTED', sql.slice(0, 50));
+      const res = await this._apiPost('execute-sql', { sql, params });
+      this.lastSqlResult = res;
+      return res;
+    } catch (err: any) {
+      this.lastSqlResult = { success: false, error: err?.message || 'Failed to execute query' };
+      return this.lastSqlResult;
+    } finally {
+      this.isExecutingSql = false;
+    }
+  }
+
+  public async toggleEmergencyFreeze(freeze?: boolean): Promise<boolean> {
+    const targetState = freeze !== undefined ? freeze : !this.emergencyFreeze;
+    this.emergencyFreeze = targetState;
+    this._log('EMERGENCY_FREEZE_TOGGLED', targetState ? 'ENABLED' : 'DISABLED');
+    const res = await this._apiPost('toggle-emergency-freeze', { freeze: targetState });
+    return Boolean(res?.success);
+  }
+
+  public async listR2Objects(prefix: string = '', limit: number = 100): Promise<any[]> {
+    this.isListingR2 = true;
+    try {
+      const res = await this._apiPost('list-r2-objects', { prefix, limit });
+      if (res && res.objects && Array.isArray(res.objects)) {
+        this.r2Objects = res.objects;
+        return this.r2Objects;
+      }
+      return [];
+    } catch (_) {
+      return [];
+    } finally {
+      this.isListingR2 = false;
+    }
+  }
+
+  public async deleteR2Object(key: string): Promise<boolean> {
+    this._log('R2_OBJECT_DELETED', key);
+    const res = await this._apiPost('delete-r2-object', { key });
+    if (res?.success) {
+      this.r2Objects = this.r2Objects.filter(o => o.key !== key);
+      return true;
+    }
+    return false;
   }
 
   public unbanIP(ip: string): void {
@@ -523,6 +633,8 @@ export class AdminPanelManager {
               ${this._renderNavTab('dashboard', '📊', 'Dashboard')}
               ${this._renderNavTab('users', '👥', 'User Management')}
               ${this._renderNavTab('channels', '📢', 'Channels')}
+              ${this._renderNavTab('sql', '🖥️', 'D1 SQL Console')}
+              ${this._renderNavTab('r2', '🗄️', 'R2 Storage Explorer')}
               ${this._renderNavTab('waf', '🛡️', 'WAF & Security')}
               ${this._renderNavTab('cve', '🔍', 'CVE Vulnerabilities')}
               ${this._renderNavTab('gossip', '🌐', 'Gossip Swarm')}
@@ -612,7 +724,7 @@ export class AdminPanelManager {
   private _getTabIcon(): string {
     const icons: Record<AdminTab, string> = {
       dashboard: '📊', users: '👥', channels: '📢', waf: '🛡️', config: '🔧', moderation: '📝',
-      gossip: '🌐', cve: '🔍', observatory: '📡', wot: '🕸️', dsa: '🚩'
+      sql: '🖥️', r2: '🗄️', gossip: '🌐', cve: '🔍', observatory: '📡', wot: '🕸️', dsa: '🚩'
     };
     return icons[this.activeTab] || '⚙️';
   }
@@ -622,6 +734,8 @@ export class AdminPanelManager {
       dashboard: 'Dashboard Overview',
       users: 'User Management',
       channels: 'Channel Management',
+      sql: 'Direct Cloudflare D1 SQL Console',
+      r2: 'Cloudflare R2 Object Storage Explorer',
       waf: 'WAF & Cyber Security',
       config: 'Server Configuration',
       moderation: 'Content Moderation',
@@ -639,6 +753,8 @@ export class AdminPanelManager {
       case 'dashboard': return this._renderDashboard();
       case 'users': return this._renderUsers();
       case 'channels': return this._renderChannels();
+      case 'sql': return this._renderSQLConsole();
+      case 'r2': return this._renderR2Explorer();
       case 'waf': return this._renderWAF();
       case 'config': return this._renderConfig();
       case 'moderation': return this._renderModeration();
@@ -815,7 +931,47 @@ export class AdminPanelManager {
 
   private _renderUsers(): string {
     return `
-      <div class="space-y-4">
+      <div class="space-y-5">
+        <!-- DIRECT CLOUDFLARE D1 ROLE ASSIGNMENT & SHADOWBAN -->
+        <div class="bg-surface-raised border border-white/10 rounded-2xl p-5 space-y-3 shadow-lg">
+          <div class="flex items-center space-x-3">
+            <span class="text-2xl">🛡️</span>
+            <div>
+              <h3 class="text-sm font-bold text-white flex items-center space-x-2">
+                <span>Direct D1 User Role & Sovereignty Assignment</span>
+                <span class="px-2 py-0.5 rounded text-[10px] font-mono bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">D1 user_roles</span>
+              </h3>
+              <p class="text-xs text-slate-400">Assign authoritative cryptographic roles (MODERATOR, ARCHIVIST, GUARDIAN) persisted in Cloudflare D1 SQLite database.</p>
+            </div>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-3 pt-2">
+            <input
+              id="admin-role-fingerprint-input"
+              type="text"
+              placeholder="User Fingerprint or ID..."
+              class="bg-surface-base border border-white/15 rounded-xl px-3 py-2 text-xs font-mono text-slate-200 placeholder-slate-600 focus:outline-none focus:border-cyan-400 transition-all"
+            />
+            <select id="admin-role-select" class="bg-surface-base border border-white/15 rounded-xl px-3 py-2 text-xs font-mono text-slate-300 focus:outline-none">
+              <option value="MODERATOR">MODERATOR (Pins, Thread Locks, DSA Queue)</option>
+              <option value="ARCHIVIST">ARCHIVIST (Vault Releases, Backups)</option>
+              <option value="GUARDIAN">GUARDIAN (Full Governance & WoT)</option>
+              <option value="MEMBER">MEMBER (Standard Sovereign Citizen)</option>
+            </select>
+            <input
+              id="admin-role-notes-input"
+              type="text"
+              placeholder="Audit Notes (e.g. Lead Community Mod)..."
+              class="bg-surface-base border border-white/15 rounded-xl px-3 py-2 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-cyan-400 transition-all"
+            />
+            <button
+              id="btn-admin-assign-role-d1"
+              class="py-2 px-4 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black font-bold font-mono text-xs transition-all cursor-pointer shadow-md"
+            >
+              Assign Role in D1
+            </button>
+          </div>
+        </div>
+
         <!-- SEARCH & FILTER -->
         <div class="flex items-center space-x-3">
           <input
@@ -833,9 +989,9 @@ export class AdminPanelManager {
         </div>
 
         <!-- USER TABLE -->
-        <div class="bg-surface-raised border border-white/10 rounded-2xl overflow-hidden">
-          <div class="grid grid-cols-[1fr_120px_80px_80px_100px_120px] text-[10px] font-bold text-slate-500 uppercase tracking-wider px-4 py-3 border-b border-white/10">
-            <span>Fingerprint</span>
+        <div class="bg-surface-raised border border-white/10 rounded-2xl overflow-hidden shadow-xl">
+          <div class="grid grid-cols-[1fr_120px_80px_80px_100px_160px] text-[10px] font-bold text-slate-500 uppercase tracking-wider px-4 py-3 border-b border-white/10">
+            <span>Fingerprint & Notes</span>
             <span>Role</span>
             <span>Status</span>
             <span>Messages</span>
@@ -844,8 +1000,8 @@ export class AdminPanelManager {
           </div>
           <div class="divide-y divide-white/5">
             ${this.users.map(user => `
-              <div class="grid grid-cols-[1fr_120px_80px_80px_100px_120px] items-center px-4 py-3 text-xs ${user.isQuarantined ? 'bg-crimson/5' : ''}">
-                <div class="font-mono text-slate-300 truncate ${user.isQuarantined ? 'line-through text-slate-600' : ''}">${user.fingerprint}</div>
+              <div class="grid grid-cols-[1fr_120px_80px_80px_100px_160px] items-center px-4 py-3 text-xs ${user.isQuarantined ? 'bg-crimson/5' : ''}">
+                <div class="font-mono text-slate-300 truncate ${user.isQuarantined ? 'line-through text-slate-600' : ''}">${user.fingerprint}${user.isShadowbanned ? ' <span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">SHADOWBANNED</span>' : ''}${user.notes ? ` <span class="text-[10px] text-slate-500 italic">(${user.notes})</span>` : ''}</div>
                 <div>
                   <span class="px-2 py-0.5 rounded-md font-bold text-[10px] ${
                     user.role === 'GUARDIAN' ? 'bg-amber/15 text-amber border border-amber/30' :
@@ -863,9 +1019,12 @@ export class AdminPanelManager {
                 </div>
                 <div class="text-slate-400">${user.messagesCount}</div>
                 <div class="${user.isZKVerified ? 'text-signal' : 'text-crimson'}">${user.isZKVerified ? '✓ Yes' : '✗ No'}</div>
-                <div class="flex items-center space-x-1">
+                <div class="flex items-center space-x-1.5">
                   <button data-admin-promote="${user.fingerprint}" class="px-1.5 py-0.5 rounded text-[10px] bg-cyphr/10 text-cyphr hover:bg-cyphr/20 cursor-pointer transition-all" title="Promote">▲</button>
                   <button data-admin-demote="${user.fingerprint}" class="px-1.5 py-0.5 rounded text-[10px] bg-slate-700 text-slate-400 hover:bg-slate-600 cursor-pointer transition-all" title="Demote">▼</button>
+                  <button data-admin-shadowban="${user.fingerprint}" class="px-1.5 py-0.5 rounded text-[10px] ${user.isShadowbanned ? 'bg-purple-500/30 text-purple-300' : 'bg-surface-base text-slate-400 hover:text-purple-300'} hover:bg-purple-500/20 cursor-pointer transition-all border border-white/10" title="${user.isShadowbanned ? 'Lift Shadowban' : 'Shadowban (Ghost mute)'}">
+                    👻
+                  </button>
                   <button data-admin-quarantine="${user.fingerprint}" class="px-1.5 py-0.5 rounded text-[10px] ${user.isQuarantined ? 'bg-signal/10 text-signal' : 'bg-crimson/10 text-crimson'} hover:opacity-80 cursor-pointer transition-all" title="${user.isQuarantined ? 'Unquarantine' : 'Quarantine'}">
                     ${user.isQuarantined ? '🔓' : '🔒'}
                   </button>
@@ -1135,6 +1294,30 @@ export class AdminPanelManager {
   private _renderConfig(): string {
     return `
       <div class="space-y-5">
+        <!-- EMERGENCY PANIC SWITCH (GLOBAL WRITE FREEZE) -->
+        <div class="bg-gradient-to-r ${this.emergencyFreeze ? 'from-rose-950/80 via-surface-raised to-red-950/80 border-rose-500/50' : 'from-surface-raised to-surface-base border-white/10'} border rounded-2xl p-5 space-y-3 transition-all shadow-xl">
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div class="flex items-center space-x-3">
+              <span class="text-2xl">${this.emergencyFreeze ? '🚨' : '🛡️'}</span>
+              <div>
+                <h3 class="text-sm font-bold text-white flex items-center space-x-2">
+                  <span>Emergency Panic Switch (Global Write Freeze)</span>
+                  <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold ${this.emergencyFreeze ? 'bg-rose-500/30 text-rose-300 border border-rose-500/50 animate-pulse' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'}">
+                    ${this.emergencyFreeze ? 'SYSTEM FROZEN (READ-ONLY)' : 'NORMAL OPERATIONAL'}
+                  </span>
+                </h3>
+                <p class="text-xs text-slate-400">Instantly blocks all inbound posts, comments, and messages across Cloudflare Edge for non-admin nodes.</p>
+              </div>
+            </div>
+            <button
+              id="btn-admin-toggle-emergency-freeze"
+              class="px-4 py-2 rounded-xl font-mono text-xs font-bold transition-all cursor-pointer ${this.emergencyFreeze ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-900/50' : 'bg-surface-overlay hover:bg-white/10 text-slate-300 border border-white/20'}"
+            >
+              ${this.emergencyFreeze ? '🔓 LIFT SYSTEM FREEZE' : '🛑 ENGAGE PANIC FREEZE'}
+            </button>
+          </div>
+        </div>
+
         <!-- BROADCAST MESSAGE -->
         <div class="bg-surface-raised border border-white/10 rounded-2xl p-5 space-y-3">
           <h3 class="text-sm font-bold text-white">📣 Broadcast System Message</h3>
@@ -1203,6 +1386,195 @@ export class AdminPanelManager {
           <button id="btn-admin-logout" class="w-full py-2.5 rounded-xl bg-crimson/10 text-crimson border border-crimson/30 hover:bg-crimson/20 text-sm font-bold transition-all cursor-pointer">
             🔒 Lock Admin Session
           </button>
+        </div>
+      </div>
+    `;
+  }
+
+  private _renderSQLConsole(): string {
+    const result = this.lastSqlResult;
+    return `
+      <div class="space-y-5">
+        <!-- HEADER & EXPLANATION -->
+        <div class="bg-surface-raised border border-white/10 rounded-2xl p-5 space-y-3 shadow-lg">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+              <span class="text-2xl">🖥️</span>
+              <div>
+                <h3 class="text-sm font-bold text-white flex items-center space-x-2">
+                  <span>Direct Cloudflare D1 Raw SQL Console</span>
+                  <span class="px-2 py-0.5 rounded text-[10px] font-mono bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">SQLite Engine</span>
+                </h3>
+                <p class="text-xs text-slate-400">Execute real-time SQL statements directly against production Cloudflare D1 distributed database.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- QUICK TEMPLATES -->
+          <div class="pt-2">
+            <div class="text-xs text-slate-400 mb-2 font-mono">⚡ Quick Query Templates:</div>
+            <div class="flex flex-wrap gap-2">
+              <button class="sql-template-btn px-2.5 py-1 rounded-lg bg-surface-base hover:bg-surface-overlay text-cyan-300 text-xs font-mono border border-white/10 transition-all cursor-pointer" data-sql="SELECT * FROM posts ORDER BY created_at DESC LIMIT 15;">
+                📋 Recent Posts (15)
+              </button>
+              <button class="sql-template-btn px-2.5 py-1 rounded-lg bg-surface-base hover:bg-surface-overlay text-cyan-300 text-xs font-mono border border-white/10 transition-all cursor-pointer" data-sql="SELECT * FROM user_roles ORDER BY updated_at DESC;">
+                👥 User Roles
+              </button>
+              <button class="sql-template-btn px-2.5 py-1 rounded-lg bg-surface-base hover:bg-surface-overlay text-cyan-300 text-xs font-mono border border-white/10 transition-all cursor-pointer" data-sql="SELECT * FROM channels;">
+                📢 Channels
+              </button>
+              <button class="sql-template-btn px-2.5 py-1 rounded-lg bg-surface-base hover:bg-surface-overlay text-cyan-300 text-xs font-mono border border-white/10 transition-all cursor-pointer" data-sql="SELECT * FROM system_config;">
+                ⚙️ System Config
+              </button>
+              <button class="sql-template-btn px-2.5 py-1 rounded-lg bg-surface-base hover:bg-surface-overlay text-cyan-300 text-xs font-mono border border-white/10 transition-all cursor-pointer" data-sql="SELECT name, type FROM sqlite_master WHERE type IN ('table', 'view') ORDER BY name;">
+                🗂️ List Tables
+              </button>
+            </div>
+          </div>
+
+          <!-- SQL QUERY EDITOR -->
+          <div class="space-y-2 pt-2">
+            <textarea
+              id="admin-sql-input"
+              rows="4"
+              class="w-full bg-surface-base border border-white/15 rounded-xl p-3 text-sm font-mono text-cyan-200 placeholder-slate-600 focus:outline-none focus:border-cyan-400 transition-all"
+              placeholder="SELECT * FROM posts WHERE status != 'shadowbanned' LIMIT 10;"
+            >SELECT * FROM posts ORDER BY created_at DESC LIMIT 10;</textarea>
+            <div class="flex items-center justify-between">
+              <div class="text-[11px] text-slate-500 font-mono">
+                Supports SELECT, INSERT, UPDATE, DELETE, CREATE TABLE, ALTER TABLE.
+              </div>
+              <button
+                id="btn-admin-run-sql"
+                class="px-5 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black font-bold font-mono text-xs transition-all flex items-center space-x-2 cursor-pointer shadow-lg shadow-cyan-900/30"
+              >
+                <span>⚡ Execute SQL</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- SQL RESULTS VIEWER -->
+        <div class="bg-surface-raised border border-white/10 rounded-2xl overflow-hidden shadow-xl">
+          <div class="p-4 border-b border-white/10 flex items-center justify-between bg-surface-raised/80">
+            <div class="flex items-center space-x-2">
+              <h3 class="text-sm font-bold text-white font-mono">Query Results</h3>
+              ${result ? `
+                <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold ${result.success ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'}">
+                  ${result.success ? 'SUCCESS' : 'ERROR'}
+                </span>
+                ${result.durationMs !== undefined ? `<span class="text-[10px] text-slate-500 font-mono">(${result.durationMs}ms)</span>` : ''}
+              ` : ''}
+            </div>
+            ${result && result.results ? `<span class="text-xs text-slate-400 font-mono">${result.results.length} rows</span>` : ''}
+          </div>
+
+          ${!result ? `
+            <div class="p-12 text-center text-slate-600 font-mono text-xs">
+              Execute a query above to see live Cloudflare D1 results.
+            </div>
+          ` : !result.success ? `
+            <div class="p-6 bg-rose-950/20 text-rose-300 font-mono text-xs border-l-4 border-rose-500">
+              <div class="font-bold mb-1">SQL Execution Error:</div>
+              <div>${result.error || 'Unknown database error occurred.'}</div>
+            </div>
+          ` : result.results && result.results.length > 0 ? `
+            <div class="overflow-x-auto max-h-96">
+              <table class="w-full text-left text-xs font-mono">
+                <thead class="bg-black/40 text-slate-400 uppercase text-[10px] sticky top-0">
+                  <tr>
+                    ${Object.keys(result.results[0]).map(col => `<th class="px-4 py-2.5 border-b border-white/10">${col}</th>`).join('')}
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-white/5 text-slate-300">
+                  ${result.results.map((row: any) => `
+                    <tr class="hover:bg-white/[0.02]">
+                      ${Object.values(row).map(val => `<td class="px-4 py-2 truncate max-w-xs" title="${String(val)}">${val === null ? '<span class=\"text-slate-600\">NULL</span>' : String(val)}</td>`).join('')}
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          ` : `
+            <div class="p-6 text-emerald-400 font-mono text-xs">
+              ✓ Query executed successfully. ${result.meta?.changes !== undefined ? `${result.meta.changes} rows affected.` : 'No rows returned.'}
+            </div>
+          `}
+        </div>
+      </div>
+    `;
+  }
+
+  private _renderR2Explorer(): string {
+    return `
+      <div class="space-y-5">
+        <!-- HEADER -->
+        <div class="bg-surface-raised border border-white/10 rounded-2xl p-5 space-y-3 shadow-lg">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+              <span class="text-2xl">🗄️</span>
+              <div>
+                <h3 class="text-sm font-bold text-white flex items-center space-x-2">
+                  <span>Cloudflare R2 Object Storage Explorer</span>
+                  <span class="px-2 py-0.5 rounded text-[10px] font-mono bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">S3-Compatible</span>
+                </h3>
+                <p class="text-xs text-slate-400">Inspect, browse, and prune objects directly from your connected Cloudflare R2 bucket.</p>
+              </div>
+            </div>
+            <button
+              id="btn-admin-refresh-r2"
+              class="px-3.5 py-1.5 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 text-xs font-mono transition-all flex items-center space-x-1.5 cursor-pointer"
+            >
+              <span>🔄</span>
+              <span>Refresh Objects</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- OBJECTS TABLE -->
+        <div class="bg-surface-raised border border-white/10 rounded-2xl overflow-hidden shadow-xl">
+          <div class="p-4 border-b border-white/10 flex items-center justify-between bg-surface-raised/80">
+            <h3 class="text-sm font-bold text-white font-mono">Bucket Objects</h3>
+            <span class="text-xs text-slate-400 font-mono">${this.r2Objects.length} objects found</span>
+          </div>
+
+          ${this.r2Objects.length === 0 ? `
+            <div class="p-12 text-center text-slate-600 font-mono text-xs">
+              <span class="text-2xl block mb-2">📂</span>
+              No R2 objects found or bucket not configured. Click "Refresh Objects" to query.
+            </div>
+          ` : `
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs font-mono">
+                <thead class="bg-black/40 text-slate-400 uppercase text-[10px]">
+                  <tr>
+                    <th class="px-4 py-2.5">Key / Filename</th>
+                    <th class="px-4 py-2.5">Size</th>
+                    <th class="px-4 py-2.5">Last Modified</th>
+                    <th class="px-4 py-2.5 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-white/5 text-slate-300">
+                  ${this.r2Objects.map(obj => `
+                    <tr class="hover:bg-white/[0.02]">
+                      <td class="px-4 py-3 font-mono font-bold text-cyan-300 truncate max-w-sm" title="${obj.key}">${obj.key}</td>
+                      <td class="px-4 py-3 text-slate-400">${(obj.size / 1024).toFixed(1)} KB</td>
+                      <td class="px-4 py-3 text-slate-500">${obj.uploaded ? new Date(obj.uploaded).toLocaleString() : 'N/A'}</td>
+                      <td class="px-4 py-3 text-right">
+                        <button
+                          data-admin-delete-r2="${obj.key}"
+                          class="px-2.5 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 text-xs font-mono transition-all cursor-pointer"
+                          title="Delete object from R2"
+                        >
+                          🗑️ Delete
+                        </button>
+                      </td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          `}
         </div>
       </div>
     `;
@@ -1947,6 +2319,111 @@ export class AdminPanelManager {
           await this.updateDsaReportStatus(reportId, 'dismissed', 'Report reviewed and dismissed as unfounded');
           if (typeof window !== 'undefined' && (window as any).toastManager) {
             (window as any).toastManager.info(`Report #${reportId} was dismissed.`, '⚖️');
+          }
+          onStateChange();
+        }
+      });
+    });
+
+    // Direct D1 Role Assignment
+    document.getElementById('btn-admin-assign-role-d1')?.addEventListener('click', async () => {
+      const fpInput = document.getElementById('admin-role-fingerprint-input') as HTMLInputElement;
+      const roleSelect = document.getElementById('admin-role-select') as HTMLSelectElement;
+      const notesInput = document.getElementById('admin-role-notes-input') as HTMLInputElement;
+      const fingerprint = fpInput?.value.trim();
+      const role = (roleSelect?.value || 'MODERATOR') as 'GUARDIAN' | 'ARCHIVIST' | 'MODERATOR' | 'MEMBER';
+      const notes = notesInput?.value.trim();
+      if (!fingerprint) return;
+
+      const ok = await this.assignUserRole(fingerprint, role, notes);
+      if (ok) {
+        if (typeof window !== 'undefined' && (window as any).toastManager) {
+          (window as any).toastManager.success(`Role ${role} assigned in D1 for ${fingerprint.slice(0, 12)}...`, '🛡️');
+        }
+        await this.syncWithServer();
+        onStateChange();
+      }
+    });
+
+    // Shadowban Toggle
+    document.querySelectorAll('[data-admin-shadowban]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const fp = btn.getAttribute('data-admin-shadowban');
+        if (!fp) return;
+        const user = this.users.find(u => u.fingerprint === fp);
+        const newState = !user?.isShadowbanned;
+        const ok = await this.toggleShadowban(fp, newState);
+        if (ok) {
+          if (typeof window !== 'undefined' && (window as any).toastManager) {
+            (window as any).toastManager.info(newState ? `User ${fp.slice(0, 10)}... shadowbanned` : `Shadowban lifted for ${fp.slice(0, 10)}...`, '👻');
+          }
+          await this.syncWithServer();
+          onStateChange();
+        }
+      });
+    });
+
+    // SQL Console Execute
+    document.getElementById('btn-admin-run-sql')?.addEventListener('click', async () => {
+      const input = document.getElementById('admin-sql-input') as HTMLTextAreaElement;
+      const sql = input?.value.trim();
+      if (!sql) return;
+      const btn = document.getElementById('btn-admin-run-sql');
+      if (btn) btn.textContent = '⏳ Executing...';
+      await this.executeSQL(sql);
+      onStateChange();
+    });
+
+    // SQL Template Click
+    document.querySelectorAll('.sql-template-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const sql = btn.getAttribute('data-sql');
+        const input = document.getElementById('admin-sql-input') as HTMLTextAreaElement;
+        if (input && sql) {
+          input.value = sql;
+        }
+      });
+    });
+
+    // Emergency Panic Switch (Write Freeze)
+    document.getElementById('btn-admin-toggle-emergency-freeze')?.addEventListener('click', async () => {
+      const confirmed = await sovereignDialog.confirm(
+        this.emergencyFreeze
+          ? 'Lift Emergency Freeze? This will resume write operations for all users.'
+          : 'ENGAGE EMERGENCY PANIC FREEZE? All non-admin posts, comments, and messages will be rejected immediately.',
+        { title: 'Emergency Panic Switch', destructive: !this.emergencyFreeze }
+      );
+      if (confirmed) {
+        await this.toggleEmergencyFreeze();
+        if (typeof window !== 'undefined' && (window as any).toastManager) {
+          (window as any).toastManager.warning(
+            this.emergencyFreeze ? 'System Write Freeze ENGAGED across Cloudflare Edge' : 'System Write Freeze LIFTED',
+            '🚨'
+          );
+        }
+        await this.syncWithServer();
+        onStateChange();
+      }
+    });
+
+    // R2 Storage Refresh
+    document.getElementById('btn-admin-refresh-r2')?.addEventListener('click', async () => {
+      const btn = document.getElementById('btn-admin-refresh-r2');
+      if (btn) btn.textContent = '⏳ Refreshing...';
+      await this.listR2Objects();
+      onStateChange();
+    });
+
+    // R2 Object Delete
+    document.querySelectorAll('[data-admin-delete-r2]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const key = btn.getAttribute('data-admin-delete-r2');
+        if (!key) return;
+        const confirmed = await sovereignDialog.confirm(`Permanently delete R2 object "${key}"?`, { title: 'Delete R2 Object', destructive: true });
+        if (confirmed) {
+          await this.deleteR2Object(key);
+          if (typeof window !== 'undefined' && (window as any).toastManager) {
+            (window as any).toastManager.success(`Deleted ${key} from R2`, '🗑️');
           }
           onStateChange();
         }

@@ -151,6 +151,26 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
 
     // Authentication: Require Admin OR Cryptographic Identity Signature / SovereignSignedEnvelope
     const adminCheck = await requireAdmin(context);
+
+    // Emergency freeze check
+    if (!adminCheck.authorized && db) {
+      try {
+        const freezeRow: any = await db
+          .prepare('SELECT value FROM system_config WHERE key = ?')
+          .bind('emergencyFreeze')
+          .first();
+        if (freezeRow && freezeRow.value === 'true') {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: 'Emergency Freeze Active: All network messaging is temporarily suspended by sovereign administration.',
+            }),
+            { status: 503, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
+      } catch (_) {}
+    }
+
     let authorFingerprint = rawBody.authorFingerprint || 'anon-peer';
 
     if (!adminCheck.authorized) {
@@ -170,6 +190,25 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
       }
     } else if (rawBody.payload) {
       body = rawBody.payload;
+    }
+
+    // Quarantine check from user_roles in D1
+    if (!adminCheck.authorized && db) {
+      try {
+        const roleRow: any = await db
+          .prepare('SELECT is_quarantined FROM user_roles WHERE fingerprint = ?')
+          .bind(authorFingerprint)
+          .first();
+        if (roleRow && roleRow.is_quarantined === 1) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: 'Access Denied: Your identity has been quarantined by network moderation.',
+            }),
+            { status: 403, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
+      } catch (_) {}
     }
 
     const randSuffix = typeof crypto !== 'undefined' && crypto.randomUUID

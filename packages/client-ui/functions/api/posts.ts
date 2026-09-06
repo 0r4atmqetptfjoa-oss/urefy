@@ -119,7 +119,7 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
     // 2. Query Cloudflare D1 Database if binding available
     if (db) {
       try {
-        let query = "SELECT * FROM posts WHERE (status = 'published' OR status IS NULL)";
+        let query = "SELECT * FROM posts WHERE (status IN ('published', 'pinned', 'locked') OR status IS NULL) AND (status != 'shadowbanned' OR status IS NULL)";
         const params: any[] = [];
 
         if (channelId && channelId !== 'all') {
@@ -522,6 +522,26 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
 
     // ─── ACTION: CREATE / UPDATE POST ──────────────────────────────────────────
     const adminCheck = await requireAdmin(context);
+
+    // Check emergency freeze
+    if (!adminCheck.authorized && db) {
+      try {
+        const freezeRow: any = await db
+          .prepare('SELECT value FROM system_config WHERE key = ?')
+          .bind('emergencyFreeze')
+          .first();
+        if (freezeRow && freezeRow.value === 'true') {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: 'Emergency Freeze Active: All network posts are temporarily suspended by sovereign administration.',
+            }),
+            { status: 503, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
+      } catch (_) {}
+    }
+
     let authorFingerprint = body.authorFingerprint || 'anon-peer';
     if (!adminCheck.authorized) {
       const auth = await requireSignedEnvelope(context, rawBody, 'post:create');
@@ -540,6 +560,32 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
       }
     }
 
+    // Resolve authoritative role, quarantine, and shadowban from D1 user_roles
+    let authorRole = body.authorRole || 'MEMBER';
+    let postStatus = body.status || 'published';
+
+    if (db) {
+      try {
+        const roleRow: any = await db
+          .prepare('SELECT role, is_shadowbanned, is_quarantined FROM user_roles WHERE fingerprint = ?')
+          .bind(authorFingerprint)
+          .first();
+        if (roleRow) {
+          if (roleRow.role) authorRole = roleRow.role;
+          if (roleRow.is_shadowbanned === 1) postStatus = 'shadowbanned';
+          if (roleRow.is_quarantined === 1 && !adminCheck.authorized) {
+            return new Response(
+              JSON.stringify({
+                success: false,
+                error: 'Access Denied: Your identity has been quarantined by network moderation.',
+              }),
+              { status: 403, headers: { 'Content-Type': 'application/json' } }
+            );
+          }
+        }
+      } catch (_) {}
+    }
+
     const randSuffix = typeof crypto !== 'undefined' && crypto.randomUUID
       ? crypto.randomUUID().replace(/-/g, '').substring(0, 8)
       : Date.now().toString(36);
@@ -547,11 +593,11 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
       id: body.id || `post-${Date.now()}-${randSuffix}`,
       channelId: body.channelId || 'pulse-global',
       authorFingerprint,
-      authorRole: body.authorRole || 'MEMBER',
+      authorRole,
       title: body.title || 'Sovereign Pulse',
       content: body.content || '',
       flair: body.flair || (body.title ? 'TECH DISCUSSION' : 'MICRO-PULSE'),
-      status: body.status || 'published',
+      status: postStatus,
       meritVotes: typeof body.meritVotes === 'number' ? body.meritVotes : (typeof body.merit_votes === 'number' ? body.merit_votes : 1),
       userVoted: body.userVoted || 0,
       replyCount: body.replyCount || body.reply_count || 0,

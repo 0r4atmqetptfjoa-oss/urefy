@@ -11,6 +11,7 @@ import {
   Env,
   getD1Database,
   getKVStore,
+  getR2Bucket,
   globalChannelsStore,
   globalPostsStore,
   globalMessagesStore,
@@ -25,6 +26,8 @@ export interface AdminUser {
   status: 'online' | 'idle' | 'dnd' | 'offline';
   isZKVerified: boolean;
   isQuarantined: boolean;
+  isShadowbanned?: boolean;
+  notes?: string;
   joinedAt: number;
   messagesCount: number;
   postsCount: number;
@@ -39,6 +42,7 @@ export interface AdminBannedIP {
 
 export interface AdminServerConfig {
   maintenanceMode: boolean;
+  emergencyFreeze?: boolean;
   maxConnectionsPerIP: number;
   powDifficulty: number;
   rateLimitPerMinute: number;
@@ -492,36 +496,115 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
 
     let livePosts: any[] = globalPostsStore;
     let liveMessagesCount: number = globalMessagesStore.length;
-    if (db && (tab === 'all' || tab === 'moderation' || tab === 'posts')) {
+    let liveUserRoles: any[] = [];
+    let isFrozen = false;
+
+    if (db) {
       try {
-        const pRes = await db.prepare('SELECT * FROM posts ORDER BY created_at DESC LIMIT 100').all<any>();
-        if (pRes && pRes.results && pRes.results.length > 0) {
-          livePosts = pRes.results;
+        await db
+          .prepare(
+            `CREATE TABLE IF NOT EXISTS user_roles (
+              fingerprint TEXT PRIMARY KEY,
+              role TEXT NOT NULL,
+              is_quarantined INTEGER DEFAULT 0,
+              is_shadowbanned INTEGER DEFAULT 0,
+              notes TEXT,
+              updated_at INTEGER
+            )`
+          )
+          .run();
+      } catch (_) {}
+
+      try {
+        await db
+          .prepare(
+            'CREATE TABLE IF NOT EXISTS system_config (key TEXT PRIMARY KEY, value TEXT, updated_at INTEGER)'
+          )
+          .run();
+        const freezeRow: any = await db
+          .prepare('SELECT value FROM system_config WHERE key = ?')
+          .bind('emergencyFreeze')
+          .first();
+        if (freezeRow && freezeRow.value === 'true') {
+          isFrozen = true;
+          globalServerConfig.emergencyFreeze = true;
+        } else {
+          globalServerConfig.emergencyFreeze = false;
         }
       } catch (_) {}
+
       try {
-        const mCountRes: any = await db.prepare('SELECT COUNT(*) as cnt FROM messages').first();
-        if (mCountRes && typeof mCountRes.cnt === 'number') {
-          liveMessagesCount = mCountRes.cnt;
+        const uRoles = await db
+          .prepare('SELECT * FROM user_roles ORDER BY updated_at DESC')
+          .all<any>();
+        if (uRoles && uRoles.results) {
+          liveUserRoles = uRoles.results;
         }
       } catch (_) {}
+
+      if (tab === 'all' || tab === 'moderation' || tab === 'posts') {
+        try {
+          const pRes = await db
+            .prepare('SELECT * FROM posts ORDER BY created_at DESC LIMIT 100')
+            .all<any>();
+          if (pRes && pRes.results && pRes.results.length > 0) {
+            livePosts = pRes.results;
+          }
+        } catch (_) {}
+        try {
+          const mCountRes: any = await db
+            .prepare('SELECT COUNT(*) as cnt FROM messages')
+            .first();
+          if (mCountRes && typeof mCountRes.cnt === 'number') {
+            liveMessagesCount = mCountRes.cnt;
+          }
+        } catch (_) {}
+      }
+    }
+
+    // Merge D1 persistent user_roles into active users store
+    const mergedUsers: AdminUser[] = [...globalAdminUsersStore];
+    for (const r of liveUserRoles) {
+      const existing = mergedUsers.find((u) => u.fingerprint === r.fingerprint);
+      if (existing) {
+        existing.role = r.role;
+        existing.isQuarantined = Boolean(r.is_quarantined);
+        existing.isShadowbanned = Boolean(r.is_shadowbanned);
+        existing.notes = r.notes;
+      } else {
+        mergedUsers.unshift({
+          fingerprint: r.fingerprint,
+          role: r.role,
+          status: 'offline',
+          isZKVerified: true,
+          isQuarantined: Boolean(r.is_quarantined),
+          isShadowbanned: Boolean(r.is_shadowbanned),
+          notes: r.notes,
+          joinedAt: r.updated_at || Date.now(),
+          messagesCount: 0,
+          postsCount: 0,
+        });
+      }
     }
 
     // Build comprehensive administrative dashboard payload
     const payload = {
       success: true,
       timestamp: Date.now(),
+      emergencyFreeze: isFrozen,
       stats: {
-        totalUsers: globalAdminUsersStore.length,
-        onlineUsers: globalAdminUsersStore.filter((u) => u.status === 'online').length,
-        quarantinedUsers: globalAdminUsersStore.filter((u) => u.isQuarantined).length,
+        totalUsers: mergedUsers.length,
+        onlineUsers: mergedUsers.filter((u) => u.status === 'online').length,
+        quarantinedUsers: mergedUsers.filter((u) => u.isQuarantined).length,
+        shadowbannedUsers: mergedUsers.filter((u) => u.isShadowbanned).length,
         totalChannels: globalChannelsStore.length,
         totalPosts: livePosts.length,
         totalMessages: liveMessagesCount,
         totalNodes: globalNodesTelemetryStore.length,
         bannedIPsCount: globalBannedIPsStore.length,
       },
-      users: tab === 'all' || tab === 'users' ? globalAdminUsersStore : undefined,
+      users: tab === 'all' || tab === 'users' ? mergedUsers : undefined,
+      userRoles: tab === 'all' || tab === 'users' ? liveUserRoles : undefined,
       channels: tab === 'all' || tab === 'channels' ? globalChannelsStore : undefined,
       posts: tab === 'all' || tab === 'moderation' || tab === 'posts' ? livePosts : undefined,
       bannedIPs: tab === 'all' || tab === 'waf' ? globalBannedIPsStore : undefined,
@@ -704,38 +787,90 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
 
     const adminFp = req.headers.get('X-Admin-Fingerprint') || 'sovereign-root-guardian';
 
-    // ── 2. ACTION: PROMOTE USER ───────────────────────────────────────────────
-    if (body.action === 'promote-user') {
-      const { fingerprint, newRole } = body;
+    // ── 2. ACTION: ASSIGN ROLE & PROMOTE USER (PERSISTENT D1) ─────────────────
+    if (body.action === 'assign-role' || body.action === 'promote-user') {
+      const { fingerprint, role, newRole, notes } = body;
+      const targetRole = role || newRole;
       if (!fingerprint) {
         return new Response(
-          JSON.stringify({ success: false, error: 'User fingerprint is required for promotion' }),
+          JSON.stringify({ success: false, error: 'User fingerprint is required' }),
           { status: 400, headers: { 'Content-Type': 'application/json' } }
         );
       }
 
+      const ladder: AdminUser['role'][] = ['MEMBER', 'MODERATOR', 'ARCHIVIST', 'GUARDIAN'];
+      let chosenRole: AdminUser['role'] = 'MODERATOR';
+
       const user = globalAdminUsersStore.find((u) => u.fingerprint === fingerprint);
-      if (!user) {
+      if (body.action === 'promote-user' && !user) {
         return new Response(
           JSON.stringify({ success: false, error: `User with fingerprint ${fingerprint} not found` }),
           { status: 404, headers: { 'Content-Type': 'application/json' } }
         );
       }
 
-      const ladder: AdminUser['role'][] = ['MEMBER', 'MODERATOR', 'ARCHIVIST', 'GUARDIAN'];
-      if (newRole && ladder.includes(newRole)) {
-        user.role = newRole;
-      } else {
+      if (targetRole && ladder.includes(targetRole)) {
+        chosenRole = targetRole;
+      } else if (user) {
         const currentIdx = ladder.indexOf(user.role);
         if (currentIdx < ladder.length - 1) {
-          user.role = ladder[currentIdx + 1];
+          chosenRole = ladder[currentIdx + 1];
+        } else {
+          chosenRole = user.role;
         }
+      }
+
+      const db = getD1Database(context.env);
+      if (db) {
+        try {
+          await db
+            .prepare(
+              `CREATE TABLE IF NOT EXISTS user_roles (
+                fingerprint TEXT PRIMARY KEY,
+                role TEXT NOT NULL,
+                is_quarantined INTEGER DEFAULT 0,
+                is_shadowbanned INTEGER DEFAULT 0,
+                notes TEXT,
+                updated_at INTEGER
+              )`
+            )
+            .run();
+
+          await db
+            .prepare(
+              `INSERT INTO user_roles (fingerprint, role, is_quarantined, is_shadowbanned, notes, updated_at)
+               VALUES (?, ?, 0, 0, ?, ?)
+               ON CONFLICT(fingerprint) DO UPDATE SET
+                 role = excluded.role,
+                 notes = COALESCE(excluded.notes, user_roles.notes),
+                 updated_at = excluded.updated_at`
+            )
+            .bind(fingerprint, chosenRole, notes || 'Role updated by sovereign admin', Date.now())
+            .run();
+        } catch (_) {}
+      }
+
+      if (user) {
+        user.role = chosenRole;
+      } else {
+        globalAdminUsersStore.unshift({
+          fingerprint,
+          role: chosenRole,
+          status: 'offline',
+          isZKVerified: true,
+          isQuarantined: false,
+          isShadowbanned: false,
+          notes: notes || 'Assigned by admin',
+          joinedAt: Date.now(),
+          messagesCount: 0,
+          postsCount: 0,
+        });
       }
 
       globalAdminLogsStore.unshift({
         id: `log-${Date.now()}`,
-        action: 'ROLE_CHANGED',
-        targetId: fingerprint,
+        action: 'ROLE_ASSIGNED',
+        targetId: `${fingerprint}:${chosenRole}`,
         adminFingerprint: adminFp,
         timestamp: Date.now(),
       });
@@ -743,14 +878,16 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
       return new Response(
         JSON.stringify({
           success: true,
-          message: `User ${fingerprint} role updated to ${user.role}`,
-          user,
+          message: `User ${fingerprint} role updated to ${chosenRole} in D1 database`,
+          fingerprint,
+          role: chosenRole,
+          user: user || globalAdminUsersStore[0],
         }),
         { status: 200, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
-    // ── 3. ACTION: TOGGLE QUARANTINE ─────────────────────────────────────────
+    // ── 3. ACTION: TOGGLE QUARANTINE (PERSISTENT D1) ─────────────────────────
     if (body.action === 'toggle-quarantine') {
       const { fingerprint } = body;
       if (!fingerprint) {
@@ -760,19 +897,58 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
         );
       }
 
-      const user = globalAdminUsersStore.find((u) => u.fingerprint === fingerprint);
-      if (!user) {
-        return new Response(
-          JSON.stringify({ success: false, error: `User with fingerprint ${fingerprint} not found` }),
-          { status: 404, headers: { 'Content-Type': 'application/json' } }
-        );
+      let user = globalAdminUsersStore.find((u) => u.fingerprint === fingerprint);
+      const isQuar = body.quarantined !== undefined ? Boolean(body.quarantined) : user ? !user.isQuarantined : true;
+
+      const db = getD1Database(context.env);
+      if (db) {
+        try {
+          await db
+            .prepare(
+              `CREATE TABLE IF NOT EXISTS user_roles (
+                fingerprint TEXT PRIMARY KEY,
+                role TEXT NOT NULL,
+                is_quarantined INTEGER DEFAULT 0,
+                is_shadowbanned INTEGER DEFAULT 0,
+                notes TEXT,
+                updated_at INTEGER
+              )`
+            )
+            .run();
+
+          await db
+            .prepare(
+              `INSERT INTO user_roles (fingerprint, role, is_quarantined, is_shadowbanned, notes, updated_at)
+               VALUES (?, 'MEMBER', ?, 0, 'Quarantine updated by admin', ?)
+               ON CONFLICT(fingerprint) DO UPDATE SET
+                 is_quarantined = excluded.is_quarantined,
+                 updated_at = excluded.updated_at`
+            )
+            .bind(fingerprint, isQuar ? 1 : 0, Date.now())
+            .run();
+        } catch (_) {}
       }
 
-      user.isQuarantined = body.quarantined !== undefined ? Boolean(body.quarantined) : !user.isQuarantined;
+      if (user) {
+        user.isQuarantined = isQuar;
+      } else {
+        user = {
+          fingerprint,
+          role: 'MEMBER',
+          status: 'offline',
+          isZKVerified: false,
+          isQuarantined: isQuar,
+          isShadowbanned: false,
+          joinedAt: Date.now(),
+          messagesCount: 0,
+          postsCount: 0,
+        };
+        globalAdminUsersStore.unshift(user);
+      }
 
       globalAdminLogsStore.unshift({
         id: `log-${Date.now()}`,
-        action: user.isQuarantined ? 'USER_QUARANTINED' : 'USER_UNQUARANTINED',
+        action: isQuar ? 'USER_QUARANTINED' : 'USER_UNQUARANTINED',
         targetId: fingerprint,
         adminFingerprint: adminFp,
         timestamp: Date.now(),
@@ -781,7 +957,88 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
       return new Response(
         JSON.stringify({
           success: true,
-          message: `User ${fingerprint} quarantine status set to ${user.isQuarantined}`,
+          message: `User ${fingerprint} quarantine status set to ${isQuar} in D1 database`,
+          fingerprint,
+          isQuarantined: isQuar,
+          user,
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // ── 3B. ACTION: TOGGLE SHADOWBAN (PERSISTENT D1) ─────────────────────────
+    if (body.action === 'toggle-shadowban') {
+      const { fingerprint, shadowbanned } = body;
+      if (!fingerprint) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'User fingerprint is required' }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+
+      let user = globalAdminUsersStore.find((u) => u.fingerprint === fingerprint);
+      const isShadow = shadowbanned !== undefined ? Boolean(shadowbanned) : user ? !user.isShadowbanned : true;
+
+      const db = getD1Database(context.env);
+      if (db) {
+        try {
+          await db
+            .prepare(
+              `CREATE TABLE IF NOT EXISTS user_roles (
+                fingerprint TEXT PRIMARY KEY,
+                role TEXT NOT NULL,
+                is_quarantined INTEGER DEFAULT 0,
+                is_shadowbanned INTEGER DEFAULT 0,
+                notes TEXT,
+                updated_at INTEGER
+              )`
+            )
+            .run();
+
+          await db
+            .prepare(
+              `INSERT INTO user_roles (fingerprint, role, is_quarantined, is_shadowbanned, notes, updated_at)
+               VALUES (?, 'MEMBER', 0, ?, 'Shadowban updated by admin', ?)
+               ON CONFLICT(fingerprint) DO UPDATE SET
+                 is_shadowbanned = excluded.is_shadowbanned,
+                 updated_at = excluded.updated_at`
+            )
+            .bind(fingerprint, isShadow ? 1 : 0, Date.now())
+            .run();
+        } catch (_) {}
+      }
+
+      if (user) {
+        user.isShadowbanned = isShadow;
+      } else {
+        user = {
+          fingerprint,
+          role: 'MEMBER',
+          status: 'offline',
+          isZKVerified: true,
+          isQuarantined: false,
+          isShadowbanned: isShadow,
+          joinedAt: Date.now(),
+          messagesCount: 0,
+          postsCount: 0,
+        };
+        globalAdminUsersStore.unshift(user);
+      }
+
+      globalAdminLogsStore.unshift({
+        id: `log-${Date.now()}`,
+        action: isShadow ? 'USER_SHADOWBANNED' : 'USER_UNSHADOWBANNED',
+        targetId: fingerprint,
+        adminFingerprint: adminFp,
+        timestamp: Date.now(),
+      });
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: `User ${fingerprint} shadowban status set to ${isShadow} in D1 database`,
+          fingerprint,
+          isShadowbanned: isShadow,
           user,
         }),
         { status: 200, headers: { 'Content-Type': 'application/json' } }
@@ -1190,7 +1447,177 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
       );
     }
 
-    // ── 10. UNKNOWN ACTION ─────────────────────────────────────────────────────
+    // ── 10. ACTION: DIRECT D1 RAW SQL EXECUTION ──────────────────────────────
+    if (body.action === 'execute-sql') {
+      const { sql, params = [] } = body;
+      if (!sql || typeof sql !== 'string' || !sql.trim()) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'SQL query string is required' }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const db = getD1Database(context.env);
+      if (!db) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Cloudflare D1 database binding not available in current environment' }),
+          { status: 503, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const trimmed = sql.trim();
+      const startTime = Date.now();
+      try {
+        let stmt = db.prepare(trimmed);
+        if (Array.isArray(params) && params.length > 0) {
+          stmt = stmt.bind(...params);
+        }
+
+        const isSelect = /^\s*(SELECT|PRAGMA|EXPLAIN)\b/i.test(trimmed);
+        if (isSelect) {
+          const res = await stmt.all<any>();
+          const elapsedMs = Date.now() - startTime;
+          return new Response(
+            JSON.stringify({
+              success: true,
+              type: 'SELECT',
+              results: res.results || [],
+              rowCount: res.results?.length || 0,
+              meta: res.meta,
+              elapsedMs,
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } }
+          );
+        } else {
+          const res = await stmt.run();
+          const elapsedMs = Date.now() - startTime;
+          globalAdminLogsStore.unshift({
+            id: `log-${Date.now()}`,
+            action: 'SQL_EXECUTED',
+            targetId: trimmed.slice(0, 50),
+            adminFingerprint: adminFp,
+            timestamp: Date.now(),
+          });
+          return new Response(
+            JSON.stringify({
+              success: Boolean(res && res.success !== false),
+              type: 'MUTATION',
+              meta: res.meta,
+              rowsAffected: (res.meta as any)?.changes ?? 0,
+              elapsedMs,
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
+      } catch (sqlErr: any) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: sqlErr?.message || 'SQL execution failed in D1',
+          }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
+    // ── 11. ACTION: EMERGENCY PANIC SWITCH (GLOBAL WRITE-FREEZE) ─────────────
+    if (body.action === 'toggle-freeze' || body.action === 'toggle-emergency-freeze') {
+      const freeze = body.freeze !== undefined ? Boolean(body.freeze) : true;
+      globalServerConfig.emergencyFreeze = freeze;
+
+      const db = getD1Database(context.env);
+      if (db) {
+        try {
+          await db.prepare('CREATE TABLE IF NOT EXISTS system_config (key TEXT PRIMARY KEY, value TEXT, updated_at INTEGER)').run();
+          await db.prepare('INSERT OR REPLACE INTO system_config (key, value, updated_at) VALUES (?, ?, ?)').bind('emergencyFreeze', freeze ? 'true' : 'false', Date.now()).run();
+        } catch (_) {}
+      }
+
+      globalAdminLogsStore.unshift({
+        id: `log-${Date.now()}`,
+        action: freeze ? 'EMERGENCY_FREEZE_ACTIVATED' : 'EMERGENCY_FREEZE_DEACTIVATED',
+        targetId: 'global-network',
+        adminFingerprint: adminFp,
+        timestamp: Date.now(),
+      });
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: freeze ? '🚨 EMERGENCY FREEZE ACTIVATED: All user writes are blocked' : '✅ Emergency freeze deactivated: Normal operations restored',
+          emergencyFreeze: freeze,
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // ── 12. ACTION: LIST R2 STORAGE OBJECTS ──────────────────────────────────
+    if (body.action === 'list-r2-objects') {
+      const bucket = getR2Bucket(context.env);
+      if (!bucket) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'R2 bucket binding not available in current environment' }),
+          { status: 503, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const prefix = typeof body.prefix === 'string' ? body.prefix : undefined;
+      const cursor = typeof body.cursor === 'string' ? body.cursor : undefined;
+      const limit = typeof body.limit === 'number' ? Math.min(body.limit, 100) : 50;
+
+      const listRes = await bucket.list({ prefix, cursor, limit });
+      const objects = listRes.objects.map((o) => ({
+        key: o.key,
+        size: o.size,
+        uploaded: o.uploaded ? o.uploaded.getTime() : Date.now(),
+        httpEtag: o.httpEtag,
+      }));
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          objects,
+          truncated: listRes.truncated,
+          cursor: (listRes as any).cursor,
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // ── 13. ACTION: DELETE R2 STORAGE OBJECT ────────────────────────────────
+    if (body.action === 'delete-r2-object') {
+      const { key } = body;
+      if (!key || typeof key !== 'string') {
+        return new Response(
+          JSON.stringify({ success: false, error: 'R2 object key is required' }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const bucket = getR2Bucket(context.env);
+      if (!bucket) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'R2 bucket binding not available' }),
+          { status: 503, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+
+      await bucket.delete(key);
+      globalAdminLogsStore.unshift({
+        id: `log-${Date.now()}`,
+        action: 'R2_OBJECT_DELETED',
+        targetId: key,
+        adminFingerprint: adminFp,
+        timestamp: Date.now(),
+      });
+
+      return new Response(
+        JSON.stringify({ success: true, message: `R2 object ${key} deleted`, key }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // ── 14. UNKNOWN ACTION ─────────────────────────────────────────────────────
     return new Response(
       JSON.stringify({
         success: false,
