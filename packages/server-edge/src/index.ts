@@ -6,7 +6,15 @@ export * from './rollback.js';
 export * from './waf-defense.js';
 export * from './payload-sanitizer.js';
 export * from './threat-honeypot.js';
-export * from './relay-durable-object.js';
+export * from './relay/index.js';
+export {
+  RelayDurableObject,
+  createWebSocketUpgradeResponse,
+  type DurableObjectStorage,
+  type DurableObjectState,
+  type SessionMetadata,
+  type Env,
+} from './relay-durable-object.js';
 export * from './durable-hibernation.js';
 
 const PORT = parseInt(process.env.PORT || '4000', 10);

@@ -46,18 +46,23 @@ export interface Env {
   [key: string]: any;
 }
 
-export interface PresenceUser {
-  fingerprint: string;
-  nullifier?: string;
-  role: string;
-  status: 'online' | 'idle' | 'dnd' | 'in-call';
-  customStatus?: string;
-  joinedChannel: string;
-  subscribedChannels: string[];
-  lastSeen: number;
-  connectedAt: number;
-  region?: string;
-}
+import {
+  PresenceUser,
+  RelayChannel,
+  RelayMessage,
+  RelayNanopublication,
+  DEFAULT_RELAY_CHANNELS,
+  INITIAL_RELAY_MESSAGES,
+} from './relay/index.js';
+
+export {
+  PresenceUser,
+  RelayChannel,
+  RelayMessage,
+  RelayNanopublication,
+  DEFAULT_RELAY_CHANNELS,
+  INITIAL_RELAY_MESSAGES,
+};
 
 export interface SessionMetadata {
   ws: WebSocket;
@@ -71,85 +76,6 @@ export interface SessionMetadata {
   lastPing: number;
   tags: Set<string>;
 }
-
-export interface RelayChannel {
-  id: string;
-  space: string;
-  name: string;
-  description: string;
-  isEncrypted: boolean;
-}
-
-export interface RelayMessage {
-  id: string;
-  channelId: string;
-  authorFingerprint: string;
-  ciphertext: string;
-  text?: string;
-  iv?: string;
-  epoch: string;
-  status: string;
-  signature?: string;
-  createdAt: number;
-}
-
-export interface RelayNanopublication {
-  id: string;
-  channelId: string;
-  title: string;
-  fileName: string;
-  byteSize: number;
-  sha256: string;
-  crc32: string;
-  entropy: number;
-  verdict: string;
-  merkleRoot: string;
-  seederCount: number;
-  createdAt: number;
-}
-
-export const DEFAULT_RELAY_CHANNELS: RelayChannel[] = [
-  { id: 'relays-general', space: 'relays', name: 'general', description: 'Sovereign E2EE live voice & text', isEncrypted: true },
-  { id: 'relays-dev', space: 'relays', name: 'dev-core', description: 'Core cryptography & low-level discussions', isEncrypted: true },
-  { id: 'vault-releases', space: 'vault', name: 'releases', description: 'Verified software releases & clean binaries', isEncrypted: false },
-  { id: 'vault-guides', space: 'vault', name: 'security-guides', description: 'In-depth research, reversing & operational security', isEncrypted: false },
-  { id: 'pulse-global', space: 'pulse', name: 'chrono-feed', description: 'Uncensored chronological sovereign microblogging', isEncrypted: false },
-];
-
-export const INITIAL_RELAY_MESSAGES: Record<string, RelayMessage[]> = {
-  'relays-general': [
-    {
-      id: 'msg-1',
-      channelId: 'relays-general',
-      authorFingerprint: 'genesis-core',
-      ciphertext: 'Welcome to the Sovereign E2EE Live Relay. All communications in this matrix are quantum-ratcheted via MLS TreeKEM and authenticated with Zero-Knowledge RLN.',
-      text: 'Welcome to the Sovereign E2EE Live Relay. All communications in this matrix are quantum-ratcheted via MLS TreeKEM and authenticated with Zero-Knowledge RLN.',
-      epoch: '#412',
-      status: 'verified',
-      createdAt: 1756660000000,
-    },
-    {
-      id: 'msg-2',
-      channelId: 'relays-general',
-      authorFingerprint: 'c3dc28cb705e',
-      ciphertext: 'The BitTorrent Merkle pieces for Micro-Kernel v1.0.0 have fully propagated across all 14 seeder nodes. 100% byte-match verified.',
-      text: 'The BitTorrent Merkle pieces for Micro-Kernel v1.0.0 have fully propagated across all 14 seeder nodes. 100% byte-match verified.',
-      epoch: '#412',
-      status: 'verified',
-      createdAt: 1756661500000,
-    },
-    {
-      id: 'msg-3',
-      channelId: 'relays-general',
-      authorFingerprint: 'a89104fa2211',
-      ciphertext: 'Confirmed. Zero packet loss over WebRTC DTLS direct tunnels. Latency stable at 14ms.',
-      text: 'Confirmed. Zero packet loss over WebRTC DTLS direct tunnels. Latency stable at 14ms.',
-      epoch: '#412',
-      status: 'verified',
-      createdAt: 1756662400000,
-    },
-  ],
-};
 
 /**
  * Cloudflare Durable Object implementation for Aetheris Sovereign Signaling & Messaging.

@@ -1,24 +1,35 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import { createServer, Server as HttpServer, IncomingMessage, ServerResponse } from 'node:http';
-import { AetherisDatabase, MessageRecord, NanopublicationRecord } from './db/database.js';
-import { ZKRLN, RLNShare, verifySignature, NonceReplayGuard, PoWChallengeEngine } from '@aetheris/core-crypto';
+import { randomUUID } from 'node:crypto';
+import { AetherisDatabase } from './db/database.js';
+import { NonceReplayGuard, PoWChallengeEngine } from '@aetheris/core-crypto';
 import { executeAtomicRollback } from './rollback.js';
-import { WAFDefenseEngine, defaultWAF } from './waf-defense.js';
+import { WAFDefenseEngine } from './waf-defense.js';
 import { PayloadSanitizer } from './payload-sanitizer.js';
 import { ThreatHoneypotEngine } from './threat-honeypot.js';
+import {
+  RelayProtocolEngine,
+  RelayStateManager,
+  RelayPersistence,
+  RelayBroadcaster,
+  RelaySession,
+} from './relay/index.js';
 
 export interface ServerConfig {
   port: number;
   dbPath?: string;
   maxPacketSizeBytes?: number;
+  requireChallengeHandshake?: boolean;
 }
 
 export class AetherisServer {
   private wss: WebSocketServer;
   private httpServer: HttpServer;
   private db: AetherisDatabase;
-  private clients: Map<WebSocket, { ip: string; fingerprint?: string; nullifier?: string; channels: Set<string> }>;
-  private activeShares: Map<string, RLNShare>; // Key: `${epoch}:${nullifier}`
+  private state: RelayStateManager;
+  private engine: RelayProtocolEngine;
+  private sessions: Map<WebSocket, RelaySession>;
+  private socketMap: Map<string, WebSocket>;
   private waf: WAFDefenseEngine;
   private honeypot: ThreatHoneypotEngine;
   private nonceGuard: NonceReplayGuard;
@@ -27,13 +38,148 @@ export class AetherisServer {
 
   constructor(config: ServerConfig) {
     this.db = new AetherisDatabase(config.dbPath || ':memory:');
-    this.clients = new Map();
-    this.activeShares = new Map();
+    this.sessions = new Map();
+    this.socketMap = new Map();
     this.waf = new WAFDefenseEngine();
     this.honeypot = new ThreatHoneypotEngine(this.waf);
     this.nonceGuard = new NonceReplayGuard();
     this.powEngine = new PoWChallengeEngine();
     this.maxPacketSizeBytes = config.maxPacketSizeBytes || 65536; // 64 KB
+
+    // Initialize bounded state manager
+    this.state = new RelayStateManager({
+      maxPresenceCount: 10000,
+      presenceTtlMs: 900000, // 15 mins
+      shareTtlMs: 300000,    // 5 mins
+      challengeTtlMs: 60000, // 60 secs
+    });
+
+    // Wire persistence adapter to SQLite
+    const persistence: RelayPersistence = {
+      getChannels: () => this.db.getChannels().map((c) => ({
+        id: c.id,
+        space: c.space,
+        name: c.name,
+        description: c.description,
+        isEncrypted: c.isEncrypted === 1,
+      })),
+      getMessages: (channelId, limit) => this.db.getMessages(channelId, limit).map((m) => ({
+        id: m.id,
+        channelId: m.channelId,
+        authorFingerprint: m.authorFingerprint,
+        ciphertext: m.ciphertext,
+        text: m.ciphertext,
+        iv: m.iv,
+        epoch: m.epoch,
+        x: m.x,
+        y: m.y,
+        nullifier: m.nullifier,
+        signature: m.signature,
+        status: m.status,
+        createdAt: m.createdAt,
+      })),
+      insertMessage: (msg) => {
+        this.db.insertMessage({
+          id: msg.id,
+          channelId: msg.channelId,
+          authorFingerprint: msg.authorFingerprint,
+          ciphertext: msg.ciphertext || msg.text || '',
+          iv: msg.iv || '',
+          epoch: String(msg.epoch || 0),
+          x: msg.x || '0',
+          y: msg.y || '0',
+          nullifier: msg.nullifier || '',
+          signature: msg.signature || '',
+          status: (msg.status as any) || 'VISIBLE',
+          createdAt: msg.createdAt || Date.now(),
+        });
+      },
+      getNanopublications: (channelId) => this.db.getNanopublications(channelId).map((n) => ({
+        id: n.id,
+        channelId: n.channelId,
+        title: n.title,
+        fileName: n.fileName,
+        byteSize: n.byteSize,
+        sha256: n.sha256,
+        crc32: n.crc32,
+        entropy: n.entropy,
+        verdict: n.verdict,
+        merkleRoot: n.merkleRoot,
+        seederCount: n.seederCount,
+        createdAt: n.createdAt,
+      })),
+      insertNanopublication: (nano) => {
+        this.db.insertNanopublication({
+          id: nano.id,
+          channelId: nano.channelId,
+          title: nano.title,
+          fileName: nano.fileName,
+          byteSize: nano.byteSize,
+          sha256: nano.sha256,
+          crc32: nano.crc32,
+          entropy: nano.entropy,
+          verdict: nano.verdict,
+          merkleRoot: nano.merkleRoot,
+          seederCount: nano.seederCount,
+          createdAt: nano.createdAt,
+        });
+      },
+      upsertIdentity: (identity) => {
+        this.db.upsertIdentity(identity);
+      },
+      isRevoked: (nullifier) => this.db.isRevoked(nullifier),
+      revokeNullifier: (nullifier) => {
+        this.db.addRevocation({
+          nullifier,
+          breachedEpoch: 'epoch_auto',
+          timestamp: Date.now(),
+        });
+      },
+      executeRollback: (targetActorFingerprint, moderatorFingerprint) => {
+        return executeAtomicRollback(this.db, targetActorFingerprint, moderatorFingerprint);
+      },
+    };
+
+    // Wire broadcaster adapter to WebSocket pool
+    const broadcaster: RelayBroadcaster = {
+      send: (session: RelaySession, packet: any) => {
+        const ws = this.socketMap.get(session.id) || session.socket;
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify(packet));
+        }
+      },
+      broadcast: (packet: any, options?: { sender?: RelaySession; channelId?: string; tag?: string }) => {
+        const serialized = JSON.stringify(packet);
+        for (const [ws, session] of this.sessions.entries()) {
+          if (ws.readyState !== WebSocket.OPEN) continue;
+          if (options?.sender && session.id === options.sender.id) continue;
+
+          if (options?.channelId) {
+            if (session.subscribedChannels.has(options.channelId) || session.currentChannelId === options.channelId) {
+              ws.send(serialized);
+            }
+            continue;
+          }
+
+          if (options?.tag) {
+            if (options.tag.startsWith('peer:')) {
+              const targetFingerprint = options.tag.replace('peer:', '');
+              if (session.fingerprint === targetFingerprint) {
+                ws.send(serialized);
+              }
+            }
+            continue;
+          }
+
+          ws.send(serialized);
+        }
+      },
+    };
+
+    // Instantiate Unified Relay Protocol Engine
+    this.engine = new RelayProtocolEngine(this.state, persistence, broadcaster, {
+      requireChallengeHandshake: config.requireChallengeHandshake ?? false,
+    });
 
     this.httpServer = createServer((req: IncomingMessage, res: ServerResponse) => {
       const clientIp = this.extractClientIP(req);
@@ -78,8 +224,10 @@ export class AetherisServer {
       if (url === '/stats') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({
-          peersOnline: this.clients.size,
+          peersOnline: this.sessions.size,
           channelsCount: this.db.getChannels().length,
+          activeSharesCount: this.state.getActiveSharesCount(),
+          revokedNullifiersCount: this.state.getRevokedCount(),
           timestamp: Date.now(),
         }));
         return;
@@ -108,6 +256,14 @@ export class AetherisServer {
     return this.db;
   }
 
+  public getStateManager(): RelayStateManager {
+    return this.state;
+  }
+
+  public getProtocolEngine(): RelayProtocolEngine {
+    return this.engine;
+  }
+
   public getWAF(): WAFDefenseEngine {
     return this.waf;
   }
@@ -133,7 +289,7 @@ export class AetherisServer {
   }
 
   private setupWebSocket(): void {
-    this.wss.on('connection', (ws: WebSocket, req: IncomingMessage) => {
+    this.wss.on('connection', async (ws: WebSocket, req: IncomingMessage) => {
       const clientIp = this.extractClientIP(req);
 
       // Check WAF connection limits
@@ -143,289 +299,90 @@ export class AetherisServer {
         return;
       }
 
-      this.clients.set(ws, { ip: clientIp, channels: new Set() });
+      const sessionId = randomUUID();
+      const session: RelaySession = {
+        id: sessionId,
+        socket: ws,
+        ip: clientIp,
+        role: 'MEMBER',
+        authenticated: false,
+        currentChannelId: 'relays-general',
+        subscribedChannels: new Set(['relays-general']),
+        connectedAt: Date.now(),
+        lastSeen: Date.now(),
+      };
 
-      // Send initial channels list
-      const channels = this.db.getChannels();
-      this.send(ws, { type: 'CHANNELS_LIST', channels });
+      this.sessions.set(ws, session);
+      this.socketMap.set(sessionId, ws);
 
-      ws.on('message', (raw: Buffer) => {
-        // Enforce max packet size to prevent memory exhaustion / bomb frames
+      // Initial channel list dispatch via Protocol Engine
+      await this.engine.handleConnection(session);
+
+      ws.on('message', async (raw: Buffer) => {
+        // Enforce max packet size
         if (raw.length > this.maxPacketSizeBytes) {
-          this.send(ws, { type: 'ERROR', message: `Packet exceeds maximum allowed size (${this.maxPacketSizeBytes} bytes)` });
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({
+              type: 'ERROR',
+              message: `Packet exceeds maximum allowed size (${this.maxPacketSizeBytes} bytes)`,
+            }));
+          }
           return;
         }
 
         // WAF rate-limit per packet
         const wafCheck = this.waf.evaluateRequest(clientIp);
         if (!wafCheck.allowed) {
-          this.send(ws, { type: 'RATE_LIMIT_ERROR', message: wafCheck.reason });
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({
+              type: 'RATE_LIMIT_ERROR',
+              message: wafCheck.reason,
+            }));
+          }
           return;
         }
 
         try {
-          // Safe JSON parse with prototype pollution stripping
           const rawStr = raw.toString();
           const packet = PayloadSanitizer.safeJSONParse(rawStr);
-          this.handlePacket(ws, packet, clientIp);
-        } catch (err: any) {
-          this.send(ws, { type: 'ERROR', message: `Malformed packet: ${err.message}` });
-        }
-      });
 
-      ws.on('close', () => {
-        this.waf.unregisterConnection(clientIp);
-        this.clients.delete(ws);
-      });
-    });
-  }
-
-  private handlePacket(ws: WebSocket, packet: any, clientIp: string): void {
-    const client = this.clients.get(ws);
-    if (!client) return;
-
-    // Optional Nonce Replay Check for state mutations
-    if (packet.nonce && packet.timestamp) {
-      const nonceCheck = this.nonceGuard.verifyAndConsume({
-        nonce: packet.nonce,
-        timestamp: packet.timestamp,
-        senderFingerprint: client.fingerprint || clientIp,
-      });
-
-      if (!nonceCheck.valid) {
-        this.send(ws, { type: 'REPLAY_ERROR', message: nonceCheck.reason });
-        return;
-      }
-    }
-
-    switch (packet.type) {
-      case 'AUTH': {
-        const { fingerprint, publicKeyHex, nullifier, role } = packet;
-
-        if (!fingerprint || !PayloadSanitizer.isValidIdentifier(fingerprint)) {
-          this.send(ws, { type: 'ERROR', message: 'Invalid or disallowed fingerprint format' });
-          return;
-        }
-
-        client.fingerprint = fingerprint;
-        client.nullifier = nullifier;
-
-        const isQuarantined = (nullifier && this.db.isRevoked(nullifier)) ? 1 : 0;
-        this.db.upsertIdentity({
-          fingerprint,
-          publicKeyHex: publicKeyHex || '',
-          nullifier: nullifier || '',
-          role: role || 'MEMBER',
-          isQuarantined,
-          createdAt: Date.now(),
-        });
-
-        this.send(ws, {
-          type: 'AUTH_SUCCESS',
-          fingerprint,
-          isQuarantined: isQuarantined === 1,
-        });
-        break;
-      }
-
-      case 'JOIN_CHANNEL': {
-        const { channelId } = packet;
-        if (!channelId || !PayloadSanitizer.isValidIdentifier(channelId)) {
-          this.send(ws, { type: 'ERROR', message: 'Invalid channel ID' });
-          return;
-        }
-        client.channels.add(channelId);
-
-        const messages = this.db.getMessages(channelId);
-        const nanopublications = this.db.getNanopublications(channelId);
-        this.send(ws, { type: 'CHANNEL_DATA', channelId, messages, nanopublications });
-        break;
-      }
-
-      case 'SEND_MESSAGE': {
-        this.handleSendMessage(ws, packet);
-        break;
-      }
-
-      case 'PUBLISH_NANOPUBLICATION': {
-        this.handlePublishNanopublication(ws, packet);
-        break;
-      }
-
-      case 'WEBRTC_SIGNAL': {
-        const { targetFingerprint, signal } = packet;
-        for (const [otherWs, otherClient] of this.clients.entries()) {
-          if (otherClient.fingerprint === targetFingerprint) {
-            this.send(otherWs, {
-              type: 'WEBRTC_SIGNAL',
-              fromFingerprint: client.fingerprint,
-              signal,
+          // Optional Nonce Replay Check for state mutations
+          if (packet.nonce && packet.timestamp) {
+            const nonceCheck = this.nonceGuard.verifyAndConsume({
+              nonce: packet.nonce,
+              timestamp: packet.timestamp,
+              senderFingerprint: session.fingerprint || clientIp,
             });
-            break;
+
+            if (!nonceCheck.valid) {
+              if (ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                  type: 'REPLAY_ERROR',
+                  message: nonceCheck.reason,
+                }));
+              }
+              return;
+            }
+          }
+
+          await this.engine.handlePacket(session, packet);
+        } catch (err: any) {
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({
+              type: 'ERROR',
+              message: `Malformed packet: ${err.message}`,
+            }));
           }
         }
-        break;
-      }
-
-      case 'EXECUTE_ROLLBACK': {
-        if (!client.fingerprint) return;
-        const { targetActorFingerprint } = packet;
-        const result = executeAtomicRollback(this.db, targetActorFingerprint, client.fingerprint);
-        this.send(ws, { type: 'ROLLBACK_RESULT', result });
-        this.broadcast({ type: 'AUDIT_NOTIFICATION', action: 'ROLLBACK', targetActorFingerprint });
-        break;
-      }
-
-      default:
-        this.send(ws, { type: 'ERROR', message: `Unknown packet type: ${packet.type}` });
-    }
-  }
-
-  private handleSendMessage(ws: WebSocket, packet: any): void {
-    const client = this.clients.get(ws);
-    if (!client || !client.fingerprint) {
-      this.send(ws, { type: 'ERROR', message: 'Unauthorized: Complete AUTH first' });
-      return;
-    }
-
-    const { id, channelId, ciphertext, iv, epoch, x, y, nullifier, signature } = packet;
-
-    if (!channelId || !PayloadSanitizer.isValidIdentifier(channelId)) {
-      this.send(ws, { type: 'ERROR', message: 'Invalid channel ID' });
-      return;
-    }
-
-    // Check if identity is quarantined / slashed
-    if (nullifier && this.db.isRevoked(nullifier)) {
-      this.send(ws, {
-        type: 'ERROR',
-        message: 'Forbidden: Your identity is revoked on the ZK-RLN Nullifier Tree',
       });
-      return;
-    }
 
-    // ZK-RLN Double-Sign Slashing Detection
-    const shareKey = `${epoch}:${nullifier}`;
-    const currentShare: RLNShare = { nullifier, epoch, x, y };
-
-    if (nullifier && this.activeShares.has(shareKey)) {
-      const existingShare = this.activeShares.get(shareKey)!;
-      try {
-        const verification = ZKRLN.verifyRateLimitBreach(existingShare, currentShare);
-        if (verification.verified) {
-          this.db.addRevocation({
-            nullifier,
-            breachedEpoch: String(epoch),
-            timestamp: Date.now(),
-          });
-
-          this.broadcast({
-            type: 'QUARANTINE_ALERT',
-            nullifier,
-            epoch,
-            reason: 'RLN Rate Limit Violation: Double message broadcast in single epoch',
-          });
-
-          this.send(ws, {
-            type: 'SLASHING_NOTICE',
-            message: 'Your identity nullifier has been revoked due to rate limit violation.',
-            nullifier,
-            epoch,
-          });
-          return;
-        }
-      } catch (err: any) {
-        console.error('RLN violation verification error:', err.message);
-      }
-    }
-
-    if (nullifier) {
-      if (this.activeShares.size >= 10000) {
-        const currentEpoch = Number(epoch) || 0;
-        for (const [k, share] of this.activeShares.entries()) {
-          if (Number(share.epoch) < currentEpoch - 5 || this.activeShares.size >= 10000) {
-            this.activeShares.delete(k);
-          }
-        }
-      }
-      this.activeShares.set(shareKey, currentShare);
-    }
-
-    // Persist message
-    const msgRecord: MessageRecord = {
-      id: id || `msg-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-      channelId,
-      authorFingerprint: client.fingerprint,
-      ciphertext,
-      iv,
-      epoch: epoch || 0,
-      x: x || '0',
-      y: y || '0',
-      nullifier: nullifier || '',
-      signature: signature || '',
-      status: 'VISIBLE',
-      createdAt: Date.now(),
-    };
-
-    this.db.insertMessage(msgRecord);
-
-    this.broadcastToChannel(channelId, {
-      type: 'NEW_MESSAGE',
-      message: msgRecord,
+      ws.on('close', async () => {
+        this.waf.unregisterConnection(clientIp);
+        await this.engine.handleDisconnection(session);
+        this.sessions.delete(ws);
+        this.socketMap.delete(sessionId);
+      });
     });
-  }
-
-  private handlePublishNanopublication(ws: WebSocket, packet: any): void {
-    const { id, channelId, title, fileName, byteSize, sha256, crc32, entropy, verdict, merkleRoot } = packet;
-
-    const safeTitle = PayloadSanitizer.sanitizeString(title || 'Verified Release');
-    const safeFileName = PayloadSanitizer.sanitizeString(fileName || 'file.bin');
-
-    const nanoRecord: NanopublicationRecord = {
-      id: id || `nano-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-      channelId,
-      title: safeTitle,
-      fileName: safeFileName,
-      byteSize,
-      sha256,
-      crc32,
-      entropy,
-      verdict,
-      merkleRoot,
-      seederCount: 1,
-      createdAt: Date.now(),
-    };
-
-    this.db.insertNanopublication(nanoRecord);
-
-    this.broadcastToChannel(channelId, {
-      type: 'NEW_NANOPUBLICATION',
-      nanopublication: nanoRecord,
-    });
-  }
-
-  private send(ws: WebSocket, data: any): void {
-    if (ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify(data));
-    }
-  }
-
-  private broadcast(data: any): void {
-    const serialized = JSON.stringify(data);
-    for (const [ws] of this.clients.entries()) {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(serialized);
-      }
-    }
-  }
-
-  private broadcastToChannel(channelId: string, data: any): void {
-    const serialized = JSON.stringify(data);
-    for (const [ws, client] of this.clients.entries()) {
-      if (ws.readyState === WebSocket.OPEN && client.channels.has(channelId)) {
-        ws.send(serialized);
-      }
-    }
   }
 
   public listen(port: number): Promise<void> {
@@ -438,8 +395,8 @@ export class AetherisServer {
 
   public close(): Promise<void> {
     return new Promise((resolve) => {
-      this.clients.clear();
-      this.activeShares.clear();
+      this.sessions.clear();
+      this.socketMap.clear();
       this.wss.close(() => {
         this.httpServer.close(() => {
           this.db.close();

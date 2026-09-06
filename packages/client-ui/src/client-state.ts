@@ -1185,6 +1185,40 @@ export class AetherisClientStore {
         this.notify('QUARANTINE');
         break;
       }
+
+      case 'CHALLENGE': {
+        if (packet.challenge) {
+          const signatureBytes = signMessage(packet.challenge, this.keypair.privateKey);
+          const signature = bytesToHex(signatureBytes);
+          this.send({
+            type: 'AUTH_RESPONSE',
+            challenge: packet.challenge,
+            signature,
+            fingerprint: this.keypair.fingerprint,
+            publicKeyHex: this.keypair.publicKeyHex,
+            nullifier: this.nullifier,
+          });
+        }
+        break;
+      }
+
+      case 'MESSAGE_ACK': {
+        const chMsgs = this.messages.get(packet.channelId) || [];
+        const target = chMsgs.find((m) => m.id === packet.id);
+        if (target) {
+          target.status = 'delivered';
+          this.notify('MESSAGE_ACK', { id: packet.id, channelId: packet.channelId });
+        }
+        break;
+      }
+
+      case 'PING': {
+        this.send({
+          type: 'PONG',
+          timestamp: packet.timestamp || Date.now(),
+        });
+        break;
+      }
     }
   }
 
