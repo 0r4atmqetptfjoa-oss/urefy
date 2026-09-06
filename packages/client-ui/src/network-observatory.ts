@@ -12,6 +12,7 @@
 
 import './window-augmentation.js';
 import { nodeFederationEngine } from './node-federation.js';
+import { isSimulationModeEnabled } from './simulation-mode.js';
 
 // ---------------------------------------------------------------------------
 // 1. Mandatory & Extended Data Types & Interfaces
@@ -23,7 +24,7 @@ export interface NetworkMetrics {
   messagesPerMinute: number;
   avgLatencyMs: number;
   totalSlashings: number;
-  networkUptime: number; // Percentage (e.g. 99.98)
+  networkUptime: number | null; // Percentage (e.g. 99.98) or null if unmeasured
   topContributors: string[];
 }
 
@@ -552,26 +553,92 @@ export class NetworkObservatory {
   private lastUpdateTime: number = Date.now();
 
   constructor() {
-    this.nodes = JSON.parse(JSON.stringify(SEED_TOPOLOGY_NODES));
-    this.slashingHistory = JSON.parse(JSON.stringify(SEED_SLASHING_RECORDS));
-    this.topContributorsList = JSON.parse(JSON.stringify(SEED_TOP_CONTRIBUTORS));
-    
-    this.initLatencyHistory();
-    this.initSlashing7DayStats();
+    if (isSimulationModeEnabled()) {
+      this.nodes = JSON.parse(JSON.stringify(SEED_TOPOLOGY_NODES));
+      this.slashingHistory = JSON.parse(JSON.stringify(SEED_SLASHING_RECORDS));
+      this.topContributorsList = JSON.parse(JSON.stringify(SEED_TOP_CONTRIBUTORS));
+      
+      this.initLatencyHistory();
+      this.initSlashing7DayStats();
 
-    this.metrics = {
-      totalNodes: 256,
-      activeNodes: 242,
-      messagesPerMinute: 4890,
-      avgLatencyMs: this.calculateAvgLatency(),
-      totalSlashings: 37,
-      networkUptime: 99.98,
-      topContributors: this.topContributorsList.map(c => c.name),
-    };
+      this.metrics = {
+        totalNodes: 256,
+        activeNodes: 242,
+        messagesPerMinute: 4890,
+        avgLatencyMs: this.calculateAvgLatency(),
+        totalSlashings: 37,
+        networkUptime: 99.98,
+        topContributors: this.topContributorsList.map(c => c.name),
+      };
+    } else {
+      this.nodes = [];
+      this.slashingHistory = [];
+      this.topContributorsList = [];
+      this.latencyHistory = [];
+      this.slashing7DayStats = [];
+
+      this.metrics = {
+        totalNodes: 0,
+        activeNodes: 0,
+        messagesPerMinute: 0,
+        avgLatencyMs: 0,
+        totalSlashings: 0,
+        networkUptime: null,
+        topContributors: [],
+      };
+    }
 
     // Automatic browser event initialization
     if (typeof window !== 'undefined') {
       this.attachGlobalKeyboardListener();
+    }
+  }
+
+  /**
+   * Fetches real telemetry from /api/analytics
+   */
+  public async fetchRealTelemetry(): Promise<void> {
+    try {
+      const res = await fetch('/api/analytics');
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data && data.metrics) {
+        this.metrics = {
+          totalNodes: Number(data.metrics.totalNodes) || 0,
+          activeNodes: Number(data.metrics.activeNodes) || 0,
+          messagesPerMinute: Math.round((Number(data.metrics.messagesProcessed) || 0) / 60),
+          avgLatencyMs: Number(data.metrics.avgLatencyMs) || 0,
+          totalSlashings: 0,
+          networkUptime: data.uptimePercentage !== undefined ? data.uptimePercentage : null,
+          topContributors: Array.isArray(data.nodes) ? data.nodes.slice(0, 5).map((n: any) => n.name) : [],
+        };
+        if (Array.isArray(data.nodes) && data.nodes.length > 0) {
+          this.nodes = data.nodes.map((n: any, idx: number) => ({
+            id: n.nodeId || `node-${idx}`,
+            name: n.name || `Node-${idx}`,
+            x: 120 + ((idx * 130) % 560),
+            y: 90 + ((idx * 85) % 260),
+            role: (n.role as NodeRole) || 'relay',
+            status: (n.status as NodeStatus) || 'active',
+            latencyMs: Number(n.latencyMs) || 15,
+            meritScore: Number(n.meritScore) || 100,
+            region: n.region || 'Global',
+            countryCode: n.countryCode || 'XX',
+            uptime: Number(n.uptime) || 100,
+            ipObfuscated: 'Encrypted Node Identity',
+            zkRlnEpoch: Number(n.zkRlnEpoch) || 1,
+            connections: Array.isArray(n.connections) ? n.connections : [],
+            bandwidthMbps: Number(n.bandwidthMbps) || 100,
+            messagesProcessed: Number(n.messagesProcessed) || 0,
+          }));
+        }
+        this.notifySubscribers();
+        if (typeof document !== 'undefined' && this.isOpen) {
+          this.updateOpenModalDOM();
+        }
+      }
+    } catch (err) {
+      console.warn('[NetworkObservatory] Real telemetry fetch failed:', err);
     }
   }
 
@@ -654,6 +721,7 @@ export class NetworkObservatory {
    * Updates network metrics in real-time (live P2P simulation).
    */
   public updateMetrics(): void {
+    if (!isSimulationModeEnabled()) return;
     const now = Date.now();
     this.lastUpdateTime = now;
 
@@ -769,6 +837,16 @@ export class NetworkObservatory {
       this.stopLiveUpdates();
     }
     this.isLiveUpdating = true;
+
+    if (!isSimulationModeEnabled()) {
+      // In production, poll real telemetry from /api/analytics
+      this.fetchRealTelemetry();
+      this.liveUpdateIntervalId = (typeof window !== 'undefined' ? window.setInterval : setInterval)(() => {
+        this.fetchRealTelemetry();
+      }, intervalMs) as unknown as number;
+      return;
+    }
+
     this.liveUpdateIntervalId = (typeof window !== 'undefined' ? window.setInterval : setInterval)(() => {
       this.updateMetrics();
     }, intervalMs) as unknown as number;
@@ -810,6 +888,9 @@ export class NetworkObservatory {
 
   public open(): void {
     this.isOpen = true;
+    if (!isSimulationModeEnabled()) {
+      this.fetchRealTelemetry();
+    }
     if (!this.isLiveUpdating) {
       this.startLiveUpdates();
     }
@@ -1034,14 +1115,18 @@ export class NetworkObservatory {
   }
 
   private renderGlobalMetrics(): string {
+    const totalNodes = this.metrics.totalNodes;
+    const activeNodes = this.metrics.activeNodes;
+    const activePct = totalNodes > 0 ? ((activeNodes / totalNodes) * 100).toFixed(1) + '%' : '0%';
+
     return `
       <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 p-3 sm:px-6 bg-surface-base border-b border-white/5 text-xs font-mono">
         <!-- Total Nodes -->
         <div class="flex flex-col p-2 rounded-lg bg-surface-raised/80 border border-white/5">
           <span class="text-[10px] uppercase tracking-wider text-slate-400">Total Nodes</span>
           <div class="flex items-baseline gap-1.5 mt-1">
-            <span class="text-lg font-bold text-white">${this.metrics.totalNodes}</span>
-            <span class="text-[10px] text-signal font-sans">100% capacity</span>
+            <span class="text-lg font-bold text-white">${totalNodes}</span>
+            <span class="text-[10px] text-signal font-sans">${totalNodes > 0 ? 'Connected' : 'Offline'}</span>
           </div>
         </div>
 
@@ -1049,8 +1134,8 @@ export class NetworkObservatory {
         <div class="flex flex-col p-2 rounded-lg bg-surface-raised/80 border border-white/5">
           <span class="text-[10px] uppercase tracking-wider text-slate-400">Active Nodes</span>
           <div class="flex items-baseline gap-1.5 mt-1">
-            <span class="text-lg font-bold text-signal">${this.metrics.activeNodes}</span>
-            <span class="text-[10px] text-slate-400 font-sans">(${((this.metrics.activeNodes / this.metrics.totalNodes) * 100).toFixed(1)}%)</span>
+            <span class="text-lg font-bold text-signal">${activeNodes}</span>
+            <span class="text-[10px] text-slate-400 font-sans">(${activePct})</span>
           </div>
         </div>
 
@@ -1087,8 +1172,11 @@ export class NetworkObservatory {
         <div class="flex flex-col p-2 rounded-lg bg-surface-raised/80 border border-white/5">
           <span class="text-[10px] uppercase tracking-wider text-slate-400">Network Uptime</span>
           <div class="flex items-baseline gap-1.5 mt-1">
-            <span class="text-lg font-bold text-aether">${this.metrics.networkUptime}%</span>
-            <span class="text-[10px] text-signal font-sans">SLA 99.9%</span>
+            ${this.metrics.networkUptime !== null
+              ? `<span class="text-lg font-bold text-aether">${this.metrics.networkUptime}%</span>
+                 <span class="text-[10px] text-signal font-sans">Measured</span>`
+              : `<span class="text-xs font-semibold text-slate-400 font-sans">Measured uptime unavailable</span>`
+            }
           </div>
         </div>
       </div>
@@ -1176,6 +1264,17 @@ export class NetworkObservatory {
             <g id="topology-nodes">
               ${filteredNodes.map(node => this.renderSvgNode(node)).join('\n')}
             </g>
+
+            ${filteredNodes.length === 0 ? `
+              <g transform="translate(400, 220)">
+                <text text-anchor="middle" y="0" fill="#64748b" font-size="14" font-family="monospace">
+                  No network topology data available
+                </text>
+                <text text-anchor="middle" y="24" fill="#475569" font-size="12" font-family="sans-serif">
+                  Connect peer nodes or enable simulation mode to view mesh topology.
+                </text>
+              </g>
+            ` : ''}
 
             <!-- HUD Information Decorative Text -->
             <text x="20" y="30" fill="#00e5ff" opacity="0.6" font-size="10" font-family="monospace">
@@ -1413,6 +1512,27 @@ export class NetworkObservatory {
     // Take last 60 points for main sparkline
     const recentPoints = this.latencyHistory.slice(-60);
     const count = recentPoints.length;
+
+    if (count === 0) {
+      return `
+        <div class="rounded-xl bg-surface-raised border border-white/10 p-4 sm:p-5 shadow-lg">
+          <div class="flex items-center gap-2 pb-3 border-b border-white/5">
+            <span class="text-signal text-lg">⚡</span>
+            <div>
+              <h3 class="text-sm font-bold text-white uppercase tracking-wider font-mono">
+                2. Real-Time Network Latency & Jitter Monitor
+              </h3>
+              <p class="text-xs text-slate-400 font-sans">
+                Dynamic telemetry sampling across sovereign mesh relays
+              </p>
+            </div>
+          </div>
+          <div class="mt-4 p-8 rounded-xl bg-canvas border border-white/5 text-center text-slate-400 font-mono text-xs">
+            Data Unavailable (No active telemetry ping samples recorded yet)
+          </div>
+        </div>
+      `;
+    }
     
     // Calculate Min / Max / Avg / P95 / P99
     const latencies = recentPoints.map(p => p.latencyMs);
@@ -1579,6 +1699,30 @@ export class NetworkObservatory {
 
   private renderSlashingSection(): string {
     const stats = this.slashing7DayStats;
+    if (stats.length === 0) {
+      return `
+        <div class="rounded-xl bg-surface-raised border border-white/10 p-4 sm:p-5 shadow-lg flex flex-col justify-between">
+          <div class="flex items-center justify-between pb-3 border-b border-white/5">
+            <div class="flex items-center gap-2">
+              <span class="text-crimson text-lg">🛡️</span>
+              <div>
+                <h3 class="text-sm font-bold text-white uppercase tracking-wider font-mono">
+                  3. ZK-RLN Slashing Statistics (7 Days)
+                </h3>
+                <p class="text-xs text-slate-400 font-sans">
+                  Automated penalties for spam, double-sign & desync on BN254 curve
+                </p>
+              </div>
+            </div>
+          </div>
+          <div class="mt-4 p-8 rounded-xl bg-canvas border border-white/5 text-center text-slate-400 font-mono text-xs">
+            Data Unavailable (No historical slashing events registered)
+          </div>
+        </div>
+      `;
+    }
+
+    const totalPenaltiesBurned = stats.reduce((acc, s) => acc + s.totalPenaltiesAETH, 0).toFixed(1);
     const maxVal = Math.max(8, ...stats.map(s => s.totalSlashings));
 
     // SVG Bar Chart Dimensions
@@ -1614,7 +1758,7 @@ export class NetworkObservatory {
             <!-- Total Tokens Burned -->
             <div class="text-right">
               <span class="text-xs text-slate-400 font-mono">7-Day Penalties:</span>
-              <div class="text-lg font-bold font-mono text-crimson">142.5 $AETH</div>
+              <div class="text-lg font-bold font-mono text-crimson">${totalPenaltiesBurned} $AETH</div>
             </div>
           </div>
 
@@ -1763,7 +1907,13 @@ export class NetworkObservatory {
               </tr>
             </thead>
             <tbody class="divide-y divide-white/5 font-mono">
-              ${this.topContributorsList.map(c => {
+              ${this.topContributorsList.length === 0 ? `
+                <tr>
+                  <td colspan="7" class="py-8 text-center text-slate-400 font-mono">
+                    Data Unavailable (No active node contributors found)
+                  </td>
+                </tr>
+              ` : this.topContributorsList.map(c => {
                 const meritPct = Math.round((c.meritScore / maxMerit) * 100);
                 const rankBadge = c.rank === 1 ? '🥇' : c.rank === 2 ? '🥈' : c.rank === 3 ? '🥉' : `#${c.rank}`;
                 

@@ -8,6 +8,14 @@
 import './window-augmentation.js';
 import { serviceRegistry, SERVICES } from './service-registry.js';
 import { isLocalDev } from './admin-auth.js';
+import { isSimulationModeEnabled, renderSimulationBadgeHTML } from './simulation-mode.js';
+
+export interface ChunkBlock {
+  index: number;
+  size: number;
+  downloaded: boolean;
+  checksum: string;
+}
 
 export interface DownloadTask {
   id: string;
@@ -30,13 +38,8 @@ export interface SwarmPeer {
   speedBps: number;
   piecesCount: number;
   isSeeder: boolean;
-}
-
-export interface ChunkBlock {
-  index: number;
-  size: number;
-  downloaded: boolean;
-  checksum: string;
+  verificationResult?: 'CLEAN' | 'SUSPICIOUS' | 'MALICIOUS' | 'PENDING';
+  error?: string;
 }
 
 export class P2PDownloadManager {
@@ -48,7 +51,7 @@ export class P2PDownloadManager {
   private taskMerkleRoots: Map<string, string> = new Map();
 
   constructor() {
-    if (isLocalDev()) {
+    if (isSimulationModeEnabled()) {
       this.seedInitialSwarmTasks();
     }
   }
@@ -114,14 +117,14 @@ export class P2PDownloadManager {
    * Internal helper to create task object and register in list
    */
   private createInternalTask(fileName: string, sha256: string, totalBytes: number): DownloadTask {
-    const id = `dl-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 7)}`;
+    const id = `dl-${Date.now().toString(36)}-${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID().slice(0, 8) : Date.now().toString(36)}`;
     const task: DownloadTask = {
       id,
       fileName,
       sha256,
       totalBytes: Math.max(totalBytes, 65536),
       downloadedBytes: 0,
-      peersCount: Math.floor(Math.random() * 12) + 6,
+      peersCount: isSimulationModeEnabled() ? Math.floor(Math.random() * 12) + 6 : 0,
       speedBps: 0,
       startedAt: Date.now(),
       status: 'queued',
@@ -159,6 +162,10 @@ export class P2PDownloadManager {
    * Generate mock peer list for connected swarm
    */
   private generatePeersForTask(taskId: string, count: number): void {
+    if (!isSimulationModeEnabled()) {
+      this.taskPeers.set(taskId, []);
+      return;
+    }
     const clients = [
       'Aetheris-Desktop/v2.4 (x86_64)',
       'Aetheris-Vault-CLI/v2.1',
@@ -221,11 +228,16 @@ export class P2PDownloadManager {
    * Start internal interval timer driving progress simulation
    */
   private startSimulationLoop(taskId: string): void {
+    if (!isSimulationModeEnabled()) return;
+
     if (this.taskIntervals.has(taskId)) {
-      window.clearInterval(this.taskIntervals.get(taskId));
+      const existingId = this.taskIntervals.get(taskId);
+      if (typeof window !== 'undefined') window.clearInterval(existingId);
+      else clearInterval(existingId);
     }
 
-    const intervalId = window.setInterval(() => {
+    const intervalFn = typeof window !== 'undefined' ? window.setInterval : setInterval;
+    const intervalId = (intervalFn as any)(() => {
       const task = this.tasks.find((t: DownloadTask) => t.id === taskId);
       if (!task || task.status !== 'downloading') {
         this.stopSimulationLoop(taskId);
@@ -284,7 +296,9 @@ export class P2PDownloadManager {
    */
   private stopSimulationLoop(taskId: string): void {
     if (this.taskIntervals.has(taskId)) {
-      window.clearInterval(this.taskIntervals.get(taskId));
+      const existingId = this.taskIntervals.get(taskId);
+      if (typeof window !== 'undefined') window.clearInterval(existingId);
+      else clearInterval(existingId);
       this.taskIntervals.delete(taskId);
     }
   }
@@ -379,6 +393,13 @@ export class P2PDownloadManager {
     this.taskEntropy.clear();
     this.taskMerkleRoots.clear();
     this.tasks = [];
+  }
+
+  /**
+   * Returns list of connected swarm peers for a given task ID.
+   */
+  public getPeersForTask(taskId: string): SwarmPeer[] {
+    return this.taskPeers.get(taskId) || [];
   }
 
   /**
@@ -527,6 +548,7 @@ export class P2PDownloadManager {
               <h2 class="text-base font-bold text-slate-100 flex items-center gap-2">
                 P2P Swarm Ingress Manager
                 <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyphr/10 text-cyphr border border-cyphr/20 uppercase tracking-wider">BitTorrent / LibP2P</span>
+                ${isSimulationModeEnabled() ? renderSimulationBadgeHTML('ml-1') : ''}
               </h2>
               <p class="text-xs text-slate-400 font-mono">
                 Decentralized Merkle Piece Exchange • Zero-Knowledge Swarm Ingress

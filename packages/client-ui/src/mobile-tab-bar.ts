@@ -10,6 +10,7 @@ import './window-augmentation.js';
 import { serviceRegistry, SERVICES } from './service-registry.js';
 import { clientStore } from './client-state.js';
 import { renderIcon, IconName } from './ui/icons.js';
+import { sovereignRouter } from './router.js';
 
 export type MobileTab = 'feed' | 'explore' | 'messages' | 'vault' | 'profile' | 'circle';
 
@@ -70,31 +71,34 @@ export class MobileTabBar {
   }
 
   /**
-   * Sets the active tab and navigates the store
+   * Sets the active tab and navigates the store via the sovereign router.
+   * IMPORTANT: all navigation MUST go through sovereignRouter.navigateTo() so
+   * that renderMainStage() picks up the correct route (it reads sovereignRouter.route first).
    */
   public setTab(tab: MobileTab): void {
     this.activeTab = tab;
 
     switch (tab) {
       case 'feed':
-        clientStore.joinChannel('pulse-global');
+        sovereignRouter.navigateTo('feed');
         break;
       case 'explore':
-        clientStore.joinChannel('explore');
+        sovereignRouter.navigateTo('explore');
         break;
       case 'messages':
       case 'circle':
-        clientStore.joinChannel('relays-general');
+        sovereignRouter.navigateTo('messages');
         break;
       case 'vault':
-        clientStore.joinChannel('vault-releases');
+        sovereignRouter.navigateTo('vault');
         break;
       case 'profile':
-        clientStore.activeChannelId = 'profile';
         if (typeof window !== 'undefined' && (window as any).profileView) {
-          (window as any).profileView.setTargetFingerprint(clientStore.keypair.fingerprint);
+          (window as any).profileView.setTargetFingerprint(
+            clientStore.keypair?.fingerprint || ''
+          );
         }
-        clientStore.notify();
+        sovereignRouter.navigateTo('profile');
         break;
     }
   }
@@ -117,6 +121,27 @@ export class MobileTabBar {
     this.setTab(this.tabsOrder[prevIndex]);
   }
 
+  private isTouchIgnored: boolean = false;
+
+  /**
+   * Returns true if a touch started within a component that handles its own horizontal
+   * scrolling, sub-tabs, form controls, or modals (e.g. profile view sub-tabs).
+   */
+  private isSwipeExcluded(target: EventTarget | null): boolean {
+    if (!target || !(target instanceof Element)) return false;
+    // Don't switch global tabs when user is actively inside the profile view
+    if (this.activeTab === 'profile') return true;
+    // Don't switch global tabs when interacting inside profile view or its sub-tabs
+    if (target.closest('#sovereign-profile-container, #profile-view, [data-view="profile"], .profile-container, [data-profile-tabs], #profile-container, #profile-tab-content-area')) return true;
+    // Don't switch global tabs inside modals, drawers, slide-overs
+    if (target.closest('#mobile-drawer, [role="dialog"], .modal, #app-modal-root')) return true;
+    // Don't switch global tabs inside horizontal scrolling containers or tab lists
+    if (target.closest('.overflow-x-auto, [role="tablist"], [role="tab"], nav[aria-label]')) return true;
+    // Don't switch global tabs on interactive form controls and media
+    if (target.closest('button, input, textarea, select, pre, code, canvas, audio, video')) return true;
+    return false;
+  }
+
   /**
    * Binds horizontal touch swipe listeners on mobile viewports (< 1024px)
    */
@@ -125,12 +150,21 @@ export class MobileTabBar {
 
     document.addEventListener('touchstart', (e: TouchEvent) => {
       if (window.innerWidth >= 1024 || e.touches.length !== 1) return;
+      if (this.isSwipeExcluded(e.target)) {
+        this.isTouchIgnored = true;
+        return;
+      }
+      this.isTouchIgnored = false;
       this.touchStartX = e.touches[0].clientX;
       this.touchStartY = e.touches[0].clientY;
     }, { passive: true });
 
     document.addEventListener('touchend', (e: TouchEvent) => {
       if (window.innerWidth >= 1024 || e.changedTouches.length !== 1) return;
+      if (this.isTouchIgnored) {
+        this.isTouchIgnored = false;
+        return;
+      }
       const deltaX = e.changedTouches[0].clientX - this.touchStartX;
       const deltaY = e.changedTouches[0].clientY - this.touchStartY;
 

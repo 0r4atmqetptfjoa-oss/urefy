@@ -198,6 +198,7 @@ describe('Sovereign Wallet & Dual-Curve Cryptographic Bridge', () => {
       };
 
       globalThis.window = {
+        crypto: globalThis.crypto,
         ethereum: mockEth,
         localStorage: globalThis.localStorage,
         setTimeout: vi.fn(),

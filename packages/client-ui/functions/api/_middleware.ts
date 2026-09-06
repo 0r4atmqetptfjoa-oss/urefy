@@ -21,7 +21,7 @@ export type PagesFunction<
 > = (context: EventContext<Env, Params, Data>) => Response | Promise<Response>;
 
 // ─── SENSITIVE ROUTES & PERMITTED ORIGINS ────────────────────────────────────
-export const SENSITIVE_ROUTES = ['/api/admin', '/api/storage', '/api/push', '/api/cron-backup'];
+export const SENSITIVE_ROUTES = ['/api/admin', '/api/storage', '/api/push', '/api/cron-backup', '/api/webauthn'];
 
 export function isSensitiveRoute(pathname: string): boolean {
   return SENSITIVE_ROUTES.some((route) => pathname === route || pathname.startsWith(route + '/'));
@@ -303,6 +303,46 @@ export const onRequest: PagesFunction = async (context) => {
         },
       }
     );
+  }
+
+  // Distributed edge rate limiting via Cloudflare KV
+  const kv = (context.env as any)?.KV || (context.env as any)?.CACHE_KV;
+  if (kv && typeof kv.get === 'function' && typeof kv.put === 'function') {
+    try {
+      const currentMinute = Math.floor(now / 60000);
+      const kvKey = `ratelimit:${clientIp}:${currentMinute}`;
+      const rawCount = await kv.get(kvKey);
+      const count = rawCount ? parseInt(rawCount, 10) || 0 : 0;
+      if (count >= rl.limit) {
+        const retryAfter = Math.max(1, Math.ceil(((currentMinute + 1) * 60000 - now) / 1000));
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'Too Many Requests: Distributed edge rate limit exceeded. Please throttle your requests.',
+            retryAfterSeconds: retryAfter,
+          }),
+          {
+            status: 429,
+            headers: {
+              'Content-Type': 'application/json',
+              'Retry-After': String(retryAfter),
+              'X-RateLimit-Limit': String(rl.limit),
+              'X-RateLimit-Remaining': '0',
+              'X-RateLimit-Reset': String((currentMinute + 1) * 60),
+              ...corsHeaders,
+            },
+          }
+        );
+      }
+      const kvPromise = kv.put(kvKey, String(count + 1), { expirationTtl: 120 });
+      if (context.waitUntil) {
+        context.waitUntil(kvPromise);
+      } else {
+        await kvPromise;
+      }
+    } catch {
+      // Graceful fallback to local token bucket if KV is temporarily unavailable
+    }
   }
 
   // ── 5. CSRF Validation ────────────────────────────────────────────────────

@@ -15,6 +15,13 @@ export function isLocalDev(): boolean {
   return host === 'localhost' || host === '127.0.0.1' || host === '::1' || host === '[::1]';
 }
 
+export function isProductionBuild(): boolean {
+  if (typeof import.meta !== 'undefined' && (import.meta as any).env && (import.meta as any).env.PROD) {
+    return true;
+  }
+  return !isLocalDev();
+}
+
 export const ADMIN_DEFAULT_PIN = isLocalDev() ? '11223' : '';
 
 const memoryStorage: Record<string, string> = {};

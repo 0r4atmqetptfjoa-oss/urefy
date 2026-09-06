@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --port 3000 --host",
-    "build": "vite build",
+    "build": "vite build && npx wrangler pages functions build functions --outdir dist --compatibility-flags=nodejs_compat && tsx scripts/post-build.ts",
     "test": "vitest run",
     "preview": "vite preview",
     "i18n-audit": "tsx scripts/i18n-audit.ts",

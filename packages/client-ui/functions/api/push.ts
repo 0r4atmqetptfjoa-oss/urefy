@@ -250,7 +250,10 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
         );
       }
 
-      const id = body.id || `sub_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
+      const randSuffix = typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID().replace(/-/g, '').substring(0, 8)
+        : Date.now().toString(36);
+      const id = body.id || `sub_${Date.now().toString(36)}_${randSuffix}`;
       const createdAt = Date.now();
 
       const subscriptionRecord: EdgePushSubscription = {

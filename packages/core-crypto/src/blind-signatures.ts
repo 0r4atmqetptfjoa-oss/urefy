@@ -99,10 +99,7 @@ function getSecureRandomBytes(byteLength: number): Uint8Array {
   if (typeof globalThis !== 'undefined' && globalThis.crypto?.getRandomValues) {
     globalThis.crypto.getRandomValues(bytes);
   } else {
-    // Fallback for non-standard runtimes
-    for (let i = 0; i < byteLength; i++) {
-      bytes[i] = Math.floor(Math.random() * 256);
-    }
+    throw new Error('Cryptographically secure PRNG (crypto.getRandomValues) is required');
   }
   return bytes;
 }

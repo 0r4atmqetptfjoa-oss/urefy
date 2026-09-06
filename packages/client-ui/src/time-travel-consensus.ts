@@ -122,7 +122,7 @@ export class TimeTravelConsensusEngine {
       throw new Error(`Contested event ${params.eventId} has already been rolled back`);
     }
 
-    const proposalId = `prop_rollback_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const proposalId = `prop_rollback_${Date.now()}_${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID().slice(0, 8) : Date.now().toString(36)}`;
     const proposal: RollbackProposal = {
       id: proposalId,
       targetEventId: event.id,

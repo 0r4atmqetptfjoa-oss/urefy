@@ -8,12 +8,50 @@ import {
   type WoTEdge,
   type WoTGraphStats,
 } from '../src/network-wot-graph.js';
+import { setSimulationMode } from '../src/simulation-mode.js';
+import * as adminAuth from '../src/admin-auth.js';
 
 describe('Web-of-Trust (WoT) Interactive Graph Visualizer Engine', () => {
+  describe('0. Production Empty State (Zero-Fake-Data Invariant)', () => {
+    let prodVisualizer: WoTGraphVisualizer;
+
+    beforeEach(() => {
+      vi.spyOn(adminAuth, 'isProductionBuild').mockReturnValue(false);
+      setSimulationMode(false);
+      prodVisualizer = new WoTGraphVisualizer();
+    });
+
+    afterEach(() => {
+      prodVisualizer.stopAnimation();
+      vi.restoreAllMocks();
+    });
+
+    it('initializes with strictly empty nodes and edges when fewer than 3 verified members exist', () => {
+      expect(prodVisualizer.nodes).toEqual([]);
+      expect(prodVisualizer.edges).toEqual([]);
+      expect(prodVisualizer.isSynthetic).toBe(false);
+    });
+
+    it('renders clean empty state SVG message in production', () => {
+      const svg = prodVisualizer.renderSVG();
+      expect(svg).toContain('No network topology data available.');
+      expect(svg).toContain('Minimum 3 verified peers required to build Web-of-Trust graph.');
+      expect(svg).not.toContain('id="wot-canvas-glow"');
+    });
+
+    it('prevents synthetic graph regeneration in production mode', () => {
+      prodVisualizer.regenerateGraph();
+      expect(prodVisualizer.nodes).toEqual([]);
+      expect(prodVisualizer.edges).toEqual([]);
+    });
+  });
+
   let visualizer: WoTGraphVisualizer;
   let mockElements: Map<string, { id: string; innerHTML: string; textContent: string; className: string }>;
 
   beforeEach(() => {
+    vi.spyOn(adminAuth, 'isProductionBuild').mockReturnValue(false);
+    setSimulationMode(true);
     mockElements = new Map();
 
     const docMock = {
@@ -51,6 +89,7 @@ describe('Web-of-Trust (WoT) Interactive Graph Visualizer Engine', () => {
 
   afterEach(() => {
     visualizer.stopAnimation();
+    setSimulationMode(false);
     vi.restoreAllMocks();
   });
 
@@ -102,7 +141,7 @@ describe('Web-of-Trust (WoT) Interactive Graph Visualizer Engine', () => {
 
     it('should export singleton instance wotGraphViz correctly', () => {
       expect(wotGraphViz).toBeInstanceOf(WoTGraphVisualizer);
-      expect(wotGraphViz.nodes.length).toBeGreaterThanOrEqual(18);
+      expect(Array.isArray(wotGraphViz.nodes)).toBe(true);
       expect(typeof wotGraphViz.simulateStep).toBe('function');
     });
   });

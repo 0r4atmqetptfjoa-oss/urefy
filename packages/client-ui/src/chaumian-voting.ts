@@ -74,9 +74,7 @@ export function generateEphemeralNullifier(): string {
   if (typeof globalThis !== 'undefined' && globalThis.crypto?.getRandomValues) {
     globalThis.crypto.getRandomValues(bytes);
   } else {
-    for (let i = 0; i < 32; i++) {
-      bytes[i] = Math.floor(Math.random() * 256);
-    }
+    throw new Error('Cryptographically secure PRNG (crypto.getRandomValues) is required');
   }
   return Array.from(bytes)
     .map((b) => b.toString(16).padStart(2, '0'))

@@ -81,7 +81,7 @@ export class BookmarksVault {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed) && parsed.length > 0) {
           this.bookmarks = parsed.map((item: Partial<BookmarkEntry>) => ({
-            id: item.id || `bm_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+            id: item.id || `bm_${Date.now()}_${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID().slice(0, 8) : Date.now().toString(36)}`,
             postId: item.postId || '',
             postTitle: item.postTitle || 'Untitled Encrypted Post',
             postAuthor: item.postAuthor || 'Anonymous',
@@ -180,7 +180,7 @@ export class BookmarksVault {
     } else {
       // Create new bookmark entry
       const newEntry: BookmarkEntry = {
-        id: `bm_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+        id: `bm_${Date.now()}_${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID().slice(0, 8) : Date.now().toString(36)}`,
         postId: post.id,
         postTitle: post.title || 'Untitled Post',
         postAuthor: post.authorFingerprint || 'Anonymous',

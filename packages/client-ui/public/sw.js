@@ -3,7 +3,7 @@
 // Strategy: Cache-First Assets · SWR Navigation · Background Sync · Push
 // ════════════════════════════════════════════════════════════════════════════
 
-const VERSION = 'v3.0';
+const VERSION = 'v3.3';
 const CACHE_CORE    = `aetheris-core-${VERSION}`;
 const CACHE_ASSETS  = `aetheris-assets-${VERSION}`;
 const CACHE_API     = `aetheris-api-${VERSION}`;

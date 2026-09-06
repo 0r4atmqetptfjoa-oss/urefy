@@ -109,8 +109,11 @@ export class CommunityImporter {
     migratedCommentsCount: number;
   } {
     const authorPersona = this.getOrCreatePersona(post.author);
+    const randSuffix = typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID().replace(/-/g, '').substring(0, 8)
+      : Date.now().toString(36);
     const mainThread: SovereignMigratedItem = {
-      id: `legacy-forum-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      id: `legacy-forum-${Date.now()}-${randSuffix}`,
       channelId,
       authorFingerprint: authorPersona.fingerprint,
       ciphertext: `## ${post.title}\n\n${post.selftext}`,

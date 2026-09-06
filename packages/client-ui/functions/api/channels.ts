@@ -103,7 +103,16 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
               }
               const recheck = await stmt.all<any>();
               channels = (recheck.results || []).map(parseD1ChannelRow);
-            } catch (_) {
+            } catch (bootstrapErr: any) {
+              if (isProd) {
+                return new Response(
+                  JSON.stringify({
+                    success: false,
+                    error: `Database channel bootstrap failed: ${bootstrapErr?.message || 'D1 bootstrap error'}`,
+                  }),
+                  { status: 500, headers: { 'Content-Type': 'application/json' } }
+                );
+              }
               channels = [];
             }
           } else {

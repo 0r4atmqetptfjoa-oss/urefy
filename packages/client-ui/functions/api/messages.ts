@@ -173,8 +173,11 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
       body = rawBody.payload;
     }
 
+    const randSuffix = typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID().replace(/-/g, '').substring(0, 8)
+      : Date.now().toString(36);
     const newMsg: EdgeMessage = {
-      id: body.id || `msg-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      id: body.id || `msg-${Date.now()}-${randSuffix}`,
       channelId: body.channelId || 'relays-general',
       authorFingerprint,
       text: ciphertext, // Prohibit plaintext storage - text is set to ciphertext

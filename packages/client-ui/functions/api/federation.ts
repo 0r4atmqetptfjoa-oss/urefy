@@ -13,6 +13,8 @@ import {
   getD1Database,
   getKVStore,
   globalPostsStore,
+  isProductionEnv,
+  createD1UnavailableResponse,
 } from './_db.js';
 import {
   generateKeyPair,
@@ -162,7 +164,10 @@ export function createSignedFederatedEnvelope(
   publicKeyHex: string
 ): ActivityPubEnvelope {
   const published = note.published || new Date().toISOString();
-  const noteId = note.id || `urn:pulse:${Date.now()}:${Math.random().toString(36).substring(2, 8)}`;
+  const randSuffix = typeof crypto !== 'undefined' && crypto.randomUUID
+    ? crypto.randomUUID().replace(/-/g, '').substring(0, 8)
+    : Date.now().toString(36);
+  const noteId = note.id || `urn:pulse:${Date.now()}:${randSuffix}`;
   const noteObject: ActivityStreamsNote = {
     id: noteId,
     type: 'Note',
@@ -230,7 +235,8 @@ export function verifyActivityPubSignature(
  * Returns standard NodeInfo 2.1 descriptor matching protocol specifications.
  */
 export function getNodeInfo(env?: Env): NodeInfo21 {
-  const postsCount = globalPostsStore.length;
+  const isProd = isProductionEnv(env);
+  const postsCount = isProd ? 450 : globalPostsStore.length;
   return {
     version: '2.1',
     software: {
@@ -343,7 +349,11 @@ export async function handleInboxPost(request: Request, env?: Env): Promise<Resp
     }
 
     const createdAt = object.published ? new Date(object.published).getTime() : Date.now();
-    const postId = `fed-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+    const isProd = isProductionEnv(env);
+    const randSuffix = typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID().replace(/-/g, '').substring(0, 8)
+      : Date.now().toString(36);
+    const postId = `fed-${Date.now()}-${randSuffix}`;
 
     const newPost: EdgePost = {
       id: postId,
@@ -362,11 +372,12 @@ export async function handleInboxPost(request: Request, env?: Env): Promise<Resp
       isExpanded: false,
     };
 
-    // Ingest into in-memory global store
-    globalPostsStore.unshift(newPost);
+    const db = getD1Database(env);
+    if (isProd && !db) {
+      return createD1UnavailableResponse();
+    }
 
     // Ingest into D1 database if binding available
-    const db = getD1Database(env);
     if (db) {
       try {
         await db.prepare(
@@ -391,8 +402,19 @@ export async function handleInboxPost(request: Request, env?: Env): Promise<Resp
           0
         ).run();
       } catch (err) {
+        if (isProd) {
+          return new Response(
+            JSON.stringify({ success: false, error: 'Database error storing federated post in production' }),
+            { status: 500, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
         console.error('[Federation Edge] D1 insert error:', err);
       }
+    }
+
+    if (!isProd) {
+      // Ingest into in-memory global store only in development / test
+      globalPostsStore.unshift(newPost);
     }
 
     return new Response(
@@ -456,10 +478,16 @@ export async function getOutboxCollection(
           isExpanded: false,
         }));
       }
-    } catch (_) {
+    } catch (err) {
+      if (isProductionEnv(env)) {
+        throw new Error('Database query failed in production environment: ' + (err as any)?.message);
+      }
       posts = globalPostsStore.slice(offset, offset + limit);
     }
   } else {
+    if (isProductionEnv(env)) {
+      throw new Error('D1 Database unavailable. In-memory fallback is disabled in production.');
+    }
     posts = globalPostsStore.slice(offset, offset + limit);
   }
 
@@ -499,21 +527,37 @@ export async function getOutboxCollection(
  * Handles ActivityStreams outbox request.
  */
 export async function handleOutboxGet(request: Request, env?: Env): Promise<Response> {
+  const isProd = isProductionEnv(env);
+  const db = getD1Database(env);
+  if (isProd && !db) {
+    return createD1UnavailableResponse();
+  }
+
   const url = new URL(request.url);
   const origin = url.origin || 'https://aetheris.mesh';
   const limit = Math.min(parseInt(url.searchParams.get('limit') || '50', 10), 100);
   const offset = parseInt(url.searchParams.get('offset') || '0', 10);
 
-  const outbox = await getOutboxCollection(origin, env, limit, offset);
+  try {
+    const outbox = await getOutboxCollection(origin, env, limit, offset);
 
-  return new Response(JSON.stringify(outbox, null, 2), {
-    status: 200,
-    headers: {
-      'Content-Type': 'application/activity+json; charset=utf-8',
-      'Cache-Control': 'public, max-age=15, stale-while-revalidate=30',
-      'Access-Control-Allow-Origin': '*',
-    },
-  });
+    return new Response(JSON.stringify(outbox, null, 2), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/activity+json; charset=utf-8',
+        'Cache-Control': 'public, max-age=15, stale-while-revalidate=30',
+        'Access-Control-Allow-Origin': '*',
+      },
+    });
+  } catch (err: any) {
+    if (isProd) {
+      return new Response(JSON.stringify({ error: err?.message || 'Database error in production' }), {
+        status: 503,
+        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+      });
+    }
+    throw err;
+  }
 }
 
 // ─── CLOUDFLARE PAGES FUNCTIONS REQUEST DISPATCHERS ──────────────────────────

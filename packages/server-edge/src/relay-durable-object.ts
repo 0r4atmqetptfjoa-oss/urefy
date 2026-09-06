@@ -77,6 +77,131 @@ export interface SessionMetadata {
   tags: Set<string>;
 }
 
+export interface RelaySessionPayload {
+  sub: string;
+  role: 'GUEST' | 'MEMBER' | 'MODERATOR' | 'ARCHIVIST' | 'GUARDIAN' | 'ADMIN';
+  nullifier?: string;
+  aud: string;
+  exp: number;
+  iat: number;
+  jti?: string;
+}
+
+export function base64UrlEncodeBytes(bytes: Uint8Array): string {
+  let binary = '';
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+export function base64UrlDecodeBytes(base64url: string): Uint8Array {
+  let base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
+  while (base64.length % 4 !== 0) {
+    base64 += '=';
+  }
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
+export async function createRelaySessionToken(
+  payload: RelaySessionPayload,
+  secret: string
+): Promise<string> {
+  const enc = new TextEncoder();
+  const payloadStr = JSON.stringify(payload);
+  const payloadB64 = base64UrlEncodeBytes(enc.encode(payloadStr));
+
+  const key = await crypto.subtle.importKey(
+    'raw',
+    enc.encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const sigBuffer = await crypto.subtle.sign(
+    'HMAC',
+    key,
+    enc.encode(`aeth_ws:${payloadB64}`)
+  );
+  const sigHex = Array.from(new Uint8Array(sigBuffer))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+
+  return `aeth_ws_${payloadB64}_${sigHex}`;
+}
+
+export async function verifyRelaySessionToken(
+  token: string,
+  secret: string,
+  expectedAudience = 'aetheris-relay'
+): Promise<{ valid: boolean; payload?: RelaySessionPayload; error?: string }> {
+  if (!token || typeof token !== 'string' || !token.startsWith('aeth_ws_')) {
+    return { valid: false, error: 'Malformed token format' };
+  }
+  const parts = token.split('_');
+  if (parts.length !== 4 || parts[0] !== 'aeth' || parts[1] !== 'ws') {
+    return { valid: false, error: 'Invalid token structure' };
+  }
+  const [, , payloadB64, sigHex] = parts;
+  const enc = new TextEncoder();
+
+  let isSigValid = false;
+  try {
+    const key = await crypto.subtle.importKey(
+      'raw',
+      enc.encode(secret),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['verify']
+    );
+    const matches = sigHex.match(/.{1,2}/g);
+    if (!matches || matches.length !== 32) {
+      return { valid: false, error: 'Invalid signature length' };
+    }
+    const sigBytes = new Uint8Array(matches.map((b) => parseInt(b, 16)));
+    isSigValid = await crypto.subtle.verify(
+      'HMAC',
+      key,
+      sigBytes,
+      enc.encode(`aeth_ws:${payloadB64}`)
+    );
+  } catch (err: any) {
+    return { valid: false, error: `Signature verification error: ${err.message}` };
+  }
+
+  if (!isSigValid) {
+    return { valid: false, error: 'Invalid session signature' };
+  }
+
+  let payload: RelaySessionPayload;
+  try {
+    const rawPayload = new TextDecoder().decode(base64UrlDecodeBytes(payloadB64));
+    payload = JSON.parse(rawPayload);
+  } catch (_) {
+    return { valid: false, error: 'Malformed token payload JSON' };
+  }
+
+  const now = Date.now();
+  if (typeof payload.exp !== 'number' || payload.exp < now) {
+    return { valid: false, error: 'Session token has expired' };
+  }
+
+  if (payload.aud !== expectedAudience && payload.aud !== 'aetheris-relay') {
+    return { valid: false, error: `Wrong audience: expected ${expectedAudience}, got ${payload.aud}` };
+  }
+
+  if (!payload.sub || typeof payload.sub !== 'string' || !PayloadSanitizer.isValidIdentifier(payload.sub)) {
+    return { valid: false, error: 'Invalid or missing subject fingerprint in token' };
+  }
+
+  return { valid: true, payload };
+}
+
 /**
  * Cloudflare Durable Object implementation for Aetheris Sovereign Signaling & Messaging.
  * Fully leverages Cloudflare WebSocket Hibernation API for zero idle costs and scale to 10k+ concurrent peers.
@@ -100,16 +225,20 @@ export class RelayDurableObject {
   private revokedNullifiers: Set<string> = new Set();
 
   private initialized: boolean = false;
+  private storageInitError: Error | null = null;
+  private usedJtis: Set<string> = new Set();
 
   constructor(ctx: DurableObjectState, env: Env) {
     this.ctx = ctx;
     this.state = ctx;
     this.env = env;
 
-    // Seed default channels and initial messages
+    // In production, start with completely clean channels (zero demo messages).
+    // Initial messages are only populated if explicit simulation mode is enabled.
+    const isSimulation = env?.SIMULATION_MODE === 'true' || env?.SIMULATION_MODE === true;
     for (const ch of DEFAULT_RELAY_CHANNELS) {
       this.channels.set(ch.id, { ...ch });
-      this.channelMessages.set(ch.id, [...(INITIAL_RELAY_MESSAGES[ch.id] || [])]);
+      this.channelMessages.set(ch.id, isSimulation ? [...(INITIAL_RELAY_MESSAGES[ch.id] || [])] : []);
       this.channelNanopublications.set(ch.id, []);
     }
   }
@@ -168,8 +297,9 @@ export class RelayDurableObject {
           // Schedule alarm 10 minutes from now
           await this.ctx.storage.setAlarm(Date.now() + 10 * 60 * 1000);
         }
-      } catch (err) {
-        console.warn('[RelayDurableObject] Storage initialization fallback to in-memory:', err);
+      } catch (err: any) {
+        console.error('[RelayDurableObject] Storage initialization failed:', err);
+        this.storageInitError = err instanceof Error ? err : new Error(String(err));
       }
     }
   }
@@ -179,6 +309,19 @@ export class RelayDurableObject {
    */
   async fetch(request: Request): Promise<Response> {
     await this.ensureInitialized();
+    if (this.storageInitError) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Durable Object storage initialization failed',
+          details: this.storageInitError.message,
+        }),
+        {
+          status: 503,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        }
+      );
+    }
     const url = new URL(request.url);
 
     // 1. HTTP REST queries for room state & presence
@@ -295,6 +438,17 @@ export class RelayDurableObject {
    */
   async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
     await this.ensureInitialized();
+    if (this.storageInitError) {
+      this.send(ws, {
+        type: 'ERROR',
+        message: 'Durable Object persistent storage unavailable',
+        details: this.storageInitError.message,
+      });
+      try {
+        ws.close(1011, 'Storage unavailable');
+      } catch (_) {}
+      return;
+    }
     let session = this.sessions.get(ws);
     if (!session) {
       let attachment: any = null;
@@ -526,23 +680,83 @@ export class RelayDurableObject {
   // ─── PACKET HANDLERS ────────────────────────────────────────────────────────
 
   private async handleAuth(ws: WebSocket, session: SessionMetadata, packet: any): Promise<void> {
-    const { fingerprint, publicKeyHex, nullifier, role, status } = packet;
+    const { token, sessionToken, credential, fingerprint, role, nullifier, status } = packet;
+    const tokenToVerify = token || sessionToken || credential;
+    const secret = (this.env as any)?.AUTH_SECRET || (this.env as any)?.ADMIN_PIN || 'aetheris-sovereign-relay-secret';
 
-    if (!fingerprint || !PayloadSanitizer.isValidIdentifier(fingerprint)) {
-      this.send(ws, { type: 'ERROR', message: 'Invalid fingerprint identifier' });
-      return;
+    if (tokenToVerify) {
+      const authResult = await verifyRelaySessionToken(tokenToVerify, secret);
+      if (!authResult.valid || !authResult.payload) {
+        this.send(ws, {
+          type: 'ERROR',
+          message: `Authentication rejected: ${authResult.error || 'Invalid session credential'}`,
+        });
+        return;
+      }
+
+      const p = authResult.payload;
+
+      // Replay prevention if JTI is present
+      if (p.jti) {
+        if (this.usedJtis.has(p.jti)) {
+          this.send(ws, {
+            type: 'ERROR',
+            message: 'Authentication rejected: Session credential has already been used (replay detected)',
+          });
+          return;
+        }
+        this.usedJtis.add(p.jti);
+        if (this.usedJtis.size > 10000) {
+          const first = this.usedJtis.values().next().value;
+          if (first) this.usedJtis.delete(first);
+        }
+      }
+
+      // Cryptographically verified identity — role and fingerprint derived exclusively from server credential
+      session.fingerprint = p.sub;
+      session.role = p.role || 'MEMBER';
+      session.nullifier = p.nullifier || session.nullifier;
+      session.authenticated = true;
+    } else {
+      const requestedRole = (role || '').toUpperCase();
+      const isPrivilegedRequest = ['ADMIN', 'GUARDIAN', 'MODERATOR', 'ARCHIVIST'].includes(requestedRole);
+
+      if (isPrivilegedRequest) {
+        this.send(ws, {
+          type: 'ERROR',
+          message: 'Authentication rejected: Cryptographic session credential required for privileged roles',
+        });
+        return;
+      }
+
+      if (packet.authenticated === true) {
+        this.send(ws, {
+          type: 'ERROR',
+          message: 'Authentication rejected: Cannot claim authenticated status without valid session credential',
+        });
+        return;
+      }
+
+      // Public / Anonymous guest session (allows public channel communications without privilege)
+      if (fingerprint && !PayloadSanitizer.isValidIdentifier(fingerprint)) {
+        this.send(ws, { type: 'ERROR', message: 'Invalid fingerprint identifier' });
+        return;
+      }
+
+      const guestFingerprint = fingerprint || `anon-${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID().substring(0, 8) : Date.now().toString(36)}`;
+
+      session.fingerprint = guestFingerprint;
+      session.nullifier = nullifier;
+      session.role = 'MEMBER'; // Client-provided role is NEVER trusted
+      session.authenticated = false;
     }
 
-    session.fingerprint = fingerprint;
-    session.nullifier = nullifier;
-    session.role = role || 'MEMBER';
-    session.authenticated = true;
-
-    // Check if identity was slashed / revoked
-    const isQuarantined = Boolean(nullifier && this.revokedNullifiers.has(nullifier));
+    const activeFingerprint = session.fingerprint!;
+    const activeNullifier = session.nullifier;
+    const isQuarantined = Boolean(activeNullifier && this.revokedNullifiers.has(activeNullifier));
 
     // Update tags on hibernating socket if supported
-    const userTag = `user:${fingerprint}`;
+    const userTag = `user:${activeFingerprint}`;
     const roleTag = `role:${session.role}`;
     session.tags.add(userTag);
     session.tags.add(roleTag);
@@ -555,8 +769,8 @@ export class RelayDurableObject {
 
     // Register user in Presence map
     const presenceUser: PresenceUser = {
-      fingerprint,
-      nullifier,
+      fingerprint: activeFingerprint,
+      nullifier: activeNullifier,
       role: session.role || 'MEMBER',
       status: status || 'online',
       joinedChannel: session.currentChannelId,
@@ -564,16 +778,17 @@ export class RelayDurableObject {
       lastSeen: Date.now(),
       connectedAt: session.connectedAt,
     };
-    this.presence.set(fingerprint, presenceUser);
+    this.presence.set(activeFingerprint, presenceUser);
     this.serializeSession(ws, session);
 
     // 1. Reply to client
     this.send(ws, {
       type: 'AUTH_SUCCESS',
-      fingerprint,
-      nullifier,
+      fingerprint: activeFingerprint,
+      nullifier: activeNullifier,
       isQuarantined,
       role: session.role,
+      authenticated: session.authenticated,
       channels: Array.from(this.channels.values()),
     });
 
@@ -722,7 +937,11 @@ export class RelayDurableObject {
 
               // Persist to storage
               if (this.ctx?.storage) {
-                this.ctx.waitUntil(this.ctx.storage.put('revoked_nullifiers', Array.from(this.revokedNullifiers)));
+                try {
+                  await this.ctx.storage.put('revoked_nullifiers', Array.from(this.revokedNullifiers));
+                } catch (err) {
+                  console.error('[RelayDurableObject] Failed to persist revoked nullifiers:', err);
+                }
               }
 
               // Broadcast global QUARANTINE_ALERT to all connected sockets (zero secret key disclosure)
@@ -755,8 +974,11 @@ export class RelayDurableObject {
     }
 
     // 3. Construct Verified Message Record
+    const randSuffix = typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID().replace(/-/g, '').substring(0, 8)
+      : Date.now().toString(36);
     const msgRecord: RelayMessage = {
-      id: packet.id || `msg-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      id: packet.id || `msg-${Date.now()}-${randSuffix}`,
       channelId,
       authorFingerprint,
       ciphertext,
@@ -768,7 +990,22 @@ export class RelayDurableObject {
       createdAt: packet.createdAt || Date.now(),
     };
 
-    // Store in Channel Message Buffer
+    // 1. Persist message to Durable Object Storage for Hibernation recovery FIRST
+    if (this.ctx?.storage) {
+      try {
+        await this.ctx.storage.put(`msg:${channelId}:${msgRecord.id}`, msgRecord);
+      } catch (err: any) {
+        console.error('[RelayDurableObject] Storage put message failed:', err);
+        this.send(ws, {
+          type: 'ERROR',
+          message: 'Failed to persist message to durable storage',
+          details: err?.message,
+        });
+        return;
+      }
+    }
+
+    // 2. Store in Channel Message Buffer (RAM cache) ONLY AFTER durable storage succeeds
     if (!this.channelMessages.has(channelId)) {
       this.channelMessages.set(channelId, []);
     }
@@ -776,15 +1013,6 @@ export class RelayDurableObject {
     msgs.push(msgRecord);
     if (msgs.length > 2000) {
       msgs.splice(0, msgs.length - 1500);
-    }
-
-    // Persist message to Durable Object Storage for Hibernation recovery
-    if (this.ctx?.storage) {
-      try {
-        this.ctx.waitUntil(this.ctx.storage.put(`msg:${channelId}:${msgRecord.id}`, msgRecord));
-      } catch (err) {
-        console.warn('[RelayDurableObject] Storage put message fallback:', err);
-      }
     }
 
     // Optional D1 SQL DB Sync
@@ -814,7 +1042,15 @@ export class RelayDurableObject {
       }
     }
 
-    // 4. High-Efficiency Broadcast to Channel Peers (Single JSON.stringify serialization)
+    // 4. Confirm SUCCESS to sender first
+    this.send(ws, {
+      type: 'MESSAGE_ACK',
+      messageId: msgRecord.id,
+      channelId,
+      status: 'verified',
+    });
+
+    // 5. Broadcast to Channel Peers (Single JSON.stringify serialization)
     this.broadcast(
       {
         type: 'NEW_MESSAGE',
@@ -822,14 +1058,6 @@ export class RelayDurableObject {
       },
       { channelId, excludeWs: ws }
     );
-
-    // Also acknowledge sender
-    this.send(ws, {
-      type: 'MESSAGE_ACK',
-      messageId: msgRecord.id,
-      channelId,
-      status: 'verified',
-    });
   }
 
   private handleTypingIndicator(ws: WebSocket, session: SessionMetadata, packet: any): void {
@@ -896,8 +1124,11 @@ export class RelayDurableObject {
 
   private async handlePublishNanopublication(ws: WebSocket, session: SessionMetadata, packet: any): Promise<void> {
     const channelId = packet.channelId || 'vault-releases';
+    const randSuffix = typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID().replace(/-/g, '').substring(0, 8)
+      : Date.now().toString(36);
     const np: RelayNanopublication = {
-      id: packet.id || `nano-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      id: packet.id || `nano-${Date.now()}-${randSuffix}`,
       channelId,
       title: PayloadSanitizer.sanitizeString(packet.title || 'Verified Release'),
       fileName: PayloadSanitizer.sanitizeString(packet.fileName || 'file.bin'),
@@ -910,6 +1141,20 @@ export class RelayDurableObject {
       seederCount: 1,
       createdAt: Date.now(),
     };
+
+    if (this.ctx?.storage) {
+      try {
+        await this.ctx.storage.put(`nano:${channelId}:${np.id}`, np);
+      } catch (err: any) {
+        console.error('[RelayDurableObject] Storage put nanopublication failed:', err);
+        this.send(ws, {
+          type: 'ERROR',
+          message: 'Failed to persist nanopublication to durable storage',
+          details: err?.message,
+        });
+        return;
+      }
+    }
 
     if (!this.channelNanopublications.has(channelId)) {
       this.channelNanopublications.set(channelId, []);
@@ -966,6 +1211,13 @@ export class RelayDurableObject {
   }
 
   private handleRollback(ws: WebSocket, session: SessionMetadata, packet: any): void {
+    if (!session.authenticated || !['GUARDIAN', 'ADMIN', 'MODERATOR'].includes((session.role || '').toUpperCase())) {
+      this.send(ws, {
+        type: 'ERROR',
+        message: 'Unauthorized: Cryptographically verified privileged role required for rollback',
+      });
+      return;
+    }
     const { targetActorFingerprint } = packet;
     this.broadcast({
       type: 'AUDIT_NOTIFICATION',

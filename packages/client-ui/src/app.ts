@@ -86,7 +86,6 @@ import { adminAuth } from './admin-auth.js';
 import { PRIMARY_NAV_ITEMS, ADVANCED_TOOLS_ITEMS, renderNavIcon } from './nav-config.js';
 import { renderIcon } from './ui/icons.js';
 import { contextualSidebar } from './sidebar.js';
-import { sovereignRouter } from './router.js';
 import { modalManager, buildModalRootHTML as orchestrateModalRootHTML } from './modal-manager.js';
 import { settingsView } from './settings-view.js';
 import { actionDispatcher } from './ui/action-dispatcher.js';
@@ -747,8 +746,8 @@ export function initApp(): void {
           
           <!-- LEFT: LOGO + PRIMARY WORKSPACE MODES -->
           <div class="flex items-center space-x-3 sm:space-x-6">
-            <button type="button" id="btn-toggle-mobile-drawer" class="lg:hidden p-2 rounded-xl bg-surface-raised border border-white/5 text-slate-300 hover:text-white cursor-pointer" title="Toggle Navigation Drawer">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+            <button type="button" id="btn-toggle-mobile-drawer" data-action="toggle-mobile-drawer" class="lg:hidden min-w-[44px] min-h-[44px] flex items-center justify-center p-2.5 rounded-xl bg-surface-raised border border-white/5 text-slate-300 hover:text-white cursor-pointer" title="Deschide meniu navigare" aria-label="Toggle Navigation Menu">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
             </button>
             <div class="flex items-center space-x-3 cursor-pointer group" data-action="join-channel" data-channel="pulse-global">
               <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 via-indigo-600 to-slate-800 flex items-center justify-center font-bold text-sm text-white tracking-widest shadow-md group-hover:scale-105 transition-transform">
@@ -3223,6 +3222,12 @@ function bindEvents(): void {
   // Mobile Tab Bar Handlers
   document.getElementById('btn-mobile-tab-feed')?.addEventListener('click', () => {
     mobileTabBar.setTab('feed');
+  }, { signal });
+  document.getElementById('btn-mobile-tab-explore')?.addEventListener('click', () => {
+    mobileTabBar.setTab('explore');
+  }, { signal });
+  document.getElementById('btn-mobile-tab-messages')?.addEventListener('click', () => {
+    mobileTabBar.setTab('messages');
   }, { signal });
   document.getElementById('btn-mobile-tab-vault')?.addEventListener('click', () => {
     mobileTabBar.setTab('vault');

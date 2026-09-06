@@ -84,7 +84,7 @@ function randomFieldScalar(p: bigint = SHAMIR_PRIME): bigint {
   if (typeof globalThis !== 'undefined' && globalThis.crypto?.getRandomValues) {
     globalThis.crypto.getRandomValues(buf);
   } else {
-    for (let i = 0; i < 32; i++) buf[i] = Math.floor(Math.random() * 256);
+    throw new Error('Cryptographically secure PRNG (crypto.getRandomValues) is required');
   }
   let val = 0n;
   for (let i = 0; i < 32; i++) {

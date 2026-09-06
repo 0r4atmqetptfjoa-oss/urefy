@@ -142,7 +142,7 @@ export function generateRandomScalar(): bigint {
   if (typeof globalThis !== 'undefined' && globalThis.crypto?.getRandomValues) {
     globalThis.crypto.getRandomValues(buf);
   } else {
-    for (let i = 0; i < 32; i++) buf[i] = Math.floor(Math.random() * 256);
+    throw new Error('Cryptographically secure PRNG (crypto.getRandomValues) is required');
   }
   const hex = bytesToHex(buf);
   const n = BigInt('0x' + hex) % BN254_SCALAR_FIELD_ORDER;

@@ -18,14 +18,17 @@ import {
   EDGE_START_TIME,
   TOTAL_MESSAGES_COUNTER,
   INITIAL_NODES,
+  isProductionEnv,
+  createD1UnavailableResponse,
 } from './_db.js';
 import { requireAdmin, requireSignedEnvelope } from './_auth.js';
 
 export interface AnalyticsSummary {
-  status: 'healthy' | 'degraded' | 'syncing';
+  status: 'healthy' | 'degraded' | 'syncing' | 'operational_state_unverified';
+  serviceHealthVerified: boolean;
   protocol: string;
   uptimeSeconds: number;
-  uptimePercentage: number;
+  uptimePercentage: number | null;
   uptimeFormatted: string;
   edge: {
     colo: string;
@@ -67,11 +70,16 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
     const db = getD1Database(context.env);
     const kv = getKVStore(context.env);
 
+    const isProd = isProductionEnv(context.env);
+    if (isProd && !db) {
+      return createD1UnavailableResponse();
+    }
+
     let nodes: EdgeNodeTelemetry[] = [];
-    let totalMessages = TOTAL_MESSAGES_COUNTER;
-    let totalPosts = globalPostsStore.length;
-    let totalNanopubs = globalNanopublicationsStore.length;
-    let totalChannels = globalChannelsStore.length;
+    let totalMessages = isProd ? 0 : TOTAL_MESSAGES_COUNTER;
+    let totalPosts = isProd ? 0 : globalPostsStore.length;
+    let totalNanopubs = isProd ? 0 : globalNanopublicationsStore.length;
+    let totalChannels = isProd ? 0 : globalChannelsStore.length;
 
     // 1. Fetch from Cloudflare D1 if available
     if (db) {
@@ -95,7 +103,7 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
             connections: r.connections_json ? JSON.parse(r.connections_json) : [],
             lastHeartbeat: Number(r.last_heartbeat) || Date.now(),
           }));
-        } else {
+        } else if (!isProd) {
           nodes = [...globalNodesTelemetryStore];
         }
 
@@ -107,11 +115,17 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
           db.prepare('SELECT COUNT(*) as count FROM channels').first<{ count: number }>(),
         ]);
 
-        if (msgCount && typeof msgCount.count === 'number') totalMessages = msgCount.count + 1000;
+        if (msgCount && typeof msgCount.count === 'number') totalMessages = msgCount.count;
         if (postCount && typeof postCount.count === 'number') totalPosts = postCount.count;
         if (nanoCount && typeof nanoCount.count === 'number') totalNanopubs = nanoCount.count;
         if (chCount && typeof chCount.count === 'number') totalChannels = chCount.count;
-      } catch (dbErr) {
+      } catch (dbErr: any) {
+        if (isProd) {
+          return new Response(
+            JSON.stringify({ success: false, error: `Database telemetry query failed: ${dbErr?.message || 'D1 query error'}` }),
+            { status: 500, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
         console.warn('[D1 Analytics Fallback]', dbErr);
         nodes = [...globalNodesTelemetryStore];
       }
@@ -123,17 +137,18 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
     const avgLatency =
       activeNodes.length > 0
         ? Math.round((activeNodes.reduce((acc, n) => acc + n.latencyMs, 0) / activeNodes.length) * 10) / 10
-        : 14.5;
+        : (isProd ? 0 : 14.5);
     const totalBandwidth = nodes.reduce((acc, n) => acc + (n.bandwidthMbps || 0), 0);
     const uptimeSec = Math.floor((Date.now() - EDGE_START_TIME) / 1000);
     const messagesSum = nodes.reduce((acc, n) => acc + (n.messagesProcessed || 0), totalMessages);
 
     const summary: AnalyticsSummary = {
-      status: 'healthy',
+      status: isProd ? (db ? 'healthy' : 'degraded') : 'healthy',
+      serviceHealthVerified: Boolean(db),
       protocol: 'Aetheris-Sovereign-v1.0.0',
       uptimeSeconds: uptimeSec,
-      uptimePercentage: 99.98,
-      uptimeFormatted: '99.98% SLA Guaranteed',
+      uptimePercentage: isProd ? null : 99.98,
+      uptimeFormatted: isProd ? 'Measured uptime unavailable' : `${uptimeSec}s continuous edge runtime`,
       edge: {
         colo: cf.colo || 'OTP',
         country: cf.country || 'RO',
@@ -263,16 +278,26 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
             updatedNode.lastHeartbeat
           )
           .run();
-      } catch (dbErr) {
+      } catch (dbErr: any) {
+        if (isProductionEnv(context.env)) {
+          return new Response(
+            JSON.stringify({ success: false, error: `Database transaction failed: ${dbErr?.message || 'D1 error'}` }),
+            { status: 500, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
         console.warn('[D1 Telemetry Insert Fallback]', dbErr);
       }
+    } else if (isProductionEnv(context.env)) {
+      return createD1UnavailableResponse();
     }
 
-    const idx = globalNodesTelemetryStore.findIndex((n) => n.nodeId === updatedNode.nodeId);
-    if (idx >= 0) {
-      globalNodesTelemetryStore[idx] = updatedNode;
-    } else {
-      globalNodesTelemetryStore.push(updatedNode);
+    if (!isProductionEnv(context.env)) {
+      const idx = globalNodesTelemetryStore.findIndex((n) => n.nodeId === updatedNode.nodeId);
+      if (idx >= 0) {
+        globalNodesTelemetryStore[idx] = updatedNode;
+      } else {
+        globalNodesTelemetryStore.push(updatedNode);
+      }
     }
 
     return new Response(

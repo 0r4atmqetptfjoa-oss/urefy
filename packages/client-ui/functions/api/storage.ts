@@ -18,6 +18,7 @@ import {
   getR2Bucket,
   getD1Database,
   getKVStore,
+  isProductionEnv,
 } from './_db.js';
 import { requireAdmin, requireOwnership, requireSignedEnvelope } from './_auth.js';
 
@@ -512,6 +513,7 @@ export async function onRequestPost(context: {
     let author = req.headers.get('X-Author') || 'anon-peer';
     let title = req.headers.get('X-Title') || '';
     let customKey = req.headers.get('X-Key') || '';
+    let channelId = req.headers.get('X-Channel-Id') || 'vault-releases';
     let detectedContentType = rawContentType.split(';')[0].trim();
     let envelopeObj: any = null;
     const envHeader = req.headers.get('X-Sovereign-Envelope');
@@ -541,6 +543,7 @@ export async function onRequestPost(context: {
       author = (formData.get('author') as string) || author;
       title = (formData.get('title') as string) || title;
       customKey = (formData.get('key') as string) || customKey;
+      channelId = (formData.get('channelId') as string) || channelId;
     }
     // 2. Application JSON (Base64 payload or structured data)
     else if (rawContentType.includes('application/json')) {
@@ -581,6 +584,7 @@ export async function onRequestPost(context: {
       author = jsonBody.author || author;
       title = jsonBody.title || title;
       customKey = jsonBody.key || customKey;
+      channelId = jsonBody.channelId || channelId;
       detectedContentType = jsonBody.contentType || 'application/octet-stream';
     }
     // 3. Direct Binary Body (application/octet-stream, zip, wasm, images, etc.)
@@ -776,6 +780,55 @@ export async function onRequestPost(context: {
         });
         storageType = 'Cloudflare-R2';
 
+        // Synchronize metadata with Cloudflare D1 if available
+        const db = getD1Database(context.env);
+        if (db) {
+          try {
+            const nanopubId = `nano-${Date.now()}-${sha256.substring(0, 8)}`;
+            await db
+              .prepare(
+                `INSERT OR REPLACE INTO nanopublications (
+                  id, channel_id, title, file_name, byte_size, sha256, crc32,
+                  entropy, verdict, merkle_root, seeder_count, r2_key, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+              )
+              .bind(
+                nanopubId,
+                channelId || 'vault-releases',
+                title || fileName,
+                fileName,
+                byteSize,
+                sha256,
+                '',
+                0.0,
+                'CLEAN',
+                merkleRoot,
+                1,
+                key,
+                Date.now()
+              )
+              .run();
+          } catch (dbErr: any) {
+            if (isProductionEnv(context.env)) {
+              // Roll back R2 upload to prevent orphan inconsistency
+              try {
+                await bucket.delete(key);
+              } catch (_) {}
+              return new Response(
+                JSON.stringify({
+                  success: false,
+                  error: `Metadata registration in D1 failed: ${dbErr?.message || 'Database error'}. R2 storage object was cleaned up.`,
+                }),
+                {
+                  status: 500,
+                  headers: { 'Content-Type': 'application/json', ...STORAGE_CORS_HEADERS },
+                }
+              );
+            }
+            console.warn('[D1 Metadata Sync Warning]:', dbErr);
+          }
+        }
+
         // RAM cache: Keep small files (< 2 MB) in edge isolate memory
         if (byteSize <= RAM_CACHE_MAX_BYTES) {
           globalEdgeStorageMap.set(key, {
@@ -794,6 +847,18 @@ export async function onRequestPost(context: {
           });
         }
       } catch (r2Err: any) {
+        if (isProductionEnv(context.env)) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: `Cloudflare R2 upload failed: ${r2Err?.message || 'Storage error'}. In-memory fallback is disabled in production.`,
+            }),
+            {
+              status: 500,
+              headers: { 'Content-Type': 'application/json', ...STORAGE_CORS_HEADERS },
+            }
+          );
+        }
         console.warn('[R2 Storage Put Failed, Falling back to Edge Memory]:', r2Err);
         storageType = 'Edge-Isolate-Memory';
         globalEdgeStorageMap.set(key, {
@@ -808,8 +873,19 @@ export async function onRequestPost(context: {
           storage: 'Edge-Isolate-Memory',
         });
       }
+    } else if (isProductionEnv(context.env)) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Cloudflare R2 storage bucket unavailable. In-memory storage fallback is disabled in production.',
+        }),
+        {
+          status: 503,
+          headers: { 'Content-Type': 'application/json', ...STORAGE_CORS_HEADERS },
+        }
+      );
     } else {
-      // Distributed Edge Isolate In-Memory Storage
+      // Distributed Edge Isolate In-Memory Storage (Development / Test only)
       globalEdgeStorageMap.set(key, {
         key,
         data: binaryData,
@@ -964,6 +1040,18 @@ export async function onRequestGet(context: {
       url.searchParams.get('meta') === 'true' || url.searchParams.get('info') === 'true';
 
     const bucket = getStorageBucket(context.env);
+    if (isProductionEnv(context.env) && !bucket) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Cloudflare R2 storage bucket unavailable. In-memory storage fallback is disabled in production.',
+        }),
+        {
+          status: 503,
+          headers: { 'Content-Type': 'application/json', ...STORAGE_CORS_HEADERS },
+        }
+      );
+    }
 
     // ─── 1. OBJECT LISTING (60s In-Memory Cache — Class A Saver) ─────────────
     if (isList && !key && !sha256Query) {
@@ -1021,8 +1109,8 @@ export async function onRequestGet(context: {
         } catch (_) {}
       }
 
-      // Merge / fallback with in-memory store
-      if (objects.length === 0) {
+      // Merge / fallback with in-memory store (development only)
+      if (objects.length === 0 && !isProductionEnv(context.env)) {
         for (const [k, v] of globalEdgeStorageMap.entries()) {
           if (!prefix || k.startsWith(prefix)) {
             objects.push({
@@ -1069,19 +1157,21 @@ export async function onRequestGet(context: {
 
     // ─── 2. LOOKUP IN RAM CACHE (Class B Saver: Small Files < 2MB or Edge Memory) ─
     let memItem: StoredBinaryObject | undefined;
-    if (key) {
-      memItem = globalEdgeStorageMap.get(key);
-    }
-    if (!memItem && sha256Query) {
-      memItem = Array.from(globalEdgeStorageMap.values()).find(
-        (item) => item.sha256.toLowerCase() === sha256Query.toLowerCase()
-      );
-    }
-    if (!memItem && key) {
-      // Fallback matching by suffix / filename
-      memItem = Array.from(globalEdgeStorageMap.values()).find(
-        (item) => item.key.endsWith(key) || item.customMetadata?.fileName === key
-      );
+    if (!isProductionEnv(context.env)) {
+      if (key) {
+        memItem = globalEdgeStorageMap.get(key);
+      }
+      if (!memItem && sha256Query) {
+        memItem = Array.from(globalEdgeStorageMap.values()).find(
+          (item) => item.sha256.toLowerCase() === sha256Query.toLowerCase()
+        );
+      }
+      if (!memItem && key) {
+        // Fallback matching by suffix / filename
+        memItem = Array.from(globalEdgeStorageMap.values()).find(
+          (item) => item.key.endsWith(key) || item.customMetadata?.fileName === key
+        );
+      }
     }
 
     if (memItem) {
@@ -1316,7 +1406,19 @@ export async function onRequestGet(context: {
             headers,
           });
         }
-      } catch (r2GetErr) {
+      } catch (r2GetErr: any) {
+        if (isProductionEnv(context.env)) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: `Cloudflare R2 fetch error: ${r2GetErr?.message || r2GetErr}`,
+            }),
+            {
+              status: 500,
+              headers: { 'Content-Type': 'application/json', ...STORAGE_CORS_HEADERS },
+            }
+          );
+        }
         console.warn('[R2 Get Fallback]', r2GetErr);
       }
     }
@@ -1492,12 +1594,27 @@ export async function onRequestDelete(context: {
         recordClassAOp();
         await bucket.delete(key);
         deletedFromR2 = true;
-      } catch (_) {}
+      } catch (err: any) {
+        if (isProductionEnv(context.env)) {
+          return new Response(
+            JSON.stringify({ success: false, error: `R2 delete failed: ${err?.message || err}` }),
+            { status: 500, headers: { 'Content-Type': 'application/json', ...STORAGE_CORS_HEADERS } }
+          );
+        }
+      }
+    } else if (isProductionEnv(context.env)) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Cloudflare R2 storage bucket unavailable. In-memory storage fallback is disabled in production.',
+        }),
+        { status: 503, headers: { 'Content-Type': 'application/json', ...STORAGE_CORS_HEADERS } }
+      );
     }
 
-    const memItem = globalEdgeStorageMap.get(key);
+    const memItem = !isProductionEnv(context.env) ? globalEdgeStorageMap.get(key) : undefined;
     const deletedSize = memItem ? memItem.size : 0;
-    const deletedFromMemory = globalEdgeStorageMap.delete(key);
+    const deletedFromMemory = !isProductionEnv(context.env) ? globalEdgeStorageMap.delete(key) : false;
 
     if (deletedSize > 0) {
       currentTrackedStorageBytes = Math.max(0, currentTrackedStorageBytes - deletedSize);
@@ -1515,9 +1632,10 @@ export async function onRequestDelete(context: {
     // Invalidate directory listing cache
     clearListingCache();
 
+    const wasDeleted = isProductionEnv(context.env) ? deletedFromR2 : (deletedFromR2 || deletedFromMemory);
     return new Response(
       JSON.stringify({
-        success: deletedFromR2 || deletedFromMemory,
+        success: wasDeleted,
         key,
         deletedFromR2,
         deletedFromMemory,

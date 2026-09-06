@@ -3,6 +3,7 @@
 // Self-contained, no external dependencies.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { isSimulationModeEnabled, renderSimulationBadgeHTML } from './simulation-mode.js';
 import { isLocalDev } from './admin-auth.js';
 
 export interface ActivityEvent {
@@ -133,7 +134,7 @@ class NetworkActivityFeed {
       } catch {
         this.events = [];
       }
-    } else if (isLocalDev()) {
+    } else if (isSimulationModeEnabled()) {
       this._seedDemoEvents();
     }
   }
@@ -335,6 +336,7 @@ class NetworkActivityFeed {
     <div class="flex items-center gap-2">
       <div class="w-1.5 h-1.5 rounded-full bg-signal ${pulseClass}"></div>
       <span class="text-white/90 text-sm font-semibold tracking-tight">⚡ Live Network Activity</span>
+      ${isSimulationModeEnabled() ? renderSimulationBadgeHTML('ml-1.5') : ''}
     </div>
     <button
       class="px-2 py-0.5 rounded border text-xs font-mono transition-all ${pauseButtonClass}" data-action="call-global" data-raw-click="networkActivityFeed.isPaused ? networkActivityFeed.resume() : networkActivityFeed.pause()"
@@ -385,7 +387,7 @@ class NetworkActivityFeed {
    * Call once; self-reschedules until stopped.
    */
   startSimulator(): void {
-    if (!isLocalDev()) return; // Never run simulation loop in live production
+    if (!isSimulationModeEnabled()) return; // Never run simulation loop unless explicitly opted-in
     if (this._simulatorHandle !== null) return; // already running
 
     const schedule = (): void => {

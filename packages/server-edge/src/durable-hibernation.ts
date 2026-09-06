@@ -790,8 +790,11 @@ export class SovereignRelayDurableObject {
       return;
     }
 
+    const randSuffix = typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID().replace(/-/g, '').substring(0, 8)
+      : Date.now().toString(36);
     const msgRecord: RelayMessage = {
-      id: packet.id || `msg-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      id: packet.id || `msg-${Date.now()}-${randSuffix}`,
       channelId,
       authorFingerprint,
       ciphertext,
@@ -899,8 +902,11 @@ export class SovereignRelayDurableObject {
     packet: any
   ): Promise<void> {
     const channelId = packet.channelId || 'vault-releases';
+    const randSuffix = typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID().replace(/-/g, '').substring(0, 8)
+      : Date.now().toString(36);
     const np: RelayNanopublication = {
-      id: packet.id || `nano-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      id: packet.id || `nano-${Date.now()}-${randSuffix}`,
       channelId,
       title: PayloadSanitizer.sanitizeString(packet.title || 'Verified Release'),
       fileName: PayloadSanitizer.sanitizeString(packet.fileName || 'file.bin'),

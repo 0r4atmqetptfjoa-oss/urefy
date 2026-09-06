@@ -300,7 +300,7 @@ export class CollectionsEngine {
     const cleanTitle = title.trim() || 'Untitled Knowledge Series';
     const cleanSummary = summary.trim() || 'Curated technical series on sovereign computing.';
     const cleanEmoji = emoji.trim() || '📚';
-    const id = `series-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    const id = `series-${Date.now()}-${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID().slice(0, 8) : Date.now().toString(36)}`;
 
     const newSeries: SeriesItem = {
       id,

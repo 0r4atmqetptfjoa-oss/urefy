@@ -10,6 +10,7 @@
 import './window-augmentation.js';
 import { serviceRegistry, SERVICES } from './service-registry.js';
 import { clientStore } from './client-state.js';
+import { isSimulationModeEnabled } from './simulation-mode.js';
 
 export interface MinimapPeer {
   id: string;
@@ -53,6 +54,11 @@ export class AmbientNetworkMinimap {
   }
 
   private initPeers(): void {
+    if (!isSimulationModeEnabled()) {
+      this.peers = [];
+      return;
+    }
+
     const peerConfigs: Array<{ status: 'connected' | 'idle' | 'syncing'; color: string }> = [
       { status: 'connected', color: '#10b981' }, // green signal
       { status: 'connected', color: '#10b981' },
@@ -63,16 +69,16 @@ export class AmbientNetworkMinimap {
     ];
 
     this.peers = peerConfigs.map((cfg, i) => {
-      const angle = (i / peerConfigs.length) * Math.PI * 2 + (Math.random() * 0.4 - 0.2);
-      const distance = 18 + Math.random() * 18;
+      const angle = (i / peerConfigs.length) * Math.PI * 2;
+      const distance = 20 + (i * 3);
       return {
-        id: `peer-${i}`,
+        id: `sim-peer-${i}`,
         angle,
         distance,
         baseRadius: 2.2,
         status: cfg.status,
         color: cfg.color,
-        speed: (Math.random() * 0.004 + 0.002) * (i % 2 === 0 ? 1 : -1),
+        speed: 0.003 * (i % 2 === 0 ? 1 : -1),
       };
     });
   }

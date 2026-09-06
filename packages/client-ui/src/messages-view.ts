@@ -220,7 +220,7 @@ export function renderStagedAttachmentChip(att: DirectMessageAttachment | null, 
 export async function handleFileAttachment(file: File, targetType: 'dm' | 'relay'): Promise<void> {
   const MAX_SIZE = 50 * 1024 * 1024; // 50MB
   if (file.size > MAX_SIZE) {
-    clientStore.showToast(`File "${file.name}" exceeds the maximum allowed limit of 50 MB.`, 'error');
+    clientStore.showToast(`File "${file.name}" exceeds the maximum allowed limit of 50 MB.`, 'warning');
     return;
   }
 
@@ -247,7 +247,7 @@ export async function handleFileAttachment(file: File, targetType: 'dm' | 'relay
     }
     clientStore.showToast(`Attached: ${file.name}`, 'info');
   } catch (err: any) {
-    clientStore.showToast(`Failed to attach file: ${err.message || err}`, 'error');
+    clientStore.showToast(`Failed to attach file: ${err.message || err}`, 'warning');
   }
 }
 

@@ -2,6 +2,22 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─── MOBILE NAV — safe-area-inset padding for bottom tab bar ─── */
+@media (max-width: 1023px) {
+  #main-stage {
+    padding-bottom: calc(3.5rem + env(safe-area-inset-bottom, 0px)) !important;
+  }
+}
+
+/* ─── MOBILE — minimum touch target for hamburger button ─── */
+#btn-toggle-mobile-drawer {
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 :root {
   color-scheme: dark;
   --color-accent: #00e5ff;

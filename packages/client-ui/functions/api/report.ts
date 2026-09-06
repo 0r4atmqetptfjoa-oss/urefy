@@ -4,7 +4,7 @@
 // Handles public illegal content reporting & admin review queue.
 // ===========================================================================
 
-import { Env, getD1Database } from './_db.js';
+import { Env, getD1Database, isProductionEnv, createD1UnavailableResponse } from './_db.js';
 import { verifyAdminAuthorization } from './admin.js';
 
 export interface DSAReport {
@@ -69,7 +69,10 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
       );
     }
 
-    const reportId = `dsa_rep_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+    const randSuffix = typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID().replace(/-/g, '').substring(0, 8)
+      : Date.now().toString(36);
+    const reportId = `dsa_rep_${Date.now()}_${randSuffix}`;
     const now = Date.now();
 
     const report: DSAReport = {
@@ -108,14 +111,27 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
           )
           .run();
         persistedToD1 = true;
-      } catch (dbErr) {
+      } catch (dbErr: any) {
+        if (isProductionEnv(context.env)) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: `Database transaction failed: ${dbErr?.message || 'D1 error'}. DSA report could not be persisted.`,
+            }),
+            { status: 500, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
+          );
+        }
         console.warn('[DSA] D1 insert fallback to memory:', dbErr);
       }
+    } else if (isProductionEnv(context.env)) {
+      return createD1UnavailableResponse();
     }
 
-    // 2. Always backup to memory store
-    memoryReportsStore.unshift(report);
-    if (memoryReportsStore.length > 500) memoryReportsStore.pop();
+    // 2. Memory store strictly in non-production development/test
+    if (!isProductionEnv(context.env)) {
+      memoryReportsStore.unshift(report);
+      if (memoryReportsStore.length > 500) memoryReportsStore.pop();
+    }
 
     return new Response(
       JSON.stringify({
@@ -176,9 +192,17 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
           resolutionNotes: r.resolution_notes,
         }));
       }
-    } catch (_) {
+    } catch (err: any) {
+      if (isProductionEnv(context.env)) {
+        return new Response(
+          JSON.stringify({ success: false, error: `Database query failed: ${err?.message || 'D1 query error'}` }),
+          { status: 500, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
+        );
+      }
       reports = memoryReportsStore;
     }
+  } else if (isProductionEnv(context.env)) {
+    return createD1UnavailableResponse();
   } else {
     reports = memoryReportsStore;
   }
@@ -226,22 +250,38 @@ export async function onRequestPatch(context: { request: Request; env?: Env }): 
 
   if (db) {
     try {
-      await db
+      const runRes = await db
         .prepare(
           `UPDATE dsa_reports SET status = ?, reviewed_at = ?, resolution_notes = ? WHERE id = ?`
         )
         .bind(status, now, resolutionNotes, reportId)
         .run();
-    } catch (err) {
+      if (isProductionEnv(context.env) && runRes && runRes.success === false) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Failed to update report in database' }),
+          { status: 500, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
+        );
+      }
+    } catch (err: any) {
+      if (isProductionEnv(context.env)) {
+        return new Response(
+          JSON.stringify({ success: false, error: `Database update failed: ${err?.message || 'D1 error'}` }),
+          { status: 500, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
+        );
+      }
       console.warn('[DSA] Failed to update in D1:', err);
     }
+  } else if (isProductionEnv(context.env)) {
+    return createD1UnavailableResponse();
   }
 
-  const mem = memoryReportsStore.find(r => r.id === reportId);
-  if (mem) {
-    mem.status = status as any;
-    mem.reviewedAt = now;
-    mem.resolutionNotes = resolutionNotes;
+  if (!isProductionEnv(context.env)) {
+    const mem = memoryReportsStore.find(r => r.id === reportId);
+    if (mem) {
+      mem.status = status as any;
+      mem.reviewedAt = now;
+      mem.resolutionNotes = resolutionNotes;
+    }
   }
 
   return new Response(

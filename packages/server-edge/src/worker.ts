@@ -26,7 +26,8 @@ const edgeActiveClients = new Map<WebSocket, { fingerprint?: string; nullifier?:
 const edgeActiveShares = new Map<string, RLNShare>();
 const edgeRevokedNullifiers = new Set<string>();
 const edgePresence = new Map<string, { fingerprint: string; role: string; status: string; joinedChannel: string; lastSeen: number }>();
-const edgeMessagesStore: Record<string, any[]> = { ...INITIAL_RELAY_MESSAGES };
+const isSimulation = typeof process !== 'undefined' && (process.env?.SIMULATION_MODE === 'true' || (globalThis as any).__AETHERIS_ENABLE_SIMULATION === true);
+const edgeMessagesStore: Record<string, any[]> = isSimulation ? { ...INITIAL_RELAY_MESSAGES } : {};
 
 function edgeBroadcast(packet: any, senderWs?: WebSocket, channelId?: string): void {
   const data = typeof packet === 'string' ? packet : JSON.stringify(packet);
@@ -279,8 +280,11 @@ export default {
                 }
               }
 
+              const randSuffix = typeof crypto !== 'undefined' && crypto.randomUUID
+                ? crypto.randomUUID().replace(/-/g, '').substring(0, 8)
+                : Date.now().toString(36);
               const newMsg = {
-                id: packet.id || `msg-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+                id: packet.id || `msg-${Date.now()}-${randSuffix}`,
                 channelId: chId,
                 authorFingerprint: packet.fingerprint || (clientInfo as any).fingerprint || 'anon-peer',
                 ciphertext: packet.ciphertext || packet.text || '',

@@ -352,7 +352,7 @@ export class SovereignCircleEngine {
     if (!circle) return false;
     if (circle.creatorFingerprint && circle.creatorFingerprint === fingerprint) return true;
     if (circle.moderators && circle.moderators.includes(fingerprint)) return true;
-    if (clientStore.isAdminMode?.() || (clientStore as any).role === 'GUARDIAN' || (clientStore as any).role === 'MODERATOR') return true;
+    if ((clientStore as any).isAdminMode?.() || (clientStore as any).role === 'GUARDIAN' || (clientStore as any).role === 'MODERATOR') return true;
     return false;
   }
 

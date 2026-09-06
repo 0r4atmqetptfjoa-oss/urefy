@@ -71,17 +71,12 @@ export class NonceReplayGuard {
    * Generates a cryptographically secure random 32-hex character nonce.
    */
   public static generateNonce(): string {
-    if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    if (typeof globalThis !== 'undefined' && globalThis.crypto?.getRandomValues) {
       const bytes = new Uint8Array(16);
-      crypto.getRandomValues(bytes);
+      globalThis.crypto.getRandomValues(bytes);
       return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
     }
-    // Fallback for environments without crypto
-    let str = '';
-    for (let i = 0; i < 32; i++) {
-      str += Math.floor(Math.random() * 16).toString(16);
-    }
-    return str;
+    throw new Error('Cryptographically secure PRNG (crypto.getRandomValues) is required');
   }
 
   /**

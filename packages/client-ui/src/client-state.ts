@@ -56,6 +56,7 @@ export interface ClientMessage {
   channelId: string;
   authorFingerprint: string;
   text: string;
+  ciphertext?: string;
   epoch: string;
   status: string;
   createdAt: number;
@@ -879,8 +880,11 @@ export class AetherisClientStore {
   }
 
   public createPost(post: Partial<ClientPost>): ClientPost {
+    const randSuffix = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID().substring(0, 8)
+      : Date.now().toString(36);
     const newPost: ClientPost = {
-      id: `post-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      id: `post-${Date.now()}-${randSuffix}`,
       channelId: post.channelId || this.activeChannelId,
       authorFingerprint: this.keypair.fingerprint,
       authorRole: 'MEMBER',
@@ -1266,11 +1270,15 @@ export class AetherisClientStore {
     const signature = bytesToHex(signatureBytes);
 
     // Create client message and immediately add to local channel messages
+    const randSuffix = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID().substring(0, 8)
+      : Date.now().toString(36);
     const newMsg: ClientMessage = {
-      id: `msg-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      id: `msg-${Date.now()}-${randSuffix}`,
       channelId: this.activeChannelId,
       authorFingerprint: this.keypair.fingerprint,
       text: trimmed,
+      ciphertext: trimmed,
       epoch: share.epoch,
       status: 'valid',
       createdAt: Date.now(),
@@ -1298,6 +1306,7 @@ export class AetherisClientStore {
     // Persist to Edge Messages API with automatic Offline Outbox fallback
     const msgEnvelope = this.createSignedEnvelope({
       ...newMsg,
+      ciphertext: trimmed,
       signature,
     });
     if (typeof fetch !== 'undefined') {

@@ -606,7 +606,7 @@ export class WebTorrentSwarmEngine {
   public myPeerId: string;
 
   constructor() {
-    this.myPeerId = `aeth-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 7)}`;
+    this.myPeerId = `aeth-${Date.now().toString(36)}-${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID().slice(0, 8) : Date.now().toString(36)}`;
   }
 
   /**

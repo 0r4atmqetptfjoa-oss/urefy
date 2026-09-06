@@ -64,6 +64,7 @@ describe('Aetheris Sovereign Integrity & E2E Resilience Test Suite', () => {
 
     globalThis.localStorage = storageObj;
     globalThis.window = {
+      crypto: globalThis.crypto,
       localStorage: storageObj,
       location: {
         protocol: 'https:',

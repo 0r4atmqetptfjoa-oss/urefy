@@ -36,8 +36,11 @@ export class SovereignRouter {
     // Synchronize clientStore activeChannelId
     switch (route) {
       case 'feed': {
-        const isCircle = Boolean(sovereignCircleEngine.findCircle(clientStore.activeChannelId)) || clientStore.activeChannelId.startsWith('c/');
-        if (!isCircle && !clientStore.activeChannelId.startsWith('pulse-')) {
+        const circle = sovereignCircleEngine.findCircle(clientStore.activeChannelId);
+        const isFeedCircle =
+          (circle && (circle.channelId?.startsWith('pulse-') || circle.id?.startsWith('pulse-') || circle.id?.startsWith('c/'))) ||
+          clientStore.activeChannelId.startsWith('c/');
+        if (!isFeedCircle && !clientStore.activeChannelId.startsWith('pulse-')) {
           clientStore.activeChannelId = 'pulse-global';
         }
         break;

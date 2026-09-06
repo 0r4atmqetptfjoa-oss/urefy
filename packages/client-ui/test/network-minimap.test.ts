@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { AmbientNetworkMinimap } from '../src/network-minimap.js';
+import { setSimulationMode } from '../src/simulation-mode.js';
 
 class MockCanvasContext2D {
   public clearRect = vi.fn();
@@ -35,15 +36,26 @@ describe('Ticket 3.1: Ambient Network Minimap', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    setSimulationMode(true);
     mockCanvas = new MockCanvasElement();
     minimap = new AmbientNetworkMinimap();
   });
 
   afterEach(() => {
-    minimap.stop();
+    if (minimap) {
+      minimap.stop();
+    }
+    setSimulationMode(false);
   });
 
-  it('1. should initialize with 3 to 8 peer nodes in topological orbits', () => {
+  it('0. should initialize with 0 peers when simulation mode is disabled (zero fake peers)', () => {
+    setSimulationMode(false);
+    const realMinimap = new AmbientNetworkMinimap();
+    expect(realMinimap.peers.length).toBe(0);
+    expect(realMinimap.connectedPeerCount).toBe(0);
+  });
+
+  it('1. should initialize with 3 to 8 peer nodes in topological orbits when simulation mode is enabled', () => {
     expect(minimap.peers.length).toBeGreaterThanOrEqual(3);
     expect(minimap.peers.length).toBeLessThanOrEqual(8);
     expect(minimap.connectedPeerCount).toBeGreaterThan(0);

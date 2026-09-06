@@ -27,6 +27,7 @@ export interface SecurityThreatLog {
 }
 
 import { isLocalDev } from './admin-auth.js';
+import { isSimulationModeEnabled, renderSimulationBadgeHTML } from './simulation-mode.js';
 
 export class CyberDefenseHub {
   public isOpen: boolean = false;
@@ -38,7 +39,7 @@ export class CyberDefenseHub {
   private threatLogs: SecurityThreatLog[] = [];
 
   constructor() {
-    if (isLocalDev()) {
+    if (isSimulationModeEnabled()) {
       this.totalAttacksMitigated = 247;
       this.activeQuarantinedIPs = 14;
       this.ddosPacketsDropped = 18420;
@@ -244,6 +245,7 @@ export class CyberDefenseHub {
                   <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-950 text-signal border border-signal/30 font-bold">
                     0-DAY IMMUNE
                   </span>
+                  ${isSimulationModeEnabled() ? renderSimulationBadgeHTML('ml-1') : ''}
                 </div>
                 <p class="text-xs text-slate-400 mt-0.5">
                   Layer 7 WAF • Dynamic PoW Anti-DDoS Challenge • Nonce Replay Guards • Decoy Honeypots
@@ -304,8 +306,9 @@ export class CyberDefenseHub {
                 <div class="flex items-center space-x-2">
                   <span class="text-base">⚡</span>
                   <h3 class="text-sm font-bold text-white">Security Verification & Chaos Testing Sandbox</h3>
+                  <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-amber/20 text-amber border border-amber/40 font-bold tracking-wider">[Simulation / Testbed]</span>
                 </div>
-                <span class="text-xs text-slate-400">Interactive manual verification of defense mechanisms (Test Sandbox)</span>
+                <span class="text-xs text-slate-400">Interactive verification of defense mechanisms</span>
               </div>
 
               <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">

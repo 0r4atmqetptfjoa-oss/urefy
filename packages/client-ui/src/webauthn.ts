@@ -10,6 +10,7 @@ import { sovereignDialog } from './dialog-modal.js';
 import './window-augmentation.js';
 import { serviceRegistry, SERVICES } from './service-registry.js';
 import { safeRequestAnimationFrame } from './dry-utils.js';
+import { isProductionBuild } from './admin-auth.js';
 
 // ─── Interfaces ─────────────────────────────────────────────────────────────
 
@@ -47,6 +48,7 @@ export interface WebAuthnSecuritySettings {
 
 export type WebAuthnEventType =
   | 'registered'
+  | 'reg_failed'
   | 'authenticated'
   | 'auth_failed'
   | 'vault_locked'
@@ -191,19 +193,62 @@ export class WebAuthnManager {
 
   // ─── Core WebAuthn Methods ──────────────────────────────────────────────
 
+  public static localTestModeAllowed: boolean = false;
+
+  public static setLocalTestMode(allowed: boolean): void {
+    WebAuthnManager.localTestModeAllowed = allowed;
+  }
+
+  /**
+   * Fetches a cryptographically secure server-issued challenge from the Cloudflare D1
+   * /api/webauthn endpoint to ensure server-side authoritative challenge verification.
+   * In production, server challenge verification is strictly mandatory with zero local fallback.
+   */
+  public async fetchServerChallenge(fingerprint: string = 'sovereign_node'): Promise<Uint8Array> {
+    let fetchError: Error | null = null;
+    try {
+      const res = await fetch(`/api/webauthn?action=challenge&fingerprint=${encodeURIComponent(fingerprint)}`);
+      if (res.ok) {
+        const data = (await res.json()) as { success: boolean; challenge?: string };
+        if (data && data.success && typeof data.challenge === 'string' && data.challenge.trim().length > 0) {
+          return new Uint8Array(base64URLToBuffer(data.challenge));
+        }
+        fetchError = new Error('Invalid or empty challenge payload received from WebAuthn server');
+      } else {
+        fetchError = new Error(`Server challenge request failed with HTTP ${res.status}`);
+      }
+    } catch (e: any) {
+      fetchError = e instanceof Error ? e : new Error(String(e));
+    }
+
+    if (isProductionBuild()) {
+      throw new Error(
+        `WebAuthn server challenge is unavailable. Authentication cannot continue in production: ${fetchError?.message || 'Network error'}`
+      );
+    }
+
+    if (!WebAuthnManager.localTestModeAllowed) {
+      throw new Error(
+        `WebAuthn server challenge failed: ${fetchError?.message || 'Server error'}. Local CSPRNG fallback is disabled.`
+      );
+    }
+
+    console.warn('[WebAuthn] Server challenge fetch failed, falling back to local CSPRNG in test mode:', fetchError?.message);
+    return this.generateChallenge();
+  }
+
   /**
    * Generates a cryptographically secure 32-byte pseudo-random challenge using CSPRNG.
+   * In strict production, challenges are server-issued via fetchServerChallenge().
    */
   public generateChallenge(): Uint8Array {
     const challenge = new Uint8Array(32);
-    if (typeof window !== 'undefined' && window.crypto && window.crypto.getRandomValues) {
-      window.crypto.getRandomValues(challenge);
-    } else {
-      for (let i = 0; i < 32; i++) {
-        challenge[i] = Math.floor(Math.random() * 256);
-      }
+    const cryptoObj = typeof window !== 'undefined' ? (window.crypto || (window as any).msCrypto) : globalThis.crypto;
+    if (cryptoObj && cryptoObj.getRandomValues) {
+      cryptoObj.getRandomValues(challenge);
+      return challenge;
     }
-    return challenge;
+    throw new Error('CSPRNG unavailable: crypto.getRandomValues is required for secure WebAuthn challenge generation.');
   }
 
   /**
@@ -220,7 +265,7 @@ export class WebAuthnManager {
     }
 
     try {
-      const challenge = this.generateChallenge();
+      const challenge = await this.fetchServerChallenge(userName);
       const userId = stringToBuffer(userName + '_' + Date.now());
       const rpId = this._resolveRpId();
 
@@ -275,22 +320,63 @@ export class WebAuthnManager {
       this._saveCredentials();
 
       // Server-side attestation registration and public key credential storage
+      const attResp = credential.response as AuthenticatorAttestationResponse;
+      const regPayload = {
+        action: 'register',
+        fingerprint: userName,
+        credentialId: credential.id,
+        rawId: bufferToBase64URL(credential.rawId),
+        clientDataJSON: attResp?.clientDataJSON ? bufferToString(attResp.clientDataJSON) : '',
+        attestationObject: attResp?.attestationObject ? bufferToBase64URL(attResp.attestationObject) : '',
+      };
+
+      let regRes: Response;
       try {
-        const attResp = credential.response as AuthenticatorAttestationResponse;
-        await fetch('/api/webauthn', {
+        regRes = await fetch('/api/webauthn', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'register',
-            fingerprint: userName,
-            credentialId: credential.id,
-            rawId: bufferToBase64URL(credential.rawId),
-            clientDataJSON: attResp?.clientDataJSON ? bufferToString(attResp.clientDataJSON) : '',
-            attestationObject: attResp?.attestationObject ? bufferToBase64URL(attResp.attestationObject) : '',
-          }),
+          body: JSON.stringify(regPayload),
         });
-      } catch (_) {
-        // Safe offline/local mesh fallback
+      } catch (netErr: any) {
+        if (!isProductionBuild() && WebAuthnManager.localTestModeAllowed) {
+          console.warn('[WebAuthn] Local test mode allowing network failure during registration:', netErr);
+          regRes = new Response(JSON.stringify({ success: true }), { status: 200 });
+        } else {
+          this.registeredCredentials = this.registeredCredentials.filter((c) => c.id !== credential.id);
+          this._saveCredentials();
+          this.currentSession = null;
+          this.vaultLocked = true;
+          this.settings.vaultLocked = true;
+          throw new Error(`WebAuthn server registration network failure: ${netErr?.message || netErr}`);
+        }
+      }
+
+      if (!regRes.ok) {
+        if (!isProductionBuild() && WebAuthnManager.localTestModeAllowed) {
+          console.warn('[WebAuthn] Local test mode allowing non-OK registration response');
+        } else {
+          this.registeredCredentials = this.registeredCredentials.filter((c) => c.id !== credential.id);
+          this._saveCredentials();
+          this.currentSession = null;
+          this.vaultLocked = true;
+          this.settings.vaultLocked = true;
+          const errBody = await regRes.json().catch(() => ({}));
+          throw new Error(`WebAuthn server registration rejected (HTTP ${regRes.status}): ${errBody.error || 'Registration failed'}`);
+        }
+      } else {
+        const regData = await regRes.json().catch(() => ({}));
+        if (!regData.success) {
+          if (!isProductionBuild() && WebAuthnManager.localTestModeAllowed) {
+            console.warn('[WebAuthn] Local test mode allowing unverified registration response');
+          } else {
+            this.registeredCredentials = this.registeredCredentials.filter((c) => c.id !== credential.id);
+            this._saveCredentials();
+            this.currentSession = null;
+            this.vaultLocked = true;
+            this.settings.vaultLocked = true;
+            throw new Error(`WebAuthn server registration failed: ${regData.error || 'Server error'}`);
+          }
+        }
       }
 
       // Establish current authenticated session
@@ -314,8 +400,9 @@ export class WebAuthnManager {
       return newCredential;
     } catch (err: unknown) {
       const errorMsg = err instanceof Error ? err.message : String(err);
-      console.warn('[WebAuthn] Registration failed or canceled:', errorMsg);
-      this._showNotification(`FIDO2 registration failed: ${errorMsg}`, 'crimson');
+      console.warn('[WebAuthn] Registration failed:', errorMsg);
+      this._notifyListeners('reg_failed', errorMsg);
+      this._showNotification(`Failed to register key: ${errorMsg}`, 'crimson');
       return null;
     }
   }
@@ -331,7 +418,8 @@ export class WebAuthnManager {
     }
 
     try {
-      const challenge = this.generateChallenge();
+      const activeFingerprint = this.registeredCredentials[0]?.userHandle || 'sovereign_node';
+      const challenge = await this.fetchServerChallenge(activeFingerprint);
       const rpId = this._resolveRpId();
 
       const allowCredentials: PublicKeyCredentialDescriptor[] = this.registeredCredentials.map((c) => ({
@@ -364,32 +452,68 @@ export class WebAuthnManager {
         console.warn('[WebAuthn] Unexpected clientDataJSON type:', clientData.type);
       }
 
-      // Record successful active session
+      // Server-side assertion verification MUST succeed before unlocking vault
+      const verifyPayload = {
+        action: 'verify',
+        fingerprint: activeFingerprint,
+        credentialId: assertion.id,
+        clientDataJSON: clientDataJSONStr,
+        authenticatorData: response.authenticatorData ? bufferToBase64URL(response.authenticatorData) : '',
+        signature: response.signature ? bufferToBase64URL(response.signature) : '',
+      };
+
+      let verifyRes: Response;
+      try {
+        verifyRes = await fetch('/api/webauthn', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(verifyPayload),
+        });
+      } catch (netErr: any) {
+        if (!isProductionBuild() && WebAuthnManager.localTestModeAllowed) {
+          console.warn('[WebAuthn] Local test mode allowed network fallback in dev/test:', netErr);
+          verifyRes = new Response(JSON.stringify({ success: true, authenticated: true }), { status: 200 });
+        } else {
+          this.currentSession = null;
+          this.vaultLocked = true;
+          this.settings.vaultLocked = true;
+          throw new Error(`WebAuthn server verification network failure: ${netErr?.message || netErr}`);
+        }
+      }
+
+      if (!verifyRes.ok) {
+        if (!isProductionBuild() && WebAuthnManager.localTestModeAllowed) {
+          console.warn('[WebAuthn] Local test mode allowing non-OK verify response in dev/test');
+        } else {
+          this.currentSession = null;
+          this.vaultLocked = true;
+          this.settings.vaultLocked = true;
+          const errBody = await verifyRes.json().catch(() => ({}));
+          throw new Error(`WebAuthn server verification rejected (HTTP ${verifyRes.status}): ${errBody.error || 'Assertion invalid'}`);
+        }
+      } else {
+        const verifyData = await verifyRes.json().catch(() => ({}));
+        if (!verifyData.success || !verifyData.authenticated) {
+          if (!isProductionBuild() && WebAuthnManager.localTestModeAllowed) {
+            console.warn('[WebAuthn] Local test mode allowing unauthenticated payload in dev/test');
+          } else {
+            this.currentSession = null;
+            this.vaultLocked = true;
+            this.settings.vaultLocked = true;
+            throw new Error(`WebAuthn server verification failed: ${verifyData.error || 'Server did not authenticate assertion'}`);
+          }
+        }
+      }
+
+      // Record successful active session ONLY AFTER server verification succeeds
       this.currentSession = {
         credentialId: assertion.id,
         challenge: toArrayBuffer(challenge),
         authenticated: true,
         timestamp: Date.now(),
         clientDataJSON: clientDataJSONStr,
+        userHandle: activeFingerprint,
       };
-
-      // Server-side assertion verification
-      try {
-        await fetch('/api/webauthn', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'verify',
-            fingerprint: this.currentSession.userHandle || 'sovereign_node',
-            credentialId: assertion.id,
-            clientDataJSON: clientDataJSONStr,
-            authenticatorData: response.authenticatorData ? bufferToBase64URL(response.authenticatorData) : '',
-            signature: response.signature ? bufferToBase64URL(response.signature) : '',
-          }),
-        });
-      } catch (_) {
-        // Safe offline/local mesh fallback
-      }
 
       this.vaultLocked = false;
       this.settings.vaultLocked = false;

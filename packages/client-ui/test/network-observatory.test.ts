@@ -10,17 +10,134 @@ import {
   type TopContributor,
   type TopologyFilter,
 } from '../src/network-observatory.js';
+import { setSimulationMode } from '../src/simulation-mode.js';
+import * as adminAuth from '../src/admin-auth.js';
 
 describe('Network Observatory Telemetry & Cryptographic Monitoring System', () => {
+  describe('0. Production Mode (Strict Zero-Fake-Data & Real Telemetry)', () => {
+    let prodObservatory: NetworkObservatory;
+
+    beforeEach(() => {
+      vi.spyOn(adminAuth, 'isProductionBuild').mockReturnValue(false);
+      setSimulationMode(false);
+      prodObservatory = new NetworkObservatory();
+    });
+
+    afterEach(() => {
+      prodObservatory.stopLiveUpdates();
+      prodObservatory.close();
+      vi.restoreAllMocks();
+    });
+
+    it('initializes with strictly zero fake metrics and empty node lists in production', () => {
+      expect(prodObservatory.metrics.totalNodes).toBe(0);
+      expect(prodObservatory.metrics.activeNodes).toBe(0);
+      expect(prodObservatory.metrics.messagesPerMinute).toBe(0);
+      expect(prodObservatory.metrics.avgLatencyMs).toBe(0);
+      expect(prodObservatory.metrics.totalSlashings).toBe(0);
+      expect(prodObservatory.metrics.networkUptime).toBeNull();
+      expect(prodObservatory.metrics.topContributors).toEqual([]);
+
+      expect(prodObservatory.nodes).toEqual([]);
+      expect(prodObservatory.latencyHistory).toEqual([]);
+      expect(prodObservatory.slashingHistory).toEqual([]);
+      expect(prodObservatory.slashing7DayStats).toEqual([]);
+      expect(prodObservatory.topContributorsList).toEqual([]);
+    });
+
+    it('renders clean empty state messages and measured uptime unavailable in production UI', () => {
+      const html = prodObservatory.renderObservatoryModal();
+
+      // Uptime should say "Measured uptime unavailable" and NOT fake SLA 99.9%
+      expect(html).toContain('Measured uptime unavailable');
+      expect(html).not.toContain('SLA 99.9%');
+
+      // Topology should show clean empty state
+      expect(html).toContain('No network topology data available');
+
+      // Latency should show Data Unavailable
+      expect(html).toContain('Data Unavailable (No active telemetry ping samples recorded yet)');
+
+      // Slashing should show Data Unavailable
+      expect(html).toContain('Data Unavailable (No historical slashing events registered)');
+
+      // Top contributors should show Data Unavailable
+      expect(html).toContain('Data Unavailable (No active node contributors found)');
+    });
+
+    it('suppresses Math.random() simulation loops during updateMetrics in production', () => {
+      prodObservatory.updateMetrics();
+
+      expect(prodObservatory.metrics.totalNodes).toBe(0);
+      expect(prodObservatory.metrics.activeNodes).toBe(0);
+      expect(prodObservatory.nodes.length).toBe(0);
+      expect(prodObservatory.latencyHistory.length).toBe(0);
+    });
+
+    it('fetches real telemetry from /api/analytics and populates live metrics', async () => {
+      const mockAnalytics = {
+        status: 'healthy',
+        uptimePercentage: 99.95,
+        uptimeFormatted: 'Continuous edge runtime',
+        metrics: {
+          totalNodes: 8,
+          activeNodes: 7,
+          messagesProcessed: 3600,
+          avgLatencyMs: 14.2,
+          totalBandwidthMbps: 800,
+        },
+        nodes: [
+          {
+            nodeId: 'node-edge-fra',
+            name: 'Frankfurt-Edge-01',
+            role: 'relay',
+            status: 'active',
+            latencyMs: 12.0,
+            meritScore: 500,
+            region: 'EU-Central',
+            countryCode: 'DE',
+            uptime: 99.9,
+          },
+        ],
+      };
+
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => mockAnalytics,
+      } as Response);
+
+      try {
+        await prodObservatory.fetchRealTelemetry();
+
+        expect(prodObservatory.metrics.totalNodes).toBe(8);
+        expect(prodObservatory.metrics.activeNodes).toBe(7);
+        expect(prodObservatory.metrics.messagesPerMinute).toBe(60); // 3600 / 60
+        expect(prodObservatory.metrics.avgLatencyMs).toBe(14.2);
+        expect(prodObservatory.metrics.networkUptime).toBe(99.95);
+        expect(prodObservatory.metrics.topContributors).toEqual(['Frankfurt-Edge-01']);
+
+        expect(prodObservatory.nodes.length).toBe(1);
+        expect(prodObservatory.nodes[0].name).toBe('Frankfurt-Edge-01');
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+  });
+
   let observatory: NetworkObservatory;
 
   beforeEach(() => {
+    vi.spyOn(adminAuth, 'isProductionBuild').mockReturnValue(false);
+    setSimulationMode(true);
     observatory = new NetworkObservatory();
   });
 
   afterEach(() => {
     observatory.stopLiveUpdates();
     observatory.close();
+    setSimulationMode(false);
+    vi.restoreAllMocks();
   });
 
   // ─── 1. INITIALIZARE ȘI METRICI DE BAZĂ ─────────────────────────────────────
@@ -105,7 +222,7 @@ describe('Network Observatory Telemetry & Cryptographic Monitoring System', () =
 
     it('should export singleton instance networkObservatory properly', () => {
       expect(networkObservatory).toBeInstanceOf(NetworkObservatory);
-      expect(networkObservatory.metrics.totalNodes).toBe(256);
+      expect(typeof networkObservatory.metrics.totalNodes).toBe('number');
     });
   });
 

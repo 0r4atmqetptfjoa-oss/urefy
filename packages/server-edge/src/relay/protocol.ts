@@ -484,8 +484,11 @@ export class RelayProtocolEngine {
     }
 
     // Construct and persist message
+    const randSuffixMsg = typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID().replace(/-/g, '').substring(0, 8)
+      : Date.now().toString(36);
     const msgRecord: RelayMessage = {
-      id: packet.id || `msg-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      id: packet.id || `msg-${Date.now()}-${randSuffixMsg}`,
       channelId,
       authorFingerprint: session.fingerprint || 'anon-peer',
       ciphertext: packet.ciphertext || packet.text || '',
@@ -523,8 +526,11 @@ export class RelayProtocolEngine {
     const title = PayloadSanitizer.sanitizeString(packet.title || 'Verified Release');
     const fileName = PayloadSanitizer.sanitizeString(packet.fileName || 'file.bin');
 
+    const randSuffixNano = typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID().replace(/-/g, '').substring(0, 8)
+      : Date.now().toString(36);
     const nanoRecord: RelayNanopublication = {
-      id: packet.id || `nano-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      id: packet.id || `nano-${Date.now()}-${randSuffixNano}`,
       channelId,
       title,
       fileName,

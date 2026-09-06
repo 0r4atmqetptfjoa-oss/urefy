@@ -14,6 +14,7 @@ import {
   encryptBackupPayload,
   decryptBackupPayload,
   rotateOldSnapshots,
+  restoreBackup,
   DAILY_BACKUP_KEY,
   BACKUP_PREFIX,
   RETENTION_PERIOD_MS,
@@ -445,6 +446,62 @@ describe('Automated D1 SQLite to Cloudflare R2 Encrypted Backup Engine (Item 19)
       expect(content).toContain('Automated D1 SQLite to R2 Encrypted Backup');
       expect(content).toContain('7-Day Automatic Rotation');
       expect(content).toContain('AES-256-GCM + Gzip');
+    });
+  });
+
+  describe('7. Backup Restoration & Disaster Recovery Verification', () => {
+    it('successfully restores encrypted backup snapshot payload roundtrip', async () => {
+      // 1. Create a backup first
+      const backupRes = await executeBackup();
+      expect(backupRes.success).toBe(true);
+
+      const snapshot = inMemoryBackupSnapshots.get(DAILY_BACKUP_KEY);
+      expect(snapshot).toBeDefined();
+
+      // 2. Clear stores to simulate data loss
+      const initialPostCount = globalPostsStore.length;
+      expect(initialPostCount).toBeGreaterThan(0);
+      globalPostsStore.length = 0;
+      expect(globalPostsStore.length).toBe(0);
+
+      // 3. Restore backup
+      const restoreRes = await restoreBackup(snapshot!.data);
+      expect(restoreRes.success).toBe(true);
+      expect(restoreRes.restoredRecords).toBeGreaterThan(0);
+      expect(globalPostsStore.length).toBe(initialPostCount);
+    });
+
+    it('rejects tampered encrypted payload or invalid passphrase during restore', async () => {
+      const backupRes = await executeBackup();
+      const snapshot = inMemoryBackupSnapshots.get(DAILY_BACKUP_KEY);
+      expect(snapshot).toBeDefined();
+
+      // Corrupt the ciphertext bytes
+      const corrupted = new Uint8Array(snapshot!.data);
+      corrupted[corrupted.length - 1] ^= 0xff;
+
+      await expect(restoreBackup(corrupted)).rejects.toThrow();
+      await expect(restoreBackup(snapshot!.data, undefined, 'wrong-password')).rejects.toThrow();
+    });
+
+    it('handles POST /api/cron-backup?action=restore via HTTP endpoint with admin auth', async () => {
+      const backupRes = await executeBackup();
+      const snapshot = inMemoryBackupSnapshots.get(DAILY_BACKUP_KEY);
+
+      const req = new Request('https://aetheris.pages.dev/api/cron-backup?action=restore', {
+        method: 'POST',
+        headers: {
+          'X-Admin-PIN': DEFAULT_ADMIN_PIN,
+          'Content-Type': 'application/octet-stream',
+        },
+        body: snapshot!.data,
+      });
+
+      const res = await handleBackupPost({ request: req });
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.success).toBe(true);
+      expect(json.restoredRecords).toBeGreaterThan(0);
     });
   });
 });

@@ -861,7 +861,17 @@ export class WalletBridge {
       return null;
     }
 
-    const payload = `AETHERIS_SOVEREIGN_ID_BRIDGE\nAetherisKey: ${this.identity.aetherisKey}\nEthAddress: ${this.identity.ethAddress}\nLinkedAt: ${this.identity.linkedAt}\nNonce: ${Math.random().toString(36).substring(2)}`;
+    const nonceBytes = new Uint8Array(32);
+    const cryptoObj = (typeof window !== 'undefined' && (window.crypto || (window as any).msCrypto))
+      ? (window.crypto || (window as any).msCrypto)
+      : globalThis.crypto;
+    if (cryptoObj && cryptoObj.getRandomValues) {
+      cryptoObj.getRandomValues(nonceBytes);
+    } else {
+      throw new Error('CSPRNG unavailable: crypto.getRandomValues is required for secure wallet nonce.');
+    }
+    const nonce = Array.from(nonceBytes, (b) => b.toString(16).padStart(2, '0')).join('');
+    const payload = `AETHERIS_SOVEREIGN_ID_BRIDGE\nAetherisKey: ${this.identity.aetherisKey}\nEthAddress: ${this.identity.ethAddress}\nLinkedAt: ${this.identity.linkedAt}\nNonce: ${nonce}`;
     const signed = await this.signWithEthereum(payload);
     if (signed) {
       this.identity.verificationProof = signed.signature;

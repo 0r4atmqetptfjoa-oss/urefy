@@ -5,6 +5,7 @@
 // ===========================================================================
 
 import { ZKRLN, RLNShare } from '@aetheris/core-crypto';
+import { isProductionEnv } from './_db.js';
 
 export function createWebSocketUpgradeResponse(clientWs: any): Response {
   try {
@@ -149,6 +150,24 @@ export async function onRequest(context: {
     const id = env.RELAY_DO.idFromName(roomId);
     const stub = env.RELAY_DO.get(id);
     return stub.fetch(req);
+  }
+
+  // In production, standalone in-memory fallback is strictly forbidden
+  if (isProductionEnv(env)) {
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: 'Cloudflare Durable Object binding RELAY_DO is required in production. In-memory standalone fallback is disabled.',
+        status: 503,
+      }),
+      {
+        status: 503,
+        headers: {
+          'Content-Type': 'application/json',
+          'Retry-After': '5',
+        },
+      }
+    );
   }
 
   // 2. Standalone Cloudflare Pages WebSocketPair Mode
@@ -373,8 +392,11 @@ export async function onRequest(context: {
             }
           }
 
+          const randSuffix = typeof crypto !== 'undefined' && crypto.randomUUID
+            ? crypto.randomUUID().replace(/-/g, '').substring(0, 8)
+            : Date.now().toString(36);
           const newMsg = {
-            id: packet.id || `msg-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+            id: packet.id || `msg-${Date.now()}-${randSuffix}`,
             channelId: chId,
             authorFingerprint: packet.fingerprint || clientInfo.fingerprint || 'anon-peer',
             ciphertext: packet.ciphertext || packet.text || '',

@@ -247,7 +247,7 @@ export class TransparencyModeManager {
     recipientFP: string,
     direction: 'outbound' | 'inbound' = 'outbound'
   ): MessagePipelineJourney {
-    const journeyId = `journey_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    const journeyId = `journey_${Date.now()}_${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID().slice(0, 8) : Date.now().toString(36)}`;
     const now = Date.now();
 
     // ──────────────────────────────────────────────────────────────────────────

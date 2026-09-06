@@ -1551,7 +1551,7 @@ export class HybridComposer {
         });
 
         this.mediaItems.push({
-          id: `media-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+          id: `media-${Date.now()}-${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID().slice(0, 8) : Date.now().toString(36)}`,
           fileName: file.name,
           fileType: isVideo ? 'video' : 'image',
           mimeType: file.type,
@@ -1660,7 +1660,7 @@ export class HybridComposer {
 
       // 3. Construct Primary ClientPost
       const primaryPost: ClientPost = {
-        id: `post-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        id: `post-${Date.now()}-${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID().slice(0, 8) : Date.now().toString(36)}`,
         channelId: this.audience,
         authorFingerprint: authorFp,
         authorRole: 'MEMBER',
@@ -1687,7 +1687,7 @@ export class HybridComposer {
           const seg = this.threadSegments[i];
           if (seg && seg.content.trim()) {
             const chainPost: ClientPost = {
-              id: `post-${Date.now() + i}-${Math.random().toString(36).substring(2, 6)}`,
+              id: `post-${Date.now() + i}-${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID().slice(0, 8) : Date.now().toString(36)}`,
               channelId: this.audience,
               authorFingerprint: authorFp,
               authorRole: 'MEMBER',

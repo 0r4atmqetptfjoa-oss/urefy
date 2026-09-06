@@ -68,7 +68,7 @@ describe('DSA Notice & Takedown API (/api/report)', () => {
     expect(res.status).toBe(401);
   });
 
-  it('should allow GET /api/report with valid admin credentials', async () => {
+  it('should allow GET /api/report with valid admin credentials in development', async () => {
     memoryReportsStore.push({
       id: 'dsa_rep_test_1',
       targetId: 'post-999',
@@ -87,11 +87,45 @@ describe('DSA Notice & Takedown API (/api/report)', () => {
       },
     });
 
-    const res = await onRequestGet({ request: req, env: { ENVIRONMENT: 'production', ADMIN_PIN: 'secret_pin' } as any });
+    const res = await onRequestGet({ request: req, env: { ENVIRONMENT: 'development', ADMIN_PIN: 'secret_pin' } as any });
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(data.success).toBe(true);
     expect(data.reports.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('should return 503 on GET /api/report in production when D1 is missing', async () => {
+    const req = new Request('https://aetheris-omni-sphere.pages.dev/api/report', {
+      method: 'GET',
+      headers: { 'X-Admin-PIN': 'secret_pin' },
+    });
+
+    const res = await onRequestGet({ request: req, env: { ENVIRONMENT: 'production', ADMIN_PIN: 'secret_pin' } as any });
+    expect(res.status).toBe(503);
+    const data = await res.json();
+    expect(data.success).toBe(false);
+  });
+
+  it('should return 500 on GET /api/report in production when D1 query fails', async () => {
+    const req = new Request('https://aetheris-omni-sphere.pages.dev/api/report', {
+      method: 'GET',
+      headers: { 'X-Admin-PIN': 'secret_pin' },
+    });
+
+    const mockDb = {
+      prepare: () => ({
+        all: () => Promise.reject(new Error('D1 Disk Full')),
+      }),
+    };
+
+    const res = await onRequestGet({
+      request: req,
+      env: { ENVIRONMENT: 'production', ADMIN_PIN: 'secret_pin', DB: mockDb } as any,
+    });
+    expect(res.status).toBe(500);
+    const data = await res.json();
+    expect(data.success).toBe(false);
+    expect(data.error).toContain('Database query failed');
   });
 
   it('should allow admin to update report status via PATCH', async () => {
@@ -120,12 +154,29 @@ describe('DSA Notice & Takedown API (/api/report)', () => {
       }),
     });
 
-    const res = await onRequestPatch({ request: req, env: { ENVIRONMENT: 'production', ADMIN_PIN: 'secret_pin' } as any });
+    const res = await onRequestPatch({ request: req, env: { ADMIN_PIN: 'secret_pin' } as any });
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(data.success).toBe(true);
     expect(data.status).toBe('actioned');
     expect(memoryReportsStore[0].status).toBe('actioned');
     expect(memoryReportsStore[0].resolutionNotes).toBe('Post deleted and author warned.');
+  });
+
+  it('should return 503 when updating status in production if D1 database is missing', async () => {
+    const req = new Request('https://aetheris-omni-sphere.pages.dev/api/report', {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Admin-PIN': 'secret_pin',
+      },
+      body: JSON.stringify({
+        reportId: 'dsa_rep_update_me',
+        status: 'actioned',
+      }),
+    });
+
+    const res = await onRequestPatch({ request: req, env: { ENVIRONMENT: 'production', ADMIN_PIN: 'secret_pin' } as any });
+    expect(res.status).toBe(503);
   });
 });

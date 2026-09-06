@@ -684,7 +684,7 @@ export class ActionDispatcher {
         if (channel) {
           clientStore.activeChannelId = channel;
         }
-        hybridComposer.open();
+        clientStore.toggleComposer();
         clientStore.notifySync();
         break;
       }
@@ -1435,7 +1435,7 @@ export class ActionDispatcher {
       case 'close-binary-hygiene': {
         const portal = (window as any).binaryHygienePortal || binaryHygienePortal;
         portal?.close();
-        modalManager.close();
+        modalManager.closeFeature();
         break;
       }
 
@@ -1443,7 +1443,7 @@ export class ActionDispatcher {
         if (event.target === el || (event.target as HTMLElement).id === 'binary-hygiene-backdrop') {
           const portal = (window as any).binaryHygienePortal || binaryHygienePortal;
           portal?.close();
-          modalManager.close();
+          modalManager.closeFeature();
         }
         break;
       }
@@ -1730,18 +1730,17 @@ export class ActionDispatcher {
       const text = input ? input.value.trim() : '';
       const att = clientStore.pendingRelayAttachment;
       if (text || att) {
-        clientStore.sendMessage(text, undefined, att || undefined).then(() => {
-          if (input) {
-            input.value = '';
-            input.focus();
-          }
-          clientStore.pendingRelayAttachment = null;
-          clientStore.notifySync();
-          setTimeout(() => {
-            const container = document.getElementById('messages-container');
-            if (container) container.scrollTop = container.scrollHeight;
-          }, 50);
-        }).catch(console.error);
+        clientStore.sendMessage(text, undefined, att || undefined);
+        if (input) {
+          input.value = '';
+          input.focus();
+        }
+        clientStore.pendingRelayAttachment = null;
+        clientStore.notifySync();
+        setTimeout(() => {
+          const container = document.getElementById('messages-container');
+          if (container) container.scrollTop = container.scrollHeight;
+        }, 50);
       }
     } else if (typeof window !== 'undefined') {
       const customHandler = (window as any)[`__aetheris_submit_${action}`];

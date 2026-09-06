@@ -9,6 +9,12 @@ APP_NAME = "Aetheris Omni-Sphere"
 MAX_STORAGE_CAP_BYTES = "8589934592" # 8.0 GB safe storage ceiling
 MAX_BINARY_SCAN_BYTES = "26214400" # 25 MB max edge binary scan limit
 
+# Cloudflare Durable Object Binding (points to server-edge relay worker)
+[[durable_objects.bindings]]
+name = "RELAY_DO"
+class_name = "RelayDurableObject"
+script_name = "aetheris-edge-relay"
+
 # Cloudflare D1 SQL Database Binding (functions/api/_db.ts -> env.DB / env.AETHERIS_DB)
 [[d1_databases]]
 binding = "DB"

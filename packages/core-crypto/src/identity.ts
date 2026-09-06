@@ -126,12 +126,10 @@ export function canonicalizeEnvelopeDigest<T>(
  */
 export function generateEnvelopeNonce(): string {
   const bytes = new Uint8Array(16);
-  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
-    crypto.getRandomValues(bytes);
+  if (typeof globalThis !== 'undefined' && globalThis.crypto?.getRandomValues) {
+    globalThis.crypto.getRandomValues(bytes);
   } else {
-    for (let i = 0; i < 16; i++) {
-      bytes[i] = Math.floor(Math.random() * 256);
-    }
+    throw new Error('Cryptographically secure PRNG (crypto.getRandomValues) is required');
   }
   return bytesToHex(bytes);
 }

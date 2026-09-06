@@ -7,7 +7,7 @@
  * - Mandatory Web Crypto P-256 ECDSA Signature Verification (Zero Bypass).
  */
 
-import { Env, getD1Database, getKVStore } from './_db.js';
+import { Env, getD1Database, getKVStore, isProductionEnv, createD1UnavailableResponse } from './_db.js';
 
 // Transient local edge memory cache (local PoP optimization; D1/KV remain authoritative)
 const challengeMemoryCache = new Map<string, { challenge: string; timestamp: number }>();
@@ -135,17 +135,146 @@ export async function importWebAuthnPublicKey(rawKey: any): Promise<CryptoKey> {
   );
 }
 
+export interface ParsedAttestationAuthData {
+  rpIdHash: Uint8Array;
+  flags: number;
+  userPresent: boolean;
+  userVerified: boolean;
+  attestedCredentialDataPresent: boolean;
+  signCount: number;
+  aaguid: Uint8Array;
+  credentialId: Uint8Array;
+  credentialPublicKeyJwk: JsonWebKey;
+}
+
+/**
+ * Robust zero-dependency CBOR/authData parser for WebAuthn Level 3 attestationObject.
+ */
+export function parseAttestationObject(attestationBuffer: ArrayBuffer | Uint8Array): ParsedAttestationAuthData {
+  const bytes = attestationBuffer instanceof Uint8Array ? attestationBuffer : new Uint8Array(attestationBuffer);
+
+  // Locate "authData" key in CBOR
+  const authDataPattern = [0x68, 0x61, 0x75, 0x74, 0x68, 0x44, 0x61, 0x74, 0x61]; // 'authData' (major type 3, length 8)
+  let idx = -1;
+  for (let i = 0; i <= bytes.length - authDataPattern.length; i++) {
+    let match = true;
+    for (let j = 0; j < authDataPattern.length; j++) {
+      if (bytes[i + j] !== authDataPattern[j]) {
+        match = false;
+        break;
+      }
+    }
+    if (match) {
+      idx = i + authDataPattern.length;
+      break;
+    }
+  }
+
+  if (idx === -1) {
+    throw new Error('Malformed attestationObject: authData key not found');
+  }
+
+  // Parse CBOR byte string header for authData
+  let authDataLen = 0;
+  let authDataStart = 0;
+  const headerByte = bytes[idx];
+  if (headerByte >= 0x40 && headerByte <= 0x57) {
+    authDataLen = headerByte - 0x40;
+    authDataStart = idx + 1;
+  } else if (headerByte === 0x58) {
+    authDataLen = bytes[idx + 1];
+    authDataStart = idx + 2;
+  } else if (headerByte === 0x59) {
+    authDataLen = (bytes[idx + 1] << 8) | bytes[idx + 2];
+    authDataStart = idx + 3;
+  } else {
+    throw new Error('Unsupported CBOR byte string header for authData');
+  }
+
+  const authData = bytes.subarray(authDataStart, authDataStart + authDataLen);
+  if (authData.length < 37) {
+    throw new Error('authData too short (< 37 bytes)');
+  }
+
+  const rpIdHash = authData.subarray(0, 32);
+  const flags = authData[32];
+  const userPresent = (flags & 0x01) !== 0;
+  const userVerified = (flags & 0x04) !== 0;
+  const attestedCredentialDataPresent = (flags & 0x40) !== 0;
+  const signCount = (authData[33] << 24) | (authData[34] << 16) | (authData[35] << 8) | authData[36];
+
+  if (!attestedCredentialDataPresent) {
+    throw new Error('authData does not contain attested credential data (AT flag not set)');
+  }
+
+  if (authData.length < 55) {
+    throw new Error('authData truncated before credential ID length');
+  }
+
+  const aaguid = authData.subarray(37, 53);
+  const credIdLen = (authData[53] << 8) | authData[54];
+  if (authData.length < 55 + credIdLen) {
+    throw new Error('authData truncated inside credential ID');
+  }
+
+  const credentialId = authData.subarray(55, 55 + credIdLen);
+  const coseKey = authData.subarray(55 + credIdLen);
+
+  // Extract P-256 coordinates from COSE Key
+  // Key -2 (0x21) is x, Key -3 (0x22) is y, each 32 bytes (0x58, 0x20)
+  const xPattern = [0x21, 0x58, 0x20];
+  const yPattern = [0x22, 0x58, 0x20];
+  let xStart = -1;
+  let yStart = -1;
+
+  for (let i = 0; i <= coseKey.length - 35; i++) {
+    if (coseKey[i] === xPattern[0] && coseKey[i + 1] === xPattern[1] && coseKey[i + 2] === xPattern[2]) {
+      xStart = i + 3;
+    }
+    if (coseKey[i] === yPattern[0] && coseKey[i + 1] === yPattern[1] && coseKey[i + 2] === yPattern[2]) {
+      yStart = i + 3;
+    }
+  }
+
+  if (xStart === -1 || yStart === -1) {
+    throw new Error('Could not parse P-256 EC2 coordinates from COSE public key in attestation');
+  }
+
+  const xBytes = coseKey.subarray(xStart, xStart + 32);
+  const yBytes = coseKey.subarray(yStart, yStart + 32);
+
+  const jwk: JsonWebKey = {
+    kty: 'EC',
+    crv: 'P-256',
+    x: bufferToBase64Url(xBytes),
+    y: bufferToBase64Url(yBytes),
+  };
+
+  return {
+    rpIdHash,
+    flags,
+    userPresent,
+    userVerified,
+    attestedCredentialDataPresent,
+    signCount,
+    aaguid,
+    credentialId,
+    credentialPublicKeyJwk: jwk,
+  };
+}
+
 // ─── DISTRIBUTED STORAGE LAYER: D1 & KV PERSISTENCE ─────────────────────────
 
 async function saveChallenge(env: Env | undefined, fingerprint: string, challenge: string): Promise<void> {
+  const isProd = isProductionEnv(env);
   const now = Date.now();
   const expiresAt = now + CHALLENGE_TTL_MS;
 
-  // Local transient cache
-  challengeMemoryCache.set(fingerprint, { challenge, timestamp: now });
-
-  // Cloudflare D1 Authoritative Persistence (webauthn_challenges)
   const db = getD1Database(env);
+  if (isProd && !db) {
+    throw new Error('Production WebAuthn requires active D1 database');
+  }
+
   if (db) {
     try {
       await db.prepare(
@@ -154,12 +283,14 @@ async function saveChallenge(env: Env | undefined, fingerprint: string, challeng
       )
         .bind(fingerprint, challenge, expiresAt, now)
         .run();
-    } catch (e) {
+    } catch (e: any) {
+      if (isProd) {
+        throw new Error(`Production WebAuthn challenge save failed: ${e?.message || e}`);
+      }
       console.warn('[WebAuthn] D1 saveChallenge warning:', e);
     }
   }
 
-  // Cloudflare KV Edge Replication
   const kv = getKVStore(env) || env?.KV_SESSIONS;
   if (kv) {
     try {
@@ -170,13 +301,21 @@ async function saveChallenge(env: Env | undefined, fingerprint: string, challeng
       console.warn('[WebAuthn] KV saveChallenge warning:', e);
     }
   }
+
+  if (!isProd) {
+    challengeMemoryCache.set(fingerprint, { challenge, timestamp: now });
+  }
 }
 
 async function getChallenge(env: Env | undefined, fingerprint: string): Promise<string | null> {
+  const isProd = isProductionEnv(env);
   const now = Date.now();
 
-  // 1. Check Cloudflare D1 Authoritative Persistent Store first
   const db = getD1Database(env);
+  if (isProd && !db) {
+    throw new Error('Production WebAuthn requires active D1 database');
+  }
+
   if (db) {
     try {
       const row = await db.prepare(
@@ -188,12 +327,14 @@ async function getChallenge(env: Env | undefined, fingerprint: string): Promise<
       if (row?.challenge) {
         return row.challenge;
       }
-    } catch (e) {
+    } catch (e: any) {
+      if (isProd) {
+        throw new Error(`Production WebAuthn challenge lookup failed: ${e?.message || e}`);
+      }
       console.warn('[WebAuthn] D1 getChallenge warning:', e);
     }
   }
 
-  // 2. Check Cloudflare KV Edge Store
   const kv = getKVStore(env) || env?.KV_SESSIONS;
   if (kv) {
     try {
@@ -204,16 +345,19 @@ async function getChallenge(env: Env | undefined, fingerprint: string): Promise<
     }
   }
 
-  // 3. Fallback to local memory cache
-  const cached = challengeMemoryCache.get(fingerprint);
-  if (cached && now - cached.timestamp <= CHALLENGE_TTL_MS) {
-    return cached.challenge;
+  if (!isProd) {
+    const cached = challengeMemoryCache.get(fingerprint);
+    if (cached && now - cached.timestamp <= CHALLENGE_TTL_MS) {
+      return cached.challenge;
+    }
   }
   return null;
 }
 
 async function deleteChallenge(env: Env | undefined, fingerprint: string): Promise<void> {
-  challengeMemoryCache.delete(fingerprint);
+  if (!isProductionEnv(env)) {
+    challengeMemoryCache.delete(fingerprint);
+  }
 
   const db = getD1Database(env);
   if (db) {
@@ -243,15 +387,12 @@ async function saveCredential(
     createdAt: number;
   }
 ): Promise<void> {
-  credentialMemoryCache.set(cred.credentialId, {
-    credentialId: cred.credentialId,
-    fingerprint: cred.fingerprint,
-    publicKey: cred.publicKey,
-    counter: cred.counter,
-    createdAt: cred.createdAt,
-  });
-
+  const isProd = isProductionEnv(env);
   const db = getD1Database(env);
+  if (isProd && !db) {
+    throw new Error('Production WebAuthn requires active D1 database');
+  }
+
   if (db) {
     try {
       await db.prepare(
@@ -267,9 +408,22 @@ async function saveCredential(
           cred.createdAt
         )
         .run();
-    } catch (e) {
+    } catch (e: any) {
+      if (isProd) {
+        throw new Error(`Production WebAuthn credential save failed: ${e?.message || e}`);
+      }
       console.warn('[WebAuthn] D1 saveCredential warning:', e);
     }
+  }
+
+  if (!isProd) {
+    credentialMemoryCache.set(cred.credentialId, {
+      credentialId: cred.credentialId,
+      fingerprint: cred.fingerprint,
+      publicKey: cred.publicKey,
+      counter: cred.counter,
+      createdAt: cred.createdAt,
+    });
   }
 }
 
@@ -277,7 +431,12 @@ async function getCredential(
   env: Env | undefined,
   credentialId: string
 ): Promise<{ credentialId: string; fingerprint: string; publicKey: string; counter: number } | null> {
+  const isProd = isProductionEnv(env);
   const db = getD1Database(env);
+  if (isProd && !db) {
+    throw new Error('Production WebAuthn requires active D1 database');
+  }
+
   if (db) {
     try {
       const row = await db.prepare(
@@ -294,13 +453,19 @@ async function getCredential(
           counter: Number(row.sign_count || 0),
         };
       }
-    } catch (e) {
+    } catch (e: any) {
+      if (isProd) {
+        throw new Error(`Production WebAuthn credential lookup failed: ${e?.message || e}`);
+      }
       console.warn('[WebAuthn] D1 getCredential warning:', e);
     }
   }
 
-  const mem = credentialMemoryCache.get(credentialId);
-  return mem || null;
+  if (!isProd) {
+    const mem = credentialMemoryCache.get(credentialId);
+    return mem || null;
+  }
+  return null;
 }
 
 async function updateCredentialCounter(
@@ -308,12 +473,12 @@ async function updateCredentialCounter(
   credentialId: string,
   newCounter: number
 ): Promise<void> {
-  const mem = credentialMemoryCache.get(credentialId);
-  if (mem) {
-    mem.counter = newCounter;
+  const isProd = isProductionEnv(env);
+  const db = getD1Database(env);
+  if (isProd && !db) {
+    throw new Error('Production WebAuthn requires active D1 database');
   }
 
-  const db = getD1Database(env);
   if (db) {
     try {
       await db.prepare(
@@ -321,16 +486,31 @@ async function updateCredentialCounter(
       )
         .bind(newCounter, credentialId)
         .run();
-    } catch (e) {
+    } catch (e: any) {
+      if (isProd) {
+        throw new Error(`Production WebAuthn counter update failed: ${e?.message || e}`);
+      }
       console.warn('[WebAuthn] D1 updateCredentialCounter warning:', e);
+    }
+  }
+
+  if (!isProd) {
+    const mem = credentialMemoryCache.get(credentialId);
+    if (mem) {
+      mem.counter = newCounter;
     }
   }
 }
 
 async function listCredentialsByFingerprint(env: Env | undefined, fingerprint: string): Promise<string[]> {
+  const isProd = isProductionEnv(env);
+  const db = getD1Database(env);
+  if (isProd && !db) {
+    throw new Error('Production WebAuthn requires active D1 database');
+  }
+
   const creds = new Set<string>();
 
-  const db = getD1Database(env);
   if (db) {
     try {
       const result = await db.prepare(
@@ -344,37 +524,87 @@ async function listCredentialsByFingerprint(env: Env | undefined, fingerprint: s
           if (row.credential_id) creds.add(row.credential_id);
         }
       }
-    } catch (e) {
+    } catch (e: any) {
+      if (isProd) {
+        throw new Error(`Production WebAuthn credential listing failed: ${e?.message || e}`);
+      }
       console.warn('[WebAuthn] D1 listCredentials warning:', e);
     }
   }
 
-  for (const [id, c] of credentialMemoryCache.entries()) {
-    if (c.fingerprint === fingerprint) {
-      creds.add(id);
+  if (!isProd) {
+    for (const [id, c] of credentialMemoryCache.entries()) {
+      if (c.fingerprint === fingerprint) {
+        creds.add(id);
+      }
     }
   }
 
   return Array.from(creds);
 }
 
+/**
+ * Resolves the explicit set of allowed origins for WebAuthn operations and CORS.
+ * Strictly avoids substring, wildcard, or loose prefix matching.
+ */
+export function getAllowedWebAuthnOrigins(env?: Env): Set<string> {
+  const isProd = isProductionEnv(env);
+  const origins = new Set<string>();
+
+  const configured = (env as any)?.WEBAUTHN_ALLOWED_ORIGINS || (env as any)?.WEBAUTHN_ALLOWED_ORIGIN;
+  if (configured && typeof configured === 'string') {
+    for (const o of configured.split(',').map((v: string) => v.trim()).filter(Boolean)) {
+      origins.add(o);
+    }
+  }
+
+  // Canonical production default origins
+  origins.add('https://aetheris-omni-sphere.pages.dev');
+  origins.add('https://aetheris.pages.dev');
+
+  // Development & local test origins (only permitted when not in production environment)
+  if (!isProd) {
+    origins.add('http://localhost:3000');
+    origins.add('http://localhost:5173');
+    origins.add('http://127.0.0.1:3000');
+    origins.add('http://127.0.0.1:5173');
+  }
+
+  return origins;
+}
+
 // ─── MAIN HANDLER ───────────────────────────────────────────────────────────
 
 export async function onRequest(context: { request: Request; env?: Env }): Promise<Response> {
   const { request, env } = context;
-  const url = new URL(request.url);
+  if (isProductionEnv(env) && !getD1Database(env)) {
+    return createD1UnavailableResponse();
+  }
 
-  // CORS headers
-  const origin = request.headers.get('Origin') || '*';
-  const corsHeaders = {
-    'Access-Control-Allow-Origin': origin,
+  const url = new URL(request.url);
+  const allowedOrigins = getAllowedWebAuthnOrigins(env);
+  const requestOrigin = request.headers.get('Origin');
+
+  // Strict CORS headers: strictly allowlisted, never '*' and never reflected if unknown
+  const corsHeaders: Record<string, string> = {
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Fingerprint',
     'Content-Type': 'application/json',
   };
 
+  if (requestOrigin && allowedOrigins.has(requestOrigin)) {
+    corsHeaders['Access-Control-Allow-Origin'] = requestOrigin;
+    corsHeaders['Access-Control-Allow-Credentials'] = 'true';
+  }
+
   if (request.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    if (requestOrigin && !allowedOrigins.has(requestOrigin)) {
+      return new Response(JSON.stringify({ success: false, error: 'Disallowed CORS origin' }), {
+        status: 403,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    return new Response(null, { status: 204, headers: corsHeaders });
   }
 
   try {
@@ -456,32 +686,6 @@ export async function onRequest(context: { request: Request; env?: Env }): Promi
           );
         }
 
-        // Public Key MUST be provided and valid (eliminates fake 'fido2-attested-credential' bypass)
-        const rawPublicKey = body.publicKey || body.jwk;
-        if (!rawPublicKey || rawPublicKey === 'fido2-attested-credential') {
-          return new Response(
-            JSON.stringify({
-              success: false,
-              error: 'A valid P-256 public key (JWK or SPKI) is required for registration',
-            }),
-            { status: 400, headers: corsHeaders }
-          );
-        }
-
-        let serializedPublicKey: string;
-        try {
-          await importWebAuthnPublicKey(rawPublicKey);
-          serializedPublicKey = typeof rawPublicKey === 'string' ? rawPublicKey : JSON.stringify(rawPublicKey);
-        } catch (pkErr: any) {
-          return new Response(
-            JSON.stringify({
-              success: false,
-              error: `Invalid WebAuthn public key: ${pkErr?.message || 'Unsupported key material'}`,
-            }),
-            { status: 400, headers: corsHeaders }
-          );
-        }
-
         // Validate clientDataJSON
         let parsedClientData: any;
         try {
@@ -509,6 +713,103 @@ export async function onRequest(context: { request: Request; env?: Env }): Promi
             JSON.stringify({ success: false, error: 'WebAuthn challenge mismatch during registration' }),
             { status: 401, headers: corsHeaders }
           );
+        }
+
+        // Verify origin: must match explicit allowed origins list (exact match only)
+        const receivedOrigin = parsedClientData.origin as string | undefined;
+        if (!receivedOrigin || typeof receivedOrigin !== 'string' || !allowedOrigins.has(receivedOrigin)) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: `Cross-origin WebAuthn registration rejected: received "${receivedOrigin}", expected one of [${Array.from(allowedOrigins).join(', ')}]`,
+            }),
+            { status: 403, headers: corsHeaders }
+          );
+        }
+
+        let serializedPublicKey: string;
+        if (body.attestationObject) {
+          try {
+            const attBuf = base64UrlToBuffer(body.attestationObject);
+            const parsedAtt = parseAttestationObject(attBuf);
+
+            // Verify rpIdHash
+            const rpId: string =
+              (env as any)?.WEBAUTHN_RP_ID || url.hostname || 'aetheris-omni-sphere.pages.dev';
+            const expectedRpIdHash = new Uint8Array(
+              await crypto.subtle.digest('SHA-256', new TextEncoder().encode(rpId))
+            );
+
+            let rpMatch = true;
+            if (parsedAtt.rpIdHash.length !== 32) {
+              rpMatch = false;
+            } else {
+              for (let i = 0; i < 32; i++) {
+                if (parsedAtt.rpIdHash[i] !== expectedRpIdHash[i]) {
+                  rpMatch = false;
+                  break;
+                }
+              }
+            }
+            if (!rpMatch) {
+              return new Response(
+                JSON.stringify({ success: false, error: 'WebAuthn RP ID mismatch in attestation' }),
+                { status: 401, headers: corsHeaders }
+              );
+            }
+
+            // Verify User Present flag
+            if (!parsedAtt.userPresent) {
+              return new Response(
+                JSON.stringify({ success: false, error: 'User Present (UP) flag not set in attestation' }),
+                { status: 401, headers: corsHeaders }
+              );
+            }
+
+            // Test import of public key derived from authenticatorData
+            await importWebAuthnPublicKey(parsedAtt.credentialPublicKeyJwk);
+            serializedPublicKey = JSON.stringify(parsedAtt.credentialPublicKeyJwk);
+          } catch (attErr: any) {
+            return new Response(
+              JSON.stringify({
+                success: false,
+                error: `Invalid attestationObject: ${attErr?.message || attErr}`,
+              }),
+              { status: 400, headers: corsHeaders }
+            );
+          }
+        } else if (isProductionEnv(env)) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: 'Missing mandatory attestationObject for production WebAuthn registration',
+            }),
+            { status: 400, headers: corsHeaders }
+          );
+        } else {
+          // Dev / Unit testing fallback when attestationObject is omitted
+          const rawPublicKey = body.publicKey || body.jwk;
+          if (!rawPublicKey || rawPublicKey === 'fido2-attested-credential') {
+            return new Response(
+              JSON.stringify({
+                success: false,
+                error: 'A valid P-256 public key (JWK or SPKI) or attestationObject is required for registration',
+              }),
+              { status: 400, headers: corsHeaders }
+            );
+          }
+          try {
+            await importWebAuthnPublicKey(rawPublicKey);
+            serializedPublicKey = typeof rawPublicKey === 'string' ? rawPublicKey : JSON.stringify(rawPublicKey);
+          } catch (pkErr: any) {
+            return new Response(
+              JSON.stringify({
+                success: false,
+                error: `Invalid WebAuthn public key: ${pkErr?.message || 'Unsupported key material'}`,
+              }),
+              { status: 400, headers: corsHeaders }
+            );
+          }
         }
 
         // Persist credential in D1 & Edge registry
@@ -599,21 +900,15 @@ export async function onRequest(context: { request: Request; env?: Env }): Promi
           );
         }
 
-        // 3. Verify clientDataJSON.origin against the expected application origin.
-        // Allows env override (WEBAUTHN_ALLOWED_ORIGIN) for staging/preview deployments.
-        const requestUrl = new URL(request.url);
-        const allowedOrigins: string[] = [
-          (env as any)?.WEBAUTHN_ALLOWED_ORIGIN || 'https://aetheris-omni-sphere.pages.dev',
-          `https://${requestUrl.hostname}`,
-        ];
+        // 3. Verify clientDataJSON.origin against explicit allowed origins list (exact match only)
         const receivedOrigin = parsedClientData.origin as string | undefined;
-        if (!receivedOrigin || !allowedOrigins.includes(receivedOrigin)) {
+        if (!receivedOrigin || typeof receivedOrigin !== 'string' || !allowedOrigins.has(receivedOrigin)) {
           return new Response(
             JSON.stringify({
               success: false,
-              error: `WebAuthn origin mismatch: received "${receivedOrigin}", expected one of [${allowedOrigins.join(', ')}]`,
+              error: `Cross-origin WebAuthn assertion rejected: received "${receivedOrigin}", expected one of [${Array.from(allowedOrigins).join(', ')}]`,
             }),
-            { status: 401, headers: corsHeaders }
+            { status: 403, headers: corsHeaders }
           );
         }
 
@@ -642,7 +937,7 @@ export async function onRequest(context: { request: Request; env?: Env }): Promi
         // 5. Verify rpIdHash: bytes 0–31 of authenticatorData MUST equal SHA-256(rpId).
         // rpId defaults to the effective hostname; override via WEBAUTHN_RP_ID env var.
         const rpId: string =
-          (env as any)?.WEBAUTHN_RP_ID || requestUrl.hostname || 'aetheris-omni-sphere.pages.dev';
+          (env as any)?.WEBAUTHN_RP_ID || url.hostname || 'aetheris-omni-sphere.pages.dev';
         const expectedRpIdHash = new Uint8Array(
           await crypto.subtle.digest('SHA-256', new TextEncoder().encode(rpId))
         );

@@ -4,7 +4,7 @@
 // Persists directly to Cloudflare D1 SQL table 'interactions' with memory fallback.
 // ===========================================================================
 
-import { Env, getD1Database } from './_db.js';
+import { Env, getD1Database, isProductionEnv, createD1UnavailableResponse } from './_db.js';
 import { requireAdmin, requireSignedEnvelope } from './_auth.js';
 
 export interface InteractionRecord {
@@ -139,10 +139,19 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
           }
         }
       } catch (dbErr) {
+        if (isProductionEnv(context.env)) {
+          return new Response(
+            JSON.stringify({ success: false, error: 'Database query failed in production environment' }),
+            { status: 500, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
+          );
+        }
         console.warn('[Interactions API] D1 query failed, using memory fallback:', dbErr);
         fillFromMemory(targetIds, targetType, userFingerprint, resultsMap);
       }
     } else {
+      if (isProductionEnv(context.env)) {
+        return createD1UnavailableResponse();
+      }
       fillFromMemory(targetIds, targetType, userFingerprint, resultsMap);
     }
 
@@ -236,9 +245,17 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
     }
 
     const db = getD1Database(context.env);
+    const isProd = isProductionEnv(context.env);
+    if (!db && isProd) {
+      return createD1UnavailableResponse();
+    }
+
     const now = Date.now();
     let isActive = false;
-    let interactionId = `act_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    const randSuffix = typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID().replace(/-/g, '').substring(0, 8)
+      : Array.from(crypto.getRandomValues(new Uint8Array(4))).map(b => b.toString(16).padStart(2, '0')).join('');
+    let interactionId = `act_${now}_${randSuffix}`;
 
     if (action === 'like' || action === 'repost' || action === 'bookmark') {
       // Toggle logic
@@ -249,19 +266,20 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
             .bind(targetType, targetId, userFingerprint, action)
             .first();
 
+          const stmts: any[] = [];
           if (existing) {
             // Remove
-            await db
-              .prepare(`DELETE FROM interactions WHERE target_type = ? AND target_id = ? AND user_fingerprint = ? AND interaction_type = ?`)
-              .bind(targetType, targetId, userFingerprint, action)
-              .run();
+            stmts.push(
+              db.prepare(`DELETE FROM interactions WHERE target_type = ? AND target_id = ? AND user_fingerprint = ? AND interaction_type = ?`)
+                .bind(targetType, targetId, userFingerprint, action)
+            );
             isActive = false;
           } else {
             // Add
-            await db
-              .prepare(`INSERT INTO interactions (id, target_type, target_id, user_fingerprint, interaction_type, value, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`)
-              .bind(interactionId, targetType, targetId, userFingerprint, action, null, now)
-              .run();
+            stmts.push(
+              db.prepare(`INSERT INTO interactions (id, target_type, target_id, user_fingerprint, interaction_type, value, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`)
+                .bind(interactionId, targetType, targetId, userFingerprint, action, null, now)
+            );
             isActive = true;
           }
 
@@ -269,19 +287,33 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
           if (targetType === 'post') {
             if (action === 'like') {
               const delta = isActive ? 1 : -1;
-              await db
-                .prepare(`UPDATE posts SET merit_votes = MAX(0, merit_votes + ?) WHERE id = ?`)
-                .bind(delta, targetId)
-                .run();
+              stmts.push(
+                db.prepare(`UPDATE posts SET merit_votes = MAX(0, merit_votes + ?) WHERE id = ?`)
+                  .bind(delta, targetId)
+              );
             } else if (action === 'repost') {
               const delta = isActive ? 1 : -1;
-              await db
-                .prepare(`UPDATE posts SET boost_count = MAX(0, boost_count + ?) WHERE id = ?`)
-                .bind(delta, targetId)
-                .run();
+              stmts.push(
+                db.prepare(`UPDATE posts SET boost_count = MAX(0, boost_count + ?) WHERE id = ?`)
+                  .bind(delta, targetId)
+              );
             }
           }
+
+          const batchRes = await db.batch(stmts);
+          if (isProd && batchRes.some((r: any) => r && r.success === false)) {
+            return new Response(
+              JSON.stringify({ success: false, error: 'Production database batch failed during interaction update' }),
+              { status: 500, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
+            );
+          }
         } catch (dbErr) {
+          if (isProd) {
+            return new Response(
+              JSON.stringify({ success: false, error: 'Production database error during interaction update' }),
+              { status: 500, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
+            );
+          }
           console.warn('[Interactions API] D1 toggle failed, falling back to memory:', dbErr);
           isActive = toggleInMemory(targetType, targetId, userFingerprint, action as any, null, now);
         }
@@ -318,6 +350,12 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
             isActive = true;
           }
         } catch (dbErr) {
+          if (isProd) {
+            return new Response(
+              JSON.stringify({ success: false, error: 'Production database error during reaction update' }),
+              { status: 500, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
+            );
+          }
           isActive = toggleInMemory(targetType, targetId, userFingerprint, 'reaction', value, now);
         }
       } else {
@@ -332,6 +370,12 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
             .run();
           isActive = true;
         } catch (dbErr) {
+          if (isProd) {
+            return new Response(
+              JSON.stringify({ success: false, error: 'Production database error during award update' }),
+              { status: 500, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
+            );
+          }
           memoryInteractionsStore.push({ id: interactionId, targetType, targetId, userFingerprint, interactionType: 'award', value: value || 'gold', createdAt: now });
           isActive = true;
         }
@@ -349,6 +393,12 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
             .run();
           isActive = true;
         } catch (dbErr) {
+          if (isProd) {
+            return new Response(
+              JSON.stringify({ success: false, error: 'Production database error during view update' }),
+              { status: 500, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
+            );
+          }
           toggleInMemory(targetType, targetId, userFingerprint, 'view', null, now);
           isActive = true;
         }
@@ -368,6 +418,12 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
           .first<{ cnt: number }>();
         newCount = countRow ? Number(countRow.cnt) : (isActive ? 1 : 0);
       } catch (_) {
+        if (isProd) {
+          return new Response(
+            JSON.stringify({ success: false, error: 'Production database error querying interaction count' }),
+            { status: 500, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
+          );
+        }
         newCount = memoryInteractionsStore.filter(i => i.targetId === targetId && i.interactionType === action).length;
       }
     } else {
@@ -424,8 +480,11 @@ function toggleInMemory(targetType: string, targetId: string, userFingerprint: s
     memoryInteractionsStore.splice(idx, 1);
     return false;
   } else {
+    const randSuffix = typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID().replace(/-/g, '').substring(0, 8)
+      : Array.from(crypto.getRandomValues(new Uint8Array(4))).map(b => b.toString(16).padStart(2, '0')).join('');
     memoryInteractionsStore.push({
-      id: `act_${now}_${Math.random().toString(36).slice(2, 7)}`,
+      id: `act_${now}_${randSuffix}`,
       targetType,
       targetId,
       userFingerprint,

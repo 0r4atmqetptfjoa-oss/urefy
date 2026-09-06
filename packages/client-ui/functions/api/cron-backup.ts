@@ -19,6 +19,7 @@ import {
   globalMessagesStore,
   globalSpentNullifiers,
   globalPushSubscriptionsStore,
+  isProductionEnv,
 } from './_db.js';
 import {
   computeSha256,
@@ -250,7 +251,12 @@ export async function dumpD1Tables(env?: Env): Promise<{
   counts: Record<string, number>;
   totalRecords: number;
 }> {
+  const isProd = isProductionEnv(env);
   const db = getD1Database(env);
+  if (isProd && !db) {
+    throw new Error('Production backup failed: D1 database binding is unavailable. In-memory fallback is disabled in production.');
+  }
+
   const tables: any = {
     posts: [],
     channels: [],
@@ -267,11 +273,16 @@ export async function dumpD1Tables(env?: Env): Promise<{
         const result = await db.prepare(`SELECT * FROM ${table}`).all();
         if (result && Array.isArray(result.results)) {
           tables[table] = result.results;
+        } else if (isProd) {
+          throw new Error(`Production backup failed: query for table ${table} returned unexpected structure.`);
         } else {
           tables[table] = getInMemoryTableFallback(table);
         }
-      } catch (_) {
-        // Table not yet migrated or queried, fallback safely
+      } catch (err: any) {
+        if (isProd) {
+          throw new Error(`Production backup failed: error querying table ${table}: ${err?.message || err}`);
+        }
+        // Table not yet migrated or queried, fallback safely in dev
         tables[table] = getInMemoryTableFallback(table);
       }
     } else {
@@ -409,7 +420,12 @@ export async function executeBackup(
   }
 
   // 6. Persist to Cloudflare R2 Bucket
+  const isProd = isProductionEnv(env);
   const r2 = getR2Bucket(env);
+  if (isProd && !r2) {
+    throw new Error('Production backup failed: Cloudflare R2 bucket binding is unavailable. In-memory fallback is disabled in production.');
+  }
+
   const primaryKey = options?.keyOverride || DAILY_BACKUP_KEY;
   const timestampedKey = `backups/d1-snapshot-${now}.enc`;
 
@@ -438,27 +454,32 @@ export async function executeBackup(
         customMetadata: metadata,
       });
       storageType = 'Cloudflare-R2';
-    } catch (r2Err) {
+    } catch (r2Err: any) {
+      if (isProd) {
+        throw new Error(`Production backup failed: R2 persistence error: ${r2Err?.message || r2Err}`);
+      }
       console.warn('[cron-backup] R2 persistence fallback to memory:', r2Err);
       storageType = 'Edge-Isolate-Memory';
     }
   }
 
-  // Maintain in-memory snapshot store for local development & fallback
-  inMemoryBackupSnapshots.set(primaryKey, {
-    key: primaryKey,
-    data: encryptedPayload,
-    uploadedAt: now,
-    metadata,
-    checksumSha256,
-  });
-  inMemoryBackupSnapshots.set(timestampedKey, {
-    key: timestampedKey,
-    data: encryptedPayload,
-    uploadedAt: now,
-    metadata,
-    checksumSha256,
-  });
+  // Maintain in-memory snapshot store only for local development & fallback
+  if (!isProd) {
+    inMemoryBackupSnapshots.set(primaryKey, {
+      key: primaryKey,
+      data: encryptedPayload,
+      uploadedAt: now,
+      metadata,
+      checksumSha256,
+    });
+    inMemoryBackupSnapshots.set(timestampedKey, {
+      key: timestampedKey,
+      data: encryptedPayload,
+      uploadedAt: now,
+      metadata,
+      checksumSha256,
+    });
+  }
 
   // 7. Automatic 7-Day Retention: rotate out old snapshots
   let rotationResult = { rotatedCount: 0, deletedKeys: [] as string[], remainingKeys: [] as string[] };
@@ -485,6 +506,120 @@ export async function executeBackup(
   return result;
 }
 
+// ─── BACKUP RESTORATION SERVICE ─────────────────────────────────────────────
+
+export interface RestoreExecutionResult {
+  success: boolean;
+  restoredRecords: number;
+  tableCounts: Record<string, number>;
+  manifestTimestamp: string;
+  error?: string;
+}
+
+/**
+ * Restores a D1 SQLite database from an encrypted backup snapshot payload.
+ * Decrypts AES-256-GCM -> Decompresses Gzip -> Parses D1BackupManifest -> Restores records into D1 SQLite or fallback stores.
+ */
+export async function restoreBackup(
+  encryptedData: ArrayBuffer | Uint8Array,
+  env?: Env,
+  passphrase?: string
+): Promise<RestoreExecutionResult> {
+  const encryptedBytes = encryptedData instanceof Uint8Array ? encryptedData : new Uint8Array(encryptedData);
+  const isProd = isProductionEnv(env);
+  const db = getD1Database(env);
+
+  if (isProd && !db) {
+    throw new Error('Production restore failed: D1 database binding is unavailable. In-memory fallback is disabled in production.');
+  }
+
+  const secret =
+    passphrase ||
+    env?.BACKUP_ENCRYPTION_KEY ||
+    env?.BACKUP_KEY ||
+    env?.ADMIN_PIN ||
+    DEFAULT_BACKUP_PASSPHRASE;
+
+  // 1. Decrypt AES-256-GCM
+  const decompressedGzipBytes = await decryptBackupPayload(encryptedBytes, secret);
+
+  // 2. Decompress Gzip
+  const rawBytes = await decompressGzip(decompressedGzipBytes);
+  const jsonStr = new TextDecoder().decode(rawBytes);
+
+  // 3. Parse Manifest
+  const manifest = JSON.parse(jsonStr) as D1BackupManifest;
+  if (!manifest || manifest.version !== '1.0.0' || !manifest.tables) {
+    throw new Error('Invalid backup manifest: schema mismatch or corrupted payload.');
+  }
+
+  let totalRestored = 0;
+  const tableCounts: Record<string, number> = {};
+
+  // 4. Restore into D1 database or memory
+  for (const table of BACKUP_TABLES) {
+    const rows = manifest.tables[table] || [];
+    tableCounts[table] = rows.length;
+
+    if (db) {
+      for (const row of rows) {
+        const keys = Object.keys(row);
+        if (keys.length === 0) continue;
+        const placeholders = keys.map(() => '?').join(', ');
+        const sql = `INSERT OR REPLACE INTO ${table} (${keys.join(', ')}) VALUES (${placeholders})`;
+        const values = keys.map((k) => row[k]);
+        await db.prepare(sql).bind(...values).run();
+      }
+    } else {
+      // In-memory fallback
+      switch (table) {
+        case 'posts':
+          for (const post of rows) {
+            const idx = globalPostsStore.findIndex((p) => p.id === post.id);
+            if (idx >= 0) globalPostsStore[idx] = post;
+            else globalPostsStore.push(post);
+          }
+          break;
+        case 'channels':
+          for (const ch of rows) {
+            const idx = globalChannelsStore.findIndex((c) => c.id === ch.id);
+            if (idx >= 0) globalChannelsStore[idx] = ch;
+            else globalChannelsStore.push(ch);
+          }
+          break;
+        case 'messages':
+          for (const msg of rows) {
+            const idx = globalMessagesStore.findIndex((m) => m.id === msg.id);
+            if (idx >= 0) globalMessagesStore[idx] = msg;
+            else globalMessagesStore.push(msg);
+          }
+          break;
+        case 'nullifiers':
+          for (const n of rows) {
+            if (n.nullifier) globalSpentNullifiers.add(n.nullifier);
+          }
+          break;
+        case 'push_subscriptions':
+          for (const sub of rows) {
+            const idx = globalPushSubscriptionsStore.findIndex((s) => s.endpoint === sub.endpoint);
+            if (idx >= 0) globalPushSubscriptionsStore[idx] = sub;
+            else globalPushSubscriptionsStore.push(sub);
+          }
+          break;
+      }
+    }
+
+    totalRestored += rows.length;
+  }
+
+  return {
+    success: true,
+    restoredRecords: totalRestored,
+    tableCounts,
+    manifestTimestamp: manifest.timestamp,
+  };
+}
+
 // ─── CLOUDFLARE CRON TRIGGER HANDLER ─────────────────────────────────────────
 
 /**
@@ -504,7 +639,7 @@ export async function scheduled(event: any, env?: Env, ctx?: any): Promise<void>
 
 /**
  * POST /api/cron-backup
- * Triggers automated snapshot creation. Supports:
+ * Triggers automated snapshot creation or restore. Supports:
  * - Cloudflare Cron Trigger / Internal Worker calls
  * - Admin authorization via Bearer Token, X-Admin-PIN, or genesis fingerprint.
  */
@@ -514,6 +649,7 @@ export async function onRequestPost(context: {
 }): Promise<Response> {
   try {
     const req = context.request;
+    const url = new URL(req.url);
     const cronSecretHeader = req.headers.get('X-Cron-Secret');
     const configuredCronSecret = context.env?.CRON_SECRET;
 
@@ -539,6 +675,46 @@ export async function onRequestPost(context: {
           }
         );
       }
+    }
+
+    // Support action=restore
+    const action = url.searchParams.get('action');
+    if (action === 'restore') {
+      let backupBytes: Uint8Array | null = null;
+      const bodyBuffer = await req.arrayBuffer();
+      if (bodyBuffer && bodyBuffer.byteLength > 0) {
+        backupBytes = new Uint8Array(bodyBuffer);
+      } else {
+        // Read from storage using key or DAILY_BACKUP_KEY
+        const key = url.searchParams.get('key') || DAILY_BACKUP_KEY;
+        const r2 = getR2Bucket(context.env);
+        if (r2) {
+          const obj = await r2.get(key);
+          if (obj) {
+            const buf = await obj.arrayBuffer();
+            backupBytes = new Uint8Array(buf);
+          }
+        }
+        if (!backupBytes && !isProductionEnv(context.env) && inMemoryBackupSnapshots.has(key)) {
+          backupBytes = inMemoryBackupSnapshots.get(key)!.data;
+        }
+      }
+
+      if (!backupBytes) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'No backup payload provided or found in storage' }),
+          { status: 404, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
+        );
+      }
+
+      const restoreResult = await restoreBackup(backupBytes, context.env);
+      return new Response(JSON.stringify(restoreResult, null, 2), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        },
+      });
     }
 
     const backupResult = await executeBackup(context.env);
@@ -577,7 +753,17 @@ export async function onRequestGet(context: {
   request: Request;
   env?: Env;
 }): Promise<Response> {
+  const isProd = isProductionEnv(context.env);
   const r2 = getR2Bucket(context.env);
+  const db = getD1Database(context.env);
+
+  if (isProd && (!r2 || !db)) {
+    return new Response(
+      JSON.stringify({ success: false, error: 'Production backup service requires active R2 and D1 bindings' }),
+      { status: 503, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
+    );
+  }
+
   const activeSnapshots: string[] = [];
 
   if (r2) {
@@ -589,8 +775,10 @@ export async function onRequestGet(context: {
     } catch (_) {}
   }
 
-  for (const key of inMemoryBackupSnapshots.keys()) {
-    if (!activeSnapshots.includes(key)) activeSnapshots.push(key);
+  if (!isProd) {
+    for (const key of inMemoryBackupSnapshots.keys()) {
+      if (!activeSnapshots.includes(key)) activeSnapshots.push(key);
+    }
   }
 
   return new Response(

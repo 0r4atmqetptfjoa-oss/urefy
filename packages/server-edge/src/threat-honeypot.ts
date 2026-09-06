@@ -56,8 +56,11 @@ export class ThreatHoneypotEngine {
     const cleanPath = path.toLowerCase().split('?')[0];
 
     if (ThreatHoneypotEngine.DECOY_PATHS.has(cleanPath)) {
+      const randSuffix = typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID().replace(/-/g, '').substring(0, 8)
+        : Date.now().toString(36);
       const incident: ThreatIncident = {
-        id: `inc_${now}_${Math.random().toString(36).substring(2, 8)}`,
+        id: `inc_${now}_${randSuffix}`,
         timestamp: now,
         ip,
         path,

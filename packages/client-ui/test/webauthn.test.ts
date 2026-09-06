@@ -197,6 +197,7 @@ describe('WebAuthn FIDO2 / Biometrics Security Manager', () => {
     });
 
     // Fresh manager instance
+    WebAuthnManager.setLocalTestMode(true);
     manager = new WebAuthnManager();
   });
 
@@ -315,17 +316,65 @@ describe('WebAuthn FIDO2 / Biometrics Security Manager', () => {
       expect(challenge.byteLength).toBe(32);
     });
 
-    it('falls back gracefully to pseudo-random generation when window.crypto is unavailable', () => {
-      const prevCrypto = (window as any).crypto;
+    it('strictly throws when CSPRNG (crypto.getRandomValues) is unavailable', () => {
+      const origGetRandomValues = window.crypto?.getRandomValues;
       try {
-        delete (window as any).crypto;
-        const challenge = manager.generateChallenge();
-
-        expect(challenge).toBeInstanceOf(Uint8Array);
-        expect(challenge.length).toBe(32);
+        if (window.crypto) {
+          (window.crypto as any).getRandomValues = undefined;
+        }
+        expect(() => manager.generateChallenge()).toThrow(/CSPRNG unavailable/i);
       } finally {
-        (window as any).crypto = prevCrypto;
+        if (window.crypto && origGetRandomValues) {
+          window.crypto.getRandomValues = origGetRandomValues;
+        }
       }
+    });
+
+    it('production + server challenge fetch fails -> authentication rejects & throws, no local challenge generated', async () => {
+      const origLocation = window.location;
+      delete (window as any).location;
+      window.location = { hostname: 'aetheris-omni-sphere.pages.dev', protocol: 'https:' } as any;
+
+      vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce(new Error('Network offline or edge unreachable'));
+      const genSpy = vi.spyOn(manager, 'generateChallenge');
+
+      await expect(manager.fetchServerChallenge('prod_user')).rejects.toThrow(
+        /WebAuthn server challenge is unavailable. Authentication cannot continue in production/i
+      );
+      expect(genSpy).not.toHaveBeenCalled();
+
+      window.location = origLocation;
+    });
+
+    it('production + server returns invalid challenge -> authentication rejects', async () => {
+      const origLocation = window.location;
+      delete (window as any).location;
+      window.location = { hostname: 'aetheris-omni-sphere.pages.dev', protocol: 'https:' } as any;
+
+      vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+        new Response(JSON.stringify({ success: false, error: 'D1 unavailable' }), { status: 503 })
+      );
+
+      await expect(manager.fetchServerChallenge('prod_user')).rejects.toThrow(
+        /WebAuthn server challenge is unavailable. Authentication cannot continue in production/i
+      );
+
+      window.location = origLocation;
+    });
+
+    it('development/test + explicitly enabled local WebAuthn test mode -> CSPRNG fallback allowed', async () => {
+      const origLocation = window.location;
+      delete (window as any).location;
+      window.location = { hostname: 'localhost', protocol: 'http:' } as any;
+
+      WebAuthnManager.setLocalTestMode(true);
+      vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce(new Error('Dev server not running'));
+
+      const challenge = await manager.fetchServerChallenge('dev_user');
+      expect(challenge).toBeInstanceOf(Uint8Array);
+      expect(challenge.length).toBe(32);
+
+      window.location = origLocation;
     });
   });
 

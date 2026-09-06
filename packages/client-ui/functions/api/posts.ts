@@ -281,26 +281,26 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
             const currentVotes = Number(existing.merit_votes ?? existing.meritVotes) || 0;
             const newVotes = currentVotes + voteDir;
 
-            const updateRes = await db
+            const updateStmt = db
               .prepare('UPDATE posts SET merit_votes = merit_votes + ? WHERE id = ?')
-              .bind(voteDir, postId)
-              .run();
-
-            if (isProd && updateRes && updateRes.success === false) {
-              return new Response(
-                JSON.stringify({ success: false, error: 'Database vote update failed in D1' }),
-                { status: 500, headers: { 'Content-Type': 'application/json' } }
-              );
-            }
+              .bind(voteDir, postId);
 
             // Record vote in ledger
             const voteId = `vote-${postId}-${userFingerprint}`;
-            await db
+            const ballotStmt = db
               .prepare(
                 'INSERT OR REPLACE INTO votes (id, target_type, target_id, user_fingerprint, direction, created_at) VALUES (?, ?, ?, ?, ?, ?)'
               )
-              .bind(voteId, 'post', postId, userFingerprint, voteDir, Date.now())
-              .run();
+              .bind(voteId, 'post', postId, userFingerprint, voteDir, Date.now());
+
+            const batchResults = await db.batch([updateStmt, ballotStmt]);
+
+            if (isProd && batchResults.some((r: any) => r && r.success === false)) {
+              return new Response(
+                JSON.stringify({ success: false, error: 'Database atomic vote transaction failed in D1' }),
+                { status: 500, headers: { 'Content-Type': 'application/json' } }
+              );
+            }
 
             existing.merit_votes = newVotes;
             existing.meritVotes = newVotes;
@@ -374,21 +374,26 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
             const currentVotes = Number(existing.merit_votes ?? existing.meritVotes) || 0;
             const newVotes = currentVotes + voteDir;
 
-            await db
+            const updateStmt = db
               .prepare('UPDATE posts SET merit_votes = merit_votes + ? WHERE id = ?')
-              .bind(voteDir, postId)
-              .run();
+              .bind(voteDir, postId);
 
             // Record anonymous ballot by nullifier (zero author/user linkage)
             const ballotId = `ballot-${nullifier || Date.now()}`;
-            try {
-              await db
-                .prepare(
-                  'INSERT OR REPLACE INTO votes (id, target_type, target_id, user_fingerprint, direction, created_at) VALUES (?, ?, ?, ?, ?, ?)'
-                )
-                .bind(ballotId, 'post', postId, 'chaumian-blind-voter', voteDir, Date.now())
-                .run();
-            } catch (_) {}
+            const ballotStmt = db
+              .prepare(
+                'INSERT OR REPLACE INTO votes (id, target_type, target_id, user_fingerprint, direction, created_at) VALUES (?, ?, ?, ?, ?, ?)'
+              )
+              .bind(ballotId, 'post', postId, 'chaumian-blind-voter', voteDir, Date.now());
+
+            const batchResults = await db.batch([updateStmt, ballotStmt]);
+
+            if (isProd && batchResults.some((r: any) => r && r.success === false)) {
+              return new Response(
+                JSON.stringify({ success: false, error: 'Database atomic ballot transaction failed in D1' }),
+                { status: 500, headers: { 'Content-Type': 'application/json' } }
+              );
+            }
 
             existing.merit_votes = newVotes;
             existing.meritVotes = newVotes;
@@ -536,8 +541,11 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
       }
     }
 
+    const randSuffix = typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID().replace(/-/g, '').substring(0, 8)
+      : Date.now().toString(36);
     const newPost: EdgePost = {
-      id: body.id || `post-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      id: body.id || `post-${Date.now()}-${randSuffix}`,
       channelId: body.channelId || 'pulse-global',
       authorFingerprint,
       authorRole: body.authorRole || 'MEMBER',

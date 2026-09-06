@@ -221,7 +221,11 @@ export class OfflineSyncEngine {
   private listeners: Array<(count: number) => void> = [];
 
   constructor(nodeId?: string) {
-    this.nodeId = nodeId || `node-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`;
+    this.nodeId =
+      nodeId ||
+      (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? `node-${crypto.randomUUID()}`
+        : `node-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`);
     this.localVectorClock = createVectorClock(this.nodeId, 0);
 
     if (typeof navigator !== 'undefined' && typeof navigator.onLine === 'boolean') {
@@ -402,10 +406,19 @@ export class OfflineSyncEngine {
   public enqueue(type: SyncActionType, payload: any): QueuedAction {
     this.localVectorClock = incrementVectorClock(this.localVectorClock, this.nodeId);
 
-    const crdtRecord = this.setRecord(type, `crdt-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`, payload);
+    const crdtId =
+      typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? `crdt-${crypto.randomUUID()}`
+        : `crdt-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`;
+    const crdtRecord = this.setRecord(type, crdtId, payload);
+
+    const actionId =
+      typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? `sync-${Date.now()}-${crypto.randomUUID().substring(0, 8)}`
+        : `sync-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
 
     const action: QueuedAction = {
-      id: `sync-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      id: actionId,
       type,
       payload,
       timestamp: Date.now(),

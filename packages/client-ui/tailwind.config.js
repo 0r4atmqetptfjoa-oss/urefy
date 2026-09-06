@@ -45,5 +45,14 @@ export default {
       }
     },
   },
+  safelist: [
+    // Mobile tab bar & hamburger — arbitrary values in JS template literals
+    // that Tailwind's content scanner may not detect
+    'min-w-[44px]',
+    'min-h-[44px]',
+    'pb-[calc(3.5rem+env(safe-area-inset-bottom,0px))]',
+    'lg:pb-0',
+    'lg:hidden',
+  ],
   plugins: [],
 }

@@ -95,7 +95,10 @@ function escapeHtml(str: string): string {
 }
 
 function generateLogId(): string {
-  return `log-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return `log-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
+  }
+  return `log-${Date.now()}-${Date.now().toString(36)}`;
 }
 
 // ─── STRUCTURED LOGGER ────────────────────────────────────────────────────────
@@ -254,12 +257,14 @@ export class StructuredLogger {
     const salt = new Uint8Array(16);
     const iv = new Uint8Array(12);
 
-    if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
-      crypto.getRandomValues(salt);
-      crypto.getRandomValues(iv);
+    const cryptoObj = (typeof window !== 'undefined' && (window.crypto || (window as any).msCrypto))
+      ? (window.crypto || (window as any).msCrypto)
+      : globalThis.crypto;
+    if (cryptoObj && cryptoObj.getRandomValues) {
+      cryptoObj.getRandomValues(salt);
+      cryptoObj.getRandomValues(iv);
     } else {
-      for (let i = 0; i < 16; i++) salt[i] = Math.floor(Math.random() * 256);
-      for (let i = 0; i < 12; i++) iv[i] = Math.floor(Math.random() * 256);
+      throw new Error('CSPRNG unavailable: crypto.getRandomValues is required for secure log encryption.');
     }
 
     // Attempt WebCrypto AES-GCM encryption

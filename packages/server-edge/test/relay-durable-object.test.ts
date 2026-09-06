@@ -4,6 +4,7 @@ import {
   DurableObjectState,
   DurableObjectStorage,
   createWebSocketUpgradeResponse,
+  createRelaySessionToken,
 } from '../src/relay-durable-object.js';
 import worker from '../src/worker.js';
 import { generateKeyPair, ZKRLN, Field } from '@aetheris/core-crypto';
@@ -234,14 +235,23 @@ describe('Cloudflare Durable Objects — RelayDurableObject & WebSocket Hibernat
       const userSecret = Field.hashToField('user-secret-key-1');
       const nullifier = ZKRLN.computeNullifier(userSecret);
 
+      const token = await createRelaySessionToken(
+        {
+          sub: userKey.fingerprint,
+          role: 'ARCHIVIST',
+          nullifier,
+          aud: 'aetheris-relay',
+          exp: Date.now() + 60000,
+          iat: Date.now(),
+        },
+        'aetheris-sovereign-relay-secret'
+      );
+
       await relayDO.webSocketMessage(
         ws as unknown as WebSocket,
         JSON.stringify({
           type: 'AUTH',
-          fingerprint: userKey.fingerprint,
-          publicKeyHex: userKey.publicKeyHex,
-          nullifier,
-          role: 'ARCHIVIST',
+          token,
           status: 'online',
         })
       );
@@ -282,12 +292,21 @@ describe('Cloudflare Durable Objects — RelayDurableObject & WebSocket Hibernat
       );
 
       // AUTH WS2
+      const bobToken = await createRelaySessionToken(
+        {
+          sub: 'peer-bob',
+          role: 'GUARDIAN',
+          aud: 'aetheris-relay',
+          exp: Date.now() + 60000,
+          iat: Date.now(),
+        },
+        'aetheris-sovereign-relay-secret'
+      );
       await relayDO.webSocketMessage(
         ws2 as unknown as WebSocket,
         JSON.stringify({
           type: 'AUTH',
-          fingerprint: 'peer-bob',
-          role: 'GUARDIAN',
+          token: bobToken,
           status: 'online',
         })
       );
@@ -349,7 +368,7 @@ describe('Cloudflare Durable Objects — RelayDurableObject & WebSocket Hibernat
   });
 
   describe('3. Channel Join, Leave, and Typing Indicators', () => {
-    it('returns seed messages on JOIN_CHANNEL and broadcasts PEER_JOINED', async () => {
+    it('returns zero demo messages in production on JOIN_CHANNEL and broadcasts PEER_JOINED', async () => {
       const ws1 = new MockWebSocket();
       const ws2 = new MockWebSocket();
       mockState.acceptWebSocket(ws1);
@@ -373,11 +392,35 @@ describe('Cloudflare Durable Objects — RelayDurableObject & WebSocket Hibernat
       const channelData = ws2Msgs.find((m) => m.type === 'CHANNEL_DATA');
       expect(channelData).toBeDefined();
       expect(channelData.channelId).toBe('relays-general');
-      expect(channelData.messages.length).toBeGreaterThanOrEqual(3);
+      // Zero demo messages in production!
+      expect(channelData.messages.length).toBe(0);
 
       const ws1Msgs = ws1.getAllMessagesParsed();
       const peerJoined = ws1Msgs.find((m) => m.type === 'PEER_JOINED' && m.fingerprint === 'peer-joiner');
       expect(peerJoined).toBeDefined();
+    });
+
+    it('returns seed messages on JOIN_CHANNEL when SIMULATION_MODE is enabled', async () => {
+      const simState = new MockDurableObjectState();
+      const simDO = new RelayDurableObject(simState, { SIMULATION_MODE: 'true' });
+      const ws = new MockWebSocket();
+      simState.acceptWebSocket(ws);
+
+      await simDO.webSocketMessage(
+        ws as unknown as WebSocket,
+        JSON.stringify({ type: 'AUTH', fingerprint: 'peer-sim-user' })
+      );
+
+      await simDO.webSocketMessage(
+        ws as unknown as WebSocket,
+        JSON.stringify({ type: 'JOIN_CHANNEL', channelId: 'relays-general' })
+      );
+
+      const wsMsgs = ws.getAllMessagesParsed();
+      const channelData = wsMsgs.find((m) => m.type === 'CHANNEL_DATA');
+      expect(channelData).toBeDefined();
+      expect(channelData.channelId).toBe('relays-general');
+      expect(channelData.messages.length).toBeGreaterThanOrEqual(3);
     });
 
     it('relays TYPING_INDICATOR to channel members', async () => {
@@ -703,21 +746,30 @@ describe('Cloudflare Durable Objects — RelayDurableObject & WebSocket Hibernat
       const ws = new MockWebSocket();
       mockState.acceptWebSocket(ws);
 
-      // Authenticate
+      // Authenticate with verified token
+      const token = await createRelaySessionToken(
+        {
+          sub: 'ed25519-hibernation-user-1',
+          nullifier: 'nullifier-hib-1',
+          role: 'GUARDIAN',
+          aud: 'aetheris-relay',
+          exp: Date.now() + 60000,
+          iat: Date.now(),
+        },
+        'aetheris-sovereign-relay-secret'
+      );
       await relayDO.webSocketMessage(
         ws as unknown as WebSocket,
         JSON.stringify({
           type: 'AUTH',
-          fingerprint: 'ed25519-hibernation-user-1',
-          nullifier: 'nullifier-hib-1',
-          role: 'VALIDATOR',
+          token,
         })
       );
 
       // Verify attachment was serialized to the socket
       expect(ws.attachment).toBeDefined();
       expect(ws.attachment.fingerprint).toBe('ed25519-hibernation-user-1');
-      expect(ws.attachment.role).toBe('VALIDATOR');
+      expect(ws.attachment.role).toBe('GUARDIAN');
       expect(ws.attachment.authenticated).toBe(true);
 
       // Join channel
@@ -743,7 +795,7 @@ describe('Cloudflare Durable Objects — RelayDurableObject & WebSocket Hibernat
       const presence = freshDO.getPresence();
       expect(presence.has('ed25519-hibernation-user-1')).toBe(true);
       const user = presence.get('ed25519-hibernation-user-1');
-      expect(user?.role).toBe('VALIDATOR');
+      expect(user?.role).toBe('GUARDIAN');
       expect(user?.joinedChannel).toBe('alpha-ops');
     });
 
@@ -781,6 +833,440 @@ describe('Cloudflare Durable Objects — RelayDurableObject & WebSocket Hibernat
 
       const messages = revivedDO.getChannelMessages('relays-general');
       expect(messages.some((m) => m.ciphertext === 'Secret encrypted payload across DO hibernation')).toBe(true);
+    });
+
+    it('guarantees complete state rehydration after hard isolate reset (Test B: restart persistence)', async () => {
+      const ws = new MockWebSocket();
+      mockState.acceptWebSocket(ws);
+
+      await relayDO.webSocketMessage(
+        ws as unknown as WebSocket,
+        JSON.stringify({
+          type: 'AUTH',
+          fingerprint: 'fp-restart-tester',
+          nullifier: 'null-restart-1',
+        })
+      );
+
+      await relayDO.webSocketMessage(
+        ws as unknown as WebSocket,
+        JSON.stringify({
+          type: 'SEND_MESSAGE',
+          channelId: 'relays-general',
+          ciphertext: 'Persistent State Message Alpha',
+          epoch: '#200',
+        })
+      );
+
+      await relayDO.webSocketMessage(
+        ws as unknown as WebSocket,
+        JSON.stringify({
+          type: 'SEND_MESSAGE',
+          channelId: 'relays-general',
+          ciphertext: 'Persistent State Message Beta',
+          epoch: '#200',
+        })
+      );
+
+      // Hard isolate reset: discard old instance completely
+      const freshDO = new RelayDurableObject(mockState, {});
+      await freshDO.fetch(new Request('https://relay.aetheris.network/messages?channelId=relays-general'));
+
+      const messages = freshDO.getChannelMessages('relays-general');
+      expect(messages.some((m) => m.ciphertext === 'Persistent State Message Alpha')).toBe(true);
+      expect(messages.some((m) => m.ciphertext === 'Persistent State Message Beta')).toBe(true);
+    });
+
+    it('strictly guarantees atomic persistence: storage.put failure rejects message, prevents RAM pollution, and suppresses broadcast', async () => {
+      const senderWs = new MockWebSocket();
+      const peerWs = new MockWebSocket();
+      mockState.acceptWebSocket(senderWs);
+      mockState.acceptWebSocket(peerWs);
+
+      // Authenticate sender
+      await relayDO.webSocketMessage(
+        senderWs as unknown as WebSocket,
+        JSON.stringify({
+          type: 'AUTH',
+          fingerprint: 'fp-atomic-sender',
+          nullifier: 'null-atomic-1',
+        })
+      );
+
+      // Authenticate and join peer
+      await relayDO.webSocketMessage(
+        peerWs as unknown as WebSocket,
+        JSON.stringify({
+          type: 'AUTH',
+          fingerprint: 'fp-atomic-peer',
+          nullifier: 'null-atomic-2',
+        })
+      );
+      await relayDO.webSocketMessage(
+        peerWs as unknown as WebSocket,
+        JSON.stringify({
+          type: 'JOIN_CHANNEL',
+          channelId: 'relays-general',
+        })
+      );
+
+      // Clear peer sent messages
+      peerWs.sentMessages = [];
+      senderWs.sentMessages = [];
+
+      // Force storage.put failure
+      const originalPut = mockState.storage.put.bind(mockState.storage);
+      vi.spyOn(mockState.storage, 'put').mockImplementation(async (keyOrEntries: any) => {
+        if (typeof keyOrEntries === 'string' && keyOrEntries.startsWith('msg:')) {
+          throw new Error('Durable Object simulated disk I/O failure');
+        }
+        return originalPut(keyOrEntries);
+      });
+
+      // Attempt to send message
+      await relayDO.webSocketMessage(
+        senderWs as unknown as WebSocket,
+        JSON.stringify({
+          type: 'SEND_MESSAGE',
+          channelId: 'relays-general',
+          ciphertext: 'Message that must never exist in RAM or peers if storage fails',
+          epoch: '#999',
+        })
+      );
+
+      // 1. Sender must receive ERROR
+      const errorMsg = senderWs.sentMessages.find((m) => {
+        try {
+          const parsed = JSON.parse(m);
+          return parsed.type === 'ERROR' && parsed.message.includes('persist message to durable storage');
+        } catch {
+          return false;
+        }
+      });
+      expect(errorMsg).toBeDefined();
+
+      // 2. Sender must NOT receive MESSAGE_ACK
+      const ackMsg = senderWs.sentMessages.find((m) => {
+        try {
+          return JSON.parse(m).type === 'MESSAGE_ACK';
+        } catch {
+          return false;
+        }
+      });
+      expect(ackMsg).toBeUndefined();
+
+      // 3. Peer must NOT receive any broadcast of this message
+      const peerBroadcast = peerWs.sentMessages.find((m) => {
+        try {
+          const parsed = JSON.parse(m);
+          return parsed.type === 'NEW_MESSAGE' && parsed.message?.ciphertext?.includes('must never exist');
+        } catch {
+          return false;
+        }
+      });
+      expect(peerBroadcast).toBeUndefined();
+
+      // 4. In-memory channelMessages cache must NOT contain this message
+      const memMessages = relayDO.getChannelMessages('relays-general');
+      expect(memMessages.some((m) => m.ciphertext.includes('must never exist'))).toBe(false);
+
+      // 5. Restore storage.put and check hard isolate reset - message is totally absent
+      vi.restoreAllMocks();
+      const revivedDO = new RelayDurableObject(mockState, {});
+      await revivedDO.fetch(new Request('https://relay.aetheris.network/messages?channelId=relays-general'));
+      const revivedMessages = revivedDO.getChannelMessages('relays-general');
+      expect(revivedMessages.some((m) => m.ciphertext.includes('must never exist'))).toBe(false);
+    });
+
+    it('rejects HTTP fetch with 503 and WebSocket messages with ERROR if storage initialization fails during isolate boot', async () => {
+      const brokenState = new MockDurableObjectState();
+      brokenState.storage.get = vi.fn().mockRejectedValue(new Error('Corrupt DO storage segment'));
+      brokenState.storage.list = vi.fn().mockRejectedValue(new Error('Corrupt DO storage segment'));
+
+      const brokenDO = new RelayDurableObject(brokenState, {});
+
+      // 1. HTTP fetch should return 503 Service Unavailable
+      const httpRes = await brokenDO.fetch(new Request('https://relay.aetheris.network/stats'));
+      expect(httpRes.status).toBe(503);
+      const httpJson = await httpRes.json();
+      expect(httpJson.success).toBe(false);
+      expect(httpJson.error).toContain('storage initialization failed');
+
+      // 2. WebSocket message should return ERROR
+      const ws = new MockWebSocket();
+      brokenState.acceptWebSocket(ws);
+      await brokenDO.webSocketMessage(ws as unknown as WebSocket, JSON.stringify({ type: 'AUTH', fingerprint: 'test-peer' }));
+
+      const wsMsgs = ws.getAllMessagesParsed();
+      const errorMsg = wsMsgs.find((m) => m.type === 'ERROR');
+      expect(errorMsg).toBeDefined();
+      expect(errorMsg.message).toContain('persistent storage unavailable');
+      expect(errorMsg.details).toContain('Corrupt DO storage segment');
+    });
+  });
+
+  describe('9. Cryptographic WebSocket Authentication & Role Verification (Anti-Privilege Escalation)', () => {
+    it('rejects AUTH when client attempts to self-assign role=ADMIN without session credential', async () => {
+      const ws = new MockWebSocket();
+      mockState.acceptWebSocket(ws);
+
+      await relayDO.webSocketMessage(
+        ws as unknown as WebSocket,
+        JSON.stringify({
+          type: 'AUTH',
+          fingerprint: 'attacker-node',
+          role: 'ADMIN',
+        })
+      );
+
+      const msgs = ws.getAllMessagesParsed();
+      const errorMsg = msgs.find((m) => m.type === 'ERROR');
+      expect(errorMsg).toBeDefined();
+      expect(errorMsg.message).toContain('Cryptographic session credential required for privileged roles');
+
+      const authSuccess = msgs.find((m) => m.type === 'AUTH_SUCCESS');
+      expect(authSuccess).toBeUndefined();
+    });
+
+    it('rejects AUTH when client attempts to self-assign role=GUARDIAN or role=MODERATOR without token', async () => {
+      const ws = new MockWebSocket();
+      mockState.acceptWebSocket(ws);
+
+      await relayDO.webSocketMessage(
+        ws as unknown as WebSocket,
+        JSON.stringify({
+          type: 'AUTH',
+          fingerprint: 'fake-mod',
+          role: 'MODERATOR',
+        })
+      );
+
+      const msgs = ws.getAllMessagesParsed();
+      const errorMsg = msgs.find((m) => m.type === 'ERROR');
+      expect(errorMsg).toBeDefined();
+      expect(errorMsg.message).toContain('Cryptographic session credential required for privileged roles');
+    });
+
+    it('rejects AUTH when token has an invalid cryptographic signature', async () => {
+      const ws = new MockWebSocket();
+      mockState.acceptWebSocket(ws);
+
+      // Create token with attacker secret
+      const forgedToken = await createRelaySessionToken(
+        {
+          sub: 'forged-guardian',
+          role: 'GUARDIAN',
+          aud: 'aetheris-relay',
+          exp: Date.now() + 60000,
+          iat: Date.now(),
+        },
+        'attacker-unauthorized-secret'
+      );
+
+      await relayDO.webSocketMessage(
+        ws as unknown as WebSocket,
+        JSON.stringify({
+          type: 'AUTH',
+          token: forgedToken,
+        })
+      );
+
+      const msgs = ws.getAllMessagesParsed();
+      const errorMsg = msgs.find((m) => m.type === 'ERROR');
+      expect(errorMsg).toBeDefined();
+      expect(errorMsg.message).toContain('Authentication rejected: Invalid session signature');
+    });
+
+    it('rejects AUTH when token has expired', async () => {
+      const ws = new MockWebSocket();
+      mockState.acceptWebSocket(ws);
+
+      const expiredToken = await createRelaySessionToken(
+        {
+          sub: 'expired-user',
+          role: 'MEMBER',
+          aud: 'aetheris-relay',
+          exp: Date.now() - 5000, // Expired 5 seconds ago
+          iat: Date.now() - 65000,
+        },
+        'aetheris-sovereign-relay-secret'
+      );
+
+      await relayDO.webSocketMessage(
+        ws as unknown as WebSocket,
+        JSON.stringify({
+          type: 'AUTH',
+          token: expiredToken,
+        })
+      );
+
+      const msgs = ws.getAllMessagesParsed();
+      const errorMsg = msgs.find((m) => m.type === 'ERROR');
+      expect(errorMsg).toBeDefined();
+      expect(errorMsg.message).toContain('Session token has expired');
+    });
+
+    it('rejects AUTH when token audience does not match relay audience', async () => {
+      const ws = new MockWebSocket();
+      mockState.acceptWebSocket(ws);
+
+      const wrongAudToken = await createRelaySessionToken(
+        {
+          sub: 'foreign-audience-user',
+          role: 'MEMBER',
+          aud: 'some-other-app.example.com',
+          exp: Date.now() + 60000,
+          iat: Date.now(),
+        },
+        'aetheris-sovereign-relay-secret'
+      );
+
+      await relayDO.webSocketMessage(
+        ws as unknown as WebSocket,
+        JSON.stringify({
+          type: 'AUTH',
+          token: wrongAudToken,
+        })
+      );
+
+      const msgs = ws.getAllMessagesParsed();
+      const errorMsg = msgs.find((m) => m.type === 'ERROR');
+      expect(errorMsg).toBeDefined();
+      expect(errorMsg.message).toContain('Wrong audience');
+    });
+
+    it('rejects AUTH replay when JTI has already been consumed', async () => {
+      const ws1 = new MockWebSocket();
+      const ws2 = new MockWebSocket();
+      mockState.acceptWebSocket(ws1);
+      mockState.acceptWebSocket(ws2);
+
+      const singleUseToken = await createRelaySessionToken(
+        {
+          sub: 'single-use-user',
+          role: 'MEMBER',
+          aud: 'aetheris-relay',
+          exp: Date.now() + 60000,
+          iat: Date.now(),
+          jti: 'unique-jti-nonce-12345',
+        },
+        'aetheris-sovereign-relay-secret'
+      );
+
+      // First use: PASS
+      await relayDO.webSocketMessage(
+        ws1 as unknown as WebSocket,
+        JSON.stringify({
+          type: 'AUTH',
+          token: singleUseToken,
+        })
+      );
+      expect(ws1.getAllMessagesParsed().some((m) => m.type === 'AUTH_SUCCESS')).toBe(true);
+
+      // Replay second use: REJECT
+      await relayDO.webSocketMessage(
+        ws2 as unknown as WebSocket,
+        JSON.stringify({
+          type: 'AUTH',
+          token: singleUseToken,
+        })
+      );
+      const ws2Msgs = ws2.getAllMessagesParsed();
+      const errorMsg = ws2Msgs.find((m) => m.type === 'ERROR');
+      expect(errorMsg).toBeDefined();
+      expect(errorMsg.message).toContain('replay detected');
+    });
+
+    it('allows anonymous guest connections for public realtime channels with unprivileged status', async () => {
+      const ws = new MockWebSocket();
+      mockState.acceptWebSocket(ws);
+
+      await relayDO.webSocketMessage(
+        ws as unknown as WebSocket,
+        JSON.stringify({
+          type: 'AUTH',
+          fingerprint: 'guest-explorer-1',
+          status: 'online',
+        })
+      );
+
+      const msgs = ws.getAllMessagesParsed();
+      const authSuccess = msgs.find((m) => m.type === 'AUTH_SUCCESS');
+      expect(authSuccess).toBeDefined();
+      expect(authSuccess.authenticated).toBe(false);
+      expect(authSuccess.role).toBe('MEMBER');
+
+      // Guest can join public channel
+      await relayDO.webSocketMessage(
+        ws as unknown as WebSocket,
+        JSON.stringify({ type: 'JOIN_CHANNEL', channelId: 'relays-general' })
+      );
+      const joinData = ws.getAllMessagesParsed().find((m) => m.type === 'CHANNEL_DATA');
+      expect(joinData).toBeDefined();
+      expect(joinData.channelId).toBe('relays-general');
+    });
+
+    it('rejects privileged operations like EXECUTE_ROLLBACK when caller is unauthenticated or unprivileged', async () => {
+      const ws = new MockWebSocket();
+      mockState.acceptWebSocket(ws);
+
+      // Connect as unauthenticated guest
+      await relayDO.webSocketMessage(
+        ws as unknown as WebSocket,
+        JSON.stringify({
+          type: 'AUTH',
+          fingerprint: 'unprivileged-user',
+        })
+      );
+
+      // Attempt privileged rollback
+      await relayDO.webSocketMessage(
+        ws as unknown as WebSocket,
+        JSON.stringify({
+          type: 'EXECUTE_ROLLBACK',
+          targetActorFingerprint: 'malicious-actor-99',
+        })
+      );
+
+      const msgs = ws.getAllMessagesParsed();
+      const errorMsg = msgs.find((m) => m.type === 'ERROR' && m.message.includes('privileged role required'));
+      expect(errorMsg).toBeDefined();
+    });
+
+    it('allows privileged operations like EXECUTE_ROLLBACK when caller has verified GUARDIAN session', async () => {
+      const ws = new MockWebSocket();
+      mockState.acceptWebSocket(ws);
+
+      const guardianToken = await createRelaySessionToken(
+        {
+          sub: 'verified-guardian-007',
+          role: 'GUARDIAN',
+          aud: 'aetheris-relay',
+          exp: Date.now() + 60000,
+          iat: Date.now(),
+        },
+        'aetheris-sovereign-relay-secret'
+      );
+
+      await relayDO.webSocketMessage(
+        ws as unknown as WebSocket,
+        JSON.stringify({
+          type: 'AUTH',
+          token: guardianToken,
+        })
+      );
+
+      await relayDO.webSocketMessage(
+        ws as unknown as WebSocket,
+        JSON.stringify({
+          type: 'EXECUTE_ROLLBACK',
+          targetActorFingerprint: 'malicious-actor-99',
+        })
+      );
+
+      const msgs = ws.getAllMessagesParsed();
+      const errorMsg = msgs.find((m) => m.type === 'ERROR' && m.message.includes('privileged role required'));
+      expect(errorMsg).toBeUndefined();
     });
   });
 });

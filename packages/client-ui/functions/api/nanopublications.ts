@@ -234,8 +234,11 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
       }
     }
 
+    const randSuffix = typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID().replace(/-/g, '').substring(0, 8)
+      : Date.now().toString(36);
     const newNanopub: EdgeNanopublication = {
-      id: body.id || `nano-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      id: body.id || `nano-${Date.now()}-${randSuffix}`,
       channelId: body.channelId || 'vault-releases',
       title: body.title.trim(),
       fileName: body.fileName.trim(),

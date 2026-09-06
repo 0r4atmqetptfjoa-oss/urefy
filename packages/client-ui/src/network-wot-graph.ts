@@ -16,6 +16,7 @@
 import './window-augmentation.js';
 import { serviceRegistry, SERVICES } from './service-registry.js';
 import { safeRequestAnimationFrame, safeCancelAnimationFrame, debounce, throttle } from './dry-utils.js';
+import { isSimulationModeEnabled, renderSimulationBadgeHTML } from './simulation-mode.js';
 
 // ---------------------------------------------------------------------------
 // 1. Data Structures & Interfaces
@@ -136,6 +137,7 @@ export class WoTGraphVisualizer {
   // Viewport & Physics Parameters
   public readonly width: number = 800;
   public readonly height: number = 500;
+  public isSynthetic: boolean = false;
   public trustThreshold: number = 25; // 0 - 100 slider
   public isSimulating: boolean = true;
   public damping: number = 0.88;
@@ -220,6 +222,14 @@ export class WoTGraphVisualizer {
       }
     } catch (_) {}
 
+    if (dynamicNodes.length < 3 && !isSimulationModeEnabled()) {
+      this.isSynthetic = false;
+      this.nodes = [];
+      this.edges = [];
+      return;
+    }
+
+    this.isSynthetic = dynamicNodes.length < 3;
     const rawNodes = dynamicNodes.length >= 3 ? dynamicNodes : WoTGraphVisualizer.DEFAULT_REFERENCE_NODES;
 
     const centerX = this.width / 2;
@@ -296,6 +306,13 @@ export class WoTGraphVisualizer {
   }
 
   public regenerateGraph(): void {
+    if (!isSimulationModeEnabled()) {
+      if (typeof window !== 'undefined' && (window as any).clientStore?.showToast) {
+        (window as any).clientStore.showToast('Synthetic graph generation is disabled in production mode.', 'info');
+      }
+      return;
+    }
+    this.isSynthetic = true;
     const count = 18 + Math.floor(Math.random() * 6); // 18-23 nodes
 
     const generatedNodes: WoTNode[] = [];
@@ -584,6 +601,21 @@ export class WoTGraphVisualizer {
   // -------------------------------------------------------------------------
 
   public renderSVG(): string {
+    if (this.nodes.length === 0) {
+      return `
+        <svg viewBox="0 0 ${this.width} ${this.height}" class="w-full h-full block select-none bg-canvas">
+          <g transform="translate(${this.width / 2}, ${this.height / 2})">
+            <text text-anchor="middle" y="-10" fill="#64748b" font-size="14" font-family="monospace">
+              No network topology data available.
+            </text>
+            <text text-anchor="middle" y="15" fill="#475569" font-size="12" font-family="sans-serif">
+              Minimum 3 verified peers required to build Web-of-Trust graph.
+            </text>
+          </g>
+        </svg>
+      `;
+    }
+
     const nodeMap = new Map<string, WoTNode>(this.nodes.map(n => [n.id, n]));
     const visibleEdges = this.edges.filter(e => e.trustLevel >= this.trustThreshold);
     const activeFocusNodeId = this.hoveredNodeId || this.selectedNodeId;
@@ -854,9 +886,10 @@ export class WoTGraphVisualizer {
                 🕸️
               </div>
               <div>
-                <div class="flex items-center space-x-2">
+                <div class="flex items-center space-x-2 flex-wrap gap-y-1">
                   <h2 class="text-base font-bold text-white tracking-wide">Web-of-Trust (WoT) Topology Graph</h2>
                   <span class="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyphr">D3-Style Pure SVG</span>
+                  ${this.isSynthetic || isSimulationModeEnabled() ? renderSimulationBadgeHTML() : ''}
                 </div>
                 <p class="text-xs text-gray-400">Decentralized topological visualizer · Coulomb-Hooke force algorithm · Sybil resistant</p>
               </div>

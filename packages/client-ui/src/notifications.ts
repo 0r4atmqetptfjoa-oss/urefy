@@ -23,7 +23,7 @@ export interface NotificationItem {
 // ─── Helpers ────────────────────────────────────────────────
 
 function generateId(): string {
-  return `notif_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+  return `notif_${Date.now().toString(36)}_${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID().slice(0, 8) : Date.now().toString(36)}`;
 }
 
 function relativeTime(ts: number): string {

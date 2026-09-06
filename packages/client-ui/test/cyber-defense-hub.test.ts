@@ -1,21 +1,32 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { CyberDefenseHub } from '../src/cyber-defense-hub.js';
 import { SovereignOnboardingTour } from '../src/first-time-onboarding.js';
+import { setSimulationMode } from '../src/simulation-mode.js';
 
 describe('Aetheris Cyber Defense Hub & First-Time Onboarding', () => {
   describe('CyberDefenseHub', () => {
     let hub: CyberDefenseHub;
 
     beforeEach(() => {
+      setSimulationMode(false);
       hub = new CyberDefenseHub();
     });
 
-    it('initializes with default strict security parameters and active metrics', () => {
+    it('initializes with default strict security parameters and zero synthetic metrics when simulation is off', () => {
       const metrics = hub.getMetrics();
       expect(metrics.isStrictMode).toBe(true);
       expect(metrics.powDifficulty).toBe(3);
+      expect(metrics.totalAttacksMitigated).toBe(0);
+      expect(metrics.recentThreats.length).toBe(0);
+    });
+
+    it('populates synthetic threat metrics when simulation mode is explicitly enabled', () => {
+      setSimulationMode(true);
+      const simHub = new CyberDefenseHub();
+      const metrics = simHub.getMetrics();
       expect(metrics.totalAttacksMitigated).toBeGreaterThan(0);
       expect(metrics.recentThreats.length).toBeGreaterThan(0);
+      setSimulationMode(false);
     });
 
     it('opens, closes, and toggles modal visibility state', () => {
