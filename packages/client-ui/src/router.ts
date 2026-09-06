@@ -20,6 +20,19 @@ export class SovereignRouter {
       window.addEventListener('hashchange', () => this.handleHashChange());
       window.addEventListener('popstate', () => this.handleHashChange());
     }
+
+    if (clientStore && typeof clientStore.subscribe === 'function') {
+      clientStore.subscribe((event: string, data?: any) => {
+        if (event === 'CHANNEL_CHANGE' && data?.channelId) {
+          const ch = data.channelId;
+          if (ch.startsWith('relays-') || ch.startsWith('relay-') || ch.startsWith('dm-')) {
+            if (this.currentRoute !== 'messages') this.navigateTo('messages');
+          } else if (ch.startsWith('vault-')) {
+            if (this.currentRoute !== 'vault') this.navigateTo('vault');
+          }
+        }
+      });
+    }
   }
 
   public init(): void {
@@ -49,7 +62,7 @@ export class SovereignRouter {
         clientStore.activeChannelId = 'explore';
         break;
       case 'messages':
-        if (!clientStore.activeChannelId.startsWith('relays-')) {
+        if (!clientStore.activeChannelId.startsWith('relays-') && !clientStore.activeChannelId.startsWith('relay-') && !clientStore.activeChannelId.startsWith('dm-')) {
           clientStore.activeChannelId = 'relays-general';
         }
         break;
@@ -96,8 +109,17 @@ export class SovereignRouter {
 
     const validRoutes: SovereignRoute[] = ['feed', 'explore', 'messages', 'vault', 'profile', 'more'];
 
-    if (validRoutes.includes(mainRoute as SovereignRoute)) {
-      this.currentRoute = mainRoute as SovereignRoute;
+    let resolvedRoute: SovereignRoute | null = null;
+    if (mainRoute === 'relays' || mainRoute === 'chat' || mainRoute === 'messages') {
+      resolvedRoute = 'messages';
+    } else if (mainRoute === 'pulse' || mainRoute === 'home' || mainRoute === 'feed') {
+      resolvedRoute = 'feed';
+    } else if (validRoutes.includes(mainRoute as SovereignRoute)) {
+      resolvedRoute = mainRoute as SovereignRoute;
+    }
+
+    if (resolvedRoute) {
+      this.currentRoute = resolvedRoute;
       this.navigateTo(this.currentRoute, { replace: true, subtab: subParam });
     } else if (rawHash.startsWith('settings')) {
       this.navigateTo('profile', { replace: true, subtab: 'settings' });

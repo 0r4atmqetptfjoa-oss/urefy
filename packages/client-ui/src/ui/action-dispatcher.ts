@@ -1218,6 +1218,13 @@ export class ActionDispatcher {
         const channel = el.getAttribute('data-channel');
         if (channel) {
           clientStore.joinChannel(channel);
+          if (channel.startsWith('relays-') || channel.startsWith('relay-') || channel.startsWith('dm-')) {
+            sovereignRouter.navigateTo('messages');
+          } else if (channel.startsWith('vault-')) {
+            sovereignRouter.navigateTo('vault');
+          } else if (channel.startsWith('pulse-') || channel.startsWith('c/')) {
+            sovereignRouter.navigateTo('feed');
+          }
         }
         break;
       }
@@ -1225,7 +1232,18 @@ export class ActionDispatcher {
       case 'nav-mode': {
         const mode = el.getAttribute('data-mode') as any;
         if (mode) {
-          sovereignRouter.navigateTo(mode);
+          if (mode === 'relays' || mode === 'messages') {
+            clientStore.joinChannel('relays-general');
+            sovereignRouter.navigateTo('messages');
+          } else if (mode === 'pulse' || mode === 'feed') {
+            clientStore.joinChannel('pulse-global');
+            sovereignRouter.navigateTo('feed');
+          } else if (mode === 'vault') {
+            clientStore.joinChannel('vault-releases');
+            sovereignRouter.navigateTo('vault');
+          } else {
+            sovereignRouter.navigateTo(mode);
+          }
         }
         break;
       }

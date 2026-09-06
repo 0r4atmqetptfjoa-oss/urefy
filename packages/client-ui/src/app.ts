@@ -1076,6 +1076,9 @@ export function initApp(): void {
                 </button>
               </div>
             </div>
+
+            <!-- REDDIT-STYLE COMPACT LEGAL & REGULATORY FOOTER IN LEFT SIDEBAR -->
+            ${legalFooter.renderSidebarLegalSnippet()}
           </aside>
 
           <!-- CENTER STAGE (THE SOVEREIGN UNIFIED STAGE) -->
@@ -1098,9 +1101,6 @@ export function initApp(): void {
           </aside>
 
         </div>
-
-        <!-- BEAUTIFULLY ARRANGED EU REGULATORY BOTTOM BAR (ABOUT, TERMS, GDPR, RULES, DSA, CONTACT) -->
-        ${legalFooter.renderBottomStatusBar(activeDownloadName, activeDownloadProgress)}
 
         ${renderMobileDrawer()}
         <div id="app-mobile-bottom-nav">${renderMobileBottomNav()}</div>
@@ -1472,7 +1472,7 @@ function renderMemberItem(m: any): string {
 }
 
 function renderMainStage(): string {
-  const isChat = clientStore.activeChannelId.startsWith('relays-') || clientStore.activeChannelId.startsWith('relay-');
+  const isChat = clientStore.activeChannelId.startsWith('relays-') || clientStore.activeChannelId.startsWith('relay-') || clientStore.activeChannelId.startsWith('dm-');
   const isVault = clientStore.activeChannelId.startsWith('vault-');
   const isExplore = clientStore.activeChannelId === 'explore';
   const isProfile = clientStore.activeChannelId.startsWith('profile');
@@ -1505,20 +1505,14 @@ function renderMainStage(): string {
 
   let contentHTML = '';
   const currentRoute = sovereignRouter.route;
-  if (currentRoute === 'explore' || isExplore) {
+  if (currentRoute === 'messages' || isChat) {
+    contentHTML = renderRelaysWorkspace();
+  } else if (currentRoute === 'vault' || isVault) {
+    contentHTML = renderVaultWorkspace();
+  } else if (currentRoute === 'explore' || isExplore) {
     contentHTML = exploreView.renderExploreView(clientStore.posts);
   } else if (currentRoute === 'profile' || isProfile) {
     contentHTML = profileView.renderProfileView(clientStore.posts, clientStore.keypair.fingerprint);
-  } else if (currentRoute === 'feed') {
-    contentHTML = renderPulseWorkspace();
-  } else if (currentRoute === 'messages') {
-    contentHTML = renderRelaysWorkspace();
-  } else if (currentRoute === 'vault') {
-    contentHTML = renderVaultWorkspace();
-  } else if (isChat) {
-    contentHTML = renderRelaysWorkspace();
-  } else if (isVault) {
-    contentHTML = renderVaultWorkspace();
   } else {
     contentHTML = renderPulseWorkspace();
   }
@@ -2582,15 +2576,23 @@ function bindEvents(): void {
   document.querySelectorAll('.btn-nav-mode').forEach(btn => {
     btn.addEventListener('click', () => {
       const mode = btn.getAttribute('data-nav-mode');
-      if (mode === 'pulse' || mode === 'feed') clientStore.joinChannel('pulse-global');
-      else if (mode === 'vault') clientStore.joinChannel('vault-releases');
-      else if (mode === 'relays' || mode === 'messages') clientStore.joinChannel('relays-general');
-      else if (mode === 'explore') {
+      if (mode === 'pulse' || mode === 'feed') {
+        clientStore.joinChannel('pulse-global');
+        sovereignRouter.navigateTo('feed');
+      } else if (mode === 'vault') {
+        clientStore.joinChannel('vault-releases');
+        sovereignRouter.navigateTo('vault');
+      } else if (mode === 'relays' || mode === 'messages') {
+        clientStore.joinChannel('relays-general');
+        sovereignRouter.navigateTo('messages');
+      } else if (mode === 'explore') {
         clientStore.activeChannelId = 'explore';
+        sovereignRouter.navigateTo('explore');
         clientStore.notify();
       } else if (mode === 'profile') {
         clientStore.activeChannelId = 'profile';
         profileView.setTargetFingerprint(clientStore.keypair.fingerprint);
+        sovereignRouter.navigateTo('profile');
         clientStore.notify();
       }
     }, { signal });

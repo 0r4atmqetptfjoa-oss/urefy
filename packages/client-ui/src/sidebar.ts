@@ -63,20 +63,19 @@ export class ContextualSidebar {
 
         <!-- RELEVANT COMMUNITIES -->
         <div class="p-4 rounded-2xl bg-surface-base/80 border border-white/5 space-y-3">
-          <div class="flex items-center justify-between">
-            <h3 class="${TYPOGRAPHY.sectionTitle} text-sm flex items-center gap-1.5">
-              ${renderIcon('users', { size: 15, class: 'text-cyan-400' })}
-              <span>Sovereign Communities</span>
           <!-- SOVEREIGN COMMUNITIES / CIRCLES -->
-          <div class="flex items-center justify-between px-1">
-            <h3 class="font-mono text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              Sovereign Communities
-            </h3>
-            <div class="flex items-center space-x-2">
+          <div class="flex items-center justify-between pb-1.5 border-b border-white/5">
+            <div class="flex items-center gap-1.5">
+              ${renderIcon('users', { size: 14, class: 'text-cyan-400' })}
+              <h3 class="font-mono text-xs font-bold uppercase tracking-wider text-slate-200">
+                Sovereign Communities
+              </h3>
+            </div>
+            <div class="flex items-center space-x-1.5">
               <button 
                 type="button" 
                 data-action="open-explore-communities"
-                class="text-[10px] font-bold text-slate-400 hover:text-white transition-colors cursor-pointer"
+                class="text-[10px] font-bold text-slate-400 hover:text-white transition-colors cursor-pointer px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/10"
                 title="Browse All Communities in Directory"
               >
                 Directory
@@ -84,7 +83,7 @@ export class ContextualSidebar {
               <button 
                 type="button" 
                 data-action="open-create-circle" 
-                class="text-[11px] font-bold text-cyan-400 hover:text-cyan-300 hover:underline flex items-center gap-1 cursor-pointer transition-colors"
+                class="text-[10px] font-bold text-cyan-400 hover:text-cyan-300 flex items-center gap-0.5 cursor-pointer transition-colors px-1.5 py-0.5 rounded bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30"
                 title="Create a new Sovereign Community"
               >
                 <span>+ Create</span>
@@ -314,3 +313,7 @@ export class ContextualSidebar {
 }
 
 export const contextualSidebar = new ContextualSidebar();
+
+export function renderSidebar(mode: string = 'feed'): string {
+  return contextualSidebar.renderSidebarContent(mode);
+}
