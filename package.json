@@ -15,7 +15,8 @@
     "client": "npm run dev --workspace=packages/client-ui",
     "daemon": "npm run start --workspace=packages/daemon-archivist",
     "audit:production": "npm run audit:production --workspace=packages/client-ui",
-    "audit:ux": "npm run audit:ux --workspace=packages/client-ui"
+    "audit:ux": "npm run audit:ux --workspace=packages/client-ui",
+    "pack:clean": "git archive --format=zip HEAD -o aetheris-clean.zip"
   },
   "devDependencies": {
     "tsx": "^4.19.2",

@@ -16,6 +16,8 @@ import {
   R2Object,
   R2ObjectBody,
   getR2Bucket,
+  getD1Database,
+  getKVStore,
 } from './_db.js';
 import { requireAdmin, verifyIdentitySignature, requireOwnership, verifyEnvelopeOrLegacyAuth } from './_auth.js';
 
@@ -171,6 +173,47 @@ export function recordClassBOp(count = 1): void {
  */
 export function clearListingCache(): void {
   listingCache.clear();
+}
+
+/**
+ * Synchronize quota metrics from persistent Cloudflare KV across Worker isolates.
+ */
+export async function syncQuotaFromStorage(env?: Env): Promise<void> {
+  const kv = getKVStore(env);
+  if (kv) {
+    try {
+      const [storedBytes, storedAOps, storedBOps] = await Promise.all([
+        kv.get('r2_quota:storage_bytes'),
+        kv.get('r2_quota:class_a_ops'),
+        kv.get('r2_quota:class_b_ops'),
+      ]);
+      if (storedBytes !== null) {
+        currentTrackedStorageBytes = Math.max(currentTrackedStorageBytes, Number(storedBytes) || 0);
+      }
+      if (storedAOps !== null) {
+        monthlyClassAOps = Math.max(monthlyClassAOps, Number(storedAOps) || 0);
+      }
+      if (storedBOps !== null) {
+        monthlyClassBOps = Math.max(monthlyClassBOps, Number(storedBOps) || 0);
+      }
+    } catch (_) {}
+  }
+}
+
+/**
+ * Persist quota metrics to Cloudflare KV across Worker isolates.
+ */
+export async function persistQuotaToStorage(env?: Env): Promise<void> {
+  const kv = getKVStore(env);
+  if (kv) {
+    try {
+      await Promise.all([
+        kv.put('r2_quota:storage_bytes', String(currentTrackedStorageBytes)),
+        kv.put('r2_quota:class_a_ops', String(monthlyClassAOps)),
+        kv.put('r2_quota:class_b_ops', String(monthlyClassBOps)),
+      ]);
+    } catch (_) {}
+  }
 }
 
 /**
@@ -592,6 +635,7 @@ export async function onRequestPost(context: {
     }
 
     // ─── HARD SAFETY LIMIT CHECKS (Class A Ceiling & Storage Cap) ───────────────
+    await syncQuotaFromStorage(context.env);
     if (monthlyClassAOps >= MAX_CLASS_A_MONTHLY_OPS) {
       return new Response(
         JSON.stringify({
@@ -783,6 +827,7 @@ export async function onRequestPost(context: {
     // Invalidate listing cache and update quota tracking
     clearListingCache();
     currentTrackedStorageBytes += byteSize;
+    await persistQuotaToStorage(context.env);
 
     knownSha256Index.set(sha256.toLowerCase(), {
       key,
@@ -854,6 +899,7 @@ export async function onRequestGet(context: {
     const action = url.searchParams.get('action');
     const quotaQuery = url.searchParams.get('quota');
     if (action === 'quota' || quotaQuery === 'true') {
+      await syncQuotaFromStorage(context.env);
       const totalBytes = getTotalStorageBytes();
       const classACount = getMonthlyClassAOps();
       const classBCount = getMonthlyClassBOps();
@@ -1328,6 +1374,7 @@ export async function onRequestDelete(context: {
   env?: Env;
 }): Promise<Response> {
   try {
+    await syncQuotaFromStorage(context.env);
     const url = new URL(context.request.url);
     const rawKey = url.searchParams.get('key') || url.searchParams.get('id');
 
@@ -1441,6 +1488,7 @@ export async function onRequestDelete(context: {
     if (deletedSize > 0) {
       currentTrackedStorageBytes = Math.max(0, currentTrackedStorageBytes - deletedSize);
     }
+    await persistQuotaToStorage(context.env);
 
     // Remove from known SHA index
     for (const [hash, record] of knownSha256Index.entries()) {

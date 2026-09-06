@@ -40,13 +40,16 @@ describe('Core Cryptography Module', () => {
       const msg2 = 'Spamming the network with DoS!';
       const share2 = ZKRLN.createShare(userSecret, epoch, msg2);
 
-      // 3. Network performs Lagrange interpolation to extract secret key
-      const slashingProof = ZKRLN.extractSecretFromViolation(share1, share2);
+      // 3. Network verifies breach without exposing or transmitting user's secret key
+      const breachVerification = ZKRLN.verifyRateLimitBreach(share1, share2);
 
+      expect(breachVerification.verified).toBe(true);
+      expect(breachVerification.nullifier).toBe(expectedNullifier);
+      expect((breachVerification as any).extractedSecretKey).toBeUndefined();
+
+      // 4. Internal academic test verification: ensure polynomial interpolation matches secret
+      const slashingProof = ZKRLN.__internal_test_extractSecretFromViolation(share1, share2);
       expect(slashingProof.verified).toBe(true);
-      expect(slashingProof.nullifier).toBe(expectedNullifier);
-
-      // The extracted secret key must mathematically match the original user secret!
       const originalSecretHex = Field.mod(userSecret).toString(16).padStart(64, '0');
       expect(slashingProof.extractedSecretKey).toBe(originalSecretHex);
     });
@@ -56,7 +59,7 @@ describe('Core Cryptography Module', () => {
       const share1 = ZKRLN.createShare(userSecret, 'epoch_1', 'Message 1');
       const share2 = ZKRLN.createShare(userSecret, 'epoch_2', 'Message 2');
 
-      expect(() => ZKRLN.extractSecretFromViolation(share1, share2)).toThrow(/different epochs/);
+      expect(() => ZKRLN.verifyRateLimitBreach(share1, share2)).toThrow(/different epochs/);
     });
   });
 

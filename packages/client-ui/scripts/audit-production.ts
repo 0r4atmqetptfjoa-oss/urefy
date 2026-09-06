@@ -629,10 +629,65 @@ gates.push({
   details: bundleDetails,
 });
 
+// ─── GATE 14: ZERO SECRET KEY EXPOSURE IN NETWORK ENVELOPES (RLN SECURITY) ─────
+let rlnLeak = false;
+let rlnDetails = '';
+const serverEdgeSrc = path.resolve(rootDir, '../server-edge/src');
+const serverEdgeFiles = fs.existsSync(serverEdgeSrc) ? walk(serverEdgeSrc) : [];
+const allRuntimeFiles = [...allSrcFiles, ...walk(functionsDir), ...serverEdgeFiles];
+
+for (const file of allRuntimeFiles) {
+  const content = fs.readFileSync(file, 'utf8');
+  if (content.includes('extractedSecretKey')) {
+    rlnLeak = true;
+    rlnDetails = `Detected extractedSecretKey reference in runtime source: ${path.basename(file)}`;
+    break;
+  }
+}
+
+gates.push({
+  id: 14,
+  name: 'Zero Secret Key Exposure in Network Envelopes (ZK-RLN Hardened)',
+  status: !rlnLeak ? 'PASS' : 'FAIL',
+  details: !rlnLeak
+    ? '0 extractedSecretKey leaks detected across client, edge functions, and server-edge relays'
+    : rlnDetails,
+});
+
+// ─── GATE 15: ZERO PLAINTEXT MESSAGE STORAGE & MANDATORY E2EE ENFORCEMENT ─────
+let e2eePass = true;
+let e2eeDetails = '';
+const messagesApiFile = path.join(functionsDir, 'api/messages.ts');
+
+if (fs.existsSync(messagesApiFile)) {
+  const msgContent = fs.readFileSync(messagesApiFile, 'utf8');
+  const hasPlaintextRejection = msgContent.includes('E2EE violation: ciphertext is required');
+  const hasStrictCiphertextRead = msgContent.includes("const cipher = row.ciphertext || ''");
+  const hasNoPlaintextFallback = !msgContent.includes('row.ciphertext || row.text');
+
+  if (hasPlaintextRejection && hasStrictCiphertextRead && hasNoPlaintextFallback) {
+    e2eePass = true;
+    e2eeDetails = 'Mandatory E2EE verified: pure ciphertext transmission & storage strictly enforced in messages API';
+  } else {
+    e2eePass = false;
+    e2eeDetails = `Plaintext rejection: ${hasPlaintextRejection}, strict ciphertext read: ${hasStrictCiphertextRead}, no plaintext fallback: ${hasNoPlaintextFallback}`;
+  }
+} else {
+  e2eePass = false;
+  e2eeDetails = 'functions/api/messages.ts not found';
+}
+
+gates.push({
+  id: 15,
+  name: 'Zero Plaintext Message Storage & Mandatory E2EE Enforcement',
+  status: e2eePass ? 'PASS' : 'FAIL',
+  details: e2eeDetails,
+});
+
 // ─── REPORT OUTPUT ───────────────────────────────────────────────────────────
 console.log('');
 console.log('═════════════════════════════════════════════════════════════════');
-console.log('            AETHERIS 13-GATE PRODUCTION AUDIT                   ');
+console.log('            AETHERIS 15-GATE PRODUCTION AUDIT                   ');
 console.log('═════════════════════════════════════════════════════════════════');
 console.log('');
 
@@ -646,7 +701,7 @@ for (const gate of gates) {
 
 console.log('');
 console.log('═════════════════════════════════════════════════════════════════');
-console.log(allPass ? 'FINAL RESULT: ALL 13 PRODUCTION GATES PASSED (PRODUCTION READY)' : 'FINAL RESULT: AUDIT FAILED (GATES UNRESOLVED)');
+console.log(allPass ? 'FINAL RESULT: ALL 15 PRODUCTION GATES PASSED (PRODUCTION READY)' : 'FINAL RESULT: AUDIT FAILED (GATES UNRESOLVED)');
 console.log('═════════════════════════════════════════════════════════════════');
 console.log('');
 

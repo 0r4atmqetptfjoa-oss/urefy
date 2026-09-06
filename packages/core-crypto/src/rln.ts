@@ -105,15 +105,43 @@ export class ZKRLN {
    * the secret key across network or protocol boundaries.
    */
   static verifyRateLimitBreach(share1: RLNShare, share2: RLNShare): RateLimitBreachVerification {
-    const proof = this.extractSecretFromViolation(share1, share2);
+    if (share1.epoch !== share2.epoch) {
+      throw new Error("Shares belong to different epochs; no rate limit breach occurred");
+    }
+    if (share1.nullifier !== share2.nullifier) {
+      throw new Error("Shares belong to different identities");
+    }
+
+    const x1 = BigInt('0x' + share1.x);
+    const y1 = BigInt('0x' + share1.y);
+    const x2 = BigInt('0x' + share2.x);
+    const y2 = BigInt('0x' + share2.y);
+
+    if (x1 === x2) {
+      throw new Error("Identical messages; rate limit violation requires distinct messages");
+    }
+
+    // Lagrange Interpolation to reconstruct a_0 for verification only
+    const dy = Field.sub(y2, y1);
+    const dx = Field.sub(x2, x1);
+    const a1 = Field.div(dy, dx);
+    const a0 = Field.sub(y1, Field.mul(a1, x1));
+
+    const reconstructedNullifier = this.computeNullifier(a0);
+    const verified = constantTimeHexEqual(reconstructedNullifier, share1.nullifier);
+
+    // CRITICAL SECURITY INVARIANT:
+    // Notice that a0 (the secret key) is deliberately discarded and zeroized here!
+    // It is NEVER returned across protocol boundaries.
     return {
-      breachedEpoch: proof.breachedEpoch,
-      nullifier: proof.nullifier,
-      verified: proof.verified,
-      share1: proof.share1,
-      share2: proof.share2,
+      breachedEpoch: share1.epoch,
+      nullifier: share1.nullifier,
+      verified,
+      share1: { x: share1.x, y: share1.y },
+      share2: { x: share2.x, y: share2.y },
     };
   }
+
   /**
    * Computes the public nullifier commitment from the user's secret key a_0.
    */
@@ -141,13 +169,10 @@ export class ZKRLN {
   }
 
   /**
-   * Performs Lagrange interpolation to reconstruct the secret key a_0
-   * if a user transmits two distinct messages within the same epoch.
-   *
-   * a_1 = (y2 - y1) / (x2 - x1) mod p
-   * a_0 = (y1 - a_1 * x1) mod p
+   * @internal Internal cryptographic regression testing only.
+   * NEVER expose this method to network relays, client sockets, or public APIs.
    */
-  static extractSecretFromViolation(share1: RLNShare, share2: RLNShare): SlashingProof {
+  static __internal_test_extractSecretFromViolation(share1: RLNShare, share2: RLNShare): SlashingProof {
     if (share1.epoch !== share2.epoch) {
       throw new Error("Shares belong to different epochs; no rate limit breach occurred");
     }
@@ -164,7 +189,6 @@ export class ZKRLN {
       throw new Error("Identical messages; rate limit violation requires distinct messages");
     }
 
-    // Lagrange Interpolation
     const dy = Field.sub(y2, y1);
     const dx = Field.sub(x2, x1);
     const a1 = Field.div(dy, dx);
@@ -182,5 +206,12 @@ export class ZKRLN {
       share2: { x: share2.x, y: share2.y },
       verified,
     };
+  }
+
+  /**
+   * @deprecated Use verifyRateLimitBreach() instead. extractSecretFromViolation is deprecated to prevent secret key leakage.
+   */
+  static extractSecretFromViolation(share1: RLNShare, share2: RLNShare): SlashingProof {
+    return this.__internal_test_extractSecretFromViolation(share1, share2);
   }
 }

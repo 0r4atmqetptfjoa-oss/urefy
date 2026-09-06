@@ -87,14 +87,22 @@ export function base64URLToBuffer(base64url: string): ArrayBuffer {
   for (let i = 0; i < binary.length; i++) {
     bytes[i] = binary.charCodeAt(i);
   }
-  return bytes.buffer;
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
 }
 
 /**
  * Encodes a UTF-8 string into an ArrayBuffer.
  */
 export function stringToBuffer(str: string): ArrayBuffer {
-  return new TextEncoder().encode(str).buffer;
+  const bytes = new TextEncoder().encode(str);
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+}
+
+/**
+ * Converts a Uint8Array view into a standalone standard ArrayBuffer.
+ */
+export function toArrayBuffer(data: Uint8Array): ArrayBuffer {
+  return data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer;
 }
 
 /**
@@ -217,7 +225,7 @@ export class WebAuthnManager {
       const rpId = this._resolveRpId();
 
       const publicKeyCredentialCreationOptions: PublicKeyCredentialCreationOptions = {
-        challenge: challenge.buffer as ArrayBuffer,
+        challenge: toArrayBuffer(challenge),
         rp: {
           name: 'Aetheris Omni-Sphere Sovereign Vault',
           id: rpId,
@@ -288,7 +296,7 @@ export class WebAuthnManager {
       // Establish current authenticated session
       this.currentSession = {
         credentialId: credential.id,
-        challenge: challenge.buffer as ArrayBuffer,
+        challenge: toArrayBuffer(challenge),
         authenticated: true,
         timestamp: Date.now(),
         userHandle: userName,
@@ -333,7 +341,7 @@ export class WebAuthnManager {
       }));
 
       const publicKeyCredentialRequestOptions: PublicKeyCredentialRequestOptions = {
-        challenge: challenge.buffer as ArrayBuffer,
+        challenge: toArrayBuffer(challenge),
         rpId: rpId,
         timeout: 60000,
         userVerification: 'preferred',
@@ -359,7 +367,7 @@ export class WebAuthnManager {
       // Record successful active session
       this.currentSession = {
         credentialId: assertion.id,
-        challenge: challenge.buffer as ArrayBuffer,
+        challenge: toArrayBuffer(challenge),
         authenticated: true,
         timestamp: Date.now(),
         clientDataJSON: clientDataJSONStr,

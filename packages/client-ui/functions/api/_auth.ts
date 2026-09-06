@@ -174,47 +174,23 @@ export function verifyIdentitySignature(body: any, request: Request): IdentityAu
     }
   }
 
-  // 5. Verify Ed25519 signature over candidate payloads
-  const candidates = [];
+  // 5. Verify Ed25519 signature over deterministic payload (Security Hardening: eliminated loose candidate iteration)
+  // Standard format: `${authorFingerprint}:${timestamp}` (optionally with nonce)
+  // Or direct ciphertext for raw E2EE message payloads
+  const deterministicPayload = `${authorFingerprint}:${timestamp}${body?.nonce ? `:${body.nonce}` : ''}`;
+  let isVerified = verifySignature(signature, deterministicPayload, pubBytes);
 
-  if (body?.ciphertext) {
-    candidates.push(body.ciphertext);
-    candidates.push(`${body.channelId || ''}:${body.ciphertext}:${body.epoch || ''}:${authorFingerprint}`);
-    candidates.push(`${body.id || ''}:${body.ciphertext}:${timestamp}`);
-  }
-  if (body?.content) {
-    candidates.push(body.content);
-    candidates.push(`${body.title || ''}:${body.content}:${body.epoch || ''}:${authorFingerprint}`);
-    candidates.push(`${body.id || ''}:${body.content}:${timestamp}`);
-  }
-  if (body?.targetId) {
-    candidates.push(`${body.targetId}:${body.action || ''}:${authorFingerprint}`);
-  }
-  if (body?.sha256) {
-    candidates.push(`${body.sha256}:${authorFingerprint}:${timestamp}`);
-    candidates.push(body.sha256);
-  }
-  if (body?.key) {
-    candidates.push(body.key);
-    candidates.push(`${body.key}:${authorFingerprint}:${timestamp}`);
-  }
-  if (body?.nodeId) {
-    candidates.push(`${body.nodeId}:${body.name || ''}:${timestamp}`);
-    candidates.push(body.nodeId);
-  }
-  candidates.push(`${authorFingerprint}:${timestamp}`);
-  candidates.push(`${authorFingerprint}:${timestamp}:${body?.nonce || ''}`);
-
-  if (body?.text) {
-    candidates.push(body.text);
+  if (!isVerified && body?.ciphertext) {
+    isVerified = verifySignature(signature, body.ciphertext, pubBytes);
   }
 
-  let isVerified = false;
-  for (const msg of candidates) {
-    if (msg && verifySignature(signature, msg, pubBytes)) {
-      isVerified = true;
-      break;
-    }
+  if (!isVerified && body?.content) {
+    isVerified = verifySignature(signature, body.content, pubBytes);
+  }
+
+  const targetId = body?.targetId || body?.postId;
+  if (!isVerified && targetId && body?.action) {
+    isVerified = verifySignature(signature, `${targetId}:${body.action}:${authorFingerprint}`, pubBytes);
   }
 
   if (!isVerified) {

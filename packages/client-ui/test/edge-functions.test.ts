@@ -120,21 +120,38 @@ function createMockD1(): D1Database {
           }
 
           if (query.includes('INSERT OR REPLACE INTO messages') || query.includes('INSERT OR IGNORE INTO messages')) {
+            const isCanonical = query.includes('author_id');
             const isExtended = boundParams.length >= 12;
-            const row = {
-              id: boundParams[0],
-              channelId: boundParams[1],
-              channel_id: isExtended ? boundParams[2] : boundParams[1],
-              authorFingerprint: isExtended ? boundParams[3] : boundParams[2],
-              author_fingerprint: isExtended ? boundParams[4] : boundParams[2],
-              text: isExtended ? boundParams[5] : boundParams[3],
-              ciphertext: isExtended ? boundParams[6] : boundParams[4],
-              epoch: isExtended ? boundParams[7] : boundParams[5],
-              status: isExtended ? boundParams[8] : boundParams[6],
-              signature: isExtended ? boundParams[9] : boundParams[7],
-              createdAt: isExtended ? boundParams[10] : boundParams[8],
-              created_at: isExtended ? boundParams[11] : boundParams[8],
-            };
+            const row = isCanonical
+              ? {
+                  id: boundParams[0],
+                  channel_id: boundParams[1],
+                  channelId: boundParams[1],
+                  author_id: boundParams[2],
+                  authorFingerprint: boundParams[2],
+                  ciphertext: boundParams[3],
+                  text: boundParams[3],
+                  nonce: boundParams[4],
+                  epoch: boundParams[5],
+                  status: boundParams[6],
+                  signature: boundParams[7],
+                  created_at: boundParams[8],
+                  createdAt: boundParams[8],
+                }
+              : {
+                  id: boundParams[0],
+                  channelId: boundParams[1],
+                  channel_id: isExtended ? boundParams[2] : boundParams[1],
+                  authorFingerprint: isExtended ? boundParams[3] : boundParams[2],
+                  author_fingerprint: isExtended ? boundParams[4] : boundParams[2],
+                  text: isExtended ? boundParams[5] : boundParams[3],
+                  ciphertext: isExtended ? boundParams[6] : boundParams[4] || boundParams[3],
+                  epoch: isExtended ? boundParams[7] : boundParams[5],
+                  status: isExtended ? boundParams[8] : boundParams[6],
+                  signature: isExtended ? boundParams[9] : boundParams[7],
+                  createdAt: isExtended ? boundParams[10] : boundParams[8],
+                  created_at: isExtended ? boundParams[11] : boundParams[8],
+                };
             tables.messages.push(row);
             return { success: true, meta: {} };
           }

@@ -116,7 +116,8 @@ export async function computeSha256Hex(data: string | ArrayBuffer): Promise<stri
   try {
     let buffer: ArrayBuffer;
     if (typeof data === 'string') {
-      buffer = new TextEncoder().encode(data).buffer;
+      const u8 = new TextEncoder().encode(data);
+      buffer = u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength) as ArrayBuffer;
     } else {
       buffer = data;
     }

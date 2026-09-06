@@ -7,6 +7,7 @@ import { onRequestPost as handlePostPost } from '../functions/api/posts.js';
 import { onRequestPost as handleStoragePost, onRequestDelete as handleStorageDelete } from '../functions/api/storage.js';
 import { onRequestPost as handleInteractionPost } from '../functions/api/interactions.js';
 import { onRequestPost as handleNanopubPost } from '../functions/api/nanopublications.js';
+import { onRequestPost as handlePushPost } from '../functions/api/push.js';
 import { resetAdminStores, DEFAULT_ADMIN_PIN } from '../functions/api/admin.js';
 
 describe('Aetheris Mutating API Cryptographic Authorization & Hardening Suite', () => {
@@ -534,6 +535,140 @@ describe('Aetheris Mutating API Cryptographic Authorization & Hardening Suite', 
       });
       const res = await handleNanopubPost({ request: req, env: {} });
       expect(res.status).toBe(201);
+    });
+  });
+
+  describe('6. Web Push Identity Ownership Protection (/api/push)', () => {
+    it('rejects signed push subscribe with mismatched fingerprint spoofing with 403', async () => {
+      const alice = generateKeyPair();
+      const timestamp = Date.now();
+      const payloadToSign = `${alice.fingerprint}:${timestamp}`;
+      const signatureHex = bytesToHex(signMessage(payloadToSign, alice.privateKey));
+
+      const req = new Request('https://aetheris.pages.dev/api/push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'subscribe',
+          endpoint: 'https://push.example.com/ep-spoofed-01',
+          p256dh: 'BNTest...',
+          auth: 'authTest...',
+          fingerprint: 'victim_fingerprint_forged',
+          authorFingerprint: alice.fingerprint,
+          publicKey: alice.publicKeyHex,
+          signature: signatureHex,
+          timestamp,
+        }),
+      });
+
+      const res = await handlePushPost({ request: req, env: {} });
+      expect(res.status).toBe(403);
+      const json = await res.json();
+      expect(json.success).toBe(false);
+      expect(json.error).toContain('mismatch');
+    });
+
+    it('rejects signed push subscribe with invalid signature with 401', async () => {
+      const alice = generateKeyPair();
+      const timestamp = Date.now();
+
+      const req = new Request('https://aetheris.pages.dev/api/push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'subscribe',
+          endpoint: 'https://push.example.com/ep-invalid-sig',
+          p256dh: 'BNTest...',
+          auth: 'authTest...',
+          fingerprint: alice.fingerprint,
+          authorFingerprint: alice.fingerprint,
+          publicKey: alice.publicKeyHex,
+          signature: '0'.repeat(128),
+          timestamp,
+        }),
+      });
+
+      const res = await handlePushPost({ request: req, env: {} });
+      expect(res.status).toBe(401);
+    });
+
+    it('accepts signed push subscribe with valid cryptographic identity with 201', async () => {
+      const alice = generateKeyPair();
+      const timestamp = Date.now();
+      const payloadToSign = `${alice.fingerprint}:${timestamp}`;
+      const signatureHex = bytesToHex(signMessage(payloadToSign, alice.privateKey));
+
+      const req = new Request('https://aetheris.pages.dev/api/push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'subscribe',
+          endpoint: 'https://push.example.com/ep-valid-alice',
+          p256dh: 'BNTest...',
+          auth: 'authTest...',
+          fingerprint: alice.fingerprint,
+          authorFingerprint: alice.fingerprint,
+          publicKey: alice.publicKeyHex,
+          signature: signatureHex,
+          timestamp,
+        }),
+      });
+
+      const res = await handlePushPost({ request: req, env: {} });
+      expect(res.status).toBe(201);
+      const json = await res.json();
+      expect(json.success).toBe(true);
+      expect(json.subscription.fingerprint).toBe(alice.fingerprint);
+    });
+
+    it('rejects signed push unsubscribe with mismatched fingerprint spoofing with 403', async () => {
+      const alice = generateKeyPair();
+      const timestamp = Date.now();
+      const payloadToSign = `${alice.fingerprint}:${timestamp}`;
+      const signatureHex = bytesToHex(signMessage(payloadToSign, alice.privateKey));
+
+      const req = new Request('https://aetheris.pages.dev/api/push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'unsubscribe',
+          endpoint: 'https://push.example.com/ep-valid-alice',
+          fingerprint: 'victim_fingerprint_forged',
+          authorFingerprint: alice.fingerprint,
+          publicKey: alice.publicKeyHex,
+          signature: signatureHex,
+          timestamp,
+        }),
+      });
+
+      const res = await handlePushPost({ request: req, env: {} });
+      expect(res.status).toBe(403);
+    });
+
+    it('allows signed push unsubscribe matching authenticated cryptographic identity', async () => {
+      const alice = generateKeyPair();
+      const timestamp = Date.now();
+      const payloadToSign = `${alice.fingerprint}:${timestamp}`;
+      const signatureHex = bytesToHex(signMessage(payloadToSign, alice.privateKey));
+
+      const req = new Request('https://aetheris.pages.dev/api/push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'unsubscribe',
+          endpoint: 'https://push.example.com/ep-valid-alice',
+          fingerprint: alice.fingerprint,
+          authorFingerprint: alice.fingerprint,
+          publicKey: alice.publicKeyHex,
+          signature: signatureHex,
+          timestamp,
+        }),
+      });
+
+      const res = await handlePushPost({ request: req, env: {} });
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.success).toBe(true);
     });
   });
 });

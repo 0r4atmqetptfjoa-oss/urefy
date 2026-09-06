@@ -12,6 +12,7 @@ import {
   getKVStore,
   globalPushSubscriptionsStore,
 } from './_db.js';
+import { verifyEnvelopeOrLegacyAuth } from './_auth.js';
 
 export { EdgePushSubscription };
 
@@ -203,7 +204,40 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
       const endpoint = sub.endpoint;
       const p256dh = sub.keys?.p256dh || body.p256dh;
       const auth = sub.keys?.auth || body.auth;
-      const fingerprint = body.fingerprint || body.authorFingerprint || 'anon-peer';
+      let fingerprint = body.fingerprint || body.authorFingerprint || sub.fingerprint;
+
+      // Cryptographic identity ownership verification
+      const hasSignature = !!(
+        body.signature ||
+        body.identity ||
+        context.request.headers.get('X-Signature') ||
+        context.request.headers.get('X-Author-Fingerprint')
+      );
+
+      if (hasSignature) {
+        const authResult = verifyEnvelopeOrLegacyAuth(context, body, 'push:subscribe');
+        if (!authResult.authorized) {
+          return (
+            authResult.response ||
+            new Response(
+              JSON.stringify({ success: false, error: 'Push subscription identity authorization failed' }),
+              { status: 401, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
+            )
+          );
+        }
+        if (fingerprint && authResult.fingerprint && fingerprint !== authResult.fingerprint) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: 'Push subscription fingerprint mismatch with authenticated cryptographic identity',
+            }),
+            { status: 403, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
+          );
+        }
+        fingerprint = authResult.fingerprint || fingerprint;
+      }
+
+      fingerprint = fingerprint || 'anon-peer';
 
       if (!endpoint || typeof endpoint !== 'string' || !p256dh || !auth) {
         return new Response(
@@ -291,6 +325,36 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
           }),
           { status: 400, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
         );
+      }
+
+      // If signed with identity credentials, verify caller ownership of fingerprint
+      const hasSignature = !!(
+        body.signature ||
+        body.identity ||
+        context.request.headers.get('X-Signature') ||
+        context.request.headers.get('X-Author-Fingerprint')
+      );
+
+      if (hasSignature) {
+        const authResult = verifyEnvelopeOrLegacyAuth(context, body, 'push:unsubscribe');
+        if (!authResult.authorized) {
+          return (
+            authResult.response ||
+            new Response(
+              JSON.stringify({ success: false, error: 'Push unsubscribe identity authorization failed' }),
+              { status: 401, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
+            )
+          );
+        }
+        if (fingerprint && authResult.fingerprint && fingerprint !== authResult.fingerprint) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: 'Push unsubscribe fingerprint mismatch with authenticated cryptographic identity',
+            }),
+            { status: 403, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
+          );
+        }
       }
 
       // 1. Remove from D1

@@ -18,7 +18,7 @@ import { requireAdmin, verifyIdentitySignature, verifyEnvelopeOrLegacyAuth } fro
 export { EdgeMessage };
 
 export function parseD1MessageRow(row: any): EdgeMessage {
-  const cipher = row.ciphertext || row.text || '';
+  const cipher = row.ciphertext || '';
   return {
     id: row.id,
     channelId: row.channel_id ?? row.channelId ?? 'relays-general',
@@ -126,15 +126,6 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
     const kv = getKVStore(context.env);
 
     const candidateBody = rawBody.payload && typeof rawBody.payload === 'object' ? rawBody.payload : rawBody;
-    const textContent = (candidateBody.ciphertext || candidateBody.text || '').trim();
-    if (!textContent) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'Message content cannot be empty' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Enforce E2EE: ciphertext must be present. Reject pure plaintext payloads.
     const ciphertext = (candidateBody.ciphertext || '').trim();
     if (!ciphertext) {
       return new Response(
