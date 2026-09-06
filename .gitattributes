@@ -1,0 +1,11 @@
+# Git attributes for clean repository archiving
+# Ensures node_modules, build output, temporary files, and secrets are excluded from distribution archives
+
+node_modules/ export-ignore
+dist/ export-ignore
+.env* export-ignore
+*.zip export-ignore
+.tempmediaStorage/ export-ignore
+.system_generated/ export-ignore
+scratch/ export-ignore
+coverage/ export-ignore

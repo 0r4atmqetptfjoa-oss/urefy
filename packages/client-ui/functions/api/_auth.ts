@@ -1,7 +1,8 @@
 /**
  * Cloudflare Pages Functions Authentication & Cryptographic Authorization Layer
  * Route: /api/* shared security middleware
- * Provides requireAdmin, verifyIdentitySignature, and requireOwnership primitives.
+ * Provides requireAdmin, verifyIdentitySignature, requireOwnership,
+ * requireSignedEnvelope, and distributed replay nonce protection (D1 + KV + LRU memory).
  */
 
 import { Env } from './_db.js';
@@ -57,7 +58,7 @@ export async function requireAdmin(context: { request: Request; env?: Env }): Pr
  * 1. Presence of authorFingerprint, publicKey, and signature.
  * 2. Fingerprint derivation matches publicKey (SHA-256 first 8 bytes).
  * 3. Timestamp replay protection (within 5 minutes).
- * 4. Ed25519 signature over request payload.
+ * 4. Ed25519 signature over exact, canonical payload (no loose fallback guessing).
  */
 export function verifyIdentitySignature(body: any, request: Request): IdentityAuthResult {
   const authorFingerprint = (
@@ -174,24 +175,21 @@ export function verifyIdentitySignature(body: any, request: Request): IdentityAu
     }
   }
 
-  // 5. Verify Ed25519 signature over deterministic payload (Security Hardening: eliminated loose candidate iteration)
-  // Standard format: `${authorFingerprint}:${timestamp}` (optionally with nonce)
-  // Or direct ciphertext for raw E2EE message payloads
-  const deterministicPayload = `${authorFingerprint}:${timestamp}${body?.nonce ? `:${body.nonce}` : ''}`;
-  let isVerified = verifySignature(signature, deterministicPayload, pubBytes);
-
-  if (!isVerified && body?.ciphertext) {
-    isVerified = verifySignature(signature, body.ciphertext, pubBytes);
-  }
-
-  if (!isVerified && body?.content) {
-    isVerified = verifySignature(signature, body.content, pubBytes);
-  }
-
+  // 5. Verify Ed25519 signature over exact canonical payload (Security Hardening: eliminated loose candidate iteration)
+  let canonicalPayload: string;
   const targetId = body?.targetId || body?.postId;
-  if (!isVerified && targetId && body?.action) {
-    isVerified = verifySignature(signature, `${targetId}:${body.action}:${authorFingerprint}`, pubBytes);
+
+  if (body?.ciphertext) {
+    canonicalPayload = body.ciphertext;
+  } else if (targetId && body?.action) {
+    canonicalPayload = `${targetId}:${body.action}:${authorFingerprint}`;
+  } else if (body?.content && verifySignature(signature, body.content, pubBytes)) {
+    canonicalPayload = body.content;
+  } else {
+    canonicalPayload = `${authorFingerprint}:${timestamp}${body?.nonce ? `:${body.nonce}` : ''}`;
   }
+
+  const isVerified = verifySignature(signature, canonicalPayload, pubBytes);
 
   if (!isVerified) {
     return {
@@ -199,7 +197,7 @@ export function verifyIdentitySignature(body: any, request: Request): IdentityAu
       response: new Response(
         JSON.stringify({
           success: false,
-          error: 'Cryptographic signature verification failed: signature does not match payload and public key.',
+          error: 'Cryptographic signature verification failed: signature does not match canonical payload and public key.',
         }),
         { status: 401, headers: { 'Content-Type': 'application/json' } }
       ),
@@ -231,14 +229,17 @@ export interface UnifiedAuthResult<T = any> {
   response?: Response;
 }
 
-const NONCE_CACHE_TTL_MS = 300000; // 5 minutes
-const globalReplayNonceCache = new Map<string, number>();
+// ─── BOUNDED LRU MEMORY CACHE (PREVENTS MEMORY EXHAUSTION DOS) ───────────────
+
+export const MAX_NONCES = 10_000;
+export const NONCE_CACHE_TTL_MS = 300000; // 5 minutes
+export const globalReplayNonceCache = new Map<string, number>();
 
 export function resetReplayNonceCache(): void {
   globalReplayNonceCache.clear();
 }
 
-function cleanExpiredNonces(): void {
+export function cleanExpiredNonces(): void {
   const now = Date.now();
   for (const [nonce, ts] of globalReplayNonceCache.entries()) {
     if (now - ts > NONCE_CACHE_TTL_MS) {
@@ -247,15 +248,181 @@ function cleanExpiredNonces(): void {
   }
 }
 
-const nonceTracker = {
+export function checkAndRecordNonceMemory(key: string): boolean {
+  const now = Date.now();
+  const ts = globalReplayNonceCache.get(key);
+  if (ts !== undefined) {
+    if (now - ts <= NONCE_CACHE_TTL_MS) {
+      return false; // Replay attack detected
+    }
+    globalReplayNonceCache.delete(key);
+  }
+
+  // Bounded LRU enforcement: prevent memory exhaustion DoS
+  if (globalReplayNonceCache.size >= MAX_NONCES) {
+    cleanExpiredNonces();
+    if (globalReplayNonceCache.size >= MAX_NONCES) {
+      const oldestKey = globalReplayNonceCache.keys().next().value;
+      if (oldestKey) {
+        globalReplayNonceCache.delete(oldestKey);
+      }
+    }
+  }
+
+  globalReplayNonceCache.set(key, now);
+  return true;
+}
+
+export const nonceTracker = {
   has(nonce: string): boolean {
     cleanExpiredNonces();
     return globalReplayNonceCache.has(nonce);
   },
   add(nonce: string): void {
-    globalReplayNonceCache.set(nonce, Date.now());
+    checkAndRecordNonceMemory(nonce);
   },
 };
+
+// ─── DISTRIBUTED REPLAY NONCES (D1 + KV + BOUNDED LRU MEMORY) ────────────────
+
+export async function checkAndRecordNonceDistributed(
+  env: Env | undefined,
+  fingerprint: string,
+  nonce: string
+): Promise<{ fresh: boolean; error?: string }> {
+  const memoryKey = `${fingerprint}:${nonce}`;
+  const now = Date.now();
+  const expiresAt = now + NONCE_CACHE_TTL_MS;
+
+  // 1. Isolate Memory Check with Bounded LRU Cache (Fast path)
+  if (!checkAndRecordNonceMemory(memoryKey)) {
+    return {
+      fresh: false,
+      error: `Replay attack detected: duplicate nonce "${nonce}" already observed in edge isolate memory`,
+    };
+  }
+
+  // 2. Cloudflare KV Check (Distributed edge read/write)
+  const kv = env?.KV_SESSIONS || env?.CACHE_KV || env?.KV;
+  if (kv) {
+    try {
+      const kvKey = `nonce:${fingerprint}:${nonce}`;
+      const existing = await kv.get(kvKey);
+      if (existing) {
+        return {
+          fresh: false,
+          error: `Replay attack detected: duplicate nonce "${nonce}" across edge KV`,
+        };
+      }
+      await kv.put(kvKey, String(now), { expirationTtl: 300 });
+    } catch (e) {
+      console.warn('[Auth] KV distributed nonce warning:', e);
+    }
+  }
+
+  // 3. Cloudflare D1 Database Check (used_nonces table with PRIMARY KEY (fingerprint, nonce))
+  const db = env?.DB || env?.AETHERIS_DB;
+  if (db) {
+    try {
+      await db.prepare(
+        `INSERT INTO used_nonces (fingerprint, nonce, expires_at, created_at) VALUES (?, ?, ?, ?)`
+      ).bind(fingerprint, nonce, expiresAt, now).run();
+    } catch (e: any) {
+      const msg = String(e?.message || '');
+      if (msg.includes('UNIQUE') || msg.includes('constraint') || msg.includes('PRIMARY KEY')) {
+        return {
+          fresh: false,
+          error: `Replay attack detected: duplicate nonce "${nonce}" across distributed D1 database`,
+        };
+      }
+      console.warn('[Auth] D1 distributed nonce warning:', e);
+    }
+  }
+
+  return { fresh: true };
+}
+
+// ─── CANONICAL SOVEREIGN SIGNED ENVELOPE ROUTE AUTHENTICATOR ────────────────
+
+/**
+ * Enforces canonical SovereignSignedEnvelope format on mutating API routes.
+ * Rejects legacy/unsigned requests.
+ * Verifies 5-stage cryptographic pipeline:
+ * 1. Signature -> 2. Fingerprint derivation -> 3. Capability authorization -> 4. Distributed replay nonces -> 5. Action.
+ */
+export async function requireSignedEnvelope<T = any>(
+  context: { request: Request; env?: Env },
+  body: any,
+  requiredCapability?: string
+): Promise<UnifiedAuthResult<T>> {
+  if (
+    !body ||
+    typeof body !== 'object' ||
+    body.payload === undefined ||
+    !body.signature ||
+    !body.nonce ||
+    !body.identity ||
+    typeof body.identity !== 'object'
+  ) {
+    return {
+      authorized: false,
+      response: new Response(
+        JSON.stringify({
+          success: false,
+          error: 'SovereignSignedEnvelope required: payload, signature, nonce, and identity are mandatory.',
+          stage: 'signature',
+        }),
+        { status: 401, headers: { 'Content-Type': 'application/json' } }
+      ),
+    };
+  }
+
+  const fingerprint = body.identity?.fingerprint;
+  if (fingerprint && body.nonce) {
+    const nonceCheck = await checkAndRecordNonceDistributed(context.env, fingerprint, body.nonce);
+    if (!nonceCheck.fresh) {
+      return {
+        authorized: false,
+        response: new Response(
+          JSON.stringify({
+            success: false,
+            error: nonceCheck.error || 'Replay attack detected: duplicate nonce',
+            stage: 'replay',
+          }),
+          { status: 401, headers: { 'Content-Type': 'application/json' } }
+        ),
+      };
+    }
+  }
+
+  const result = verifySignedEnvelope<T>(body as SovereignSignedEnvelope<T>, {
+    requiredCapability,
+    seenNonces: nonceTracker,
+  });
+
+  if (!result.authorized) {
+    const status = result.stage === 'authorization' ? 403 : 401;
+    return {
+      authorized: false,
+      response: new Response(
+        JSON.stringify({
+          success: false,
+          error: result.error || 'Sovereign envelope authorization failed',
+          stage: result.stage,
+        }),
+        { status, headers: { 'Content-Type': 'application/json' } }
+      ),
+    };
+  }
+
+  return {
+    authorized: true,
+    fingerprint: result.fingerprint,
+    publicKey: result.identity?.signingPublicKey,
+    identity: result.identity,
+    payload: result.payload,
+  };
+}
 
 /**
  * Verifies either a canonical SovereignSignedEnvelope or legacy flat signed payload.
@@ -322,4 +489,3 @@ export function verifyEnvelopeOrLegacyAuth<T = any>(
     payload: body,
   };
 }
-

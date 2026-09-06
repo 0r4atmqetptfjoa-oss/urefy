@@ -46,12 +46,6 @@ describe('Core Cryptography Module', () => {
       expect(breachVerification.verified).toBe(true);
       expect(breachVerification.nullifier).toBe(expectedNullifier);
       expect((breachVerification as any).extractedSecretKey).toBeUndefined();
-
-      // 4. Internal academic test verification: ensure polynomial interpolation matches secret
-      const slashingProof = ZKRLN.__internal_test_extractSecretFromViolation(share1, share2);
-      expect(slashingProof.verified).toBe(true);
-      const originalSecretHex = Field.mod(userSecret).toString(16).padStart(64, '0');
-      expect(slashingProof.extractedSecretKey).toBe(originalSecretHex);
     });
 
     it('rejects extraction if messages belong to different epochs', () => {

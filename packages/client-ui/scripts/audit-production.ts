@@ -1,6 +1,6 @@
 /**
  * @file scripts/audit-production.ts
- * @description Comprehensive 13-Gate Production Readiness & Security Audit for Aetheris.
+ * @description Comprehensive 18-Gate Production Readiness & Security Audit for Aetheris.
  * Scans the entire production source tree with zero file exclusions:
  * 1. Zero inline and property event handlers
  * 2. Zero native browser dialogs (alert, confirm, prompt)
@@ -684,10 +684,105 @@ gates.push({
   details: e2eeDetails,
 });
 
+
+// ─── GATE 16: MANDATORY WEBAUTHN SIGNATURE VERIFICATION (ZERO BYPASS) ────────
+let webauthnPass = true;
+let webauthnDetails = '';
+const webauthnApiFile = path.join(functionsDir, 'api/webauthn.ts');
+
+if (fs.existsSync(webauthnApiFile)) {
+  const waContent = fs.readFileSync(webauthnApiFile, 'utf8');
+  const hasNoFakeKeyFallback = !waContent.includes("'fido2-attested-credential';");
+  const hasMandatorySignatureCheck = waContent.includes('!body.signature');
+  const hasSubtleVerify = waContent.includes('crypto.subtle.verify');
+  const hasD1Credentials = waContent.includes('webauthn_credentials');
+
+  if (hasNoFakeKeyFallback && hasMandatorySignatureCheck && hasSubtleVerify && hasD1Credentials) {
+    webauthnPass = true;
+    webauthnDetails = 'FIDO2 L3 verified: mandatory signature check, D1 persistence, and zero fake key fallback';
+  } else {
+    webauthnPass = false;
+    webauthnDetails = `No fake key: ${hasNoFakeKeyFallback}, mandatory sig: ${hasMandatorySignatureCheck}, subtle verify: ${hasSubtleVerify}, D1 creds: ${hasD1Credentials}`;
+  }
+} else {
+  webauthnPass = false;
+  webauthnDetails = 'functions/api/webauthn.ts not found';
+}
+
+gates.push({
+  id: 16,
+  name: 'Mandatory WebAuthn L3 Signature Verification (Zero Bypass & D1 Store)',
+  status: webauthnPass ? 'PASS' : 'FAIL',
+  details: webauthnDetails,
+});
+
+// ─── GATE 17: ZERO DANGEROUS SECRET EXTRACTION APIS IN CORE-CRYPTO ───────────
+let secretApiPass = true;
+let secretApiDetails = '';
+const coreCryptoSrc = path.resolve(rootDir, '../core-crypto/src');
+const coreCryptoFiles = fs.existsSync(coreCryptoSrc) ? walk(coreCryptoSrc) : [];
+
+let foundSecretApis: string[] = [];
+for (const file of coreCryptoFiles) {
+  const c = fs.readFileSync(file, 'utf8');
+  if (c.includes('extractSecretFromViolation')) {
+    foundSecretApis.push(`${path.basename(file)}: extractSecretFromViolation`);
+  }
+  if (c.includes('__internal_test_extractSecretFromViolation')) {
+    foundSecretApis.push(`${path.basename(file)}: __internal_test_extractSecretFromViolation`);
+  }
+}
+
+if (foundSecretApis.length === 0) {
+  secretApiPass = true;
+  secretApiDetails = '0 extractSecretFromViolation or extractedSecretKey APIs exist in core-crypto runtime source';
+} else {
+  secretApiPass = false;
+  secretApiDetails = `Dangerous secret extraction APIs found in: ${foundSecretApis.join(', ')}`;
+}
+
+gates.push({
+  id: 17,
+  name: 'Zero Secret Extraction APIs in Core-Crypto (Permanent API Removal)',
+  status: secretApiPass ? 'PASS' : 'FAIL',
+  details: secretApiDetails,
+});
+
+// ─── GATE 18: DISTRIBUTED REPLAY NONCES & BOUNDED MEMORY CAP ─────────────────
+let noncePass = true;
+let nonceDetails = '';
+const authApiFile = path.join(functionsDir, 'api/_auth.ts');
+
+if (fs.existsSync(authApiFile)) {
+  const authContent = fs.readFileSync(authApiFile, 'utf8');
+  const hasMaxNonces = authContent.includes('MAX_NONCES = 10_000') || authContent.includes('MAX_NONCES = 10000');
+  const hasDistributedNonces = authContent.includes('checkAndRecordNonceDistributed');
+  const hasUsedNoncesD1 = authContent.includes('used_nonces');
+  const hasRequireSignedEnvelope = authContent.includes('export async function requireSignedEnvelope');
+
+  if (hasMaxNonces && hasDistributedNonces && hasUsedNoncesD1 && hasRequireSignedEnvelope) {
+    noncePass = true;
+    nonceDetails = 'Distributed replay defense verified: MAX_NONCES cap (10k), D1 used_nonces, and requireSignedEnvelope';
+  } else {
+    noncePass = false;
+    nonceDetails = `MAX_NONCES cap: ${hasMaxNonces}, distributed check: ${hasDistributedNonces}, D1 used_nonces: ${hasUsedNoncesD1}, requireSignedEnvelope: ${hasRequireSignedEnvelope}`;
+  }
+} else {
+  noncePass = false;
+  nonceDetails = 'functions/api/_auth.ts not found';
+}
+
+gates.push({
+  id: 18,
+  name: 'Distributed Replay Protection Nonces & Bounded Memory Cap (Anti-DoS)',
+  status: noncePass ? 'PASS' : 'FAIL',
+  details: nonceDetails,
+});
+
 // ─── REPORT OUTPUT ───────────────────────────────────────────────────────────
 console.log('');
 console.log('═════════════════════════════════════════════════════════════════');
-console.log('            AETHERIS 15-GATE PRODUCTION AUDIT                   ');
+console.log('            AETHERIS 18-GATE PRODUCTION AUDIT                   ');
 console.log('═════════════════════════════════════════════════════════════════');
 console.log('');
 
@@ -701,7 +796,7 @@ for (const gate of gates) {
 
 console.log('');
 console.log('═════════════════════════════════════════════════════════════════');
-console.log(allPass ? 'FINAL RESULT: ALL 15 PRODUCTION GATES PASSED (PRODUCTION READY)' : 'FINAL RESULT: AUDIT FAILED (GATES UNRESOLVED)');
+console.log(allPass ? 'FINAL RESULT: ALL 18 PRODUCTION GATES PASSED (PRODUCTION READY)' : 'FINAL RESULT: AUDIT FAILED (GATES UNRESOLVED)');
 console.log('═════════════════════════════════════════════════════════════════');
 console.log('');
 

@@ -1,8 +1,9 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import {
   onRequest as handleWebAuthn,
   derToRawSignature,
   importWebAuthnPublicKey,
+  resetWebAuthnMemoryStore,
 } from '../functions/api/webauthn.js';
 
 function bufferToBase64Url(buffer: ArrayBuffer | Uint8Array): string {
@@ -15,6 +16,10 @@ function bufferToBase64Url(buffer: ArrayBuffer | Uint8Array): string {
 }
 
 describe('WebAuthn FIDO2 Level 3 Server-Side Engine Suite', () => {
+  beforeEach(() => {
+    resetWebAuthnMemoryStore();
+  });
+
   describe('1. ASN.1 DER to Raw P1363 Signature Converter', () => {
     it('returns 64-byte raw signature directly if already raw', () => {
       const raw = new Uint8Array(64).fill(0xaa);
@@ -71,7 +76,7 @@ describe('WebAuthn FIDO2 Level 3 Server-Side Engine Suite', () => {
     });
   });
 
-  describe('2. WebAuthn Public Key Importer', () => {
+  describe('2. WebAuthn Public Key Importer & Security Boundary', () => {
     it('successfully imports P-256 JWK into CryptoKey for verification', async () => {
       const keypair = await crypto.subtle.generateKey(
         { name: 'ECDSA', namedCurve: 'P-256' },
@@ -82,6 +87,10 @@ describe('WebAuthn FIDO2 Level 3 Server-Side Engine Suite', () => {
       const imported = await importWebAuthnPublicKey(jwk);
       expect(imported.type).toBe('public');
       expect(imported.algorithm.name).toBe('ECDSA');
+    });
+
+    it('rejects fake fido2-attested-credential dummy fallback', async () => {
+      await expect(importWebAuthnPublicKey('fido2-attested-credential')).rejects.toThrow();
     });
   });
 
@@ -99,9 +108,46 @@ describe('WebAuthn FIDO2 Level 3 Server-Side Engine Suite', () => {
   });
 
   describe('4. Passkey Registration (POST action: register)', () => {
+    it('rejects registration if public key is missing or dummy string', async () => {
+      const reqGet = new Request('https://aetheris.pages.dev/api/webauthn?action=challenge&fingerprint=user-dummy');
+      const resGet = await handleWebAuthn({ request: reqGet, env: {} });
+      const { challenge } = await resGet.json();
+
+      const clientData = JSON.stringify({
+        type: 'webauthn.create',
+        challenge,
+        origin: 'https://aetheris.pages.dev',
+      });
+
+      const reqPost = new Request('https://aetheris.pages.dev/api/webauthn', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'register',
+          fingerprint: 'user-dummy',
+          credentialId: 'cred-dummy-001',
+          clientDataJSON: clientData,
+          publicKey: 'fido2-attested-credential',
+        }),
+      });
+
+      const res = await handleWebAuthn({ request: reqPost, env: {} });
+      expect(res.status).toBe(400);
+      const json = await res.json();
+      expect(json.success).toBe(false);
+      expect(json.error).toMatch(/valid P-256 public key/i);
+    });
+
     it('rejects registration if challenge does not match', async () => {
       const reqGet = new Request('https://aetheris.pages.dev/api/webauthn?action=challenge&fingerprint=user-bob');
       await handleWebAuthn({ request: reqGet, env: {} });
+
+      const kp = await crypto.subtle.generateKey(
+        { name: 'ECDSA', namedCurve: 'P-256' },
+        true,
+        ['sign', 'verify']
+      );
+      const pubJwk = await crypto.subtle.exportKey('jwk', kp.publicKey);
 
       const fakeClientData = JSON.stringify({
         type: 'webauthn.create',
@@ -117,6 +163,7 @@ describe('WebAuthn FIDO2 Level 3 Server-Side Engine Suite', () => {
           fingerprint: 'user-bob',
           credentialId: 'cred-bob-001',
           clientDataJSON: fakeClientData,
+          publicKey: pubJwk,
         }),
       });
 
@@ -132,6 +179,13 @@ describe('WebAuthn FIDO2 Level 3 Server-Side Engine Suite', () => {
       const resGet = await handleWebAuthn({ request: reqGet, env: {} });
       const { challenge } = await resGet.json();
 
+      const kp = await crypto.subtle.generateKey(
+        { name: 'ECDSA', namedCurve: 'P-256' },
+        true,
+        ['sign', 'verify']
+      );
+      const pubJwk = await crypto.subtle.exportKey('jwk', kp.publicKey);
+
       const clientData = JSON.stringify({
         type: 'webauthn.create',
         challenge,
@@ -146,7 +200,7 @@ describe('WebAuthn FIDO2 Level 3 Server-Side Engine Suite', () => {
           fingerprint: 'user-carol',
           credentialId: 'cred-carol-001',
           clientDataJSON: clientData,
-          publicKey: 'fido2-public-key-carol',
+          publicKey: pubJwk,
         }),
       });
 
@@ -159,14 +213,18 @@ describe('WebAuthn FIDO2 Level 3 Server-Side Engine Suite', () => {
   });
 
   describe('5. Cryptographic Assertion Verification (POST action: verify)', () => {
-    it('verifies valid FIDO2 Level 3 assertion with authentic ECDSA P-256 signature', async () => {
-      const keypair = await crypto.subtle.generateKey(
+    let daveKeypair: CryptoKeyPair;
+    let davePubJwk: JsonWebKey;
+
+    beforeEach(async () => {
+      daveKeypair = await crypto.subtle.generateKey(
         { name: 'ECDSA', namedCurve: 'P-256' },
         true,
         ['sign', 'verify']
       );
-      const publicJwk = await crypto.subtle.exportKey('jwk', keypair.publicKey);
+      davePubJwk = await crypto.subtle.exportKey('jwk', daveKeypair.publicKey);
 
+      // Register Dave
       const reqGetReg = new Request('https://aetheris.pages.dev/api/webauthn?action=challenge&fingerprint=user-dave');
       const resGetReg = await handleWebAuthn({ request: reqGetReg, env: {} });
       const { challenge: regChallenge } = await resGetReg.json();
@@ -184,12 +242,14 @@ describe('WebAuthn FIDO2 Level 3 Server-Side Engine Suite', () => {
           fingerprint: 'user-dave',
           credentialId: 'cred-dave-ecdsa',
           clientDataJSON: regClientData,
-          publicKey: publicJwk,
+          publicKey: davePubJwk,
         }),
       });
       const resReg = await handleWebAuthn({ request: reqReg, env: {} });
       expect(resReg.status).toBe(200);
+    });
 
+    it('verifies valid FIDO2 Level 3 assertion with authentic ECDSA P-256 signature', async () => {
       const reqGetAuth = new Request('https://aetheris.pages.dev/api/webauthn?action=challenge&fingerprint=user-dave');
       const resGetAuth = await handleWebAuthn({ request: reqGetAuth, env: {} });
       const { challenge: authChallenge } = await resGetAuth.json();
@@ -216,7 +276,7 @@ describe('WebAuthn FIDO2 Level 3 Server-Side Engine Suite', () => {
 
       const rawSignature = await crypto.subtle.sign(
         { name: 'ECDSA', hash: 'SHA-256' },
-        keypair.privateKey,
+        daveKeypair.privateKey,
         signedData
       );
 
@@ -241,6 +301,77 @@ describe('WebAuthn FIDO2 Level 3 Server-Side Engine Suite', () => {
       expect(jsonVerify.counter).toBe(1);
     });
 
+    it('rejects assertion with HTTP 401 when signature is missing (No Bypass)', async () => {
+      const reqGet = new Request('https://aetheris.pages.dev/api/webauthn?action=challenge&fingerprint=user-dave');
+      const resGet = await handleWebAuthn({ request: reqGet, env: {} });
+      const { challenge } = await resGet.json();
+
+      const authClientData = JSON.stringify({
+        type: 'webauthn.get',
+        challenge,
+        origin: 'https://aetheris.pages.dev',
+      });
+
+      const authDataBytes = new Uint8Array(37);
+      authDataBytes[32] = 0x01;
+
+      const reqVerify = new Request('https://aetheris.pages.dev/api/webauthn', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'verify',
+          fingerprint: 'user-dave',
+          credentialId: 'cred-dave-ecdsa',
+          clientDataJSON: authClientData,
+          authenticatorData: bufferToBase64Url(authDataBytes),
+          // signature intentionally omitted
+        }),
+      });
+
+      const res = await handleWebAuthn({ request: reqVerify, env: {} });
+      expect(res.status).toBe(401);
+      const json = await res.json();
+      expect(json.success).toBe(false);
+      expect(json.error).toMatch(/mandatory cryptographic signature/i);
+    });
+
+    it('rejects assertion with HTTP 401 when signature is invalid', async () => {
+      const reqGet = new Request('https://aetheris.pages.dev/api/webauthn?action=challenge&fingerprint=user-dave');
+      const resGet = await handleWebAuthn({ request: reqGet, env: {} });
+      const { challenge } = await resGet.json();
+
+      const authClientData = JSON.stringify({
+        type: 'webauthn.get',
+        challenge,
+        origin: 'https://aetheris.pages.dev',
+      });
+
+      const authDataBytes = new Uint8Array(37);
+      authDataBytes[32] = 0x01;
+      authDataBytes[36] = 5;
+
+      const fakeSig = new Uint8Array(64).fill(0xee);
+
+      const reqVerify = new Request('https://aetheris.pages.dev/api/webauthn', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'verify',
+          fingerprint: 'user-dave',
+          credentialId: 'cred-dave-ecdsa',
+          clientDataJSON: authClientData,
+          authenticatorData: bufferToBase64Url(authDataBytes),
+          signature: bufferToBase64Url(fakeSig),
+        }),
+      });
+
+      const res = await handleWebAuthn({ request: reqVerify, env: {} });
+      expect(res.status).toBe(401);
+      const json = await res.json();
+      expect(json.success).toBe(false);
+      expect(json.error).toMatch(/signature verification failed/i);
+    });
+
     it('rejects assertion when User Presence (UP) flag is missing', async () => {
       const reqGet = new Request('https://aetheris.pages.dev/api/webauthn?action=challenge&fingerprint=user-dave');
       const resGet = await handleWebAuthn({ request: reqGet, env: {} });
@@ -254,6 +385,19 @@ describe('WebAuthn FIDO2 Level 3 Server-Side Engine Suite', () => {
 
       const authDataBytes = new Uint8Array(37);
       authDataBytes[32] = 0x00; // UP not set
+      authDataBytes[36] = 2;
+
+      const rawClientDataBytes = new TextEncoder().encode(authClientData);
+      const clientDataHash = await crypto.subtle.digest('SHA-256', rawClientDataBytes);
+      const signedData = new Uint8Array(authDataBytes.length + 32);
+      signedData.set(authDataBytes, 0);
+      signedData.set(new Uint8Array(clientDataHash), authDataBytes.length);
+
+      const rawSignature = await crypto.subtle.sign(
+        { name: 'ECDSA', hash: 'SHA-256' },
+        daveKeypair.privateKey,
+        signedData
+      );
 
       const reqVerify = new Request('https://aetheris.pages.dev/api/webauthn', {
         method: 'POST',
@@ -264,6 +408,7 @@ describe('WebAuthn FIDO2 Level 3 Server-Side Engine Suite', () => {
           credentialId: 'cred-dave-ecdsa',
           clientDataJSON: authClientData,
           authenticatorData: bufferToBase64Url(authDataBytes),
+          signature: bufferToBase64Url(rawSignature),
         }),
       });
 
@@ -274,19 +419,51 @@ describe('WebAuthn FIDO2 Level 3 Server-Side Engine Suite', () => {
     });
 
     it('rejects assertion when signCount fails to advance (replay protection)', async () => {
-      const reqGet = new Request('https://aetheris.pages.dev/api/webauthn?action=challenge&fingerprint=user-dave');
-      const resGet = await handleWebAuthn({ request: reqGet, env: {} });
-      const { challenge } = await resGet.json();
+      // First, do a successful verify with counter = 10
+      const reqGet1 = new Request('https://aetheris.pages.dev/api/webauthn?action=challenge&fingerprint=user-dave');
+      const resGet1 = await handleWebAuthn({ request: reqGet1, env: {} });
+      const { challenge: c1 } = await resGet1.json();
 
-      const authClientData = JSON.stringify({
-        type: 'webauthn.get',
-        challenge,
-        origin: 'https://aetheris.pages.dev',
+      const cd1 = JSON.stringify({ type: 'webauthn.get', challenge: c1, origin: 'https://aetheris.pages.dev' });
+      const h1 = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(cd1));
+      const ad1 = new Uint8Array(37);
+      ad1[32] = 0x01;
+      ad1[36] = 10;
+      const sd1 = new Uint8Array(ad1.length + 32);
+      sd1.set(ad1, 0);
+      sd1.set(new Uint8Array(h1), ad1.length);
+      const sig1 = await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, daveKeypair.privateKey, sd1);
+
+      await handleWebAuthn({
+        request: new Request('https://aetheris.pages.dev/api/webauthn', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'verify',
+            fingerprint: 'user-dave',
+            credentialId: 'cred-dave-ecdsa',
+            clientDataJSON: cd1,
+            authenticatorData: bufferToBase64Url(ad1),
+            signature: bufferToBase64Url(sig1),
+          }),
+        }),
+        env: {},
       });
 
-      const authDataBytes = new Uint8Array(37);
-      authDataBytes[32] = 0x01;
-      authDataBytes[36] = 1; // signCount = 1 <= current counter (1)
+      // Now attempt a second assertion with counter = 10 (did not advance past 10!)
+      const reqGet2 = new Request('https://aetheris.pages.dev/api/webauthn?action=challenge&fingerprint=user-dave');
+      const resGet2 = await handleWebAuthn({ request: reqGet2, env: {} });
+      const { challenge: c2 } = await resGet2.json();
+
+      const cd2 = JSON.stringify({ type: 'webauthn.get', challenge: c2, origin: 'https://aetheris.pages.dev' });
+      const h2 = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(cd2));
+      const ad2 = new Uint8Array(37);
+      ad2[32] = 0x01;
+      ad2[36] = 10; // same counter <= 10
+      const sd2 = new Uint8Array(ad2.length + 32);
+      sd2.set(ad2, 0);
+      sd2.set(new Uint8Array(h2), ad2.length);
+      const sig2 = await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, daveKeypair.privateKey, sd2);
 
       const reqVerify = new Request('https://aetheris.pages.dev/api/webauthn', {
         method: 'POST',
@@ -295,8 +472,9 @@ describe('WebAuthn FIDO2 Level 3 Server-Side Engine Suite', () => {
           action: 'verify',
           fingerprint: 'user-dave',
           credentialId: 'cred-dave-ecdsa',
-          clientDataJSON: authClientData,
-          authenticatorData: bufferToBase64Url(authDataBytes),
+          clientDataJSON: cd2,
+          authenticatorData: bufferToBase64Url(ad2),
+          signature: bufferToBase64Url(sig2),
         }),
       });
 

@@ -78,15 +78,6 @@ export interface RLNShare {
   nullifier: string;
 }
 
-export interface SlashingProof {
-  breachedEpoch: string;
-  nullifier: string;
-  extractedSecretKey: string;
-  share1: { x: string; y: string };
-  share2: { x: string; y: string };
-  verified: boolean;
-}
-
 export interface RateLimitBreachVerification {
   breachedEpoch: string;
   nullifier: string;
@@ -94,6 +85,12 @@ export interface RateLimitBreachVerification {
   share1: { x: string; y: string };
   share2: { x: string; y: string };
 }
+
+/**
+ * SlashingProof represents cryptographic verification of rate-limit double-broadcast
+ * without exposing or transmitting private identity keys.
+ */
+export type SlashingProof = RateLimitBreachVerification;
 
 /**
  * Rate-Limiting Nullifier (ZK-RLN) Generator & Lagrange Interpolator
@@ -166,52 +163,5 @@ export class ZKRLN {
       epoch,
       nullifier: this.computeNullifier(a0),
     };
-  }
-
-  /**
-   * @internal Internal cryptographic regression testing only.
-   * NEVER expose this method to network relays, client sockets, or public APIs.
-   */
-  static __internal_test_extractSecretFromViolation(share1: RLNShare, share2: RLNShare): SlashingProof {
-    if (share1.epoch !== share2.epoch) {
-      throw new Error("Shares belong to different epochs; no rate limit breach occurred");
-    }
-    if (share1.nullifier !== share2.nullifier) {
-      throw new Error("Shares belong to different identities");
-    }
-
-    const x1 = BigInt('0x' + share1.x);
-    const y1 = BigInt('0x' + share1.y);
-    const x2 = BigInt('0x' + share2.x);
-    const y2 = BigInt('0x' + share2.y);
-
-    if (x1 === x2) {
-      throw new Error("Identical messages; rate limit violation requires distinct messages");
-    }
-
-    const dy = Field.sub(y2, y1);
-    const dx = Field.sub(x2, x1);
-    const a1 = Field.div(dy, dx);
-    const a0 = Field.sub(y1, Field.mul(a1, x1));
-
-    const extractedSecretHex = a0.toString(16).padStart(64, '0');
-    const reconstructedNullifier = this.computeNullifier(a0);
-    const verified = constantTimeHexEqual(reconstructedNullifier, share1.nullifier);
-
-    return {
-      breachedEpoch: share1.epoch,
-      nullifier: share1.nullifier,
-      extractedSecretKey: extractedSecretHex,
-      share1: { x: share1.x, y: share1.y },
-      share2: { x: share2.x, y: share2.y },
-      verified,
-    };
-  }
-
-  /**
-   * @deprecated Use verifyRateLimitBreach() instead. extractSecretFromViolation is deprecated to prevent secret key leakage.
-   */
-  static extractSecretFromViolation(share1: RLNShare, share2: RLNShare): SlashingProof {
-    return this.__internal_test_extractSecretFromViolation(share1, share2);
   }
 }

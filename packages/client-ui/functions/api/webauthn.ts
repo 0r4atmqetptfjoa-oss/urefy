@@ -1,19 +1,17 @@
 /**
  * Cloudflare Pages Function: /api/webauthn
  * Complete Server-Side WebAuthn Level 3 Passkey Registration & Assertion Verification Engine.
- * Provides challenge issuance, attestation credential storage, and signature verification via Web Crypto API.
+ * Provides challenge issuance, attestation credential storage (Cloudflare D1),
+ * KV challenge tracking with TTL, and mandatory Web Crypto signature verification.
  */
 
-interface Env {
-  DB?: any;
-  KV_SESSIONS?: any;
-}
+import { Env, getD1Database, getKVStore } from './_db.js';
 
-// In-memory challenge cache for rapid verification (PoP edge memory)
+// In-memory challenge cache for rapid verification (PoP edge memory fallback)
 const challengeStore = new Map<string, { challenge: string; timestamp: number }>();
 const CHALLENGE_TTL_MS = 300000; // 5 minutes
 
-// In-memory credential registry fallback if D1 table is not yet migrated
+// In-memory credential registry fallback if D1 table is not yet bound
 const memoryCredentialStore = new Map<string, {
   credentialId: string;
   fingerprint: string;
@@ -21,6 +19,11 @@ const memoryCredentialStore = new Map<string, {
   counter: number;
   createdAt: number;
 }>();
+
+export function resetWebAuthnMemoryStore(): void {
+  challengeStore.clear();
+  memoryCredentialStore.clear();
+}
 
 function base64UrlToBuffer(base64url: string): ArrayBuffer {
   let base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
@@ -87,8 +90,13 @@ export function derToRawSignature(der: Uint8Array): Uint8Array {
 
 /**
  * Parses or imports a WebAuthn P-256 public key into a CryptoKey for verification.
+ * Accepts JWK object, JSON-stringified JWK, or base64url-encoded SPKI DER buffer.
  */
 export async function importWebAuthnPublicKey(rawKey: any): Promise<CryptoKey> {
+  if (!rawKey || rawKey === 'fido2-attested-credential') {
+    throw new Error('Missing or invalid public key material');
+  }
+
   let jwk: JsonWebKey;
   if (typeof rawKey === 'string') {
     try {
@@ -107,6 +115,10 @@ export async function importWebAuthnPublicKey(rawKey: any): Promise<CryptoKey> {
     jwk = rawKey;
   }
 
+  if (!jwk.x || !jwk.y) {
+    throw new Error('JWK missing elliptic curve coordinates (x, y)');
+  }
+
   return await crypto.subtle.importKey(
     'jwk',
     {
@@ -122,7 +134,181 @@ export async function importWebAuthnPublicKey(rawKey: any): Promise<CryptoKey> {
   );
 }
 
-export async function onRequest(context: { request: Request; env: Env }): Promise<Response> {
+// ─── STORAGE LAYER: D1 & KV HELPERS WITH MEMORY FALLBACK ────────────────────
+
+async function saveChallenge(env: Env | undefined, fingerprint: string, challenge: string): Promise<void> {
+  // Always update in-memory cache for ultra-fast local isolate lookup
+  challengeStore.set(fingerprint, { challenge, timestamp: Date.now() });
+
+  const kv = getKVStore(env) || env?.KV_SESSIONS;
+  if (kv) {
+    try {
+      await kv.put(`webauthn_challenge:${fingerprint}`, challenge, {
+        expirationTtl: 300, // 5 minutes TTL
+      });
+    } catch (e) {
+      console.warn('[WebAuthn] KV saveChallenge error:', e);
+    }
+  }
+}
+
+async function getChallenge(env: Env | undefined, fingerprint: string): Promise<string | null> {
+  const kv = getKVStore(env) || env?.KV_SESSIONS;
+  if (kv) {
+    try {
+      const kvVal = await kv.get(`webauthn_challenge:${fingerprint}`);
+      if (kvVal) return kvVal;
+    } catch (e) {
+      console.warn('[WebAuthn] KV getChallenge fallback to memory:', e);
+    }
+  }
+
+  const cached = challengeStore.get(fingerprint);
+  if (cached && Date.now() - cached.timestamp <= CHALLENGE_TTL_MS) {
+    return cached.challenge;
+  }
+  return null;
+}
+
+async function deleteChallenge(env: Env | undefined, fingerprint: string): Promise<void> {
+  challengeStore.delete(fingerprint);
+  const kv = getKVStore(env) || env?.KV_SESSIONS;
+  if (kv) {
+    try {
+      await kv.delete(`webauthn_challenge:${fingerprint}`);
+    } catch (_) {}
+  }
+}
+
+async function saveCredential(
+  env: Env | undefined,
+  cred: {
+    credentialId: string;
+    fingerprint: string;
+    publicKey: string;
+    counter: number;
+    transports?: string;
+    createdAt: number;
+  }
+): Promise<void> {
+  memoryCredentialStore.set(cred.credentialId, {
+    credentialId: cred.credentialId,
+    fingerprint: cred.fingerprint,
+    publicKey: cred.publicKey,
+    counter: cred.counter,
+    createdAt: cred.createdAt,
+  });
+
+  const db = getD1Database(env);
+  if (db) {
+    try {
+      await db.prepare(
+        `INSERT OR REPLACE INTO webauthn_credentials (credential_id, fingerprint, public_key_spki, algorithm, sign_count, transports, created_at)
+         VALUES (?, ?, ?, 'ES256', ?, ?, ?)`
+      )
+        .bind(
+          cred.credentialId,
+          cred.fingerprint,
+          cred.publicKey,
+          cred.counter,
+          cred.transports || null,
+          cred.createdAt
+        )
+        .run();
+    } catch (e) {
+      console.warn('[WebAuthn] D1 saveCredential fallback to memory:', e);
+    }
+  }
+}
+
+async function getCredential(
+  env: Env | undefined,
+  credentialId: string
+): Promise<{ credentialId: string; fingerprint: string; publicKey: string; counter: number } | null> {
+  const db = getD1Database(env);
+  if (db) {
+    try {
+      const row = await db.prepare(
+        `SELECT credential_id, fingerprint, public_key_spki, sign_count FROM webauthn_credentials WHERE credential_id = ?`
+      )
+        .bind(credentialId)
+        .first<{ credential_id: string; fingerprint: string; public_key_spki: string; sign_count: number }>();
+
+      if (row) {
+        return {
+          credentialId: row.credential_id,
+          fingerprint: row.fingerprint,
+          publicKey: row.public_key_spki,
+          counter: Number(row.sign_count || 0),
+        };
+      }
+    } catch (e) {
+      console.warn('[WebAuthn] D1 getCredential fallback to memory:', e);
+    }
+  }
+
+  const mem = memoryCredentialStore.get(credentialId);
+  return mem || null;
+}
+
+async function updateCredentialCounter(
+  env: Env | undefined,
+  credentialId: string,
+  newCounter: number
+): Promise<void> {
+  const mem = memoryCredentialStore.get(credentialId);
+  if (mem) {
+    mem.counter = newCounter;
+  }
+
+  const db = getD1Database(env);
+  if (db) {
+    try {
+      await db.prepare(
+        `UPDATE webauthn_credentials SET sign_count = ? WHERE credential_id = ?`
+      )
+        .bind(newCounter, credentialId)
+        .run();
+    } catch (e) {
+      console.warn('[WebAuthn] D1 updateCredentialCounter error:', e);
+    }
+  }
+}
+
+async function listCredentialsByFingerprint(env: Env | undefined, fingerprint: string): Promise<string[]> {
+  const creds = new Set<string>();
+
+  const db = getD1Database(env);
+  if (db) {
+    try {
+      const result = await db.prepare(
+        `SELECT credential_id FROM webauthn_credentials WHERE fingerprint = ?`
+      )
+        .bind(fingerprint)
+        .all<{ credential_id: string }>();
+
+      if (result && Array.isArray(result.results)) {
+        for (const row of result.results) {
+          if (row.credential_id) creds.add(row.credential_id);
+        }
+      }
+    } catch (e) {
+      console.warn('[WebAuthn] D1 listCredentials fallback to memory:', e);
+    }
+  }
+
+  for (const [id, c] of memoryCredentialStore.entries()) {
+    if (c.fingerprint === fingerprint) {
+      creds.add(id);
+    }
+  }
+
+  return Array.from(creds);
+}
+
+// ─── MAIN HANDLER ───────────────────────────────────────────────────────────
+
+export async function onRequest(context: { request: Request; env?: Env }): Promise<Response> {
   const { request, env } = context;
   const url = new URL(request.url);
 
@@ -140,7 +326,7 @@ export async function onRequest(context: { request: Request; env: Env }): Promis
   }
 
   try {
-    // ─── GET: Issue Challenge ──────────────────────────────────────────────────
+    // ─── GET: Issue Challenge or List Credentials ──────────────────────────────
     if (request.method === 'GET') {
       const action = url.searchParams.get('action') || 'challenge';
       const fingerprint = url.searchParams.get('fingerprint') || 'anonymous_node';
@@ -150,12 +336,13 @@ export async function onRequest(context: { request: Request; env: Env }): Promis
         crypto.getRandomValues(challengeBytes);
         const challenge = bufferToBase64Url(challengeBytes);
 
-        // Store challenge with TTL
-        challengeStore.set(fingerprint, { challenge, timestamp: Date.now() });
+        // Store challenge with TTL (KV + Edge Memory)
+        await saveChallenge(env, fingerprint, challenge);
 
-        // Clean expired
+        // Clean expired in-memory challenges
+        const now = Date.now();
         for (const [k, v] of challengeStore.entries()) {
-          if (Date.now() - v.timestamp > CHALLENGE_TTL_MS) {
+          if (now - v.timestamp > CHALLENGE_TTL_MS) {
             challengeStore.delete(k);
           }
         }
@@ -172,13 +359,7 @@ export async function onRequest(context: { request: Request; env: Env }): Promis
       }
 
       if (action === 'credentials') {
-        // List registered credential IDs for a given fingerprint (without exposing keys)
-        const creds: string[] = [];
-        for (const [id, c] of memoryCredentialStore.entries()) {
-          if (c.fingerprint === fingerprint) {
-            creds.push(id);
-          }
-        }
+        const creds = await listCredentialsByFingerprint(env, fingerprint);
         return new Response(
           JSON.stringify({ success: true, credentials: creds }),
           { status: 200, headers: corsHeaders }
@@ -193,8 +374,8 @@ export async function onRequest(context: { request: Request; env: Env }): Promis
 
     // ─── POST: Register or Verify ──────────────────────────────────────────────
     if (request.method === 'POST') {
-      const body = await request.json() as any;
-      const { action, fingerprint, credentialId, clientDataJSON } = body;
+      const body = (await request.json()) as any;
+      const { action, fingerprint, credentialId, clientDataJSON } = body || {};
 
       if (!action || !fingerprint) {
         return new Response(
@@ -203,16 +384,18 @@ export async function onRequest(context: { request: Request; env: Env }): Promis
         );
       }
 
-      // Check challenge
-      const cached = challengeStore.get(fingerprint);
-      if (!cached || Date.now() - cached.timestamp > CHALLENGE_TTL_MS) {
+      // Check active challenge
+      const expectedChallenge = await getChallenge(env, fingerprint);
+      if (!expectedChallenge) {
         return new Response(
           JSON.stringify({ success: false, error: 'WebAuthn challenge expired or not found. Please request a new challenge.' }),
           { status: 401, headers: corsHeaders }
         );
       }
 
+      // ────────────────────────────────────────────────────────────────────────
       // 1. Action: Register Passkey
+      // ────────────────────────────────────────────────────────────────────────
       if (action === 'register') {
         if (!credentialId || !clientDataJSON) {
           return new Response(
@@ -221,11 +404,36 @@ export async function onRequest(context: { request: Request; env: Env }): Promis
           );
         }
 
+        // Public Key MUST be provided and valid (eliminates fake 'fido2-attested-credential' bypass)
+        const rawPublicKey = body.publicKey || body.jwk;
+        if (!rawPublicKey || rawPublicKey === 'fido2-attested-credential') {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: 'A valid P-256 public key (JWK or SPKI) is required for registration',
+            }),
+            { status: 400, headers: corsHeaders }
+          );
+        }
+
+        let serializedPublicKey: string;
+        try {
+          await importWebAuthnPublicKey(rawPublicKey);
+          serializedPublicKey = typeof rawPublicKey === 'string' ? rawPublicKey : JSON.stringify(rawPublicKey);
+        } catch (pkErr: any) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: `Invalid WebAuthn public key: ${pkErr?.message || 'Unsupported key material'}`,
+            }),
+            { status: 400, headers: corsHeaders }
+          );
+        }
+
         // Validate clientDataJSON
         let parsedClientData: any;
-        let rawClientDataStr = '';
         try {
-          rawClientDataStr = typeof clientDataJSON === 'string'
+          const rawClientDataStr = typeof clientDataJSON === 'string'
             ? (clientDataJSON.includes('{') ? clientDataJSON : new TextDecoder().decode(base64UrlToBuffer(clientDataJSON)))
             : '';
           parsedClientData = JSON.parse(rawClientDataStr);
@@ -244,25 +452,25 @@ export async function onRequest(context: { request: Request; env: Env }): Promis
         }
 
         // Verify challenge strictly matches
-        if (parsedClientData.challenge !== cached.challenge) {
+        if (parsedClientData.challenge !== expectedChallenge) {
           return new Response(
             JSON.stringify({ success: false, error: 'WebAuthn challenge mismatch during registration' }),
             { status: 401, headers: corsHeaders }
           );
         }
 
-        // Store credential in edge registry
-        const publicKey = body.publicKey || body.jwk || body.attestationObject || 'fido2-attested-credential';
-        memoryCredentialStore.set(credentialId, {
+        // Persist credential in D1 & Edge registry
+        await saveCredential(env, {
           credentialId,
           fingerprint,
-          publicKey,
+          publicKey: serializedPublicKey,
           counter: 0,
+          transports: body.transports ? JSON.stringify(body.transports) : undefined,
           createdAt: Date.now(),
         });
 
-        // Clear used challenge
-        challengeStore.delete(fingerprint);
+        // Clear used challenge to prevent reuse
+        await deleteChallenge(env, fingerprint);
 
         return new Response(
           JSON.stringify({
@@ -285,8 +493,19 @@ export async function onRequest(context: { request: Request; env: Env }): Promis
           );
         }
 
-        // Look up registered credential
-        const cred = memoryCredentialStore.get(credentialId);
+        // Signature and authenticatorData are MANDATORY. Never bypass!
+        if (!body.signature || !body.authenticatorData) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: 'Missing mandatory cryptographic signature or authenticatorData for assertion verification',
+            }),
+            { status: 401, headers: corsHeaders }
+          );
+        }
+
+        // Look up registered credential (D1 + Edge memory fallback)
+        const cred = await getCredential(env, credentialId);
         if (!cred || cred.fingerprint !== fingerprint) {
           return new Response(
             JSON.stringify({ success: false, error: 'Credential not registered for this sovereign fingerprint' }),
@@ -321,112 +540,120 @@ export async function onRequest(context: { request: Request; env: Env }): Promis
         }
 
         // 2. Verify challenge strictly matches
-        if (parsedClientData.challenge !== cached.challenge) {
+        if (parsedClientData.challenge !== expectedChallenge) {
           return new Response(
             JSON.stringify({ success: false, error: 'WebAuthn challenge mismatch or replay detected' }),
             { status: 401, headers: corsHeaders }
           );
         }
 
-        // 3. Verify Authenticator Data (flags, RP ID hash, sign counter)
-        let authDataBytes: Uint8Array | null = null;
+        // 3. Verify Authenticator Data (flags, sign counter)
+        let authDataBytes: Uint8Array;
         let signCount = 0;
-        if (body.authenticatorData) {
-          try {
-            const buf = typeof body.authenticatorData === 'string'
-              ? base64UrlToBuffer(body.authenticatorData)
-              : body.authenticatorData;
-            authDataBytes = new Uint8Array(buf);
-          } catch (_) {
-            return new Response(
-              JSON.stringify({ success: false, error: 'Malformed authenticatorData' }),
-              { status: 400, headers: corsHeaders }
-            );
-          }
+        try {
+          const buf = typeof body.authenticatorData === 'string'
+            ? base64UrlToBuffer(body.authenticatorData)
+            : body.authenticatorData;
+          authDataBytes = new Uint8Array(buf);
+        } catch (_) {
+          return new Response(
+            JSON.stringify({ success: false, error: 'Malformed authenticatorData' }),
+            { status: 400, headers: corsHeaders }
+          );
+        }
 
-          if (authDataBytes.length < 37) {
-            return new Response(
-              JSON.stringify({ success: false, error: 'authenticatorData too short (< 37 bytes)' }),
-              { status: 400, headers: corsHeaders }
-            );
-          }
+        if (authDataBytes.length < 37) {
+          return new Response(
+            JSON.stringify({ success: false, error: 'authenticatorData too short (< 37 bytes)' }),
+            { status: 400, headers: corsHeaders }
+          );
+        }
 
-          // Flags check: Byte 32 -> User Presence (UP bit 0) MUST be set
-          const flags = authDataBytes[32];
-          const userPresent = (flags & 0x01) !== 0;
-          if (!userPresent) {
-            return new Response(
-              JSON.stringify({ success: false, error: 'User Presence (UP) flag not set by authenticator' }),
-              { status: 401, headers: corsHeaders }
-            );
-          }
+        // Flags check: Byte 32 -> User Presence (UP bit 0) MUST be set
+        const flags = authDataBytes[32];
+        const userPresent = (flags & 0x01) !== 0;
+        if (!userPresent) {
+          return new Response(
+            JSON.stringify({ success: false, error: 'User Presence (UP) flag not set by authenticator' }),
+            { status: 401, headers: corsHeaders }
+          );
+        }
 
-          // Sign Count check: Bytes 33..36 (32-bit big-endian unsigned integer)
-          signCount =
-            ((authDataBytes[33] << 24) >>> 0) +
-            ((authDataBytes[34] << 16) >>> 0) +
-            ((authDataBytes[35] << 8) >>> 0) +
-            authDataBytes[36];
+        // Sign Count check: Bytes 33..36 (32-bit big-endian unsigned integer)
+        signCount =
+          ((authDataBytes[33] << 24) >>> 0) +
+          ((authDataBytes[34] << 16) >>> 0) +
+          ((authDataBytes[35] << 8) >>> 0) +
+          authDataBytes[36];
 
-          // Cloned authenticator / Replay protection: if counter was non-zero and hasn't increased, fail
-          if (cred.counter > 0 && signCount > 0 && signCount <= cred.counter) {
-            return new Response(
-              JSON.stringify({
-                success: false,
-                error: `Potential replay attack: authenticator signCount (${signCount}) did not advance past ${cred.counter}`,
-              }),
-              { status: 403, headers: corsHeaders }
-            );
-          }
+        // Cloned authenticator / Replay protection: if counter was non-zero and hasn't increased, fail
+        if (cred.counter > 0 && signCount > 0 && signCount <= cred.counter) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: `Potential replay attack: authenticator signCount (${signCount}) did not advance past ${cred.counter}`,
+            }),
+            { status: 403, headers: corsHeaders }
+          );
         }
 
         // 4. Verify Cryptographic Signature over (authenticatorData || SHA-256(clientDataJSON))
-        if (body.signature && authDataBytes && typeof cred.publicKey === 'object') {
-          try {
-            const cryptoKey = await importWebAuthnPublicKey(cred.publicKey);
-            const clientDataHash = await crypto.subtle.digest('SHA-256', rawClientDataBytes);
-
-            // signedData = authenticatorData || clientDataHash
-            const signedData = new Uint8Array(authDataBytes.length + 32);
-            signedData.set(authDataBytes, 0);
-            signedData.set(new Uint8Array(clientDataHash), authDataBytes.length);
-
-            const rawSigBuf = typeof body.signature === 'string'
-              ? base64UrlToBuffer(body.signature)
-              : body.signature;
-            const rawSigBytes = derToRawSignature(new Uint8Array(rawSigBuf));
-
-            const isSigValid = await crypto.subtle.verify(
-              { name: 'ECDSA', hash: 'SHA-256' },
-              cryptoKey,
-              rawSigBytes,
-              signedData
-            );
-
-            if (!isSigValid) {
-              return new Response(
-                JSON.stringify({ success: false, error: 'WebAuthn assertion signature verification failed' }),
-                { status: 401, headers: corsHeaders }
-              );
-            }
-          } catch (sigErr: any) {
-            return new Response(
-              JSON.stringify({ success: false, error: `WebAuthn signature verification error: ${sigErr.message}` }),
-              { status: 401, headers: corsHeaders }
-            );
-          }
+        let cryptoKey: CryptoKey;
+        try {
+          cryptoKey = await importWebAuthnPublicKey(cred.publicKey);
+        } catch (keyErr: any) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: `Failed to import registered public key: ${keyErr?.message || 'Invalid key'}`,
+            }),
+            { status: 500, headers: corsHeaders }
+          );
         }
 
-        // 5. Update counter & consume challenge
-        cred.counter = signCount > 0 ? signCount : cred.counter + 1;
-        challengeStore.delete(fingerprint);
+        const clientDataHash = await crypto.subtle.digest('SHA-256', rawClientDataBytes);
+        const signedData = new Uint8Array(authDataBytes.length + 32);
+        signedData.set(authDataBytes, 0);
+        signedData.set(new Uint8Array(clientDataHash), authDataBytes.length);
+
+        const rawSigBuf = typeof body.signature === 'string'
+          ? base64UrlToBuffer(body.signature)
+          : body.signature;
+        const rawSigBytes = derToRawSignature(new Uint8Array(rawSigBuf));
+
+        let isSigValid = false;
+        try {
+          isSigValid = await crypto.subtle.verify(
+            { name: 'ECDSA', hash: 'SHA-256' },
+            cryptoKey,
+            rawSigBytes,
+            signedData
+          );
+        } catch (sigErr: any) {
+          return new Response(
+            JSON.stringify({ success: false, error: `WebAuthn signature verification error: ${sigErr.message}` }),
+            { status: 401, headers: corsHeaders }
+          );
+        }
+
+        if (!isSigValid) {
+          return new Response(
+            JSON.stringify({ success: false, error: 'WebAuthn assertion signature verification failed' }),
+            { status: 401, headers: corsHeaders }
+          );
+        }
+
+        // 5. Update counter in D1/memory & consume challenge
+        const updatedCounter = signCount > 0 ? signCount : cred.counter + 1;
+        await updateCredentialCounter(env, credentialId, updatedCounter);
+        await deleteChallenge(env, fingerprint);
 
         return new Response(
           JSON.stringify({
             success: true,
             authenticated: true,
             verifiedAt: Date.now(),
-            counter: cred.counter,
+            counter: updatedCounter,
             message: 'FIDO2 Level 3 Assertion cryptographically verified on Sovereign Edge.',
           }),
           { status: 200, headers: corsHeaders }
