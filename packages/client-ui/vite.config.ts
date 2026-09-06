@@ -116,6 +116,43 @@ export default defineConfig({
           ) {
             return 'advanced-viz';
           }
+
+          // Granular Performance Chunks (Faza 5)
+          if (
+            normalized.includes('/src/composer-hybrid') ||
+            normalized.includes('/src/draft-autosave') ||
+            normalized.includes('/src/autocomplete') ||
+            normalized.includes('/src/crosspost') ||
+            normalized.includes('/src/composer')
+          ) {
+            return 'composer-suite';
+          }
+          if (normalized.includes('/src/sovereign-dm')) return 'sovereign-dm';
+          if (normalized.includes('/src/command-rail-v2') || normalized.includes('/src/command-rail')) return 'command-rail';
+          if (normalized.includes('/src/post-detail') || normalized.includes('/src/thread-discussion') || normalized.includes('/src/threads')) return 'thread-detail';
+          if (
+            normalized.includes('/src/wot-slider') ||
+            normalized.includes('/src/timeline-scrubber') ||
+            normalized.includes('/src/pip-float') ||
+            normalized.includes('/src/diff-viewer') ||
+            normalized.includes('/src/cyber-defense-hub')
+          ) {
+            return 'aux-ui-tools';
+          }
+          if (normalized.includes('/src/collections') || normalized.includes('/src/download-manager')) return 'collections-data';
+          if (normalized.includes('/src/awards') || normalized.includes('/src/sound-effects') || normalized.includes('/src/reactions')) return 'engagement-system';
+          if (
+            normalized.includes('/src/web-workers') ||
+            normalized.includes('/src/virtual-scroll') ||
+            normalized.includes('/src/pwa-service') ||
+            normalized.includes('/src/view-transitions')
+          ) {
+            return 'pwa-runtime';
+          }
+          if (normalized.includes('/src/onboarding') || normalized.includes('/src/first-time-onboarding')) return 'onboarding-flow';
+          if (normalized.includes('/src/settings-view') || normalized.includes('/src/profile/') || normalized.includes('/src/profile-card') || normalized.includes('/src/profile-view')) return 'user-profile-views';
+          if (normalized.includes('/src/explore-view') || normalized.includes('/src/hashtag-explorer')) return 'explore-hub';
+          if (normalized.includes('/src/stories') || normalized.includes('/src/media-player') || normalized.includes('/src/zen-mode')) return 'media-stories';
         },
       },
     },
