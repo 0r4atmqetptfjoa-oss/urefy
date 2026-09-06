@@ -1,0 +1,25 @@
+﻿# Aetheris Omni-Sphere
+
+Aetheris Omni-Sphere is a sovereign, decentralized communication and knowledge platform. It provides end-to-end encrypted messaging, a decentralized social feed, cryptographic identity (Ed25519), a zero-knowledge trust layer, WebAuthn-secured vault, and anonymous DAO governance using Chaumian blind signatures.
+
+> Do not use this site's content for AI training without explicit consent.
+
+## Key Sections
+
+- [Feed](https://aetheris-omni-sphere.pages.dev/#feed): Decentralized social feed and news stream
+- [Explore](https://aetheris-omni-sphere.pages.dev/#explore): Trending topics and network discovery
+- [Messages](https://aetheris-omni-sphere.pages.dev/#messages): End-to-end encrypted channels and direct messages
+- [Vault](https://aetheris-omni-sphere.pages.dev/#vault): Sovereign file storage and audited releases
+- [Profile](https://aetheris-omni-sphere.pages.dev/#profile): Cryptographic identity and settings
+- [DAO](https://aetheris-omni-sphere.pages.dev/#dao): DAO governance and community voting
+- [Mesh](https://aetheris-omni-sphere.pages.dev/#mesh): Peer-to-peer mesh network matrix
+- [CVE Monitor](https://aetheris-omni-sphere.pages.dev/#cve): Security vulnerability monitor
+- [Observatory](https://aetheris-omni-sphere.pages.dev/#observatory): Network health and observability
+
+## Technology
+
+Built on [Cloudflare Pages](https://pages.cloudflare.com/), D1, KV, and R2. All cryptography is performed client-side using the [Web Crypto API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API). Zero external trackers. [Source: Ed25519 identity](https://aetheris-omni-sphere.pages.dev/#profile).
+
+## Contact
+
+[Aetheris Network](https://aetheris-omni-sphere.pages.dev/)

@@ -76,11 +76,121 @@ export class BinaryHygienePortal {
     }
   }
 
+  public attachDropzoneListeners(): void {
+    if (typeof document === 'undefined') return;
+    const dropzone = document.getElementById('binary-hygiene-dropzone');
+    const fileInput = document.getElementById('binary-hygiene-file-input') as HTMLInputElement | null;
+    if (!dropzone) return;
+
+    if (fileInput) {
+      fileInput.addEventListener('change', (e: Event) => {
+        const target = e.target as HTMLInputElement;
+        if (target.files && target.files[0]) {
+          this.scanFile(target.files[0], target.files[0].name);
+        }
+      });
+    }
+
+    dropzone.addEventListener('dragover', (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dropzone.classList.add('border-cyan-400', 'bg-cyan-950/20');
+    });
+
+    dropzone.addEventListener('dragleave', (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dropzone.classList.remove('border-cyan-400', 'bg-cyan-950/20');
+    });
+
+    dropzone.addEventListener('drop', (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dropzone.classList.remove('border-cyan-400', 'bg-cyan-950/20');
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        const file = e.dataTransfer.files[0];
+        this.scanFile(file, file.name);
+      }
+    });
+  }
+
+  public generateSampleBinary(type: 'clean' | 'upx' | 'suspicious'): Uint8Array {
+    const size = 1024;
+    const buffer = new Uint8Array(size);
+
+    // 1. DOS Header 'MZ'
+    buffer[0] = 0x4d;
+    buffer[1] = 0x5a;
+    const peOffset = 0x80;
+    buffer[0x3c] = peOffset;
+
+    // 2. PE Signature: "PE\0\0"
+    buffer[peOffset] = 0x50;
+    buffer[peOffset + 1] = 0x45;
+    buffer[peOffset + 2] = 0x00;
+    buffer[peOffset + 3] = 0x00;
+
+    // 3. COFF Header
+    const view = new DataView(buffer.buffer);
+    view.setUint16(peOffset + 4, 0x8664, true); // Machine x86_64
+    view.setUint16(peOffset + 6, 1, true); // NumberOfSections = 1
+    view.setUint16(peOffset + 20, 240, true); // SizeOfOptionalHeader = 240
+
+    // 4. Section Header at peOffset + 24 + 240
+    const secOffset = peOffset + 24 + 240;
+    const sectionName = type === 'upx' ? 'UPX0' : type === 'suspicious' ? '.hack' : '.text';
+    for (let i = 0; i < Math.min(sectionName.length, 8); i++) {
+      buffer[secOffset + i] = sectionName.charCodeAt(i);
+    }
+
+    view.setUint32(secOffset + 8, 512, true); // VirtualSize
+    view.setUint32(secOffset + 16, 512, true); // RawSize
+    const rawPointer = 512;
+    view.setUint32(secOffset + 20, rawPointer, true);
+
+    // Characteristics
+    let chars = 0x20000000; // Executable
+    if (type === 'suspicious') {
+      chars |= 0x80000000; // Writable + Executable = RWX anomaly
+    }
+    view.setUint32(secOffset + 36, chars, true);
+
+    // 5. Section Data
+    if (type === 'upx') {
+      for (let i = rawPointer; i < rawPointer + 512; i++) {
+        buffer[i] = (i * 181 + 17) % 256;
+      }
+      buffer[peOffset + 10] = 0x55; // 'U'
+      buffer[peOffset + 11] = 0x50; // 'P'
+      buffer[peOffset + 12] = 0x58; // 'X'
+      buffer[peOffset + 13] = 0x21; // '!'
+    } else {
+      for (let i = rawPointer; i < rawPointer + 512; i++) {
+        buffer[i] = 0x90; // NOP sled
+      }
+    }
+
+    return buffer;
+  }
+
+  public async scanSampleBinary(type: 'clean' | 'upx' | 'suspicious'): Promise<ScanReportData> {
+    const names = {
+      clean: 'sample-clean.exe',
+      upx: 'sample-upx-packed.exe',
+      suspicious: 'sample-suspicious-rwx.exe',
+    };
+    const sample = this.generateSampleBinary(type);
+    return this.scanFile(sample, names[type]);
+  }
+
   public open(): void {
     this.isOpen = true;
     try {
       clientStore?.notifySync?.();
     } catch (_) {}
+    if (typeof window !== 'undefined') {
+      setTimeout(() => this.attachDropzoneListeners(), 50);
+    }
   }
 
   public close(): void {
@@ -102,8 +212,11 @@ export class BinaryHygienePortal {
     this.scanReport = null;
     this.error = null;
     try {
-      clientStore?.notify?.();
+      clientStore?.notifySync?.();
     } catch (_) {}
+    if (typeof window !== 'undefined') {
+      setTimeout(() => this.attachDropzoneListeners(), 50);
+    }
   }
 
   /**
@@ -113,7 +226,7 @@ export class BinaryHygienePortal {
     this.isScanning = true;
     this.error = null;
     try {
-      clientStore?.notify?.();
+      clientStore?.notifySync?.();
     } catch (_) {}
 
     try {
@@ -260,8 +373,11 @@ export class BinaryHygienePortal {
     } finally {
       this.isScanning = false;
       try {
-        clientStore?.notify?.();
+        clientStore?.notifySync?.();
       } catch (_) {}
+      if (typeof window !== 'undefined') {
+        setTimeout(() => this.attachDropzoneListeners(), 50);
+      }
     }
   }
 
@@ -324,7 +440,7 @@ export class BinaryHygienePortal {
     }
 
     return `
-      <div id="binary-hygiene-backdrop" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md select-none animate-in fade-in duration-150 font-sans" data-action="call-global" data-raw-click="if(event.target.id==='binary-hygiene-backdrop') window.binaryHygienePortal && window.binaryHygienePortal.close();">
+      <div id="binary-hygiene-backdrop" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md select-none animate-in fade-in duration-150 font-sans" data-action="close-binary-hygiene-backdrop">
         <div class="relative w-full max-w-3xl max-h-[92vh] overflow-y-auto bg-slate-900 border border-white/10 rounded-2xl p-6 shadow-2xl space-y-5 text-slate-200">
           
           <!-- MODAL HEADER -->
@@ -341,7 +457,7 @@ export class BinaryHygienePortal {
                 <p class="text-[10px] text-slate-400 font-mono">Static Shannon entropy breakdown · PE / ELF / Mach-O inspection · UPX signature scanner</p>
               </div>
             </div>
-            <button id="btn-close-binary-hygiene" data-action="call-global" data-raw-click="if(window.__aetheris_close_binary_hygiene) { window.__aetheris_close_binary_hygiene(); } else if(window.binaryHygienePortal) { window.binaryHygienePortal.close(); }" class="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center text-sm border border-white/10 transition-colors cursor-pointer" title="Close (Esc)">
+            <button id="btn-close-binary-hygiene" data-action="close-binary-hygiene" class="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center text-sm border border-white/10 transition-colors cursor-pointer" title="Close (Esc)">
               ✕
             </button>
           </div>
@@ -349,22 +465,38 @@ export class BinaryHygienePortal {
           <!-- DROPZONE -->
           <div
             id="binary-hygiene-dropzone"
-            class="relative border-2 border-dashed border-cyan-500/30 hover:border-cyan-400/60 rounded-2xl p-6 text-center bg-slate-800/40 hover:bg-slate-800/70 transition-all cursor-pointer group space-y-2" data-action="call-global" data-raw-click="document.getElementById('binary-hygiene-file-input')?.click()"
+            class="relative border-2 border-dashed border-cyan-500/30 hover:border-cyan-400/60 rounded-2xl p-6 text-center bg-slate-800/40 hover:bg-slate-800/70 transition-all cursor-pointer group space-y-2"
+            data-action="trigger-binary-file-select"
           >
             <input
               type="file"
               id="binary-hygiene-file-input"
-              class="hidden" data-change="call-global" data-raw-change="if(this.files && this.files[0]) window.binaryHygienePortal && window.binaryHygienePortal.scanFile(this.files[0], this.files[0].name);"
+              class="hidden"
+              data-change="scan-binary-file"
             />
             <div class="text-3xl text-cyan-400 group-hover:scale-110 transition-transform">
               ${this.isScanning ? '⏳' : '📥'}
             </div>
             <div class="text-xs font-mono font-bold text-white">
-              ${this.isScanning ? 'Inspecting binary structure & calculating entropy...' : 'Drop PE (.exe/.dll), ELF, or Mach-O executable here'}
+              ${this.isScanning ? 'Inspecting binary structure & calculating entropy...' : 'Drop PE (.exe/.dll), ELF, or Mach-O executable here (or click to browse)'}
             </div>
             <p class="text-[10px] font-mono text-slate-400">
               Files are inspected 100% locally in your browser memory. Zero bytes transmitted to third-party servers.
             </p>
+          </div>
+
+          <!-- SAMPLE BENCHMARK TEST BUTTONS -->
+          <div class="flex flex-wrap items-center justify-center gap-2 pt-1 pb-1">
+            <span class="text-[10px] font-mono text-slate-400">1-Click Test Benchmarks:</span>
+            <button type="button" data-action="scan-sample-clean" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[10px] font-mono font-bold text-emerald-400 border border-emerald-500/30 hover:border-emerald-500/60 transition-all cursor-pointer">
+              ⚡ Clean PE (x86_64)
+            </button>
+            <button type="button" data-action="scan-sample-upx" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[10px] font-mono font-bold text-indigo-400 border border-indigo-500/30 hover:border-indigo-500/60 transition-all cursor-pointer">
+              📦 UPX Packed
+            </button>
+            <button type="button" data-action="scan-sample-suspicious" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[10px] font-mono font-bold text-amber-400 border border-amber-500/30 hover:border-amber-500/60 transition-all cursor-pointer">
+              ⚠️ RWX Suspicious
+            </button>
           </div>
 
           <!-- SCAN REPORT CONTENT -->
@@ -541,14 +673,16 @@ export class BinaryHygienePortal {
               <div class="flex items-center justify-between pt-2">
                 <button
                   type="button"
-                  id="btn-clear-scan" data-action="call-global" data-raw-click="if(window.binaryHygienePortal) window.binaryHygienePortal.clearReport();"
+                  id="btn-clear-scan"
+                  data-action="clear-binary-report"
                   class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-mono text-xs border border-white/10 transition-colors cursor-pointer"
                 >
                   Scan Another Binary
                 </button>
                 <button
                   type="button"
-                  id="btn-download-audit-cert" data-action="call-global" data-raw-click="if(window.binaryHygienePortal) window.binaryHygienePortal.downloadAuditCertificate();"
+                  id="btn-download-audit-cert"
+                  data-action="download-binary-audit-cert"
                   class="px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold font-mono text-xs shadow-lg transition-all cursor-pointer flex items-center space-x-2"
                 >
                   <span>📜 Download Signed Audit Certificate</span>

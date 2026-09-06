@@ -54,6 +54,7 @@ import { commandRailV2 } from './command-rail-v2.js';
 import { sovereignDM } from './sovereign-dm.js';
 import { sharePostOrCopyLink } from './dry-utils.js';
 import { toastManager } from './toast.js';
+import { sovereignRouter } from './router.js';
 
 // V4 Imports
 import { virtualScroll } from './virtual-scroll.js';
@@ -1504,10 +1505,17 @@ function renderMainStage(): string {
   }
 
   let contentHTML = '';
-  if (isExplore) {
+  const currentRoute = sovereignRouter.route;
+  if (currentRoute === 'explore' || isExplore) {
     contentHTML = exploreView.renderExploreView(clientStore.posts);
-  } else if (isProfile) {
+  } else if (currentRoute === 'profile' || isProfile) {
     contentHTML = profileView.renderProfileView(clientStore.posts, clientStore.keypair.fingerprint);
+  } else if (currentRoute === 'feed') {
+    contentHTML = renderPulseWorkspace();
+  } else if (currentRoute === 'messages') {
+    contentHTML = renderRelaysWorkspace();
+  } else if (currentRoute === 'vault') {
+    contentHTML = renderVaultWorkspace();
   } else if (isChat) {
     contentHTML = renderRelaysWorkspace();
   } else if (isVault) {

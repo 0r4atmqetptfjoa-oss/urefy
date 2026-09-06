@@ -465,6 +465,7 @@ export class PulseActionsEngine {
 
           <button
             type="button"
+            data-action="report-post"
             data-pulse-action="report"
             data-post-id="${postId}"
             class="btn-pulse-report p-2 rounded-full hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"

@@ -1,4 +1,4 @@
-﻿import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { ObsidianMediaPlayer } from '../src/media-player';
 
 describe('ObsidianMediaPlayer — Video Player & Multi-Image Gallery Lightbox', () => {
@@ -8,12 +8,17 @@ describe('ObsidianMediaPlayer — Video Player & Multi-Image Gallery Lightbox', 
     player = new ObsidianMediaPlayer();
   });
 
-  it('should render an Obsidian video card with custom controls', () => {
+  it('should render an Obsidian video card with custom controls and NO native controls attribute', () => {
     const html = player.renderVideoCard('v1', 'https://example.com/video.mp4', 'https://example.com/poster.jpg');
     expect(html).toContain('video-v1');
     expect(html).toContain('data-video-action="toggle-play"');
     expect(html).toContain('data-video-action="toggle-mute"');
     expect(html).toContain('data-video-action="fullscreen"');
+    // Critical: ensure native browser 'controls' attribute is NOT on <video> tag (prevents duplicate control bars)
+    expect(html).not.toMatch(/<video[^>]*\scontrols[\s=>]/i);
+    // Ensure custom scrubber has seek-video action
+    expect(html).toContain('data-action="seek-video"');
+    expect(html).toContain('data-video-id="v1"');
   });
 
   it('should render a mosaic gallery for 1, 2, 3, and 4 images', () => {

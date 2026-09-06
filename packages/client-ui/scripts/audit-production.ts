@@ -406,7 +406,8 @@ function classifySeedOccurrence(relPath: string, line: string): Category {
     relPath === 'transparency-mode.ts' ||
     relPath === 'microsaas-docs-modal.ts' ||
     relPath === 'mobile-performance.ts' ||
-    relPath === 'timeline-scrubber.ts'
+    relPath === 'timeline-scrubber.ts' ||
+    relPath === 'binary-hygiene-portal.ts'
   ) {
     return 'SIMULATION_TOOL';
   }

@@ -137,6 +137,31 @@ export class RelayDurableObject {
           }
         }
 
+        // Restore custom channels if stored
+        const storedChannels = await this.ctx.storage.get<RelayChannel[]>('channels_list');
+        if (storedChannels && Array.isArray(storedChannels)) {
+          for (const ch of storedChannels) {
+            this.channels.set(ch.id, ch);
+          }
+        }
+
+        // Restore messages if stored in DO storage
+        const storedMsgEntries = await this.ctx.storage.list<RelayMessage>({ prefix: 'msg:' });
+        if (storedMsgEntries && storedMsgEntries.size > 0) {
+          for (const [, msg] of storedMsgEntries) {
+            if (!this.channelMessages.has(msg.channelId)) {
+              this.channelMessages.set(msg.channelId, []);
+            }
+            const list = this.channelMessages.get(msg.channelId)!;
+            if (!list.some((m) => m.id === msg.id)) {
+              list.push(msg);
+            }
+          }
+          for (const list of this.channelMessages.values()) {
+            list.sort((a, b) => a.createdAt - b.createdAt);
+          }
+        }
+
         // Setup periodic alarm for pruning old shares if alarm not scheduled
         const currentAlarm = await this.ctx.storage.getAlarm();
         if (currentAlarm === null) {
@@ -272,16 +297,52 @@ export class RelayDurableObject {
     await this.ensureInitialized();
     let session = this.sessions.get(ws);
     if (!session) {
-      session = {
-        ws,
-        currentChannelId: 'relays-general',
-        subscribedChannels: new Set(['relays-general']),
-        authenticated: false,
-        connectedAt: Date.now(),
-        lastPing: Date.now(),
-        tags: new Set(['channel:relays-general']),
-      };
+      let attachment: any = null;
+      if (typeof (ws as any).deserializeAttachment === 'function') {
+        try {
+          attachment = (ws as any).deserializeAttachment();
+        } catch (_) {}
+      }
+
+      if (attachment && typeof attachment === 'object') {
+        session = {
+          ws,
+          fingerprint: attachment.fingerprint,
+          nullifier: attachment.nullifier,
+          role: attachment.role || 'MEMBER',
+          currentChannelId: attachment.currentChannelId || 'relays-general',
+          subscribedChannels: new Set(attachment.subscribedChannels || ['relays-general']),
+          authenticated: Boolean(attachment.authenticated),
+          connectedAt: attachment.connectedAt || Date.now(),
+          lastPing: Date.now(),
+          tags: new Set(attachment.tags || ['channel:relays-general']),
+        };
+      } else {
+        session = {
+          ws,
+          currentChannelId: 'relays-general',
+          subscribedChannels: new Set(['relays-general']),
+          authenticated: false,
+          connectedAt: Date.now(),
+          lastPing: Date.now(),
+          tags: new Set(['channel:relays-general']),
+        };
+      }
       this.sessions.set(ws, session);
+
+      // Restore presence if user was authenticated
+      if (session.fingerprint && !this.presence.has(session.fingerprint)) {
+        this.presence.set(session.fingerprint, {
+          fingerprint: session.fingerprint,
+          nullifier: session.nullifier,
+          role: session.role || 'MEMBER',
+          status: 'online',
+          joinedChannel: session.currentChannelId,
+          subscribedChannels: Array.from(session.subscribedChannels),
+          lastSeen: Date.now(),
+          connectedAt: session.connectedAt,
+        });
+      }
     }
 
     try {
@@ -368,10 +429,53 @@ export class RelayDurableObject {
   }
 
   /**
+   * Serializes session attachment on the WebSocket for Cloudflare Hibernation survival.
+   */
+  private serializeSession(ws: WebSocket, session: SessionMetadata): void {
+    if (typeof (ws as any).serializeAttachment === 'function') {
+      try {
+        (ws as any).serializeAttachment({
+          fingerprint: session.fingerprint,
+          nullifier: session.nullifier,
+          role: session.role,
+          currentChannelId: session.currentChannelId,
+          subscribedChannels: Array.from(session.subscribedChannels),
+          authenticated: session.authenticated,
+          connectedAt: session.connectedAt,
+          lastPing: session.lastPing,
+          tags: Array.from(session.tags),
+        });
+      } catch (err) {
+        console.warn('[RelayDurableObject] serializeAttachment failed:', err);
+      }
+    }
+  }
+
+  /**
    * WebSocket Hibernation API: Handles WebSocket disconnection.
    */
   async webSocketClose(ws: WebSocket, code: number, reason: string, wasClean: boolean): Promise<void> {
-    const session = this.sessions.get(ws);
+    let session = this.sessions.get(ws);
+    if (!session && typeof (ws as any).deserializeAttachment === 'function') {
+      try {
+        const attachment = (ws as any).deserializeAttachment();
+        if (attachment && typeof attachment === 'object' && attachment.fingerprint) {
+          session = {
+            ws,
+            fingerprint: attachment.fingerprint,
+            nullifier: attachment.nullifier,
+            role: attachment.role || 'MEMBER',
+            currentChannelId: attachment.currentChannelId || 'relays-general',
+            subscribedChannels: new Set(attachment.subscribedChannels || ['relays-general']),
+            authenticated: Boolean(attachment.authenticated),
+            connectedAt: attachment.connectedAt || Date.now(),
+            lastPing: Date.now(),
+            tags: new Set(attachment.tags || []),
+          };
+        }
+      } catch (_) {}
+    }
+
     if (session) {
       if (session.fingerprint) {
         this.presence.delete(session.fingerprint);
@@ -461,6 +565,7 @@ export class RelayDurableObject {
       connectedAt: session.connectedAt,
     };
     this.presence.set(fingerprint, presenceUser);
+    this.serializeSession(ws, session);
 
     // 1. Reply to client
     this.send(ws, {
@@ -513,6 +618,7 @@ export class RelayDurableObject {
       }
       user.lastSeen = Date.now();
     }
+    this.serializeSession(ws, session);
 
     const messages = this.channelMessages.get(channelId) || [];
     const nanopublications = this.channelNanopublications.get(channelId) || [];
@@ -554,6 +660,7 @@ export class RelayDurableObject {
         this.ctx.setWebSocketTags(ws, Array.from(session.tags));
       } catch (_) {}
     }
+    this.serializeSession(ws, session);
 
     if (session.fingerprint) {
       this.broadcast(
@@ -669,6 +776,15 @@ export class RelayDurableObject {
     msgs.push(msgRecord);
     if (msgs.length > 2000) {
       msgs.splice(0, msgs.length - 1500);
+    }
+
+    // Persist message to Durable Object Storage for Hibernation recovery
+    if (this.ctx?.storage) {
+      try {
+        this.ctx.waitUntil(this.ctx.storage.put(`msg:${channelId}:${msgRecord.id}`, msgRecord));
+      } catch (err) {
+        console.warn('[RelayDurableObject] Storage put message fallback:', err);
+      }
     }
 
     // Optional D1 SQL DB Sync

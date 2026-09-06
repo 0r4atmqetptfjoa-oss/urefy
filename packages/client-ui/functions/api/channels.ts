@@ -11,6 +11,8 @@ import {
   getKVStore,
   globalChannelsStore,
   INITIAL_CHANNELS,
+  isProductionEnv,
+  createD1UnavailableResponse,
 } from './_db.js';
 import { requireAdmin, requireSignedEnvelope } from './_auth.js';
 
@@ -65,6 +67,7 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
       } catch (_) {}
     }
 
+    const isProd = isProductionEnv(context.env);
     let channels: EdgeChannel[] = [];
 
     // 1. Query D1
@@ -87,14 +90,40 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
         if (results && results.length > 0) {
           channels = results.map(parseD1ChannelRow);
         } else if (offset === 0) {
-          channels = globalChannelsStore.filter((c) => (space === 'all' ? true : c.space === space));
+          if (isProd) {
+            // Bootstrap default channels to D1 SQLite permanently
+            try {
+              for (const ch of INITIAL_CHANNELS) {
+                await db
+                  .prepare(
+                    'INSERT OR IGNORE INTO channels (id, space, name, description, is_encrypted, created_at) VALUES (?, ?, ?, ?, ?, ?)'
+                  )
+                  .bind(ch.id, ch.space, ch.name, ch.description, ch.isEncrypted ? 1 : 0, ch.createdAt)
+                  .run();
+              }
+              const recheck = await stmt.all<any>();
+              channels = (recheck.results || []).map(parseD1ChannelRow);
+            } catch (_) {
+              channels = [];
+            }
+          } else {
+            channels = globalChannelsStore.filter((c) => (space === 'all' ? true : c.space === space));
+          }
         }
-      } catch (dbErr) {
+      } catch (dbErr: any) {
+        if (isProd) {
+          return new Response(
+            JSON.stringify({ success: false, error: `Database query failed: ${dbErr?.message || 'D1 error'}` }),
+            { status: 500, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
         console.warn('[D1 Channels Fallback]', dbErr);
         channels = globalChannelsStore.filter((c) => (space === 'all' ? true : c.space === space));
       }
+    } else if (isProd) {
+      return createD1UnavailableResponse();
     } else {
-      // 2. Fallback to in-memory store
+      // 2. Fallback to in-memory store (Dev/Test only)
       let result = [...globalChannelsStore];
 
       if (space && space !== 'all') {
@@ -187,10 +216,12 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
       createdAt: body.createdAt || Date.now(),
     };
 
+    const isProd = isProductionEnv(context.env);
+
     // Store in Cloudflare D1 if available
     if (db) {
       try {
-        await db
+        const stmt = db
           .prepare(
             `INSERT OR REPLACE INTO channels (
               id, space, name, description, is_encrypted, created_at
@@ -203,11 +234,26 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
             newChannel.description,
             newChannel.isEncrypted ? 1 : 0,
             newChannel.createdAt
-          )
-          .run();
-      } catch (dbErr) {
+          );
+
+        const runResult = await stmt.run();
+        if (isProd && runResult && runResult.success === false) {
+          return new Response(
+            JSON.stringify({ success: false, error: `Database channel insert rejected: ${runResult.error || 'D1 error'}` }),
+            { status: 500, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
+      } catch (dbErr: any) {
+        if (isProd) {
+          return new Response(
+            JSON.stringify({ success: false, error: `Database transaction failed: ${dbErr?.message || 'D1 channel error'}` }),
+            { status: 500, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
         console.warn('[D1 Channel Insert Fallback]', dbErr);
       }
+    } else if (isProd) {
+      return createD1UnavailableResponse();
     }
 
     // Cache in KV
@@ -278,14 +324,29 @@ export async function onRequestDelete(context: { request: Request; env?: Env }):
 
     const db = getD1Database(context.env);
     const kv = getKVStore(context.env);
+    const isProd = isProductionEnv(context.env);
 
     // 1. Delete from D1
     if (db) {
       try {
-        await db.prepare('DELETE FROM channels WHERE id = ?').bind(channelId).run();
-      } catch (dbErr) {
+        const runRes = await db.prepare('DELETE FROM channels WHERE id = ?').bind(channelId).run();
+        if (isProd && runRes && runRes.success === false) {
+          return new Response(
+            JSON.stringify({ success: false, error: 'Failed to delete channel from database' }),
+            { status: 500, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
+      } catch (dbErr: any) {
+        if (isProd) {
+          return new Response(
+            JSON.stringify({ success: false, error: `Database delete transaction failed: ${dbErr?.message || 'D1 error'}` }),
+            { status: 500, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
         console.warn('[D1 Channel Delete Fallback]', dbErr);
       }
+    } else if (isProd) {
+      return createD1UnavailableResponse();
     }
 
     // 2. Delete from KV

@@ -9,6 +9,8 @@ import {
   SpaceType,
 } from './client-state.js';
 import { isLocalDev } from './admin-auth.js';
+import { sovereignCircleEngine } from './sovereign-circle.js';
+import { sovereignRouter } from './router.js';
 
 export type CommandRailFilter = 'ALL' | 'POSTS' | 'MEMBERS' | 'BINARIES' | 'COMMANDS';
 export type SearchItemType = 'post' | 'member' | 'binary' | 'command';
@@ -739,6 +741,60 @@ export class CommandRailV2Engine {
           });
         }
       }
+    }
+
+    // 5. Gather Sovereign Communities
+    if (filter === 'ALL' || (filter as string) === 'COMMUNITIES') {
+      try {
+        const circles = sovereignCircleEngine.getAllCircles();
+        for (const c of circles) {
+          let score = 0;
+          const nameLower = c.name.toLowerCase();
+          const dispLower = c.displayName.toLowerCase();
+          const catLower = c.category.toLowerCase();
+          const descLower = c.description.toLowerCase();
+
+          if (tokens.length === 0) {
+            score = 2;
+          } else {
+            for (const tok of tokens) {
+              const cleanTok = tok.replace(/^c\//, '');
+              if (nameLower.includes(cleanTok)) score += 20;
+              if (dispLower.includes(cleanTok)) score += 12;
+              if (catLower.includes(cleanTok)) score += 8;
+              if (descLower.includes(cleanTok)) score += 4;
+            }
+          }
+
+          if (score > 0) {
+            results.push({
+              id: `search-community-${c.id}`,
+              type: 'command',
+              title: `c/${c.name}`,
+              subtitle: `${c.displayName} · ${c.membersCount.toLocaleString()} members · ${c.category}`,
+              badge: 'COMMUNITY',
+              category: 'Navigation',
+              icon: c.icon || '🏛️',
+              score,
+              data: {
+                title: `c/${c.name}`,
+                category: 'Navigation',
+                description: c.description,
+                run: () => {
+                  clientStore.activeChannelId = c.channelId;
+                  sovereignRouter.navigateTo('feed');
+                  clientStore.notifySync();
+                },
+              },
+              action: () => {
+                clientStore.activeChannelId = c.channelId;
+                sovereignRouter.navigateTo('feed');
+                clientStore.notifySync();
+              },
+            });
+          }
+        }
+      } catch (_) {}
     }
 
     // Sort descending by relevance score

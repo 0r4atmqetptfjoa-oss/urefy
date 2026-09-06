@@ -8,11 +8,12 @@
  * 5. Live filtered pulse chronicle feed.
  */
 
-import { ClientPost } from './client-state.js';
+import { ClientPost, clientStore } from './client-state.js';
 import { obsidianMediaPlayer } from './media-player.js';
 import { pulseActionsEngine } from './pulse-actions.js';
 import { markdownRenderer } from './markdown-renderer.js';
 import { nodeFederationEngine } from './node-federation.js';
+import { sovereignCircleEngine } from './sovereign-circle.js';
 
 export type ExploreCategory = 'all' | 'trending' | 'cryptography' | 'privacy' | 'p2p' | 'security' | 'ai';
 
@@ -39,6 +40,7 @@ export interface FeaturedStory {
 export class ExploreView {
   public searchQuery: string = '';
   public activeCategory: ExploreCategory = 'all';
+  public activeSubTab: 'pulses' | 'communities' = 'pulses';
 
   public featuredStory: FeaturedStory = {
     title: 'Colossus Sovereign Mesh Supercluster scales to next-gen compute benchmarks',
@@ -221,118 +223,307 @@ export class ExploreView {
             `).join('')}
           </div>
 
+          <!-- EXPLORE SUBTABS: PULSES VS COMMUNITIES -->
+          <div class="flex items-center space-x-2 px-4 md:px-6 py-2.5 border-t border-white/5 bg-surface-base/80">
+            <button
+              type="button"
+              data-action="set-explore-subtab"
+              data-subtab="pulses"
+              class="px-4 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center space-x-1.5 ${this.activeSubTab === 'pulses' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-surface-raised text-slate-400 hover:text-slate-200 border border-white/5'}"
+            >
+              <span>🔥</span>
+              <span>Trending Pulses</span>
+            </button>
+            <button
+              type="button"
+              data-action="set-explore-subtab"
+              data-subtab="communities"
+              class="px-4 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center space-x-1.5 ${this.activeSubTab === 'communities' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-surface-raised text-slate-400 hover:text-slate-200 border border-white/5'}"
+            >
+              <span>🏛️</span>
+              <span>Sovereign Communities (${sovereignCircleEngine.getAllCircles().length})</span>
+            </button>
+          </div>
+
         </div>
 
         <!-- EXPLORE SCROLLABLE FEED -->
         <div id="explore-feed-scroll" class="flex-1 overflow-y-auto max-w-4xl mx-auto w-full p-3 sm:p-4 md:p-6 space-y-6 pb-20 md:pb-6">
           
-          <!-- HERO FEATURED STORY CARD (IF NOT SEARCHING) -->
-          ${!this.searchQuery ? `
-            <div 
-              data-featured-topic="${this.featuredStory.topic}" 
-              class="btn-open-featured relative h-64 sm:h-72 rounded-3xl bg-surface-raised overflow-hidden cursor-pointer group border border-white/10 shadow-2xl transition-all hover:border-indigo-500/40"
-            >
-              <img
-                src="${this.featuredStory.coverImage}"
-                alt="${this.featuredStory.title}"
-                class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-60"
-                loading="lazy"
-              />
-              <div class="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent p-6 md:p-8 flex flex-col justify-end">
-                <div class="flex items-center space-x-2">
-                  <span class="text-[10px] font-mono font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-indigo-950/90 text-indigo-300 border border-indigo-500/30">
-                    ${this.featuredStory.category}
-                  </span>
-                  <span class="text-[10px] font-mono text-slate-400">By @id:${this.featuredStory.author}</span>
-                </div>
-
-                <h2 class="text-lg md:text-2xl font-extrabold text-white mt-2 leading-tight group-hover:text-indigo-200 transition-colors">
-                  ${this.featuredStory.title}
-                </h2>
-                
-                <p class="text-xs text-slate-300 mt-1.5 line-clamp-2 leading-relaxed">
-                  ${this.featuredStory.description}
-                </p>
-
-                <div class="flex items-center space-x-3 text-xs font-mono text-slate-400 mt-3 pt-2 border-t border-white/10">
-                  <span class="text-emerald-400 font-bold">${this.featuredStory.postCount}</span>
-                  <span>·</span>
-                  <span class="text-indigo-400 font-bold">${this.featuredStory.topic}</span>
-                  <span>·</span>
-                  <span>Live Stream Active</span>
-                </div>
-              </div>
-            </div>
-          ` : ''}
-          
-          <!-- SOVEREIGN FEDERATED MESH WIDGET -->
-          ${!this.searchQuery ? nodeFederationEngine.renderFederatedMeshCard() : ''}
-
-          <!-- TRENDING TOPICS LIST (IF NOT SEARCHING) -->
-          ${!this.searchQuery ? `
-            <section class="rounded-3xl bg-surface-raised border border-white/5 p-5 shadow-lg space-y-4">
-              <div class="flex items-center justify-between border-b border-white/5 pb-3">
-                <div class="flex items-center space-x-2">
-                  <span class="text-base">🔥</span>
-                  <h3 class="text-xs font-bold text-white uppercase tracking-wider">Trends in Sovereign Mesh</h3>
-                </div>
-                <span class="text-[10px] font-mono text-slate-500">Algorithm-Free • Pure Frequency</span>
-              </div>
-
-              <div class="divide-y divide-white/5">
-                ${this.trendingTopics.map(t => `
-                  <div
-                    data-search-trend="${t.topic}"
-                    class="btn-select-trend py-3.5 hover:bg-surface-overlay/60 px-3 rounded-2xl transition-all cursor-pointer flex justify-between items-center group"
-                  >
-                    <div class="flex flex-col space-y-0.5 min-w-0 pr-4">
-                      <span class="text-[10px] font-mono text-slate-500">
-                        ${t.rank} · ${t.category}
-                      </span>
-                      <span class="text-sm font-bold text-white group-hover:text-indigo-300 transition-colors">
-                        ${t.topic}
-                      </span>
-                      <p class="text-xs text-slate-400 line-clamp-1 leading-snug">
-                        ${t.description}
-                      </p>
-                      <span class="text-[10px] font-mono text-slate-500 pt-0.5">${t.postCount}</span>
-                    </div>
-
-                    <div class="flex items-center space-x-2 shrink-0">
-                      <span class="text-xs text-slate-400 group-hover:text-indigo-400 transition-colors font-bold">Explore</span>
-                      <svg class="w-4 h-4 text-slate-500 group-hover:text-indigo-400 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-                      </svg>
-                    </div>
+          ${this.activeSubTab === 'communities' ? this.renderCommunitiesDirectory() : `
+            <!-- HERO FEATURED STORY CARD (IF NOT SEARCHING) -->
+            ${!this.searchQuery ? `
+              <div 
+                data-featured-topic="${this.featuredStory.topic}" 
+                class="btn-open-featured relative h-64 sm:h-72 rounded-3xl bg-surface-raised overflow-hidden cursor-pointer group border border-white/10 shadow-2xl transition-all hover:border-indigo-500/40"
+              >
+                <img
+                  src="${this.featuredStory.coverImage}"
+                  alt="${this.featuredStory.title}"
+                  class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-60"
+                  loading="lazy"
+                />
+                <div class="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent p-6 md:p-8 flex flex-col justify-end">
+                  <div class="flex items-center space-x-2">
+                    <span class="text-[10px] font-mono font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-indigo-950/90 text-indigo-300 border border-indigo-500/30">
+                      ${this.featuredStory.category}
+                    </span>
+                    <span class="text-[10px] font-mono text-slate-400">By @id:${this.featuredStory.author}</span>
                   </div>
-                `).join('')}
+
+                  <h2 class="text-lg md:text-2xl font-extrabold text-white mt-2 leading-tight group-hover:text-indigo-200 transition-colors">
+                    ${this.featuredStory.title}
+                  </h2>
+                  
+                  <p class="text-xs text-slate-300 mt-1.5 line-clamp-2 leading-relaxed">
+                    ${this.featuredStory.description}
+                  </p>
+
+                  <div class="flex items-center space-x-3 text-xs font-mono text-slate-400 mt-3 pt-2 border-t border-white/10">
+                    <span class="text-emerald-400 font-bold">${this.featuredStory.postCount}</span>
+                    <span>·</span>
+                    <span class="text-indigo-400 font-bold">${this.featuredStory.topic}</span>
+                    <span>·</span>
+                    <span>Live Stream Active</span>
+                  </div>
+                </div>
               </div>
-            </section>
-          ` : ''}
-
-          <!-- PULSES SEARCH RESULTS OR STREAM -->
-          <section class="space-y-4">
-            <div class="flex items-center justify-between px-1">
-              <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300">
-                ${this.searchQuery ? `Search Results for "${this.searchQuery}" (${searchResults.length})` : 'Active Pulse Chronicle'}
-              </h3>
-              <span class="text-[10px] font-mono text-slate-500">ZK-Verified Nodes</span>
-            </div>
-
-            ${searchResults.length === 0 ? `
-              <div class="p-12 rounded-3xl bg-surface-raised border border-white/5 text-center text-slate-500 space-y-2">
-                <span class="text-3xl block">🔍</span>
-                <p class="text-sm font-bold text-slate-200">No pulses found matching "${this.searchQuery}"</p>
-                <p class="text-xs">Try searching for other topics, cryptographic keywords (#ZeroKnowledge), or author fingerprints.</p>
-                <button id="btn-clear-explore-empty" class="mt-3 px-4 py-1.5 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all cursor-pointer">
-                  Clear Search Filter
+            ` : ''}
+            
+            <!-- SOVEREIGN COMMUNITIES QUICK SPOTLIGHT BANNER -->
+            ${!this.searchQuery ? `
+              <div class="p-4 rounded-2xl bg-gradient-to-r from-indigo-950/60 via-purple-950/40 to-surface-raised border border-indigo-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+                <div class="flex items-center space-x-3">
+                  <div class="w-9 h-9 rounded-xl bg-indigo-500/20 text-indigo-300 flex items-center justify-center text-xl shrink-0 border border-indigo-500/30">
+                    🏛️
+                  </div>
+                  <div>
+                    <h3 class="text-xs font-bold text-white leading-tight">Explore Sovereign Communities</h3>
+                    <p class="text-[10px] text-slate-400 font-mono">Join peer-governed research circles with zero algorithmic manipulation</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  data-action="set-explore-subtab"
+                  data-subtab="communities"
+                  class="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all shrink-0 flex items-center space-x-1 cursor-pointer"
+                >
+                  <span>Browse Directory (${sovereignCircleEngine.getAllCircles().length})</span>
+                  <span>→</span>
                 </button>
               </div>
-            ` : searchResults.map(p => this.renderPulseCard(p)).join('')}
-          </section>
+            ` : ''}
+
+            <!-- SOVEREIGN FEDERATED MESH WIDGET -->
+            ${!this.searchQuery ? nodeFederationEngine.renderFederatedMeshCard() : ''}
+
+            <!-- TRENDING TOPICS LIST (IF NOT SEARCHING) -->
+            ${!this.searchQuery ? `
+              <section class="rounded-3xl bg-surface-raised border border-white/5 p-5 shadow-lg space-y-4">
+                <div class="flex items-center justify-between border-b border-white/5 pb-3">
+                  <div class="flex items-center space-x-2">
+                    <span class="text-base">🔥</span>
+                    <h3 class="text-xs font-bold text-white uppercase tracking-wider">Trends in Sovereign Mesh</h3>
+                  </div>
+                  <span class="text-[10px] font-mono text-slate-500">Algorithm-Free • Pure Frequency</span>
+                </div>
+
+                <div class="divide-y divide-white/5">
+                  ${this.trendingTopics.map(t => `
+                    <div
+                      data-search-trend="${t.topic}"
+                      class="btn-select-trend py-3.5 hover:bg-surface-overlay/60 px-3 rounded-2xl transition-all cursor-pointer flex justify-between items-center group"
+                    >
+                      <div class="flex flex-col space-y-0.5 min-w-0 pr-4">
+                        <span class="text-[10px] font-mono text-slate-500">
+                          ${t.rank} · ${t.category}
+                        </span>
+                        <span class="text-sm font-bold text-white group-hover:text-indigo-300 transition-colors">
+                          ${t.topic}
+                        </span>
+                        <p class="text-xs text-slate-400 line-clamp-1 leading-snug">
+                          ${t.description}
+                        </p>
+                        <span class="text-[10px] font-mono text-slate-500 pt-0.5">${t.postCount}</span>
+                      </div>
+
+                      <div class="flex items-center space-x-2 shrink-0">
+                        <span class="text-xs text-slate-400 group-hover:text-indigo-400 transition-colors font-bold">Explore</span>
+                        <svg class="w-4 h-4 text-slate-500 group-hover:text-indigo-400 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                        </svg>
+                      </div>
+                    </div>
+                  `).join('')}
+                </div>
+              </section>
+            ` : ''}
+
+            <!-- PULSES SEARCH RESULTS OR STREAM -->
+            <section class="space-y-4">
+              <div class="flex items-center justify-between px-1">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300">
+                  ${this.searchQuery ? `Search Results for "${this.searchQuery}" (${searchResults.length})` : 'Active Pulse Chronicle'}
+                </h3>
+                <span class="text-[10px] font-mono text-slate-500">ZK-Verified Nodes</span>
+              </div>
+
+              ${searchResults.length === 0 ? `
+                <div class="p-12 rounded-3xl bg-surface-raised border border-white/5 text-center text-slate-500 space-y-2">
+                  <span class="text-3xl block">🔍</span>
+                  <p class="text-sm font-bold text-slate-200">No pulses found matching "${this.searchQuery}"</p>
+                  <p class="text-xs">Try searching for other topics, cryptographic keywords (#ZeroKnowledge), or author fingerprints.</p>
+                  <button id="btn-clear-explore-empty" class="mt-3 px-4 py-1.5 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all cursor-pointer">
+                    Clear Search Filter
+                  </button>
+                </div>
+              ` : searchResults.map(p => this.renderPulseCard(p)).join('')}
+            </section>
+          `}
 
         </div>
 
+      </div>
+    `;
+  }
+
+  public renderCommunitiesDirectory(): string {
+    const q = this.searchQuery.toLowerCase().trim();
+    let circles = sovereignCircleEngine.getAllCircles();
+    if (q) {
+      circles = circles.filter(c =>
+        c.name.toLowerCase().includes(q) ||
+        c.displayName.toLowerCase().includes(q) ||
+        c.description.toLowerCase().includes(q) ||
+        c.category.toLowerCase().includes(q) ||
+        c.rules.some(r => r.title.toLowerCase().includes(q) || r.description.toLowerCase().includes(q))
+      );
+    }
+
+    const escape = (str: string) => (str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+    return `
+      <div class="space-y-6">
+        <!-- DIRECTORY HERO BANNER -->
+        <div class="p-5 sm:p-6 rounded-3xl bg-gradient-to-r from-indigo-950/80 via-purple-950/50 to-surface-raised border border-white/10 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div class="space-y-1">
+            <div class="flex items-center space-x-2">
+              <span class="text-xl">🏛️</span>
+              <h2 class="text-sm sm:text-base font-bold text-white font-mono">Sovereign Communities Directory</h2>
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-mono bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                ${circles.length} Circles Active
+              </span>
+            </div>
+            <p class="text-xs text-slate-400 max-w-xl leading-relaxed">
+              Decentralized, peer-governed discussion collectives and research circles. Join communities or charter your own sovereign collective with custom governance rules.
+            </p>
+          </div>
+          <button
+            type="button"
+            data-action="open-create-circle"
+            class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white text-xs font-bold shadow-md transition-all flex items-center space-x-1.5 cursor-pointer shrink-0"
+          >
+            <span>✨</span>
+            <span>Charter Community</span>
+          </button>
+        </div>
+
+        <!-- DIRECTORY GRID -->
+        ${circles.length === 0 ? `
+          <div class="p-8 rounded-3xl bg-surface-raised border border-white/5 text-center space-y-3">
+            <div class="text-3xl">🔍</div>
+            <h3 class="text-sm font-bold text-white">No communities match "${escape(this.searchQuery)}"</h3>
+            <p class="text-xs text-slate-400 max-w-md mx-auto">
+              No sovereign circles found with this keyword. You can be the first to charter this community!
+            </p>
+            <button
+              type="button"
+              data-action="open-create-circle"
+              class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all inline-flex items-center space-x-1 cursor-pointer"
+            >
+              <span>+</span>
+              <span>Charter c/${escape(this.searchQuery.replace(/[^a-z0-9_]/gi, '').toLowerCase()) || 'new_circle'}</span>
+            </button>
+          </div>
+        ` : `
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            ${circles.map(c => {
+              const isMod = sovereignCircleEngine.isUserModerator(c.id, clientStore.keypair.fingerprint);
+              return `
+                <div class="rounded-2xl bg-surface-raised border border-white/5 hover:border-white/10 overflow-hidden shadow-sm flex flex-col justify-between transition-all group">
+                  <!-- CARD COVER -->
+                  <div class="h-20 w-full relative p-3 flex items-start justify-between" style="background: ${c.banner};">
+                    <div class="absolute inset-0 bg-gradient-to-t from-surface-raised via-surface-raised/40 to-transparent"></div>
+                    <span class="relative z-10 px-2.5 py-0.5 rounded-lg bg-black/60 backdrop-blur-md text-[10px] font-mono text-cyan-300 border border-cyan-500/30">
+                      ${escape(c.category)}
+                    </span>
+                    <span class="relative z-10 px-2 py-0.5 rounded-lg bg-black/60 backdrop-blur-md text-[10px] font-mono text-emerald-400 flex items-center space-x-1">
+                      <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                      <span>${c.onlineCount} nodes</span>
+                    </span>
+                  </div>
+
+                  <!-- CARD CONTENT -->
+                  <div class="p-4 pt-0 -mt-6 relative z-10 space-y-3 flex-1 flex flex-col justify-between">
+                    <div>
+                      <div class="flex items-center space-x-3 mb-2">
+                        <div class="w-12 h-12 rounded-xl bg-surface-base border-2 border-surface-raised shadow-md flex items-center justify-center text-2xl shrink-0" style="color: ${c.primaryColor};">
+                          ${c.icon || '🏛️'}
+                        </div>
+                        <div class="truncate">
+                          <div class="flex items-center space-x-1.5">
+                            <span class="text-sm font-bold text-white group-hover:text-cyan-400 transition-colors font-mono truncate">c/${c.name}</span>
+                            ${isMod ? '<span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30 shrink-0">MOD</span>' : ''}
+                          </div>
+                          <p class="text-[11px] text-slate-400 truncate">${escape(c.displayName)}</p>
+                        </div>
+                      </div>
+
+                      <p class="text-xs text-slate-300 line-clamp-2 leading-relaxed mb-3">
+                        ${escape(c.description)}
+                      </p>
+
+                      <!-- STATS & RULES CHIP -->
+                      <div class="flex items-center space-x-3 text-[11px] font-mono text-slate-500 mb-2">
+                        <span>${c.membersCount.toLocaleString()} members</span>
+                        <span>•</span>
+                        <span>${c.rules.length} rules</span>
+                        <span>•</span>
+                        <span>${escape(c.createdAt)}</span>
+                      </div>
+                    </div>
+
+                    <!-- CARD ACTION FOOTER -->
+                    <div class="pt-3 border-t border-white/5 flex items-center justify-between gap-2">
+                      <button
+                        type="button"
+                        data-action="toggle-join-circle"
+                        data-circle-id="${c.id}"
+                        class="px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                          c.isJoined
+                            ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/25'
+                            : 'bg-white/10 hover:bg-white/15 text-white'
+                        }"
+                      >
+                        ${c.isJoined ? '✓ Joined' : '+ Join'}
+                      </button>
+
+                      <button
+                        type="button"
+                        data-action="open-community"
+                        data-channel="${c.channelId}"
+                        class="px-3.5 py-1.5 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/30 text-xs font-semibold transition-all flex items-center space-x-1 cursor-pointer"
+                      >
+                        <span>Visit Community</span>
+                        <span>→</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        `}
       </div>
     `;
   }
@@ -368,7 +559,7 @@ export class ExploreView {
         </div>
 
         <!-- MULTIMEDIA & MEDIA LIGHTBOX INTEGRATION -->
-        ${p.video ? obsidianMediaPlayer.renderVideoCard(p.id, p.video.src, p.video.poster) : ''}
+        ${p.video ? obsidianMediaPlayer.renderVideoCard(p.id, p.video.src, p.video.poster) : (obsidianMediaPlayer.extractVideo(p.content) ? obsidianMediaPlayer.renderVideoCard(p.id, p.content) : '')}
         ${p.images && p.images.length > 0 ? obsidianMediaPlayer.renderImageMosaic(p.images) : ''}
 
         <!-- ACTIONS BAR -->

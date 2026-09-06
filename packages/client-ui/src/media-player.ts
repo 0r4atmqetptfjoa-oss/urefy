@@ -108,25 +108,32 @@ export class ObsidianMediaPlayer {
           class="w-full max-h-[420px] object-contain cursor-pointer bg-black"
           playsinline
           preload="metadata"
+          data-action="toggle-video-play"
+          data-video-id="${videoId}"
         ></video>
 
         <!-- OBSIDIAN CUSTOM CONTROLS OVERLAY -->
         <div id="controls-${videoId}" class="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-3.5 opacity-90 group-hover:opacity-100 transition-opacity duration-200">
           
           <!-- SCRUBBER PROGRESS BAR -->
-          <div class="relative w-full h-1.5 bg-white/20 hover:h-2.5 rounded-full mb-2.5 cursor-pointer transition-all">
-            <div id="progress-${videoId}" class="h-full bg-gradient-to-r from-indigo-500 to-cyan-400 rounded-full" style="width: 0%;"></div>
+          <div 
+            class="relative w-full h-1.5 bg-white/20 hover:h-2.5 rounded-full mb-2.5 cursor-pointer transition-all"
+            data-action="seek-video"
+            data-video-id="${videoId}"
+            title="Click to seek"
+          >
+            <div id="progress-${videoId}" class="h-full bg-gradient-to-r from-indigo-500 to-cyan-400 rounded-full pointer-events-none" style="width: 0%;"></div>
           </div>
 
           <div class="flex items-center justify-between text-xs text-slate-200">
             <div class="flex items-center space-x-3">
               <!-- PLAY/PAUSE -->
-              <button data-video-action="toggle-play" data-video-id="${videoId}" class="btn-video-play hover:text-cyan-400 transition-colors p-1 text-sm cursor-pointer">
+              <button data-action="toggle-video-play" data-video-action="toggle-play" data-video-id="${videoId}" class="btn-video-play hover:text-cyan-400 transition-colors p-1 text-sm cursor-pointer">
                 ▶
               </button>
 
               <!-- VOLUME/MUTE -->
-              <button data-video-action="toggle-mute" data-video-id="${videoId}" class="btn-video-mute hover:text-cyan-400 transition-colors p-1 text-sm cursor-pointer">
+              <button data-action="toggle-video-mute" data-video-action="toggle-mute" data-video-id="${videoId}" class="btn-video-mute hover:text-cyan-400 transition-colors p-1 text-sm cursor-pointer">
                 🔊
               </button>
 
@@ -138,12 +145,12 @@ export class ObsidianMediaPlayer {
 
             <div class="flex items-center space-x-3 text-sm">
               <!-- PICTURE IN PICTURE -->
-              <button data-video-action="pip" data-video-id="${videoId}" class="btn-video-pip hover:text-cyan-400 transition-colors cursor-pointer" title="Picture in Picture">
+              <button data-action="toggle-video-pip" data-video-action="pip" data-video-id="${videoId}" class="btn-video-pip hover:text-cyan-400 transition-colors cursor-pointer" title="Picture in Picture">
                 ⧉
               </button>
 
               <!-- FULLSCREEN -->
-              <button data-video-action="fullscreen" data-video-id="${videoId}" class="btn-video-fs hover:text-cyan-400 transition-colors cursor-pointer" title="Fullscreen">
+              <button data-action="toggle-video-fs" data-video-action="fullscreen" data-video-id="${videoId}" class="btn-video-fs hover:text-cyan-400 transition-colors cursor-pointer" title="Fullscreen">
                 ⛶
               </button>
             </div>
@@ -463,6 +470,16 @@ export class ObsidianMediaPlayer {
         progressBar.style.width = `${pct}%`;
       }
       if (currTime) currTime.textContent = formatTime(video.currentTime);
+    });
+
+    const progressTrack = progressBar?.parentElement;
+    progressTrack?.addEventListener('click', (e: MouseEvent) => {
+      e.stopPropagation();
+      const rect = progressTrack.getBoundingClientRect();
+      const pos = (e.clientX - rect.left) / rect.width;
+      if (video.duration > 0) {
+        video.currentTime = Math.max(0, Math.min(video.duration, pos * video.duration));
+      }
     });
 
     video.addEventListener('play', () => {

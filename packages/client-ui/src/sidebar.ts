@@ -8,6 +8,7 @@
 
 import { clientStore } from './client-state.js';
 import { trendingEngine } from './trending.js';
+import { sovereignCircleEngine } from './sovereign-circle.js';
 import { renderIcon } from './ui/icons.js';
 import { TYPOGRAPHY } from './ui/tokens.js';
 
@@ -62,31 +63,103 @@ export class ContextualSidebar {
 
         <!-- RELEVANT COMMUNITIES -->
         <div class="p-4 rounded-2xl bg-surface-base/80 border border-white/5 space-y-3">
-          <h3 class="${TYPOGRAPHY.sectionTitle} text-sm flex items-center gap-1.5">
-            ${renderIcon('users', { size: 15, class: 'text-cyan-400' })}
-            <span>Sovereign Communities</span>
-          </h3>
-          <div class="space-y-2.5 text-xs">
-            <div class="flex items-center justify-between p-1.5">
-              <div class="flex items-center gap-2 truncate">
-                <div class="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center font-bold text-xs">C</div>
-                <div class="truncate">
-                  <div class="font-semibold text-slate-200 truncate">c/cryptography</div>
-                  <div class="text-[10px] text-slate-500">ZK & TreeKEM</div>
-                </div>
-              </div>
-              <button type="button" class="text-xs font-semibold text-cyan-400 hover:text-cyan-300 px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 transition-colors cursor-pointer">Join</button>
+          <div class="flex items-center justify-between">
+            <h3 class="${TYPOGRAPHY.sectionTitle} text-sm flex items-center gap-1.5">
+              ${renderIcon('users', { size: 15, class: 'text-cyan-400' })}
+              <span>Sovereign Communities</span>
+          <!-- SOVEREIGN COMMUNITIES / CIRCLES -->
+          <div class="flex items-center justify-between px-1">
+            <h3 class="font-mono text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              Sovereign Communities
+            </h3>
+            <div class="flex items-center space-x-2">
+              <button 
+                type="button" 
+                data-action="open-explore-communities"
+                class="text-[10px] font-bold text-slate-400 hover:text-white transition-colors cursor-pointer"
+                title="Browse All Communities in Directory"
+              >
+                Directory
+              </button>
+              <button 
+                type="button" 
+                data-action="open-create-circle" 
+                class="text-[11px] font-bold text-cyan-400 hover:text-cyan-300 hover:underline flex items-center gap-1 cursor-pointer transition-colors"
+                title="Create a new Sovereign Community"
+              >
+                <span>+ Create</span>
+              </button>
             </div>
-            <div class="flex items-center justify-between p-1.5">
-              <div class="flex items-center gap-2 truncate">
-                <div class="w-7 h-7 rounded-lg bg-indigo-500/10 text-indigo-400 flex items-center justify-center font-bold text-xs">V</div>
-                <div class="truncate">
-                  <div class="font-semibold text-slate-200 truncate">c/clean-releases</div>
-                  <div class="text-[10px] text-slate-500">Audited packages</div>
+          </div>
+
+          <div class="space-y-3 text-xs">
+            ${(() => {
+              const all = sovereignCircleEngine.getAllCircles();
+              const myCircles = all.filter(c => sovereignCircleEngine.isUserModerator(c.id, clientStore.keypair.fingerprint));
+              const otherCircles = all.filter(c => !myCircles.includes(c));
+
+              const renderCircleItem = (c: import('./sovereign-circle.js').SovereignCircle, isMod: boolean) => `
+                <div class="flex items-center justify-between p-1.5 rounded-xl hover:bg-white/5 transition-colors group">
+                  <div class="flex items-center gap-2 truncate cursor-pointer flex-1 mr-2" data-action="open-community" data-channel="${c.channelId}">
+                    <div class="w-7 h-7 rounded-lg bg-surface-raised flex items-center justify-center font-bold text-xs shrink-0 border border-white/10" style="color: ${c.primaryColor};">
+                      ${c.icon || '🏛️'}
+                    </div>
+                    <div class="truncate">
+                      <div class="flex items-center gap-1.5">
+                        <span class="font-semibold text-slate-200 group-hover:text-cyan-400 transition-colors truncate">c/${c.name}</span>
+                        ${isMod ? '<span class="text-[9px] font-mono px-1 py-0.2 rounded bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30 shrink-0">MOD</span>' : ''}
+                      </div>
+                      <div class="text-[10px] text-slate-500 truncate">${c.membersCount} members · ${c.category}</div>
+                    </div>
+                  </div>
+                  <button 
+                    type="button" 
+                    data-action="toggle-join-circle" 
+                    data-circle-id="${c.id}" 
+                    class="text-xs font-semibold px-2.5 py-1 rounded-lg transition-all cursor-pointer shrink-0 ${
+                      c.isJoined 
+                        ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/25' 
+                        : 'bg-white/5 text-cyan-400 hover:text-cyan-300 hover:bg-white/10'
+                    }"
+                  >
+                    ${c.isJoined ? '✓ Joined' : '+ Join'}
+                  </button>
                 </div>
-              </div>
-              <button type="button" class="text-xs font-semibold text-cyan-400 hover:text-cyan-300 px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 transition-colors cursor-pointer">Join</button>
-            </div>
+              `;
+
+              return `
+                ${myCircles.length > 0 ? `
+                  <div class="space-y-1.5">
+                    <div class="text-[9px] font-mono font-bold uppercase tracking-wider text-amber-400/80 px-1">⭐ My Communities</div>
+                    ${myCircles.map(c => renderCircleItem(c, true)).join('')}
+                  </div>
+                ` : ''}
+
+                <div class="space-y-1.5">
+                  ${myCircles.length > 0 ? '<div class="text-[9px] font-mono font-bold uppercase tracking-wider text-slate-500 px-1">Network Circles</div>' : ''}
+                  ${otherCircles.slice(0, 5).map(c => renderCircleItem(c, false)).join('')}
+                </div>
+              `;
+            })()}
+          </div>
+
+          <!-- PROMINENT CREATE COMMUNITY CTA -->
+          <div class="pt-2 border-t border-white/5 space-y-1.5">
+            <button 
+              type="button" 
+              data-action="open-create-circle" 
+              class="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-indigo-600/20 via-purple-600/20 to-cyan-600/20 hover:from-indigo-600/30 hover:to-cyan-600/30 text-indigo-200 border border-indigo-500/30 text-xs font-bold transition-all flex items-center justify-center space-x-1.5 cursor-pointer shadow-xs"
+            >
+              <span>✨</span>
+              <span>Create Sovereign Community</span>
+            </button>
+            <button
+              type="button"
+              data-action="open-explore-communities"
+              class="w-full py-1.5 px-3 rounded-xl hover:bg-white/5 text-slate-400 hover:text-white text-[11px] font-mono transition-colors flex items-center justify-center space-x-1 cursor-pointer"
+            >
+              <span>🏛️ View All in Directory (${sovereignCircleEngine.getAllCircles().length})</span>
+            </button>
           </div>
         </div>
       </div>

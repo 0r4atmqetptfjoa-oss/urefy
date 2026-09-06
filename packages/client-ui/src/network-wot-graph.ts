@@ -166,43 +166,68 @@ export class WoTGraphVisualizer {
   // Topology Initialization & Generation
   // -------------------------------------------------------------------------
 
+  public static readonly DEFAULT_REFERENCE_NODES: Array<Omit<WoTNode, 'x' | 'y' | 'vx' | 'vy' | 'radius'>> = [
+    // Archons (3)
+    { id: 'node-archon-1', label: 'Genesis-Arbiter', fingerprint: '0x7F2B...C941', trustScore: 98, meritScore: 4950, role: 'archon', isZKVerified: true, uptimePct: 99.99, directVouches: 42 },
+    { id: 'node-archon-2', label: 'Sovereign-Vault', fingerprint: '0x3E8A...D014', trustScore: 95, meritScore: 4620, role: 'archon', isZKVerified: true, uptimePct: 99.94, directVouches: 38 },
+    { id: 'node-archon-3', label: 'Root-Attestor', fingerprint: '0x9B1C...EA82', trustScore: 92, meritScore: 4310, role: 'archon', isZKVerified: true, uptimePct: 99.88, directVouches: 35 },
+
+    // Sentinels (5)
+    { id: 'node-sentinel-1', label: 'Mesh-Guardian', fingerprint: '0x1A4F...B882', trustScore: 88, meritScore: 3580, role: 'sentinel', isZKVerified: true, uptimePct: 99.75, directVouches: 29 },
+    { id: 'node-sentinel-2', label: 'Whisper-Router', fingerprint: '0x4D2E...77A1', trustScore: 84, meritScore: 3240, role: 'sentinel', isZKVerified: true, uptimePct: 99.60, directVouches: 26 },
+    { id: 'node-sentinel-3', label: 'ZK-Gatekeeper', fingerprint: '0x88C1...33F4', trustScore: 82, meritScore: 3100, role: 'sentinel', isZKVerified: true, uptimePct: 99.52, directVouches: 24 },
+    { id: 'node-sentinel-4', label: 'RLN-Nullifier', fingerprint: '0x5C90...44D8', trustScore: 79, meritScore: 2890, role: 'sentinel', isZKVerified: true, uptimePct: 99.40, directVouches: 21 },
+    { id: 'node-sentinel-5', label: 'Entropy-Beacon', fingerprint: '0x2F71...EE09', trustScore: 76, meritScore: 2750, role: 'sentinel', isZKVerified: true, uptimePct: 99.30, directVouches: 19 },
+
+    // Validators (6)
+    { id: 'node-validator-1', label: 'Epoch-Finalizer', fingerprint: '0x6A33...901B', trustScore: 74, meritScore: 2380, role: 'validator', isZKVerified: true, uptimePct: 99.10, directVouches: 18 },
+    { id: 'node-validator-2', label: 'Merkle-Aggregator', fingerprint: '0x99D4...112C', trustScore: 71, meritScore: 2190, role: 'validator', isZKVerified: true, uptimePct: 98.90, directVouches: 16 },
+    { id: 'node-validator-3', label: 'Block-Witness', fingerprint: '0x33B7...889A', trustScore: 68, meritScore: 1980, role: 'validator', isZKVerified: true, uptimePct: 98.65, directVouches: 14 },
+    { id: 'node-validator-4', label: 'State-Slasher', fingerprint: '0x7E21...440C', trustScore: 65, meritScore: 1820, role: 'validator', isZKVerified: true, uptimePct: 98.40, directVouches: 12 },
+    { id: 'node-validator-5', label: 'Sybil-Inspector', fingerprint: '0x0D88...AA51', trustScore: 63, meritScore: 1690, role: 'validator', isZKVerified: true, uptimePct: 98.15, directVouches: 11 },
+    { id: 'node-validator-6', label: 'Quorum-Scribe', fingerprint: '0x44A0...228E', trustScore: 60, meritScore: 1540, role: 'validator', isZKVerified: true, uptimePct: 97.90, directVouches: 10 },
+
+    // Citizens (6)
+    { id: 'node-citizen-1', label: 'Neo-Cypher', fingerprint: '0x11B3...990F', trustScore: 56, meritScore: 920, role: 'citizen', isZKVerified: true, uptimePct: 96.40, directVouches: 8 },
+    { id: 'node-citizen-2', label: 'Matrix-Wanderer', fingerprint: '0x55E9...442D', trustScore: 51, meritScore: 780, role: 'citizen', isZKVerified: true, uptimePct: 95.80, directVouches: 6 },
+    { id: 'node-citizen-3', label: 'Echo-Drifter', fingerprint: '0x8802...116B', trustScore: 45, meritScore: 610, role: 'citizen', isZKVerified: false, uptimePct: 94.20, directVouches: 4 },
+    { id: 'node-citizen-4', label: 'Starlight-Node', fingerprint: '0x22C7...774E', trustScore: 40, meritScore: 490, role: 'citizen', isZKVerified: false, uptimePct: 93.50, directVouches: 3 },
+    { id: 'node-citizen-5', label: 'Pulse-Weaver', fingerprint: '0x77F1...339A', trustScore: 34, meritScore: 350, role: 'citizen', isZKVerified: false, uptimePct: 91.80, directVouches: 2 },
+    { id: 'node-citizen-6', label: 'Sovereign-Peer', fingerprint: '0x00A4...8851', trustScore: 28, meritScore: 210, role: 'citizen', isZKVerified: false, uptimePct: 89.40, directVouches: 1 },
+  ];
+
   public initDefaultGraph(): void {
-    const rawNodes: Array<Omit<WoTNode, 'x' | 'y' | 'vx' | 'vy' | 'radius'>> = [
-      // Archons (3)
-      { id: 'node-archon-1', label: 'Genesis-Arbiter', fingerprint: '0x7F2B...C941', trustScore: 98, meritScore: 4950, role: 'archon', isZKVerified: true, uptimePct: 99.99, directVouches: 42 },
-      { id: 'node-archon-2', label: 'Sovereign-Vault', fingerprint: '0x3E8A...D014', trustScore: 95, meritScore: 4620, role: 'archon', isZKVerified: true, uptimePct: 99.94, directVouches: 38 },
-      { id: 'node-archon-3', label: 'Root-Attestor', fingerprint: '0x9B1C...EA82', trustScore: 92, meritScore: 4310, role: 'archon', isZKVerified: true, uptimePct: 99.88, directVouches: 35 },
+    // Check for live network members from clientStore
+    let dynamicNodes: Array<Omit<WoTNode, 'x' | 'y' | 'vx' | 'vy' | 'radius'>> = [];
+    try {
+      const store = typeof window !== 'undefined' ? (window as any).clientStore : null;
+      if (store && Array.isArray(store.members) && store.members.length >= 3) {
+        dynamicNodes = store.members.map((m: any, i: number) => {
+          const role: WoTRole = m.role === 'GUARDIAN' ? 'archon' : m.role === 'ARCHIVIST' ? 'sentinel' : m.role === 'MODERATOR' ? 'validator' : 'citizen';
+          const trustScore = role === 'archon' ? 95 : role === 'sentinel' ? 85 : role === 'validator' ? 70 : 45;
+          return {
+            id: `node-${m.fingerprint?.substring(0, 8) || i}`,
+            label: m.alias || `Peer-${m.fingerprint?.substring(0, 6) || i}`,
+            fingerprint: m.fingerprint ? `${m.fingerprint.substring(0, 6)}...${m.fingerprint.slice(-4)}` : `0x${i}`,
+            trustScore,
+            meritScore: (m.postsCount || 0) * 15 + (m.messagesCount || 0) * 2 + 100,
+            role,
+            isZKVerified: true,
+            uptimePct: 99.8,
+            directVouches: Math.max(1, (m.postsCount || 0) + 1),
+          };
+        });
+      }
+    } catch (_) {}
 
-      // Sentinels (5)
-      { id: 'node-sentinel-1', label: 'Mesh-Guardian', fingerprint: '0x1A4F...B882', trustScore: 88, meritScore: 3580, role: 'sentinel', isZKVerified: true, uptimePct: 99.75, directVouches: 29 },
-      { id: 'node-sentinel-2', label: 'Whisper-Router', fingerprint: '0x4D2E...77A1', trustScore: 84, meritScore: 3240, role: 'sentinel', isZKVerified: true, uptimePct: 99.60, directVouches: 26 },
-      { id: 'node-sentinel-3', label: 'ZK-Gatekeeper', fingerprint: '0x88C1...33F4', trustScore: 82, meritScore: 3100, role: 'sentinel', isZKVerified: true, uptimePct: 99.52, directVouches: 24 },
-      { id: 'node-sentinel-4', label: 'RLN-Nullifier', fingerprint: '0x5C90...44D8', trustScore: 79, meritScore: 2890, role: 'sentinel', isZKVerified: true, uptimePct: 99.40, directVouches: 21 },
-      { id: 'node-sentinel-5', label: 'Entropy-Beacon', fingerprint: '0x2F71...EE09', trustScore: 76, meritScore: 2750, role: 'sentinel', isZKVerified: true, uptimePct: 99.30, directVouches: 19 },
-
-      // Validators (6)
-      { id: 'node-validator-1', label: 'Epoch-Finalizer', fingerprint: '0x6A33...901B', trustScore: 74, meritScore: 2380, role: 'validator', isZKVerified: true, uptimePct: 99.10, directVouches: 18 },
-      { id: 'node-validator-2', label: 'Merkle-Aggregator', fingerprint: '0x99D4...112C', trustScore: 71, meritScore: 2190, role: 'validator', isZKVerified: true, uptimePct: 98.90, directVouches: 16 },
-      { id: 'node-validator-3', label: 'Block-Witness', fingerprint: '0x33B7...889A', trustScore: 68, meritScore: 1980, role: 'validator', isZKVerified: true, uptimePct: 98.65, directVouches: 14 },
-      { id: 'node-validator-4', label: 'State-Slasher', fingerprint: '0x7E21...440C', trustScore: 65, meritScore: 1820, role: 'validator', isZKVerified: true, uptimePct: 98.40, directVouches: 12 },
-      { id: 'node-validator-5', label: 'Sybil-Inspector', fingerprint: '0x0D88...AA51', trustScore: 63, meritScore: 1690, role: 'validator', isZKVerified: true, uptimePct: 98.15, directVouches: 11 },
-      { id: 'node-validator-6', label: 'Quorum-Scribe', fingerprint: '0x44A0...228E', trustScore: 60, meritScore: 1540, role: 'validator', isZKVerified: true, uptimePct: 97.90, directVouches: 10 },
-
-      // Citizens (6)
-      { id: 'node-citizen-1', label: 'Neo-Cypher', fingerprint: '0x11B3...990F', trustScore: 56, meritScore: 920, role: 'citizen', isZKVerified: true, uptimePct: 96.40, directVouches: 8 },
-      { id: 'node-citizen-2', label: 'Matrix-Wanderer', fingerprint: '0x55E9...442D', trustScore: 51, meritScore: 780, role: 'citizen', isZKVerified: true, uptimePct: 95.80, directVouches: 6 },
-      { id: 'node-citizen-3', label: 'Echo-Drifter', fingerprint: '0x8802...116B', trustScore: 45, meritScore: 610, role: 'citizen', isZKVerified: false, uptimePct: 94.20, directVouches: 4 },
-      { id: 'node-citizen-4', label: 'Starlight-Node', fingerprint: '0x22C7...774E', trustScore: 40, meritScore: 490, role: 'citizen', isZKVerified: false, uptimePct: 93.50, directVouches: 3 },
-      { id: 'node-citizen-5', label: 'Pulse-Weaver', fingerprint: '0x77F1...339A', trustScore: 34, meritScore: 350, role: 'citizen', isZKVerified: false, uptimePct: 91.80, directVouches: 2 },
-      { id: 'node-citizen-6', label: 'Sovereign-Peer', fingerprint: '0x00A4...8851', trustScore: 28, meritScore: 210, role: 'citizen', isZKVerified: false, uptimePct: 89.40, directVouches: 1 },
-    ];
+    const rawNodes = dynamicNodes.length >= 3 ? dynamicNodes : WoTGraphVisualizer.DEFAULT_REFERENCE_NODES;
 
     const centerX = this.width / 2;
     const centerY = this.height / 2;
 
     this.nodes = rawNodes.map((n, idx) => {
-      const angle = (idx / rawNodes.length) * 2 * Math.PI + (Math.random() * 0.4 - 0.2);
-      const dist = 80 + Math.random() * 140;
+      const angle = (idx / rawNodes.length) * 2 * Math.PI;
+      const dist = 90 + ((idx * 37) % 110);
       const theme = ROLE_THEMES[n.role];
       const radius = theme.baseRadius + (n.trustScore / 100) * 6;
 
@@ -210,8 +235,8 @@ export class WoTGraphVisualizer {
         ...n,
         x: centerX + Math.cos(angle) * dist,
         y: centerY + Math.sin(angle) * dist,
-        vx: (Math.random() - 0.5) * 1.5,
-        vy: (Math.random() - 0.5) * 1.5,
+        vx: 0,
+        vy: 0,
         radius,
       };
     });

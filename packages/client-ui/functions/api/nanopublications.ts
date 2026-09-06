@@ -12,6 +12,8 @@ import {
   getR2Bucket,
   globalNanopublicationsStore,
   INITIAL_NANOPUBLICATIONS,
+  isProductionEnv,
+  createD1UnavailableResponse,
 } from './_db.js';
 import { requireAdmin, requireSignedEnvelope } from './_auth.js';
 
@@ -74,6 +76,7 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
       }
     }
 
+    const isProd = isProductionEnv(context.env);
     let nanopubs: EdgeNanopublication[] = [];
 
     // ─── QUERY D1 DATABASE ───────────────────────────────────────────────────
@@ -104,17 +107,27 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
 
         if (results && results.length > 0) {
           nanopubs = results.map(parseD1NanopubRow);
+        } else if (isProd) {
+          nanopubs = [];
         } else if (!sha256 && !id) {
           nanopubs = globalNanopublicationsStore.filter((n) =>
             channelId === 'all' ? true : n.channelId === channelId
           );
         }
-      } catch (dbErr) {
+      } catch (dbErr: any) {
+        if (isProd) {
+          return new Response(
+            JSON.stringify({ success: false, error: `Database query failed: ${dbErr?.message || 'D1 error'}` }),
+            { status: 500, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
         console.warn('[D1 Nanopubs Fallback]', dbErr);
         nanopubs = [...globalNanopublicationsStore];
       }
+    } else if (isProd) {
+      return createD1UnavailableResponse();
     } else {
-      // ─── IN-MEMORY STORE FALLBACK ───────────────────────────────────────────
+      // ─── IN-MEMORY STORE FALLBACK (Dev/Test only) ───────────────────────────
       let result = [...globalNanopublicationsStore];
 
       if (id) {
@@ -237,10 +250,12 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
       createdAt: body.createdAt || Date.now(),
     };
 
+    const isProd = isProductionEnv(context.env);
+
     // Store in Cloudflare D1
     if (db) {
       try {
-        await db
+        const stmt = db
           .prepare(
             `INSERT OR REPLACE INTO nanopublications (
               id, channel_id, title, file_name, byte_size,
@@ -262,11 +277,26 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
             newNanopub.seederCount,
             newNanopub.r2Key || null,
             newNanopub.createdAt
-          )
-          .run();
-      } catch (dbErr) {
+          );
+
+        const runResult = await stmt.run();
+        if (isProd && runResult && runResult.success === false) {
+          return new Response(
+            JSON.stringify({ success: false, error: `Database nanopub insert rejected: ${runResult.error || 'D1 error'}` }),
+            { status: 500, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
+      } catch (dbErr: any) {
+        if (isProd) {
+          return new Response(
+            JSON.stringify({ success: false, error: `Database transaction failed: ${dbErr?.message || 'D1 nanopub error'}` }),
+            { status: 500, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
         console.warn('[D1 Nanopub Insert Fallback]', dbErr);
       }
+    } else if (isProd) {
+      return createD1UnavailableResponse();
     }
 
     // Cache in KV

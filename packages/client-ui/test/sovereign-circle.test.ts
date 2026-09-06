@@ -67,5 +67,46 @@ describe('Sovereign Circles & Community Governance Engine', () => {
     expect(modalHtml).toContain('form-create-sovereign-circle');
     expect(modalHtml).toContain('Charter Sovereign Circle');
     expect(modalHtml).toContain('Governance Rules');
+    expect(modalHtml).toContain('Community Type');
+    expect(modalHtml).toContain('input-circle-type');
+    expect(modalHtml).toContain('Restricted');
+  });
+
+  it('should support Reddit-style community types (public, restricted, private) and persist custom circles', () => {
+    const engine = new SovereignCircleEngine();
+    const created = engine.createCircle({
+      name: 'solidity_hacks',
+      displayName: 'Solidity Hacks & Exploits',
+      description: 'Formal verification and EVM exploit analysis.',
+      category: 'Smart Contracts & Web3',
+      communityType: 'restricted',
+      primaryColor: '#10b981',
+      membersCount: 15,
+      rules: [
+        { title: 'Proof-of-Concept required', description: 'All vulnerability reports must include Foundry PoC.' }
+      ]
+    });
+
+    expect(created.communityType).toBe('restricted');
+    expect(created.isJoined).toBe(true);
+    expect(created.isCustom).toBe(true);
+    expect(created.channelId).toBe('pulse-solidity_hacks');
+
+    // Verify it is in all circles and retrieved correctly
+    const found = engine.getCircle(created.id);
+    expect(found).toBeDefined();
+    expect(found?.displayName).toBe('Solidity Hacks & Exploits');
+
+    // Verify join toggle updates persistence and count
+    const initialCount = created.membersCount;
+    expect(initialCount).toBe(15);
+    const isNowJoined = engine.toggleJoin(created.id);
+    expect(isNowJoined).toBe(false);
+    expect(created.membersCount).toBe(14);
+
+    // Re-join
+    const isRejoined = engine.toggleJoin(created.id);
+    expect(isRejoined).toBe(true);
+    expect(created.membersCount).toBe(15);
   });
 });

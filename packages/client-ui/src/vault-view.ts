@@ -106,6 +106,17 @@ export function renderVaultReleaseCard(p: ClientPost): string {
             <span>${p.boostCount} Re-broadcasts</span>
           </button>
           ${bookmarksVault.renderBookmarkButton(p.id)}
+          <button
+            type="button"
+            data-action="report-post"
+            data-post-id="${p.id}"
+            class="btn-pulse-report flex items-center space-x-1 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 px-2 py-1 rounded-lg transition-colors cursor-pointer"
+            title="Report illegal content / Abuse (DSA Notice & Takedown)"
+            aria-label="Report content"
+          >
+            <span>🚩</span>
+            <span class="hidden sm:inline">Report</span>
+          </button>
         </div>
 
         <button data-file-name="${fileName}" data-byte-size="${byteSize}" data-sha="${sha}" class="btn-download-p2p px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition-all shadow-sm flex items-center space-x-2 cursor-pointer">

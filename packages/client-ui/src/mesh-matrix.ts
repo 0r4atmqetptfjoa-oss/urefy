@@ -139,15 +139,18 @@ export class MeshTopologyMatrix {
     return Math.floor(rawBackoff * jitter);
   }
 
+  public isDiagnosticSimulation: boolean = true;
+
   /**
-   * Ping all connected mesh peers and recalculate live RTT with jitter.
+   * Ping all connected mesh peers and recalculate live RTT with deterministic variance.
    */
   public pingAllPeers(): void {
     const now = Date.now();
     this.peers.forEach((p) => {
-      const delta = (Math.random() * 6 - 3);
-      p.rttMs = Math.max(4, Math.round(p.rttMs + delta));
-      p.jitterMs = Number((Math.random() * 4 + 0.5).toFixed(1));
+      const baseRtt = this.d1LatencyMs > 0 ? (this.d1LatencyMs * 2) : 12;
+      const latencyVariance = Math.sin((now / 1000) + p.ratchetEpoch) * 1.5;
+      p.rttMs = Math.max(2, Math.round(baseRtt + latencyVariance + (p.role === 'ARCHON' ? 0 : 4)));
+      p.jitterMs = Number((Math.abs(Math.cos(now / 1000 + p.ratchetEpoch)) * 1.5 + 0.5).toFixed(1));
       p.lastPingAt = now;
       if (p.rttMs > 60) {
         p.status = 'degraded';
@@ -377,6 +380,9 @@ export class MeshTopologyMatrix {
                   <span>Cloudflare Global Edge & WebRTC Mesh Matrix</span>
                   <span class="text-[9px] px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-500/30 font-bold">${this.peers.length} PEERS CONNECTED</span>
                   <span class="text-[9px] px-2 py-0.5 rounded-full bg-cyan-950 text-cyan-400 border border-cyan-500/30 font-bold">${this.edgeColo}</span>
+                  <span class="text-[9px] px-2 py-0.5 rounded-full ${this.isDiagnosticSimulation ? 'bg-amber-950 text-amber-300 border border-amber-500/30' : 'bg-emerald-950 text-emerald-400 border border-emerald-500/30'} font-bold">
+                    ${this.isDiagnosticSimulation ? 'DIAGNOSTIC TOPOLOGY' : 'LIVE WEBRTC MESH'}
+                  </span>
                 </h3>
                 <p class="text-[10px] text-slate-400">Zero-Trust P2P Tunnels · SFrame E2EE Active · Edge Infrastructure Live Latency Matrix</p>
               </div>

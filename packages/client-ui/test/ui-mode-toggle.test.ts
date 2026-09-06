@@ -1,4 +1,4 @@
-﻿import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { AetherisClientStore } from '../src/client-state.js';
 import { i18n } from '../src/i18n.js';
 
@@ -117,5 +117,25 @@ describe('Ticket 1.1: Simple / Sovereign Mode Switcher & Progressive Disclosure'
 
     (window as any).__aetheris_toggle_ui_mode();
     expect(store.uiMode).toBe('simple');
+  });
+
+  it('7. should accurately report isSovereignMode and isSimpleMode', () => {
+    const store = new AetherisClientStore();
+    expect(store.isSimpleMode()).toBe(true);
+    expect(store.isSovereignMode()).toBe(false);
+
+    store.setUiMode('sovereign');
+    expect(store.isSimpleMode()).toBe(false);
+    expect(store.isSovereignMode()).toBe(true);
+
+    store.setUiMode('advanced');
+    expect(store.isSovereignMode()).toBe(true);
+
+    store.setUiMode('technical');
+    expect(store.isSovereignMode()).toBe(true);
+
+    store.setUiMode('simple');
+    expect(store.isSimpleMode()).toBe(true);
+    expect(store.isSovereignMode()).toBe(false);
   });
 });

@@ -15,6 +15,10 @@ function bufferToBase64Url(buffer: ArrayBuffer | Uint8Array): string {
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
+async function makeRpIdHash(rpId = 'aetheris.pages.dev'): Promise<Uint8Array> {
+  return new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(rpId)));
+}
+
 describe('WebAuthn FIDO2 Level 3 Server-Side Engine Suite', () => {
   beforeEach(() => {
     resetWebAuthnMemoryStore();
@@ -263,7 +267,8 @@ describe('WebAuthn FIDO2 Level 3 Server-Side Engine Suite', () => {
       const clientDataHash = await crypto.subtle.digest('SHA-256', rawClientDataBytes);
 
       const authDataBytes = new Uint8Array(37);
-      authDataBytes.fill(0x33, 0, 32);
+      const rpIdHash = await makeRpIdHash();
+      authDataBytes.set(rpIdHash, 0);
       authDataBytes[32] = 0x01; // User Presence (UP)
       authDataBytes[33] = 0;
       authDataBytes[34] = 0;
@@ -347,6 +352,7 @@ describe('WebAuthn FIDO2 Level 3 Server-Side Engine Suite', () => {
       });
 
       const authDataBytes = new Uint8Array(37);
+      authDataBytes.set(await makeRpIdHash(), 0);
       authDataBytes[32] = 0x01;
       authDataBytes[36] = 5;
 
@@ -384,6 +390,7 @@ describe('WebAuthn FIDO2 Level 3 Server-Side Engine Suite', () => {
       });
 
       const authDataBytes = new Uint8Array(37);
+      authDataBytes.set(await makeRpIdHash(), 0);
       authDataBytes[32] = 0x00; // UP not set
       authDataBytes[36] = 2;
 
@@ -427,6 +434,7 @@ describe('WebAuthn FIDO2 Level 3 Server-Side Engine Suite', () => {
       const cd1 = JSON.stringify({ type: 'webauthn.get', challenge: c1, origin: 'https://aetheris.pages.dev' });
       const h1 = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(cd1));
       const ad1 = new Uint8Array(37);
+      ad1.set(await makeRpIdHash(), 0);
       ad1[32] = 0x01;
       ad1[36] = 10;
       const sd1 = new Uint8Array(ad1.length + 32);
@@ -458,6 +466,7 @@ describe('WebAuthn FIDO2 Level 3 Server-Side Engine Suite', () => {
       const cd2 = JSON.stringify({ type: 'webauthn.get', challenge: c2, origin: 'https://aetheris.pages.dev' });
       const h2 = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(cd2));
       const ad2 = new Uint8Array(37);
+      ad2.set(await makeRpIdHash(), 0);
       ad2[32] = 0x01;
       ad2[36] = 10; // same counter <= 10
       const sd2 = new Uint8Array(ad2.length + 32);

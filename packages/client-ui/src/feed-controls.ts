@@ -485,6 +485,16 @@ export class FeedControlsEngine {
 
             ${bookmarksVault.renderBookmarkButton(p.id)}
             ${awardsSystem.renderGiveAwardButton(p.id, 'GUARDIAN')}
+            <button
+              type="button"
+              data-action="report-post"
+              data-post-id="${p.id}"
+              class="btn-pulse-report flex items-center space-x-1 px-2 py-1 rounded-xl bg-surface-base hover:bg-surface-overlay text-slate-400 hover:text-rose-400 transition-all cursor-pointer"
+              title="Report illegal content / Abuse (DSA Notice & Takedown)"
+            >
+              <span>🚩</span>
+              <span>Report</span>
+            </button>
           </div>
         </div>
       </article>
@@ -607,6 +617,18 @@ export class FeedControlsEngine {
             <button data-open-detail="${p.id}" class="btn-open-detail flex items-center space-x-1 text-slate-400 hover:text-indigo-400 transition-colors cursor-pointer">
               <span>🔍</span>
               <span>Thread</span>
+            </button>
+
+            <button
+              type="button"
+              data-action="report-post"
+              data-post-id="${p.id}"
+              class="btn-pulse-report flex items-center space-x-1 text-slate-400 hover:text-rose-400 transition-colors cursor-pointer"
+              title="Report illegal content / Abuse (DSA Notice & Takedown)"
+              aria-label="Report illegal content / DSA Notice and Takedown"
+            >
+              <span>🚩</span>
+              <span>Report</span>
             </button>
           </div>
 

@@ -79,6 +79,15 @@ class MockWebSocket {
   public sentMessages: string[] = [];
   public listeners: Record<string, Function[]> = {};
   public tags: Set<string> = new Set();
+  public attachment: any = null;
+
+  serializeAttachment(attachment: any) {
+    this.attachment = attachment;
+  }
+
+  deserializeAttachment() {
+    return this.attachment;
+  }
 
   send(data: string) {
     this.sentMessages.push(data);
@@ -686,6 +695,92 @@ describe('Cloudflare Durable Objects — RelayDurableObject & WebSocket Hibernat
       const json = await res.json();
       expect(json.status).toBe('healthy');
       expect(json.service).toContain('Aetheris');
+    });
+  });
+
+  describe('8. WebSocket Hibernation State Retention & Storage Recovery', () => {
+    it('serializes session attachment to WebSocket on AUTH and restores session on isolate wake-up', async () => {
+      const ws = new MockWebSocket();
+      mockState.acceptWebSocket(ws);
+
+      // Authenticate
+      await relayDO.webSocketMessage(
+        ws as unknown as WebSocket,
+        JSON.stringify({
+          type: 'AUTH',
+          fingerprint: 'ed25519-hibernation-user-1',
+          nullifier: 'nullifier-hib-1',
+          role: 'VALIDATOR',
+        })
+      );
+
+      // Verify attachment was serialized to the socket
+      expect(ws.attachment).toBeDefined();
+      expect(ws.attachment.fingerprint).toBe('ed25519-hibernation-user-1');
+      expect(ws.attachment.role).toBe('VALIDATOR');
+      expect(ws.attachment.authenticated).toBe(true);
+
+      // Join channel
+      await relayDO.webSocketMessage(
+        ws as unknown as WebSocket,
+        JSON.stringify({ type: 'JOIN_CHANNEL', channelId: 'alpha-ops' })
+      );
+      expect(ws.attachment.currentChannelId).toBe('alpha-ops');
+      expect(ws.attachment.subscribedChannels).toContain('alpha-ops');
+
+      // Simulate Cloudflare Isolate Eviction / Hibernation:
+      // A new RelayDurableObject instance is created with the same DO state/storage,
+      // simulating isolate eviction and wake-up.
+      const freshDO = new RelayDurableObject(mockState, {});
+
+      // Incoming message to the fresh DO instance for this hibernated socket
+      await freshDO.webSocketMessage(
+        ws as unknown as WebSocket,
+        JSON.stringify({ type: 'PING' })
+      );
+
+      // Verify that the fresh DO restored session metadata and presence from the socket's attachment!
+      const presence = freshDO.getPresence();
+      expect(presence.has('ed25519-hibernation-user-1')).toBe(true);
+      const user = presence.get('ed25519-hibernation-user-1');
+      expect(user?.role).toBe('VALIDATOR');
+      expect(user?.joinedChannel).toBe('alpha-ops');
+    });
+
+    it('persists messages to DO storage and restores them upon isolate reconstruction', async () => {
+      const ws = new MockWebSocket();
+      mockState.acceptWebSocket(ws);
+
+      await relayDO.webSocketMessage(
+        ws as unknown as WebSocket,
+        JSON.stringify({
+          type: 'AUTH',
+          fingerprint: 'ed25519-storage-author',
+          nullifier: 'nullifier-store-1',
+        })
+      );
+
+      await relayDO.webSocketMessage(
+        ws as unknown as WebSocket,
+        JSON.stringify({
+          type: 'SEND_MESSAGE',
+          channelId: 'relays-general',
+          ciphertext: 'Secret encrypted payload across DO hibernation',
+          epoch: '#100',
+        })
+      );
+
+      // Verify message was stored in mockState.storage
+      const storedMsgs = await mockState.storage.list({ prefix: 'msg:relays-general:' });
+      expect(storedMsgs.size).toBe(1);
+
+      // Simulate new isolate instantiation
+      const revivedDO = new RelayDurableObject(mockState, {});
+      // Trigger fetch to ensure ensureInitialized() runs
+      await revivedDO.fetch(new Request('https://relay.aetheris.network/messages?channelId=relays-general'));
+
+      const messages = revivedDO.getChannelMessages('relays-general');
+      expect(messages.some((m) => m.ciphertext === 'Secret encrypted payload across DO hibernation')).toBe(true);
     });
   });
 });

@@ -26,16 +26,27 @@ export interface SecurityThreatLog {
   blockedAtMs: number;
 }
 
+import { isLocalDev } from './admin-auth.js';
+
 export class CyberDefenseHub {
   public isOpen: boolean = false;
   private isStrictModeActive: boolean = true;
   private powDifficulty: number = 3;
-  private totalAttacksMitigated: number = 247;
-  private activeQuarantinedIPs: number = 14;
-  private ddosPacketsDropped: number = 18420;
-  private threatLogs: SecurityThreatLog[];
+  private totalAttacksMitigated: number = 0;
+  private activeQuarantinedIPs: number = 0;
+  private ddosPacketsDropped: number = 0;
+  private threatLogs: SecurityThreatLog[] = [];
 
   constructor() {
+    if (isLocalDev()) {
+      this.totalAttacksMitigated = 247;
+      this.activeQuarantinedIPs = 14;
+      this.ddosPacketsDropped = 18420;
+      this.seedInitialLogs();
+    }
+  }
+
+  private seedInitialLogs(): void {
     this.threatLogs = [
       {
         id: 'sec-001',
@@ -292,9 +303,9 @@ export class CyberDefenseHub {
               <div class="flex items-center justify-between">
                 <div class="flex items-center space-x-2">
                   <span class="text-base">⚡</span>
-                  <h3 class="text-sm font-bold text-white">Live Attack Simulator & Proof-of-Defense Verification</h3>
+                  <h3 class="text-sm font-bold text-white">Security Verification & Chaos Testing Sandbox</h3>
                 </div>
-                <span class="text-xs text-slate-400">Click any simulation to test defense mechanisms in real time</span>
+                <span class="text-xs text-slate-400">Interactive manual verification of defense mechanisms (Test Sandbox)</span>
               </div>
 
               <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">

@@ -395,7 +395,9 @@ export class ModalManager {
         case 'legal': {
           const mod = this.loadedModules.get('legal') || (await import('./legal-modal.js'));
           this.loadedModules.set('legal', mod);
-          mod.legalModal.open(params);
+          const tab = typeof params === 'string' ? params : (params?.tab || 'terms');
+          const targetId = typeof params === 'object' ? (params?.targetId || '') : '';
+          mod.legalModal.open(tab, targetId);
           this.setActive(
             'legal',
             () => mod.legalModal.render(),
@@ -540,6 +542,7 @@ export function buildModalRootHTML(ctx: ModalStateContext): string {
     ${ctx.renderPostDetailModal()}
     ${ctx.renderAwardModal()}
     ${sovereignCircleEngine.isCreateModalOpen ? sovereignCircleEngine.renderCreateCircleModal() : ''}
+    ${sovereignCircleEngine.isModModalOpen ? sovereignCircleEngine.renderCircleModModal() : ''}
     ${ctx.renderCrossPostModal()}
     ${ctx.renderBookmarksModal()}
     ${ctx.renderNotificationsDropdown()}

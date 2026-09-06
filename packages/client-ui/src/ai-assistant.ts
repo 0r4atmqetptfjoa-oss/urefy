@@ -404,7 +404,7 @@ export class LocalAIAssistant {
     if (!this.dismissedSuggestionTypes.has('low_vault_entropy')) {
       const isSeedVerified = typeof localStorage !== 'undefined' && localStorage.getItem('aetheris_seed_verified') === 'true';
       const vaultPosts = store?.posts?.filter((p: any) => p.channelId?.startsWith('vault-')) || [];
-      if (!isSeedVerified || vaultPosts.length === 0) {
+      if (!isSeedVerified) {
         return this.emitSuggestion({
           id: `sug-entropy-${now}`,
           type: 'low_vault_entropy',

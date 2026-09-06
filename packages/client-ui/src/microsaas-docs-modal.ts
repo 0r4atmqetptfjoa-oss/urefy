@@ -26,6 +26,86 @@ export class MicroSaaSDocsModal {
     }
   }
 
+  public setActiveTab(tab: 'binary-hygiene' | 'zk-trust' | 'crypto-sdk'): void {
+    this.activeTab = tab;
+    if (this.container) {
+      this.render();
+    }
+  }
+
+  public renderModalHTML(): string {
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://aetheris.mesh';
+
+    return `
+      <div id="microsaas-docs-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in" data-action="close-feature">
+        <div class="relative w-full max-w-4xl bg-slate-900 border border-cyan-500/30 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]" data-action="stop-propagation">
+          <!-- Header -->
+          <div class="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-950/60">
+            <div class="flex items-center space-x-3">
+              <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500/20 to-emerald-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-400 text-xl shadow-inner">
+                ⚡
+              </div>
+              <div>
+                <div class="flex items-center space-x-2">
+                  <h2 class="text-lg font-bold text-white tracking-wide">Developer APIs & Micro-SaaS Hub</h2>
+                  <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                    100% Free Edge Tier
+                  </span>
+                </div>
+                <p class="text-xs text-slate-400">Zero-cost sovereign endpoints, ZK verifiers, and client-side cryptographic utilities</p>
+              </div>
+            </div>
+            <button id="close-microsaas-btn" data-action="close-feature" class="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/80 transition-colors cursor-pointer">
+              ✕
+            </button>
+          </div>
+
+          <!-- Navigation Tabs -->
+          <div class="flex items-center px-6 border-b border-slate-800/80 bg-slate-900/40 space-x-2 text-sm font-medium">
+            <button id="tab-binary-hygiene-btn" data-action="set-microsaas-tab" data-tab="binary-hygiene" class="py-3 px-4 border-b-2 flex items-center space-x-2 transition-all cursor-pointer ${
+              this.activeTab === 'binary-hygiene'
+                ? 'border-cyan-400 text-cyan-400'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }">
+              <span>🛡️ Binary Hygiene API</span>
+              <span class="text-[10px] px-1.5 py-0.2 rounded bg-cyan-950/60 border border-cyan-800 text-cyan-300">/scan</span>
+            </button>
+            <button id="tab-zk-trust-btn" data-action="set-microsaas-tab" data-tab="zk-trust" class="py-3 px-4 border-b-2 flex items-center space-x-2 transition-all cursor-pointer ${
+              this.activeTab === 'zk-trust'
+                ? 'border-cyan-400 text-cyan-400'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }">
+              <span>💎 Portable ZK Trust Badge</span>
+              <span class="text-[10px] px-1.5 py-0.2 rounded bg-purple-950/60 border border-purple-800 text-purple-300">/verify</span>
+            </button>
+            <button id="tab-crypto-sdk-btn" data-action="set-microsaas-tab" data-tab="crypto-sdk" class="py-3 px-4 border-b-2 flex items-center space-x-2 transition-all cursor-pointer ${
+              this.activeTab === 'crypto-sdk'
+                ? 'border-cyan-400 text-cyan-400'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }">
+              <span>🧬 Post-Quantum & Stego SDK</span>
+              <span class="text-[10px] px-1.5 py-0.2 rounded bg-emerald-950/60 border border-emerald-800 text-emerald-300">WASM / TS</span>
+            </button>
+          </div>
+
+          <!-- Tab Content -->
+          <div class="p-6 overflow-y-auto flex-1 space-y-6 text-slate-300 text-sm">
+            ${this.renderTabContent(origin)}
+          </div>
+
+          <!-- Footer -->
+          <div class="px-6 py-3 border-t border-slate-800 bg-slate-950/60 flex items-center justify-between text-xs text-slate-500">
+            <div class="flex items-center space-x-2">
+              <span class="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span>Cloudflare Pages Edge: 100,000 req/day included at $0/mo</span>
+            </div>
+            <div>Aetheris Sovereign Micro-SaaS Engine</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
   private render(): void {
     const origin = typeof window !== 'undefined' ? window.location.origin : 'https://aetheris.mesh';
 

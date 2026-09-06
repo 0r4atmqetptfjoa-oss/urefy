@@ -36,6 +36,43 @@ describe('Modular Views Architecture', () => {
       expect(html).toContain('&amp; welcome!');
       expect(html).toContain('0123456789ab');
     });
+
+    it('should support switching to Direct Messages E2EE tab and rendering DM workspace', async () => {
+      const { setActiveMessagesTab, renderRelaysWorkspace, openNewDMPicker, closeNewDMPicker } = await import('../src/messages-view.js');
+
+      // Default relays view has tab header
+      setActiveMessagesTab('relays');
+      let html = renderRelaysWorkspace();
+      expect(html).toContain('data-action="switch-messages-tab"');
+      expect(html).toContain('data-tab="relays"');
+      expect(html).toContain('data-tab="dm"');
+      expect(html).toContain('id="form-send-message"');
+
+      // Switch to DM tab
+      setActiveMessagesTab('dm');
+      html = renderRelaysWorkspace();
+      expect(html).toContain('Direct Messages');
+      expect(html).toContain('id="input-dm-search"');
+      expect(html).toContain('data-action="new-dm-conversation"');
+      expect(html).toContain('id="form-send-dm-message"');
+      expect(html).toContain('id="input-dm-message"');
+      expect(html).toContain('<span>Send</span>');
+      expect(html).toContain('<span>⚡</span>');
+
+      // Test New DM Modal
+      openNewDMPicker();
+      html = renderRelaysWorkspace();
+      expect(html).toContain('id="new-dm-modal-backdrop"');
+      expect(html).toContain('id="input-new-dm-peer"');
+      expect(html).toContain('data-action="submit-new-dm-peer"');
+
+      closeNewDMPicker();
+      html = renderRelaysWorkspace();
+      expect(html).not.toContain('id="new-dm-modal-backdrop"');
+
+      // Reset tab
+      setActiveMessagesTab('relays');
+    });
   });
 
   describe('vault-view.ts', () => {

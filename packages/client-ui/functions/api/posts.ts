@@ -14,6 +14,8 @@ import {
   globalVotesStore,
   globalSpentNullifiers,
   INITIAL_POSTS,
+  isProductionEnv,
+  createD1UnavailableResponse,
 } from './_db.js';
 import { requireAdmin, requireSignedEnvelope } from './_auth.js';
 
@@ -112,6 +114,7 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
       } catch (_) {}
     }
 
+    const isProd = isProductionEnv(context.env);
     let posts: EdgePost[] = [];
 
     // 2. Query Cloudflare D1 Database if binding available
@@ -147,8 +150,10 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
 
         if (results && results.length > 0) {
           posts = results.map(parseD1PostRow);
+        } else if (isProd) {
+          posts = [];
         } else {
-          // If D1 is empty on initial migration, fallback to in-memory seed posts
+          // If D1 is empty on initial migration in dev/test, fallback to in-memory seed posts
           let fallback = [...globalPostsStore];
           if (channelId && channelId !== 'all') {
             fallback = fallback.filter((p) => p.channelId === channelId);
@@ -158,12 +163,20 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
           }
           posts = fallback;
         }
-      } catch (dbError) {
+      } catch (dbError: any) {
+        if (isProd) {
+          return new Response(
+            JSON.stringify({ success: false, error: `Database query failed: ${dbError?.message || 'SQL error'}` }),
+            { status: 500, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
         console.warn('[D1 Posts Fallback]', dbError);
         posts = [...globalPostsStore];
       }
+    } else if (isProd) {
+      return createD1UnavailableResponse();
     } else {
-      // 3. In-Memory Edge Store Fallback
+      // 3. In-Memory Edge Store Fallback (Strictly Dev / Test only)
       let result = [...globalPostsStore];
 
       if (channelId && channelId !== 'all') {
@@ -233,6 +246,8 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
     const kv = getKVStore(context.env);
     const r2 = getR2Bucket(context.env);
 
+    const isProd = isProductionEnv(context.env);
+
     // ─── ACTION: VOTE ──────────────────────────────────────────────────────────
     if (body.action === 'vote') {
       const adminCheck = await requireAdmin(context);
@@ -266,10 +281,17 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
             const currentVotes = Number(existing.merit_votes ?? existing.meritVotes) || 0;
             const newVotes = currentVotes + voteDir;
 
-            await db
+            const updateRes = await db
               .prepare('UPDATE posts SET merit_votes = merit_votes + ? WHERE id = ?')
               .bind(voteDir, postId)
               .run();
+
+            if (isProd && updateRes && updateRes.success === false) {
+              return new Response(
+                JSON.stringify({ success: false, error: 'Database vote update failed in D1' }),
+                { status: 500, headers: { 'Content-Type': 'application/json' } }
+              );
+            }
 
             // Record vote in ledger
             const voteId = `vote-${postId}-${userFingerprint}`;
@@ -294,13 +316,26 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
               status: 200,
               headers: { 'Content-Type': 'application/json' },
             });
+          } else if (isProd) {
+            return new Response(
+              JSON.stringify({ success: false, error: `Post ${postId} not found` }),
+              { status: 404, headers: { 'Content-Type': 'application/json' } }
+            );
           }
-        } catch (dbErr) {
+        } catch (dbErr: any) {
+          if (isProd) {
+            return new Response(
+              JSON.stringify({ success: false, error: `Database transaction failed: ${dbErr?.message || 'D1 vote error'}` }),
+              { status: 500, headers: { 'Content-Type': 'application/json' } }
+            );
+          }
           console.warn('[D1 Vote Fallback]', dbErr);
         }
+      } else if (isProd) {
+        return createD1UnavailableResponse();
       }
 
-      // Fallback in-memory
+      // Fallback in-memory (Dev/Test only)
       const post = globalPostsStore.find((p) => p.id === postId);
       if (!post) {
         return new Response(
@@ -368,13 +403,26 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
               status: 200,
               headers: { 'Content-Type': 'application/json' },
             });
+          } else if (isProd) {
+            return new Response(
+              JSON.stringify({ success: false, error: `Post ${postId} not found` }),
+              { status: 404, headers: { 'Content-Type': 'application/json' } }
+            );
           }
-        } catch (dbErr) {
+        } catch (dbErr: any) {
+          if (isProd) {
+            return new Response(
+              JSON.stringify({ success: false, error: `Database ballot transaction failed: ${dbErr?.message || 'D1 error'}` }),
+              { status: 500, headers: { 'Content-Type': 'application/json' } }
+            );
+          }
           console.warn('[D1 Anonymous Vote Fallback]', dbErr);
         }
+      } else if (isProd) {
+        return createD1UnavailableResponse();
       }
 
-      // In-memory fallback
+      // In-memory fallback (Dev/Test only)
       const post = globalPostsStore.find((p) => p.id === postId);
       if (!post) {
         return new Response(
@@ -435,10 +483,23 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
               status: 200,
               headers: { 'Content-Type': 'application/json' },
             });
+          } else if (isProd) {
+            return new Response(
+              JSON.stringify({ success: false, error: `Post ${postId} not found` }),
+              { status: 404, headers: { 'Content-Type': 'application/json' } }
+            );
           }
-        } catch (dbErr) {
+        } catch (dbErr: any) {
+          if (isProd) {
+            return new Response(
+              JSON.stringify({ success: false, error: `Database boost transaction failed: ${dbErr?.message || 'D1 error'}` }),
+              { status: 500, headers: { 'Content-Type': 'application/json' } }
+            );
+          }
           console.warn('[D1 Boost Fallback]', dbErr);
         }
+      } else if (isProd) {
+        return createD1UnavailableResponse();
       }
 
       const post = globalPostsStore.find((p) => p.id === postId);
@@ -497,10 +558,18 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
       isExpanded: false,
     };
 
+    // Strict input validation
+    if (!newPost.title?.trim() && !newPost.content?.trim()) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Post must contain either a title or content' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Store in Cloudflare D1 if available
     if (db) {
       try {
-        await db
+        const stmt = db
           .prepare(
             `INSERT OR REPLACE INTO posts (
               id, channel_id, author_id, author_role, title, content, flair,
@@ -529,14 +598,37 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
             newPost.status || 'published',
             newPost.createdAt,
             newPost.isExpanded ? 1 : 0
-          )
-          .run();
-      } catch (dbErr) {
+          );
+
+        const runResult = await stmt.run();
+        if (isProd && runResult && runResult.success === false) {
+          return new Response(
+            JSON.stringify({ success: false, error: `Database post insert rejected: ${runResult.error || 'D1 error'}` }),
+            { status: 500, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Invalidate KV cache
+        if (kv) {
+          try {
+            await kv.delete('posts:all:all:hot:50:0');
+            await kv.delete(`posts:${newPost.channelId}:all:hot:50:0`);
+          } catch (_) {}
+        }
+      } catch (dbErr: any) {
+        if (isProd) {
+          return new Response(
+            JSON.stringify({ success: false, error: `Database transaction failed: ${dbErr?.message || 'D1 post insert error'}` }),
+            { status: 500, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
         console.warn('[D1 Post Insert Fallback]', dbErr);
       }
+    } else if (isProd) {
+      return createD1UnavailableResponse();
     }
 
-    // Update in-memory isolate store
+    // Update in-memory isolate store (Dev/Test or isolate cache)
     const existingIndex = globalPostsStore.findIndex((p) => p.id === newPost.id);
     if (existingIndex >= 0) {
       globalPostsStore[existingIndex] = newPost;

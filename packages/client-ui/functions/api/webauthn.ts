@@ -599,7 +599,25 @@ export async function onRequest(context: { request: Request; env?: Env }): Promi
           );
         }
 
-        // 3. Verify Authenticator Data (flags, sign counter)
+        // 3. Verify clientDataJSON.origin against the expected application origin.
+        // Allows env override (WEBAUTHN_ALLOWED_ORIGIN) for staging/preview deployments.
+        const requestUrl = new URL(request.url);
+        const allowedOrigins: string[] = [
+          (env as any)?.WEBAUTHN_ALLOWED_ORIGIN || 'https://aetheris-omni-sphere.pages.dev',
+          `https://${requestUrl.hostname}`,
+        ];
+        const receivedOrigin = parsedClientData.origin as string | undefined;
+        if (!receivedOrigin || !allowedOrigins.includes(receivedOrigin)) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: `WebAuthn origin mismatch: received "${receivedOrigin}", expected one of [${allowedOrigins.join(', ')}]`,
+            }),
+            { status: 401, headers: corsHeaders }
+          );
+        }
+
+        // 4. Parse authenticatorData
         let authDataBytes: Uint8Array;
         let signCount = 0;
         try {
@@ -621,7 +639,25 @@ export async function onRequest(context: { request: Request; env?: Env }): Promi
           );
         }
 
-        // Flags check: Byte 32 -> User Presence (UP bit 0) MUST be set
+        // 5. Verify rpIdHash: bytes 0–31 of authenticatorData MUST equal SHA-256(rpId).
+        // rpId defaults to the effective hostname; override via WEBAUTHN_RP_ID env var.
+        const rpId: string =
+          (env as any)?.WEBAUTHN_RP_ID || requestUrl.hostname || 'aetheris-omni-sphere.pages.dev';
+        const expectedRpIdHash = new Uint8Array(
+          await crypto.subtle.digest('SHA-256', new TextEncoder().encode(rpId))
+        );
+        const receivedRpIdHash = authDataBytes.slice(0, 32);
+        const rpIdHashMatch =
+          receivedRpIdHash.length === expectedRpIdHash.length &&
+          receivedRpIdHash.every((b, i) => b === expectedRpIdHash[i]);
+        if (!rpIdHashMatch) {
+          return new Response(
+            JSON.stringify({ success: false, error: `WebAuthn rpIdHash mismatch for rpId "${rpId}"` }),
+            { status: 401, headers: corsHeaders }
+          );
+        }
+
+        // 6. Flags check: Byte 32 -> User Presence (UP bit 0) MUST be set
         const flags = authDataBytes[32];
         const userPresent = (flags & 0x01) !== 0;
         if (!userPresent) {
@@ -649,7 +685,7 @@ export async function onRequest(context: { request: Request; env?: Env }): Promi
           );
         }
 
-        // 4. Verify Cryptographic Signature over (authenticatorData || SHA-256(clientDataJSON))
+        // 8. Verify Cryptographic Signature over (authenticatorData || SHA-256(clientDataJSON))
         let cryptoKey: CryptoKey;
         try {
           cryptoKey = await importWebAuthnPublicKey(cred.publicKey);
@@ -695,7 +731,7 @@ export async function onRequest(context: { request: Request; env?: Env }): Promi
           );
         }
 
-        // 5. Update counter in D1/memory & ATOMICALLY delete challenge from D1/KV/Memory
+        // 9. Update counter in D1/memory & ATOMICALLY delete challenge from D1/KV/Memory
         const updatedCounter = signCount > 0 ? signCount : cred.counter + 1;
         await updateCredentialCounter(env, credentialId, updatedCounter);
         await deleteChallenge(env, fingerprint);

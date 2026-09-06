@@ -19,6 +19,9 @@ import {
 } from '@aetheris/core-crypto';
 import { encodeSteganography, decodeSteganography } from './steganography.js';
 import { isLocalDev } from './admin-auth.js';
+import type { DirectMessageAttachment } from './client-state.js';
+
+export type { DirectMessageAttachment };
 
 export interface DirectMessage {
   id: string;
@@ -28,6 +31,7 @@ export interface DirectMessage {
   plaintext: string;
   timestamp: number;
   isRead: boolean;
+  attachment?: DirectMessageAttachment;
 }
 
 export interface DMConversation {
@@ -237,6 +241,17 @@ export class SovereignDMManager {
   public pqcBenchmarkResult: { timeMs: number; verified: boolean; sharedSecretHex: string } | null = null;
   public showCiphertextToggle: boolean = false;
   public ephemeralExpirySec: number = 0; // 0 = disabled
+  public pendingAttachment: DirectMessageAttachment | null = null;
+  public isEmojiPickerOpen: boolean = false;
+
+  public setPendingAttachment(att: DirectMessageAttachment | null): void {
+    this.pendingAttachment = att;
+    this.syncDOM();
+  }
+
+  public getPendingAttachment(): DirectMessageAttachment | null {
+    return this.pendingAttachment;
+  }
 
   private readonly storageKey: string = 'aetheris_sovereign_dm_v1';
   private readonly stateKey: string = 'aetheris_sovereign_dm_ui_state';
@@ -429,6 +444,13 @@ export class SovereignDMManager {
     this._saveToStorage();
     this._dispatchEvent('aetheris:dm:opened', { peerFP });
     this.syncDOM();
+  }
+
+  /**
+   * Alias for openDM to ensure cross-module compatibility.
+   */
+  public openConversation(peerFP: string, peerRole: string = 'MEMBER'): void {
+    this.openDM(peerFP, peerRole);
   }
 
   /**
@@ -636,9 +658,9 @@ export class SovereignDMManager {
   /**
    * Send a direct message to active peer with TreeKEM SFrame ratcheting and optional PQC/Steganography.
    */
-  public async sendMessage(plaintext: string, myFP: string = 'me_local_node_0x9f4e'): Promise<void> {
-    const trimmed = plaintext.trim();
-    if (!trimmed || !this.activePeerFP) return;
+  public async sendMessage(plaintext: string, myFP: string = 'me_local_node_0x9f4e', attachment?: DirectMessageAttachment): Promise<void> {
+    const trimmed = plaintext ? plaintext.trim() : '';
+    if ((!trimmed && !attachment) || !this.activePeerFP) return;
 
     let conv = this.conversations.get(this.activePeerFP);
     if (!conv) {
@@ -664,7 +686,7 @@ export class SovereignDMManager {
 
     const state = deriveTreeKEMState(this.activePeerFP, myFP, conv.messages.length);
     const encryptedPayload = simulateEncrypt(
-      finalPlaintext,
+      finalPlaintext || (attachment ? `[Attachment: ${attachment.name}]` : ''),
       myFP,
       this.activePeerFP,
       state.epoch,
@@ -679,6 +701,7 @@ export class SovereignDMManager {
       plaintext: finalPlaintext,
       timestamp: Date.now(),
       isRead: true,
+      attachment,
     };
 
     conv.messages.push(message);

@@ -114,12 +114,12 @@ export function renderHeaderTools(options: HeaderToolsOptions): string {
     ${ambientNetworkMinimap.renderMinimapHTML()}
 
     <!-- UI MODE SWITCHER PILL (Simple / Sovereign) -->
-    <button type="button" id="btn-toggle-ui-mode" data-action="toggle-ui-mode" class="px-2.5 py-1.5 rounded-xl text-xs font-mono border transition-all flex items-center space-x-1.5 cursor-pointer ${clientStore.uiMode === 'simple' ? 'bg-cyan-500/10 text-cyan-300 border-cyan-500/30 hover:bg-cyan-500/20' : 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40 hover:bg-indigo-500/30'}" title="${i18n.t('uiMode.switchMode', undefined, 'Switch Interface Mode')}">
-      <span>${clientStore.uiMode === 'simple' ? '🌱' : '⚡'}</span>
-      <span class="font-sans text-[11px] font-semibold">${clientStore.uiMode === 'simple' ? i18n.t('uiMode.simple', undefined, 'Simple') : i18n.t('uiMode.sovereign', undefined, 'Sovereign')}</span>
+    <button type="button" id="btn-toggle-ui-mode" data-action="toggle-ui-mode" class="px-2.5 py-1.5 rounded-xl text-xs font-mono border transition-all flex items-center space-x-1.5 cursor-pointer ${clientStore.isSimpleMode() ? 'bg-cyan-500/10 text-cyan-300 border-cyan-500/30 hover:bg-cyan-500/20' : 'bg-indigo-950 text-indigo-200 border-indigo-400/50 hover:bg-indigo-900/60 shadow-md shadow-indigo-500/20 ring-1 ring-indigo-500/30'}" title="${i18n.t('uiMode.switchMode', undefined, 'Switch Interface Mode')}">
+      <span>${clientStore.isSimpleMode() ? '🌱' : '⚡'}</span>
+      <span class="font-sans text-[11px] font-semibold">${clientStore.isSimpleMode() ? i18n.t('uiMode.simple', undefined, 'Simple') : i18n.t('uiMode.sovereign', undefined, 'Sovereign')}</span>
     </button>
 
-    ${clientStore.uiMode === 'sovereign' 
+    ${clientStore.isSovereignMode() 
       ? options.renderAdvancedTools(false)
       : `
         <!-- ADVANCED TOOLS OVERFLOW DROPDOWN (SIMPLE MODE) -->
@@ -150,15 +150,9 @@ export function renderHeaderTools(options: HeaderToolsOptions): string {
       `
     }
 
-    <!-- THEME SELECTOR (all screens) -->
-    <button type="button" id="btn-open-theme-picker" data-action="open-theme" class="px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-raised/80 hover:bg-surface-overlay text-slate-300 font-mono flex items-center space-x-1.5 transition-all shadow-sm cursor-pointer" title="Choose Theme & Typography">
-      <span>🎨</span>
-      <span class="hidden xl:inline font-sans font-medium">Theme</span>
-    </button>
-
     <!-- NOTIFICATIONS BELL (all screens) -->
     <div class="relative flex items-center">
-      <button type="button" id="btn-toggle-notifs" data-action="toggle-notifs" class="relative p-2 rounded-xl text-slate-400 hover:text-white hover:bg-surface-raised transition-all cursor-pointer" title="Notifications">
+      <button type="button" id="btn-toggle-notifs" data-action="toggle-notifs" class="relative p-2 min-w-[24px] min-h-[24px] rounded-xl text-slate-400 hover:text-white hover:bg-surface-raised transition-all cursor-pointer" title="Notifications">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
         ${notificationCenter.unreadCount > 0 ? `<span class="absolute top-1 right-1 w-2 h-2 bg-rose-500 rounded-full animate-ping"></span><span class="absolute top-1 right-1 w-2 h-2 bg-rose-500 rounded-full"></span>` : ''}
       </button>

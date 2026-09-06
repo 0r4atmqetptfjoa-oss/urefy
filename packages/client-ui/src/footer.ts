@@ -26,7 +26,7 @@ export class LegalFooter {
                 <span class="font-bold text-sm text-white tracking-wide">AETHERIS OMNI-SPHERE</span>
               </div>
               <p class="text-[11px] text-slate-400 leading-relaxed">
-                Protocol suveran descentralizat de comunicare și cunoaștere. Arhitectură non-custodială bazată pe identități criptografice Ed25519 și criptare post-cuantică hibridă.
+                Sovereign decentralized protocol for communication and knowledge. Non-custodial architecture based on Ed25519 cryptographic identities and hybrid post-quantum encryption.
               </p>
               <div class="flex items-center space-x-2 pt-1">
                 <span class="px-2 py-0.5 rounded bg-white/5 border border-white/10 text-[10px] font-mono text-cyan-300">v1.0.0 Stable</span>
@@ -118,14 +118,14 @@ export class LegalFooter {
             <div class="space-y-2.5">
               <h4 class="text-xs font-bold text-white uppercase tracking-wider font-mono flex items-center space-x-1.5">
                 <span>🛡️</span>
-                <span>Garanții de Securitate</span>
+                <span>Security Guarantees</span>
               </h4>
               <div class="space-y-2 text-[10px] font-mono">
                 <div class="p-2 rounded-lg bg-black/40 border border-white/5 flex items-center space-x-2">
                   <span class="text-base">🇪🇺</span>
                   <div>
                     <div class="font-bold text-white">EU Digital Services Act</div>
-                    <div class="text-slate-400">Regulamentul (UE) 2022/2065</div>
+                    <div class="text-slate-400">Regulation (EU) 2022/2065</div>
                   </div>
                 </div>
 
@@ -133,7 +133,7 @@ export class LegalFooter {
                   <span class="text-base">🍪</span>
                   <div>
                     <div class="font-bold text-white">Zero Tracking Cookies</div>
-                    <div class="text-slate-400">0 cookie-uri de profilare comercială</div>
+                    <div class="text-slate-400">0 commercial tracking cookies</div>
                   </div>
                 </div>
 
@@ -141,7 +141,7 @@ export class LegalFooter {
                   <span class="text-base">🔐</span>
                   <div>
                     <div class="font-bold text-white">ML-KEM-768 + Ed25519</div>
-                    <div class="text-slate-400">Criptografie Hibridă Post-Cuantică</div>
+                    <div class="text-slate-400">Hybrid Post-Quantum Cryptography</div>
                   </div>
                 </div>
               </div>
@@ -170,27 +170,27 @@ export class LegalFooter {
   }
 
   /**
-   * Renders the compact legal widget for the bottom of the right rail sidebar.
+   * Renders the Reddit-style compact legal navigation for the bottom of the left sidebar rail.
    */
   public renderSidebarLegalSnippet(): string {
     return `
-      <div id="sidebar-legal-snippet" class="p-3 text-[11px] text-slate-500 font-sans border-t border-white/5 space-y-2 bg-surface-base/40">
-        <div class="flex flex-wrap gap-x-2 gap-y-1 text-slate-400">
-          <button type="button" data-action="open-legal" data-legal-tab="about" class="hover:text-cyan-300 cursor-pointer">${t('footer.about', undefined, 'About')}</button>
+      <div id="sidebar-legal-snippet" class="p-3 text-[10px] text-slate-500 font-sans border-t border-white/5 space-y-2 bg-surface-base/50 select-none">
+        <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-slate-400">
+          <button type="button" data-action="open-legal" data-legal-tab="about" class="hover:text-cyan-300 transition-colors cursor-pointer">${t('footer.about', undefined, 'About')}</button>
           <span>•</span>
-          <button type="button" data-action="open-legal" data-legal-tab="terms" class="hover:text-cyan-300 cursor-pointer">${t('footer.terms', undefined, 'Terms')}</button>
+          <button type="button" data-action="open-legal" data-legal-tab="rules" class="hover:text-cyan-300 transition-colors cursor-pointer">${t('footer.rules', undefined, 'Rules')}</button>
           <span>•</span>
-          <button type="button" data-action="open-legal" data-legal-tab="privacy" class="hover:text-cyan-300 cursor-pointer">${t('footer.privacy', undefined, 'Privacy')}</button>
+          <button type="button" data-action="open-legal" data-legal-tab="terms" class="hover:text-cyan-300 transition-colors cursor-pointer">${t('footer.terms', undefined, 'User Agreement')}</button>
           <span>•</span>
-          <button type="button" data-action="open-legal" data-legal-tab="rules" class="hover:text-cyan-300 cursor-pointer">${t('footer.rules', undefined, 'Rules')}</button>
+          <button type="button" data-action="open-legal" data-legal-tab="privacy" class="hover:text-cyan-300 transition-colors cursor-pointer">${t('footer.privacy', undefined, 'Privacy')}</button>
           <span>•</span>
-          <button type="button" data-action="open-legal" data-legal-tab="dsa" class="hover:text-rose-400 font-semibold cursor-pointer">${t('footer.dsa', undefined, 'Report Abuse')}</button>
+          <button type="button" data-action="open-legal" data-legal-tab="dsa" class="hover:text-rose-400 font-semibold transition-colors cursor-pointer">${t('footer.dsa', undefined, 'Report Abuse')}</button>
           <span>•</span>
-          <button type="button" data-action="open-legal" data-legal-tab="contact" class="hover:text-cyan-300 cursor-pointer">${t('footer.contact', undefined, 'Contact')}</button>
+          <button type="button" data-action="open-legal" data-legal-tab="contact" class="hover:text-cyan-300 transition-colors cursor-pointer">${t('footer.contact', undefined, 'Contact')}</button>
         </div>
 
-        <div class="text-[10px] text-slate-500 flex items-center justify-between">
-          <span>${t('footer.copyright', undefined, '© 2026 Aetheris')} · EU DSA Compliant</span>
+        <div class="text-[9px] text-slate-500 flex items-center justify-between pt-0.5">
+          <span>${t('footer.copyright', undefined, '© 2026 Aetheris')}</span>
           <span class="px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-[9px] text-emerald-400 font-mono">0 Trackers</span>
         </div>
       </div>
@@ -212,11 +212,11 @@ export class LegalFooter {
             <span class="hidden sm:inline text-xs">AETHERIS</span>
           </div>
           <span class="text-slate-600 hidden sm:inline">•</span>
-          <span class="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-mono font-bold hidden md:inline-flex items-center space-x-1" title="0 cookie-uri de urmărire">
+          <span class="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-mono font-bold hidden md:inline-flex items-center space-x-1" title="0 tracking cookies">
             <span>🍪</span>
             <span>0 Trackers</span>
           </span>
-          <span class="px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 text-[10px] font-mono font-bold hidden xl:inline-flex items-center space-x-1" title="Criptografie Post-Cuantică hibridă">
+          <span class="px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 text-[10px] font-mono font-bold hidden xl:inline-flex items-center space-x-1" title="Hybrid Post-Quantum Cryptography">
             <span>🔒</span>
             <span>TreeKEM E2EE</span>
           </span>
@@ -226,7 +226,7 @@ export class LegalFooter {
           ` : ''}
         </div>
 
-        <!-- CENTER: ARANJATE FRUMOS ÎN JOSUL PAGINII (DESPRE, TERMENI, CONFIDENȚIALITATE, REGULI, RAPORTEAZĂ, CONTACT) -->
+        <!-- CENTER: LEGAL NAVIGATION LINKS (ABOUT, TERMS, PRIVACY, RULES, REPORT, CONTACT) -->
         <nav class="flex items-center justify-center space-x-1 sm:space-x-2 text-[11px] sm:text-xs font-sans mx-1 sm:mx-2 overflow-x-auto no-scrollbar scroll-smooth" style="-webkit-overflow-scrolling: touch;" aria-label="EU Legal and Regulatory Footer Navigation">
           <button
             type="button"

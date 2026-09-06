@@ -43,7 +43,8 @@ export function renderProfileSettingsHTML(
           <button
             type="button"
             id="btn-settings-cat-${cat.id}"
-            data-settings-cat="${cat.id}" data-action="call-global" data-raw-click="if(window.__aetheris_set_settings_cat){window.__aetheris_set_settings_cat('${cat.id}');}else if(window.profileView){window.profileView.setActiveSettingsCategory('${cat.id}');}"
+            data-action="set-profile-settings-cat"
+            data-settings-cat="${cat.id}"
             class="px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center space-x-2 cursor-pointer border ${
               currentCat === cat.id
                 ? 'bg-cyan-500/20 text-cyan-200 border-cyan-400/40 shadow-sm shadow-cyan-500/10'
@@ -94,8 +95,9 @@ export function renderSettingsCategoryContentHTML(
             </div>
             <button
               type="button"
-              id="btn-settings-edit-profile-modal" data-action="call-global" data-raw-click="if(window.profileView){ window.profileView.isEditProfileModalOpen = true; if(window.clientStore) window.clientStore.notify(); }"
-              class="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition-colors shadow"
+              id="btn-settings-edit-profile-modal"
+              data-action="open-edit-profile"
+              class="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition-colors shadow cursor-pointer"
             >
               Edit Full Profile
             </button>

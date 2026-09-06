@@ -12,6 +12,8 @@ import {
   globalMessagesStore,
   incrementMessageCounter,
   INITIAL_MESSAGES,
+  isProductionEnv,
+  createD1UnavailableResponse,
 } from './_db.js';
 import { requireAdmin, requireSignedEnvelope } from './_auth.js';
 
@@ -44,6 +46,7 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
     const db = getD1Database(context.env);
     const kv = getKVStore(context.env);
 
+    const isProd = isProductionEnv(context.env);
     let messages: EdgeMessage[] = [];
 
     // 1. Query Cloudflare D1 Database if binding present
@@ -70,16 +73,26 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
 
         if (results && results.length > 0) {
           messages = results.map(parseD1MessageRow);
+        } else if (isProd) {
+          messages = [];
         } else if (since === null || isNaN(since)) {
-          // If D1 is empty on initial migration, fallback to in-memory seed messages
+          // If D1 is empty on initial migration in dev/test, fallback to in-memory seed messages
           messages = globalMessagesStore.filter((m) => (channelId === 'all' ? true : m.channelId === channelId));
         }
-      } catch (dbErr) {
+      } catch (dbErr: any) {
+        if (isProd) {
+          return new Response(
+            JSON.stringify({ success: false, error: `Database query failed: ${dbErr?.message || 'D1 error'}` }),
+            { status: 500, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
         console.warn('[D1 Messages Fallback]', dbErr);
         messages = globalMessagesStore.filter((m) => (channelId === 'all' ? true : m.channelId === channelId));
       }
+    } else if (isProd) {
+      return createD1UnavailableResponse();
     } else {
-      // 2. In-Memory Edge Store Fallback
+      // 2. In-Memory Edge Store Fallback (Dev/Test only)
       let filtered = [...globalMessagesStore];
 
       if (channelId && channelId !== 'all') {
@@ -173,10 +186,12 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
       isMine: false,
     };
 
+    const isProd = isProductionEnv(context.env);
+
     // Insert into Cloudflare D1 if available (only ciphertexts stored)
     if (db) {
       try {
-        await db
+        const stmt = db
           .prepare(
             `INSERT OR REPLACE INTO messages (
               id, channel_id, author_id, ciphertext, nonce, epoch, status, signature, created_at
@@ -192,11 +207,26 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
             newMsg.status,
             newMsg.signature || null,
             newMsg.createdAt
-          )
-          .run();
-      } catch (dbErr) {
+          );
+
+        const runResult = await stmt.run();
+        if (isProd && runResult && runResult.success === false) {
+          return new Response(
+            JSON.stringify({ success: false, error: `Database message insert rejected: ${runResult.error || 'D1 error'}` }),
+            { status: 500, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
+      } catch (dbErr: any) {
+        if (isProd) {
+          return new Response(
+            JSON.stringify({ success: false, error: `Database transaction failed: ${dbErr?.message || 'D1 message error'}` }),
+            { status: 500, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
         console.warn('[D1 Message Insert Fallback]', dbErr);
       }
+    } else if (isProd) {
+      return createD1UnavailableResponse();
     }
 
     // Cache latest message in KV if available

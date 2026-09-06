@@ -83,17 +83,16 @@ export function renderProfileTimelinePostsHTML(
             ${
               p.video?.src
                 ? `<div class="mt-2">${obsidianMediaPlayer.renderVideoCard(p.id, p.video.src, p.video.poster)}</div>`
+                : obsidianMediaPlayer.extractVideo(p.content)
+                ? `<div class="mt-2">${obsidianMediaPlayer.renderVideoCard(p.id, p.content)}</div>`
                 : p.images && p.images.length > 0
                 ? `<div class="rounded-2xl overflow-hidden mt-2 border border-white/10 max-h-80"><img src="${p.images[0]}" alt="Attached Media" class="w-full h-full object-cover" /></div>`
                 : ''
             }
 
-            <div class="flex items-center justify-between pt-2 border-t border-white/5 text-[11px] font-mono text-slate-400">
-              <div class="flex items-center space-x-4">
-                <span>⚡ ${p.meritVotes} Merit</span>
-                <span>💬 ${p.replyCount} Replies</span>
-              </div>
-              <span class="text-cyan-400 text-[10px]">✓ E2EE Verified</span>
+            <div class="pt-2 border-t border-white/5 flex items-center justify-between">
+              ${pulseActionsEngine.renderPulseActionBar(p.id, p.replyCount)}
+              <span class="text-cyan-400 text-[10px] font-mono hidden sm:inline-block shrink-0">✓ E2EE Verified</span>
             </div>
           </article>
         `;

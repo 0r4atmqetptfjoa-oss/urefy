@@ -1590,6 +1590,16 @@ export class HybridComposer {
       let pollId: string | undefined;
       let codeAttachment: any = undefined;
       let mediaUrls: string[] = [];
+      let videoPayload: { src: string; poster?: string } | undefined;
+
+      const firstVideo = this.mediaItems.find(m => m.fileType === 'video');
+      if (firstVideo) {
+        videoPayload = { src: firstVideo.dataUrl };
+      }
+      const imageItems = this.mediaItems.filter(m => m.fileType === 'image');
+      if (imageItems.length > 0) {
+        mediaUrls = imageItems.map(m => m.dataUrl);
+      }
 
       // 1. Resolve content by active tab
       if (this.activeTab === 'pulse') {
@@ -1597,22 +1607,14 @@ export class HybridComposer {
         title = firstSegment.slice(0, 48) || 'Sovereign Pulse';
         content = firstSegment;
         flair = 'MICRO-PULSE';
-
-        if (this.mediaItems.length > 0) {
-          mediaUrls = this.mediaItems.map(m => m.dataUrl);
-        }
       } else if (this.activeTab === 'article') {
         title = this.articleTitle.trim() || 'Sovereign Publication';
         content = this.articleBody.trim();
         flair = this.articleCategory || 'TECH DISCUSSION';
-        if (this.mediaItems.length > 0) {
-          mediaUrls = this.mediaItems.map(m => m.dataUrl);
-        }
       } else if (this.activeTab === 'media') {
-        title = this.mediaItems[0]?.fileName ? `Media Gallery: ${this.mediaItems[0].fileName}` : 'Sovereign Media Gallery';
-        content = this.mediaItems.map(m => `![${m.caption || m.fileName}](${m.dataUrl})`).join('\n\n');
+        title = this.mediaItems[0]?.fileName ? `Media: ${this.mediaItems[0].fileName}` : 'Sovereign Media';
+        content = this.mediaItems.map(m => m.fileType === 'video' ? `[Video: ${m.fileName}]` : `![${m.caption || m.fileName}](${m.dataUrl})`).join('\n\n');
         flair = 'TECH DISCUSSION';
-        mediaUrls = this.mediaItems.map(m => m.dataUrl);
       } else if (this.activeTab === 'poll') {
         const q = this.pollState.question.trim() || 'Community Poll';
         const validOpts = this.pollState.options.filter(o => o.trim().length > 0);
@@ -1638,7 +1640,7 @@ export class HybridComposer {
         };
       }
 
-      if (!content.trim() && !title.trim()) {
+      if (!content.trim() && !title.trim() && !videoPayload && mediaUrls.length === 0) {
         clientStore.showToast('Please enter some content before broadcasting.', 'warning');
         return false;
       }
@@ -1667,6 +1669,7 @@ export class HybridComposer {
         flair,
         pollId,
         attachment: codeAttachment,
+        video: videoPayload,
         images: mediaUrls.length > 0 ? mediaUrls : undefined,
         meritVotes: 1,
         userVoted: 1,

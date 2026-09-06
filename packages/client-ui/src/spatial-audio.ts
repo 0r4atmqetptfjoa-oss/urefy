@@ -9,6 +9,7 @@
  */
 
 import { createSafeAudioContext } from './dry-utils.js';
+import { isLocalDev } from './admin-auth.js';
 
 export interface SpatialParticipant {
   fingerprint: string;
@@ -107,13 +108,15 @@ export class SpatialAudioEngine {
   };
 
   constructor() {
-    this.seedInitialParticipants();
+    if (isLocalDev()) {
+      this.seedInitialParticipants();
+    }
   }
 
   /**
-   * Seed realistic Aetheris cryptographic identities for the Voice Lounge.
+   * Seed realistic Aetheris cryptographic identities for the Voice Lounge (Dev/Diagnostic mode).
    */
-  private seedInitialParticipants(): void {
+  public seedInitialParticipants(): void {
     this.participants = [
       {
         fingerprint: '0x8F3A...4C91',

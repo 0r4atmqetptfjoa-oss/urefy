@@ -3,6 +3,31 @@ import { defineConfig } from 'vite';
 import { resolve } from 'path';
 
 export default defineConfig({
+  plugins: [
+    {
+      name: 'api-dev-middleware',
+      configureServer(server) {
+        server.middlewares.use((req, res, next) => {
+          if (req.url && req.url.startsWith('/api/report') && req.method === 'POST') {
+            let body = '';
+            req.on('data', (chunk) => { body += chunk; });
+            req.on('end', () => {
+              const reportId = `dsa_rep_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({
+                success: true,
+                reportId,
+                status: 'pending',
+                message: 'Notice registered per DSA Regulation (EU) 2022/2065'
+              }));
+            });
+            return;
+          }
+          next();
+        });
+      },
+    },
+  ],
   test: {
     exclude: ['**/node_modules/**', '**/dist/**', '**/e2e/**', '**/.{idea,git,cache,output,temp}/**'],
   },

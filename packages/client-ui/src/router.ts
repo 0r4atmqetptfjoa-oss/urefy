@@ -7,6 +7,7 @@
 
 import { clientStore } from './client-state.js';
 import { profileView } from './profile-view.js';
+import { sovereignCircleEngine } from './sovereign-circle.js';
 
 export type SovereignRoute = 'feed' | 'explore' | 'messages' | 'vault' | 'profile' | 'more';
 
@@ -34,11 +35,13 @@ export class SovereignRouter {
 
     // Synchronize clientStore activeChannelId
     switch (route) {
-      case 'feed':
-        if (!clientStore.activeChannelId.startsWith('pulse-')) {
+      case 'feed': {
+        const isCircle = Boolean(sovereignCircleEngine.findCircle(clientStore.activeChannelId)) || clientStore.activeChannelId.startsWith('c/');
+        if (!isCircle && !clientStore.activeChannelId.startsWith('pulse-')) {
           clientStore.activeChannelId = 'pulse-global';
         }
         break;
+      }
       case 'explore':
         clientStore.activeChannelId = 'explore';
         break;

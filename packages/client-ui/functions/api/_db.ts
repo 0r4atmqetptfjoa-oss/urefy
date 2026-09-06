@@ -531,3 +531,23 @@ export function getR2Bucket(env?: Env): R2Bucket | null {
   if (!env) return null;
   return env.VAULT_BUCKET || env.R2 || env.STORAGE_BUCKET || null;
 }
+
+export function isProductionEnv(env?: Env): boolean {
+  return env?.ENVIRONMENT === 'production' || env?.NODE_ENV === 'production';
+}
+
+export function createD1UnavailableResponse(): Response {
+  return new Response(
+    JSON.stringify({
+      success: false,
+      error: 'D1 Database unavailable. In-memory fallback is disabled in production.',
+    }),
+    {
+      status: 503,
+      headers: {
+        'Content-Type': 'application/json',
+        'Retry-After': '5',
+      },
+    }
+  );
+}

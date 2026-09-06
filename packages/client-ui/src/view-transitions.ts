@@ -833,17 +833,17 @@ html.transition-slide-down::view-transition-new(root),
   }
 
   /**
-   * Triggers a visual test transition in the demo stage.
+   * Triggers a visual test transition in the preview stage.
    */
   public async testTransition(type: TransitionType, root?: HTMLElement | Document): Promise<void> {
     const context = root || (typeof document !== 'undefined' ? document : null);
     const demoLabel = context ? (context.querySelector('#aether-vt-demo-label') as HTMLElement | null) : null;
     const statsBadge = context ? (context.querySelector('#aether-vt-stats-badge') as HTMLElement | null) : null;
-    const nextViewName = `demo-${type}-${Math.floor(Math.random() * 900 + 100)}`;
+    const nextViewName = `demo-${type}-${this.metrics.totalTransitions + 1}`;
 
     await this.transitionTo(nextViewName, () => {
       if (demoLabel) {
-        demoLabel.innerHTML = `Test: <strong class="text-cyphr">${type}</strong> (<span class="text-white">${nextViewName}</span>)`;
+        demoLabel.innerHTML = `Style: <strong class="text-cyphr">${type}</strong> (<span class="text-white">${nextViewName}</span>)`;
       }
       if (statsBadge) {
         statsBadge.textContent = `Transitions: ${this.metrics.totalTransitions + 1}`;

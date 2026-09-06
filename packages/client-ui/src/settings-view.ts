@@ -348,7 +348,7 @@ export class SettingsView {
             <div class="text-xs font-bold text-white group-hover:text-cyan-200 transition-colors">${t.name}</div>
             <div class="text-[10px] text-slate-400 line-clamp-1">${t.description || ''}</div>
           </div>
-          ${isSelected ? '<span class="text-[9px] font-mono font-bold text-cyan-300 uppercase tracking-wider">✓ Activ</span>' : ''}
+          ${isSelected ? '<span class="text-[9px] font-mono font-bold text-cyan-300 uppercase tracking-wider">✓ Active</span>' : ''}
         </button>
       `;
     }).join('');
@@ -360,9 +360,9 @@ export class SettingsView {
           <div>
             <h3 class="text-base font-bold text-white flex items-center gap-2">
               <span>🎨</span>
-              <span>Teme &amp; Aspect Suveran</span>
+              <span>Themes &amp; Sovereign Appearance</span>
             </h3>
-            <p class="text-xs text-slate-400">Personalizează paleta de culori, afișajul OLED și tipografia interfeței.</p>
+            <p class="text-xs text-slate-400">Customize the color palette, OLED display mode, and interface typography.</p>
           </div>
           <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/30">
             SOVEREIGN UI
@@ -373,7 +373,7 @@ export class SettingsView {
         <div class="space-y-3">
           <label class="text-xs font-semibold uppercase tracking-wider text-slate-300 font-mono flex items-center space-x-1.5">
             <span class="text-cyan-400">◆</span>
-            <span>Palete de Culori Predefinite (Theme Switcher)</span>
+            <span>Preset Color Palettes (Theme Switcher)</span>
           </label>
           <div class="grid grid-cols-2 sm:grid-cols-3 gap-3" id="settings-theme-switcher">
             ${themeCardsHTML}

@@ -82,7 +82,8 @@ export function renderProfileHeaderHTML(
                 ? `
                   <button
                     type="button"
-                    id="btn-open-edit-profile" data-action="call-global" data-raw-click="if(window.profileView){ window.profileView.isEditProfileModalOpen = true; if(window.clientStore) window.clientStore.notify(); }"
+                    id="btn-open-edit-profile"
+                    data-action="open-edit-profile"
                     class="px-5 py-2 rounded-2xl bg-surface-raised hover:bg-surface-overlay text-white font-semibold text-xs border border-white/10 shadow-lg transition-all flex items-center space-x-2 cursor-pointer"
                   >
                     <span>${renderIcon('settings', { size: 14 })}</span>
@@ -90,7 +91,9 @@ export function renderProfileHeaderHTML(
                   </button>
                   <button
                     type="button"
-                    id="btn-profile-settings" data-action="call-global" data-raw-click="if(window.__aetheris_open_settings){ window.__aetheris_open_settings(); } else if(window.profileView){ window.profileView.setActiveTab('settings'); if(window.clientStore) window.clientStore.notify(); }"
+                    id="btn-profile-settings"
+                    data-action="open-settings"
+                    data-raw-click="window.__aetheris_open_settings()"
                     class="px-4 py-2 rounded-2xl bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300 font-semibold text-xs border border-cyan-500/30 transition-all flex items-center space-x-1.5 cursor-pointer"
                   >
                     <span>⚙️</span>
@@ -100,7 +103,9 @@ export function renderProfileHeaderHTML(
                 : `
                   <button
                     type="button"
-                    id="btn-toggle-follow" data-action="call-global" data-raw-click="if(window.profileView){ window.profileView.toggleFollow('${profile.fingerprint}'); if(window.clientStore) window.clientStore.notify(); }"
+                    id="btn-toggle-follow"
+                    data-action="toggle-follow"
+                    data-fingerprint="${profile.fingerprint}"
                     class="px-6 py-2 rounded-2xl font-bold text-xs shadow-lg transition-all flex items-center space-x-2 cursor-pointer ${
                       isFollowing
                         ? 'bg-surface-raised hover:bg-rose-950/40 text-slate-300 hover:text-rose-300 border border-white/10 hover:border-rose-500/30'
@@ -110,7 +115,9 @@ export function renderProfileHeaderHTML(
                     <span>${isFollowing ? '✓ Following' : '+ Follow'}</span>
                   </button>
                   <button
-                    type="button" data-action="call-global" data-raw-click="if(window.sovereignDM) { window.sovereignDM.openConversation('${profile.fingerprint}'); } if(window.__aetheris_navigate) { window.__aetheris_navigate('messages'); }"
+                    type="button"
+                    data-action="open-dm"
+                    data-fingerprint="${profile.fingerprint}"
                     class="p-2.5 rounded-2xl bg-surface-raised hover:bg-surface-overlay text-slate-300 hover:text-white border border-white/10 transition-colors cursor-pointer"
                     title="Send Direct Encrypted Message"
                   >
@@ -190,16 +197,30 @@ export function renderProfileHeaderHTML(
   `;
 }
 
+function escapeAttr(val: string | undefined | null): string {
+  return (val || '')
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
 export function renderEditProfileModalHTML(profile: UserProfileData): string {
+  const safeAvatar = escapeAttr(profile.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80');
+  const safeBanner = escapeAttr(profile.banner || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1200&auto=format&fit=crop&q=80');
+
   return `
     <div
       id="edit-profile-modal-overlay"
-      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in" data-action="call-global" data-raw-click="if(event.target.id==='edit-profile-modal-overlay'){ if(window.profileView){ window.profileView.isEditProfileModalOpen = false; if(window.clientStore) window.clientStore.notify(); } }"
+      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in"
+      data-action="close-edit-profile"
       role="dialog"
       aria-modal="true"
     >
       <div
-        class="relative w-full max-w-lg bg-surface-base border border-white/15 rounded-3xl shadow-2xl p-6 sm:p-8 space-y-6 text-slate-100 animate-in zoom-in-95 duration-200" data-action="stop-propagation"
+        class="relative w-full max-w-lg bg-surface-base border border-white/15 rounded-3xl shadow-2xl p-6 sm:p-8 space-y-6 text-slate-100 animate-in zoom-in-95 duration-200"
+        data-action="stop-propagation"
       >
         <div class="flex items-center justify-between pb-4 border-b border-white/10">
           <h2 class="text-lg font-bold text-white flex items-center space-x-2">
@@ -207,20 +228,23 @@ export function renderEditProfileModalHTML(profile: UserProfileData): string {
             <span>Edit Profile</span>
           </h2>
           <button
-            type="button" data-action="call-global" data-raw-click="if(window.profileView){ window.profileView.isEditProfileModalOpen = false; if(window.clientStore) window.clientStore.notify(); }"
-            class="p-2 text-slate-400 hover:text-white rounded-xl bg-surface-raised cursor-pointer"
+            type="button"
+            id="btn-close-edit-profile"
+            data-action="close-edit-profile"
+            class="p-2 text-slate-400 hover:text-white rounded-xl bg-surface-raised hover:bg-surface-overlay transition-colors cursor-pointer"
+            title="Close modal"
           >
             ✕
           </button>
         </div>
 
-        <form id="form-edit-profile" class="space-y-4 text-xs" data-submit="call-global" data-global-method="event.preventDefault">
+        <form id="form-edit-profile" class="space-y-4 text-xs" data-submit="save-profile">
           <div>
             <label class="block text-[11px] font-mono text-slate-400 mb-1">Display Name</label>
             <input
               type="text"
               id="edit-profile-name"
-              value="${profile.name.replace(/"/g, '&quot;')}"
+              value="${escapeAttr(profile.name)}"
               class="w-full bg-surface-raised border border-white/10 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500"
               required
             />
@@ -232,7 +256,7 @@ export function renderEditProfileModalHTML(profile: UserProfileData): string {
               id="edit-profile-bio"
               rows="3"
               class="w-full bg-surface-raised border border-white/10 rounded-xl p-3 text-white focus:outline-none focus:border-indigo-500 resize-none"
-            >${profile.bio}</textarea>
+            >${escapeAttr(profile.bio)}</textarea>
           </div>
 
           <div class="grid grid-cols-2 gap-3">
@@ -241,7 +265,7 @@ export function renderEditProfileModalHTML(profile: UserProfileData): string {
               <input
                 type="text"
                 id="edit-profile-location"
-                value="${profile.location.replace(/"/g, '&quot;')}"
+                value="${escapeAttr(profile.location)}"
                 class="w-full bg-surface-raised border border-white/10 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500"
               />
             </div>
@@ -250,43 +274,62 @@ export function renderEditProfileModalHTML(profile: UserProfileData): string {
               <input
                 type="text"
                 id="edit-profile-website"
-                value="${profile.website.replace(/"/g, '&quot;')}"
+                value="${escapeAttr(profile.website)}"
                 class="w-full bg-surface-raised border border-white/10 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500"
               />
             </div>
           </div>
 
           <div>
-            <label class="block text-[11px] font-mono text-slate-400 mb-1">Avatar URL</label>
-            <input
-              type="text"
-              id="edit-profile-avatar"
-              value="${profile.avatar.replace(/"/g, '&quot;')}"
-              class="w-full bg-surface-raised border border-white/10 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500"
-            />
+            <div class="flex items-center justify-between mb-1">
+              <label class="text-[11px] font-mono text-slate-400">Avatar URL / Image</label>
+              <label for="edit-profile-avatar-file" class="text-[10px] text-cyan-400 hover:text-cyan-300 cursor-pointer font-mono flex items-center gap-1">
+                <span>📁</span>
+                <span>Upload File</span>
+              </label>
+            </div>
+            <div class="flex items-center gap-2">
+              <img id="edit-preview-avatar" src="${safeAvatar}" class="w-8 h-8 rounded-full object-cover border border-white/10 shrink-0" alt="Avatar Preview" />
+              <input
+                type="text"
+                id="edit-profile-avatar"
+                value="${safeAvatar}"
+                class="flex-1 bg-surface-raised border border-white/10 rounded-xl px-3.5 py-2 text-white focus:outline-none focus:border-indigo-500"
+              />
+              <input type="file" id="edit-profile-avatar-file" class="hidden" accept="image/*" />
+            </div>
           </div>
 
           <div>
-            <label class="block text-[11px] font-mono text-slate-400 mb-1">Banner URL</label>
+            <div class="flex items-center justify-between mb-1">
+              <label class="text-[11px] font-mono text-slate-400">Banner URL / Image</label>
+              <label for="edit-profile-banner-file" class="text-[10px] text-cyan-400 hover:text-cyan-300 cursor-pointer font-mono flex items-center gap-1">
+                <span>📁</span>
+                <span>Upload File</span>
+              </label>
+            </div>
             <input
               type="text"
               id="edit-profile-banner"
-              value="${profile.banner.replace(/"/g, '&quot;')}"
+              value="${safeBanner}"
               class="w-full bg-surface-raised border border-white/10 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500"
             />
+            <input type="file" id="edit-profile-banner-file" class="hidden" accept="image/*" />
           </div>
 
           <div class="flex items-center justify-end space-x-3 pt-4 border-t border-white/10">
             <button
               type="button"
-              id="btn-cancel-edit-profile" data-action="call-global" data-raw-click="if(window.profileView){ window.profileView.isEditProfileModalOpen = false; if(window.clientStore) window.clientStore.notify(); }"
-              class="px-4 py-2 text-slate-400 hover:text-white cursor-pointer"
+              id="btn-cancel-edit-profile"
+              data-action="close-edit-profile"
+              class="px-4 py-2 text-slate-400 hover:text-white rounded-xl bg-surface-raised hover:bg-surface-overlay transition-colors cursor-pointer"
             >
               Cancel
             </button>
             <button
-              type="button"
-              id="btn-save-profile" data-action="call-global" data-raw-click="if(window.__aetheris_save_profile){ window.__aetheris_save_profile(); }"
+              type="submit"
+              id="btn-save-profile"
+              data-action="save-profile"
               class="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl shadow-lg transition-all cursor-pointer"
             >
               Save Changes

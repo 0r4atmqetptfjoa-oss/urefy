@@ -161,4 +161,33 @@ describe('ProfileView - Sovereign Profile Hero Header & Multi-Tab Timeline', () 
     expect(secHtml).toContain('BIP-39 Cryptographic Recovery Seed');
     expect(secHtml).toContain('btn-settings-open-social-guardians');
   });
+
+  it('should render sovereign-profile-container with full height, overflow-y-auto, and mobile safe bottom padding', () => {
+    const html = profile.renderProfileView(samplePosts, 'genesis-core');
+    expect(html).toContain('id="sovereign-profile-container"');
+    expect(html).toContain('flex-1');
+    expect(html).toContain('overflow-y-auto');
+    expect(html).toContain('overflow-x-hidden');
+    expect(html).toContain('pb-28 lg:pb-12');
+    expect(html).toContain('min-h-0');
+  });
+
+  it('should flag lastTabSwitched when switching tabs for clean scroll reset, while preserving scroll when switching settings categories', () => {
+    profile.lastTabSwitched = false;
+    profile.setActiveTab('replies');
+    expect(profile.lastTabSwitched).toBe(true);
+    expect(profile.activeTab).toBe('replies');
+
+    profile.lastTabSwitched = false;
+    profile.setActiveSettingsCategory('security');
+    // Switching settings category should NOT reset scroll (preserves scroll position)
+    expect(profile.lastTabSwitched).toBe(false);
+    expect(profile.activeTab).toBe('settings');
+    expect(profile.activeSettingsCategory).toBe('security');
+
+    profile.lastTabSwitched = false;
+    profile.setTargetFingerprint('other-node');
+    expect(profile.lastTabSwitched).toBe(true);
+    expect(profile.targetFingerprint).toBe('other-node');
+  });
 });

@@ -316,4 +316,67 @@ describe('Pillar 4: Binary Hygiene Free Web Portal & API Suite', () => {
       expect(response.headers.get('Access-Control-Allow-Origin')).toBe('*');
     });
   });
+
+  describe('6. Sample Binaries & Modal Action Integration', () => {
+    let portal: BinaryHygienePortal;
+
+    beforeEach(() => {
+      portal = new BinaryHygienePortal();
+    });
+
+    it('should generate valid PE samples for clean, upx, and suspicious types', () => {
+      const clean = portal.generateSampleBinary('clean');
+      const upx = portal.generateSampleBinary('upx');
+      const suspicious = portal.generateSampleBinary('suspicious');
+
+      expect(clean.length).toBe(1024);
+      expect(upx.length).toBe(1024);
+      expect(suspicious.length).toBe(1024);
+
+      // Verify MZ header on all
+      expect(clean[0]).toBe(0x4d);
+      expect(clean[1]).toBe(0x5a);
+      expect(upx[0]).toBe(0x4d);
+      expect(suspicious[0]).toBe(0x4d);
+    });
+
+    it('should scan clean sample and yield CLEAN verdict', async () => {
+      const report = await portal.scanSampleBinary('clean');
+      expect(report.verdict).toBe('CLEAN');
+      expect(report.fileName).toBe('sample-clean.exe');
+      expect(report.overallEntropy).toBeLessThan(6.8);
+      expect(portal.scanReport).toBe(report);
+    });
+
+    it('should scan UPX sample and yield PACKED verdict with UPX signature', async () => {
+      const report = await portal.scanSampleBinary('upx');
+      expect(report.verdict).toBe('PACKED');
+      expect(report.fileName).toBe('sample-upx-packed.exe');
+      expect(report.packerSignatures.some((p) => p.packer === 'UPX')).toBe(true);
+    });
+
+    it('should scan suspicious sample and yield SUSPICIOUS verdict with RWX anomaly', async () => {
+      const report = await portal.scanSampleBinary('suspicious');
+      expect(report.verdict).toBe('SUSPICIOUS');
+      expect(report.fileName).toBe('sample-suspicious-rwx.exe');
+      expect(report.anomalies.some((a) => a.includes('RWX_SECTION'))).toBe(true);
+    });
+
+    it('should render modal with CSP-compliant action attributes and benchmark buttons', () => {
+      portal.open();
+      const html = portal.renderModalHTML();
+
+      expect(html).toContain('data-action="trigger-binary-file-select"');
+      expect(html).toContain('data-change="scan-binary-file"');
+      expect(html).toContain('data-action="scan-sample-clean"');
+      expect(html).toContain('data-action="scan-sample-upx"');
+      expect(html).toContain('data-action="scan-sample-suspicious"');
+      expect(html).toContain('data-action="close-binary-hygiene"');
+      expect(html).toContain('data-action="close-binary-hygiene-backdrop"');
+    });
+
+    it('should attach dropzone listeners safely', () => {
+      expect(() => portal.attachDropzoneListeners()).not.toThrow();
+    });
+  });
 });

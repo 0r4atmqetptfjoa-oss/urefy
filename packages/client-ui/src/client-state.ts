@@ -43,6 +43,14 @@ export interface ChannelItem {
   isEncrypted: boolean;
 }
 
+export interface DirectMessageAttachment {
+  name: string;
+  size: number;
+  type: string;
+  dataUrl: string;
+  sha256?: string;
+}
+
 export interface ClientMessage {
   id: string;
   channelId: string;
@@ -52,6 +60,7 @@ export interface ClientMessage {
   status: string;
   createdAt: number;
   isMine: boolean;
+  attachment?: DirectMessageAttachment;
 }
 
 export interface ClientNanopublication {
@@ -159,6 +168,7 @@ export class AetherisClientStore {
   public members: CommunityMember[] = [];
   public toasts: ToastItem[] = [];
   public activeQuarantineAlert: QuarantineEvent | null = null;
+  public pendingRelayAttachment: DirectMessageAttachment | null = null;
 
   public isConnected: boolean = false;
   public isSyncing: boolean = false;
@@ -1033,6 +1043,15 @@ export class AetherisClientStore {
     const host = typeof window !== 'undefined' ? (window.location.host || window.location.hostname || 'localhost') : 'localhost';
     const isLocal = host.startsWith('localhost') || host.startsWith('127.0.0.1');
 
+    // Cloudflare Pages does not support raw WebSocket upgrades — skip WS init
+    // and operate in HTTP-only mesh mode to avoid noisy console errors.
+    const isCloudflarePages = host.endsWith('.pages.dev') || (typeof (globalThis as any).__CF_PAGES !== 'undefined');
+    if (isCloudflarePages) {
+      this.isConnected = false;
+      this.notify();
+      return;
+    }
+
     let wsUrl: string;
     if (isHttps) {
       wsUrl = `wss://${host}/api/ws`;
@@ -1235,14 +1254,15 @@ export class AetherisClientStore {
     this.notify('CHANNEL_CHANGE', { channelId });
   }
 
-  public sendMessage(text: string, forceEpoch?: string): void {
-    if (!text.trim()) return;
+  public sendMessage(text: string, forceEpoch?: string, attachment?: DirectMessageAttachment): void {
+    const trimmed = text ? text.trim() : '';
+    if (!trimmed && !attachment) return;
 
     // Evaluate ZK-RLN polynomial share
     const epoch = forceEpoch || `epoch_${Math.floor(Date.now() / 60000)}`; // 1 minute epoch
-    const share = ZKRLN.createShare(this.secretKey, epoch, text);
+    const share = ZKRLN.createShare(this.secretKey, epoch, trimmed || attachment?.name || 'attachment');
 
-    const signatureBytes = signMessage(text, this.keypair.privateKey);
+    const signatureBytes = signMessage(trimmed || attachment?.name || '', this.keypair.privateKey);
     const signature = bytesToHex(signatureBytes);
 
     // Create client message and immediately add to local channel messages
@@ -1250,11 +1270,12 @@ export class AetherisClientStore {
       id: `msg-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       channelId: this.activeChannelId,
       authorFingerprint: this.keypair.fingerprint,
-      text: text.trim(),
+      text: trimmed,
       epoch: share.epoch,
       status: 'valid',
       createdAt: Date.now(),
       isMine: true,
+      attachment,
     };
 
     const channelMsgs = this.messages.get(this.activeChannelId) || [];
@@ -1380,17 +1401,34 @@ export class AetherisClientStore {
     this.notify();
   }
 
+  public isSovereignMode(): boolean {
+    return this.uiMode === 'sovereign' || this.uiMode === 'advanced' || this.uiMode === 'technical';
+  }
+
+  public isSimpleMode(): boolean {
+    return this.uiMode === 'simple';
+  }
+
   public setUiMode(mode: UiMode): void {
     if (this.uiMode === mode) return;
     this.uiMode = mode;
     if (typeof localStorage !== 'undefined') {
       localStorage.setItem('aetheris_ui_mode', mode);
     }
+    const isSov = this.isSovereignMode();
+    try {
+      toastManager.info(
+        isSov
+          ? '⚡ Sovereign Mode active: Full cryptographic telemetry and developer tools unlocked'
+          : '🌱 Simple Mode active: Clean, distraction-free interface',
+        isSov ? '⚡' : '🌱'
+      );
+    } catch (_) {}
     this.notify('UI_MODE_CHANGED', { uiMode: mode });
   }
 
   public toggleUiMode(): void {
-    if (this.uiMode === 'simple') {
+    if (this.isSimpleMode()) {
       this.setUiMode('sovereign');
     } else {
       this.setUiMode('simple');

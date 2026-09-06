@@ -11,10 +11,36 @@ import { modalManager, FeatureModalId } from '../modal-manager.js';
 import { clientStore } from '../client-state.js';
 import { sovereignRouter } from '../router.js';
 import { themeEngine } from '../themes.js';
+import { soundEffects } from '../sound-effects.js';
+import { i18n } from '../i18n.js';
+import { walletBridge } from '../wallet-bridge.js';
+import { hybridComposer } from '../composer-hybrid.js';
+import { legalModal } from '../legal-modal.js';
+import { sovereignCircleEngine } from '../sovereign-circle.js';
+import { sovereignDM } from '../sovereign-dm.js';
+import {
+  setActiveMessagesTab,
+  openNewDMPicker,
+  closeNewDMPicker,
+  setDMSearchQuery,
+  toggleDMEmojiPicker,
+  toggleRelayEmojiPicker,
+  closeEmojiPickers,
+  handleFileAttachment,
+} from '../messages-view.js';
+import { binaryHygienePortal } from '../binary-hygiene-portal.js';
+import { exploreView } from '../explore-view.js';
 
 export function safeExecuteStatement(stmt: string, el: HTMLElement, event: Event): void {
   stmt = stmt.trim();
   if (!stmt) return;
+
+  // 0. Unwrap curly braces if entire statement is wrapped: { ... }
+  if (stmt.startsWith('{') && stmt.endsWith('}')) {
+    stmt = stmt.slice(1, -1).trim();
+    safeExecuteExpression(stmt, el, event);
+    return;
+  }
 
   // 1. Handle if condition: if (...) stmt
   if (stmt.startsWith('if(') || stmt.startsWith('if (')) {
@@ -33,7 +59,10 @@ export function safeExecuteStatement(stmt: string, el: HTMLElement, event: Event
     }
     if (closeParen !== -1) {
       const cond = stmt.substring(openParen + 1, closeParen).trim();
-      const body = stmt.substring(closeParen + 1).trim();
+      let body = stmt.substring(closeParen + 1).trim();
+      if (body.startsWith('{') && body.endsWith('}')) {
+        body = body.slice(1, -1).trim();
+      }
 
       // Evaluate condition safely without eval
       let condResult = false;
@@ -58,10 +87,44 @@ export function safeExecuteStatement(stmt: string, el: HTMLElement, event: Event
       }
 
       if (condResult) {
-        safeExecuteStatement(body, el, event);
+        safeExecuteExpression(body, el, event);
       }
       return;
     }
+  }
+
+  // 1b. Handle logical AND: window.foo && window.foo.bar()
+  if (stmt.includes('&&') && !stmt.startsWith('if')) {
+    const parts = stmt.split('&&');
+    for (const part of parts) {
+      safeExecuteStatement(part.trim(), el, event);
+    }
+    return;
+  }
+
+  // 1c. Handle property assignment: [window.]path.to.prop = value
+  if (stmt.includes('=') && !stmt.includes('==') && !stmt.includes('!=') && !stmt.includes('<=') && !stmt.includes('>=')) {
+    const eqIdx = stmt.indexOf('=');
+    let targetPath = stmt.substring(0, eqIdx).trim();
+    let valStr = stmt.substring(eqIdx + 1).trim();
+    if (targetPath.startsWith('window.')) targetPath = targetPath.substring(7);
+    const parts = targetPath.split('.');
+    let obj: any = typeof window !== 'undefined' ? window : {};
+    for (let i = 0; i < parts.length - 1; i++) {
+      obj = obj ? obj[parts[i]] : undefined;
+    }
+    if (obj && parts.length > 0) {
+      let val: any = valStr;
+      if (valStr === 'true') val = true;
+      else if (valStr === 'false') val = false;
+      else if (valStr === 'null') val = null;
+      else if (!isNaN(Number(valStr)) && valStr !== '') val = Number(valStr);
+      else if ((valStr.startsWith("'") && valStr.endsWith("'")) || (valStr.startsWith('"') && valStr.endsWith('"'))) {
+        val = valStr.slice(1, -1);
+      }
+      obj[parts[parts.length - 1]] = val;
+    }
+    return;
   }
 
   // 2. Handle ternary: cond ? a : b
@@ -249,8 +312,9 @@ export class ActionDispatcher {
       this.dispatchInput(inputAction, inputEl as HTMLInputElement | HTMLTextAreaElement, event);
     });
 
-    // 4. Submit delegation
+    // 4. Submit delegation - unconditionally prevent default page refresh in SPA
     document.addEventListener('submit', (event: Event) => {
+      event.preventDefault();
       const target = event.target as HTMLElement | null;
       if (!target) return;
 
@@ -260,7 +324,6 @@ export class ActionDispatcher {
       const submitAction = submitEl.getAttribute('data-submit');
       if (!submitAction) return;
 
-      event.preventDefault();
       this.dispatchSubmit(submitAction, submitEl as HTMLFormElement, event);
     });
   }
@@ -291,6 +354,429 @@ export class ActionDispatcher {
         break;
       }
 
+      case 'call-global': {
+        // If element is a backdrop, only proceed if click was directly on the backdrop
+        if (el.id.includes('backdrop') && event.target !== el) {
+          break;
+        }
+
+        // 1. Check for data-raw-click (Safe zero-eval execution)
+        const rawClick = el.getAttribute('data-raw-click');
+        if (rawClick) {
+          try {
+            safeExecuteExpression(rawClick, el, event);
+            break;
+          } catch (err) {
+            console.error('[ActionDispatcher] Error in data-raw-click:', err, rawClick);
+          }
+        }
+
+        // 2. Check for data-global-method
+        const method = el.getAttribute('data-global-method');
+        const argsRaw = el.getAttribute('data-global-args');
+
+        if (method === 'if' && argsRaw) {
+          try {
+            let code = argsRaw.trim();
+            if (code.startsWith('[')) code = code.substring(1);
+            if (code.endsWith(']')) code = code.substring(0, code.length - 1);
+            if (code.endsWith('(')) code = code.substring(0, code.length - 1) + '()';
+            safeExecuteExpression(`if (${code};`, el, event);
+            break;
+          } catch (err) {
+            console.error('[ActionDispatcher] Error evaluating if statement:', err, argsRaw);
+          }
+        }
+
+        if (method && method !== 'if') {
+          let args: any[] = [];
+          if (argsRaw) {
+            try {
+              args = JSON.parse(argsRaw);
+            } catch (_) {
+              args = [argsRaw];
+            }
+          }
+          this.invokeMethodPath(method, args);
+        }
+        break;
+      }
+
+      case 'open-edit-profile': {
+        if (typeof window !== 'undefined') {
+          if ((window as any).profileView) {
+            (window as any).profileView.isEditProfileModalOpen = true;
+          }
+          if ((window as any).clientStore) {
+            (window as any).clientStore.notifySync();
+          }
+        }
+        break;
+      }
+
+      case 'close-edit-profile': {
+        if (typeof window !== 'undefined') {
+          if ((window as any).profileView) {
+            (window as any).profileView.isEditProfileModalOpen = false;
+          }
+          if ((window as any).clientStore) {
+            (window as any).clientStore.notifySync();
+          }
+        }
+        const overlay = document.getElementById('edit-profile-modal-overlay');
+        if (overlay) overlay.remove();
+        break;
+      }
+
+      case 'save-profile': {
+        if (typeof window !== 'undefined') {
+          if (typeof (window as any).__aetheris_save_profile === 'function') {
+            (window as any).__aetheris_save_profile();
+          } else if ((window as any).profileView) {
+            const nameInput = document.getElementById('edit-profile-name') as HTMLInputElement;
+            const bioInput = document.getElementById('edit-profile-bio') as HTMLTextAreaElement;
+            const locInput = document.getElementById('edit-profile-location') as HTMLInputElement;
+            const webInput = document.getElementById('edit-profile-website') as HTMLInputElement;
+            const avInput = document.getElementById('edit-profile-avatar') as HTMLInputElement;
+            const banInput = document.getElementById('edit-profile-banner') as HTMLInputElement;
+            const targetFp = (window as any).profileView.targetFingerprint || (window as any).clientStore?.keypair?.fingerprint || 'genesis-core';
+            (window as any).profileView.updateProfile(targetFp, {
+              name: nameInput?.value || 'Sovereign Node',
+              bio: bioInput?.value || '',
+              location: locInput?.value || '',
+              website: webInput?.value || '',
+              avatar: avInput?.value || (window as any).profileView.getProfile(targetFp).avatar,
+              banner: banInput?.value || (window as any).profileView.getProfile(targetFp).banner,
+            });
+            (window as any).profileView.isEditProfileModalOpen = false;
+            if ((window as any).clientStore) {
+              (window as any).clientStore.showToast?.('✨ Sovereign Profile updated!', 'success');
+              (window as any).clientStore.notifySync();
+            }
+          }
+        }
+        break;
+      }
+
+      case 'report-post':
+      case 'report-vault': {
+        event.stopPropagation();
+        const postId = el.getAttribute('data-post-id') || el.getAttribute('data-id') || '';
+        if (typeof window !== 'undefined') {
+          if (typeof (window as any).__aetheris_open_legal === 'function') {
+            (window as any).__aetheris_open_legal('dsa', postId);
+          } else {
+            modalManager.openFeature('legal', { tab: 'dsa', targetId: postId });
+          }
+          if ((window as any).clientStore) {
+            (window as any).clientStore.notifySync();
+          }
+        }
+        break;
+      }
+
+      case 'submit-dsa-report': {
+        event.preventDefault();
+        if (typeof window !== 'undefined') {
+          const lm = (window as any).legalModal || legalModal;
+          if (lm && typeof lm.submitDsaReport === 'function') {
+            lm.submitDsaReport().then(() => {
+              if ((window as any).clientStore) (window as any).clientStore.notifySync();
+            }).catch(() => {});
+          }
+        }
+        break;
+      }
+
+      case 'toggle-follow': {
+        const fp = el.getAttribute('data-fingerprint') || el.getAttribute('data-fp');
+        if (fp && typeof window !== 'undefined') {
+          if ((window as any).profileView) {
+            const isFollowing = (window as any).profileView.toggleFollow(fp);
+            if ((window as any).clientStore) {
+              (window as any).clientStore.showToast?.(isFollowing ? `🤝 Trust connection established with @id:${fp.substring(0, 8)}` : `Trust connection removed`, 'info');
+              (window as any).clientStore.notifySync();
+            }
+          }
+        }
+        break;
+      }
+
+      case 'toggle-join-circle': {
+        const cid = el.getAttribute('data-circle-id') || el.getAttribute('data-cid');
+        if (cid) {
+          sovereignCircleEngine.toggleJoin(cid);
+        }
+        break;
+      }
+
+      case 'open-create-circle': {
+        sovereignCircleEngine.openCreateModal();
+        break;
+      }
+
+      case 'close-create-circle': {
+        sovereignCircleEngine.closeCreateModal();
+        break;
+      }
+
+      case 'open-community': {
+        const channel = el.getAttribute('data-channel') || el.getAttribute('data-channel-id') || el.getAttribute('data-id') || 'pulse-global';
+        clientStore.activeChannelId = channel;
+        sovereignRouter.navigateTo('feed');
+        clientStore.notifySync();
+        break;
+      }
+
+      case 'open-explore-communities': {
+        exploreView.activeSubTab = 'communities';
+        sovereignRouter.navigateTo('explore');
+        clientStore.notifySync();
+        break;
+      }
+
+      case 'set-explore-subtab': {
+        const subtab = el.getAttribute('data-subtab') as 'pulses' | 'communities';
+        if (subtab) {
+          exploreView.activeSubTab = subtab;
+          clientStore.notifySync();
+        }
+        break;
+      }
+
+      case 'open-circle-mod-tools': {
+        const circleId = el.getAttribute('data-circle-id') || clientStore.activeChannelId;
+        sovereignCircleEngine.openModModal(circleId);
+        break;
+      }
+
+      case 'close-circle-mod-tools': {
+        sovereignCircleEngine.closeModModal();
+        break;
+      }
+
+      case 'set-circle-mod-tab': {
+        const tab = el.getAttribute('data-tab') as 'settings' | 'rules' | 'flairs' | 'moderation';
+        if (tab) sovereignCircleEngine.setModTab(tab);
+        break;
+      }
+
+      case 'select-mod-color': {
+        const col = el.getAttribute('data-color');
+        const input = document.getElementById('input-mod-color') as HTMLInputElement | null;
+        if (col && input) {
+          input.value = col;
+          const circleId = sovereignCircleEngine.modModalCircleId;
+          if (circleId) {
+            const circle = sovereignCircleEngine.findCircle(circleId) || sovereignCircleEngine.getCircle(circleId);
+            if (circle) {
+              circle.primaryColor = col;
+              clientStore.notifySync();
+            }
+          }
+        }
+        break;
+      }
+
+      case 'save-circle-settings': {
+        const circleId = el.getAttribute('data-circle-id') || sovereignCircleEngine.modModalCircleId;
+        if (!circleId) break;
+        const title = (document.getElementById('input-mod-display-title') as HTMLInputElement)?.value;
+        const desc = (document.getElementById('input-mod-description') as HTMLTextAreaElement)?.value;
+        const cat = (document.getElementById('input-mod-category') as HTMLSelectElement)?.value;
+        const access = (document.getElementById('input-mod-access-type') as HTMLSelectElement)?.value as any;
+        const col = (document.getElementById('input-mod-color') as HTMLInputElement)?.value;
+        sovereignCircleEngine.updateCircleSettings(circleId, {
+          displayName: title,
+          description: desc,
+          category: cat,
+          communityType: access,
+          primaryColor: col,
+        });
+        break;
+      }
+
+      case 'add-circle-rule': {
+        const circleId = el.getAttribute('data-circle-id') || sovereignCircleEngine.modModalCircleId;
+        if (!circleId) break;
+        const title = (document.getElementById('input-new-rule-title') as HTMLInputElement)?.value || '';
+        const desc = (document.getElementById('input-new-rule-desc') as HTMLTextAreaElement)?.value || '';
+        if (title.trim()) {
+          sovereignCircleEngine.addRule(circleId, title, desc);
+        }
+        break;
+      }
+
+      case 'delete-circle-rule': {
+        const circleId = el.getAttribute('data-circle-id') || sovereignCircleEngine.modModalCircleId;
+        const ruleId = parseInt(el.getAttribute('data-rule-id') || '0', 10);
+        if (circleId && ruleId) {
+          sovereignCircleEngine.deleteRule(circleId, ruleId);
+        }
+        break;
+      }
+
+      case 'add-circle-flair': {
+        const circleId = el.getAttribute('data-circle-id') || sovereignCircleEngine.modModalCircleId;
+        const flair = (document.getElementById('input-new-flair') as HTMLInputElement)?.value || '';
+        if (circleId && flair.trim()) {
+          sovereignCircleEngine.addFlair(circleId, flair);
+        }
+        break;
+      }
+
+      case 'delete-circle-flair': {
+        const circleId = el.getAttribute('data-circle-id') || sovereignCircleEngine.modModalCircleId;
+        const flair = el.getAttribute('data-flair') || '';
+        if (circleId && flair) {
+          sovereignCircleEngine.deleteFlair(circleId, flair);
+        }
+        break;
+      }
+
+      case 'ban-circle-node': {
+        const circleId = el.getAttribute('data-circle-id') || sovereignCircleEngine.modModalCircleId;
+        const fp = (document.getElementById('input-mod-ban-fp') as HTMLInputElement)?.value || '';
+        if (circleId && fp.trim()) {
+          sovereignCircleEngine.banNode(circleId, fp);
+        }
+        break;
+      }
+
+      case 'unban-circle-node': {
+        const circleId = el.getAttribute('data-circle-id') || sovereignCircleEngine.modModalCircleId;
+        const fp = el.getAttribute('data-fp') || '';
+        if (circleId && fp) {
+          sovereignCircleEngine.unbanNode(circleId, fp);
+        }
+        break;
+      }
+
+      case 'add-circle-mod': {
+        const circleId = el.getAttribute('data-circle-id') || sovereignCircleEngine.modModalCircleId;
+        const fp = (document.getElementById('input-mod-add-fp') as HTMLInputElement)?.value || '';
+        if (circleId && fp.trim()) {
+          sovereignCircleEngine.addModerator(circleId, fp);
+        }
+        break;
+      }
+
+      case 'mod-pin-post': {
+        const circleId = el.getAttribute('data-circle-id') || clientStore.activeChannelId;
+        const postId = el.getAttribute('data-post-id') || '';
+        if (circleId && postId) {
+          sovereignCircleEngine.togglePinPost(circleId, postId);
+        }
+        break;
+      }
+
+      case 'mod-remove-post': {
+        const circleId = el.getAttribute('data-circle-id') || clientStore.activeChannelId;
+        const postId = el.getAttribute('data-post-id') || '';
+        if (circleId && postId) {
+          sovereignCircleEngine.modRemovePost(circleId, postId);
+        }
+        break;
+      }
+
+      case 'open-composer-for-circle': {
+        const channel = el.getAttribute('data-channel') || clientStore.activeChannelId;
+        if (channel) {
+          clientStore.activeChannelId = channel;
+        }
+        hybridComposer.open();
+        clientStore.notifySync();
+        break;
+      }
+
+      case 'open-dm': {
+        const fp = el.getAttribute('data-fingerprint') || el.getAttribute('data-fp');
+        const role = el.getAttribute('data-peer-role') || el.getAttribute('data-role') || 'MEMBER';
+        if (fp) {
+          sovereignDM.openDM(fp, role);
+        }
+        break;
+      }
+
+      case 'switch-messages-tab': {
+        const tab = el.getAttribute('data-tab') as 'relays' | 'dm';
+        if (tab) {
+          setActiveMessagesTab(tab);
+          clientStore.notifySync();
+        }
+        break;
+      }
+
+      case 'new-dm-conversation': {
+        openNewDMPicker();
+        clientStore.notifySync();
+        break;
+      }
+
+      case 'close-new-dm': {
+        closeNewDMPicker();
+        clientStore.notifySync();
+        break;
+      }
+
+      case 'start-dm-with-peer': {
+        const peer = el.getAttribute('data-peer');
+        const role = el.getAttribute('data-role') || 'MEMBER';
+        if (peer) {
+          closeNewDMPicker();
+          sovereignDM.openDM(peer, role);
+          setActiveMessagesTab('dm');
+          clientStore.notifySync();
+        }
+        break;
+      }
+
+      case 'submit-new-dm-peer': {
+        const input = document.getElementById('input-new-dm-peer') as HTMLInputElement | null;
+        if (input && input.value.trim()) {
+          const peer = input.value.trim().toLowerCase().replace(/^0x/, '');
+          closeNewDMPicker();
+          sovereignDM.openDM(peer, 'MEMBER');
+          setActiveMessagesTab('dm');
+          clientStore.notifySync();
+        }
+        break;
+      }
+
+      case 'select-dm-peer': {
+        const peer = el.getAttribute('data-peer');
+        if (peer) {
+          sovereignDM.setActivePeer(peer);
+          clientStore.notifySync();
+        }
+        break;
+      }
+
+      case 'open-dm-safety': {
+        sovereignDM.toggleSafetyModal();
+        break;
+      }
+
+      case 'toggle-dm-ciphertext': {
+        sovereignDM.showCiphertextToggle = !sovereignDM.showCiphertextToggle;
+        clientStore.notifySync();
+        break;
+      }
+
+      case 'simulate-dm-reply': {
+        const activeFP = sovereignDM.activePeerFP;
+        if (activeFP) {
+          const myFP = clientStore.keypair?.fingerprint || 'me_local_node_0x9f4e';
+          sovereignDM.simulateIncomingMessage(activeFP, myFP);
+          clientStore.notifySync();
+          setTimeout(() => {
+            const container = document.getElementById('dm-thread-messages');
+            if (container) container.scrollTop = container.scrollHeight;
+          }, 50);
+        }
+        break;
+      }
+
       case 'close-modal':
       case 'close-feature': {
         // If element is a backdrop, only close when clicking backdrop directly, not inside modal
@@ -306,6 +792,7 @@ export class ActionDispatcher {
           (window as any).__aetheris_close_binary_hygiene?.();
           (window as any).customThemeBuilder?.closeModal?.();
           (window as any).binaryHygienePortal?.close?.();
+          (window as any).walletBridge?.closeModal?.();
           (window as any).portableTrustModal?.close?.();
           (window as any).paperWallet?.close?.();
           (window as any).acousticDSP?.close?.();
@@ -629,54 +1116,6 @@ export class ActionDispatcher {
         break;
       }
 
-      case 'call-global': {
-        // If element is a backdrop, only proceed if click was directly on the backdrop
-        if (el.id.includes('backdrop') && event.target !== el) {
-          break;
-        }
-
-        // 1. Check for data-raw-click (Safe zero-eval execution)
-        const rawClick = el.getAttribute('data-raw-click');
-        if (rawClick) {
-          try {
-            safeExecuteExpression(rawClick, el, event);
-            break;
-          } catch (err) {
-            console.error('[ActionDispatcher] Error in data-raw-click:', err, rawClick);
-          }
-        }
-
-        // 2. Check for data-global-method
-        const method = el.getAttribute('data-global-method');
-        const argsRaw = el.getAttribute('data-global-args');
-
-        if (method === 'if' && argsRaw) {
-          try {
-            let code = argsRaw.trim();
-            if (code.startsWith('[')) code = code.substring(1);
-            if (code.endsWith(']')) code = code.substring(0, code.length - 1);
-            if (code.endsWith('(')) code = code.substring(0, code.length - 1) + '()';
-            safeExecuteExpression(`if (${code};`, el, event);
-            break;
-          } catch (err) {
-            console.error('[ActionDispatcher] Error evaluating if statement:', err, argsRaw);
-          }
-        }
-
-        if (method && method !== 'if') {
-          let args: any[] = [];
-          if (argsRaw) {
-            try {
-              args = JSON.parse(argsRaw);
-            } catch (_) {
-              args = [argsRaw];
-            }
-          }
-          this.invokeMethodPath(method, args);
-        }
-        break;
-      }
-
       case 'copy-text': {
         const text = el.getAttribute('data-copy-text');
         if (text) {
@@ -730,7 +1169,11 @@ export class ActionDispatcher {
 
       case 'open-legal': {
         const tab = el.getAttribute('data-legal-tab') || 'about';
-        modalManager.openFeature('legal', tab);
+        if (typeof window !== 'undefined' && typeof (window as any).__aetheris_open_legal === 'function') {
+          (window as any).__aetheris_open_legal(tab);
+        } else {
+          modalManager.openFeature('legal', tab);
+        }
         break;
       }
 
@@ -801,10 +1244,321 @@ export class ActionDispatcher {
       }
 
       case 'toggle-ui-mode': {
-        const currentMode = clientStore.uiMode || 'simple';
-        const nextMode = currentMode === 'simple' ? 'advanced' : currentMode === 'advanced' ? 'technical' : 'simple';
-        clientStore.setUiMode(nextMode);
+        clientStore.toggleUiMode();
         clientStore.notifySync();
+        break;
+      }
+
+      case 'toggle-sound': {
+        const sfx = (window as any).soundEffects || soundEffects;
+        if (sfx && typeof sfx.toggleSound === 'function') {
+          sfx.toggleSound();
+          if (typeof window !== 'undefined' && (window as any).clientStore) {
+            (window as any).clientStore.showToast?.(
+              sfx.isEnabled ? '🔊 Sound FX Enabled' : '🔇 Sound FX Muted',
+              'info'
+            );
+            (window as any).clientStore.notifySync();
+          }
+        }
+        break;
+      }
+
+      case 'open-lang-picker': {
+        if (typeof window !== 'undefined') {
+          if (typeof (window as any).__aetheris_open_lang === 'function') {
+            (window as any).__aetheris_open_lang();
+          }
+          if ((window as any).clientStore) (window as any).clientStore.notifySync();
+        }
+        break;
+      }
+
+      case 'close-lang': {
+        if (typeof window !== 'undefined') {
+          if (typeof (window as any).__aetheris_close_lang === 'function') {
+            (window as any).__aetheris_close_lang();
+          }
+          if ((window as any).clientStore) (window as any).clientStore.notifySync();
+        }
+        break;
+      }
+
+      case 'select-lang': {
+        const code = el.getAttribute('data-lang');
+        if (code && typeof window !== 'undefined') {
+          const i18nEngine = (window as any).i18n || i18n;
+          if (i18nEngine && typeof i18nEngine.setLanguage === 'function') {
+            i18nEngine.setLanguage(code as any);
+          }
+          if (typeof (window as any).__aetheris_close_lang === 'function') {
+            (window as any).__aetheris_close_lang();
+          }
+          if ((window as any).clientStore) {
+            (window as any).clientStore.showToast?.(`🌐 Language: ${code.toUpperCase()}`, 'info');
+            (window as any).clientStore.notifySync();
+          }
+        }
+        break;
+      }
+
+      case 'connect-metamask': {
+        if (typeof window !== 'undefined') {
+          const wb = (window as any).walletBridge || walletBridge;
+          if (wb && typeof wb.connectMetaMask === 'function') {
+            wb.connectMetaMask().then(() => {
+              if ((window as any).clientStore) (window as any).clientStore.notifySync();
+            }).catch(() => {});
+          }
+        }
+        break;
+      }
+
+      case 'disconnect-wallet': {
+        if (typeof window !== 'undefined') {
+          const wb = (window as any).walletBridge || walletBridge;
+          if (wb && typeof wb.disconnect === 'function') {
+            wb.disconnect();
+            if ((window as any).clientStore) (window as any).clientStore.notifySync();
+          }
+        }
+        break;
+      }
+
+      case 'set-wallet-tab': {
+        const tab = el.getAttribute('data-tab');
+        if (tab && typeof window !== 'undefined') {
+          const wb = (window as any).walletBridge || walletBridge;
+          if (wb && typeof wb.setActiveTab === 'function') {
+            wb.setActiveTab(tab);
+            if ((window as any).clientStore) (window as any).clientStore.notifySync();
+          }
+        }
+        break;
+      }
+
+      case 'open-composer-media': {
+        if (typeof window !== 'undefined') {
+          const hc = (window as any).hybridComposer || hybridComposer;
+          if (hc) hc.activeTab = 'media';
+          clientStore.isComposerOpen = true;
+          clientStore.notifySync();
+        }
+        break;
+      }
+
+      case 'toggle-bookmarks': {
+        if (typeof window !== 'undefined') {
+          if (typeof (window as any).__aetheris_toggle_bookmarks === 'function') {
+            (window as any).__aetheris_toggle_bookmarks();
+          } else {
+            const btn = document.getElementById('btn-open-bookmarks-modal');
+            btn?.click();
+          }
+        }
+        break;
+      }
+
+      case 'toggle-video-play': {
+        event.stopPropagation();
+        const vid = el.getAttribute('data-video-id');
+        const videoEl = (vid ? document.getElementById(`video-${vid}`) : null) || (el instanceof HTMLVideoElement ? el : el.closest('.group, [class*="relative rounded-2xl"]')?.querySelector('video'));
+        if (videoEl instanceof HTMLVideoElement) {
+          if (videoEl.paused) {
+            videoEl.play().catch(() => {});
+          } else {
+            videoEl.pause();
+          }
+        }
+        break;
+      }
+
+      case 'toggle-video-mute': {
+        event.stopPropagation();
+        const vid = el.getAttribute('data-video-id');
+        const videoEl = (vid ? document.getElementById(`video-${vid}`) : null) || el.closest('.group, [class*="relative rounded-2xl"]')?.querySelector('video');
+        if (videoEl instanceof HTMLVideoElement) {
+          videoEl.muted = !videoEl.muted;
+          el.textContent = videoEl.muted ? '🔇' : '🔊';
+        }
+        break;
+      }
+
+      case 'toggle-video-pip': {
+        event.stopPropagation();
+        const vid = el.getAttribute('data-video-id');
+        const videoEl = (vid ? document.getElementById(`video-${vid}`) : null) || el.closest('.group, [class*="relative rounded-2xl"]')?.querySelector('video');
+        if (videoEl instanceof HTMLVideoElement) {
+          if (document.pictureInPictureElement === videoEl) {
+            document.exitPictureInPicture().catch(() => {});
+          } else if (videoEl.requestPictureInPicture) {
+            videoEl.requestPictureInPicture().catch(() => {});
+          }
+        }
+        break;
+      }
+
+      case 'toggle-video-fs': {
+        event.stopPropagation();
+        const vid = el.getAttribute('data-video-id');
+        const videoEl = (vid ? document.getElementById(`video-${vid}`) : null) || el.closest('.group, [class*="relative rounded-2xl"]')?.querySelector('video');
+        if (videoEl instanceof HTMLVideoElement) {
+          if (document.fullscreenElement) {
+            document.exitFullscreen().catch(() => {});
+          } else if (videoEl.requestFullscreen) {
+            videoEl.requestFullscreen().catch(() => {});
+          }
+        }
+        break;
+      }
+
+      case 'seek-video': {
+        event.stopPropagation();
+        const vid = el.getAttribute('data-video-id');
+        const videoEl = (vid ? document.getElementById(`video-${vid}`) : null) || el.closest('.group, [class*="relative rounded-2xl"]')?.querySelector('video');
+        if (videoEl instanceof HTMLVideoElement && videoEl.duration > 0) {
+          const rect = el.getBoundingClientRect();
+          const pos = (event.clientX - rect.left) / rect.width;
+          videoEl.currentTime = Math.max(0, Math.min(videoEl.duration, pos * videoEl.duration));
+        }
+        break;
+      }
+
+      case 'trigger-binary-file-select': {
+        const fileInput = document.getElementById('binary-hygiene-file-input') as HTMLInputElement | null;
+        if (fileInput) {
+          fileInput.click();
+        }
+        break;
+      }
+
+      case 'close-binary-hygiene': {
+        const portal = (window as any).binaryHygienePortal || binaryHygienePortal;
+        portal?.close();
+        modalManager.close();
+        break;
+      }
+
+      case 'close-binary-hygiene-backdrop': {
+        if (event.target === el || (event.target as HTMLElement).id === 'binary-hygiene-backdrop') {
+          const portal = (window as any).binaryHygienePortal || binaryHygienePortal;
+          portal?.close();
+          modalManager.close();
+        }
+        break;
+      }
+
+      case 'clear-binary-report': {
+        const portal = (window as any).binaryHygienePortal || binaryHygienePortal;
+        portal?.clearReport();
+        break;
+      }
+
+      case 'download-binary-audit-cert': {
+        const portal = (window as any).binaryHygienePortal || binaryHygienePortal;
+        portal?.downloadAuditCertificate();
+        break;
+      }
+
+      case 'scan-sample-clean': {
+        const portal = (window as any).binaryHygienePortal || binaryHygienePortal;
+        portal?.scanSampleBinary('clean');
+        break;
+      }
+
+      case 'scan-sample-upx': {
+        const portal = (window as any).binaryHygienePortal || binaryHygienePortal;
+        portal?.scanSampleBinary('upx');
+        break;
+      }
+
+      case 'scan-sample-suspicious': {
+        const portal = (window as any).binaryHygienePortal || binaryHygienePortal;
+        portal?.scanSampleBinary('suspicious');
+        break;
+      }
+
+      case 'toggle-dm-emoji': {
+        toggleDMEmojiPicker();
+        clientStore.notifySync();
+        break;
+      }
+
+      case 'toggle-relay-emoji': {
+        toggleRelayEmojiPicker();
+        clientStore.notifySync();
+        break;
+      }
+
+      case 'close-emoji-pickers': {
+        closeEmojiPickers();
+        clientStore.notifySync();
+        break;
+      }
+
+      case 'insert-dm-emoji': {
+        const emoji = el.getAttribute('data-emoji');
+        if (emoji) {
+          const input = document.getElementById('input-dm-message') as HTMLInputElement | null;
+          if (input) {
+            const start = input.selectionStart ?? input.value.length;
+            const end = input.selectionEnd ?? input.value.length;
+            input.value = input.value.substring(0, start) + emoji + input.value.substring(end);
+            input.selectionStart = input.selectionEnd = start + emoji.length;
+            input.focus();
+          }
+        }
+        toggleDMEmojiPicker(false);
+        clientStore.notifySync();
+        break;
+      }
+
+      case 'insert-relay-emoji': {
+        const emoji = el.getAttribute('data-emoji');
+        if (emoji) {
+          const input = document.getElementById('input-message') as HTMLInputElement | null;
+          if (input) {
+            const start = input.selectionStart ?? input.value.length;
+            const end = input.selectionEnd ?? input.value.length;
+            input.value = input.value.substring(0, start) + emoji + input.value.substring(end);
+            input.selectionStart = input.selectionEnd = start + emoji.length;
+            input.focus();
+          }
+        }
+        toggleRelayEmojiPicker(false);
+        clientStore.notifySync();
+        break;
+      }
+
+      case 'trigger-dm-attachment': {
+        const fileInput = document.getElementById('input-dm-attachment-file') as HTMLInputElement | null;
+        if (fileInput) fileInput.click();
+        break;
+      }
+
+      case 'trigger-relay-attachment': {
+        const fileInput = document.getElementById('input-relay-attachment-file') as HTMLInputElement | null;
+        if (fileInput) fileInput.click();
+        break;
+      }
+
+      case 'clear-dm-attachment': {
+        sovereignDM.setPendingAttachment(null);
+        clientStore.notifySync();
+        break;
+      }
+
+      case 'clear-relay-attachment': {
+        clientStore.pendingRelayAttachment = null;
+        clientStore.notifySync();
+        break;
+      }
+
+      case 'open-lightbox': {
+        const src = el.getAttribute('data-src');
+        if (src) {
+          window.open(src, '_blank');
+        }
         break;
       }
 
@@ -821,6 +1575,33 @@ export class ActionDispatcher {
   }
 
   public dispatchChange(action: string, el: HTMLInputElement | HTMLSelectElement, event: Event): void {
+    if (action === 'scan-binary-file' || el.id === 'binary-hygiene-file-input') {
+      const fileInput = el as HTMLInputElement;
+      if (fileInput.files && fileInput.files[0]) {
+        const file = fileInput.files[0];
+        const portal = (window as any).binaryHygienePortal || binaryHygienePortal;
+        if (portal && typeof portal.scanFile === 'function') {
+          portal.scanFile(file, file.name).catch((err: any) => console.error('Binary scan failed:', err));
+        }
+      }
+      return;
+    }
+    if (action === 'dm-file-attached' || el.id === 'input-dm-attachment-file') {
+      const fileInput = el as HTMLInputElement;
+      if (fileInput.files && fileInput.files[0]) {
+        handleFileAttachment(fileInput.files[0], 'dm');
+        fileInput.value = '';
+      }
+      return;
+    }
+    if (action === 'relay-file-attached' || el.id === 'input-relay-attachment-file') {
+      const fileInput = el as HTMLInputElement;
+      if (fileInput.files && fileInput.files[0]) {
+        handleFileAttachment(fileInput.files[0], 'relay');
+        fileInput.value = '';
+      }
+      return;
+    }
     if (action === 'call-global') {
       const rawChange = el.getAttribute('data-raw-change');
       if (rawChange) {
@@ -883,6 +1664,9 @@ export class ActionDispatcher {
       } else if (method) {
         this.invokeMethodPath(method, [el.value, el]);
       }
+    } else if (action === 'search-dm-peers') {
+      setDMSearchQuery(el.value);
+      clientStore.notifySync();
     } else if (typeof window !== 'undefined') {
       const customHandler = (window as any)[`__aetheris_input_${action}`];
       if (typeof customHandler === 'function') {
@@ -909,6 +1693,55 @@ export class ActionDispatcher {
       }
       if (method) {
         this.invokeMethodPath(method, [el, event]);
+      }
+    } else if (action === 'submit-dsa-report') {
+      event.preventDefault();
+      if (typeof window !== 'undefined') {
+        const lm = (window as any).legalModal || legalModal;
+        if (lm && typeof lm.submitDsaReport === 'function') {
+          lm.submitDsaReport().then(() => {
+            if ((window as any).clientStore) (window as any).clientStore.notifySync();
+          }).catch(() => {});
+        }
+      }
+    } else if (action === 'submit-dm-message') {
+      event.preventDefault();
+      const input = el.querySelector('#input-dm-message') as HTMLInputElement | null;
+      const text = input ? input.value.trim() : '';
+      const att = sovereignDM.getPendingAttachment();
+      if (text || att) {
+        const myFP = clientStore.keypair?.fingerprint || 'me_local_node_0x9f4e';
+        sovereignDM.sendMessage(text, myFP, att || undefined).then(() => {
+          if (input) {
+            input.value = '';
+            input.focus();
+          }
+          sovereignDM.setPendingAttachment(null);
+          clientStore.notifySync();
+          setTimeout(() => {
+            const container = document.getElementById('dm-thread-messages');
+            if (container) container.scrollTop = container.scrollHeight;
+          }, 50);
+        }).catch(console.error);
+      }
+    } else if (action === 'submit-relay-message') {
+      event.preventDefault();
+      const input = el.querySelector('#input-message') as HTMLInputElement | null;
+      const text = input ? input.value.trim() : '';
+      const att = clientStore.pendingRelayAttachment;
+      if (text || att) {
+        clientStore.sendMessage(text, undefined, att || undefined).then(() => {
+          if (input) {
+            input.value = '';
+            input.focus();
+          }
+          clientStore.pendingRelayAttachment = null;
+          clientStore.notifySync();
+          setTimeout(() => {
+            const container = document.getElementById('messages-container');
+            if (container) container.scrollTop = container.scrollHeight;
+          }, 50);
+        }).catch(console.error);
       }
     } else if (typeof window !== 'undefined') {
       const customHandler = (window as any)[`__aetheris_submit_${action}`];

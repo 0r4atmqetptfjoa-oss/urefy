@@ -90,14 +90,17 @@ export const REPUTATION_TIERS: Record<ReputationTier, ZKTierInfo> = {
   }
 };
 
+import { isLocalDev } from './admin-auth.js';
+
 export class ZKReputationAggregator {
   public proofs: Map<string, ZKReputationProof> = new Map();
   public isOpen: boolean = false;
   public activeProofModalId: string | null = null;
 
   constructor() {
-    // Seed initial demo proof
-    this.createProof('c3dc28cb705e', 342, 412);
+    if (isLocalDev()) {
+      this.createProof('c3dc28cb705e', 342, 412);
+    }
   }
 
   private memberScores: Map<string, number> = new Map([
@@ -205,8 +208,13 @@ export class ZKReputationAggregator {
     const tierInfo = this.getTierForScore(meritScore);
     const proofId = `zk-rep-${userFP.substring(0, 6)}-${Date.now()}`;
     
-    // Compute simulated Poseidon / SHA-256 nullifier
-    const nullifierRaw = `${userFP}:${tierInfo.tier}:${epoch}:${Math.random().toString(36)}`;
+    // Cryptographically derive nullifier using WebCrypto entropy
+    const randomBytes = new Uint8Array(16);
+    if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+      crypto.getRandomValues(randomBytes);
+    }
+    const nonceHex = Array.from(randomBytes).map((b) => b.toString(16).padStart(2, '0')).join('');
+    const nullifierRaw = `${userFP}:${tierInfo.tier}:${epoch}:${nonceHex}`;
     const nullifierHash = this.pseudoHash(nullifierRaw);
     const merkleRoot = this.pseudoHash(`aetheris-reputation-tree-epoch-${epoch}`);
 
@@ -231,8 +239,15 @@ export class ZKReputationAggregator {
    * Verifies the cryptographic validity of a ZK reputation proof.
    */
   public verifyProof(proof: ZKReputationProof): boolean {
-    if (!proof || !proof.nullifierHash || !proof.merkleRoot) return false;
-    return proof.nullifierHash.startsWith('0x') && proof.merkleRoot.startsWith('0x') && proof.isVerified;
+    if (!proof || typeof proof !== 'object') return false;
+    if (!proof.nullifierHash || !proof.merkleRoot || !proof.zkAttestation) return false;
+    if (!proof.nullifierHash.startsWith('0x') || proof.nullifierHash.length < 18) return false;
+    if (!proof.merkleRoot.startsWith('0x') || proof.merkleRoot.length < 18) return false;
+    const tierInfo = REPUTATION_TIERS[proof.tier];
+    if (!tierInfo) return false;
+    if (proof.minScoreThreshold !== tierInfo.minScore) return false;
+    if (!proof.zkAttestation.includes(`ReputationRank >= ${tierInfo.minScore}`)) return false;
+    return proof.isVerified === true;
   }
 
   /**

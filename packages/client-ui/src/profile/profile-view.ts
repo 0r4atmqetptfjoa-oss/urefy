@@ -17,6 +17,7 @@ export class ProfileView {
   public activeSettingsCategory: SettingsCategory = 'account';
   public targetFingerprint: string = '';
   public isEditProfileModalOpen: boolean = false;
+  public lastTabSwitched: boolean = false;
   public followingSet: Set<string>;
   public profileData: Map<string, UserProfileData> = new Map();
 
@@ -83,6 +84,15 @@ export class ProfileView {
 
   public getProfile(fp: string): UserProfileData {
     if (!this.profileData.has(fp)) {
+      if (typeof localStorage !== 'undefined') {
+        try {
+          const cached = localStorage.getItem(`aetheris_profile_${fp}`);
+          if (cached) {
+            this.profileData.set(fp, JSON.parse(cached));
+            return this.profileData.get(fp)!;
+          }
+        } catch (_) {}
+      }
       const alias = fp.length > 12 ? fp.substring(0, 8) : fp;
       this.profileData.set(fp, {
         fingerprint: fp,
@@ -109,7 +119,13 @@ export class ProfileView {
 
   public updateProfile(fp: string, updates: Partial<UserProfileData>): void {
     const current = this.getProfile(fp);
-    this.profileData.set(fp, { ...current, ...updates });
+    const updated = { ...current, ...updates };
+    this.profileData.set(fp, updated);
+    if (typeof localStorage !== 'undefined') {
+      try {
+        localStorage.setItem(`aetheris_profile_${fp}`, JSON.stringify(updated));
+      } catch (_) {}
+    }
   }
 
   public saveProfile(fp: string, updates: Partial<UserProfileData>): void {
@@ -117,11 +133,17 @@ export class ProfileView {
   }
 
   public setTargetFingerprint(fp: string): void {
+    if (this.targetFingerprint !== fp) {
+      this.lastTabSwitched = true;
+    }
     this.targetFingerprint = fp;
     this.activeTab = 'pulses';
   }
 
   public setActiveTab(tab: ProfileTab): void {
+    if (this.activeTab !== tab) {
+      this.lastTabSwitched = true;
+    }
     this.activeTab = tab;
   }
 
@@ -194,20 +216,22 @@ export class ProfileView {
     const isFollowing = this.isFollowing(target);
 
     return `
-      <div id="sovereign-profile-container" class="space-y-6 max-w-4xl mx-auto pb-12">
-        <!-- 1. HERO HEADER -->
-        ${renderProfileHeaderHTML(profile, isOwnProfile, isFollowing, this.isEditProfileModalOpen)}
+      <div id="sovereign-profile-container" class="flex-1 w-full h-full min-h-0 overflow-y-auto overflow-x-hidden p-3 sm:p-4 md:p-6 pb-28 lg:pb-12 scroll-smooth">
+        <div class="max-w-4xl mx-auto space-y-6">
+          <!-- 1. HERO HEADER -->
+          ${renderProfileHeaderHTML(profile, isOwnProfile, isFollowing, this.isEditProfileModalOpen)}
 
-        <!-- 2. TIMELINE TABS BAR -->
-        ${renderProfileTabsHTML(this.activeTab, isOwnProfile)}
+          <!-- 2. TIMELINE TABS BAR -->
+          ${renderProfileTabsHTML(this.activeTab, isOwnProfile)}
 
-        <!-- 3. TAB CONTENT -->
-        <div id="profile-tab-content-area" class="transition-all duration-200">
-          ${
-            this.activeTab === 'settings' && isOwnProfile
-              ? renderProfileSettingsHTML(this.activeSettingsCategory, profile, currentUserFp)
-              : renderProfileTimelinePostsHTML(this.filterTimelinePosts(allPosts, target), this.activeTab, target)
-          }
+          <!-- 3. TAB CONTENT -->
+          <div id="profile-tab-content-area" class="transition-all duration-200">
+            ${
+              this.activeTab === 'settings' && isOwnProfile
+                ? renderProfileSettingsHTML(this.activeSettingsCategory, profile, currentUserFp)
+                : renderProfileTimelinePostsHTML(this.filterTimelinePosts(allPosts, target), this.activeTab, target)
+            }
+          </div>
         </div>
       </div>
     `;
@@ -240,6 +264,9 @@ if (typeof window !== 'undefined') {
       banner: banInput?.value || profileView.getProfile(targetFp).banner,
     });
     profileView.isEditProfileModalOpen = false;
-    if ((window as any).clientStore) (window as any).clientStore.notify();
+    if ((window as any).clientStore) {
+      (window as any).clientStore.showToast?.('✨ Sovereign Profile updated!', 'success');
+      (window as any).clientStore.notifySync();
+    }
   };
 }

@@ -1076,6 +1076,7 @@ export class WalletBridge {
     }
   }
 
+
   /**
    * Re-renders DOM containers if mounted in the document.
    */
@@ -1089,7 +1090,12 @@ export class WalletBridge {
     }
 
     // Main Modal / Panel Container
-    const modalContainer = document.getElementById('aetheris-wallet-modal-container');
+    let modalContainer = document.getElementById('aetheris-wallet-modal-container');
+    if (!modalContainer && this.isModalOpen) {
+      modalContainer = document.createElement('div');
+      modalContainer.id = 'aetheris-wallet-modal-container';
+      document.body.appendChild(modalContainer);
+    }
     if (modalContainer) {
       modalContainer.innerHTML = this.renderWalletPanel();
     }
@@ -1168,8 +1174,8 @@ export class WalletBridge {
 
           <!-- Navigation Tabs -->
           <div class="flex items-center px-6 border-b border-white/5 bg-surface-base gap-2 pt-2">
-            <button data-action="call-global" data-global-method="walletBridge.setTab" data-global-args='["identity"]'
-              class="px-4 py-2 text-xs font-semibold rounded-t-lg transition-all flex items-center gap-2 border-b-2
+            <button data-action="set-wallet-tab" data-tab="identity"
+              class="px-4 py-2 text-xs font-semibold rounded-t-lg transition-all flex items-center gap-2 border-b-2 cursor-pointer
                 ${
                   this.activeTab === 'identity'
                     ? 'border-cyphr text-cyphr bg-surface-raised font-bold'
@@ -1179,8 +1185,8 @@ export class WalletBridge {
               <span>🔑</span> Identity & Bridge
             </button>
 
-            <button data-action="call-global" data-global-method="walletBridge.setTab" data-global-args='["signatures"]'
-              class="px-4 py-2 text-xs font-semibold rounded-t-lg transition-all flex items-center gap-2 border-b-2
+            <button data-action="set-wallet-tab" data-tab="signatures"
+              class="px-4 py-2 text-xs font-semibold rounded-t-lg transition-all flex items-center gap-2 border-b-2 cursor-pointer
                 ${
                   this.activeTab === 'signatures'
                     ? 'border-cyphr text-cyphr bg-surface-raised font-bold'
@@ -1190,8 +1196,8 @@ export class WalletBridge {
               <span>✍️</span> Signatures & Attestations
             </button>
 
-            <button data-action="call-global" data-global-method="walletBridge.setTab" data-global-args='["token-gate"]'
-              class="px-4 py-2 text-xs font-semibold rounded-t-lg transition-all flex items-center gap-2 border-b-2
+            <button data-action="set-wallet-tab" data-tab="token-gate"
+              class="px-4 py-2 text-xs font-semibold rounded-t-lg transition-all flex items-center gap-2 border-b-2 cursor-pointer
                 ${
                   this.activeTab === 'token-gate'
                     ? 'border-cyphr text-cyphr bg-surface-raised font-bold'
@@ -1201,8 +1207,8 @@ export class WalletBridge {
               <span>🚪</span> Token-Gated Spaces
             </button>
 
-            <button data-action="call-global" data-global-method="walletBridge.setTab" data-global-args='["networks"]'
-              class="px-4 py-2 text-xs font-semibold rounded-t-lg transition-all flex items-center gap-2 border-b-2
+            <button data-action="set-wallet-tab" data-tab="networks"
+              class="px-4 py-2 text-xs font-semibold rounded-t-lg transition-all flex items-center gap-2 border-b-2 cursor-pointer
                 ${
                   this.activeTab === 'networks'
                     ? 'border-cyphr text-cyphr bg-surface-raised font-bold'
@@ -1297,15 +1303,15 @@ export class WalletBridge {
             ${
               isConn
                 ? `
-                  <button data-action="call-global" data-global-method="walletBridge.disconnect"
-                    class="px-3 py-1.5 rounded-lg bg-crimson/10 hover:bg-crimson/20 text-crimson border border-crimson/30 font-semibold text-xs transition-all"
+                  <button data-action="disconnect-wallet"
+                    class="px-3 py-1.5 rounded-lg bg-crimson/10 hover:bg-crimson/20 text-crimson border border-crimson/30 font-semibold text-xs transition-all cursor-pointer"
                   >
                     Disconnect
                   </button>
                 `
                 : `
-                  <button data-action="call-global" data-global-method="walletBridge.connectMetaMask"
-                    class="px-4 py-1.5 rounded-lg bg-cyphr hover:bg-cyphr/90 text-slate-950 font-bold text-xs shadow-[0_0_12px_rgba(0,229,255,0.3)] transition-all flex items-center gap-1.5"
+                  <button data-action="connect-metamask"
+                    class="px-4 py-1.5 rounded-lg bg-cyphr hover:bg-cyphr/90 text-slate-950 font-bold text-xs shadow-[0_0_12px_rgba(0,229,255,0.3)] transition-all flex items-center gap-1.5 cursor-pointer"
                   >
                     <span>🦊</span> Connect MetaMask
                   </button>
@@ -1641,3 +1647,6 @@ export class WalletBridge {
 
 // ─── Singleton Export ───────────────────────────────────────────────────────
 export const walletBridge = new WalletBridge();
+if (typeof window !== 'undefined') {
+  (window as any).walletBridge = walletBridge;
+}
