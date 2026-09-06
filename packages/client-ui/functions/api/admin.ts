@@ -490,6 +490,23 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
 
     const db = getD1Database(context.env);
 
+    let livePosts: any[] = globalPostsStore;
+    let liveMessagesCount: number = globalMessagesStore.length;
+    if (db && (tab === 'all' || tab === 'moderation' || tab === 'posts')) {
+      try {
+        const pRes = await db.prepare('SELECT * FROM posts ORDER BY created_at DESC LIMIT 100').all<any>();
+        if (pRes && pRes.results && pRes.results.length > 0) {
+          livePosts = pRes.results;
+        }
+      } catch (_) {}
+      try {
+        const mCountRes: any = await db.prepare('SELECT COUNT(*) as cnt FROM messages').first();
+        if (mCountRes && typeof mCountRes.cnt === 'number') {
+          liveMessagesCount = mCountRes.cnt;
+        }
+      } catch (_) {}
+    }
+
     // Build comprehensive administrative dashboard payload
     const payload = {
       success: true,
@@ -499,13 +516,14 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
         onlineUsers: globalAdminUsersStore.filter((u) => u.status === 'online').length,
         quarantinedUsers: globalAdminUsersStore.filter((u) => u.isQuarantined).length,
         totalChannels: globalChannelsStore.length,
-        totalPosts: globalPostsStore.length,
-        totalMessages: globalMessagesStore.length,
+        totalPosts: livePosts.length,
+        totalMessages: liveMessagesCount,
         totalNodes: globalNodesTelemetryStore.length,
         bannedIPsCount: globalBannedIPsStore.length,
       },
       users: tab === 'all' || tab === 'users' ? globalAdminUsersStore : undefined,
       channels: tab === 'all' || tab === 'channels' ? globalChannelsStore : undefined,
+      posts: tab === 'all' || tab === 'moderation' || tab === 'posts' ? livePosts : undefined,
       bannedIPs: tab === 'all' || tab === 'waf' ? globalBannedIPsStore : undefined,
       config: tab === 'all' || tab === 'config' ? globalServerConfig : undefined,
       logs: tab === 'all' || tab === 'logs' || tab === 'moderation' ? globalAdminLogsStore : undefined,
@@ -908,15 +926,34 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
         );
       }
 
-      const idx = globalPostsStore.findIndex((p) => p.id === postId);
-      if (idx < 0) {
-        return new Response(
-          JSON.stringify({ success: false, error: `Post ${postId} not found` }),
-          { status: 404, headers: { 'Content-Type': 'application/json' } }
-        );
+      const db = getD1Database(context.env);
+      let d1Deleted = false;
+      if (db) {
+        try {
+          const res = await db.prepare('DELETE FROM posts WHERE id = ?').bind(postId).run();
+          d1Deleted = Boolean(res && res.success);
+          const kv = getKVStore(context.env);
+          if (kv) {
+            try {
+              await kv.delete('posts:all:all:hot:50:0');
+              await kv.delete(`post:${postId}`);
+            } catch (_) {}
+          }
+        } catch (_) {}
       }
 
-      globalPostsStore.splice(idx, 1);
+      const idx = globalPostsStore.findIndex((p) => p.id === postId);
+      if (idx >= 0) {
+        globalPostsStore.splice(idx, 1);
+      } else if (!db || !d1Deleted) {
+        // Only return 404 if not found in D1 or memory
+        if (!db) {
+          return new Response(
+            JSON.stringify({ success: false, error: `Post ${postId} not found` }),
+            { status: 404, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
+      }
 
       globalAdminLogsStore.unshift({
         id: `log-${Date.now()}`,
@@ -928,6 +965,196 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
 
       return new Response(
         JSON.stringify({ success: true, message: `Post ${postId} deleted by moderator`, postId }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // ── 8B. ACTION: MODERATION EDIT / UPDATE POST ─────────────────────────────
+    if (body.action === 'edit-post' || body.action === 'update-post') {
+      const { postId, title, content, flair, status } = body;
+      if (!postId) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'postId is required' }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const db = getD1Database(context.env);
+      if (db) {
+        try {
+          const existing: any = await db.prepare('SELECT * FROM posts WHERE id = ?').bind(postId).first();
+          if (existing) {
+            const newTitle = typeof title === 'string' && title.trim() ? title.trim() : existing.title;
+            const newContent = typeof content === 'string' ? content.trim() : existing.content;
+            const newFlair = typeof flair === 'string' && flair.trim() ? flair.trim() : existing.flair;
+            const newStatus = typeof status === 'string' && status.trim() ? status.trim() : existing.status;
+
+            await db
+              .prepare('UPDATE posts SET title = ?, content = ?, flair = ?, status = ? WHERE id = ?')
+              .bind(newTitle, newContent, newFlair, newStatus, postId)
+              .run();
+
+            const kv = getKVStore(context.env);
+            if (kv) {
+              try {
+                await kv.delete('posts:all:all:hot:50:0');
+                await kv.delete(`post:${postId}`);
+              } catch (_) {}
+            }
+          }
+        } catch (_) {}
+      }
+
+      const memPost = globalPostsStore.find((p) => p.id === postId);
+      if (memPost) {
+        if (typeof title === 'string' && title.trim()) memPost.title = title.trim();
+        if (typeof content === 'string') memPost.content = content.trim();
+        if (typeof flair === 'string' && flair.trim()) (memPost as any).flair = flair.trim();
+        if (typeof status === 'string' && status.trim()) (memPost as any).status = status.trim();
+      }
+
+      globalAdminLogsStore.unshift({
+        id: `log-${Date.now()}`,
+        action: 'POST_UPDATED',
+        targetId: postId,
+        adminFingerprint: adminFp,
+        timestamp: Date.now(),
+      });
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: `Post ${postId} modified live in database`,
+          postId,
+          updates: { title, content, flair, status },
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // ── 8C. ACTION: MODERATION PIN POST ───────────────────────────────────────
+    if (body.action === 'pin-post') {
+      const { postId, pinned } = body;
+      if (!postId) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'postId is required' }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const targetStatus = pinned === false ? 'published' : 'pinned';
+      const db = getD1Database(context.env);
+      if (db) {
+        try {
+          await db.prepare('UPDATE posts SET status = ? WHERE id = ?').bind(targetStatus, postId).run();
+          const kv = getKVStore(context.env);
+          if (kv) {
+            try {
+              await kv.delete('posts:all:all:hot:50:0');
+              await kv.delete(`post:${postId}`);
+            } catch (_) {}
+          }
+        } catch (_) {}
+      }
+
+      const memPost = globalPostsStore.find((p) => p.id === postId);
+      if (memPost) {
+        (memPost as any).status = targetStatus;
+      }
+
+      globalAdminLogsStore.unshift({
+        id: `log-${Date.now()}`,
+        action: targetStatus === 'pinned' ? 'POST_PINNED' : 'POST_UNPINNED',
+        targetId: postId,
+        adminFingerprint: adminFp,
+        timestamp: Date.now(),
+      });
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: `Post ${postId} status set to ${targetStatus}`,
+          postId,
+          status: targetStatus,
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // ── 8D. ACTION: MODERATION LOCK THREAD ───────────────────────────────────
+    if (body.action === 'lock-thread') {
+      const { postId, locked } = body;
+      if (!postId) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'postId is required' }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const targetStatus = locked === false ? 'published' : 'locked';
+      const db = getD1Database(context.env);
+      if (db) {
+        try {
+          await db.prepare('UPDATE posts SET status = ? WHERE id = ?').bind(targetStatus, postId).run();
+        } catch (_) {}
+      }
+
+      const memPost = globalPostsStore.find((p) => p.id === postId);
+      if (memPost) {
+        (memPost as any).status = targetStatus;
+      }
+
+      globalAdminLogsStore.unshift({
+        id: `log-${Date.now()}`,
+        action: targetStatus === 'locked' ? 'THREAD_LOCKED' : 'THREAD_UNLOCKED',
+        targetId: postId,
+        adminFingerprint: adminFp,
+        timestamp: Date.now(),
+      });
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: `Thread ${postId} status set to ${targetStatus}`,
+          postId,
+          status: targetStatus,
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // ── 8E. ACTION: MODERATION DELETE MESSAGE ────────────────────────────────
+    if (body.action === 'delete-message') {
+      const { messageId } = body;
+      if (!messageId) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'messageId is required' }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const db = getD1Database(context.env);
+      if (db) {
+        try {
+          await db.prepare('DELETE FROM messages WHERE id = ?').bind(messageId).run();
+        } catch (_) {}
+      }
+
+      const idx = globalMessagesStore.findIndex((m) => m.id === messageId);
+      if (idx >= 0) {
+        globalMessagesStore.splice(idx, 1);
+      }
+
+      globalAdminLogsStore.unshift({
+        id: `log-${Date.now()}`,
+        action: 'MESSAGE_DELETED',
+        targetId: messageId,
+        adminFingerprint: adminFp,
+        timestamp: Date.now(),
+      });
+
+      return new Response(
+        JSON.stringify({ success: true, message: `Message ${messageId} deleted`, messageId }),
         { status: 200, headers: { 'Content-Type': 'application/json' } }
       );
     }
@@ -1073,14 +1300,33 @@ export async function onRequestDelete(context: { request: Request; env?: Env }):
     }
 
     if (postId) {
-      const idx = globalPostsStore.findIndex((p) => p.id === postId);
-      if (idx < 0) {
-        return new Response(
-          JSON.stringify({ success: false, error: `Post ${postId} not found` }),
-          { status: 404, headers: { 'Content-Type': 'application/json' } }
-        );
+      const db = getD1Database(context.env);
+      let d1Deleted = false;
+      if (db) {
+        try {
+          const res = await db.prepare('DELETE FROM posts WHERE id = ?').bind(postId).run();
+          d1Deleted = Boolean(res && res.success);
+          const kv = getKVStore(context.env);
+          if (kv) {
+            try {
+              await kv.delete('posts:all:all:hot:50:0');
+              await kv.delete(`post:${postId}`);
+            } catch (_) {}
+          }
+        } catch (_) {}
       }
-      globalPostsStore.splice(idx, 1);
+
+      const idx = globalPostsStore.findIndex((p) => p.id === postId);
+      if (idx >= 0) {
+        globalPostsStore.splice(idx, 1);
+      } else if (!db || !d1Deleted) {
+        if (!db) {
+          return new Response(
+            JSON.stringify({ success: false, error: `Post ${postId} not found` }),
+            { status: 404, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
+      }
       return new Response(
         JSON.stringify({ success: true, message: `Post ${postId} deleted`, postId }),
         { status: 200, headers: { 'Content-Type': 'application/json' } }

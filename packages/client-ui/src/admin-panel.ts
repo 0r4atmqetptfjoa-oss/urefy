@@ -93,6 +93,7 @@ export class AdminPanelManager {
     { id: 'log-3', action: 'POST_DELETED', targetId: 'post-spam-44', adminFingerprint: 'genesis-core', timestamp: Date.now() - 60000 },
   ];
 
+  public livePosts: any[] = [];
   public isSyncing: boolean = false;
   public isAutoSync: boolean = true;
   public lastSyncTimestamp: number = 0;
@@ -155,6 +156,7 @@ export class AdminPanelManager {
         const data = await res.json();
         if (data.users && Array.isArray(data.users)) this.users = data.users;
         if (data.channels && Array.isArray(data.channels)) this.channels = data.channels;
+        if (data.posts && Array.isArray(data.posts)) this.livePosts = data.posts;
         if (data.bannedIPs && Array.isArray(data.bannedIPs)) this.bannedIPs = data.bannedIPs;
         if (data.config && typeof data.config === 'object') Object.assign(this.serverConfig, data.config);
         if (data.logs && Array.isArray(data.logs)) this.adminLogs = data.logs;
@@ -379,27 +381,53 @@ export class AdminPanelManager {
     }
   }
 
-  public deletePost(postId: string): void {
+  public async deletePost(postId: string): Promise<void> {
+    this.livePosts = this.livePosts.filter((p: any) => p.id !== postId);
     if (typeof window !== 'undefined' && window.clientStore) {
       window.clientStore.posts = window.clientStore.posts.filter((p: any) => p.id !== postId);
       window.clientStore.notify();
     }
     this._log('POST_DELETED', postId);
+    await this._apiPost('delete-post', { postId });
   }
 
-  public pinPost(postId: string): void {
+  public async pinPost(postId: string, pinned = true): Promise<void> {
+    const p = this.livePosts.find((x: any) => x.id === postId);
+    if (p) p.status = pinned ? 'pinned' : 'published';
     if (typeof window !== 'undefined' && window.clientStore) {
-      const idx = window.clientStore.posts.findIndex((p: any) => p.id === postId);
-      if (idx > 0) {
-        const [post] = window.clientStore.posts.splice(idx, 1);
-        window.clientStore.posts.unshift(post);
+      const idx = window.clientStore.posts.findIndex((x: any) => x.id === postId);
+      if (idx >= 0) {
+        window.clientStore.posts[idx].status = pinned ? 'pinned' : 'published';
+        if (pinned && idx > 0) {
+          const [post] = window.clientStore.posts.splice(idx, 1);
+          window.clientStore.posts.unshift(post);
+        }
         window.clientStore.notify();
       }
     }
-    this._log('POST_PINNED', postId);
+    this._log(pinned ? 'POST_PINNED' : 'POST_UNPINNED', postId);
+    await this._apiPost('pin-post', { postId, pinned });
   }
 
-  public deleteMessage(msgId: string): void {
+  public async lockThread(postId: string, locked = true): Promise<void> {
+    const p = this.livePosts.find((x: any) => x.id === postId);
+    if (p) {
+      p.status = locked ? 'locked' : 'published';
+      (p as any).isLocked = locked;
+    }
+    if (typeof window !== 'undefined' && window.clientStore) {
+      const sp = window.clientStore.posts.find((x: any) => x.id === postId);
+      if (sp) {
+        (sp as any).isLocked = locked;
+        (sp as any).status = locked ? 'locked' : 'published';
+      }
+      window.clientStore.notify();
+    }
+    this._log(locked ? 'THREAD_LOCKED' : 'THREAD_UNLOCKED', postId);
+    await this._apiPost('lock-thread', { postId, locked });
+  }
+
+  public async deleteMessage(msgId: string): Promise<void> {
     if (typeof window !== 'undefined' && window.clientStore) {
       for (const [ch, msgs] of window.clientStore.messages.entries()) {
         const nextMsgs = msgs.filter((m: any) => m.id !== msgId);
@@ -408,15 +436,33 @@ export class AdminPanelManager {
       window.clientStore.notify();
     }
     this._log('MESSAGE_DELETED', msgId);
+    await this._apiPost('delete-message', { messageId: msgId });
   }
 
-  public lockThread(postId: string): void {
+  public async updatePost(
+    postId: string,
+    updates: { title?: string; content?: string; flair?: string; status?: string }
+  ): Promise<boolean> {
+    const p = this.livePosts.find((x: any) => x.id === postId);
+    if (p) {
+      if (updates.title !== undefined) p.title = updates.title;
+      if (updates.content !== undefined) p.content = updates.content;
+      if (updates.flair !== undefined) p.flair = updates.flair;
+      if (updates.status !== undefined) p.status = updates.status;
+    }
     if (typeof window !== 'undefined' && window.clientStore) {
-      const p = window.clientStore.posts.find((x: any) => x.id === postId);
-      if (p) (p as any).isLocked = !(p as any).isLocked;
+      const sp = window.clientStore.posts.find((x: any) => x.id === postId);
+      if (sp) {
+        if (updates.title !== undefined) sp.title = updates.title;
+        if (updates.content !== undefined) sp.content = updates.content;
+        if (updates.flair !== undefined) sp.flair = updates.flair;
+        if (updates.status !== undefined) sp.status = updates.status;
+      }
       window.clientStore.notify();
     }
-    this._log('THREAD_LOCKED', postId);
+    this._log('POST_UPDATED', postId);
+    const res = await this._apiPost('update-post', { postId, ...updates });
+    return Boolean(res && res.success);
   }
 
   public toggleMaintenance(): void {
@@ -1212,6 +1258,113 @@ export class AdminPanelManager {
           </div>
         </div>
 
+        <!-- LIVE POST CONTENT & METADATA EDITOR -->
+        <div class="bg-surface-raised border border-cyan-500/30 rounded-2xl p-5 space-y-4">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+              <span class="text-base">✏️</span>
+              <h3 class="text-sm font-bold text-white">Live Post Content & Metadata Editor</h3>
+              <span class="text-[10px] px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-mono">D1 SQLite Direct</span>
+            </div>
+            <span class="text-xs text-slate-400">Modifies live production database directly</span>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div class="space-y-1">
+              <label for="admin-mod-edit-post-id" class="text-xs text-slate-400">Post ID to Modify</label>
+              <input id="admin-mod-edit-post-id" type="text" placeholder="post-..." class="w-full bg-surface-base border border-white/15 rounded-xl px-3 py-2 text-xs font-mono text-cyan-300 placeholder-slate-600 focus:outline-none focus:border-cyan-500 transition-all" />
+            </div>
+            <div class="space-y-1">
+              <label for="admin-mod-edit-post-title" class="text-xs text-slate-400">Post Title</label>
+              <input id="admin-mod-edit-post-title" type="text" placeholder="New post title..." class="w-full bg-surface-base border border-white/15 rounded-xl px-3 py-2 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-cyan-500 transition-all" />
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <div class="space-y-1">
+                <label for="admin-mod-edit-post-flair" class="text-xs text-slate-400">Flair / Topic</label>
+                <input id="admin-mod-edit-post-flair" type="text" placeholder="TECH DISCUSSION" class="w-full bg-surface-base border border-white/15 rounded-xl px-3 py-2 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-cyan-500 transition-all" />
+              </div>
+              <div class="space-y-1">
+                <label for="admin-mod-edit-post-status" class="text-xs text-slate-400">Status</label>
+                <select id="admin-mod-edit-post-status" class="w-full bg-surface-base border border-white/15 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-cyan-500 transition-all">
+                  <option value="published">published</option>
+                  <option value="pinned">pinned</option>
+                  <option value="locked">locked</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="space-y-1">
+            <label for="admin-mod-edit-post-content" class="text-xs text-slate-400">Post Content (Markdown supported)</label>
+            <textarea id="admin-mod-edit-post-content" rows="4" placeholder="Edit full post content here..." class="w-full bg-surface-base border border-white/15 rounded-xl p-3 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-cyan-500 transition-all font-sans"></textarea>
+          </div>
+
+          <div class="flex items-center justify-between pt-1">
+            <div id="admin-mod-edit-status-msg" class="text-xs font-mono text-slate-500">Select a post below or enter an ID to edit.</div>
+            <button id="btn-admin-mod-update-post" class="px-5 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black font-bold text-xs transition-all shadow-lg shadow-cyan-500/20 cursor-pointer flex items-center space-x-1.5">
+              <span>💾</span>
+              <span>Save Changes to Live Site</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- LIVE DATABASE POSTS LEDGER -->
+        <div class="bg-surface-raised border border-white/10 rounded-2xl overflow-hidden space-y-0">
+          <div class="p-4 border-b border-white/10 flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+              <h3 class="text-sm font-bold text-white">Live Database Posts</h3>
+              <span class="text-xs text-slate-500 font-mono">(${this.livePosts.length} loaded from Cloudflare D1)</span>
+            </div>
+            <button id="btn-admin-refresh-posts" class="px-3 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-xs font-mono text-slate-300 border border-white/10 transition-all cursor-pointer">
+              ⟳ Reload Posts
+            </button>
+          </div>
+
+          ${this.livePosts.length === 0 ? `
+            <div class="p-8 text-center text-slate-500 text-xs font-mono">
+              No posts found or not synced yet. Click "Reload Posts" or "Refresh" above to load live posts from D1.
+            </div>
+          ` : `
+            <div class="divide-y divide-white/5 max-h-96 overflow-y-auto">
+              ${this.livePosts.map((post) => `
+                <div class="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-white/[0.02] transition-colors" data-post-row="${post.id}">
+                  <div class="space-y-1 flex-1 min-w-0">
+                    <div class="flex items-center space-x-2">
+                      <span class="font-mono text-xs font-bold text-amber">${post.id}</span>
+                      <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase font-mono ${
+                        post.status === 'pinned'
+                          ? 'bg-signal/20 text-signal border border-signal/30'
+                          : post.status === 'locked'
+                          ? 'bg-amber/20 text-amber border border-amber/30'
+                          : 'bg-white/5 text-slate-400 border border-white/10'
+                      }">${post.status || 'published'}</span>
+                      <span class="text-[10px] text-cyan-400 font-mono">${post.flair || 'GENERAL'}</span>
+                      <span class="text-[10px] text-slate-500 font-mono">• ${new Date(post.createdAt || post.created_at || Date.now()).toLocaleDateString()}</span>
+                    </div>
+                    <div class="text-xs font-bold text-white truncate">${this._escapeHtml(post.title || '(No title)')}</div>
+                    <div class="text-xs text-slate-400 line-clamp-1">${this._escapeHtml((post.content || '').slice(0, 140))}</div>
+                  </div>
+
+                  <div class="flex items-center space-x-1.5 shrink-0">
+                    <button data-admin-edit-post="${post.id}" class="px-2.5 py-1 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 text-xs font-mono transition-all cursor-pointer" title="Load into live editor">
+                      ✏️ Edit
+                    </button>
+                    <button data-admin-pin-post="${post.id}" data-pinned="${post.status === 'pinned' ? 'true' : 'false'}" class="px-2.5 py-1 rounded-lg ${post.status === 'pinned' ? 'bg-signal/20 text-signal' : 'bg-white/5 text-slate-400 hover:text-white'} text-xs font-mono transition-all cursor-pointer" title="Pin / Unpin post">
+                      ${post.status === 'pinned' ? '📌 Unpin' : '📌 Pin'}
+                    </button>
+                    <button data-admin-lock-post="${post.id}" data-locked="${post.status === 'locked' ? 'true' : 'false'}" class="px-2.5 py-1 rounded-lg ${post.status === 'locked' ? 'bg-amber/20 text-amber' : 'bg-white/5 text-slate-400 hover:text-white'} text-xs font-mono transition-all cursor-pointer" title="Lock / Unlock comments">
+                      ${post.status === 'locked' ? '🔓 Unlock' : '🔒 Lock'}
+                    </button>
+                    <button data-admin-delete-post="${post.id}" class="px-2.5 py-1 rounded-lg bg-crimson/20 hover:bg-crimson/30 text-crimson text-xs font-mono transition-all cursor-pointer" title="Delete post permanently">
+                      🗑️
+                    </button>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          `}
+        </div>
+
         <!-- QUARANTINED USERS LIST -->
         <div class="bg-surface-raised border border-white/10 rounded-2xl overflow-hidden">
           <div class="p-4 border-b border-white/10">
@@ -1599,6 +1752,129 @@ export class AdminPanelManager {
         input.value = '';
         onStateChange();
       }
+    });
+
+    // Moderation: Update Live Post Content & Metadata
+    document.getElementById('btn-admin-mod-update-post')?.addEventListener('click', async () => {
+      const idInput = document.getElementById('admin-mod-edit-post-id') as HTMLInputElement;
+      const titleInput = document.getElementById('admin-mod-edit-post-title') as HTMLInputElement;
+      const flairInput = document.getElementById('admin-mod-edit-post-flair') as HTMLInputElement;
+      const statusSelect = document.getElementById('admin-mod-edit-post-status') as HTMLSelectElement;
+      const contentInput = document.getElementById('admin-mod-edit-post-content') as HTMLTextAreaElement;
+      const statusMsg = document.getElementById('admin-mod-edit-status-msg');
+
+      const postId = idInput?.value.trim();
+      if (!postId) {
+        if (statusMsg) {
+          statusMsg.textContent = '❌ Please enter or select a Post ID to modify.';
+          statusMsg.className = 'text-xs font-mono text-crimson';
+        }
+        return;
+      }
+
+      const updates: { title?: string; content?: string; flair?: string; status?: string } = {
+        title: titleInput?.value.trim(),
+        content: contentInput?.value.trim(),
+        flair: flairInput?.value.trim() || 'TECH DISCUSSION',
+        status: statusSelect?.value || 'published',
+      };
+
+      if (statusMsg) {
+        statusMsg.textContent = `⏳ Modifying post ${postId} in Cloudflare D1...`;
+        statusMsg.className = 'text-xs font-mono text-cyan-400';
+      }
+
+      const success = await this.updatePost(postId, updates);
+      if (success) {
+        if (statusMsg) {
+          statusMsg.textContent = `✓ Post ${postId} updated live in Cloudflare D1 & edge cache!`;
+          statusMsg.className = 'text-xs font-mono text-signal';
+        }
+        if (typeof window !== 'undefined' && (window as any).toastManager) {
+          (window as any).toastManager.success(`Post ${postId} updated live on the website!`, '💾');
+        }
+        await this.syncWithServer();
+        onStateChange();
+      } else {
+        if (statusMsg) {
+          statusMsg.textContent = `❌ Failed to update post ${postId}. Check admin authorization.`;
+          statusMsg.className = 'text-xs font-mono text-crimson';
+        }
+      }
+    });
+
+    // Moderation: Reload Posts
+    document.getElementById('btn-admin-refresh-posts')?.addEventListener('click', async () => {
+      await this.syncWithServer();
+      onStateChange();
+    });
+
+    // Moderation: Inline Post Edit Click (populates form)
+    document.querySelectorAll('[data-admin-edit-post]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-admin-edit-post');
+        if (!id) return;
+        const post = this.livePosts.find((p: any) => p.id === id);
+        if (!post) return;
+
+        const idInput = document.getElementById('admin-mod-edit-post-id') as HTMLInputElement;
+        const titleInput = document.getElementById('admin-mod-edit-post-title') as HTMLInputElement;
+        const flairInput = document.getElementById('admin-mod-edit-post-flair') as HTMLInputElement;
+        const statusSelect = document.getElementById('admin-mod-edit-post-status') as HTMLSelectElement;
+        const contentInput = document.getElementById('admin-mod-edit-post-content') as HTMLTextAreaElement;
+        const statusMsg = document.getElementById('admin-mod-edit-status-msg');
+
+        if (idInput) idInput.value = post.id;
+        if (titleInput) titleInput.value = post.title || '';
+        if (flairInput) flairInput.value = post.flair || '';
+        if (statusSelect) statusSelect.value = post.status || 'published';
+        if (contentInput) contentInput.value = post.content || '';
+
+        if (statusMsg) {
+          statusMsg.textContent = `Editing loaded post #${post.id}. Make changes and click Save.`;
+          statusMsg.className = 'text-xs font-mono text-cyan-300';
+        }
+
+        idInput?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+    });
+
+    // Moderation: Inline Pin Click
+    document.querySelectorAll('[data-admin-pin-post]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const id = btn.getAttribute('data-admin-pin-post');
+        const isPinned = btn.getAttribute('data-pinned') === 'true';
+        if (id) {
+          await this.pinPost(id, !isPinned);
+          await this.syncWithServer();
+          onStateChange();
+        }
+      });
+    });
+
+    // Moderation: Inline Lock Click
+    document.querySelectorAll('[data-admin-lock-post]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const id = btn.getAttribute('data-admin-lock-post');
+        const isLocked = btn.getAttribute('data-locked') === 'true';
+        if (id) {
+          await this.lockThread(id, !isLocked);
+          await this.syncWithServer();
+          onStateChange();
+        }
+      });
+    });
+
+    // Moderation: Inline Delete Click
+    document.querySelectorAll('[data-admin-delete-post]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const id = btn.getAttribute('data-admin-delete-post');
+        if (id) {
+          await this.deletePost(id);
+          await this.syncWithServer();
+          onStateChange();
+        }
+      });
     });
 
     // Refresh Now
