@@ -21,14 +21,14 @@ export function parseD1MessageRow(row: any): EdgeMessage {
   const cipher = row.ciphertext || row.text || '';
   return {
     id: row.id,
-    channelId: row.channelId ?? row.channel_id ?? 'relays-general',
-    authorFingerprint: row.authorFingerprint ?? row.author_fingerprint ?? 'anon-peer',
+    channelId: row.channel_id ?? row.channelId ?? 'relays-general',
+    authorFingerprint: row.author_id ?? row.author_fingerprint ?? row.authorFingerprint ?? 'anon-peer',
     text: cipher,
     ciphertext: cipher,
     epoch: row.epoch || '#1',
     status: row.status || 'verified',
     signature: row.signature || undefined,
-    createdAt: Number(row.createdAt !== undefined ? row.createdAt : row.created_at) || Date.now(),
+    createdAt: Number(row.created_at !== undefined ? row.created_at : row.createdAt) || Date.now(),
     isMine: false,
   };
 }
@@ -53,16 +53,16 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
         const params: any[] = [];
 
         if (channelId && channelId !== 'all') {
-          query += ' AND (channelId = ? OR channel_id = ?)';
+          query += ' AND (channel_id = ? OR channelId = ?)';
           params.push(channelId, channelId);
         }
 
         if (since !== null && !isNaN(since)) {
-          query += ' AND (createdAt > ? OR created_at > ?)';
+          query += ' AND (created_at > ? OR createdAt > ?)';
           params.push(since, since);
         }
 
-        query += ' ORDER BY createdAt ASC, created_at ASC LIMIT ?';
+        query += ' ORDER BY created_at ASC LIMIT ?';
         params.push(limit);
 
         const stmt = db.prepare(query).bind(...params);
@@ -188,22 +188,18 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
         await db
           .prepare(
             `INSERT OR REPLACE INTO messages (
-              id, channelId, channel_id, authorFingerprint, author_fingerprint,
-              text, ciphertext, epoch, status, signature, createdAt, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+              id, channel_id, author_id, ciphertext, nonce, epoch, status, signature, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
           )
           .bind(
             newMsg.id,
             newMsg.channelId,
-            newMsg.channelId,
-            newMsg.authorFingerprint,
             newMsg.authorFingerprint,
             newMsg.ciphertext,
-            newMsg.ciphertext,
+            (body as any).nonce || null,
             newMsg.epoch,
             newMsg.status,
             newMsg.signature || null,
-            newMsg.createdAt,
             newMsg.createdAt
           )
           .run();

@@ -265,14 +265,14 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
             if (action === 'like') {
               const delta = isActive ? 1 : -1;
               await db
-                .prepare(`UPDATE posts SET meritVotes = MAX(0, meritVotes + ?), merit_votes = MAX(0, merit_votes + ?) WHERE id = ?`)
-                .bind(delta, delta, targetId)
+                .prepare(`UPDATE posts SET merit_votes = MAX(0, merit_votes + ?) WHERE id = ?`)
+                .bind(delta, targetId)
                 .run();
             } else if (action === 'repost') {
               const delta = isActive ? 1 : -1;
               await db
-                .prepare(`UPDATE posts SET boostCount = MAX(0, boostCount + ?), boost_count = MAX(0, boost_count + ?) WHERE id = ?`)
-                .bind(delta, delta, targetId)
+                .prepare(`UPDATE posts SET boost_count = MAX(0, boost_count + ?) WHERE id = ?`)
+                .bind(delta, targetId)
                 .run();
             }
           }

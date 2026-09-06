@@ -370,20 +370,25 @@ export async function handleInboxPost(request: Request, env?: Env): Promise<Resp
     if (db) {
       try {
         await db.prepare(
-          `INSERT INTO posts (id, channelId, channel_id, authorFingerprint, author_fingerprint, authorRole, author_role, title, content, flair, meritVotes, merit_votes, userVoted, user_voted, replyCount, reply_count, boostCount, boost_count, status, createdAt, created_at, isExpanded, is_expanded)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          `INSERT INTO posts (
+             id, channel_id, author_id, author_role, title, content, flair,
+             merit_votes, user_voted, reply_count, boost_count, status, created_at, is_expanded
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
         ).bind(
-          newPost.id, newPost.channelId, newPost.channelId,
-          newPost.authorFingerprint, newPost.authorFingerprint,
-          newPost.authorRole, newPost.authorRole,
-          newPost.title, newPost.content, newPost.flair,
-          newPost.meritVotes, newPost.meritVotes,
-          newPost.userVoted, newPost.userVoted,
-          newPost.replyCount, newPost.replyCount,
-          newPost.boostCount, newPost.boostCount,
+          newPost.id,
+          newPost.channelId,
+          newPost.authorFingerprint,
+          newPost.authorRole,
+          newPost.title,
+          newPost.content,
+          newPost.flair,
+          newPost.meritVotes,
+          newPost.userVoted,
+          newPost.replyCount,
+          newPost.boostCount,
           newPost.status,
-          newPost.createdAt, newPost.createdAt,
-          0, 0
+          newPost.createdAt,
+          0
         ).run();
       } catch (err) {
         console.error('[Federation Edge] D1 insert error:', err);
@@ -432,22 +437,22 @@ export async function getOutboxCollection(
   if (db) {
     try {
       const res = await db.prepare(
-        "SELECT * FROM posts WHERE (status = 'published' OR status IS NULL) ORDER BY createdAt DESC LIMIT ? OFFSET ?"
+        "SELECT * FROM posts WHERE (status = 'published' OR status IS NULL) ORDER BY created_at DESC LIMIT ? OFFSET ?"
       ).bind(limit, offset).all<EdgePost>();
       if (res && Array.isArray(res.results)) {
         posts = res.results.map((row: any) => ({
           id: row.id,
-          channelId: row.channelId ?? row.channel_id ?? 'pulse-global',
-          authorFingerprint: row.authorFingerprint ?? row.author_fingerprint ?? 'anon-peer',
-          authorRole: row.authorRole ?? row.author_role ?? 'MEMBER',
+          channelId: row.channel_id ?? row.channelId ?? 'pulse-global',
+          authorFingerprint: row.author_id ?? row.author_fingerprint ?? row.authorFingerprint ?? 'anon-peer',
+          authorRole: row.author_role ?? row.authorRole ?? 'MEMBER',
           title: row.title,
           content: row.content,
           flair: row.flair || 'TECH DISCUSSION',
           status: row.status || 'published',
-          meritVotes: Number(row.meritVotes ?? row.merit_votes ?? 0),
-          replyCount: Number(row.replyCount ?? row.reply_count ?? 0),
-          boostCount: Number(row.boostCount ?? row.boost_count ?? 0),
-          createdAt: Number(row.createdAt ?? row.created_at ?? Date.now()),
+          meritVotes: Number(row.merit_votes ?? row.meritVotes ?? 0),
+          replyCount: Number(row.reply_count ?? row.replyCount ?? 0),
+          boostCount: Number(row.boost_count ?? row.boostCount ?? 0),
+          createdAt: Number(row.created_at ?? row.createdAt ?? Date.now()),
           isExpanded: false,
         }));
       }

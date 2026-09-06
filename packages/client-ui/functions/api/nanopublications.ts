@@ -20,18 +20,18 @@ export { EdgeNanopublication };
 export function parseD1NanopubRow(row: any): EdgeNanopublication {
   return {
     id: row.id,
-    channelId: row.channelId ?? row.channel_id ?? 'vault-releases',
+    channelId: row.channel_id ?? row.channelId ?? 'vault-releases',
     title: row.title,
-    fileName: row.fileName ?? row.file_name,
-    byteSize: Number(row.byteSize !== undefined ? row.byteSize : row.byte_size) || 0,
+    fileName: row.file_name ?? row.fileName,
+    byteSize: Number(row.byte_size !== undefined ? row.byte_size : row.byteSize) || 0,
     sha256: row.sha256,
     crc32: row.crc32 || '',
     entropy: Number(row.entropy) || 0.0,
     verdict: row.verdict || 'CLEAN',
-    merkleRoot: row.merkleRoot ?? row.merkle_root ?? '00000000000000000000000000000000',
-    seederCount: Number(row.seederCount !== undefined ? row.seederCount : row.seeder_count) || 1,
-    r2Key: row.r2Key ?? row.r2_key ?? undefined,
-    createdAt: Number(row.createdAt !== undefined ? row.createdAt : row.created_at) || Date.now(),
+    merkleRoot: row.merkle_root ?? row.merkleRoot ?? '00000000000000000000000000000000',
+    seederCount: Number(row.seeder_count !== undefined ? row.seeder_count : row.seederCount) || 1,
+    r2Key: row.r2_key ?? row.r2Key ?? undefined,
+    createdAt: Number(row.created_at !== undefined ? row.created_at : row.createdAt) || Date.now(),
   };
 }
 
@@ -87,8 +87,8 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
           params.push(id);
         } else {
           if (channelId && channelId !== 'all') {
-            query += ' AND (channelId = ? OR channel_id = ?)';
-            params.push(channelId, channelId);
+            query += ' AND channel_id = ?';
+            params.push(channelId);
           }
           if (sha256) {
             query += ' AND sha256 = ?';
@@ -96,7 +96,7 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
           }
         }
 
-        query += ' ORDER BY createdAt DESC, created_at DESC LIMIT ?';
+        query += ' ORDER BY created_at DESC LIMIT ?';
         params.push(limit);
 
         const stmt = db.prepare(query).bind(...params);
@@ -243,31 +243,24 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
         await db
           .prepare(
             `INSERT OR REPLACE INTO nanopublications (
-              id, channelId, channel_id, title, fileName, file_name, byteSize, byte_size,
-              sha256, crc32, entropy, verdict, merkleRoot, merkle_root,
-              seederCount, seeder_count, r2Key, r2_key, createdAt, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+              id, channel_id, title, file_name, byte_size,
+              sha256, crc32, entropy, verdict, merkle_root,
+              seeder_count, r2_key, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
           )
           .bind(
             newNanopub.id,
             newNanopub.channelId,
-            newNanopub.channelId,
             newNanopub.title,
             newNanopub.fileName,
-            newNanopub.fileName,
-            newNanopub.byteSize,
             newNanopub.byteSize,
             newNanopub.sha256,
             newNanopub.crc32,
             newNanopub.entropy,
             newNanopub.verdict,
             newNanopub.merkleRoot,
-            newNanopub.merkleRoot,
-            newNanopub.seederCount,
             newNanopub.seederCount,
             newNanopub.r2Key || null,
-            newNanopub.r2Key || null,
-            newNanopub.createdAt,
             newNanopub.createdAt
           )
           .run();

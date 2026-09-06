@@ -233,10 +233,10 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
           await db
             .prepare(
               `INSERT OR REPLACE INTO push_subscriptions (
-                id, endpoint, p256dh, auth, fingerprint, createdAt, created_at
-              ) VALUES (?, ?, ?, ?, ?, ?, ?)`
+                id, endpoint, p256dh, auth, fingerprint, created_at
+              ) VALUES (?, ?, ?, ?, ?, ?)`
             )
-            .bind(id, endpoint, p256dh, auth, fingerprint, createdAt, createdAt)
+            .bind(id, endpoint, p256dh, auth, fingerprint, createdAt)
             .run();
         } catch (dbErr) {
           console.warn('[D1 Push Subscribe Error]', dbErr);

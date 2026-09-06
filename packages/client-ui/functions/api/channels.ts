@@ -78,7 +78,7 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
           params.push(space);
         }
 
-        query += ' ORDER BY createdAt ASC, created_at ASC LIMIT ? OFFSET ?';
+        query += ' ORDER BY created_at ASC LIMIT ? OFFSET ?';
         params.push(limit, offset);
 
         const stmt = db.prepare(query).bind(...params);
@@ -193,8 +193,8 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
         await db
           .prepare(
             `INSERT OR REPLACE INTO channels (
-              id, space, name, description, isEncrypted, is_encrypted, createdAt, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+              id, space, name, description, is_encrypted, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?)`
           )
           .bind(
             newChannel.id,
@@ -202,8 +202,6 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
             newChannel.name,
             newChannel.description,
             newChannel.isEncrypted ? 1 : 0,
-            newChannel.isEncrypted ? 1 : 0,
-            newChannel.createdAt,
             newChannel.createdAt
           )
           .run();

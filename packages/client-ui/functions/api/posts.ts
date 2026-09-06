@@ -45,25 +45,25 @@ export function parseD1PostRow(row: any): EdgePost {
   }
 
   let quotedPost = undefined;
-  const rawQuoted = row.quotedPost_json ?? row.quoted_post_json;
+  const rawQuoted = row.quoted_post_json ?? row.quotedPost_json;
   if (rawQuoted) {
     try {
       quotedPost = typeof rawQuoted === 'string' ? JSON.parse(rawQuoted) : rawQuoted;
     } catch (_) {}
   }
 
-  const meritVotes = Number(row.meritVotes !== undefined ? row.meritVotes : row.merit_votes) || 0;
-  const userVoted = Number(row.userVoted !== undefined ? row.userVoted : row.user_voted) || 0;
-  const replyCount = Number(row.replyCount !== undefined ? row.replyCount : row.reply_count) || 0;
-  const boostCount = Number(row.boostCount !== undefined ? row.boostCount : row.boost_count) || 0;
-  const createdAt = Number(row.createdAt !== undefined ? row.createdAt : row.created_at) || Date.now();
-  const isExpanded = Boolean(row.isExpanded !== undefined ? row.isExpanded : row.is_expanded);
+  const meritVotes = Number(row.merit_votes !== undefined ? row.merit_votes : row.meritVotes) || 0;
+  const userVoted = Number(row.user_voted !== undefined ? row.user_voted : row.userVoted) || 0;
+  const replyCount = Number(row.reply_count !== undefined ? row.reply_count : row.replyCount) || 0;
+  const boostCount = Number(row.boost_count !== undefined ? row.boost_count : row.boostCount) || 0;
+  const createdAt = Number(row.created_at !== undefined ? row.created_at : row.createdAt) || Date.now();
+  const isExpanded = Boolean(row.is_expanded !== undefined ? row.is_expanded : row.isExpanded);
 
   return {
     id: row.id,
-    channelId: row.channelId ?? row.channel_id ?? 'pulse-global',
-    authorFingerprint: row.authorFingerprint ?? row.author_fingerprint ?? 'anon-peer',
-    authorRole: row.authorRole ?? row.author_role ?? 'MEMBER',
+    channelId: row.channel_id ?? row.channelId ?? 'pulse-global',
+    authorFingerprint: row.author_id ?? row.author_fingerprint ?? row.authorFingerprint ?? 'anon-peer',
+    authorRole: row.author_role ?? row.authorRole ?? 'MEMBER',
     title: row.title,
     content: row.content,
     flair: row.flair || 'TECH DISCUSSION',
@@ -75,7 +75,7 @@ export function parseD1PostRow(row: any): EdgePost {
     attachment,
     video,
     images,
-    pollId: row.pollId ?? row.poll_id ?? undefined,
+    pollId: row.poll_id ?? row.pollId ?? undefined,
     quotedPost,
     createdAt,
     isExpanded,
@@ -121,8 +121,8 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
         const params: any[] = [];
 
         if (channelId && channelId !== 'all') {
-          query += ' AND (channelId = ? OR channel_id = ?)';
-          params.push(channelId, channelId);
+          query += ' AND channel_id = ?';
+          params.push(channelId);
         }
 
         if (flair && flair !== 'all') {
@@ -131,12 +131,12 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
         }
 
         if (sort === 'new' || sort === 'chrono') {
-          query += ' ORDER BY createdAt DESC, created_at DESC';
+          query += ' ORDER BY created_at DESC';
         } else if (sort === 'top') {
-          query += ' ORDER BY meritVotes DESC, merit_votes DESC, createdAt DESC, created_at DESC';
+          query += ' ORDER BY merit_votes DESC, created_at DESC';
         } else {
           // Hot ranking SQLite approximation
-          query += ' ORDER BY (COALESCE(meritVotes, merit_votes, 0) + (COALESCE(boostCount, boost_count, 0) * 2) + (COALESCE(replyCount, reply_count, 0) * 1.5)) DESC, createdAt DESC, created_at DESC';
+          query += ' ORDER BY (merit_votes + (boost_count * 2) + (reply_count * 1.5)) DESC, created_at DESC';
         }
 
         query += ' LIMIT ? OFFSET ?';
@@ -263,25 +263,25 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
           // Check if post exists
           const existing = await db.prepare('SELECT * FROM posts WHERE id = ?').bind(postId).first<any>();
           if (existing) {
-            const currentVotes = Number(existing.meritVotes ?? existing.merit_votes) || 0;
+            const currentVotes = Number(existing.merit_votes ?? existing.meritVotes) || 0;
             const newVotes = currentVotes + voteDir;
 
             await db
-              .prepare('UPDATE posts SET meritVotes = meritVotes + ?, merit_votes = merit_votes + ? WHERE id = ?')
-              .bind(voteDir, voteDir, postId)
+              .prepare('UPDATE posts SET merit_votes = merit_votes + ? WHERE id = ?')
+              .bind(voteDir, postId)
               .run();
 
             // Record vote in ledger
             const voteId = `vote-${postId}-${userFingerprint}`;
             await db
               .prepare(
-                'INSERT OR REPLACE INTO votes (id, targetType, target_type, targetId, target_id, userFingerprint, user_fingerprint, direction, createdAt, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                'INSERT OR REPLACE INTO votes (id, target_type, target_id, user_fingerprint, direction, created_at) VALUES (?, ?, ?, ?, ?, ?)'
               )
-              .bind(voteId, 'post', 'post', postId, postId, userFingerprint, userFingerprint, voteDir, Date.now(), Date.now())
+              .bind(voteId, 'post', postId, userFingerprint, voteDir, Date.now())
               .run();
 
-            existing.meritVotes = newVotes;
             existing.merit_votes = newVotes;
+            existing.meritVotes = newVotes;
             const updatedPost = parseD1PostRow(existing);
 
             // Also keep in-memory sync
@@ -336,12 +336,12 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
         try {
           const existing = await db.prepare('SELECT * FROM posts WHERE id = ?').bind(postId).first<any>();
           if (existing) {
-            const currentVotes = Number(existing.meritVotes ?? existing.merit_votes) || 0;
+            const currentVotes = Number(existing.merit_votes ?? existing.meritVotes) || 0;
             const newVotes = currentVotes + voteDir;
 
             await db
-              .prepare('UPDATE posts SET meritVotes = meritVotes + ?, merit_votes = merit_votes + ? WHERE id = ?')
-              .bind(voteDir, voteDir, postId)
+              .prepare('UPDATE posts SET merit_votes = merit_votes + ? WHERE id = ?')
+              .bind(voteDir, postId)
               .run();
 
             // Record anonymous ballot by nullifier (zero author/user linkage)
@@ -349,14 +349,14 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
             try {
               await db
                 .prepare(
-                  'INSERT OR REPLACE INTO votes (id, targetType, target_type, targetId, target_id, userFingerprint, user_fingerprint, direction, createdAt, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                  'INSERT OR REPLACE INTO votes (id, target_type, target_id, user_fingerprint, direction, created_at) VALUES (?, ?, ?, ?, ?, ?)'
                 )
-                .bind(ballotId, 'post', 'post', postId, postId, 'chaumian-blind-voter', 'chaumian-blind-voter', voteDir, Date.now(), Date.now())
+                .bind(ballotId, 'post', postId, 'chaumian-blind-voter', voteDir, Date.now())
                 .run();
             } catch (_) {}
 
-            existing.meritVotes = newVotes;
             existing.merit_votes = newVotes;
+            existing.meritVotes = newVotes;
             const updatedPost = parseD1PostRow(existing);
 
             const memIndex = globalPostsStore.findIndex((p) => p.id === postId);
@@ -414,16 +414,16 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
         try {
           const existing = await db.prepare('SELECT * FROM posts WHERE id = ?').bind(postId).first<any>();
           if (existing) {
-            const currentBoosts = Number(existing.boostCount ?? existing.boost_count) || 0;
+            const currentBoosts = Number(existing.boost_count ?? existing.boostCount) || 0;
             const newBoosts = currentBoosts + 1;
 
             await db
-              .prepare('UPDATE posts SET boostCount = boostCount + 1, boost_count = boost_count + 1 WHERE id = ?')
+              .prepare('UPDATE posts SET boost_count = boost_count + 1 WHERE id = ?')
               .bind(postId)
               .run();
 
-            existing.boostCount = newBoosts;
             existing.boost_count = newBoosts;
+            existing.boostCount = newBoosts;
             const updatedPost = parseD1PostRow(existing);
 
             const memIndex = globalPostsStore.findIndex((p) => p.id === postId);
@@ -503,43 +503,31 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
         await db
           .prepare(
             `INSERT OR REPLACE INTO posts (
-              id, channelId, channel_id, authorFingerprint, author_fingerprint,
-              authorRole, author_role, title, content, flair, meritVotes, merit_votes,
-              userVoted, user_voted, replyCount, reply_count, boostCount, boost_count,
-              attachment_json, video_json, images_json, pollId, poll_id,
-              quotedPost_json, quoted_post_json, status, createdAt, created_at, isExpanded, is_expanded
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+              id, channel_id, author_id, author_role, title, content, flair,
+              merit_votes, user_voted, reply_count, boost_count,
+              attachment_json, video_json, images_json, poll_id,
+              quoted_post_json, status, created_at, is_expanded
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
           )
           .bind(
             newPost.id,
             newPost.channelId,
-            newPost.channelId,
             newPost.authorFingerprint,
-            newPost.authorFingerprint,
-            newPost.authorRole,
             newPost.authorRole,
             newPost.title,
             newPost.content,
             newPost.flair,
             newPost.meritVotes,
-            newPost.meritVotes,
-            newPost.userVoted,
             newPost.userVoted,
             newPost.replyCount,
-            newPost.replyCount,
-            newPost.boostCount,
             newPost.boostCount,
             newPost.attachment ? JSON.stringify(newPost.attachment) : null,
             newPost.video ? JSON.stringify(newPost.video) : null,
             newPost.images ? JSON.stringify(newPost.images) : null,
             newPost.pollId || null,
-            newPost.pollId || null,
-            newPost.quotedPost ? JSON.stringify(newPost.quotedPost) : null,
             newPost.quotedPost ? JSON.stringify(newPost.quotedPost) : null,
             newPost.status || 'published',
             newPost.createdAt,
-            newPost.createdAt,
-            newPost.isExpanded ? 1 : 0,
             newPost.isExpanded ? 1 : 0
           )
           .run();
