@@ -134,13 +134,13 @@ describe('Aetheris Admin Security Hardening & Zero-Trust Authentication Suite', 
       expect(json.stats).toBeDefined();
     });
 
-    it('authorizes requests with valid HMAC session token in ?token= query parameter', async () => {
+    it('rejects requests with HMAC session token in ?token= query parameter (Finding 12)', async () => {
       const sessionToken = await createAdminSessionToken(DEFAULT_ADMIN_PIN);
       const req = new Request(`https://aetheris.pages.dev/api/admin?token=${sessionToken}`);
       const res = await handleAdminGet({ request: req });
-      expect(res.status).toBe(200);
+      expect(res.status).toBe(401);
       const json = await res.json();
-      expect(json.success).toBe(true);
+      expect(json.success).toBe(false);
     });
   });
 
@@ -298,12 +298,17 @@ describe('Aetheris Admin Security Hardening & Zero-Trust Authentication Suite', 
     });
 
     it('validates permitted origins correctly (localhost, .pages.dev, sovereign domain)', () => {
-      const targetUrl = new URL('https://aetheris.pages.dev/api/admin');
-      expect(isPermittedOrigin('http://localhost:3000', targetUrl)).toBe(true);
-      expect(isPermittedOrigin('http://127.0.0.1:5173', targetUrl)).toBe(true);
-      expect(isPermittedOrigin('https://preview.pages.dev', targetUrl)).toBe(true);
-      expect(isPermittedOrigin('https://aetheris.network', targetUrl)).toBe(true);
-      expect(isPermittedOrigin('https://malicious-attacker.com', targetUrl)).toBe(false);
+      const publicUrl = new URL('https://aetheris.pages.dev/api/channels');
+      expect(isPermittedOrigin('http://localhost:3000', publicUrl)).toBe(true);
+      expect(isPermittedOrigin('http://127.0.0.1:5173', publicUrl)).toBe(true);
+      expect(isPermittedOrigin('https://preview.pages.dev', publicUrl)).toBe(true);
+      expect(isPermittedOrigin('https://aetheris.network', publicUrl)).toBe(true);
+      expect(isPermittedOrigin('https://malicious-attacker.com', publicUrl)).toBe(false);
+
+      // On sensitive routes, arbitrary .pages.dev is strictly rejected
+      const sensitiveUrl = new URL('https://aetheris.pages.dev/api/admin');
+      expect(isPermittedOrigin('https://preview.pages.dev', sensitiveUrl)).toBe(false);
+      expect(isPermittedOrigin('https://attacker.pages.dev', sensitiveUrl)).toBe(false);
     });
   });
 

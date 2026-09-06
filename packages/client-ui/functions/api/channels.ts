@@ -10,7 +10,6 @@ import {
   getD1Database,
   getKVStore,
   globalChannelsStore,
-  INITIAL_CHANNELS,
   isProductionEnv,
   createD1UnavailableResponse,
 } from './_db.js';
@@ -89,35 +88,10 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
 
         if (results && results.length > 0) {
           channels = results.map(parseD1ChannelRow);
+        } else if (isProd) {
+          channels = [];
         } else if (offset === 0) {
-          if (isProd) {
-            // Bootstrap default channels to D1 SQLite permanently
-            try {
-              for (const ch of INITIAL_CHANNELS) {
-                await db
-                  .prepare(
-                    'INSERT OR IGNORE INTO channels (id, space, name, description, is_encrypted, created_at) VALUES (?, ?, ?, ?, ?, ?)'
-                  )
-                  .bind(ch.id, ch.space, ch.name, ch.description, ch.isEncrypted ? 1 : 0, ch.createdAt)
-                  .run();
-              }
-              const recheck = await stmt.all<any>();
-              channels = (recheck.results || []).map(parseD1ChannelRow);
-            } catch (bootstrapErr: any) {
-              if (isProd) {
-                return new Response(
-                  JSON.stringify({
-                    success: false,
-                    error: `Database channel bootstrap failed: ${bootstrapErr?.message || 'D1 bootstrap error'}`,
-                  }),
-                  { status: 500, headers: { 'Content-Type': 'application/json' } }
-                );
-              }
-              channels = [];
-            }
-          } else {
-            channels = globalChannelsStore.filter((c) => (space === 'all' ? true : c.space === space));
-          }
+          channels = globalChannelsStore.filter((c) => (space === 'all' ? true : c.space === space));
         }
       } catch (dbErr: any) {
         if (isProd) {

@@ -116,7 +116,7 @@ describe('WebAuthn Exact Origin & Allowlisted CORS Hardening', () => {
 
       const regReq = new Request('https://aetheris-omni-sphere.pages.dev/api/webauthn', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer fp-valid-orig' },
         body: JSON.stringify({
           action: 'register',
           fingerprint: 'fp-valid-orig',
@@ -283,7 +283,7 @@ describe('WebAuthn Exact Origin & Allowlisted CORS Hardening', () => {
       // First use: PASS
       const regReq1 = new Request('https://aetheris-omni-sphere.pages.dev/api/webauthn', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer user-replay-1' },
         body: JSON.stringify({
           action: 'register',
           fingerprint: 'user-replay-1',
@@ -298,7 +298,7 @@ describe('WebAuthn Exact Origin & Allowlisted CORS Hardening', () => {
       // Replay second use: FAIL (challenge deleted)
       const regReq2 = new Request('https://aetheris-omni-sphere.pages.dev/api/webauthn', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer user-replay-1' },
         body: JSON.stringify({
           action: 'register',
           fingerprint: 'user-replay-1',

@@ -386,8 +386,14 @@ export class NodeFederationEngine {
           to: ['https://www.w3.org/ns/activitystreams#Public'],
         };
 
-        const payload = JSON.stringify(noteObject);
-        const sigBytes = signMessage(payload, this.keyPair.privateKeyHex);
+        const canonicalPayload = JSON.stringify({
+          actor: 'https://aetheris.mesh/api/federation/actor',
+          id: noteObject.id,
+          type: noteObject.type,
+          published: noteObject.published,
+          content: noteObject.content,
+        });
+        const sigBytes = signMessage(canonicalPayload, this.keyPair.privateKeyHex);
         const signatureHex = bytesToHex(sigBytes);
 
         const envelope = {

@@ -46,6 +46,7 @@ export interface TokenGate {
   spaceChannelId: string;
   passed: boolean;
   checkedAt: number;
+  decimals?: number;
 }
 
 /**
@@ -443,8 +444,9 @@ export class WalletBridge {
       icon: '🏛️',
       description: 'Sovereign governance quorum, parameter modification, and protocol treasury voting.',
       spaceChannelId: 'channel-guardian-council',
-      passed: true,
-      checkedAt: Date.now()
+      passed: false,
+      checkedAt: 0,
+      decimals: 18
     },
     {
       id: 'gate-cyphr-relays',
@@ -455,8 +457,9 @@ export class WalletBridge {
       icon: '⚡',
       description: 'Uncensored high-bandwidth WebRTC encrypted tunnels and low-latency gossip routing.',
       spaceChannelId: 'channel-cyphr-darkmesh',
-      passed: true,
-      checkedAt: Date.now()
+      passed: false,
+      checkedAt: 0,
+      decimals: 18
     },
     {
       id: 'gate-zkid-passport',
@@ -468,7 +471,8 @@ export class WalletBridge {
       description: 'Zero-Knowledge Proof-of-Humanity token verifying non-sybil status without KYC.',
       spaceChannelId: 'channel-zk-citizens',
       passed: false,
-      checkedAt: Date.now()
+      checkedAt: 0,
+      decimals: 18
     }
   ];
 
@@ -812,44 +816,85 @@ export class WalletBridge {
 
   /**
    * Verifies whether the connected wallet meets the minimum token threshold for gated access.
+   * Performs real on-chain ERC-20 balanceOf validation with decimal normalization.
+   * If Web3 provider is disconnected or RPC fails, cleanly returns false with user notification.
+   * Never uses mock balance fallbacks or local passed cache as authoritative.
    */
-  public async verifyTokenGate(tokenAddress: string, minBalance: number): Promise<boolean> {
+  public async verifyTokenGate(tokenAddress: string, minBalance: number, specifiedDecimals?: number): Promise<boolean> {
     const activeAddress = this.identity?.ethAddress || this.selectedAccount;
-    if (!activeAddress) return false;
+    if (!activeAddress) {
+      this.showToast('Token verification unavailable: Web3 provider disconnected', 'warn');
+      return false;
+    }
 
     const cleanAddr = activeAddress.toLowerCase().replace(/^0x/, '');
     const cleanToken = tokenAddress.toLowerCase().replace(/^0x/, '');
 
-    // Check if MetaMask is connected to execute real eth_call ERC-20 balanceOf
+    // Check if Web3 provider is connected to execute real eth_call ERC-20 balanceOf
     const eth = getEthereumProvider();
-    if (eth && typeof eth.request === 'function' && this.isConnected) {
-      try {
-          // ERC-20 balanceOf(address) selector: 0x70a08231
-          const callData = `0x70a08231000000000000000000000000${cleanAddr}`;
-          const resHex = (await eth.request({
-            method: 'eth_call',
-            params: [{ to: `0x${cleanToken}`, data: callData }, 'latest']
-          })) as string;
+    if (!eth || typeof eth.request !== 'function' || !this.isConnected) {
+      this.showToast('Token verification unavailable: Web3 provider disconnected', 'warn');
+      return false;
+    }
 
-          if (resHex && resHex !== '0x') {
-            const rawBal = parseInt(resHex, 16);
-            return !isNaN(rawBal) && rawBal >= minBalance;
-          }
-        } catch {
-          // Fallback to local verified register
+    try {
+      // 1. Resolve token decimals: specifiedDecimals ?? gate.decimals ?? on-chain query decimals() ?? 18
+      let decimals = specifiedDecimals;
+      if (decimals === undefined) {
+        const gate = this.tokenGates.find((g) => g.tokenAddress.toLowerCase() === `0x${cleanToken}`.toLowerCase());
+        if (gate && typeof gate.decimals === 'number') {
+          decimals = gate.decimals;
         }
       }
 
-    // Evaluate local registry gate status
-    const gate = this.tokenGates.find((g) => g.tokenAddress.toLowerCase() === `0x${cleanToken}`.toLowerCase());
-    if (gate) {
-      return gate.passed;
-    }
+      if (decimals === undefined) {
+        try {
+          // ERC-20 decimals() selector: 0x313ce567
+          const decHex = (await eth.request({
+            method: 'eth_call',
+            params: [{ to: `0x${cleanToken}`, data: '0x313ce567' }, 'latest']
+          })) as string;
+          if (decHex && decHex !== '0x') {
+            const parsedDec = parseInt(decHex, 16);
+            if (!isNaN(parsedDec) && parsedDec >= 0 && parsedDec <= 36) {
+              decimals = parsedDec;
+            }
+          }
+        } catch {
+          // Fallback to 18 decimals if on-chain decimals query fails
+        }
+      }
 
-    // Deterministic simulation for sandbox validation
-    const hashSeed = parseInt(cleanAddr.slice(0, 8), 16);
-    const mockBalance = (hashSeed % 500) + 30;
-    return mockBalance >= minBalance;
+      if (decimals === undefined) {
+        decimals = 18;
+      }
+
+      // 2. Query ERC-20 balanceOf(address) selector: 0x70a08231 + 32-byte zero-padded address
+      const paddedAddr = cleanAddr.padStart(64, '0');
+      const callData = `0x70a08231${paddedAddr}`;
+      const resHex = (await eth.request({
+        method: 'eth_call',
+        params: [{ to: `0x${cleanToken}`, data: callData }, 'latest']
+      })) as string;
+
+      if (!resHex || resHex === '0x') {
+        return false;
+      }
+
+      const rawBal = BigInt(resHex);
+
+      // 3. Normalize threshold and compare with BigInt precision
+      const factor = 10n ** BigInt(decimals);
+      const wholePart = Math.floor(minBalance);
+      const fracPart = minBalance - wholePart;
+      const minThresholdRaw = BigInt(wholePart) * factor +
+        BigInt(Math.round(fracPart * Number(factor)));
+
+      return rawBal >= minThresholdRaw;
+    } catch {
+      this.showToast('Token verification unavailable: Web3 provider disconnected', 'warn');
+      return false;
+    }
   }
 
   /**
@@ -902,7 +947,7 @@ export class WalletBridge {
     if (!gate) return;
 
     this.showToast(`Verifying balance for ${gate.name}...`, 'info');
-    const result = await this.verifyTokenGate(gate.tokenAddress, gate.minBalance);
+    const result = await this.verifyTokenGate(gate.tokenAddress, gate.minBalance, gate.decimals);
     gate.passed = result;
     gate.checkedAt = Date.now();
     this.saveToStorage();
@@ -921,7 +966,7 @@ export class WalletBridge {
   public async checkAllTokenGates(): Promise<void> {
     this.showToast('Verifying all token-gated spaces...', 'info');
     for (const gate of this.tokenGates) {
-      gate.passed = await this.verifyTokenGate(gate.tokenAddress, gate.minBalance);
+      gate.passed = await this.verifyTokenGate(gate.tokenAddress, gate.minBalance, gate.decimals);
       gate.checkedAt = Date.now();
     }
     this.saveToStorage();
@@ -1554,7 +1599,7 @@ export class WalletBridge {
                     <div class="p-2 rounded bg-surface-base border border-white/5 col-span-2 sm:col-span-1 flex items-center justify-between">
                       <div>
                         <div class="text-[10px] text-slate-500 uppercase">Last Verification</div>
-                        <div class="text-slate-300 text-[11px]">${this.formatDate(gate.checkedAt).slice(11, 19)}</div>
+                        <div class="text-slate-300 text-[11px]">${gate.checkedAt > 0 ? this.formatDate(gate.checkedAt).slice(11, 19) : 'Not Verified'}</div>
                       </div>
                       <button data-action="call-global" data-global-method="walletBridge.checkSingleGate" data-global-args='["${gate.id}"]'
                         class="px-2 py-1 rounded bg-surface-overlay hover:bg-slate-700 text-xs text-white transition-colors"

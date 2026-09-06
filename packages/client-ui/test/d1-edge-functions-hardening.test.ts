@@ -78,23 +78,13 @@ describe('D1 Edge Functions Hardening — Batch Atomicity & Error Transparency',
     });
   });
 
-  describe('2. Channels Bootstrap Error Transparency', () => {
-    it('returns HTTP 500 when D1 channel bootstrap fails in production instead of empty array', async () => {
-      let queryCount = 0;
+  describe('2. Channels Query Error Transparency & Zero Request-Time Bootstrap', () => {
+    it('returns HTTP 500 when D1 channel query throws in production', async () => {
       const mockDb = {
-        prepare: vi.fn((sql: string) => ({
-          bind: vi.fn((...args: any[]) => ({
+        prepare: vi.fn(() => ({
+          bind: vi.fn(() => ({
             all: vi.fn(async () => {
-              queryCount++;
-              if (queryCount === 1) {
-                // Initial check: 0 results
-                return { results: [] };
-              }
-              // Second check after insert: throws error
-              throw new Error('D1 Disk Write Timeout during bootstrap');
-            }),
-            run: vi.fn(async () => {
-              throw new Error('D1 Disk Write Timeout during bootstrap');
+              throw new Error('D1 Disk Read Timeout');
             }),
           })),
         })),
@@ -110,7 +100,29 @@ describe('D1 Edge Functions Hardening — Batch Atomicity & Error Transparency',
       expect(res.status).toBe(500);
       const json = await res.json();
       expect(json.success).toBe(false);
-      expect(json.error).toContain('Database channel bootstrap failed');
+      expect(json.error).toContain('Database query failed');
+    });
+
+    it('returns clean empty array without demo bootstrap when D1 has 0 channels in production', async () => {
+      const mockDb = {
+        prepare: vi.fn(() => ({
+          bind: vi.fn(() => ({
+            all: vi.fn(async () => ({ results: [] })),
+          })),
+        })),
+        batch: vi.fn(),
+      };
+
+      const req = new Request('https://aetheris.network/api/channels?space=relays');
+      const res = await onRequestGet({
+        request: req,
+        env: { DB: mockDb as any, ENVIRONMENT: 'production' } as any,
+      });
+
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.success).toBe(true);
+      expect(json.channels).toEqual([]);
     });
   });
 });

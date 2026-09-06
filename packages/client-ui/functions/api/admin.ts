@@ -262,13 +262,21 @@ export async function verifyAdminAuthorization(
     };
   }
 
+  const url = new URL(req.url);
+
+  // Finding 12: Permanently remove credentials from URL query parameters
+  // Never accept credentials in query parameters — strictly fail with 401
+  if (url.searchParams.has('pin') || url.searchParams.has('token')) {
+    return {
+      authorized: false,
+      reason: 'Admin credentials in URL query parameters are strictly forbidden. Use Authorization or X-Admin-PIN header.',
+      status: 401,
+    };
+  }
+
   const configuredPin = hasEnvPin ? env!.ADMIN_PIN : DEFAULT_ADMIN_PIN;
   const authHeader = req.headers.get('Authorization') || '';
   const adminPinHeader = req.headers.get('X-Admin-PIN') || '';
-
-  const url = new URL(req.url);
-  const queryPin = url.searchParams.get('pin');
-  const queryToken = url.searchParams.get('token');
 
   const rawBearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
 
@@ -282,22 +290,8 @@ export async function verifyAdminAuthorization(
     }
   }
 
-  // Check ?token= (valid HMAC session token or matching configured PIN)
-  if (queryToken) {
-    const token = queryToken.trim();
-    if (token.startsWith('aeth_adm_')) {
-      const isValid = await verifyAdminSessionToken(token, configuredPin);
-      if (isValid) return { authorized: true };
-    } else if (token === configuredPin) {
-      return { authorized: true };
-    }
-  }
-
-  // Check direct PIN in header or query param
+  // Check direct PIN in X-Admin-PIN header only
   if (adminPinHeader && adminPinHeader === configuredPin) {
-    return { authorized: true };
-  }
-  if (queryPin && queryPin === configuredPin) {
     return { authorized: true };
   }
 
@@ -306,24 +300,41 @@ export async function verifyAdminAuthorization(
 
 // ─── OPTIONS PREFLIGHT ───────────────────────────────────────────────────────
 
-export function isPermittedAdminOrigin(origin: string, requestUrl: URL): boolean {
+const CANONICAL_ADMIN_HOSTS = new Set([
+  'aetheris-omni-sphere.pages.dev',
+  'aetheris.pages.dev',
+  'aetheris.network',
+  'aetheris.io',
+]);
+
+const LOOPBACK_ADMIN_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
+
+export function isPermittedAdminOrigin(origin: string, requestUrl: URL, env?: Env): boolean {
   if (!origin) return false;
   try {
     const originUrl = new URL(origin);
-    if (originUrl.host === requestUrl.host) return true;
     const h = originUrl.hostname.toLowerCase();
-    if (h === 'localhost' || h === '127.0.0.1' || h === '::1' || h === '[::1]') return true;
-    if (
-      h === 'aetheris.network' ||
-      h.endsWith('.aetheris.network') ||
-      h === 'aetheris.io' ||
-      h.endsWith('.aetheris.io') ||
-      h === 'pages.dev' ||
-      h.endsWith('.pages.dev') ||
-      h.endsWith('.local')
-    ) {
+
+    // Configured origins
+    const configured = env?.ADMIN_ALLOWED_ORIGINS || (env as any)?.CORS_ALLOWED_ORIGINS || (env as any)?.WEBAUTHN_ALLOWED_ORIGINS;
+    if (configured && typeof configured === 'string') {
+      const list = configured.split(',').map((s: string) => s.trim().toLowerCase()).filter(Boolean);
+      if (list.includes(origin.toLowerCase()) || list.includes(originUrl.origin.toLowerCase()) || list.includes(h)) {
+        return true;
+      }
+    }
+
+    // Exact production host set membership only
+    if (CANONICAL_ADMIN_HOSTS.has(h)) {
       return true;
     }
+
+    // Loopback development hosts only in non-production
+    const isNonLocal = isNonLocalEnvironment(new Request(requestUrl.toString()), env);
+    if (!isNonLocal && LOOPBACK_ADMIN_HOSTS.has(h)) {
+      return true;
+    }
+
     return false;
   } catch {
     return false;
@@ -370,6 +381,21 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
   try {
     const req = context.request;
     const url = new URL(req.url);
+
+    // Finding 12: Permanently remove credentials from URL query parameters
+    if (url.searchParams.has('pin') || url.searchParams.has('token')) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Unauthorized: Admin credentials in URL query parameters are strictly forbidden. Use Authorization or X-Admin-PIN header.',
+          code: 'UNAUTHORIZED',
+        }),
+        {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+    }
 
     // ── Unauthenticated Public Health & Broadcast Status ──────────────────────
     if (url.searchParams.get('public') === 'true' || url.searchParams.get('action') === 'public_status') {
@@ -447,7 +473,7 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
       return new Response(
         JSON.stringify({
           success: false,
-          error: 'Unauthorized: Admin authentication required',
+          error: auth.reason ? `Unauthorized: ${auth.reason}` : 'Unauthorized: Admin authentication required',
           code: 'UNAUTHORIZED',
         }),
         {
@@ -512,6 +538,23 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
 export async function onRequestPost(context: { request: Request; env?: Env }): Promise<Response> {
   try {
     const req = context.request;
+    const url = new URL(req.url);
+
+    // Finding 12: Permanently remove credentials from URL query parameters
+    if (url.searchParams.has('pin') || url.searchParams.has('token')) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Unauthorized: Admin credentials in URL query parameters are strictly forbidden. Use Authorization or X-Admin-PIN header.',
+          code: 'UNAUTHORIZED',
+        }),
+        {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
     const clientIp =
       req.headers.get('CF-Connecting-IP') ||
       req.headers.get('X-Forwarded-For')?.split(',')[0].trim() ||
@@ -631,7 +674,7 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
       return new Response(
         JSON.stringify({
           success: false,
-          error: 'Unauthorized: Valid admin authentication required for administrative actions',
+          error: auth.reason ? `Unauthorized: ${auth.reason}` : 'Unauthorized: Valid admin authentication required for administrative actions',
           code: 'UNAUTHORIZED',
         }),
         {
@@ -944,6 +987,23 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
 export async function onRequestDelete(context: { request: Request; env?: Env }): Promise<Response> {
   try {
     const req = context.request;
+    const url = new URL(req.url);
+
+    // Finding 12: Permanently remove credentials from URL query parameters
+    if (url.searchParams.has('pin') || url.searchParams.has('token')) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Unauthorized: Admin credentials in URL query parameters are strictly forbidden. Use Authorization or X-Admin-PIN header.',
+          code: 'UNAUTHORIZED',
+        }),
+        {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
     const clientIp =
       req.headers.get('CF-Connecting-IP') ||
       req.headers.get('X-Forwarded-For')?.split(',')[0].trim() ||
@@ -984,12 +1044,15 @@ export async function onRequestDelete(context: { request: Request; env?: Env }):
       }
 
       return new Response(
-        JSON.stringify({ success: false, error: 'Unauthorized: Admin authentication required' }),
+        JSON.stringify({
+          success: false,
+          error: auth.reason ? `Unauthorized: ${auth.reason}` : 'Unauthorized: Admin authentication required',
+          code: 'UNAUTHORIZED',
+        }),
         { status: 401, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
-    const url = new URL(req.url);
     const ip = url.searchParams.get('ip');
     const postId = url.searchParams.get('postId');
     const logId = url.searchParams.get('logId');

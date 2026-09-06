@@ -17,7 +17,6 @@ import {
   globalChannelsStore,
   EDGE_START_TIME,
   TOTAL_MESSAGES_COUNTER,
-  INITIAL_NODES,
   isProductionEnv,
   createD1UnavailableResponse,
 } from './_db.js';
@@ -27,38 +26,38 @@ export interface AnalyticsSummary {
   status: 'healthy' | 'degraded' | 'syncing' | 'operational_state_unverified';
   serviceHealthVerified: boolean;
   protocol: string;
-  uptimeSeconds: number;
+  uptimeSeconds: number | null;
   uptimePercentage: number | null;
   uptimeFormatted: string;
   edge: {
-    colo: string;
-    country: string;
-    city: string;
-    region: string;
-    httpProtocol: string;
-    asn: number;
+    colo: string | null;
+    country: string | null;
+    city: string | null;
+    region: string | null;
+    httpProtocol: string | null;
+    asn: number | null;
   };
   metrics: {
     totalNodes: number;
     activeNodes: number;
     messagesProcessed: number;
-    avgLatencyMs: number;
+    avgLatencyMs: number | null;
     totalBandwidthMbps: number;
     channelsCount: number;
     postsCount: number;
     nanopublicationsCount: number;
-    zkRlnEpoch: number;
+    zkRlnEpoch: number | null;
   };
   nodes: Array<{
     nodeId: string;
     name: string;
     role: string;
     status: string;
-    latencyMs: number;
+    latencyMs: number | null;
     meritScore: number;
-    region: string;
-    countryCode: string;
-    uptime: number;
+    region: string | null;
+    countryCode: string | null;
+    uptime: number | null;
   }>;
   timestamp: number;
 }
@@ -92,14 +91,14 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
             name: r.name,
             role: r.role,
             status: r.status,
-            latencyMs: Number(r.latency_ms) || 15.0,
-            meritScore: Number(r.merit_score) || 100,
-            region: r.region || 'GLOBAL',
-            countryCode: r.country_code || 'XX',
-            uptime: Number(r.uptime) || 99.9,
-            bandwidthMbps: Number(r.bandwidth_mbps) || 100.0,
+            latencyMs: r.latency_ms !== null && r.latency_ms !== undefined ? Number(r.latency_ms) : null,
+            meritScore: r.merit_score !== null && r.merit_score !== undefined ? Number(r.merit_score) : 0,
+            region: r.region || null,
+            countryCode: r.country_code || null,
+            uptime: r.uptime !== null && r.uptime !== undefined ? Number(r.uptime) : null,
+            bandwidthMbps: r.bandwidth_mbps !== null && r.bandwidth_mbps !== undefined ? Number(r.bandwidth_mbps) : 0,
             messagesProcessed: Number(r.messages_processed) || 0,
-            zkRlnEpoch: Number(r.zk_rln_epoch) || 1,
+            zkRlnEpoch: r.zk_rln_epoch !== null && r.zk_rln_epoch !== undefined ? Number(r.zk_rln_epoch) : Math.floor(Date.now() / 60000),
             connections: r.connections_json ? JSON.parse(r.connections_json) : [],
             lastHeartbeat: Number(r.last_heartbeat) || Date.now(),
           }));
@@ -134,28 +133,28 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
     }
 
     const activeNodes = nodes.filter((n) => n.status === 'active');
+    const nodesWithLatency = activeNodes.filter((n) => typeof n.latencyMs === 'number' && n.latencyMs !== null);
     const avgLatency =
-      activeNodes.length > 0
-        ? Math.round((activeNodes.reduce((acc, n) => acc + n.latencyMs, 0) / activeNodes.length) * 10) / 10
-        : (isProd ? 0 : 14.5);
+      nodesWithLatency.length > 0
+        ? Math.round((nodesWithLatency.reduce((acc, n) => acc + (n.latencyMs as number), 0) / nodesWithLatency.length) * 10) / 10
+        : (isProd ? 0 : null);
     const totalBandwidth = nodes.reduce((acc, n) => acc + (n.bandwidthMbps || 0), 0);
-    const uptimeSec = Math.floor((Date.now() - EDGE_START_TIME) / 1000);
     const messagesSum = nodes.reduce((acc, n) => acc + (n.messagesProcessed || 0), totalMessages);
 
     const summary: AnalyticsSummary = {
       status: isProd ? (db ? 'healthy' : 'degraded') : 'healthy',
       serviceHealthVerified: Boolean(db),
       protocol: 'Aetheris-Sovereign-v1.0.0',
-      uptimeSeconds: uptimeSec,
-      uptimePercentage: isProd ? null : 99.98,
-      uptimeFormatted: isProd ? 'Measured uptime unavailable' : `${uptimeSec}s continuous edge runtime`,
+      uptimeSeconds: null,
+      uptimePercentage: null,
+      uptimeFormatted: 'Measured service uptime unavailable',
       edge: {
-        colo: cf.colo || 'OTP',
-        country: cf.country || 'RO',
-        city: cf.city || 'Bucharest',
-        region: cf.region || 'Bucuresti',
-        httpProtocol: cf.httpProtocol || 'HTTP/3',
-        asn: cf.asn || 13335,
+        colo: cf.colo || null,
+        country: cf.country || null,
+        city: cf.city || null,
+        region: cf.region || null,
+        httpProtocol: cf.httpProtocol || null,
+        asn: cf.asn || null,
       },
       metrics: {
         totalNodes: nodes.length,
@@ -166,7 +165,7 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
         channelsCount: totalChannels,
         postsCount: totalPosts,
         nanopublicationsCount: totalNanopubs,
-        zkRlnEpoch: 412,
+        zkRlnEpoch: Math.floor(Date.now() / 60000),
       },
       nodes: nodes.map((n) => ({
         nodeId: n.nodeId,
@@ -238,14 +237,14 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
       name: body.name,
       role: body.role || 'relay',
       status: body.status || 'active',
-      latencyMs: typeof body.latencyMs === 'number' ? body.latencyMs : 15.0,
-      meritScore: typeof body.meritScore === 'number' ? body.meritScore : 100,
-      region: body.region || 'GLOBAL',
-      countryCode: body.countryCode || 'XX',
-      uptime: typeof body.uptime === 'number' ? body.uptime : 99.9,
-      bandwidthMbps: typeof body.bandwidthMbps === 'number' ? body.bandwidthMbps : 100.0,
+      latencyMs: typeof body.latencyMs === 'number' ? body.latencyMs : null,
+      meritScore: typeof body.meritScore === 'number' ? body.meritScore : 0,
+      region: body.region || null,
+      countryCode: body.countryCode || null,
+      uptime: typeof body.uptime === 'number' ? body.uptime : null,
+      bandwidthMbps: typeof body.bandwidthMbps === 'number' ? body.bandwidthMbps : 0,
       messagesProcessed: typeof body.messagesProcessed === 'number' ? body.messagesProcessed : 0,
-      zkRlnEpoch: typeof body.zkRlnEpoch === 'number' ? body.zkRlnEpoch : 1,
+      zkRlnEpoch: typeof body.zkRlnEpoch === 'number' ? body.zkRlnEpoch : Math.floor(Date.now() / 60000),
       connections: Array.isArray(body.connections) ? body.connections : [],
       lastHeartbeat: Date.now(),
     };

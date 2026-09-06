@@ -22,7 +22,7 @@ export class SovereignRouter {
     }
 
     if (clientStore && typeof clientStore.subscribe === 'function') {
-      clientStore.subscribe((event: string, data?: any) => {
+      clientStore.subscribe((event?: string, data?: any) => {
         if (event === 'CHANNEL_CHANGE' && data?.channelId) {
           const ch = data.channelId;
           if (ch.startsWith('relays-') || ch.startsWith('relay-') || ch.startsWith('dm-')) {

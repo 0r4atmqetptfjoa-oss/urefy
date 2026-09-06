@@ -11,7 +11,6 @@ import {
   getKVStore,
   globalMessagesStore,
   incrementMessageCounter,
-  INITIAL_MESSAGES,
   isProductionEnv,
   createD1UnavailableResponse,
 } from './_db.js';

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { onRequest as handleWebSocket, createWebSocketUpgradeResponse } from '../functions/api/ws.js';
+import { onRequest as handleWebSocket, createWebSocketUpgradeResponse, createRelaySessionToken } from '../functions/api/ws.js';
 import { generateKeyPair, ZKRLN, Field } from '@aetheris/core-crypto';
 
 class MockWebSocket {
@@ -108,10 +108,17 @@ describe('Cloudflare Pages Functions /api/ws — WebSocket & Durable Object Rout
       const userSecret = Field.hashToField('my-standalone-secret-123');
       const nullifier = ZKRLN.computeNullifier(userSecret);
 
+      const token = createRelaySessionToken({
+        sub: userKey.fingerprint,
+        role: 'GUARDIAN',
+        exp: Date.now() + 3600000,
+      });
+
       // Trigger AUTH
       serverWs.emit('message', {
         data: JSON.stringify({
           type: 'AUTH',
+          token,
           fingerprint: userKey.fingerprint,
           nullifier,
           role: 'GUARDIAN',

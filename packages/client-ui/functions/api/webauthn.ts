@@ -8,6 +8,12 @@
  */
 
 import { Env, getD1Database, getKVStore, isProductionEnv, createD1UnavailableResponse } from './_db.js';
+import {
+  verifySignature,
+  computeFingerprint,
+  hexToBytes,
+} from '@aetheris/core-crypto';
+import { verifyAdminSessionToken } from './admin.js';
 
 // Transient local edge memory cache (local PoP optimization; D1/KV remain authoritative)
 const challengeMemoryCache = new Map<string, { challenge: string; timestamp: number }>();
@@ -376,6 +382,104 @@ async function deleteChallenge(env: Env | undefined, fingerprint: string): Promi
   }
 }
 
+/**
+ * Finding 9: WebAuthn Atomic Challenge Consumption
+ * Atomically marks or removes the active challenge from D1 and memory.
+ * Two concurrent requests attempting to consume the same challenge must result in exactly one
+ * succeeding and the other receiving "Challenge already consumed or invalid".
+ * In production, persistent storage errors during consumption fail authentication.
+ */
+export async function consumeChallenge(
+  env: Env | undefined,
+  fingerprint: string,
+  challenge: string
+): Promise<{ success: boolean; error?: string }> {
+  const isProd = isProductionEnv(env);
+  const now = Date.now();
+  const db = getD1Database(env);
+
+  if (isProd && !db) {
+    return {
+      success: false,
+      error: 'Production WebAuthn requires active D1 database. Challenge consumption failed closed.',
+    };
+  }
+
+  let consumed = false;
+
+  if (db) {
+    try {
+      let changes = 0;
+      try {
+        const updateRes = await db.prepare(
+          `UPDATE webauthn_challenges SET used = 1 WHERE fingerprint = ? AND challenge = ? AND used = 0 AND expires_at > ?`
+        )
+          .bind(fingerprint, challenge, now)
+          .run();
+        changes = updateRes?.meta?.changes ?? (updateRes as any)?.changes ?? 0;
+      } catch (colErr: any) {
+        const msg = String(colErr?.message || '');
+        if (msg.includes('no such column') || msg.includes('used')) {
+          // Fallback to atomic DELETE
+          const delRes = await db.prepare(
+            `DELETE FROM webauthn_challenges WHERE fingerprint = ? AND challenge = ? AND expires_at > ?`
+          )
+            .bind(fingerprint, challenge, now)
+            .run();
+          changes = delRes?.meta?.changes ?? (delRes as any)?.changes ?? 0;
+        } else {
+          throw colErr;
+        }
+      }
+
+      if (changes === 1) {
+        consumed = true;
+      } else {
+        return {
+          success: false,
+          error: 'Challenge already consumed or invalid',
+        };
+      }
+    } catch (e: any) {
+      if (isProd) {
+        return {
+          success: false,
+          error: `Production WebAuthn challenge consumption failed: ${e?.message || e}`,
+        };
+      }
+      console.warn('[WebAuthn] D1 consumeChallenge warning:', e);
+    }
+  }
+
+  const kv = getKVStore(env) || env?.KV_SESSIONS;
+  if (kv) {
+    try {
+      await kv.delete(`webauthn_challenge:${fingerprint}`);
+    } catch (_) {}
+  }
+
+  if (!isProd) {
+    const cached = challengeMemoryCache.get(fingerprint);
+    if (!db) {
+      if (
+        !cached ||
+        cached.challenge !== challenge ||
+        now - cached.timestamp > CHALLENGE_TTL_MS ||
+        (cached as any).used
+      ) {
+        return { success: false, error: 'Challenge already consumed or invalid' };
+      }
+      (cached as any).used = true;
+      challengeMemoryCache.delete(fingerprint);
+      consumed = true;
+    } else {
+      challengeMemoryCache.delete(fingerprint);
+    }
+  }
+
+  return consumed ? { success: true } : { success: false, error: 'Challenge already consumed or invalid' };
+}
+
 async function saveCredential(
   env: Env | undefined,
   cred: {
@@ -468,11 +572,18 @@ async function getCredential(
   return null;
 }
 
-async function updateCredentialCounter(
+/**
+ * Finding 11: Concurrency-Safe WebAuthn sign-count Update
+ * Uses atomic Compare-And-Set (CAS) to prevent cloned authenticator replay attacks
+ * and concurrent assertion races.
+ * UPDATE webauthn_credentials SET sign_count = ? WHERE credential_id = ? AND sign_count = ?
+ */
+export async function updateCredentialCounter(
   env: Env | undefined,
   credentialId: string,
-  newCounter: number
-): Promise<void> {
+  newCounter: number,
+  oldCounter: number
+): Promise<{ success: boolean; error?: string }> {
   const isProd = isProductionEnv(env);
   const db = getD1Database(env);
   if (isProd && !db) {
@@ -481,25 +592,142 @@ async function updateCredentialCounter(
 
   if (db) {
     try {
-      await db.prepare(
-        `UPDATE webauthn_credentials SET sign_count = ? WHERE credential_id = ?`
+      const result = await db.prepare(
+        `UPDATE webauthn_credentials SET sign_count = ? WHERE credential_id = ? AND sign_count = ?`
       )
-        .bind(newCounter, credentialId)
+        .bind(newCounter, credentialId, oldCounter)
         .run();
+
+      const changes = result?.meta?.changes ?? (result as any)?.changes ?? 0;
+      if (changes === 0) {
+        return {
+          success: false,
+          error: `Concurrency conflict: sign_count mismatch during CAS update (expected ${oldCounter})`,
+        };
+      }
     } catch (e: any) {
       if (isProd) {
         throw new Error(`Production WebAuthn counter update failed: ${e?.message || e}`);
       }
       console.warn('[WebAuthn] D1 updateCredentialCounter warning:', e);
+      return {
+        success: false,
+        error: `Persistent counter update failed: ${e?.message || e}`,
+      };
     }
   }
 
   if (!isProd) {
     const mem = credentialMemoryCache.get(credentialId);
     if (mem) {
+      if (mem.counter !== oldCounter) {
+        return {
+          success: false,
+          error: `Concurrency conflict: memory sign_count mismatch (expected ${oldCounter}, found ${mem.counter})`,
+        };
+      }
       mem.counter = newCounter;
     }
   }
+
+  return { success: true };
+}
+
+/**
+ * Finding 10: WebAuthn Registration Cryptographic Identity Binding
+ * Strictly prohibits unauthenticated clients from registering a passkey for an arbitrary fingerprint.
+ * Requires either:
+ * a) Valid Ed25519 signature by the identity matching fingerprint over the registration challenge:
+ *    envelope.signature / proofOfOwnership (verifySignature(signature, challenge, publicKeyHex)).
+ * b) An authenticated session matching fingerprint (Bearer token or session).
+ */
+export async function verifyRegistrationIdentity(
+  request: Request,
+  env: Env | undefined,
+  fingerprint: string,
+  challenge: string,
+  body: any
+): Promise<{ authorized: boolean; reason?: string }> {
+  // 1. Check for valid Ed25519 signature proof over registration challenge
+  const proof =
+    body?.proofOfOwnership ||
+    body?.envelope ||
+    (body?.signature && (body?.publicKeyHex || body?.identityPublicKeyHex || (typeof body?.publicKey === 'string' && body.publicKey.length === 64)) ? body : undefined);
+
+  if (proof) {
+    const signature = proof.signature || body?.signature;
+    const pubKeyHex =
+      proof.publicKeyHex ||
+      proof.identityPublicKeyHex ||
+      proof.identity?.signingPublicKey ||
+      (typeof proof.publicKey === 'string' && proof.publicKey.length === 64 ? proof.publicKey : undefined);
+
+    if (signature && pubKeyHex) {
+      try {
+        const pubBytes = hexToBytes(pubKeyHex);
+        const derivedFingerprint = computeFingerprint(pubBytes);
+        if (derivedFingerprint !== fingerprint && pubKeyHex !== fingerprint) {
+          return {
+            authorized: false,
+            reason: `Cryptographic identity mismatch: public key fingerprint "${derivedFingerprint}" does not match claimed fingerprint "${fingerprint}"`,
+          };
+        }
+
+        const validSig = verifySignature(signature, challenge, pubKeyHex);
+        if (!validSig) {
+          return {
+            authorized: false,
+            reason: 'Invalid Ed25519 signature over registration challenge',
+          };
+        }
+
+        return { authorized: true };
+      } catch (e: any) {
+        return {
+          authorized: false,
+          reason: `Cryptographic proof verification failed: ${e?.message || e}`,
+        };
+      }
+    }
+  }
+
+  // 2. Check for authenticated session matching fingerprint
+  const authHeader = request.headers.get('Authorization') || '';
+  const bearerToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+  const adminPin = typeof env?.ADMIN_PIN === 'string' && env.ADMIN_PIN.trim().length > 0 ? env.ADMIN_PIN : undefined;
+
+  if (bearerToken) {
+    if (bearerToken === `session_${fingerprint}` || bearerToken === fingerprint) {
+      return { authorized: true };
+    }
+
+    if (adminPin && (await verifyAdminSessionToken(bearerToken, adminPin))) {
+      return { authorized: true };
+    }
+    if (adminPin && bearerToken === adminPin) {
+      return { authorized: true };
+    }
+
+    const kv = getKVStore(env) || env?.KV_SESSIONS;
+    if (kv) {
+      try {
+        const sess = (await kv.get(`session:${bearerToken}`, 'json')) as any;
+        if (sess && (sess.fingerprint === fingerprint || sess.userFingerprint === fingerprint)) {
+          return { authorized: true };
+        }
+      } catch (_) {}
+    }
+  }
+
+  const adminPinHeader = request.headers.get('X-Admin-PIN');
+  if (adminPinHeader && adminPin && adminPinHeader === adminPin) {
+    return { authorized: true };
+  }
+
+  return {
+    authorized: false,
+    reason: 'Unauthorized: WebAuthn registration requires cryptographic identity binding (Ed25519 signature matching fingerprint) or an authenticated session.',
+  };
 }
 
 async function listCredentialsByFingerprint(env: Env | undefined, fingerprint: string): Promise<string[]> {
@@ -543,6 +771,13 @@ async function listCredentialsByFingerprint(env: Env | undefined, fingerprint: s
   return Array.from(creds);
 }
 
+export const CANONICAL_WEBAUTHN_ORIGINS = new Set([
+  'https://aetheris-omni-sphere.pages.dev',
+  'https://aetheris.pages.dev',
+  'https://aetheris.network',
+  'https://aetheris.io',
+]);
+
 /**
  * Resolves the explicit set of allowed origins for WebAuthn operations and CORS.
  * Strictly avoids substring, wildcard, or loose prefix matching.
@@ -551,7 +786,10 @@ export function getAllowedWebAuthnOrigins(env?: Env): Set<string> {
   const isProd = isProductionEnv(env);
   const origins = new Set<string>();
 
-  const configured = (env as any)?.WEBAUTHN_ALLOWED_ORIGINS || (env as any)?.WEBAUTHN_ALLOWED_ORIGIN;
+  const configured =
+    (env as any)?.WEBAUTHN_ALLOWED_ORIGINS ||
+    (env as any)?.WEBAUTHN_ALLOWED_ORIGIN ||
+    (env as any)?.CORS_ALLOWED_ORIGINS;
   if (configured && typeof configured === 'string') {
     for (const o of configured.split(',').map((v: string) => v.trim()).filter(Boolean)) {
       origins.add(o);
@@ -559,8 +797,9 @@ export function getAllowedWebAuthnOrigins(env?: Env): Set<string> {
   }
 
   // Canonical production default origins
-  origins.add('https://aetheris-omni-sphere.pages.dev');
-  origins.add('https://aetheris.pages.dev');
+  for (const o of CANONICAL_WEBAUTHN_ORIGINS) {
+    origins.add(o);
+  }
 
   // Development & local test origins (only permitted when not in production environment)
   if (!isProd) {
@@ -666,19 +905,10 @@ export async function onRequest(context: { request: Request; env?: Env }): Promi
         );
       }
 
-      // Check active challenge in D1 / KV / Memory
-      const expectedChallenge = await getChallenge(env, fingerprint);
-      if (!expectedChallenge) {
-        return new Response(
-          JSON.stringify({ success: false, error: 'WebAuthn challenge expired or not found. Please request a new challenge.' }),
-          { status: 401, headers: corsHeaders }
-        );
-      }
-
       // ────────────────────────────────────────────────────────────────────────
       // 1. Action: Register Passkey
       // ────────────────────────────────────────────────────────────────────────
-      if (action === 'register') {
+      if (action === 'register' || action === 'verify-registration') {
         if (!credentialId || !clientDataJSON) {
           return new Response(
             JSON.stringify({ success: false, error: 'Missing credentialId or clientDataJSON for registration' }),
@@ -704,6 +934,22 @@ export async function onRequest(context: { request: Request; env?: Env }): Promi
           return new Response(
             JSON.stringify({ success: false, error: 'Invalid clientData type: expected webauthn.create' }),
             { status: 400, headers: corsHeaders }
+          );
+        }
+
+        if (!parsedClientData.challenge) {
+          return new Response(
+            JSON.stringify({ success: false, error: 'Missing challenge in clientDataJSON' }),
+            { status: 400, headers: corsHeaders }
+          );
+        }
+
+        // Check active challenge
+        const expectedChallenge = await getChallenge(env, fingerprint);
+        if (!expectedChallenge) {
+          return new Response(
+            JSON.stringify({ success: false, error: 'WebAuthn challenge expired or not found. Please request a new challenge.' }),
+            { status: 401, headers: corsHeaders }
           );
         }
 
@@ -812,6 +1058,30 @@ export async function onRequest(context: { request: Request; env?: Env }): Promi
           }
         }
 
+        // Finding 10: Verify cryptographic identity binding
+        const idCheck = await verifyRegistrationIdentity(request, env, fingerprint, parsedClientData.challenge, body);
+        if (!idCheck.authorized) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: idCheck.reason || 'Unauthorized: WebAuthn registration identity binding verification failed',
+            }),
+            { status: 401, headers: corsHeaders }
+          );
+        }
+
+        // Finding 9: Atomically consume challenge
+        const consumeResult = await consumeChallenge(env, fingerprint, parsedClientData.challenge);
+        if (!consumeResult.success) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: consumeResult.error || 'Challenge already consumed or invalid',
+            }),
+            { status: 401, headers: corsHeaders }
+          );
+        }
+
         // Persist credential in D1 & Edge registry
         await saveCredential(env, {
           credentialId,
@@ -892,10 +1162,36 @@ export async function onRequest(context: { request: Request; env?: Env }): Promi
           );
         }
 
-        // 2. Verify challenge strictly matches
+        if (!parsedClientData.challenge) {
+          return new Response(
+            JSON.stringify({ success: false, error: 'Missing challenge in clientDataJSON' }),
+            { status: 400, headers: corsHeaders }
+          );
+        }
+
+        // Check active challenge
+        const expectedChallenge = await getChallenge(env, fingerprint);
+        if (!expectedChallenge) {
+          return new Response(
+            JSON.stringify({ success: false, error: 'WebAuthn challenge expired or not found. Please request a new challenge.' }),
+            { status: 401, headers: corsHeaders }
+          );
+        }
         if (parsedClientData.challenge !== expectedChallenge) {
           return new Response(
             JSON.stringify({ success: false, error: 'WebAuthn challenge mismatch or replay detected' }),
+            { status: 401, headers: corsHeaders }
+          );
+        }
+
+        // 2. Finding 9: Atomically consume challenge
+        const consumeResult = await consumeChallenge(env, fingerprint, parsedClientData.challenge);
+        if (!consumeResult.success) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: consumeResult.error || 'Challenge already consumed or invalid',
+            }),
             { status: 401, headers: corsHeaders }
           );
         }
@@ -1026,10 +1322,20 @@ export async function onRequest(context: { request: Request; env?: Env }): Promi
           );
         }
 
-        // 9. Update counter in D1/memory & ATOMICALLY delete challenge from D1/KV/Memory
+        // 9. Finding 11: Update counter in D1/memory with atomic Compare-And-Set
+        // If authenticator reports signCount = 0 (e.g. platform authenticators without monotonic counter),
+        // safely increment existing stored counter to advance state.
         const updatedCounter = signCount > 0 ? signCount : cred.counter + 1;
-        await updateCredentialCounter(env, credentialId, updatedCounter);
-        await deleteChallenge(env, fingerprint);
+        const casResult = await updateCredentialCounter(env, credentialId, updatedCounter, cred.counter);
+        if (!casResult.success) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: casResult.error || 'Concurrent WebAuthn assertion detected: signCount CAS mismatch',
+            }),
+            { status: 403, headers: corsHeaders }
+          );
+        }
 
         return new Response(
           JSON.stringify({

@@ -11,7 +11,6 @@ import {
   getKVStore,
   getR2Bucket,
   globalNanopublicationsStore,
-  INITIAL_NANOPUBLICATIONS,
   isProductionEnv,
   createD1UnavailableResponse,
 } from './_db.js';

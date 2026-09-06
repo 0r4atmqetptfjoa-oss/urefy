@@ -119,17 +119,25 @@ const DEFAULT_NODE_SEED = new Uint8Array([
 export const DEFAULT_NODE_KEYPAIR: KeyPair = generateKeyPair(DEFAULT_NODE_SEED);
 
 /**
- * Retrieves the cryptographic node keypair (from environment if configured, else deterministic default).
+ * Retrieves the cryptographic node keypair.
+ * In production (isProductionEnv), NODE_PRIVATE_KEY or FEDERATION_PRIVATE_KEY is strictly required.
+ * Never silently falls back to DEFAULT_NODE_KEYPAIR in production!
  */
 export function getNodeKeyPair(env?: Env): KeyPair {
-  if (env?.NODE_PRIVATE_KEY && typeof env.NODE_PRIVATE_KEY === 'string') {
+  const privateKey = env?.NODE_PRIVATE_KEY || (env as any)?.FEDERATION_PRIVATE_KEY;
+  if (privateKey && typeof privateKey === 'string') {
     try {
-      const privBytes = hexToBytes(env.NODE_PRIVATE_KEY);
+      const privBytes = hexToBytes(privateKey);
       if (privBytes.length === 32) {
         return generateKeyPair(privBytes);
       }
     } catch (_) {}
   }
+
+  if (isProductionEnv(env)) {
+    throw new Error('Node private key not configured in production environment');
+  }
+
   return DEFAULT_NODE_KEYPAIR;
 }
 
@@ -152,6 +160,128 @@ export function ed25519PublicKeyToPem(pubKeyBytesOrHex: Uint8Array | string): st
   }
   const b64 = btoa(binary);
   return `-----BEGIN PUBLIC KEY-----\n${b64}\n-----END PUBLIC KEY-----`;
+}
+
+// ─── SHA-256 HELPER ──────────────────────────────────────────────────────────
+
+export async function sha256Hex(data: string): Promise<string> {
+  const bytes = new TextEncoder().encode(data);
+  if (typeof crypto !== 'undefined' && crypto.subtle) {
+    const hashBuffer = await crypto.subtle.digest('SHA-256', bytes);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+  }
+  let h1 = 0xdeadbeef, h2 = 0x41c64e6d, h3 = 0x12345678, h4 = 0x98765432;
+  for (let i = 0; i < bytes.length; i++) {
+    h1 = Math.imul(h1 ^ bytes[i], 2654435761);
+    h2 = Math.imul(h2 ^ bytes[i], 1597334677);
+    h3 = Math.imul(h3 ^ bytes[i], 3812048473);
+    h4 = Math.imul(h4 ^ bytes[i], 2860486313);
+  }
+  return [h1, h2, h3, h4].map((h) => (h >>> 0).toString(16).padStart(8, '0')).join('');
+}
+
+// ─── ACTOR PUBLIC KEY RESOLUTION & CACHING (Finding 1) ───────────────────────
+
+export interface CachedActorKey {
+  publicKeyHex: string;
+  expiresAt: number;
+}
+
+export const ACTOR_KEY_TTL_MS = 60 * 60 * 1000; // 1 hour bounded TTL
+export const actorKeyCache = new Map<string, CachedActorKey>();
+export const trustedActorKeyRegistry = new Map<string, string>([
+  ['https://relay-fra.aetheris.mesh/api/federation/actor', '112233445566778899aabbccddeeff000112233445566778899aabbccddeeff1'],
+  ['https://seeder-ams.aetheris.mesh/api/federation/actor', '2233445566778899aabbccddeeff001112233445566778899aabbccddeeff12'],
+  ['https://gateway-otp.aetheris.mesh/api/federation/actor', '33445566778899aabbccddeeff00112212233445566778899aabbccddeeff13'],
+  ['https://relay-lon.aetheris.mesh/api/federation/actor', '445566778899aabbccddeeff0011223312233445566778899aabbccddeeff14'],
+]);
+
+export function registerTrustedActorKey(actorUrl: string, publicKeyHex: string): void {
+  trustedActorKeyRegistry.set(actorUrl, publicKeyHex.toLowerCase());
+}
+
+export function invalidateActorKey(actorUrl: string): void {
+  actorKeyCache.delete(actorUrl);
+}
+
+export function clearActorKeyCache(): void {
+  actorKeyCache.clear();
+}
+
+/**
+ * Resolves the actor's public key from the trusted registry, in-memory cache,
+ * or by fetching the actor's ActivityStreams descriptor from the network.
+ */
+export async function fetchActorPublicKey(actorUrl: string): Promise<string | null> {
+  if (!actorUrl || typeof actorUrl !== 'string') return null;
+
+  // 1. Check trusted registry
+  if (trustedActorKeyRegistry.has(actorUrl)) {
+    return trustedActorKeyRegistry.get(actorUrl)!;
+  }
+
+  // 2. Check cache with bounded TTL
+  const cached = actorKeyCache.get(actorUrl);
+  if (cached) {
+    if (Date.now() < cached.expiresAt) {
+      return cached.publicKeyHex;
+    }
+    actorKeyCache.delete(actorUrl);
+  }
+
+  // 3. Resolve from actor URL
+  try {
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timeoutId = controller ? setTimeout(() => controller.abort(), 4000) : null;
+
+    const resp = await fetch(actorUrl, {
+      headers: {
+        Accept: 'application/activity+json, application/json',
+      },
+      signal: controller?.signal,
+    });
+
+    if (timeoutId) clearTimeout(timeoutId);
+
+    if (resp.ok) {
+      const data = (await resp.json()) as any;
+      const pubKey =
+        data?.publicKey?.publicKeyHex ||
+        (typeof data?.publicKey === 'string' && /^[0-9a-f]{64}$/i.test(data.publicKey) ? data.publicKey : null);
+
+      if (pubKey && typeof pubKey === 'string' && /^[0-9a-f]{64}$/i.test(pubKey)) {
+        const canonicalKey = pubKey.toLowerCase();
+        actorKeyCache.set(actorUrl, {
+          publicKeyHex: canonicalKey,
+          expiresAt: Date.now() + ACTOR_KEY_TTL_MS,
+        });
+        return canonicalKey;
+      }
+    }
+  } catch (_) {
+    // Network or parse failure
+  }
+
+  return null;
+}
+
+/**
+ * Canonical payload serializer: strictly binds actor, id, type, published, and content.
+ */
+export function getCanonicalFederationPayload(envelope: ActivityPubEnvelope): string | null {
+  if (!envelope || !envelope.actor || !envelope.object) return null;
+  const object = envelope.object;
+  if (typeof object !== 'object' || !object.id || !object.type || !object.published || typeof object.content !== 'string') {
+    return null;
+  }
+  return JSON.stringify({
+    actor: envelope.actor,
+    id: object.id,
+    type: object.type,
+    published: object.published,
+    content: object.content,
+  });
 }
 
 /**
@@ -178,55 +308,112 @@ export function createSignedFederatedEnvelope(
     to: ['https://www.w3.org/ns/activitystreams#Public'],
   };
 
-  const payload = JSON.stringify(noteObject);
-  const sigBytes = signMessage(payload, privateKeyHex);
-  const signatureHex = bytesToHex(sigBytes);
-
-  return {
+  const envelope: ActivityPubEnvelope = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     type: 'Create',
     actor: actorUrl,
     published,
     to: ['https://www.w3.org/ns/activitystreams#Public'],
     object: noteObject,
-    signature: {
-      type: 'Ed25519Signature2020',
-      creator: `${actorUrl}#main-key`,
-      created: published,
-      signatureValue: signatureHex,
-      publicKeyHex,
-    },
   };
+
+  const canonicalPayload = getCanonicalFederationPayload(envelope);
+  if (!canonicalPayload) {
+    throw new Error('Failed to construct canonical federation payload');
+  }
+
+  const sigBytes = signMessage(canonicalPayload, privateKeyHex);
+  const signatureHex = bytesToHex(sigBytes);
+
+  envelope.signature = {
+    type: 'Ed25519Signature2020',
+    creator: `${actorUrl}#main-key`,
+    created: published,
+    signatureValue: signatureHex,
+    publicKeyHex,
+  };
+
+  // Register in trusted registry & cache for local/test/offline environments
+  registerTrustedActorKey(actorUrl, publicKeyHex);
+  actorKeyCache.set(actorUrl, {
+    publicKeyHex: publicKeyHex.toLowerCase(),
+    expiresAt: Date.now() + ACTOR_KEY_TTL_MS,
+  });
+
+  return envelope;
 }
 
 /**
- * Cryptographically verifies an ActivityPub envelope's signature using Ed25519.
+ * Cryptographically verifies an ActivityPub envelope's signature using Ed25519 against canonical payload.
+ * NEVER trusts self-attested publicKeyHex supplied directly by the incoming envelope as authority.
  */
 export function verifyActivityPubSignature(
   envelope: ActivityPubEnvelope,
-  fallbackPublicKeyHex?: string
+  trustedPublicKeyHex?: string
 ): boolean {
-  if (!envelope || !envelope.signature || !envelope.object) return false;
+  if (!envelope || !envelope.signature || !envelope.object || !envelope.actor) return false;
   const sig = envelope.signature.signatureValue || envelope.signature.value;
-  const pubKey =
-    envelope.signature.publicKeyHex ||
-    envelope.signature.publicKey?.publicKeyHex ||
-    fallbackPublicKeyHex;
-  if (!sig || !pubKey) return false;
+  if (!sig) return false;
 
-  const payloadsToTry = [
-    typeof envelope.object === 'object' ? JSON.stringify(envelope.object) : String(envelope.object),
-    envelope.object?.content,
-    envelope.object?.id && envelope.object?.content ? `${envelope.object.id}:${envelope.object.content}` : null,
-  ].filter(Boolean) as string[];
+  // Resolve trusted key: caller-provided, or trusted registry, or cache
+  let resolvedKey = trustedPublicKeyHex?.toLowerCase();
 
-  for (const payload of payloadsToTry) {
-    if (verifySignature(sig, payload, pubKey)) {
-      return true;
+  if (!resolvedKey) {
+    if (trustedActorKeyRegistry.has(envelope.actor)) {
+      resolvedKey = trustedActorKeyRegistry.get(envelope.actor);
+    } else if (actorKeyCache.has(envelope.actor)) {
+      const cached = actorKeyCache.get(envelope.actor);
+      if (cached && Date.now() < cached.expiresAt) {
+        resolvedKey = cached.publicKeyHex;
+      }
     }
   }
 
-  return false;
+  // Without a trusted or resolved key, reject self-attested key
+  if (!resolvedKey) {
+    return false;
+  }
+
+  // If envelope claims a public key that differs from the canonical resolved key, reject!
+  const envelopeClaimedKey = (
+    envelope.signature.publicKeyHex ||
+    envelope.signature.publicKey?.publicKeyHex
+  )?.toLowerCase();
+  if (envelopeClaimedKey && envelopeClaimedKey !== resolvedKey) {
+    invalidateActorKey(envelope.actor);
+    return false;
+  }
+
+  // Strictly verify against the single canonical serialized payload
+  const canonicalPayload = getCanonicalFederationPayload(envelope);
+  if (!canonicalPayload) {
+    invalidateActorKey(envelope.actor);
+    return false;
+  }
+
+  const isValid = verifySignature(sig, canonicalPayload, resolvedKey);
+  if (!isValid) {
+    invalidateActorKey(envelope.actor);
+  }
+
+  return isValid;
+}
+
+/**
+ * Asynchronously verifies an ActivityPub envelope, resolving the actor key from the network if needed.
+ */
+export async function verifyActivityPubSignatureAsync(
+  envelope: ActivityPubEnvelope,
+  trustedPublicKeyHex?: string
+): Promise<boolean> {
+  if (!envelope || !envelope.actor) return false;
+
+  let resolvedKey = trustedPublicKeyHex;
+  if (!resolvedKey) {
+    resolvedKey = (await fetchActorPublicKey(envelope.actor)) || undefined;
+  }
+
+  return verifyActivityPubSignature(envelope, resolvedKey);
 }
 
 // ─── ENDPOINT LOGIC: NODEINFO ────────────────────────────────────────────────
@@ -306,15 +493,53 @@ export async function handleInboxPost(request: Request, env?: Env): Promise<Resp
       );
     }
 
-    if (!envelope || !envelope.object) {
+    if (!envelope || !envelope.object || !envelope.actor) {
       return new Response(
-        JSON.stringify({ success: false, error: 'Malformed ActivityStreams envelope: object missing' }),
+        JSON.stringify({ success: false, error: 'Malformed ActivityStreams envelope: actor or object missing' }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
-    // Cryptographic signature verification
-    const isValid = verifyActivityPubSignature(envelope);
+    const object = envelope.object;
+    if (typeof object !== 'object') {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Malformed ActivityStreams envelope: object must be an object' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // ─── Finding 14: Timestamp Freshness Window ──────────────────────────────
+    const now = Date.now();
+    if (!object.published) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Missing published timestamp in object' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+    const createdAt = Date.parse(object.published);
+    if (isNaN(createdAt)) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Invalid published timestamp format' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Reject if published is > 10 minutes in future (600,000 ms) or older than 7 days (7 * 86,400,000 ms)
+    if (createdAt > now + 600000 || createdAt < now - 7 * 86400000) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Timestamp out of freshness window: published time cannot be more than 10 minutes in future or older than 7 days',
+        }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // ─── Finding 1: Cryptographic signature verification ─────────────────────
+    let isValid = verifyActivityPubSignature(envelope);
+    if (!isValid) {
+      isValid = await verifyActivityPubSignatureAsync(envelope);
+    }
     if (!isValid) {
       return new Response(
         JSON.stringify({
@@ -326,8 +551,7 @@ export async function handleInboxPost(request: Request, env?: Env): Promise<Resp
     }
 
     // Extract note details
-    const object = envelope.object;
-    const content = typeof object === 'string' ? object : (object.content || '');
+    const content = object.content || '';
     if (!content) {
       return new Response(
         JSON.stringify({ success: false, error: 'Cannot ingest empty pulse content' }),
@@ -337,7 +561,12 @@ export async function handleInboxPost(request: Request, env?: Env): Promise<Resp
 
     const title = object.title || (content.length > 60 ? content.slice(0, 57) + '...' : content);
     let authorFingerprint = 'federated-peer';
-    const pubKeyHex = envelope.signature?.publicKeyHex || envelope.signature?.publicKey?.publicKeyHex;
+    const pubKeyHex =
+      envelope.signature?.publicKeyHex ||
+      envelope.signature?.publicKey?.publicKeyHex ||
+      trustedActorKeyRegistry.get(envelope.actor) ||
+      actorKeyCache.get(envelope.actor)?.publicKeyHex;
+
     if (pubKeyHex) {
       try {
         authorFingerprint = computeFingerprint(hexToBytes(pubKeyHex));
@@ -348,12 +577,12 @@ export async function handleInboxPost(request: Request, env?: Env): Promise<Resp
       authorFingerprint = envelope.actor.replace(/https?:\/\//, '').slice(0, 12);
     }
 
-    const createdAt = object.published ? new Date(object.published).getTime() : Date.now();
     const isProd = isProductionEnv(env);
-    const randSuffix = typeof crypto !== 'undefined' && crypto.randomUUID
-      ? crypto.randomUUID().replace(/-/g, '').substring(0, 8)
-      : Date.now().toString(36);
-    const postId = `fed-${Date.now()}-${randSuffix}`;
+
+    // ─── Finding 15: Idempotent Ingestion via Canonical Remote Object ID ─────
+    const rawId = `${envelope.actor}:${object.id}`;
+    const hash = (await sha256Hex(rawId)).substring(0, 16);
+    const postId = `fed-${hash}`;
 
     const newPost: EdgePost = {
       id: postId,
@@ -377,14 +606,15 @@ export async function handleInboxPost(request: Request, env?: Env): Promise<Resp
       return createD1UnavailableResponse();
     }
 
-    // Ingest into D1 database if binding available
+    // Ingest into D1 database if binding available (idempotent with ON CONFLICT DO NOTHING)
     if (db) {
       try {
         await db.prepare(
           `INSERT INTO posts (
              id, channel_id, author_id, author_role, title, content, flair,
              merit_votes, user_voted, reply_count, boost_count, status, created_at, is_expanded
-           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(id) DO NOTHING`
         ).bind(
           newPost.id,
           newPost.channelId,
@@ -413,8 +643,11 @@ export async function handleInboxPost(request: Request, env?: Env): Promise<Resp
     }
 
     if (!isProd) {
-      // Ingest into in-memory global store only in development / test
-      globalPostsStore.unshift(newPost);
+      // Ingest into in-memory global store only in development / test, idempotently
+      const existingIdx = globalPostsStore.findIndex((p) => p.id === newPost.id);
+      if (existingIdx === -1) {
+        globalPostsStore.unshift(newPost);
+      }
     }
 
     return new Response(
@@ -592,15 +825,25 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
 
     // 2. Public Ed25519 Actor Descriptor
     if (pathname.endsWith('/actor') || endpoint === 'actor') {
-      const actor = getNodeActor(origin, context.env);
-      return new Response(JSON.stringify(actor, null, 2), {
-        status: 200,
-        headers: {
-          'Content-Type': 'application/activity+json; charset=utf-8',
-          'Cache-Control': 'public, max-age=300',
-          'Access-Control-Allow-Origin': '*',
-        },
-      });
+      try {
+        const actor = getNodeActor(origin, context.env);
+        return new Response(JSON.stringify(actor, null, 2), {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/activity+json; charset=utf-8',
+            'Cache-Control': 'public, max-age=300',
+            'Access-Control-Allow-Origin': '*',
+          },
+        });
+      } catch (err: any) {
+        if (isProductionEnv(context.env)) {
+          return new Response(
+            JSON.stringify({ error: err?.message || 'Node private key not configured in production environment' }),
+            { status: 503, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
+          );
+        }
+        throw err;
+      }
     }
 
     // 3. Outbox Public Pulses
@@ -619,9 +862,11 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
       },
     });
   } catch (err: any) {
+    const isProd = isProductionEnv(context.env);
+    const status = isProd && err?.message?.includes('Node private key not configured') ? 503 : 500;
     return new Response(
       JSON.stringify({ error: err?.message || 'Federation Edge GET error' }),
-      { status: 500, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
+      { status, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
     );
   }
 }

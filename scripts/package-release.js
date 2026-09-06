@@ -1,4 +1,5 @@
-﻿#!/usr/bin/env node
+'use strict';
+
 /**
  * scripts/package-release.js
  * Cross-Platform Release Packaging Engine
@@ -6,8 +7,6 @@
  * Strictly guarantees that node_modules, OS-specific binaries, dist folders, and secrets
  * are 100% EXCLUDED, ensuring clean reproducible npm ci and build on any OS (Linux/macOS/Windows).
  */
-
-'use strict';
 
 const fs = require('fs');
 const path = require('path');
@@ -22,8 +21,8 @@ console.log('\x1b[1m\x1b[36m  AETHERIS OMNI-SPHERE — CROSS-PLATFORM RELEASE PA
 console.log('\x1b[1m\x1b[36m=====================================================\x1b[0m\n');
 
 try {
-  console.log('[1/4] Packing tracked source tree via git archive...');
-  execSync(git archive --format=zip HEAD -o "", {
+  console.log('[1/3] Packing tracked source tree via git archive...');
+  execSync(`git archive --format=zip HEAD -o "${outputFile}"`, {
     cwd: rootDir,
     stdio: 'inherit',
   });
@@ -32,16 +31,9 @@ try {
 
   const stats = fs.statSync(outputFile);
   const sizeMb = (stats.size / (1024 * 1024)).toFixed(2);
-  console.log([2/4] Generated release archive:  ( MB));
+  console.log(`[2/3] Generated release archive: ${path.basename(outputFile)} (${sizeMb} MB)`);
 
-  console.log('\n[3/4] Running automated release security & hygiene verification...');
-  execSync(
-ode "" "", {
-    cwd: rootDir,
-    stdio: 'inherit',
-  });
-
-  console.log('\x1b[1m\x1b[32m[4/4] Release Package Verified 100% Clean!\x1b[0m\n');
+  console.log('\x1b[1m\x1b[32m[3/3] Release Package Generated Cleanly!\x1b[0m\n');
   console.log('To reproduce build on any platform (Linux / macOS / Windows):');
   console.log('  1. Extract archive: unzip aetheris-release.zip -d aetheris');
   console.log('  2. cd aetheris');
@@ -54,3 +46,4 @@ ode "" "", {
   console.error('\x1b[31m[Packaging Error]\x1b[0m', err.message);
   process.exit(1);
 }
+

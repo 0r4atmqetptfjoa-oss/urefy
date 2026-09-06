@@ -30,7 +30,7 @@ describe('Security Gate: Zero WebAuthn Bypass & Cryptographic Rigor', () => {
     await handleWebAuthn({
       request: new Request('https://aetheris.pages.dev/api/webauthn', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer victim-1' },
         body: JSON.stringify({
           action: 'register',
           fingerprint: 'victim-1',
@@ -87,7 +87,7 @@ describe('Security Gate: Zero WebAuthn Bypass & Cryptographic Rigor', () => {
     await handleWebAuthn({
       request: new Request('https://aetheris.pages.dev/api/webauthn', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer alice' },
         body: JSON.stringify({
           action: 'register',
           fingerprint: 'alice',

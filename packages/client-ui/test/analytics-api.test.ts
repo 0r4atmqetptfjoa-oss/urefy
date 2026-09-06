@@ -48,7 +48,7 @@ describe('Analytics API (/api/analytics) Production Enforcement', () => {
     expect(data.status).toBe('healthy');
     expect(data.serviceHealthVerified).toBe(true);
     expect(data.uptimePercentage).toBeNull();
-    expect(data.uptimeFormatted).toBe('Measured uptime unavailable');
+    expect(data.uptimeFormatted).toBe('Measured service uptime unavailable');
     expect(data.uptimeFormatted).not.toContain('SLA');
     expect(data.uptimeFormatted).not.toContain('continuous');
     expect(data.metrics.totalNodes).toBe(0);

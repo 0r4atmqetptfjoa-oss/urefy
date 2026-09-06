@@ -20,22 +20,70 @@ export type PagesFunction<
   Data extends Record<string, unknown> = Record<string, unknown>
 > = (context: EventContext<Env, Params, Data>) => Response | Promise<Response>;
 
+import { isProductionEnv } from './_db.js';
+
 // ─── SENSITIVE ROUTES & PERMITTED ORIGINS ────────────────────────────────────
 export const SENSITIVE_ROUTES = ['/api/admin', '/api/storage', '/api/push', '/api/cron-backup', '/api/webauthn'];
+
+export const CANONICAL_PRODUCTION_ORIGINS = new Set([
+  'https://aetheris-omni-sphere.pages.dev',
+  'https://aetheris.pages.dev',
+  'https://aetheris.network',
+  'https://aetheris.io',
+]);
+
+export const CANONICAL_PRODUCTION_HOSTS = new Set([
+  'aetheris-omni-sphere.pages.dev',
+  'aetheris.pages.dev',
+  'aetheris.network',
+  'aetheris.io',
+]);
+
+export const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
 
 export function isSensitiveRoute(pathname: string): boolean {
   return SENSITIVE_ROUTES.some((route) => pathname === route || pathname.startsWith(route + '/'));
 }
 
-export function isPermittedOrigin(origin: string, requestUrl: URL): boolean {
+export function isPermittedOrigin(origin: string, requestUrl: URL, env?: any): boolean {
   if (!origin) return false;
   try {
     const originUrl = new URL(origin);
+    const h = originUrl.hostname.toLowerCase();
+    const isSensitive = isSensitiveRoute(requestUrl.pathname);
+    const isProd = isProductionEnv(env);
+
+    // On sensitive routes (/api/webauthn, /api/admin, /api/storage, /api/push, /api/cron-backup):
+    // Strictly DO NOT allow arbitrary *.pages.dev, *.aetheris.network, or *.aetheris.io.
+    // Sensitive routes MUST use exact set membership only: exact production host or loopback in non-production.
+    if (isSensitive) {
+      // Configured origins from environment
+      const configured = env?.CORS_ALLOWED_ORIGINS || env?.WEBAUTHN_ALLOWED_ORIGINS || env?.WEBAUTHN_ALLOWED_ORIGIN;
+      if (configured && typeof configured === 'string') {
+        const list = configured.split(',').map((s: string) => s.trim().toLowerCase()).filter(Boolean);
+        if (list.includes(origin.toLowerCase()) || list.includes(originUrl.origin.toLowerCase()) || list.includes(h)) {
+          return true;
+        }
+      }
+
+      // Exact production host set membership only
+      if (CANONICAL_PRODUCTION_HOSTS.has(h)) {
+        return true;
+      }
+
+      // Loopback development hosts only in non-production
+      if (!isProd && LOOPBACK_HOSTS.has(h)) {
+        return true;
+      }
+
+      return false;
+    }
+
+    // ── Non-sensitive routes (broader policy) ──
     // 1. Same host & port
     if (originUrl.host === requestUrl.host) return true;
     // 2. Localhost / loopback development
-    const h = originUrl.hostname.toLowerCase();
-    if (h === 'localhost' || h === '127.0.0.1' || h === '::1' || h === '[::1]') return true;
+    if (LOOPBACK_HOSTS.has(h)) return true;
     // 3. Whitelisted sovereign network domains
     if (
       h === 'aetheris.network' ||
@@ -65,7 +113,7 @@ export const CORS_HEADERS: Record<string, string> = {
   'Access-Control-Max-Age': '86400',
 };
 
-export function getCorsHeaders(req: Request): Record<string, string> {
+export function getCorsHeaders(req: Request, env?: any): Record<string, string> {
   const url = new URL(req.url);
   const isSensitive = isSensitiveRoute(url.pathname);
   const origin = req.headers.get('Origin');
@@ -80,7 +128,7 @@ export function getCorsHeaders(req: Request): Record<string, string> {
   };
 
   if (isSensitive) {
-    if (origin && isPermittedOrigin(origin, url)) {
+    if (origin && isPermittedOrigin(origin, url, env)) {
       headers['Access-Control-Allow-Origin'] = origin;
       headers['Access-Control-Allow-Credentials'] = 'true';
       headers['Vary'] = 'Origin';
@@ -215,7 +263,9 @@ function validateCSRF(request: Request): { valid: boolean; reason?: string } {
       const isAllowedLocal =
         originUrl.hostname === 'localhost' ||
         originUrl.hostname === '127.0.0.1' ||
-        originUrl.hostname.endsWith('.pages.dev');
+        originUrl.hostname === '::1' ||
+        originUrl.hostname === '[::1]' ||
+        CANONICAL_PRODUCTION_HOSTS.has(originUrl.hostname.toLowerCase());
 
       if (!isSameHost && !isAllowedLocal && !csrfToken) {
         return { valid: false, reason: `Untrusted Origin: ${origin}` };
@@ -256,7 +306,7 @@ export const onRequest: PagesFunction = async (context) => {
   const url = new URL(req.url);
   const now = Date.now();
 
-  const corsHeaders = getCorsHeaders(req);
+  const corsHeaders = getCorsHeaders(req, context.env);
 
   // ── 1. OPTIONS preflight ─────────────────────────────────────────────────
   if (method === 'OPTIONS') {
@@ -371,11 +421,24 @@ export const onRequest: PagesFunction = async (context) => {
   const isSensitive = isSensitiveRoute(url.pathname);
 
   // CORS enforcement: On sensitive routes, never emit Access-Control-Allow-Origin: '*'
+  // Middleware must never replace a route-specific strict CORS header with a broader wildcard policy.
   if (isSensitive) {
     if (newHeaders.get('Access-Control-Allow-Origin') === '*') {
       newHeaders.delete('Access-Control-Allow-Origin');
+      newHeaders.delete('Access-Control-Allow-Credentials');
     }
-    if (corsHeaders['Access-Control-Allow-Origin']) {
+
+    const routeAcao = newHeaders.get('Access-Control-Allow-Origin');
+    if (routeAcao) {
+      // Validate that the route-specific ACAO is permitted; if not permitted, strip it
+      if (!isPermittedOrigin(routeAcao, url, context.env)) {
+        newHeaders.delete('Access-Control-Allow-Origin');
+        newHeaders.delete('Access-Control-Allow-Credentials');
+      } else {
+        newHeaders.set('Access-Control-Allow-Credentials', 'true');
+        newHeaders.set('Vary', 'Origin');
+      }
+    } else if (corsHeaders['Access-Control-Allow-Origin']) {
       newHeaders.set('Access-Control-Allow-Origin', corsHeaders['Access-Control-Allow-Origin']);
       newHeaders.set('Access-Control-Allow-Credentials', 'true');
       newHeaders.set('Vary', 'Origin');
@@ -383,6 +446,7 @@ export const onRequest: PagesFunction = async (context) => {
       newHeaders.delete('Access-Control-Allow-Origin');
       newHeaders.delete('Access-Control-Allow-Credentials');
     }
+
     for (const [k, v] of Object.entries(corsHeaders)) {
       if (k !== 'Access-Control-Allow-Origin' && k !== 'Access-Control-Allow-Credentials') {
         if (!newHeaders.has(k)) newHeaders.set(k, v);

@@ -6,7 +6,7 @@
  * Strictly enforces canonical SovereignSignedEnvelope schema (Zero Legacy Auth).
  */
 
-import { Env } from './_db.js';
+import { Env, isProductionEnv, getD1Database } from './_db.js';
 import { verifyAdminAuthorization } from './admin.js';
 import {
   verifySignedEnvelope,
@@ -117,11 +117,33 @@ export const nonceTracker = {
 
 // ─── DISTRIBUTED REPLAY NONCES (D1 + KV + BOUNDED LRU MEMORY) ────────────────
 
-export async function checkAndRecordNonceDistributed(
-  env: Env | undefined,
+/**
+ * Verifies and atomically consumes a nonce with distributed replay protection.
+ * In production (isProductionEnv(env)):
+ * - If D1 database is unavailable or the INSERT fails due to database error (other than UNIQUE constraint),
+ *   FAILS CLOSED: returns { fresh: false, error: 'Distributed nonce storage unavailable. Replay protection failed closed.' }.
+ * - Does NOT return { fresh: true } based only on local isolate memory when production persistent storage is unavailable or errors.
+ */
+export async function verifyAndConsumeNonce(
+  context: { env?: Env } | Env | undefined,
   fingerprint: string,
-  nonce: string
+  nonce: string,
+  timestamp?: number
 ): Promise<{ fresh: boolean; error?: string }> {
+  const env = context && typeof context === 'object' && 'env' in context ? context.env : (context as Env | undefined);
+  const isProd = isProductionEnv(env);
+
+  // Check timestamp freshness if provided
+  if (timestamp !== undefined) {
+    const now = Date.now();
+    if (Math.abs(now - timestamp) > NONCE_CACHE_TTL_MS) {
+      return {
+        fresh: false,
+        error: `Timestamp outside acceptable freshness window: delta ${Math.abs(now - timestamp)}ms exceeds ${NONCE_CACHE_TTL_MS}ms`,
+      };
+    }
+  }
+
   const memoryKey = `${fingerprint}:${nonce}`;
   const now = Date.now();
   const expiresAt = now + NONCE_CACHE_TTL_MS;
@@ -153,7 +175,16 @@ export async function checkAndRecordNonceDistributed(
   }
 
   // 3. Cloudflare D1 Database Check (used_nonces table with PRIMARY KEY (fingerprint, nonce))
-  const db = env?.DB || env?.AETHERIS_DB;
+  const db = getD1Database(env);
+
+  // In production, D1 persistent storage is mandatory. Fail closed if unavailable.
+  if (isProd && !db) {
+    return {
+      fresh: false,
+      error: 'Distributed nonce storage unavailable. Replay protection failed closed.',
+    };
+  }
+
   if (db) {
     try {
       await db.prepare(
@@ -167,11 +198,26 @@ export async function checkAndRecordNonceDistributed(
           error: `Replay attack detected: duplicate nonce "${nonce}" across distributed D1 database`,
         };
       }
+      // If D1 fails with any other error in production, FAIL CLOSED!
+      if (isProd) {
+        return {
+          fresh: false,
+          error: 'Distributed nonce storage unavailable. Replay protection failed closed.',
+        };
+      }
       console.warn('[Auth] D1 distributed nonce warning:', e);
     }
   }
 
   return { fresh: true };
+}
+
+export async function checkAndRecordNonceDistributed(
+  env: Env | undefined,
+  fingerprint: string,
+  nonce: string
+): Promise<{ fresh: boolean; error?: string }> {
+  return verifyAndConsumeNonce(env, fingerprint, nonce);
 }
 
 // ─── CANONICAL SOVEREIGN SIGNED ENVELOPE ROUTE AUTHENTICATOR ────────────────

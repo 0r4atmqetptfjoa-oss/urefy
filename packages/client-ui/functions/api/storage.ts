@@ -1,8 +1,9 @@
 // ===========================================================================
 // AETHERIS OMNI-SPHERE — CLOUDFLARE R2 & EDGE VAULT STORAGE ENGINE
-// Supports: Cloudflare R2 (Object Storage: env.VAULT_BUCKET or env.R2),
-//           Zero-Latency Distributed Edge Isolate In-Memory Storage Fallback,
-//           Zero-Overage Quota Guardian (Strict Cloudflare Free Tier Protection),
+// Supports: Cloudflare R2 (Object Storage: env.VAULT_BUCKET or env.R2).
+//           In production, all storage persistence requires Cloudflare R2 (fails closed).
+//           In-memory storage is strictly a development/test fixture fallback.
+//           Zero-Overage Quota Guardian (In-Flight Telemetry Safety Protection),
 //           Directory Listing Caching (60s Class A Saver),
 //           SHA-256 Deduplication (Zero-Overage Storage & Class A Saver),
 //           CDN Immutable Caching & 304 Not Modified (Class B Saver),
@@ -57,16 +58,26 @@ export interface StorageUploadResult {
   title: string;
   contentType: string;
   downloadUrl: string;
+  /**
+   * Storage backend used to persist object.
+   * In production, storage is strictly 'Cloudflare-R2'.
+   * 'Edge-Isolate-Memory' is permitted solely in non-production/test environments.
+   */
   storage: 'Cloudflare-R2' | 'Edge-Isolate-Memory';
   uploadedAt: number;
   deduplicated?: boolean;
 }
 
 // ─── CLOUDFLARE R2 ZERO-OVERAGE QUOTA GUARDIAN INVARIANTS ───────────────────
-// Cloudflare Free Tier Limits:
-// - Storage: 10 GB / month free. Sovereign safety cap: 8.0 GB (leaves 2.0 GB absolute safety margin).
-// - Class A operations (writes, lists, deletes): 1,000,000 ops / month free. Safe cap: 750,000.
-// - Class B operations (reads, gets, heads): 10,000,000 ops / month free. Safe cap: 7,500,000.
+// ADVISORY / TELEMETRY ONLY:
+// These counters track estimated in-flight and isolate-level operations to protect
+// the application against runaway loops. They are advisory safety ceilings, NOT
+// authoritative Cloudflare billing metrics or authoritative account quota usage.
+//
+// Cloudflare Free Tier Reference Limits:
+// - Storage: 10 GB / month free. Advisory safe limit: 8.0 GB (leaves 2.0 GB safety margin).
+// - Class A operations (writes, lists, deletes): 1,000,000 ops / month free. Advisory safe cap: 750,000.
+// - Class B operations (reads, gets, heads): 10,000,000 ops / month free. Advisory safe cap: 7,500,000.
 
 export const MAX_STORAGE_CAP_BYTES = 8.0 * 1024 * 1024 * 1024; // 8.0 GB safe limit
 export const FREE_TIER_STORAGE_CAP_BYTES = 10.0 * 1024 * 1024 * 1024; // 10.0 GB hard free tier cap
@@ -126,6 +137,7 @@ interface CachedListingEntry {
 
 const listingCache = new Map<string, CachedListingEntry>();
 
+// Advisory / telemetry counters: track in-flight and isolate operations (not authoritative Cloudflare billing usage)
 let currentTrackedStorageBytes = 0;
 let monthlyClassAOps = 0;
 let monthlyClassBOps = 0;
@@ -716,7 +728,8 @@ export async function onRequestPost(context: {
       const existingTitle = existingMatch.title || title;
       const existingSize = existingMatch.size;
       const existingMerkle = existingMatch.merkleRoot;
-      const existingStorage = existingMatch.storage || (bucket ? 'Cloudflare-R2' : 'Edge-Isolate-Memory');
+      const existingStorage: 'Cloudflare-R2' | 'Edge-Isolate-Memory' =
+        isProductionEnv(context.env) ? 'Cloudflare-R2' : (existingMatch.storage || (bucket ? 'Cloudflare-R2' : 'Edge-Isolate-Memory'));
       const existingUploadedAt = existingMatch.uploadedAt || Date.now();
 
       const downloadUrl = `/api/storage?key=${encodeURIComponent(existingKey)}`;
@@ -988,6 +1001,8 @@ export async function onRequestGet(context: {
 
       const telemetryPayload = {
         success: true,
+        accountingType: 'ADVISORY_TELEMETRY_COUNTERS',
+        notice: 'Local quota metrics are advisory telemetry counters for in-flight circuit breaking and do not represent authoritative Cloudflare billing usage.',
         protectionMode: 'STRICT_FREE_TIER_ENFORCED',
         circuitBreaker: isHealthy ? 'ARMED_AND_PROTECTED' : 'TRIPPED_FAILOVER_TO_MESH',
         storage: {

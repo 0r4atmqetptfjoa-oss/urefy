@@ -198,7 +198,10 @@ describe('WebAuthn FIDO2 Level 3 Server-Side Engine Suite', () => {
 
       const reqPost = new Request('https://aetheris.pages.dev/api/webauthn', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer user-carol',
+        },
         body: JSON.stringify({
           action: 'register',
           fingerprint: 'user-carol',
@@ -240,7 +243,10 @@ describe('WebAuthn FIDO2 Level 3 Server-Side Engine Suite', () => {
       });
       const reqReg = new Request('https://aetheris.pages.dev/api/webauthn', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer user-dave',
+        },
         body: JSON.stringify({
           action: 'register',
           fingerprint: 'user-dave',

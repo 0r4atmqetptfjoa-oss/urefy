@@ -11,6 +11,7 @@ import {
   getD1Database,
   getKVStore,
   globalPushSubscriptionsStore,
+  isProductionEnv,
 } from './_db.js';
 import { requireSignedEnvelope } from './_auth.js';
 
@@ -143,7 +144,22 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
 
     if (action === 'stats' || action === 'subscriptions') {
       const db = getD1Database(context.env);
-      let count = globalPushSubscriptionsStore.length;
+      if (isProductionEnv(context.env) && !db) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'Production Push notification registry requires Cloudflare D1 database',
+          }),
+          {
+            status: 503,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
+          }
+        );
+      }
+      let count = isProductionEnv(context.env) ? 0 : globalPushSubscriptionsStore.length;
 
       if (db) {
         try {
@@ -201,6 +217,23 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
 
     // ── 1. ACTION: SUBSCRIBE ───────────────────────────────────────────────────
     if (action === 'subscribe') {
+      const isProd = isProductionEnv(context.env);
+      if (isProd && !db) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'Production Push notification registry requires Cloudflare D1 database',
+          }),
+          {
+            status: 503,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
+          }
+        );
+      }
+
       const sub = body.subscription || body;
       const endpoint = sub.endpoint;
       const p256dh = sub.keys?.p256dh || body.p256dh;
@@ -268,7 +301,7 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
       // 1. D1 Database persistence
       if (db) {
         try {
-          await db
+          const res = await db
             .prepare(
               `INSERT OR REPLACE INTO push_subscriptions (
                 id, endpoint, p256dh, auth, fingerprint, created_at
@@ -276,7 +309,31 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
             )
             .bind(id, endpoint, p256dh, auth, fingerprint, createdAt)
             .run();
+          if (res && res.success === false && isProd) {
+            return new Response(
+              JSON.stringify({
+                success: false,
+                error: 'Failed to persist push subscription to persistent storage',
+              }),
+              {
+                status: 500,
+                headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+              }
+            );
+          }
         } catch (dbErr) {
+          if (isProd) {
+            return new Response(
+              JSON.stringify({
+                success: false,
+                error: 'Failed to persist push subscription to persistent storage',
+              }),
+              {
+                status: 500,
+                headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+              }
+            );
+          }
           console.warn('[D1 Push Subscribe Error]', dbErr);
         }
       }
@@ -290,12 +347,14 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
         } catch (_) {}
       }
 
-      // 3. In-memory isolate store sync
-      const existingIdx = globalPushSubscriptionsStore.findIndex((s) => s.endpoint === endpoint);
-      if (existingIdx >= 0) {
-        globalPushSubscriptionsStore[existingIdx] = subscriptionRecord;
-      } else {
-        globalPushSubscriptionsStore.push(subscriptionRecord);
+      // 3. In-memory isolate store sync (Dev/Test only)
+      if (!isProd) {
+        const existingIdx = globalPushSubscriptionsStore.findIndex((s) => s.endpoint === endpoint);
+        if (existingIdx >= 0) {
+          globalPushSubscriptionsStore[existingIdx] = subscriptionRecord;
+        } else {
+          globalPushSubscriptionsStore.push(subscriptionRecord);
+        }
       }
 
       return new Response(
@@ -317,6 +376,23 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
 
     // ── 2. ACTION: UNSUBSCRIBE ─────────────────────────────────────────────────
     if (action === 'unsubscribe') {
+      const isProd = isProductionEnv(context.env);
+      if (isProd && !db) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'Production Push notification registry requires Cloudflare D1 database',
+          }),
+          {
+            status: 503,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
+          }
+        );
+      }
+
       const sub = body.subscription || body;
       const endpoint = sub.endpoint || url.searchParams.get('endpoint');
       const fingerprint = body.fingerprint || url.searchParams.get('fingerprint');
@@ -364,12 +440,37 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
       // 1. Remove from D1
       if (db) {
         try {
+          let res: any;
           if (endpoint) {
-            await db.prepare('DELETE FROM push_subscriptions WHERE endpoint = ?').bind(endpoint).run();
+            res = await db.prepare('DELETE FROM push_subscriptions WHERE endpoint = ?').bind(endpoint).run();
           } else if (fingerprint) {
-            await db.prepare('DELETE FROM push_subscriptions WHERE fingerprint = ?').bind(fingerprint).run();
+            res = await db.prepare('DELETE FROM push_subscriptions WHERE fingerprint = ?').bind(fingerprint).run();
+          }
+          if (res && res.success === false && isProd) {
+            return new Response(
+              JSON.stringify({
+                success: false,
+                error: 'Failed to remove push subscription from persistent storage',
+              }),
+              {
+                status: 500,
+                headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+              }
+            );
           }
         } catch (dbErr) {
+          if (isProd) {
+            return new Response(
+              JSON.stringify({
+                success: false,
+                error: 'Failed to remove push subscription from persistent storage',
+              }),
+              {
+                status: 500,
+                headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+              }
+            );
+          }
           console.warn('[D1 Push Unsubscribe Error]', dbErr);
         }
       }
@@ -381,15 +482,17 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
         } catch (_) {}
       }
 
-      // 3. Remove from in-memory store
-      const initialLength = globalPushSubscriptionsStore.length;
-      if (endpoint) {
-        const idx = globalPushSubscriptionsStore.findIndex((s) => s.endpoint === endpoint);
-        if (idx >= 0) globalPushSubscriptionsStore.splice(idx, 1);
-      } else if (fingerprint) {
-        const filtered = globalPushSubscriptionsStore.filter((s) => s.fingerprint !== fingerprint);
-        globalPushSubscriptionsStore.length = 0;
-        globalPushSubscriptionsStore.push(...filtered);
+      // 3. Remove from in-memory store (Dev/Test only)
+      if (!isProd) {
+        const initialLength = globalPushSubscriptionsStore.length;
+        if (endpoint) {
+          const idx = globalPushSubscriptionsStore.findIndex((s) => s.endpoint === endpoint);
+          if (idx >= 0) globalPushSubscriptionsStore.splice(idx, 1);
+        } else if (fingerprint) {
+          const filtered = globalPushSubscriptionsStore.filter((s) => s.fingerprint !== fingerprint);
+          globalPushSubscriptionsStore.length = 0;
+          globalPushSubscriptionsStore.push(...filtered);
+        }
       }
 
       return new Response(
@@ -410,6 +513,23 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
 
     // ── 3. ACTION: BROADCAST OR NOTIFY ─────────────────────────────────────────
     if (action === 'broadcast' || action === 'notify') {
+      const isProd = isProductionEnv(context.env);
+      if (isProd && !db) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'Production Push notification registry requires Cloudflare D1 database',
+          }),
+          {
+            status: 503,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
+          }
+        );
+      }
+
       const title = body.title || 'Aetheris Sovereign Alert';
       const bodyText = body.body || body.message || body.text || '';
       const icon = body.icon || '/favicon.svg';
@@ -452,7 +572,7 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
         } catch (_) {}
       }
 
-      if (targets.length === 0) {
+      if (targets.length === 0 && !isProd) {
         targets = targetFingerprint
           ? globalPushSubscriptionsStore.filter((s) => s.fingerprint === targetFingerprint)
           : [...globalPushSubscriptionsStore];

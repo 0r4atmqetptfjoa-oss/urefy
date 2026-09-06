@@ -13,7 +13,6 @@ import {
   globalPostsStore,
   globalVotesStore,
   globalSpentNullifiers,
-  INITIAL_POSTS,
   isProductionEnv,
   createD1UnavailableResponse,
 } from './_db.js';

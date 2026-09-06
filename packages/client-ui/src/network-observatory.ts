@@ -600,7 +600,10 @@ export class NetworkObservatory {
   public async fetchRealTelemetry(): Promise<void> {
     try {
       const res = await fetch('/api/analytics');
-      if (!res.ok) return;
+      if (!res.ok) {
+        this.nodes = [];
+        return;
+      }
       const data = await res.json();
       if (data && data.metrics) {
         this.metrics = {
@@ -631,20 +634,26 @@ export class NetworkObservatory {
             bandwidthMbps: Number(n.bandwidthMbps) || 100,
             messagesProcessed: Number(n.messagesProcessed) || 0,
           }));
+        } else {
+          this.nodes = [];
         }
         this.notifySubscribers();
         if (typeof document !== 'undefined' && this.isOpen) {
           this.updateOpenModalDOM();
         }
+      } else {
+        this.nodes = [];
       }
     } catch (err) {
       console.warn('[NetworkObservatory] Real telemetry fetch failed:', err);
+      this.nodes = [];
     }
   }
 
   // ─── Data Initializers ───────────────────────────────────────────────
 
-  private initLatencyHistory(): void {
+  public initLatencyHistory(): void {
+    if (!isSimulationModeEnabled()) return;
     const points: LatencyDataPoint[] = [];
     const now = Date.now();
     const intervalMs = 3000; // One point every 3 seconds for the last 100 points
@@ -652,26 +661,26 @@ export class NetworkObservatory {
 
     for (let i = 99; i >= 0; i--) {
       const timestamp = now - i * intervalMs;
-      // Realistic latency generation with Brownian / mean-reverting variation and occasional spikes
-      const drift = (22.0 - currentLatency) * 0.15;
-      const noise = (Math.random() - 0.48) * 3.8;
-      const spike = Math.random() > 0.94 ? (Math.random() * 28.0) : 0;
-      
-      currentLatency = Math.max(11.0, Math.min(85.0, currentLatency + drift + noise + spike));
-      
-      // Randomly select a reference node
-      const randomNode = this.nodes[Math.floor(Math.random() * this.nodes.length)];
+      // Deterministic latency generation without Math.random()
+      const phase = (i * 0.35) % (2 * Math.PI);
+      const wave = Math.sin(phase) * 3.2 + Math.cos(phase * 2.3) * 1.8;
+      const spike = (i % 17 === 0) ? 12.5 : 0;
+      currentLatency = Math.max(11.0, Math.min(85.0, 21.5 + wave + spike));
+
+      const nodeIndex = this.nodes.length > 0 ? (i % this.nodes.length) : 0;
+      const refNode = this.nodes[nodeIndex];
       points.push({
         timestamp,
         latencyMs: parseFloat(currentLatency.toFixed(1)),
-        nodeId: randomNode ? randomNode.id : 'node-prime-gw',
+        nodeId: refNode ? refNode.id : 'node-prime-gw',
       });
     }
 
     this.latencyHistory = points;
   }
 
-  private initSlashing7DayStats(): void {
+  public initSlashing7DayStats(): void {
+    if (!isSimulationModeEnabled()) return;
     const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const now = new Date();
     const stats: SlashingDayStat[] = [];
@@ -709,8 +718,8 @@ export class NetworkObservatory {
     this.slashing7DayStats = stats;
   }
 
-  private calculateAvgLatency(): number {
-    if (this.latencyHistory.length === 0) return 21.4;
+  public calculateAvgLatency(): number {
+    if (this.latencyHistory.length === 0) return 0;
     const sum = this.latencyHistory.reduce((acc, p) => acc + p.latencyMs, 0);
     return parseFloat((sum / this.latencyHistory.length).toFixed(1));
   }
@@ -1267,10 +1276,13 @@ export class NetworkObservatory {
 
             ${filteredNodes.length === 0 ? `
               <g transform="translate(400, 220)">
-                <text text-anchor="middle" y="0" fill="#64748b" font-size="14" font-family="monospace">
+                <text text-anchor="middle" y="-6" fill="#64748b" font-size="14" font-family="monospace">
                   No network topology data available
                 </text>
-                <text text-anchor="middle" y="24" fill="#475569" font-size="12" font-family="sans-serif">
+                <text text-anchor="middle" y="20" fill="#94a3b8" font-size="12" font-family="monospace">
+                  No measured telemetry available. Nodes will appear as they join the sovereign mesh.
+                </text>
+                <text text-anchor="middle" y="44" fill="#475569" font-size="11" font-family="sans-serif">
                   Connect peer nodes or enable simulation mode to view mesh topology.
                 </text>
               </g>
@@ -1295,6 +1307,12 @@ export class NetworkObservatory {
             </div>
           `}
         </div>
+
+        ${this.nodes.length === 0 ? `
+          <div class="mt-4 p-5 rounded-xl bg-canvas border border-dashed border-white/10 text-center font-mono text-xs text-slate-400">
+            No measured telemetry available. Nodes will appear as they join the sovereign mesh.
+          </div>
+        ` : ''}
 
         <!-- Node Roles & Status Legend -->
         <div class="flex flex-wrap items-center justify-between gap-4 mt-3 pt-3 border-t border-white/5 text-xs text-slate-400 font-mono">

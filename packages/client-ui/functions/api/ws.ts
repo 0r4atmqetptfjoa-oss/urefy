@@ -4,7 +4,8 @@
 // Zero-Config Fallback: In-Isolate Cloudflare Pages WebSocketPair with ZK-RLN & Presence.
 // ===========================================================================
 
-import { ZKRLN, RLNShare } from '@aetheris/core-crypto';
+import { createHmac } from 'node:crypto';
+import { ZKRLN, RLNShare, verifySignature, hexToBytes, computeFingerprint } from '@aetheris/core-crypto';
 import { isProductionEnv } from './_db.js';
 
 export function createWebSocketUpgradeResponse(clientWs: any): Response {
@@ -94,11 +95,109 @@ export const INITIAL_MESSAGES_MAP: Record<string, any[]> = {
   ],
 };
 
-// ─── STANDALONE ISOLATE STATE ────────────────────────────────────────────────
+// ─── STANDALONE ISOLATE STATE & SESSION AUTHENTICATION (Finding 2) ───────────
+
+export interface RelaySessionPayload {
+  sub: string;
+  role: string;
+  aud?: string;
+  exp: number;
+  iat?: number;
+  nonce?: string;
+}
+
+function base64UrlEncode(str: string): string {
+  const bytes = new TextEncoder().encode(str);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function base64UrlDecode(str: string): string {
+  let b64 = str.replace(/-/g, '+').replace(/_/g, '/');
+  while (b64.length % 4) b64 += '=';
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return new TextDecoder().decode(bytes);
+}
+
+export function createRelaySessionToken(
+  payload: RelaySessionPayload,
+  secret: string = 'aetheris-dev-secret-key-v1'
+): string {
+  const payloadB64 = base64UrlEncode(JSON.stringify(payload));
+  const sigHex = createHmac('sha256', secret)
+    .update(`aeth_ws:${payloadB64}`)
+    .digest('hex');
+  return `aeth_ws_${payloadB64}_${sigHex}`;
+}
+
+export function verifyRelaySessionToken(
+  token: string,
+  secret: string = 'aetheris-dev-secret-key-v1',
+  expectedAudience = 'aetheris-relay'
+): { valid: boolean; payload?: RelaySessionPayload; error?: string } {
+  if (!token || typeof token !== 'string' || !token.startsWith('aeth_ws_')) {
+    return { valid: false, error: 'Malformed token format' };
+  }
+  const parts = token.split('_');
+  if (parts.length !== 4 || parts[0] !== 'aeth' || parts[1] !== 'ws') {
+    return { valid: false, error: 'Invalid token structure' };
+  }
+  const [, , payloadB64, sigHex] = parts;
+  let expectedSigHex: string;
+  try {
+    expectedSigHex = createHmac('sha256', secret)
+      .update(`aeth_ws:${payloadB64}`)
+      .digest('hex');
+  } catch (err: any) {
+    return { valid: false, error: `Signature verification error: ${err.message}` };
+  }
+
+  if (sigHex.toLowerCase() !== expectedSigHex.toLowerCase()) {
+    return { valid: false, error: 'Invalid session signature' };
+  }
+
+  let payload: RelaySessionPayload;
+  try {
+    const rawPayload = base64UrlDecode(payloadB64);
+    payload = JSON.parse(rawPayload);
+  } catch (_) {
+    return { valid: false, error: 'Malformed token payload JSON' };
+  }
+
+  const now = Date.now();
+  if (typeof payload.exp !== 'number' || payload.exp < now) {
+    return { valid: false, error: 'Session token has expired' };
+  }
+
+  if (payload.aud && payload.aud !== expectedAudience && payload.aud !== 'aetheris-relay') {
+    return { valid: false, error: `Wrong audience: expected ${expectedAudience}, got ${payload.aud}` };
+  }
+
+  if (!payload.sub || typeof payload.sub !== 'string') {
+    return { valid: false, error: 'Invalid or missing subject fingerprint in token' };
+  }
+
+  return { valid: true, payload };
+}
+
 const activeClients = new Map<WebSocket, SocketClient>();
 const activeShares = new Map<string, RLNShare>(); // Key: `${epoch}:${nullifier}`
 const revokedNullifiers = new Set<string>();
 const presenceStore = new Map<string, PresenceUser>();
+
+export function resetStandaloneWsState(): void {
+  activeClients.clear();
+  activeShares.clear();
+  revokedNullifiers.clear();
+  presenceStore.clear();
+}
 
 /**
  * High-efficiency broadcast: serializes payload ONCE with JSON.stringify()
@@ -223,18 +322,103 @@ export async function onRequest(context: {
 
       switch (packet.type) {
         case 'AUTH': {
-          clientInfo.fingerprint = packet.fingerprint;
+          let authenticated = false;
+          let verifiedFingerprint: string | undefined = undefined;
+          let verifiedRole: string = 'ANONYMOUS';
+
+          const secret = env?.RELAY_SECRET || env?.SESSION_SECRET || 'aetheris-dev-secret-key-v1';
+
+          // 1. Session token verification
+          if (packet.token && typeof packet.token === 'string') {
+            const tokenVerification = verifyRelaySessionToken(packet.token, secret);
+            if (tokenVerification.valid && tokenVerification.payload) {
+              authenticated = true;
+              verifiedFingerprint = tokenVerification.payload.sub;
+              verifiedRole = tokenVerification.payload.role || 'MEMBER';
+            }
+          }
+
+          // 2. Cryptographic keypair signature verification
+          if (!authenticated && packet.publicKeyHex && packet.signature && packet.fingerprint && packet.timestamp) {
+            try {
+              const ts = Number(packet.timestamp);
+              // Clock skew guard: max 5 minutes
+              if (Math.abs(Date.now() - ts) < 300000) {
+                const expectedFp = computeFingerprint(hexToBytes(packet.publicKeyHex));
+                if (expectedFp === packet.fingerprint) {
+                  const authPayload = `auth:${packet.fingerprint}:${packet.timestamp}`;
+                  if (verifySignature(packet.signature, authPayload, packet.publicKeyHex)) {
+                    authenticated = true;
+                    verifiedFingerprint = packet.fingerprint;
+                    const requestedRole = (packet.role || '').toUpperCase();
+                    // Privileged roles like ADMIN or GUARDIAN require a valid session token!
+                    if (requestedRole === 'ADMIN' || requestedRole === 'GUARDIAN') {
+                      verifiedRole = 'ANONYMOUS';
+                    } else {
+                      verifiedRole = packet.role || 'MEMBER';
+                    }
+                  }
+                }
+              }
+            } catch (_) {}
+          }
+
+          // 3. Unauthenticated / unverified handling
+          if (!authenticated) {
+            const requestedRole = (packet.role || '').toUpperCase();
+            // Client-supplied privileged role from unverified message must be rejected and defaulted to ANONYMOUS
+            if (requestedRole === 'ADMIN' || requestedRole === 'GUARDIAN') {
+              clientInfo.role = 'ANONYMOUS';
+              clientInfo.fingerprint = undefined;
+              clientInfo.lastSeen = Date.now();
+
+              serverWs.send(
+                JSON.stringify({
+                  type: 'AUTH_FAILED',
+                  error: 'Privileged role rejected: Valid session token required for ADMIN or GUARDIAN.',
+                  role: 'ANONYMOUS',
+                })
+              );
+              break;
+            }
+
+            // Unverified client cannot set arbitrary role or fingerprint
+            clientInfo.role = 'ANONYMOUS';
+            clientInfo.fingerprint = undefined;
+            clientInfo.nullifier = packet.nullifier;
+            clientInfo.lastSeen = Date.now();
+
+            serverWs.send(
+              JSON.stringify({
+                type: 'AUTH_SUCCESS',
+                authenticated: false,
+                role: 'ANONYMOUS',
+                isQuarantined: false,
+              })
+            );
+
+            serverWs.send(
+              JSON.stringify({
+                type: 'CHANNELS_LIST',
+                channels: DEFAULT_CHANNELS,
+              })
+            );
+            break;
+          }
+
+          // Authenticated successfully
+          clientInfo.fingerprint = verifiedFingerprint;
           clientInfo.nullifier = packet.nullifier;
-          clientInfo.role = packet.role || 'MEMBER';
+          clientInfo.role = verifiedRole;
           clientInfo.lastSeen = Date.now();
 
           const isQuarantined = Boolean(packet.nullifier && revokedNullifiers.has(packet.nullifier));
 
-          if (packet.fingerprint) {
-            presenceStore.set(packet.fingerprint, {
-              fingerprint: packet.fingerprint,
+          if (verifiedFingerprint) {
+            presenceStore.set(verifiedFingerprint, {
+              fingerprint: verifiedFingerprint,
               nullifier: packet.nullifier,
-              role: clientInfo.role || 'MEMBER',
+              role: verifiedRole,
               status: packet.status || 'online',
               joinedChannel: clientInfo.currentChannelId,
               subscribedChannels: Array.from(clientInfo.subscribedChannels),
@@ -246,8 +430,10 @@ export async function onRequest(context: {
           serverWs.send(
             JSON.stringify({
               type: 'AUTH_SUCCESS',
+              authenticated: true,
               isQuarantined,
-              fingerprint: packet.fingerprint,
+              fingerprint: verifiedFingerprint,
+              role: verifiedRole,
               nullifier: packet.nullifier,
             })
           );
@@ -259,11 +445,11 @@ export async function onRequest(context: {
             })
           );
 
-          if (packet.fingerprint) {
+          if (verifiedFingerprint) {
             broadcast(
               {
                 type: 'PRESENCE_UPDATE',
-                presence: presenceStore.get(packet.fingerprint),
+                presence: presenceStore.get(verifiedFingerprint),
               },
               { senderWs: serverWs }
             );
