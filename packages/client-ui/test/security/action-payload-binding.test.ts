@@ -1,101 +1,82 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import {
   createSovereignIdentity,
   createSignedEnvelope,
-  signMessage,
-  bytesToHex,
 } from '@aetheris/core-crypto';
 import {
-  verifyIdentitySignature,
   requireSignedEnvelope,
   resetReplayNonceCache,
 } from '../../functions/api/_auth.js';
 
 describe('Security Gate: Cryptographic Action-Payload Binding & Anti-Rebinding', () => {
-  it('rejects cross-action signature reuse (signature for "like" cannot authorize "delete")', () => {
+  beforeEach(() => {
+    resetReplayNonceCache();
+  });
+
+  it('rejects cross-action signature reuse (signature for "like" cannot authorize "delete")', async () => {
     const identity = createSovereignIdentity();
     const targetId = 'post-xyz-999';
-    const timestamp = Date.now();
 
-    // Alice signs a "like" action
-    const likePayload = `${targetId}:like:${identity.identity.fingerprint}`;
-    const signatureLike = bytesToHex(signMessage(likePayload, identity.signingPrivateKey));
+    // Alice creates signed envelope for a "like" action
+    const envelope = createSignedEnvelope(
+      { targetId, action: 'like' },
+      identity
+    );
 
-    // Attacker intercepts signatureLike and attempts to use it for "delete" action on the same post
-    const deleteReq = new Request('https://aetheris.pages.dev/api/posts', {
+    // Attacker intercepts envelope and attempts to change payload to "delete" action on the same post
+    const tamperedEnvelope = {
+      ...envelope,
+      payload: { targetId, action: 'delete' },
+    };
+
+    const req = new Request('https://aetheris.pages.dev/api/interactions', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Author-Fingerprint': identity.identity.fingerprint,
-        'X-Public-Key': identity.identity.signingPublicKey,
-        'X-Signature': signatureLike,
-        'X-Timestamp': String(timestamp),
-      },
-      body: JSON.stringify({
-        targetId,
-        action: 'delete',
-        authorFingerprint: identity.identity.fingerprint,
-        publicKey: identity.identity.signingPublicKey,
-        signature: signatureLike,
-        timestamp,
-      }),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(tamperedEnvelope),
     });
 
-    const result = verifyIdentitySignature({
-      targetId,
-      action: 'delete',
-      authorFingerprint: identity.identity.fingerprint,
-      publicKey: identity.identity.signingPublicKey,
-      signature: signatureLike,
-      timestamp,
-    }, deleteReq);
+    const result = await requireSignedEnvelope(
+      { request: req, env: {} },
+      tamperedEnvelope,
+      'post:vote'
+    );
 
-    expect(result.valid).toBe(false);
+    expect(result.authorized).toBe(false);
     expect(result.response?.status).toBe(401);
   });
 
-  it('rejects cross-target signature reuse (signature for "post-1" cannot authorize "post-2")', () => {
+  it('rejects cross-target signature reuse (signature for "post-1" cannot authorize "post-2")', async () => {
     const identity = createSovereignIdentity();
-    const timestamp = Date.now();
 
-    // Alice signs "upvote" for post-1
-    const post1Payload = `post-1:vote:${identity.identity.fingerprint}`;
-    const signaturePost1 = bytesToHex(signMessage(post1Payload, identity.signingPrivateKey));
+    // Alice creates signed envelope for post-1
+    const envelope = createSignedEnvelope(
+      { targetId: 'post-1', action: 'vote' },
+      identity
+    );
 
-    const post2Req = new Request('https://aetheris.pages.dev/api/posts', {
+    // Attacker attempts to apply signature to post-2
+    const tamperedEnvelope = {
+      ...envelope,
+      payload: { targetId: 'post-2', action: 'vote' },
+    };
+
+    const req = new Request('https://aetheris.pages.dev/api/posts', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Author-Fingerprint': identity.identity.fingerprint,
-        'X-Public-Key': identity.identity.signingPublicKey,
-        'X-Signature': signaturePost1,
-        'X-Timestamp': String(timestamp),
-      },
-      body: JSON.stringify({
-        targetId: 'post-2',
-        action: 'vote',
-        authorFingerprint: identity.identity.fingerprint,
-        publicKey: identity.identity.signingPublicKey,
-        signature: signaturePost1,
-        timestamp,
-      }),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(tamperedEnvelope),
     });
 
-    const result = verifyIdentitySignature({
-      targetId: 'post-2',
-      action: 'vote',
-      authorFingerprint: identity.identity.fingerprint,
-      publicKey: identity.identity.signingPublicKey,
-      signature: signaturePost1,
-      timestamp,
-    }, post2Req);
+    const result = await requireSignedEnvelope(
+      { request: req, env: {} },
+      tamperedEnvelope,
+      'post:vote'
+    );
 
-    expect(result.valid).toBe(false);
+    expect(result.authorized).toBe(false);
     expect(result.response?.status).toBe(401);
   });
 
   it('enforces strict capability boundary in requireSignedEnvelope (channel:create != storage:upload)', async () => {
-    resetReplayNonceCache();
     const limitedIdentity = createSovereignIdentity({
       capabilities: ['channel:create'],
     });

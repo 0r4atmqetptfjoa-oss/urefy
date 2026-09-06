@@ -1,18 +1,19 @@
 /**
  * Cloudflare Pages Function: /api/webauthn
  * Complete Server-Side WebAuthn Level 3 Passkey Registration & Assertion Verification Engine.
- * Provides challenge issuance, attestation credential storage (Cloudflare D1),
- * KV challenge tracking with TTL, and mandatory Web Crypto signature verification.
+ * Distributed Multi-Isolate Architecture:
+ * - Authoritative Challenge Store in Cloudflare D1 (webauthn_challenges) & KV with 300s TTL.
+ * - Authoritative Credential Store in Cloudflare D1 (webauthn_credentials).
+ * - Mandatory Web Crypto P-256 ECDSA Signature Verification (Zero Bypass).
  */
 
 import { Env, getD1Database, getKVStore } from './_db.js';
 
-// In-memory challenge cache for rapid verification (PoP edge memory fallback)
-const challengeStore = new Map<string, { challenge: string; timestamp: number }>();
+// Transient local edge memory cache (local PoP optimization; D1/KV remain authoritative)
+const challengeMemoryCache = new Map<string, { challenge: string; timestamp: number }>();
 const CHALLENGE_TTL_MS = 300000; // 5 minutes
 
-// In-memory credential registry fallback if D1 table is not yet bound
-const memoryCredentialStore = new Map<string, {
+const credentialMemoryCache = new Map<string, {
   credentialId: string;
   fingerprint: string;
   publicKey: string;
@@ -21,8 +22,8 @@ const memoryCredentialStore = new Map<string, {
 }>();
 
 export function resetWebAuthnMemoryStore(): void {
-  challengeStore.clear();
-  memoryCredentialStore.clear();
+  challengeMemoryCache.clear();
+  credentialMemoryCache.clear();
 }
 
 function base64UrlToBuffer(base64url: string): ArrayBuffer {
@@ -134,44 +135,95 @@ export async function importWebAuthnPublicKey(rawKey: any): Promise<CryptoKey> {
   );
 }
 
-// ─── STORAGE LAYER: D1 & KV HELPERS WITH MEMORY FALLBACK ────────────────────
+// ─── DISTRIBUTED STORAGE LAYER: D1 & KV PERSISTENCE ─────────────────────────
 
 async function saveChallenge(env: Env | undefined, fingerprint: string, challenge: string): Promise<void> {
-  // Always update in-memory cache for ultra-fast local isolate lookup
-  challengeStore.set(fingerprint, { challenge, timestamp: Date.now() });
+  const now = Date.now();
+  const expiresAt = now + CHALLENGE_TTL_MS;
 
+  // Local transient cache
+  challengeMemoryCache.set(fingerprint, { challenge, timestamp: now });
+
+  // Cloudflare D1 Authoritative Persistence (webauthn_challenges)
+  const db = getD1Database(env);
+  if (db) {
+    try {
+      await db.prepare(
+        `INSERT OR REPLACE INTO webauthn_challenges (fingerprint, challenge, expires_at, created_at)
+         VALUES (?, ?, ?, ?)`
+      )
+        .bind(fingerprint, challenge, expiresAt, now)
+        .run();
+    } catch (e) {
+      console.warn('[WebAuthn] D1 saveChallenge warning:', e);
+    }
+  }
+
+  // Cloudflare KV Edge Replication
   const kv = getKVStore(env) || env?.KV_SESSIONS;
   if (kv) {
     try {
       await kv.put(`webauthn_challenge:${fingerprint}`, challenge, {
-        expirationTtl: 300, // 5 minutes TTL
+        expirationTtl: 300,
       });
     } catch (e) {
-      console.warn('[WebAuthn] KV saveChallenge error:', e);
+      console.warn('[WebAuthn] KV saveChallenge warning:', e);
     }
   }
 }
 
 async function getChallenge(env: Env | undefined, fingerprint: string): Promise<string | null> {
+  const now = Date.now();
+
+  // 1. Check Cloudflare D1 Authoritative Persistent Store first
+  const db = getD1Database(env);
+  if (db) {
+    try {
+      const row = await db.prepare(
+        `SELECT challenge, expires_at FROM webauthn_challenges WHERE fingerprint = ? AND expires_at > ?`
+      )
+        .bind(fingerprint, now)
+        .first<{ challenge: string; expires_at: number }>();
+
+      if (row?.challenge) {
+        return row.challenge;
+      }
+    } catch (e) {
+      console.warn('[WebAuthn] D1 getChallenge warning:', e);
+    }
+  }
+
+  // 2. Check Cloudflare KV Edge Store
   const kv = getKVStore(env) || env?.KV_SESSIONS;
   if (kv) {
     try {
       const kvVal = await kv.get(`webauthn_challenge:${fingerprint}`);
       if (kvVal) return kvVal;
     } catch (e) {
-      console.warn('[WebAuthn] KV getChallenge fallback to memory:', e);
+      console.warn('[WebAuthn] KV getChallenge warning:', e);
     }
   }
 
-  const cached = challengeStore.get(fingerprint);
-  if (cached && Date.now() - cached.timestamp <= CHALLENGE_TTL_MS) {
+  // 3. Fallback to local memory cache
+  const cached = challengeMemoryCache.get(fingerprint);
+  if (cached && now - cached.timestamp <= CHALLENGE_TTL_MS) {
     return cached.challenge;
   }
   return null;
 }
 
 async function deleteChallenge(env: Env | undefined, fingerprint: string): Promise<void> {
-  challengeStore.delete(fingerprint);
+  challengeMemoryCache.delete(fingerprint);
+
+  const db = getD1Database(env);
+  if (db) {
+    try {
+      await db.prepare(`DELETE FROM webauthn_challenges WHERE fingerprint = ?`)
+        .bind(fingerprint)
+        .run();
+    } catch (_) {}
+  }
+
   const kv = getKVStore(env) || env?.KV_SESSIONS;
   if (kv) {
     try {
@@ -191,7 +243,7 @@ async function saveCredential(
     createdAt: number;
   }
 ): Promise<void> {
-  memoryCredentialStore.set(cred.credentialId, {
+  credentialMemoryCache.set(cred.credentialId, {
     credentialId: cred.credentialId,
     fingerprint: cred.fingerprint,
     publicKey: cred.publicKey,
@@ -216,7 +268,7 @@ async function saveCredential(
         )
         .run();
     } catch (e) {
-      console.warn('[WebAuthn] D1 saveCredential fallback to memory:', e);
+      console.warn('[WebAuthn] D1 saveCredential warning:', e);
     }
   }
 }
@@ -243,11 +295,11 @@ async function getCredential(
         };
       }
     } catch (e) {
-      console.warn('[WebAuthn] D1 getCredential fallback to memory:', e);
+      console.warn('[WebAuthn] D1 getCredential warning:', e);
     }
   }
 
-  const mem = memoryCredentialStore.get(credentialId);
+  const mem = credentialMemoryCache.get(credentialId);
   return mem || null;
 }
 
@@ -256,7 +308,7 @@ async function updateCredentialCounter(
   credentialId: string,
   newCounter: number
 ): Promise<void> {
-  const mem = memoryCredentialStore.get(credentialId);
+  const mem = credentialMemoryCache.get(credentialId);
   if (mem) {
     mem.counter = newCounter;
   }
@@ -270,7 +322,7 @@ async function updateCredentialCounter(
         .bind(newCounter, credentialId)
         .run();
     } catch (e) {
-      console.warn('[WebAuthn] D1 updateCredentialCounter error:', e);
+      console.warn('[WebAuthn] D1 updateCredentialCounter warning:', e);
     }
   }
 }
@@ -293,11 +345,11 @@ async function listCredentialsByFingerprint(env: Env | undefined, fingerprint: s
         }
       }
     } catch (e) {
-      console.warn('[WebAuthn] D1 listCredentials fallback to memory:', e);
+      console.warn('[WebAuthn] D1 listCredentials warning:', e);
     }
   }
 
-  for (const [id, c] of memoryCredentialStore.entries()) {
+  for (const [id, c] of credentialMemoryCache.entries()) {
     if (c.fingerprint === fingerprint) {
       creds.add(id);
     }
@@ -336,14 +388,14 @@ export async function onRequest(context: { request: Request; env?: Env }): Promi
         crypto.getRandomValues(challengeBytes);
         const challenge = bufferToBase64Url(challengeBytes);
 
-        // Store challenge with TTL (KV + Edge Memory)
+        // Store challenge in Cloudflare D1 + KV + Local Cache with 300s TTL
         await saveChallenge(env, fingerprint, challenge);
 
         // Clean expired in-memory challenges
         const now = Date.now();
-        for (const [k, v] of challengeStore.entries()) {
+        for (const [k, v] of challengeMemoryCache.entries()) {
           if (now - v.timestamp > CHALLENGE_TTL_MS) {
-            challengeStore.delete(k);
+            challengeMemoryCache.delete(k);
           }
         }
 
@@ -384,7 +436,7 @@ export async function onRequest(context: { request: Request; env?: Env }): Promi
         );
       }
 
-      // Check active challenge
+      // Check active challenge in D1 / KV / Memory
       const expectedChallenge = await getChallenge(env, fingerprint);
       if (!expectedChallenge) {
         return new Response(
@@ -469,7 +521,7 @@ export async function onRequest(context: { request: Request; env?: Env }): Promi
           createdAt: Date.now(),
         });
 
-        // Clear used challenge to prevent reuse
+        // Atomically delete used challenge from D1 and KV
         await deleteChallenge(env, fingerprint);
 
         return new Response(
@@ -504,7 +556,7 @@ export async function onRequest(context: { request: Request; env?: Env }): Promi
           );
         }
 
-        // Look up registered credential (D1 + Edge memory fallback)
+        // Look up registered credential (D1 Authoritative + Edge memory fallback)
         const cred = await getCredential(env, credentialId);
         if (!cred || cred.fingerprint !== fingerprint) {
           return new Response(
@@ -643,7 +695,7 @@ export async function onRequest(context: { request: Request; env?: Env }): Promi
           );
         }
 
-        // 5. Update counter in D1/memory & consume challenge
+        // 5. Update counter in D1/memory & ATOMICALLY delete challenge from D1/KV/Memory
         const updatedCounter = signCount > 0 ? signCount : cred.counter + 1;
         await updateCredentialCounter(env, credentialId, updatedCounter);
         await deleteChallenge(env, fingerprint);

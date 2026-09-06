@@ -193,10 +193,11 @@ export class AetherisClientStore {
     const entries = Array.from(this._pendingVotes.entries());
     this._pendingVotes.clear();
     for (const [postId, direction] of entries) {
+      const envelope = this.createSignedEnvelope({ action: 'vote', postId, direction });
       fetch('/api/posts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'vote', postId, direction }),
+        body: JSON.stringify(envelope),
       }).catch(() => {});
     }
   }
@@ -851,10 +852,11 @@ export class AetherisClientStore {
 
     // Sync boost with Edge Functions
     if (typeof fetch !== 'undefined') {
+      const envelope = this.createSignedEnvelope({ action: p.userBoosted ? 'boost' : 'unboost', postId });
       fetch('/api/posts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: p.userBoosted ? 'boost' : 'unboost', postId }),
+        body: JSON.stringify(envelope),
       }).catch(() => {});
     }
   }
@@ -903,18 +905,19 @@ export class AetherisClientStore {
     this.notify();
 
     // Broadcast & persist to Edge API with automatic Offline Outbox fallback
+    const envelope = this.createSignedEnvelope({ action: 'create', ...newPost });
     if (typeof fetch !== 'undefined') {
       fetchWithRetry('/api/posts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'create', ...newPost }),
+        body: JSON.stringify(envelope),
         maxRetries: 2,
         baseDelayMs: 300,
       }).catch(() => {
-        offlineSync.enqueue('CREATE_POST', newPost);
+        offlineSync.enqueue('CREATE_POST', envelope);
       });
     } else {
-      offlineSync.enqueue('CREATE_POST', newPost);
+      offlineSync.enqueue('CREATE_POST', envelope);
     }
 
     return newPost;
@@ -1272,21 +1275,22 @@ export class AetherisClientStore {
     }
 
     // Persist to Edge Messages API with automatic Offline Outbox fallback
+    const msgEnvelope = this.createSignedEnvelope({
+      ...newMsg,
+      signature,
+    });
     if (typeof fetch !== 'undefined') {
       fetchWithRetry('/api/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...newMsg,
-          signature,
-        }),
+        body: JSON.stringify(msgEnvelope),
         maxRetries: 2,
         baseDelayMs: 300,
       }).catch(() => {
-        offlineSync.enqueue('SEND_MESSAGE', { ...newMsg, signature });
+        offlineSync.enqueue('SEND_MESSAGE', msgEnvelope);
       });
     } else {
-      offlineSync.enqueue('SEND_MESSAGE', { ...newMsg, signature });
+      offlineSync.enqueue('SEND_MESSAGE', msgEnvelope);
     }
 
     // Also broadcast via WebSocket

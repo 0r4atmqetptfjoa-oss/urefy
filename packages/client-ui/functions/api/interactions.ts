@@ -5,7 +5,7 @@
 // ===========================================================================
 
 import { Env, getD1Database } from './_db.js';
-import { requireAdmin, verifyIdentitySignature, verifyEnvelopeOrLegacyAuth } from './_auth.js';
+import { requireAdmin, requireSignedEnvelope } from './_auth.js';
 
 export interface InteractionRecord {
   id: string;
@@ -191,13 +191,6 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
       );
     }
 
-    if (!userFingerprint) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'userFingerprint is required' }),
-        { status: 400, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
-      );
-    }
-
     const validActions = ['like', 'repost', 'bookmark', 'reaction', 'award', 'view'];
     if (!validActions.includes(action)) {
       return new Response(
@@ -210,9 +203,9 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
     if (action !== 'view') {
       const adminCheck = await requireAdmin(context);
       if (!adminCheck.authorized) {
-        const auth = verifyEnvelopeOrLegacyAuth(
+        const auth = await requireSignedEnvelope(
           context,
-          rawBody.payload ? rawBody : { targetId, action, authorFingerprint: userFingerprint, ...body },
+          rawBody,
           'post:vote'
         );
         if (!auth.authorized) {
@@ -227,6 +220,18 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
             )
           );
         }
+        userFingerprint = auth.fingerprint || userFingerprint;
+      }
+    }
+
+    if (!userFingerprint) {
+      if (action === 'view') {
+        userFingerprint = 'anon-view';
+      } else {
+        return new Response(
+          JSON.stringify({ success: false, error: 'userFingerprint is required' }),
+          { status: 400, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
+        );
       }
     }
 

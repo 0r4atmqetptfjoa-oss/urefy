@@ -12,7 +12,7 @@ import {
   globalChannelsStore,
   INITIAL_CHANNELS,
 } from './_db.js';
-import { requireAdmin, verifyIdentitySignature, verifyEnvelopeOrLegacyAuth } from './_auth.js';
+import { requireAdmin, requireSignedEnvelope } from './_auth.js';
 
 export { EdgeChannel };
 
@@ -166,7 +166,7 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
     // Protect channel creation: require admin or cryptographically signed request / envelope
     const adminCheck = await requireAdmin(context);
     if (!adminCheck.authorized) {
-      const authResult = verifyEnvelopeOrLegacyAuth(context, rawBody, 'channel:create');
+      const authResult = await requireSignedEnvelope(context, rawBody, 'channel:create');
       if (!authResult.authorized) {
         return authResult.response!;
       }

@@ -1,27 +1,18 @@
 /**
  * Cloudflare Pages Functions Authentication & Cryptographic Authorization Layer
  * Route: /api/* shared security middleware
- * Provides requireAdmin, verifyIdentitySignature, requireOwnership,
- * requireSignedEnvelope, and distributed replay nonce protection (D1 + KV + LRU memory).
+ * Provides requireAdmin, requireOwnership, requireSignedEnvelope,
+ * and distributed atomic replay nonce protection (D1 + KV + LRU memory).
+ * Strictly enforces canonical SovereignSignedEnvelope schema (Zero Legacy Auth).
  */
 
 import { Env } from './_db.js';
 import { verifyAdminAuthorization } from './admin.js';
 import {
-  verifySignature,
-  computeFingerprint,
-  hexToBytes,
   verifySignedEnvelope,
   SovereignSignedEnvelope,
   SovereignIdentity,
 } from '@aetheris/core-crypto';
-
-export interface IdentityAuthResult {
-  valid: boolean;
-  fingerprint?: string;
-  publicKey?: string;
-  response?: Response;
-}
 
 export interface AdminAuthResult {
   authorized: boolean;
@@ -50,165 +41,6 @@ export async function requireAdmin(context: { request: Request; env?: Env }): Pr
     };
   }
   return { authorized: true };
-}
-
-/**
- * Cryptographically verifies that a mutating request originates from the claimed sovereign identity.
- * Validates:
- * 1. Presence of authorFingerprint, publicKey, and signature.
- * 2. Fingerprint derivation matches publicKey (SHA-256 first 8 bytes).
- * 3. Timestamp replay protection (within 5 minutes).
- * 4. Ed25519 signature over exact, canonical payload (no loose fallback guessing).
- */
-export function verifyIdentitySignature(body: any, request: Request): IdentityAuthResult {
-  const authorFingerprint = (
-    request.headers.get('X-Author-Fingerprint') ||
-    request.headers.get('X-Fingerprint') ||
-    body?.authorFingerprint ||
-    body?.userFingerprint ||
-    body?.fingerprint ||
-    ''
-  ).trim();
-
-  const publicKey = (
-    request.headers.get('X-Public-Key') ||
-    body?.publicKey ||
-    body?.authorPublicKey ||
-    ''
-  ).trim();
-
-  const signature = (
-    request.headers.get('X-Signature') ||
-    body?.signature ||
-    ''
-  ).trim();
-
-  const rawTimestamp = request.headers.get('X-Timestamp') || body?.timestamp || body?.createdAt;
-  const timestamp = rawTimestamp ? parseInt(String(rawTimestamp), 10) : Date.now();
-
-  if (!authorFingerprint || !publicKey || !signature) {
-    return {
-      valid: false,
-      response: new Response(
-        JSON.stringify({
-          success: false,
-          error: 'Cryptographic authentication required: authorFingerprint, publicKey, and signature are mandatory.',
-        }),
-        {
-          status: 401,
-          headers: { 'Content-Type': 'application/json' },
-        }
-      ),
-    };
-  }
-
-  // 1. Validate public key format (32 bytes = 64 hex characters)
-  if (!/^[0-9a-fA-F]{64}$/.test(publicKey)) {
-    return {
-      valid: false,
-      response: new Response(
-        JSON.stringify({
-          success: false,
-          error: 'Invalid public key format: expected 64-character hex string (32 bytes).',
-        }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      ),
-    };
-  }
-
-  // 2. Validate signature format (64 bytes = 128 hex characters)
-  if (!/^[0-9a-fA-F]{128}$/.test(signature)) {
-    return {
-      valid: false,
-      response: new Response(
-        JSON.stringify({
-          success: false,
-          error: 'Invalid signature format: expected 128-character hex string (64 bytes).',
-        }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      ),
-    };
-  }
-
-  // 3. Verify public key matches claimed fingerprint
-  let pubBytes;
-  try {
-    pubBytes = hexToBytes(publicKey);
-  } catch {
-    return {
-      valid: false,
-      response: new Response(
-        JSON.stringify({ success: false, error: 'Malformed public key hex bytes.' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      ),
-    };
-  }
-
-  const derivedFingerprint = computeFingerprint(pubBytes);
-  if (derivedFingerprint !== authorFingerprint) {
-    return {
-      valid: false,
-      response: new Response(
-        JSON.stringify({
-          success: false,
-          error: 'Identity spoofing detected: authorFingerprint does not match public key derivation.',
-        }),
-        { status: 401, headers: { 'Content-Type': 'application/json' } }
-      ),
-    };
-  }
-
-  // 4. Replay protection (5-minute timestamp tolerance)
-  if (timestamp > 0) {
-    const driftMs = Math.abs(Date.now() - timestamp);
-    if (driftMs > 300000) {
-      return {
-        valid: false,
-        response: new Response(
-          JSON.stringify({
-            success: false,
-            error: 'Signature expired or clock drift exceeded (5-minute window).',
-          }),
-          { status: 401, headers: { 'Content-Type': 'application/json' } }
-        ),
-      };
-    }
-  }
-
-  // 5. Verify Ed25519 signature over exact canonical payload (Security Hardening: eliminated loose candidate iteration)
-  let canonicalPayload: string;
-  const targetId = body?.targetId || body?.postId;
-
-  if (body?.ciphertext) {
-    canonicalPayload = body.ciphertext;
-  } else if (targetId && body?.action) {
-    canonicalPayload = `${targetId}:${body.action}:${authorFingerprint}`;
-  } else if (body?.content && verifySignature(signature, body.content, pubBytes)) {
-    canonicalPayload = body.content;
-  } else {
-    canonicalPayload = `${authorFingerprint}:${timestamp}${body?.nonce ? `:${body.nonce}` : ''}`;
-  }
-
-  const isVerified = verifySignature(signature, canonicalPayload, pubBytes);
-
-  if (!isVerified) {
-    return {
-      valid: false,
-      response: new Response(
-        JSON.stringify({
-          success: false,
-          error: 'Cryptographic signature verification failed: signature does not match canonical payload and public key.',
-        }),
-        { status: 401, headers: { 'Content-Type': 'application/json' } }
-      ),
-    };
-  }
-
-  return {
-    valid: true,
-    fingerprint: authorFingerprint,
-    publicKey,
-  };
 }
 
 /**
@@ -345,10 +177,14 @@ export async function checkAndRecordNonceDistributed(
 // ─── CANONICAL SOVEREIGN SIGNED ENVELOPE ROUTE AUTHENTICATOR ────────────────
 
 /**
- * Enforces canonical SovereignSignedEnvelope format on mutating API routes.
- * Rejects legacy/unsigned requests.
- * Verifies 5-stage cryptographic pipeline:
- * 1. Signature -> 2. Fingerprint derivation -> 3. Capability authorization -> 4. Distributed replay nonces -> 5. Action.
+ * Enforces canonical SovereignSignedEnvelope format on all mutating API routes.
+ * Strictly executes the anti-poisoning verification pipeline:
+ * 1. Parse envelope & validate schema
+ * 2. Verify cryptographic signature & fingerprint derivation
+ * 3. Verify timestamp freshness (drift < 300s)
+ * 4. Verify capability authorization
+ * 5. ATOMICALLY check and record nonce in D1 / KV / Bounded Memory (ONLY AFTER signature verified!)
+ * 6. Execute authorized action
  */
 export async function requireSignedEnvelope<T = any>(
   context: { request: Request; env?: Env },
@@ -377,27 +213,10 @@ export async function requireSignedEnvelope<T = any>(
     };
   }
 
-  const fingerprint = body.identity?.fingerprint;
-  if (fingerprint && body.nonce) {
-    const nonceCheck = await checkAndRecordNonceDistributed(context.env, fingerprint, body.nonce);
-    if (!nonceCheck.fresh) {
-      return {
-        authorized: false,
-        response: new Response(
-          JSON.stringify({
-            success: false,
-            error: nonceCheck.error || 'Replay attack detected: duplicate nonce',
-            stage: 'replay',
-          }),
-          { status: 401, headers: { 'Content-Type': 'application/json' } }
-        ),
-      };
-    }
-  }
-
+  // STEP 1-4: Cryptographically verify signature, fingerprint, capabilities, and timestamp FIRST.
+  // Note: seenNonces is intentionally omitted here to prevent nonce poisoning if signature fails!
   const result = verifySignedEnvelope<T>(body as SovereignSignedEnvelope<T>, {
     requiredCapability,
-    seenNonces: nonceTracker,
   });
 
   if (!result.authorized) {
@@ -415,77 +234,29 @@ export async function requireSignedEnvelope<T = any>(
     };
   }
 
+  // STEP 5: ATOMIC check and record nonce ONLY AFTER cryptographic verification succeeds!
+  const fingerprint = result.identity?.fingerprint || body.identity.fingerprint;
+  const nonceCheck = await checkAndRecordNonceDistributed(context.env, fingerprint, body.nonce);
+  if (!nonceCheck.fresh) {
+    return {
+      authorized: false,
+      response: new Response(
+        JSON.stringify({
+          success: false,
+          error: nonceCheck.error || 'Replay attack detected: duplicate nonce',
+          stage: 'replay',
+        }),
+        { status: 401, headers: { 'Content-Type': 'application/json' } }
+      ),
+    };
+  }
+
+  // STEP 6: Complete
   return {
     authorized: true,
     fingerprint: result.fingerprint,
     publicKey: result.identity?.signingPublicKey,
     identity: result.identity,
     payload: result.payload,
-  };
-}
-
-/**
- * Verifies either a canonical SovereignSignedEnvelope or legacy flat signed payload.
- * When an envelope is received, executes the 5-stage sequential verification:
- * 1. Signature -> 2. Fingerprint -> 3. Authorization (Capabilities) -> 4. Replay -> 5. Action
- */
-export function verifyEnvelopeOrLegacyAuth<T = any>(
-  context: { request: Request; env?: Env },
-  body: any,
-  requiredCapability?: string
-): UnifiedAuthResult<T> {
-  // 1. Detect SovereignSignedEnvelope schema
-  if (
-    body &&
-    typeof body === 'object' &&
-    body.payload !== undefined &&
-    body.signature &&
-    body.nonce &&
-    body.identity &&
-    typeof body.identity === 'object'
-  ) {
-    const result = verifySignedEnvelope<T>(body as SovereignSignedEnvelope<T>, {
-      requiredCapability,
-      seenNonces: nonceTracker,
-    });
-
-    if (!result.authorized) {
-      const status = result.stage === 'authorization' ? 403 : 401;
-      return {
-        authorized: false,
-        response: new Response(
-          JSON.stringify({
-            success: false,
-            error: result.error || 'Sovereign envelope authorization failed',
-            stage: result.stage,
-          }),
-          { status, headers: { 'Content-Type': 'application/json' } }
-        ),
-      };
-    }
-
-    return {
-      authorized: true,
-      fingerprint: result.fingerprint,
-      publicKey: result.identity?.signingPublicKey,
-      identity: result.identity,
-      payload: result.payload,
-    };
-  }
-
-  // 2. Fallback to Phase 1 signature validation
-  const legacy = verifyIdentitySignature(body, context.request);
-  if (!legacy.valid) {
-    return {
-      authorized: false,
-      response: legacy.response,
-    };
-  }
-
-  return {
-    authorized: true,
-    fingerprint: legacy.fingerprint,
-    publicKey: legacy.publicKey,
-    payload: body,
   };
 }

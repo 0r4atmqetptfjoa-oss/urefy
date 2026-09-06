@@ -15,7 +15,7 @@ import {
   globalSpentNullifiers,
   INITIAL_POSTS,
 } from './_db.js';
-import { requireAdmin, verifyIdentitySignature, verifyEnvelopeOrLegacyAuth } from './_auth.js';
+import { requireAdmin, requireSignedEnvelope } from './_auth.js';
 
 export { EdgePost };
 
@@ -238,9 +238,9 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
       const adminCheck = await requireAdmin(context);
       let userFingerprint = body.userFingerprint || 'anon-voter';
       if (!adminCheck.authorized) {
-        const auth = verifyEnvelopeOrLegacyAuth(
+        const auth = await requireSignedEnvelope(
           context,
-          rawBody.payload ? rawBody : { targetId: body.postId, action: 'vote', authorFingerprint: body.userFingerprint, ...body },
+          rawBody,
           'post:vote'
         );
         if (!auth.authorized) {
@@ -393,9 +393,9 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
     if (body.action === 'boost') {
       const adminCheck = await requireAdmin(context);
       if (!adminCheck.authorized) {
-        const auth = verifyEnvelopeOrLegacyAuth(
+        const auth = await requireSignedEnvelope(
           context,
-          rawBody.payload ? rawBody : { targetId: body.postId, action: 'boost', authorFingerprint: body.userFingerprint, ...body },
+          rawBody,
           'post:vote'
         );
         if (!auth.authorized) {
@@ -459,7 +459,7 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
     const adminCheck = await requireAdmin(context);
     let authorFingerprint = body.authorFingerprint || 'anon-peer';
     if (!adminCheck.authorized) {
-      const auth = verifyEnvelopeOrLegacyAuth(context, rawBody, 'post:create');
+      const auth = await requireSignedEnvelope(context, rawBody, 'post:create');
       if (!auth.authorized) {
         return (
           auth.response ||

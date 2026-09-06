@@ -13,7 +13,7 @@ import {
   globalNanopublicationsStore,
   INITIAL_NANOPUBLICATIONS,
 } from './_db.js';
-import { requireAdmin, verifyIdentitySignature, verifyEnvelopeOrLegacyAuth } from './_auth.js';
+import { requireAdmin, requireSignedEnvelope } from './_auth.js';
 
 export { EdgeNanopublication };
 
@@ -206,7 +206,7 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
     // ─── CRYPTOGRAPHIC AUTHORIZATION GUARD ───
     const adminCheck = await requireAdmin(context);
     if (!adminCheck.authorized) {
-      const auth = verifyEnvelopeOrLegacyAuth(context, rawBody, 'storage:upload');
+      const auth = await requireSignedEnvelope(context, rawBody, 'storage:upload');
       if (!auth.authorized) {
         return (
           auth.response ||

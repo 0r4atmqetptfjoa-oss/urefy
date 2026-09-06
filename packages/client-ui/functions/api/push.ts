@@ -12,7 +12,7 @@ import {
   getKVStore,
   globalPushSubscriptionsStore,
 } from './_db.js';
-import { verifyEnvelopeOrLegacyAuth } from './_auth.js';
+import { requireSignedEnvelope } from './_auth.js';
 
 export { EdgePushSubscription };
 
@@ -192,8 +192,9 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
 export async function onRequestPost(context: { request: Request; env?: Env }): Promise<Response> {
   try {
     const url = new URL(context.request.url);
-    const body = (await context.request.json().catch(() => ({}))) as any;
-    const action = body.action || url.searchParams.get('action');
+    const rawBody = (await context.request.json().catch(() => ({}))) as any;
+    const body = (rawBody && rawBody.payload && typeof rawBody.payload === 'object') ? rawBody.payload : rawBody;
+    const action = body.action || rawBody.action || url.searchParams.get('action');
 
     const db = getD1Database(context.env);
     const kv = getKVStore(context.env);
@@ -208,14 +209,14 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
 
       // Cryptographic identity ownership verification
       const hasSignature = !!(
-        body.signature ||
-        body.identity ||
+        rawBody.signature ||
+        rawBody.identity ||
         context.request.headers.get('X-Signature') ||
         context.request.headers.get('X-Author-Fingerprint')
       );
 
       if (hasSignature) {
-        const authResult = verifyEnvelopeOrLegacyAuth(context, body, 'push:subscribe');
+        const authResult = await requireSignedEnvelope(context, rawBody);
         if (!authResult.authorized) {
           return (
             authResult.response ||
@@ -329,14 +330,14 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
 
       // If signed with identity credentials, verify caller ownership of fingerprint
       const hasSignature = !!(
-        body.signature ||
-        body.identity ||
+        rawBody.signature ||
+        rawBody.identity ||
         context.request.headers.get('X-Signature') ||
         context.request.headers.get('X-Author-Fingerprint')
       );
 
       if (hasSignature) {
-        const authResult = verifyEnvelopeOrLegacyAuth(context, body, 'push:unsubscribe');
+        const authResult = await requireSignedEnvelope(context, rawBody);
         if (!authResult.authorized) {
           return (
             authResult.response ||

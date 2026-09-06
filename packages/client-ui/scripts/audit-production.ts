@@ -779,10 +779,68 @@ gates.push({
   details: nonceDetails,
 });
 
+// ─── GATE 19: ZERO LEGACY AUTH VERIFICATION (CANONICAL ENVELOPE ONLY) ────────
+let legacyAuthPass = true;
+let legacyAuthDetails = '';
+const apiFiles = fs.existsSync(functionsDir) ? walk(functionsDir) : [];
+const filesWithLegacyAuth: string[] = [];
+
+for (const file of apiFiles) {
+  if (file.endsWith('.ts') || file.endsWith('.js')) {
+    const c = fs.readFileSync(file, 'utf8');
+    if (c.includes('verifyEnvelopeOrLegacyAuth')) {
+      filesWithLegacyAuth.push(path.basename(file));
+    }
+  }
+}
+
+if (filesWithLegacyAuth.length === 0) {
+  legacyAuthPass = true;
+  legacyAuthDetails = 'Single canonical representation: 0 occurrences of verifyEnvelopeOrLegacyAuth across all API routes';
+} else {
+  legacyAuthPass = false;
+  legacyAuthDetails = `Legacy auth fallback detected in: ${filesWithLegacyAuth.join(', ')}`;
+}
+
+gates.push({
+  id: 19,
+  name: 'Zero Legacy Auth Verification (Single Canonical Envelope Architecture)',
+  status: legacyAuthPass ? 'PASS' : 'FAIL',
+  details: legacyAuthDetails,
+});
+
+// ─── GATE 20: ANTI-POISONING NONCE VERIFICATION ORDER (SIGNATURE BEFORE NONCE) ───
+let nonceOrderPass = true;
+let nonceOrderDetails = '';
+
+if (fs.existsSync(authApiFile)) {
+  const authContent = fs.readFileSync(authApiFile, 'utf8');
+  const verifySignedEnvelopeIdx = authContent.indexOf('verifySignedEnvelope<T>(body as SovereignSignedEnvelope<T>');
+  const checkAndRecordNonceIdx = authContent.indexOf('checkAndRecordNonceDistributed(context.env');
+
+  if (verifySignedEnvelopeIdx !== -1 && checkAndRecordNonceIdx !== -1 && verifySignedEnvelopeIdx < checkAndRecordNonceIdx) {
+    nonceOrderPass = true;
+    nonceOrderDetails = 'Anti-poisoning verified: cryptographic signature & capabilities verified strictly BEFORE nonce recording';
+  } else {
+    nonceOrderPass = false;
+    nonceOrderDetails = `Invalid order: verifySignedEnvelopeIdx=${verifySignedEnvelopeIdx}, checkAndRecordNonceIdx=${checkAndRecordNonceIdx}`;
+  }
+} else {
+  nonceOrderPass = false;
+  nonceOrderDetails = 'functions/api/_auth.ts not found';
+}
+
+gates.push({
+  id: 20,
+  name: 'Anti-Poisoning Nonce Verification Order (Signature Verified Before Nonce)',
+  status: nonceOrderPass ? 'PASS' : 'FAIL',
+  details: nonceOrderDetails,
+});
+
 // ─── REPORT OUTPUT ───────────────────────────────────────────────────────────
 console.log('');
 console.log('═════════════════════════════════════════════════════════════════');
-console.log('            AETHERIS 18-GATE PRODUCTION AUDIT                   ');
+console.log('            AETHERIS 20-GATE PRODUCTION AUDIT                   ');
 console.log('═════════════════════════════════════════════════════════════════');
 console.log('');
 
@@ -796,7 +854,7 @@ for (const gate of gates) {
 
 console.log('');
 console.log('═════════════════════════════════════════════════════════════════');
-console.log(allPass ? 'FINAL RESULT: ALL 18 PRODUCTION GATES PASSED (PRODUCTION READY)' : 'FINAL RESULT: AUDIT FAILED (GATES UNRESOLVED)');
+console.log(allPass ? 'FINAL RESULT: ALL 20 PRODUCTION GATES PASSED (PRODUCTION READY)' : 'FINAL RESULT: AUDIT FAILED (GATES UNRESOLVED)');
 console.log('═════════════════════════════════════════════════════════════════');
 console.log('');
 

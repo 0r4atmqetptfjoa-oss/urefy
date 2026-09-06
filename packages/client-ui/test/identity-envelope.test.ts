@@ -415,8 +415,8 @@ describe('Phase 2: Unified Identity Architecture & Signed Request Envelope Proto
     });
   });
 
-  describe('4. Backward Compatibility with Phase 1 Flat Payloads', () => {
-    it('seamlessly accepts legacy flat signed payload on POST /api/channels', async () => {
+  describe('4. Complete Elimination of Legacy Auth (Zero Legacy Auth Verification)', () => {
+    it('strictly rejects legacy flat signed payload on POST /api/channels with 401 Unauthorized', async () => {
       const legacyUser = generateKeyPair();
       const timestamp = Date.now();
       const payloadToSign = `${legacyUser.fingerprint}:${timestamp}`;
@@ -442,10 +442,10 @@ describe('Phase 2: Unified Identity Architecture & Signed Request Envelope Proto
       });
 
       const res = await handleChannelPost({ request: req, env: {} });
-      expect(res.status).toBe(201);
+      expect(res.status).toBe(401);
       const json = await res.json();
-      expect(json.success).toBe(true);
-      expect(json.channel.name).toBe('legacy phase 1 channel');
+      expect(json.success).toBe(false);
+      expect(json.error).toMatch(/SovereignSignedEnvelope required/i);
     });
   });
 

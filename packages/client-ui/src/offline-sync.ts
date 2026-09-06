@@ -437,10 +437,13 @@ export class OfflineSyncEngine {
       try {
         if (typeof fetch !== 'undefined') {
           if (action.type === 'CREATE_POST' && action.payload) {
+            const body = (action.payload.signature && action.payload.identity)
+              ? JSON.stringify(action.payload)
+              : JSON.stringify({ action: 'create', ...action.payload });
             await fetchWithRetry('/api/posts', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ action: 'create', ...action.payload }),
+              body,
               maxRetries: 1,
             });
           } else if (action.type === 'SEND_MESSAGE' && action.payload) {

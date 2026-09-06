@@ -19,7 +19,7 @@ import {
   getD1Database,
   getKVStore,
 } from './_db.js';
-import { requireAdmin, verifyIdentitySignature, requireOwnership, verifyEnvelopeOrLegacyAuth } from './_auth.js';
+import { requireAdmin, requireOwnership, requireSignedEnvelope } from './_auth.js';
 
 export interface StorageMetadata {
   sha256: string;
@@ -514,6 +514,12 @@ export async function onRequestPost(context: {
     let customKey = req.headers.get('X-Key') || '';
     let detectedContentType = rawContentType.split(';')[0].trim();
     let envelopeObj: any = null;
+    const envHeader = req.headers.get('X-Sovereign-Envelope');
+    if (envHeader) {
+      try {
+        envelopeObj = JSON.parse(envHeader);
+      } catch (_) {}
+    }
 
     // 1. Multipart Form-Data
     if (rawContentType.includes('multipart/form-data')) {
@@ -674,14 +680,7 @@ export async function onRequestPost(context: {
     // ─── AUTHENTICATION & IDENTITY VERIFICATION GUARD ───
     const adminCheck = await requireAdmin(context);
     if (!adminCheck.authorized) {
-      const authPayload = {
-        sha256,
-        key: customKey,
-        fileName,
-        authorFingerprint: author,
-        timestamp: req.headers.get('X-Timestamp') || Date.now(),
-      };
-      const identityAuth = verifyEnvelopeOrLegacyAuth(context, envelopeObj || authPayload, 'storage:upload');
+      const identityAuth = await requireSignedEnvelope(context, envelopeObj || {}, 'storage:upload');
       if (!identityAuth.authorized) {
         return (
           identityAuth.response ||
@@ -1412,21 +1411,36 @@ export async function onRequestDelete(context: {
     const bucket = getStorageBucket(context.env);
 
     if (!adminCheck.authorized) {
-      const identityAuth = verifyEnvelopeOrLegacyAuth(
+      let delEnvelope: any = null;
+      const envHdr = context.request.headers.get('X-Sovereign-Envelope');
+      if (envHdr) {
+        try {
+          delEnvelope = JSON.parse(envHdr);
+        } catch (_) {}
+      }
+      if (!delEnvelope && context.request.headers.get('content-type')?.includes('application/json')) {
+        try {
+          delEnvelope = await context.request.clone().json();
+        } catch (_) {}
+      }
+      const identityAuth = await requireSignedEnvelope(
         context,
-        { key, timestamp: url.searchParams.get('timestamp') },
-        'storage:delete'
+        delEnvelope || {},
+        'storage:upload'
       );
       if (!identityAuth.authorized) {
-        return new Response(
-          JSON.stringify({
-            success: false,
-            error: 'Unauthorized: Admin authorization or owner signature required to delete storage objects.',
-          }),
-          {
-            status: 401,
-            headers: { 'Content-Type': 'application/json', ...STORAGE_CORS_HEADERS },
-          }
+        return (
+          identityAuth.response ||
+          new Response(
+            JSON.stringify({
+              success: false,
+              error: 'Unauthorized: Admin authorization or owner signature required to delete storage objects.',
+            }),
+            {
+              status: 401,
+              headers: { 'Content-Type': 'application/json', ...STORAGE_CORS_HEADERS },
+            }
+          )
         );
       }
 

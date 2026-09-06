@@ -19,7 +19,7 @@ import {
   TOTAL_MESSAGES_COUNTER,
   INITIAL_NODES,
 } from './_db.js';
-import { requireAdmin, verifyIdentitySignature, verifyEnvelopeOrLegacyAuth } from './_auth.js';
+import { requireAdmin, requireSignedEnvelope } from './_auth.js';
 
 export interface AnalyticsSummary {
   status: 'healthy' | 'degraded' | 'syncing';
@@ -202,7 +202,7 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
     // ─── AUTHORIZATION GUARD ───
     const adminCheck = await requireAdmin(context);
     if (!adminCheck.authorized) {
-      const auth = verifyEnvelopeOrLegacyAuth(context, rawBody, 'node:telemetry');
+      const auth = await requireSignedEnvelope(context, rawBody, 'node:telemetry');
       if (!auth.authorized) {
         return (
           auth.response ||

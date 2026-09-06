@@ -13,7 +13,7 @@ import {
   incrementMessageCounter,
   INITIAL_MESSAGES,
 } from './_db.js';
-import { requireAdmin, verifyIdentitySignature, verifyEnvelopeOrLegacyAuth } from './_auth.js';
+import { requireAdmin, requireSignedEnvelope } from './_auth.js';
 
 export { EdgeMessage };
 
@@ -142,7 +142,7 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
     let authorFingerprint = rawBody.authorFingerprint || 'anon-peer';
 
     if (!adminCheck.authorized) {
-      const auth = verifyEnvelopeOrLegacyAuth(context, rawBody, 'relay:publish');
+      const auth = await requireSignedEnvelope(context, rawBody, 'relay:publish');
       if (!auth.authorized) {
         return (
           auth.response ||
