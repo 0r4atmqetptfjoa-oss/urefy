@@ -651,6 +651,7 @@ export const sovereignWebPush = new SovereignWebPush();
 
 if (typeof window !== 'undefined') {
   (window as any).__aetherisWebPush = sovereignWebPush;
+  (window as any).sovereignWebPush = sovereignWebPush;
 }
 
 serviceRegistry.registerInstance(SERVICES.WebPush, sovereignWebPush);

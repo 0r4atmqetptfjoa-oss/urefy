@@ -23,6 +23,7 @@ import { sovereignWebPush } from './web-push.js';
 import { onboardingWizard } from './onboarding.js';
 import { commandRailV2 } from './command-rail-v2.js';
 import { i18n } from './i18n.js';
+import { zkReputation } from './zk-reputation.js';
 
 export type FeatureModalId =
   | 'observatory'
@@ -452,13 +453,11 @@ export class ModalManager {
         }
 
         case 'reputation': {
-          const mod = this.loadedModules.get('reputation') || (await import('./zk-reputation.js'));
-          this.loadedModules.set('reputation', mod);
-          mod.zkReputation.open();
+          zkReputation.open();
           this.setActive(
             'reputation',
-            () => mod.zkReputation.renderReputationCenterModal(fp, 342),
-            () => mod.zkReputation.close()
+            () => zkReputation.renderReputationCenterModal(fp, 342),
+            () => zkReputation.close()
           );
           break;
         }
