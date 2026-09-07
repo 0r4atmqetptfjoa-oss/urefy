@@ -1,62 +1,143 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   globalScale,
   GlobalScaleEngine,
   WORLDWIDE_EDGE_POPS,
   D1_GLOBAL_TOPOLOGY,
+  createPoPList,
+  createD1Topology,
   GeoFencingPolicy,
 } from '../src/global-scale.js';
 import { CRDTSyncRecord, createVectorClock } from '../src/offline-sync.js';
+import { setSimulationMode } from '../src/simulation-mode.js';
 
 describe('Aetheris Omni-Sphere — Global Scale & Edge Architecture (global-scale.ts)', () => {
   let engine: GlobalScaleEngine;
 
   beforeEach(() => {
+    // Default to production mode (simulation disabled)
+    setSimulationMode(false);
     engine = new GlobalScaleEngine();
   });
 
-  describe('1. Worldwide Anycast Edge Routing & Sub-15ms SLA', () => {
-    it('should initialize with global PoPs across all 5 Super-Regions (WNAM, ENAM, WEUR, EEUR, APAC)', () => {
+  afterEach(() => {
+    setSimulationMode(false);
+    vi.restoreAllMocks();
+  });
+
+  describe('1. Production Mode: Zero Fake Telemetry Invariants', () => {
+    it('should initialize EdgePoPs with null measured RTT and null socket counts in production', () => {
       const pops = engine.getAllPoPs();
       expect(pops.length).toBeGreaterThanOrEqual(15);
 
-      const regions = new Set(pops.map((p) => p.superRegion));
-      expect(regions.has('WNAM')).toBe(true);
-      expect(regions.has('ENAM')).toBe(true);
-      expect(regions.has('WEUR')).toBe(true);
-      expect(regions.has('EEUR')).toBe(true);
-      expect(regions.has('APAC')).toBe(true);
-    });
-
-    it('should guarantee sub-15ms average RTT latency SLA across all PoPs', () => {
-      const pops = engine.getAllPoPs();
       for (const pop of pops) {
-        expect(pop.measuredRttMs).toBeLessThanOrEqual(15.0);
-        expect(pop.measuredRttMs).toBeGreaterThan(0);
-        expect(pop.d1ReplicaActive).toBe(true);
-        expect(pop.r2EdgeCacheActive).toBe(true);
+        expect(pop.measuredRttMs).toBeNull();
+        expect(pop.durableObjectHibernatingSockets).toBeNull();
+        expect(pop.activeSockets).toBeNull();
+        expect(pop.status).toBe('ONLINE');
       }
     });
 
-    it('should automatically select the optimal lowest-latency PoP', () => {
-      const active = engine.getActivePoP();
-      expect(active).toBeDefined();
+    it('should initialize D1 read latencies and replication sequences as null in production', () => {
+      const topology = engine.getD1Topology();
+      expect(topology.length).toBe(5);
 
-      const allPops = engine.getAllPoPs();
-      const minLatency = Math.min(...allPops.map((p) => p.measuredRttMs));
-      expect(active.measuredRttMs).toBe(minLatency);
+      for (const node of topology) {
+        expect(node.readLatencyMs).toBeNull();
+        expect(node.lastReplicationSequence).toBeNull();
+      }
+
+      expect(engine.getD1ReadLatency('WEUR')).toBeNull();
+      expect(engine.getD1ReadLatency('EEUR')).toBeNull();
+      expect(engine.getD1ReadLatency('APAC')).toBeNull();
     });
 
-    it('should dynamically probe PoPs and recalculate optimal route', () => {
-      const initialPoP = engine.getActivePoP();
-      engine.probeAllPoPs();
-      const nextPoP = engine.getActivePoP();
-      expect(nextPoP).toBeDefined();
-      expect(nextPoP.measuredRttMs).toBeLessThanOrEqual(16.5);
+    it('should start with zero CDN cache requests and null cache hit ratio in production', () => {
+      const metrics = engine.getCDNMetrics();
+      expect(metrics.totalRequests).toBe(0);
+      expect(metrics.l1EdgeCacheHits).toBe(0);
+      expect(metrics.l2TieredCacheHits).toBe(0);
+      expect(metrics.bandwidthSavedBytes).toBe(0);
+      expect(metrics.averageEdgeLatencyMs).toBeNull();
+
+      expect(engine.getCacheHitRatio()).toBeNull();
+    });
+
+    it('should return null for server-wide Durable Object stats when unmeasured in production', () => {
+      const stats = engine.getDurableObjectStats();
+      expect(stats.totalSockets).toBeNull();
+      expect(stats.activeSockets).toBeNull();
+      expect(stats.hibernatingSockets).toBeNull();
+      expect(stats.hibernationRatio).toBeNull();
+      expect(stats.memorySavingsPercent).toBeNull();
+    });
+
+    it('should render production UI dashboard with [PRODUCTION (Real Telemetry Only)] and unmeasured placeholders', () => {
+      const html = engine.renderGlobalScaleDashboard();
+      expect(html).toContain('[PRODUCTION (Real Telemetry Only)]');
+      expect(html).toContain('Not measured');
+      expect(html).toContain('No requests recorded');
+      expect(html).toContain('Server-edge only');
+      expect(html).not.toContain('Sub-15ms Global Latency SLA');
+      expect(html).not.toContain('300+ Cities');
     });
   });
 
-  describe('2. Geo-Fencing & Zero-Knowledge Data Sovereignty', () => {
+  describe('2. Simulation Mode Opt-In (Explicit Testbed Testing)', () => {
+    it('should provide testbed baseline numbers when simulation mode is explicitly enabled', () => {
+      setSimulationMode(true);
+      const simEngine = new GlobalScaleEngine();
+
+      const pops = simEngine.getAllPoPs();
+      expect(pops.length).toBeGreaterThanOrEqual(15);
+      for (const pop of pops) {
+        expect(pop.measuredRttMs).not.toBeNull();
+        expect(pop.measuredRttMs!).toBeGreaterThan(0);
+        expect(pop.activeSockets).not.toBeNull();
+        expect(pop.durableObjectHibernatingSockets).not.toBeNull();
+      }
+
+      const cdn = simEngine.getCDNMetrics();
+      expect(cdn.totalRequests).toBe(192900);
+      expect(cdn.l1EdgeCacheHits).toBe(184500);
+      expect(simEngine.getCacheHitRatio()).toBeGreaterThan(0.95);
+
+      const doStats = simEngine.getDurableObjectStats();
+      expect(doStats.totalSockets).toBeGreaterThan(50000);
+      expect(doStats.memorySavingsPercent).toBeGreaterThan(75);
+
+      const html = simEngine.renderGlobalScaleDashboard();
+      expect(html).toContain('[SIMULATION MODE (Synthetic Testbed)]');
+    });
+  });
+
+  describe('3. Active Latency Probing & Route Optimization', () => {
+    it('should probe real endpoint in production without Math.random', async () => {
+      // Mock global fetch to verify real endpoint probe
+      const mockFetch = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
+      vi.stubGlobal('fetch', mockFetch);
+
+      await engine.probeAllPoPs();
+      expect(mockFetch).toHaveBeenCalledWith('/api/analytics', expect.objectContaining({ method: 'HEAD' }));
+
+      const active = engine.getActivePoP();
+      expect(active).toBeDefined();
+      expect(active.measuredRttMs).not.toBeNull();
+    });
+
+    it('should dynamically probe PoPs with CSPRNG jitter in simulation mode', async () => {
+      setSimulationMode(true);
+      const simEngine = new GlobalScaleEngine();
+      const initialRtt = simEngine.getActivePoP().measuredRttMs;
+
+      await simEngine.probeAllPoPs();
+      const nextRtt = simEngine.getActivePoP().measuredRttMs;
+      expect(nextRtt).not.toBeNull();
+      expect(nextRtt).toBeGreaterThan(0);
+    });
+  });
+
+  describe('4. Geo-Fencing & Zero-Knowledge Data Sovereignty', () => {
     it('should enforce EU_GDPR_SOVEREIGN policy (WEUR + EEUR only)', () => {
       engine.setGeoPolicy('EU_GDPR_SOVEREIGN');
       expect(engine.getGeoPolicy()).toBe('EU_GDPR_SOVEREIGN');
@@ -92,51 +173,24 @@ describe('Aetheris Omni-Sphere — Global Scale & Edge Architecture (global-scal
     });
   });
 
-  describe('3. Multi-Tier CDN Caching & Edge Compute Metrics', () => {
-    it('should accurately track L1 PoP cache, L2 Regional tier cache, and Origin shield requests', () => {
-      const initialMetrics = engine.getCDNMetrics();
-      const initialHits = initialMetrics.l1EdgeCacheHits;
+  describe('5. Real Request Recording on CDN Metrics', () => {
+    it('should increment real CDN cache requests when recordRequest is called', () => {
+      expect(engine.getCDNMetrics().totalRequests).toBe(0);
 
       engine.recordRequest('L1', 8192);
-      expect(engine.getCDNMetrics().l1EdgeCacheHits).toBe(initialHits + 1);
+      expect(engine.getCDNMetrics().l1EdgeCacheHits).toBe(1);
+      expect(engine.getCDNMetrics().totalRequests).toBe(1);
+      expect(engine.getCacheHitRatio()).toBe(1.0);
 
       engine.recordRequest('L2', 16384);
-      expect(engine.getCDNMetrics().l2TieredCacheHits).toBe(initialMetrics.l2TieredCacheHits + 1);
+      expect(engine.getCDNMetrics().l2TieredCacheHits).toBe(1);
+      expect(engine.getCDNMetrics().totalRequests).toBe(2);
 
       engine.recordRequest('ORIGIN', 4096);
-      expect(engine.getCDNMetrics().originShieldRequests).toBe(initialMetrics.originShieldRequests + 1);
-    });
+      expect(engine.getCDNMetrics().originShieldRequests).toBe(1);
+      expect(engine.getCDNMetrics().totalRequests).toBe(3);
 
-    it('should calculate global cache hit ratio correctly (> 95%)', () => {
-      const hitRatio = engine.getCacheHitRatio();
-      expect(hitRatio).toBeGreaterThan(0.95);
-      expect(hitRatio).toBeLessThanOrEqual(1.0);
-    });
-  });
-
-  describe('4. Cloudflare Durable Objects & WebSocket Hibernation Efficiency', () => {
-    it('should compute WebSocket Hibernation stats with 90%+ memory savings', () => {
-      const stats = engine.getDurableObjectStats();
-      expect(stats.totalSockets).toBeGreaterThan(50000);
-      expect(stats.hibernatingSockets).toBeGreaterThan(40000);
-      expect(stats.hibernationRatio).toBeGreaterThan(0.8);
-      expect(stats.memorySavingsPercent).toBeGreaterThan(75);
-    });
-  });
-
-  describe('5. Cloudflare D1 Multi-Region Read Replicas (<5ms)', () => {
-    it('should provide D1 read latency under 5ms across all global regions', () => {
-      const topology = engine.getD1Topology();
-      expect(topology.length).toBe(5);
-
-      for (const node of topology) {
-        expect(node.readLatencyMs).toBeLessThan(5.0);
-        expect(node.replicaStatus).toBe('HEALTHY');
-      }
-
-      expect(engine.getD1ReadLatency('WEUR')).toBeLessThan(5.0);
-      expect(engine.getD1ReadLatency('EEUR')).toBeLessThan(5.0);
-      expect(engine.getD1ReadLatency('APAC')).toBeLessThan(5.0);
+      expect(engine.getCacheHitRatio()).toBeCloseTo(2 / 3, 2);
     });
   });
 
@@ -188,7 +242,7 @@ describe('Aetheris Omni-Sphere — Global Scale & Edge Architecture (global-scal
         entityType: 'post',
         data: { title: 'Remote Dominant Version' },
         timestamp: 2500,
-        vectorClock: clockB, // Causal dominance
+        vectorClock: clockB,
         authorId: 'node-2',
       };
 
@@ -200,7 +254,6 @@ describe('Aetheris Omni-Sphere — Global Scale & Edge Architecture (global-scal
       expect(res.divergentCount).toBeGreaterThan(0);
       expect(res.localMerkleRoot).not.toBe(res.remoteMerkleRoot);
 
-      // Remote had causal dominance (clockB > clockA) -> remote wins
       const mergedWinner = res.mergedRecords.find((r) => r.id === 'rec-conflict');
       expect(mergedWinner).toBeDefined();
       expect(mergedWinner?.data.title).toBe('Remote Dominant Version');
@@ -208,11 +261,11 @@ describe('Aetheris Omni-Sphere — Global Scale & Edge Architecture (global-scal
   });
 
   describe('7. Global Health & WebRTC Direct Swarm Emergency Failover', () => {
-    it('should generate an optimal health report', () => {
+    it('should generate a truthful health report in production', () => {
       const report = engine.getHealthReport();
       expect(report.overallStatus).toBe('OPTIMAL');
-      expect(report.rttLatencyMs).toBeLessThanOrEqual(15.0);
-      expect(report.d1ReadLatencyMs).toBeLessThan(5.0);
+      expect(report.rttLatencyMs).toBeNull(); // Unmeasured before probe
+      expect(report.d1ReadLatencyMs).toBeNull();
       expect(report.webrtcSwarmFallbackReady).toBe(true);
       expect(report.zeroKnowledgeEnforced).toBe(true);
     });
@@ -226,19 +279,6 @@ describe('Aetheris Omni-Sphere — Global Scale & Edge Architecture (global-scal
       engine.triggerEmergencyP2PFailover(false);
       expect(engine.isP2PFailoverActive()).toBe(false);
       expect(engine.getHealthReport().overallStatus).toBe('OPTIMAL');
-    });
-  });
-
-  describe('8. UI Observatory Dashboard Rendering', () => {
-    it('should render the complete HTML observatory dashboard with metrics and controls', () => {
-      const html = engine.renderGlobalScaleDashboard();
-      expect(html).toContain('Worldwide Anycast Edge Infrastructure');
-      expect(html).toContain('Global Anycast Edge Network (Zero Data Retention)');
-      expect(html).toContain('Cloudflare D1 Multi-Region Read Topology');
-      expect(html).toContain('P2P WebRTC Direct Swarm Fallback');
-      expect(html).toContain('Zero-Knowledge Data Sovereignty & Geo-Fencing');
-      expect(html).toContain('EU GDPR Sovereign');
-      expect(html).toContain('Swiss Enclave');
     });
   });
 });

@@ -67,6 +67,8 @@ export class SovereignRelayDurableObject {
   private revokedNullifiers: Set<string> = new Set();
 
   private initialized: boolean = false;
+  private storageInitFailed: boolean = false;
+  private storageInitError: Error | null = null;
 
   constructor(state: DurableObjectState, env: Env) {
     this.state = state;
@@ -83,6 +85,7 @@ export class SovereignRelayDurableObject {
 
   /**
    * Restores persistent state from Durable Object Storage if available.
+   * Fail-Closed Invariant: If storage throws an exception, marks storageInitFailed = true.
    */
   public async ensureInitialized(): Promise<void> {
     if (this.initialized) return;
@@ -108,8 +111,10 @@ export class SovereignRelayDurableObject {
         if (currentAlarm === null) {
           await this.state.storage.setAlarm(Date.now() + 10 * 60 * 1000);
         }
-      } catch (err) {
-        console.warn('[SovereignRelayDurableObject] Storage initialization fallback to memory:', err);
+      } catch (err: any) {
+        console.error('[SovereignRelayDurableObject] Storage initialization failed. Failing closed:', err);
+        this.storageInitFailed = true;
+        this.storageInitError = err;
       }
     }
   }
@@ -119,6 +124,16 @@ export class SovereignRelayDurableObject {
    */
   async fetch(request: Request): Promise<Response> {
     await this.ensureInitialized();
+    if (this.storageInitFailed) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Durable Object storage unavailable. Failing closed.',
+          status: 503,
+        }),
+        { status: 503, headers: { 'Content-Type': 'application/json', 'Retry-After': '5' } }
+      );
+    }
     const url = new URL(request.url);
 
     // 1. REST Telemetry & Presence Endpoints
@@ -241,6 +256,13 @@ export class SovereignRelayDurableObject {
    */
   async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
     await this.ensureInitialized();
+    if (this.storageInitFailed) {
+      this.send(ws, {
+        type: 'ERROR',
+        message: 'Durable Object storage unavailable. System failed closed.',
+      });
+      return;
+    }
     let session = this.sessions.get(ws);
     if (!session) {
       // Reconstruct session for awakened socket from tags if available
@@ -620,6 +642,17 @@ export class SovereignRelayDurableObject {
       }
 
       const p = authResult.payload;
+
+      // Role escalation prevention: if token grants role 'MEMBER', reject claims for elevated roles
+      const requestedRole = (role || packet.requestedRole || '').toUpperCase();
+      if (requestedRole && requestedRole !== p.role && ['ADMIN', 'GUARDIAN', 'MODERATOR', 'ARCHIVIST'].includes(requestedRole)) {
+        this.send(ws, {
+          type: 'ERROR',
+          message: `Role escalation rejected: credential grants role '${p.role}', cannot escalate to '${requestedRole}'`,
+        });
+        return;
+      }
+
       session.fingerprint = p.sub;
       session.role = p.role || 'MEMBER';
       session.nullifier = p.nullifier || session.nullifier;
@@ -824,6 +857,21 @@ export class SovereignRelayDurableObject {
 
   private async handleSendMessage(ws: WebSocket, session: SovereignSessionMetadata, packet: any): Promise<void> {
     const channelId = packet.channelId || session.currentChannelId || 'relays-general';
+
+    // Strict Identity Spoofing Rejection:
+    if (!session.fingerprint) {
+      session.fingerprint = packet.authorFingerprint || packet.fingerprint || 'anon-peer';
+    } else {
+      const spoofedFp = packet.authorFingerprint || packet.fingerprint || packet.identity;
+      if (spoofedFp && spoofedFp !== session.fingerprint) {
+        this.send(ws, {
+          type: 'ERROR',
+          message: 'Identity spoofing rejected: message author fingerprint does not match authenticated session',
+        });
+        return;
+      }
+    }
+
     const authorFingerprint = session.fingerprint || 'anon-peer';
     const ciphertext = packet.ciphertext || packet.text || '';
     const epoch = String(packet.epoch || '#1');
@@ -848,6 +896,21 @@ export class SovereignRelayDurableObject {
       signature: packet.signature,
       createdAt: packet.createdAt || Date.now(),
     };
+
+    // Fail-Closed Storage: MUST persist to storage before memory mutation or broadcast
+    if (this.state?.storage) {
+      try {
+        await this.state.storage.put(`msg:${channelId}:${msgRecord.id}`, msgRecord);
+      } catch (err: any) {
+        console.error('[SovereignRelayDurableObject] Storage put message failed:', err);
+        this.send(ws, {
+          type: 'ERROR',
+          message: 'Failed to persist message to durable storage',
+          details: err?.message,
+        });
+        return;
+      }
+    }
 
     if (!this.channelMessages.has(channelId)) {
       this.channelMessages.set(channelId, []);
@@ -881,9 +944,22 @@ export class SovereignRelayDurableObject {
       return;
     }
 
+    // Strict Identity Spoofing Rejection:
+    if (!session.fingerprint) {
+      session.fingerprint = packet.authorFingerprint || packet.fingerprint || 'anon-peer';
+    } else {
+      const spoofedFp = packet.authorFingerprint || packet.fingerprint || packet.identity;
+      if (spoofedFp && spoofedFp !== session.fingerprint) {
+        this.send(ws, {
+          type: 'ERROR',
+          message: 'Identity spoofing rejected: message author fingerprint does not match authenticated session',
+        });
+        return;
+      }
+    }
+
     const authorFingerprint = session.fingerprint || 'anon-peer';
     const content = packet.content || packet.text || '';
-
     const payload = {
       type: 'NEW_CIRCLE_MESSAGE',
       circleId,
@@ -891,6 +967,24 @@ export class SovereignRelayDurableObject {
       content,
       timestamp: Date.now(),
     };
+
+    // Fail-Closed Storage: MUST persist to storage before broadcast
+    if (this.state?.storage) {
+      try {
+        const randSuffix = typeof crypto !== 'undefined' && crypto.randomUUID
+          ? crypto.randomUUID().replace(/-/g, '').substring(0, 8)
+          : Date.now().toString(36);
+        await this.state.storage.put(`circle_msg:${circleId}:${Date.now()}-${randSuffix}`, payload);
+      } catch (err: any) {
+        console.error('[SovereignRelayDurableObject] Storage put circle message failed:', err);
+        this.send(ws, {
+          type: 'ERROR',
+          message: 'Failed to persist circle message to durable storage',
+          details: err?.message,
+        });
+        return;
+      }
+    }
 
     this.multicastToCircle(circleId, payload, ws);
 

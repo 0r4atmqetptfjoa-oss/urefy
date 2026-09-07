@@ -489,9 +489,9 @@ export function initApp(): void {
         </button>
 
         <!-- ANYCAST EDGE OBSERVATORY -->
-        <button type="button" id="btn-open-global-scale" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-base/60 hover:bg-surface-overlay text-slate-300 font-mono transition-all cursor-pointer" title="Worldwide Anycast Edge Infrastructure (<15ms SLA)">
+        <button type="button" id="btn-open-global-scale" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-base/60 hover:bg-surface-overlay text-slate-300 font-mono transition-all cursor-pointer" title="Worldwide Anycast Edge Infrastructure">
           <span class="text-xs shrink-0">🌐</span>
-          <span class="font-sans font-medium text-[11px] truncate">Anycast Edge (<15ms)</span>
+          <span class="font-sans font-medium text-[11px] truncate">Anycast Edge</span>
         </button>
 
         <!-- SEED VAULT -->
@@ -578,9 +578,9 @@ export function initApp(): void {
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 4v16m6-16v16M4 4h16v16H4z"></path></svg>
       </button>
 
-      <button type="button" id="btn-open-global-scale" class="hidden xl:flex px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-raised/80 hover:bg-surface-overlay text-slate-300 font-mono items-center space-x-1.5 transition-all shadow-sm cursor-pointer" title="Worldwide Anycast Edge Infrastructure (<15ms SLA)">
+      <button type="button" id="btn-open-global-scale" class="hidden xl:flex px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-raised/80 hover:bg-surface-overlay text-slate-300 font-mono items-center space-x-1.5 transition-all shadow-sm cursor-pointer" title="Worldwide Anycast Edge Infrastructure">
         <span class="text-xs">🌐</span>
-        <span class="text-emerald-400 font-bold"><15ms</span>
+        <span class="text-slate-300 font-sans text-[11px]">Anycast Edge</span>
       </button>
 
       ${transparencyMode.renderHeaderToggle()}

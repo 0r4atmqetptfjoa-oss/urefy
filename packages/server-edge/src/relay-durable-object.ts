@@ -696,6 +696,16 @@ export class RelayDurableObject {
 
       const p = authResult.payload;
 
+      // Role escalation prevention: if token grants role 'MEMBER', reject claims for elevated roles
+      const requestedRole = (role || packet.requestedRole || '').toUpperCase();
+      if (requestedRole && requestedRole !== p.role && ['ADMIN', 'GUARDIAN', 'MODERATOR', 'ARCHIVIST'].includes(requestedRole)) {
+        this.send(ws, {
+          type: 'ERROR',
+          message: `Role escalation rejected: credential grants role '${p.role}', cannot escalate to '${requestedRole}'`,
+        });
+        return;
+      }
+
       // Replay prevention if JTI is present
       if (p.jti) {
         if (this.usedJtis.has(p.jti)) {
@@ -892,6 +902,17 @@ export class RelayDurableObject {
   private async handleSendMessage(ws: WebSocket, session: SessionMetadata, packet: any): Promise<void> {
     const channelId = packet.channelId || session.currentChannelId || 'relays-general';
     const authorFingerprint = session.fingerprint || 'anon-peer';
+
+    // Strict Identity Spoofing Rejection:
+    const spoofedFp = packet.authorFingerprint || packet.fingerprint || packet.identity;
+    if (spoofedFp && spoofedFp !== session.fingerprint) {
+      this.send(ws, {
+        type: 'ERROR',
+        message: 'Identity spoofing rejected: message author fingerprint does not match authenticated session',
+      });
+      return;
+    }
+
     const ciphertext = packet.ciphertext || packet.text || '';
     const epoch = String(packet.epoch || '#1');
     const rawNullifier = packet.nullifier || session.nullifier || '';

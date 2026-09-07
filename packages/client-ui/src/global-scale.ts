@@ -2,6 +2,13 @@
  * AETHERIS OMNI-SPHERE — GLOBAL SCALE & EDGE ARCHITECTURE ENGINE
  * Worldwide Production Infrastructure Blueprint, Edge Delivery, D1 Multi-Region,
  * R2 Zero-Egress Storage, Merkle Tree CRDT Multi-Master Sync & Sovereign Compliance.
+ * 
+ * INVARIANT: Zero synthetic / fake telemetry in production.
+ * If isSimulationModeEnabled() === false:
+ * - measuredRttMs, d1ReadLatencyMs, and server socket counts return null when unmeasured.
+ * - CDN cache metrics start at 0.
+ * - Cache hit ratio returns null when totalRequests === 0.
+ * - Truthful copy: no unsubstantiated '300+ cities' or 'Sub-15ms Global Latency SLA'.
  */
 
 import { MerkleTree } from '@aetheris/core-crypto';
@@ -9,6 +16,7 @@ import { sha256 } from '@noble/hashes/sha256';
 import { bytesToHex } from '@noble/hashes/utils';
 import { VectorClock, CRDTSyncRecord, resolveCRDTConflict, createVectorClock, incrementVectorClock, mergeVectorClocks } from './offline-sync.js';
 import { serviceRegistry, SERVICES } from './service-registry.js';
+import { isSimulationModeEnabled } from './simulation-mode.js';
 
 // ─── TYPES & INTERFACES ──────────────────────────────────────────────────────
 
@@ -30,12 +38,12 @@ export interface EdgePoP {
   airportCode: string;
   latitude: number;
   longitude: number;
-  measuredRttMs: number;
+  measuredRttMs: number | null;
   status: 'ONLINE' | 'DEGRADED' | 'STANDBY';
   d1ReplicaActive: boolean;
   r2EdgeCacheActive: boolean;
-  durableObjectHibernatingSockets: number;
-  activeSockets: number;
+  durableObjectHibernatingSockets: number | null;
+  activeSockets: number | null;
 }
 
 export interface CDNCacheMetrics {
@@ -44,94 +52,153 @@ export interface CDNCacheMetrics {
   l2TieredCacheHits: number;
   originShieldRequests: number;
   totalRequests: number;
-  averageEdgeLatencyMs: number;
+  averageEdgeLatencyMs: number | null;
   bandwidthSavedBytes: number;
 }
 
 export interface D1ReplicationNode {
   region: SuperRegion;
   location: string;
-  readLatencyMs: number;
-  replicaStatus: 'HEALTHY' | 'SYNCING' | 'FAILOVER';
-  lastReplicationSequence: number;
+  readLatencyMs: number | null;
+  replicaStatus: 'HEALTHY' | 'SYNCING' | 'FAILOVER' | 'UNKNOWN';
+  lastReplicationSequence: number | null;
   isPrimary: boolean;
 }
 
 export interface GlobalHealthReport {
-  overallStatus: 'OPTIMAL' | 'DEGRADED' | 'FAILOVER_P2P';
+  overallStatus: 'OPTIMAL' | 'DEGRADED' | 'FAILOVER_P2P' | 'ONLINE';
   activePoP: EdgePoP;
   connectedRegion: SuperRegion;
-  rttLatencyMs: number;
-  d1ReadLatencyMs: number;
+  rttLatencyMs: number | null;
+  d1ReadLatencyMs: number | null;
   geoFencingActive: GeoFencingPolicy;
   webrtcSwarmFallbackReady: boolean;
   zeroKnowledgeEnforced: boolean;
   timestamp: number;
 }
 
-// ─── 300+ CITIES TOPOLOGY SEED (GLOBAL ANYCAST PoPs) ─────────────────────────
+// ─── TOPOLOGICAL DEFINITION (GLOBAL ANYCAST PoPs) ────────────────────────────
 
-export const WORLDWIDE_EDGE_POPS: EdgePoP[] = [
+interface PoPDefinition {
+  id: string;
+  name: string;
+  city: string;
+  country: string;
+  superRegion: SuperRegion;
+  airportCode: string;
+  latitude: number;
+  longitude: number;
+  simulatedRttMs: number;
+  simulatedHibernatingSockets: number;
+  simulatedActiveSockets: number;
+}
+
+const BASE_EDGE_POPS: PoPDefinition[] = [
   // WEUR (Western Europe)
-  { id: 'pop-fra', name: 'Frankfurt Core', city: 'Frankfurt', country: 'DE', superRegion: 'WEUR', airportCode: 'FRA', latitude: 50.1109, longitude: 8.6821, measuredRttMs: 11.2, status: 'ONLINE', d1ReplicaActive: true, r2EdgeCacheActive: true, durableObjectHibernatingSockets: 4200, activeSockets: 450 },
-  { id: 'pop-ams', name: 'Amsterdam Hub', city: 'Amsterdam', country: 'NL', superRegion: 'WEUR', airportCode: 'AMS', latitude: 52.3676, longitude: 4.9041, measuredRttMs: 13.5, status: 'ONLINE', d1ReplicaActive: true, r2EdgeCacheActive: true, durableObjectHibernatingSockets: 3800, activeSockets: 390 },
-  { id: 'pop-lhr', name: 'London Docklands', city: 'London', country: 'GB', superRegion: 'WEUR', airportCode: 'LHR', latitude: 51.5074, longitude: -0.1278, measuredRttMs: 14.8, status: 'ONLINE', d1ReplicaActive: true, r2EdgeCacheActive: true, durableObjectHibernatingSockets: 5100, activeSockets: 620 },
-  { id: 'pop-cdg', name: 'Paris Sovereign PoP', city: 'Paris', country: 'FR', superRegion: 'WEUR', airportCode: 'CDG', latitude: 48.8566, longitude: 2.3522, measuredRttMs: 12.8, status: 'ONLINE', d1ReplicaActive: true, r2EdgeCacheActive: true, durableObjectHibernatingSockets: 3100, activeSockets: 340 },
-  { id: 'pop-zrh', name: 'Zurich Alpine Enclave', city: 'Zurich', country: 'CH', superRegion: 'WEUR', airportCode: 'ZRH', latitude: 47.3769, longitude: 8.5417, measuredRttMs: 9.4, status: 'ONLINE', d1ReplicaActive: true, r2EdgeCacheActive: true, durableObjectHibernatingSockets: 2100, activeSockets: 190 },
+  { id: 'pop-fra', name: 'Frankfurt Core', city: 'Frankfurt', country: 'DE', superRegion: 'WEUR', airportCode: 'FRA', latitude: 50.1109, longitude: 8.6821, simulatedRttMs: 11.2, simulatedHibernatingSockets: 4200, simulatedActiveSockets: 450 },
+  { id: 'pop-ams', name: 'Amsterdam Hub', city: 'Amsterdam', country: 'NL', superRegion: 'WEUR', airportCode: 'AMS', latitude: 52.3676, longitude: 4.9041, simulatedRttMs: 13.5, simulatedHibernatingSockets: 3800, simulatedActiveSockets: 390 },
+  { id: 'pop-lhr', name: 'London Docklands', city: 'London', country: 'GB', superRegion: 'WEUR', airportCode: 'LHR', latitude: 51.5074, longitude: -0.1278, simulatedRttMs: 14.8, simulatedHibernatingSockets: 5100, simulatedActiveSockets: 620 },
+  { id: 'pop-cdg', name: 'Paris Sovereign PoP', city: 'Paris', country: 'FR', superRegion: 'WEUR', airportCode: 'CDG', latitude: 48.8566, longitude: 2.3522, simulatedRttMs: 12.8, simulatedHibernatingSockets: 3100, simulatedActiveSockets: 340 },
+  { id: 'pop-zrh', name: 'Zurich Alpine Enclave', city: 'Zurich', country: 'CH', superRegion: 'WEUR', airportCode: 'ZRH', latitude: 47.3769, longitude: 8.5417, simulatedRttMs: 9.4, simulatedHibernatingSockets: 2100, simulatedActiveSockets: 190 },
 
   // EEUR (Eastern Europe)
-  { id: 'pop-otp', name: 'Bucharest Sovereign Gateway', city: 'Bucharest', country: 'RO', superRegion: 'EEUR', airportCode: 'OTP', latitude: 44.4268, longitude: 26.1025, measuredRttMs: 7.6, status: 'ONLINE', d1ReplicaActive: true, r2EdgeCacheActive: true, durableObjectHibernatingSockets: 2900, activeSockets: 280 },
-  { id: 'pop-waw', name: 'Warsaw Hub', city: 'Warsaw', country: 'PL', superRegion: 'EEUR', airportCode: 'WAW', latitude: 52.2297, longitude: 21.0122, measuredRttMs: 10.4, status: 'ONLINE', d1ReplicaActive: true, r2EdgeCacheActive: true, durableObjectHibernatingSockets: 2400, activeSockets: 210 },
-  { id: 'pop-vie', name: 'Vienna Node', city: 'Vienna', country: 'AT', superRegion: 'EEUR', airportCode: 'VIE', latitude: 48.2082, longitude: 16.3738, measuredRttMs: 8.9, status: 'ONLINE', d1ReplicaActive: true, r2EdgeCacheActive: true, durableObjectHibernatingSockets: 1800, activeSockets: 170 },
+  { id: 'pop-otp', name: 'Bucharest Sovereign Gateway', city: 'Bucharest', country: 'RO', superRegion: 'EEUR', airportCode: 'OTP', latitude: 44.4268, longitude: 26.1025, simulatedRttMs: 7.6, simulatedHibernatingSockets: 2900, simulatedActiveSockets: 280 },
+  { id: 'pop-waw', name: 'Warsaw Hub', city: 'Warsaw', country: 'PL', superRegion: 'EEUR', airportCode: 'WAW', latitude: 52.2297, longitude: 21.0122, simulatedRttMs: 10.4, simulatedHibernatingSockets: 2400, simulatedActiveSockets: 210 },
+  { id: 'pop-vie', name: 'Vienna Node', city: 'Vienna', country: 'AT', superRegion: 'EEUR', airportCode: 'VIE', latitude: 48.2082, longitude: 16.3738, simulatedRttMs: 8.9, simulatedHibernatingSockets: 1800, simulatedActiveSockets: 170 },
 
   // WNAM (Western North America)
-  { id: 'pop-sfo', name: 'San Francisco Bay Core', city: 'San Francisco', country: 'US', superRegion: 'WNAM', airportCode: 'SFO', latitude: 37.7749, longitude: -122.4194, measuredRttMs: 12.1, status: 'ONLINE', d1ReplicaActive: true, r2EdgeCacheActive: true, durableObjectHibernatingSockets: 6800, activeSockets: 750 },
-  { id: 'pop-lax', name: 'Los Angeles Gateway', city: 'Los Angeles', country: 'US', superRegion: 'WNAM', airportCode: 'LAX', latitude: 34.0522, longitude: -118.2437, measuredRttMs: 13.9, status: 'ONLINE', d1ReplicaActive: true, r2EdgeCacheActive: true, durableObjectHibernatingSockets: 5900, activeSockets: 610 },
-  { id: 'pop-sea', name: 'Seattle Node', city: 'Seattle', country: 'US', superRegion: 'WNAM', airportCode: 'SEA', latitude: 47.6062, longitude: -122.3321, measuredRttMs: 14.5, status: 'ONLINE', d1ReplicaActive: true, r2EdgeCacheActive: true, durableObjectHibernatingSockets: 3200, activeSockets: 310 },
+  { id: 'pop-sfo', name: 'San Francisco Bay Core', city: 'San Francisco', country: 'US', superRegion: 'WNAM', airportCode: 'SFO', latitude: 37.7749, longitude: -122.4194, simulatedRttMs: 12.1, simulatedHibernatingSockets: 6800, simulatedActiveSockets: 750 },
+  { id: 'pop-lax', name: 'Los Angeles Gateway', city: 'Los Angeles', country: 'US', superRegion: 'WNAM', airportCode: 'LAX', latitude: 34.0522, longitude: -118.2437, simulatedRttMs: 13.9, simulatedHibernatingSockets: 5900, simulatedActiveSockets: 610 },
+  { id: 'pop-sea', name: 'Seattle Node', city: 'Seattle', country: 'US', superRegion: 'WNAM', airportCode: 'SEA', latitude: 47.6062, longitude: -122.3321, simulatedRttMs: 14.5, simulatedHibernatingSockets: 3200, simulatedActiveSockets: 310 },
 
   // ENAM (Eastern North America)
-  { id: 'pop-iad', name: 'Ashburn Virginia Core', city: 'Ashburn / DC', country: 'US', superRegion: 'ENAM', airportCode: 'IAD', latitude: 39.0438, longitude: -77.4874, measuredRttMs: 11.0, status: 'ONLINE', d1ReplicaActive: true, r2EdgeCacheActive: true, durableObjectHibernatingSockets: 8500, activeSockets: 980 },
-  { id: 'pop-ewr', name: 'New York Metro Edge', city: 'New York', country: 'US', superRegion: 'ENAM', airportCode: 'EWR', latitude: 40.7128, longitude: -74.006, measuredRttMs: 12.3, status: 'ONLINE', d1ReplicaActive: true, r2EdgeCacheActive: true, durableObjectHibernatingSockets: 7900, activeSockets: 890 },
-  { id: 'pop-ord', name: 'Chicago Central Hub', city: 'Chicago', country: 'US', superRegion: 'ENAM', airportCode: 'ORD', latitude: 41.8781, longitude: -87.6298, measuredRttMs: 13.1, status: 'ONLINE', d1ReplicaActive: true, r2EdgeCacheActive: true, durableObjectHibernatingSockets: 4400, activeSockets: 430 },
-  { id: 'pop-yyz', name: 'Toronto Gateway', city: 'Toronto', country: 'CA', superRegion: 'ENAM', airportCode: 'YYZ', latitude: 43.6532, longitude: -79.3832, measuredRttMs: 14.2, status: 'ONLINE', d1ReplicaActive: true, r2EdgeCacheActive: true, durableObjectHibernatingSockets: 2800, activeSockets: 260 },
+  { id: 'pop-iad', name: 'Ashburn Virginia Core', city: 'Ashburn / DC', country: 'US', superRegion: 'ENAM', airportCode: 'IAD', latitude: 39.0438, longitude: -77.4874, simulatedRttMs: 11.0, simulatedHibernatingSockets: 8500, simulatedActiveSockets: 980 },
+  { id: 'pop-ewr', name: 'New York Metro Edge', city: 'New York', country: 'US', superRegion: 'ENAM', airportCode: 'EWR', latitude: 40.7128, longitude: -74.006, simulatedRttMs: 12.3, simulatedHibernatingSockets: 7900, simulatedActiveSockets: 890 },
+  { id: 'pop-ord', name: 'Chicago Central Hub', city: 'Chicago', country: 'US', superRegion: 'ENAM', airportCode: 'ORD', latitude: 41.8781, longitude: -87.6298, simulatedRttMs: 13.1, simulatedHibernatingSockets: 4400, simulatedActiveSockets: 430 },
+  { id: 'pop-yyz', name: 'Toronto Gateway', city: 'Toronto', country: 'CA', superRegion: 'ENAM', airportCode: 'YYZ', latitude: 43.6532, longitude: -79.3832, simulatedRttMs: 14.2, simulatedHibernatingSockets: 2800, simulatedActiveSockets: 260 },
 
   // APAC (Asia-Pacific & Middle East)
-  { id: 'pop-nrt', name: 'Tokyo Core Edge', city: 'Tokyo', country: 'JP', superRegion: 'APAC', airportCode: 'NRT', latitude: 35.6762, longitude: 139.6503, measuredRttMs: 10.8, status: 'ONLINE', d1ReplicaActive: true, r2EdgeCacheActive: true, durableObjectHibernatingSockets: 7400, activeSockets: 830 },
-  { id: 'pop-sin', name: 'Singapore Sovereign Hub', city: 'Singapore', country: 'SG', superRegion: 'APAC', airportCode: 'SIN', latitude: 1.3521, longitude: 103.8198, measuredRttMs: 12.7, status: 'ONLINE', d1ReplicaActive: true, r2EdgeCacheActive: true, durableObjectHibernatingSockets: 6100, activeSockets: 680 },
-  { id: 'pop-syd', name: 'Sydney Pacific Hub', city: 'Sydney', country: 'AU', superRegion: 'APAC', airportCode: 'SYD', latitude: -33.8688, longitude: 151.2093, measuredRttMs: 14.9, status: 'ONLINE', d1ReplicaActive: true, r2EdgeCacheActive: true, durableObjectHibernatingSockets: 3300, activeSockets: 320 },
-  { id: 'pop-dxb', name: 'Dubai Gulf Gateway', city: 'Dubai', country: 'AE', superRegion: 'APAC', airportCode: 'DXB', latitude: 25.2048, longitude: 55.2708, measuredRttMs: 13.4, status: 'ONLINE', d1ReplicaActive: true, r2EdgeCacheActive: true, durableObjectHibernatingSockets: 3700, activeSockets: 360 },
+  { id: 'pop-nrt', name: 'Tokyo Core Edge', city: 'Tokyo', country: 'JP', superRegion: 'APAC', airportCode: 'NRT', latitude: 35.6762, longitude: 139.6503, simulatedRttMs: 10.8, simulatedHibernatingSockets: 7400, simulatedActiveSockets: 830 },
+  { id: 'pop-sin', name: 'Singapore Sovereign Hub', city: 'Singapore', country: 'SG', superRegion: 'APAC', airportCode: 'SIN', latitude: 1.3521, longitude: 103.8198, simulatedRttMs: 12.7, simulatedHibernatingSockets: 6100, simulatedActiveSockets: 680 },
+  { id: 'pop-syd', name: 'Sydney Pacific Hub', city: 'Sydney', country: 'AU', superRegion: 'APAC', airportCode: 'SYD', latitude: -33.8688, longitude: 151.2093, simulatedRttMs: 14.9, simulatedHibernatingSockets: 3300, simulatedActiveSockets: 320 },
+  { id: 'pop-dxb', name: 'Dubai Gulf Gateway', city: 'Dubai', country: 'AE', superRegion: 'APAC', airportCode: 'DXB', latitude: 25.2048, longitude: 55.2708, simulatedRttMs: 13.4, simulatedHibernatingSockets: 3700, simulatedActiveSockets: 360 },
 ];
+
+export function createPoPList(): EdgePoP[] {
+  const isSim = isSimulationModeEnabled();
+  return BASE_EDGE_POPS.map((b) => ({
+    id: b.id,
+    name: b.name,
+    city: b.city,
+    country: b.country,
+    superRegion: b.superRegion,
+    airportCode: b.airportCode,
+    latitude: b.latitude,
+    longitude: b.longitude,
+    measuredRttMs: isSim ? b.simulatedRttMs : null,
+    status: 'ONLINE',
+    d1ReplicaActive: true,
+    r2EdgeCacheActive: true,
+    durableObjectHibernatingSockets: isSim ? b.simulatedHibernatingSockets : null,
+    activeSockets: isSim ? b.simulatedActiveSockets : null,
+  }));
+}
+
+export const WORLDWIDE_EDGE_POPS: EdgePoP[] = createPoPList();
 
 // ─── CLOUDFLARE D1 MULTI-REGION READ REPLICAS ────────────────────────────────
 
-export const D1_GLOBAL_TOPOLOGY: D1ReplicationNode[] = [
-  { region: 'WEUR', location: 'Frankfurt (eu-central)', readLatencyMs: 3.2, replicaStatus: 'HEALTHY', lastReplicationSequence: 948201, isPrimary: true },
-  { region: 'EEUR', location: 'Bucharest (eu-east)', readLatencyMs: 2.8, replicaStatus: 'HEALTHY', lastReplicationSequence: 948201, isPrimary: false },
-  { region: 'ENAM', location: 'Ashburn (us-east)', readLatencyMs: 3.6, replicaStatus: 'HEALTHY', lastReplicationSequence: 948200, isPrimary: false },
-  { region: 'WNAM', location: 'San Francisco (us-west)', readLatencyMs: 4.1, replicaStatus: 'HEALTHY', lastReplicationSequence: 948200, isPrimary: false },
-  { region: 'APAC', location: 'Tokyo (ap-northeast)', readLatencyMs: 3.9, replicaStatus: 'HEALTHY', lastReplicationSequence: 948199, isPrimary: false },
-];
+export function createD1Topology(): D1ReplicationNode[] {
+  const isSim = isSimulationModeEnabled();
+  return [
+    { region: 'WEUR', location: 'Frankfurt (eu-central)', readLatencyMs: isSim ? 3.2 : null, replicaStatus: 'HEALTHY', lastReplicationSequence: isSim ? 948201 : null, isPrimary: true },
+    { region: 'EEUR', location: 'Bucharest (eu-east)', readLatencyMs: isSim ? 2.8 : null, replicaStatus: 'HEALTHY', lastReplicationSequence: isSim ? 948201 : null, isPrimary: false },
+    { region: 'ENAM', location: 'Ashburn (us-east)', readLatencyMs: isSim ? 3.6 : null, replicaStatus: 'HEALTHY', lastReplicationSequence: isSim ? 948200 : null, isPrimary: false },
+    { region: 'WNAM', location: 'San Francisco (us-west)', readLatencyMs: isSim ? 4.1 : null, replicaStatus: 'HEALTHY', lastReplicationSequence: isSim ? 948200 : null, isPrimary: false },
+    { region: 'APAC', location: 'Tokyo (ap-northeast)', readLatencyMs: isSim ? 3.9 : null, replicaStatus: 'HEALTHY', lastReplicationSequence: isSim ? 948199 : null, isPrimary: false },
+  ];
+}
+
+export const D1_GLOBAL_TOPOLOGY: D1ReplicationNode[] = createD1Topology();
 
 // ─── GLOBAL SCALE ARCHITECT ENGINE ───────────────────────────────────────────
 
 export class GlobalScaleEngine {
-  private pops: EdgePoP[] = [...WORLDWIDE_EDGE_POPS];
+  private pops: EdgePoP[];
+  private d1Topology: D1ReplicationNode[];
   private currentPoP: EdgePoP;
   private geoPolicy: GeoFencingPolicy = 'GLOBAL_ANYCAST';
-  private cdnMetrics: CDNCacheMetrics = {
-    l1EdgeCacheHits: 184500,
-    l1EdgeCacheMisses: 4200,
-    l2TieredCacheHits: 3950,
-    originShieldRequests: 250,
-    totalRequests: 192900,
-    averageEdgeLatencyMs: 11.4,
-    bandwidthSavedBytes: 1024 * 1024 * 1024 * 84.5, // 84.5 GB saved
-  };
+  private cdnMetrics: CDNCacheMetrics;
   private isP2PDirectMeshActive: boolean = false;
   private listeners: Array<() => void> = [];
 
   constructor() {
-    // Select lowest latency PoP by default
+    this.pops = createPoPList();
+    this.d1Topology = createD1Topology();
+    
+    if (isSimulationModeEnabled()) {
+      this.cdnMetrics = {
+        l1EdgeCacheHits: 184500,
+        l1EdgeCacheMisses: 4200,
+        l2TieredCacheHits: 3950,
+        originShieldRequests: 250,
+        totalRequests: 192900,
+        averageEdgeLatencyMs: 11.4,
+        bandwidthSavedBytes: 1024 * 1024 * 1024 * 84.5,
+      };
+    } else {
+      this.cdnMetrics = {
+        l1EdgeCacheHits: 0,
+        l1EdgeCacheMisses: 0,
+        l2TieredCacheHits: 0,
+        originShieldRequests: 0,
+        totalRequests: 0,
+        averageEdgeLatencyMs: null,
+        bandwidthSavedBytes: 0,
+      };
+    }
+
+    // Select lowest latency PoP (or first permitted PoP if unmeasured)
     this.currentPoP = this.findOptimalPoP();
   }
 
@@ -175,28 +242,56 @@ export class GlobalScaleEngine {
   }
 
   /**
-   * Selects optimal PoP using lowest RTT latency within permitted sovereignty bounds.
+   * Selects optimal PoP using lowest measured RTT latency within permitted sovereignty bounds.
+   * If RTT is unmeasured (null), selects the first permitted PoP.
    */
   public findOptimalPoP(): EdgePoP {
     const permitted = this.getPermittedPoPs();
     if (permitted.length === 0) return this.pops[0];
 
-    const online = permitted.filter((p) => p.status === 'ONLINE');
-    const pool = online.length > 0 ? online : permitted;
+    const measured = permitted.filter((p) => p.measuredRttMs !== null);
+    if (measured.length > 0) {
+      return measured.reduce((best, curr) => (curr.measuredRttMs! < best.measuredRttMs! ? curr : best), measured[0]);
+    }
 
-    return pool.reduce((best, curr) => (curr.measuredRttMs < best.measuredRttMs ? curr : best), pool[0]);
+    return permitted[0];
   }
 
   /**
-   * Simulates active latency ping / probe across all edge nodes.
+   * Probes active edge latency.
+   * - In production: uses real fetch() to origin health/analytics endpoint with performance.now(). Zero Math.random().
+   * - In simulation mode: uses CSPRNG jitter across all PoPs for synthetic testbed testing.
    */
-  public probeAllPoPs(): void {
-    for (const pop of this.pops) {
-      // Simulate minor network jitter (+- 1.5ms)
-      const jitter = (Math.random() - 0.5) * 3;
-      pop.measuredRttMs = Math.max(2.0, parseFloat((pop.measuredRttMs + jitter).toFixed(1)));
+  public async probeAllPoPs(): Promise<void> {
+    if (isSimulationModeEnabled()) {
+      for (const pop of this.pops) {
+        // CSPRNG jitter (-1.5ms to +1.5ms)
+        const randArr = new Uint32Array(1);
+        crypto.getRandomValues(randArr);
+        const jitter = (randArr[0] / 0x100000000 - 0.5) * 3;
+        const base = pop.measuredRttMs ?? 11.0;
+        pop.measuredRttMs = Math.max(2.0, parseFloat((base + jitter).toFixed(1)));
+      }
+      this.currentPoP = this.findOptimalPoP();
+      this.notify();
+      return;
     }
-    this.currentPoP = this.findOptimalPoP();
+
+    // Production: Probe real origin endpoint
+    try {
+      if (typeof performance !== 'undefined' && typeof fetch !== 'undefined') {
+        const start = performance.now();
+        const res = await fetch('/api/analytics', { method: 'HEAD', cache: 'no-store' }).catch(() => null);
+        const duration = performance.now() - start;
+        if (res && (res.ok || res.status < 500)) {
+          const rtt = parseFloat(duration.toFixed(1));
+          this.currentPoP.measuredRttMs = rtt;
+        }
+      }
+    } catch {
+      // Keep null if network request fails
+    }
+
     this.notify();
   }
 
@@ -222,8 +317,8 @@ export class GlobalScaleEngine {
     return { ...this.cdnMetrics };
   }
 
-  public getCacheHitRatio(): number {
-    if (this.cdnMetrics.totalRequests === 0) return 1.0;
+  public getCacheHitRatio(): number | null {
+    if (this.cdnMetrics.totalRequests === 0) return null;
     const totalHits = this.cdnMetrics.l1EdgeCacheHits + this.cdnMetrics.l2TieredCacheHits;
     return parseFloat((totalHits / this.cdnMetrics.totalRequests).toFixed(4));
   }
@@ -232,21 +327,40 @@ export class GlobalScaleEngine {
 
   /**
    * Computes WebSocket Hibernation efficiency metrics.
-   * Hibernated WebSockets consume 0 CPU and virtually 0 memory on Cloudflare Edge until frames arrive.
+   * If running in production with unmeasured server sockets, returns null for unknown fields.
    */
   public getDurableObjectStats(): {
-    totalSockets: number;
-    activeSockets: number;
-    hibernatingSockets: number;
-    hibernationRatio: number;
-    memorySavingsPercent: number;
+    totalSockets: number | null;
+    activeSockets: number | null;
+    hibernatingSockets: number | null;
+    hibernationRatio: number | null;
+    memorySavingsPercent: number | null;
   } {
     let active = 0;
     let hibernating = 0;
+    let hasMeasuredSockets = false;
+
     for (const pop of this.pops) {
-      active += pop.activeSockets;
-      hibernating += pop.durableObjectHibernatingSockets;
+      if (pop.activeSockets !== null) {
+        active += pop.activeSockets;
+        hasMeasuredSockets = true;
+      }
+      if (pop.durableObjectHibernatingSockets !== null) {
+        hibernating += pop.durableObjectHibernatingSockets;
+        hasMeasuredSockets = true;
+      }
     }
+
+    if (!hasMeasuredSockets) {
+      return {
+        totalSockets: null,
+        activeSockets: null,
+        hibernatingSockets: null,
+        hibernationRatio: null,
+        memorySavingsPercent: null,
+      };
+    }
+
     const total = active + hibernating;
     const hibernationRatio = total > 0 ? hibernating / total : 0;
     const memorySavingsPercent = parseFloat((hibernationRatio * 92.5).toFixed(1));
@@ -263,13 +377,13 @@ export class GlobalScaleEngine {
   // ─── CLOUDFLARE D1 & R2 GLOBAL DATA LAYER ──────────────────────────────────
 
   public getD1Topology(): D1ReplicationNode[] {
-    return [...D1_GLOBAL_TOPOLOGY];
+    return [...this.d1Topology];
   }
 
-  public getD1ReadLatency(region?: SuperRegion): number {
+  public getD1ReadLatency(region?: SuperRegion): number | null {
     const targetRegion = region || this.currentPoP.superRegion;
-    const node = D1_GLOBAL_TOPOLOGY.find((n) => n.region === targetRegion);
-    return node ? node.readLatencyMs : 4.5;
+    const node = this.d1Topology.find((n) => n.region === targetRegion);
+    return node?.readLatencyMs ?? null;
   }
 
   // ─── MERKLE TREE CRDT MULTI-MASTER STATE RECONCILIATION ────────────────────
@@ -389,26 +503,35 @@ export class GlobalScaleEngine {
   // ─── UI OBSERVATORY DASHBOARD GENERATOR ────────────────────────────────────
 
   public renderGlobalScaleDashboard(): string {
+    const isSim = isSimulationModeEnabled();
     const health = this.getHealthReport();
     const cdn = this.getCDNMetrics();
     const doStats = this.getDurableObjectStats();
-    const hitRatio = (this.getCacheHitRatio() * 100).toFixed(2);
+    const rawHitRatio = this.getCacheHitRatio();
+    const hitRatioFormatted = rawHitRatio !== null ? `${(rawHitRatio * 100).toFixed(2)}%` : null;
     const d1Topology = this.getD1Topology();
 
     return `
       <div class="space-y-6 font-mono text-xs text-slate-200 select-none animate-in fade-in duration-200">
         
-        <!-- HEADER / SLA HERO -->
+        <!-- HEADER / TELEMETRY BADGE -->
         <div class="p-5 rounded-2xl bg-gradient-to-br from-indigo-950/60 via-surface-base to-surface-raised border border-indigo-500/20 shadow-xl space-y-3">
           <div class="flex items-center justify-between">
             <div class="flex items-center space-x-3">
               <span class="text-2xl">🌐</span>
               <div>
                 <h4 class="text-sm font-bold text-white tracking-wide">Worldwide Anycast Edge Infrastructure</h4>
-                <p class="text-[11px] text-indigo-300">Cloudflare Global Edge (300+ Cities) · Global Anycast Edge Network (Zero Data Retention)</p>
+                <p class="text-[11px] text-indigo-300">Cloudflare Global Anycast Edge Network · Global Anycast Edge Network (Zero Data Retention)</p>
               </div>
             </div>
             <div class="flex items-center space-x-2">
+              <span class="px-2.5 py-1 rounded-xl text-[10px] font-bold ${
+                isSim
+                  ? 'bg-amber-950 text-amber-300 border border-amber-500/40'
+                  : 'bg-emerald-950 text-emerald-300 border border-emerald-500/40'
+              }">
+                ${isSim ? '[SIMULATION MODE (Synthetic Testbed)]' : '[PRODUCTION (Real Telemetry Only)]'}
+              </span>
               <span class="px-2.5 py-1 rounded-xl text-[10px] font-bold ${
                 health.overallStatus === 'OPTIMAL'
                   ? 'bg-emerald-950 text-emerald-300 border border-emerald-500/40'
@@ -430,26 +553,36 @@ export class GlobalScaleEngine {
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-2">
             <div class="p-3 rounded-xl bg-surface-base/80 border border-white/5">
               <div class="text-[10px] text-slate-400 uppercase">Edge RTT Latency</div>
-              <div class="text-base font-bold text-emerald-400">${health.rttLatencyMs} ms</div>
+              <div class="text-base font-bold text-emerald-400">
+                ${health.rttLatencyMs !== null ? `${health.rttLatencyMs} ms` : '<span class="text-slate-400 text-xs font-normal">Not measured</span>'}
+              </div>
               <div class="text-[9px] text-slate-500">PoP: ${health.activePoP.airportCode} (${health.activePoP.city})</div>
             </div>
 
             <div class="p-3 rounded-xl bg-surface-base/80 border border-white/5">
               <div class="text-[10px] text-slate-400 uppercase">D1 Read Replicas</div>
-              <div class="text-base font-bold text-cyan-400">${health.d1ReadLatencyMs} ms</div>
-              <div class="text-[9px] text-slate-500">Region: ${health.connectedRegion} (< 5ms SLA)</div>
+              <div class="text-base font-bold text-cyan-400">
+                ${health.d1ReadLatencyMs !== null ? `${health.d1ReadLatencyMs} ms` : '<span class="text-slate-400 text-xs font-normal">Not measured</span>'}
+              </div>
+              <div class="text-[9px] text-slate-500">Region: ${health.connectedRegion} (Multi-Region Edge)</div>
             </div>
 
             <div class="p-3 rounded-xl bg-surface-base/80 border border-white/5">
               <div class="text-[10px] text-slate-400 uppercase">CDN Cache Hit Ratio</div>
-              <div class="text-base font-bold text-indigo-300">${hitRatio}%</div>
+              <div class="text-base font-bold text-indigo-300">
+                ${hitRatioFormatted !== null ? hitRatioFormatted : '<span class="text-slate-400 text-xs font-normal">No requests recorded</span>'}
+              </div>
               <div class="text-[9px] text-slate-500">L1 PoP + L2 Regional Tier</div>
             </div>
 
             <div class="p-3 rounded-xl bg-surface-base/80 border border-white/5">
               <div class="text-[10px] text-slate-400 uppercase">WebSocket Hibernation</div>
-              <div class="text-base font-bold text-amber-300">${doStats.memorySavingsPercent}%</div>
-              <div class="text-[9px] text-slate-500">${doStats.hibernatingSockets.toLocaleString()} Sleeping / 0% CPU</div>
+              <div class="text-base font-bold text-amber-300">
+                ${doStats.memorySavingsPercent !== null ? `${doStats.memorySavingsPercent}%` : '<span class="text-slate-400 text-xs font-normal">Server-edge only</span>'}
+              </div>
+              <div class="text-[9px] text-slate-500">
+                ${doStats.hibernatingSockets !== null ? `${doStats.hibernatingSockets.toLocaleString()} Sleeping / 0% CPU` : 'Cloudflare Worker Hibernation'}
+              </div>
             </div>
           </div>
         </div>
@@ -465,7 +598,7 @@ export class GlobalScaleEngine {
           </p>
           <div class="grid grid-cols-2 sm:grid-cols-5 gap-2">
             ${[
-              { id: 'GLOBAL_ANYCAST', label: 'Global Anycast', sub: 'Fastest 300+ PoPs' },
+              { id: 'GLOBAL_ANYCAST', label: 'Global Anycast', sub: 'Global Anycast Edge' },
               { id: 'EU_GDPR_SOVEREIGN', label: 'EU GDPR Sovereign', sub: 'WEUR + EEUR Only' },
               { id: 'SWISS_SOVEREIGN', label: 'Swiss Enclave', sub: 'Zurich Alpine PoP' },
               { id: 'US_DOMESTIC', label: 'US Domestic', sub: 'WNAM + ENAM' },
@@ -514,7 +647,9 @@ export class GlobalScaleEngine {
                   <tr>
                     <td class="py-2 font-bold text-indigo-300">${node.region}</td>
                     <td class="py-2 text-slate-300">${node.location} ${node.isPrimary ? '<span class="text-[9px] px-1.5 py-0.5 rounded bg-amber-950 text-amber-300 font-bold ml-1">PRIMARY</span>' : ''}</td>
-                    <td class="py-2 text-emerald-400 font-bold">${node.readLatencyMs} ms</td>
+                    <td class="py-2 text-emerald-400 font-bold">
+                      ${node.readLatencyMs !== null ? `${node.readLatencyMs} ms` : '<span class="text-slate-500 font-normal">Not measured</span>'}
+                    </td>
                     <td class="py-2">
                       <span class="text-[9px] px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-500/30 font-bold">
                         ● ${node.replicaStatus}

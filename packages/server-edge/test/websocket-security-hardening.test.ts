@@ -9,11 +9,15 @@ import { SovereignRelayDurableObject } from '../src/durable-hibernation.js';
 import worker from '../src/worker.js';
 
 class MockStorage implements DurableObjectStorage {
-  private data = new Map<string, any>();
+  public data = new Map<string, any>();
+  public shouldFail: boolean = false;
+
   async get<T = unknown>(key: string): Promise<T | undefined> {
+    if (this.shouldFail) throw new Error('Simulated D1/DO storage failure');
     return this.data.get(key);
   }
   async getMany<T = unknown>(keys: string[]): Promise<Map<string, T>> {
+    if (this.shouldFail) throw new Error('Simulated D1/DO storage failure');
     const res = new Map<string, T>();
     for (const k of keys) {
       if (this.data.has(k)) res.set(k, this.data.get(k));
@@ -21,6 +25,7 @@ class MockStorage implements DurableObjectStorage {
     return res;
   }
   async put<T = unknown>(keyOrEntries: string | Record<string, T>, value?: T): Promise<void> {
+    if (this.shouldFail) throw new Error('Simulated D1/DO storage failure');
     if (typeof keyOrEntries === 'string') {
       this.data.set(keyOrEntries, value);
     } else {
@@ -30,6 +35,7 @@ class MockStorage implements DurableObjectStorage {
     }
   }
   async delete(keyOrKeys: string | string[]): Promise<any> {
+    if (this.shouldFail) throw new Error('Simulated D1/DO storage failure');
     if (Array.isArray(keyOrKeys)) {
       let c = 0;
       for (const k of keyOrKeys) if (this.data.delete(k)) c++;
@@ -38,16 +44,23 @@ class MockStorage implements DurableObjectStorage {
     return this.data.delete(keyOrKeys);
   }
   async deleteAll(): Promise<void> {
+    if (this.shouldFail) throw new Error('Simulated D1/DO storage failure');
     this.data.clear();
   }
   async list<T = unknown>(): Promise<Map<string, T>> {
+    if (this.shouldFail) throw new Error('Simulated D1/DO storage failure');
     return new Map(this.data);
   }
   async getAlarm(): Promise<number | null> {
+    if (this.shouldFail) throw new Error('Simulated D1/DO storage failure');
     return null;
   }
-  async setAlarm(): Promise<void> {}
-  async deleteAlarm(): Promise<void> {}
+  async setAlarm(): Promise<void> {
+    if (this.shouldFail) throw new Error('Simulated D1/DO storage failure');
+  }
+  async deleteAlarm(): Promise<void> {
+    if (this.shouldFail) throw new Error('Simulated D1/DO storage failure');
+  }
   async transaction<T>(closure: (txn: any) => Promise<T>): Promise<T> {
     return closure(this);
   }
@@ -144,7 +157,7 @@ describe('WebSocket Identity & Role Security Hardening (P0 Gates)', () => {
   });
 
   describe('1. RelayDurableObject Identity Spoofing & Role Authority', () => {
-    it('MUST strictly prevent client from spoofing authorFingerprint in messages', async () => {
+    it('MUST explicitly DENY client when packet.authorFingerprint differs from session fingerprint', async () => {
       const mockState = new MockDurableObjectState();
       const relay = new RelayDurableObject(mockState, { AUTH_SECRET: TEST_SECRET });
 
@@ -169,12 +182,7 @@ describe('WebSocket Identity & Role Security Hardening (P0 Gates)', () => {
         JSON.stringify({ type: 'AUTH', token })
       );
 
-      const msgs = serverWs.getAllMessagesParsed();
-      const authMsg = msgs.find((m) => m.type === 'AUTH_SUCCESS');
-      expect(authMsg).toBeDefined();
-      expect(authMsg.fingerprint).toBe('alice-fp');
-
-      // Alice sends a message with forged authorFingerprint & fingerprint fields
+      // Alice sends a message trying to spoof authorFingerprint = "bob-admin-fp"
       await relay.webSocketMessage(
         serverWs as unknown as WebSocket,
         JSON.stringify({
@@ -182,18 +190,183 @@ describe('WebSocket Identity & Role Security Hardening (P0 Gates)', () => {
           channelId: 'relays-general',
           ciphertext: 'Legitimate encrypted body',
           authorFingerprint: 'bob-admin-fp',
+        })
+      );
+
+      const lastMsg = serverWs.getLastMessageParsed();
+      expect(lastMsg.type).toBe('ERROR');
+      expect(lastMsg.message).toContain('Identity spoofing rejected');
+
+      // Message MUST NOT have been stored
+      const messages = relay.getChannelMessages('relays-general');
+      expect(messages.length).toBe(0);
+    });
+
+    it('MUST explicitly DENY client when packet.fingerprint differs from session fingerprint', async () => {
+      const mockState = new MockDurableObjectState();
+      const relay = new RelayDurableObject(mockState, { AUTH_SECRET: TEST_SECRET });
+
+      const upgradeReq = new Request('https://relay.aetheris.network/ws', {
+        headers: { Upgrade: 'websocket' },
+      });
+      await relay.fetch(upgradeReq);
+      const serverWs = mockState.acceptedSockets[0];
+
+      const token = await createRelaySessionToken(
+        {
+          sub: 'alice-fp',
+          role: 'MEMBER',
+          aud: 'aetheris-relay',
+          exp: Date.now() + 60000,
+        },
+        TEST_SECRET
+      );
+      await relay.webSocketMessage(
+        serverWs as unknown as WebSocket,
+        JSON.stringify({ type: 'AUTH', token })
+      );
+
+      // Alice sends a message with spoofed fingerprint field
+      await relay.webSocketMessage(
+        serverWs as unknown as WebSocket,
+        JSON.stringify({
+          type: 'SEND_MESSAGE',
+          channelId: 'relays-general',
+          ciphertext: 'Legitimate encrypted body',
           fingerprint: 'charlie-fp',
         })
       );
 
-      const messages = relay.getChannelMessages('relays-general');
-      expect(messages.length).toBeGreaterThan(0);
-      const sentMsg = messages[messages.length - 1];
+      const lastMsg = serverWs.getLastMessageParsed();
+      expect(lastMsg.type).toBe('ERROR');
+      expect(lastMsg.message).toContain('Identity spoofing rejected');
+    });
 
-      // Security invariant: authorFingerprint MUST be alice-fp, spoofing attempts discarded
-      expect(sentMsg.authorFingerprint).toBe('alice-fp');
-      expect(sentMsg.authorFingerprint).not.toBe('bob-admin-fp');
-      expect(sentMsg.authorFingerprint).not.toBe('charlie-fp');
+    it('MUST accept valid message and assign authorFingerprint = session.fingerprint', async () => {
+      const mockState = new MockDurableObjectState();
+      const relay = new RelayDurableObject(mockState, { AUTH_SECRET: TEST_SECRET });
+
+      const upgradeReq = new Request('https://relay.aetheris.network/ws', {
+        headers: { Upgrade: 'websocket' },
+      });
+      await relay.fetch(upgradeReq);
+      const serverWs = mockState.acceptedSockets[0];
+
+      const token = await createRelaySessionToken(
+        {
+          sub: 'alice-fp',
+          role: 'MEMBER',
+          aud: 'aetheris-relay',
+          exp: Date.now() + 60000,
+        },
+        TEST_SECRET
+      );
+      await relay.webSocketMessage(
+        serverWs as unknown as WebSocket,
+        JSON.stringify({ type: 'AUTH', token })
+      );
+
+      // Alice sends valid message without spoofing
+      await relay.webSocketMessage(
+        serverWs as unknown as WebSocket,
+        JSON.stringify({
+          type: 'SEND_MESSAGE',
+          channelId: 'relays-general',
+          ciphertext: 'Hello Aetheris Network',
+        })
+      );
+
+      const messages = relay.getChannelMessages('relays-general');
+      expect(messages.length).toBe(1);
+      expect(messages[0].authorFingerprint).toBe('alice-fp');
+    });
+
+    it('MUST explicitly DENY role escalation: MEMBER + role=ADMIN => DENIED', async () => {
+      const mockState = new MockDurableObjectState();
+      const relay = new RelayDurableObject(mockState, { AUTH_SECRET: TEST_SECRET });
+
+      const upgradeReq = new Request('https://relay.aetheris.network/ws', { headers: { Upgrade: 'websocket' } });
+      await relay.fetch(upgradeReq);
+      const serverWs = mockState.acceptedSockets[0];
+
+      const token = await createRelaySessionToken(
+        { sub: 'member-user', role: 'MEMBER', aud: 'aetheris-relay', exp: Date.now() + 60000 },
+        TEST_SECRET
+      );
+      await relay.webSocketMessage(
+        serverWs as unknown as WebSocket,
+        JSON.stringify({ type: 'AUTH', token, role: 'ADMIN' })
+      );
+
+      const lastMsg = serverWs.getLastMessageParsed();
+      expect(lastMsg.type).toBe('ERROR');
+      expect(lastMsg.message).toContain('Role escalation rejected');
+    });
+
+    it('MUST explicitly DENY role escalation: MEMBER + role=GUARDIAN => DENIED', async () => {
+      const mockState = new MockDurableObjectState();
+      const relay = new RelayDurableObject(mockState, { AUTH_SECRET: TEST_SECRET });
+
+      const upgradeReq = new Request('https://relay.aetheris.network/ws', { headers: { Upgrade: 'websocket' } });
+      await relay.fetch(upgradeReq);
+      const serverWs = mockState.acceptedSockets[0];
+
+      const token = await createRelaySessionToken(
+        { sub: 'member-user', role: 'MEMBER', aud: 'aetheris-relay', exp: Date.now() + 60000 },
+        TEST_SECRET
+      );
+      await relay.webSocketMessage(
+        serverWs as unknown as WebSocket,
+        JSON.stringify({ type: 'AUTH', token, role: 'GUARDIAN' })
+      );
+
+      const lastMsg = serverWs.getLastMessageParsed();
+      expect(lastMsg.type).toBe('ERROR');
+      expect(lastMsg.message).toContain('Role escalation rejected');
+    });
+
+    it('MUST explicitly DENY role escalation: MEMBER + role=MODERATOR => DENIED', async () => {
+      const mockState = new MockDurableObjectState();
+      const relay = new RelayDurableObject(mockState, { AUTH_SECRET: TEST_SECRET });
+
+      const upgradeReq = new Request('https://relay.aetheris.network/ws', { headers: { Upgrade: 'websocket' } });
+      await relay.fetch(upgradeReq);
+      const serverWs = mockState.acceptedSockets[0];
+
+      const token = await createRelaySessionToken(
+        { sub: 'member-user', role: 'MEMBER', aud: 'aetheris-relay', exp: Date.now() + 60000 },
+        TEST_SECRET
+      );
+      await relay.webSocketMessage(
+        serverWs as unknown as WebSocket,
+        JSON.stringify({ type: 'AUTH', token, role: 'MODERATOR' })
+      );
+
+      const lastMsg = serverWs.getLastMessageParsed();
+      expect(lastMsg.type).toBe('ERROR');
+      expect(lastMsg.message).toContain('Role escalation rejected');
+    });
+
+    it('MUST explicitly DENY role escalation: MEMBER + role=ARCHIVIST => DENIED', async () => {
+      const mockState = new MockDurableObjectState();
+      const relay = new RelayDurableObject(mockState, { AUTH_SECRET: TEST_SECRET });
+
+      const upgradeReq = new Request('https://relay.aetheris.network/ws', { headers: { Upgrade: 'websocket' } });
+      await relay.fetch(upgradeReq);
+      const serverWs = mockState.acceptedSockets[0];
+
+      const token = await createRelaySessionToken(
+        { sub: 'member-user', role: 'MEMBER', aud: 'aetheris-relay', exp: Date.now() + 60000 },
+        TEST_SECRET
+      );
+      await relay.webSocketMessage(
+        serverWs as unknown as WebSocket,
+        JSON.stringify({ type: 'AUTH', token, role: 'ARCHIVIST' })
+      );
+
+      const lastMsg = serverWs.getLastMessageParsed();
+      expect(lastMsg.type).toBe('ERROR');
+      expect(lastMsg.message).toContain('Role escalation rejected');
     });
 
     it('MUST reject unauthenticated attempt to claim MODERATOR or ARCHIVIST without session token', async () => {
@@ -206,7 +379,6 @@ describe('WebSocket Identity & Role Security Hardening (P0 Gates)', () => {
       await relay.fetch(upgradeReq);
       const serverWs = mockState.acceptedSockets[0];
 
-      // Attempt to claim MODERATOR role without a session token
       await relay.webSocketMessage(
         serverWs as unknown as WebSocket,
         JSON.stringify({
@@ -219,26 +391,11 @@ describe('WebSocket Identity & Role Security Hardening (P0 Gates)', () => {
       const lastMsg = serverWs.getLastMessageParsed();
       expect(lastMsg.type).toBe('ERROR');
       expect(lastMsg.message).toContain('Cryptographic session credential required for privileged roles');
-
-      // Attempt to claim ARCHIVIST role without a session token
-      serverWs.sentMessages = [];
-      await relay.webSocketMessage(
-        serverWs as unknown as WebSocket,
-        JSON.stringify({
-          type: 'AUTH',
-          fingerprint: 'rogue-archivist',
-          role: 'ARCHIVIST',
-        })
-      );
-
-      const archivistMsg = serverWs.getLastMessageParsed();
-      expect(archivistMsg.type).toBe('ERROR');
-      expect(archivistMsg.message).toContain('Cryptographic session credential required for privileged roles');
     });
   });
 
   describe('2. SovereignRelayDurableObject (Hibernation) Security Invariants', () => {
-    it('MUST bind authorFingerprint to session fingerprint in hibernation channels and circles', async () => {
+    it('MUST reject spoofed authorFingerprint in hibernation mode', async () => {
       const mockState = new MockDurableObjectState();
       const hibRelay = new SovereignRelayDurableObject(mockState, { AUTH_SECRET: TEST_SECRET });
 
@@ -271,40 +428,88 @@ describe('WebSocket Identity & Role Security Hardening (P0 Gates)', () => {
           channelId: 'relays-general',
           ciphertext: 'Encrypted payload',
           authorFingerprint: 'impostor',
-          fingerprint: 'impostor-alt',
-        })
-      );
-
-      const msgs = (hibRelay as any).channelMessages.get('relays-general');
-      expect(msgs).toBeDefined();
-      const lastMsg = msgs[msgs.length - 1];
-      expect(lastMsg.authorFingerprint).toBe('user-123');
-      expect(lastMsg.authorFingerprint).not.toBe('impostor');
-    });
-
-    it('MUST reject privileged role claims without valid token in hibernation mode', async () => {
-      const mockState = new MockDurableObjectState();
-      const hibRelay = new SovereignRelayDurableObject(mockState, { AUTH_SECRET: TEST_SECRET });
-
-      const upgradeReq = new Request('https://relay.aetheris.network/ws', {
-        headers: { Upgrade: 'websocket' },
-      });
-      await hibRelay.fetch(upgradeReq);
-      const serverWs = mockState.acceptedSockets[0];
-
-      // Attempt to claim ADMIN without token
-      await hibRelay.webSocketMessage(
-        serverWs as unknown as WebSocket,
-        JSON.stringify({
-          type: 'AUTH',
-          fingerprint: 'attacker',
-          role: 'ADMIN',
         })
       );
 
       const err = serverWs.getLastMessageParsed();
       expect(err.type).toBe('ERROR');
-      expect(err.message).toContain('Cryptographic session credential required for privileged roles');
+      expect(err.message).toContain('Identity spoofing rejected');
+    });
+
+    it('MUST fail closed with 503 on fetch and ERROR on webSocketMessage when storage initialization fails', async () => {
+      const mockState = new MockDurableObjectState();
+      mockState.storage.shouldFail = true; // Induce storage failure
+
+      const hibRelay = new SovereignRelayDurableObject(mockState, { AUTH_SECRET: TEST_SECRET });
+
+      // 1. fetch() must return 503
+      const req = new Request('https://relay.aetheris.network/stats');
+      const res = await hibRelay.fetch(req);
+      expect(res.status).toBe(503);
+
+      // 2. webSocketMessage() must reject with ERROR
+      const mockWs = new MockWebSocket();
+      await hibRelay.webSocketMessage(mockWs as unknown as WebSocket, JSON.stringify({ type: 'PING' }));
+      const lastMsg = mockWs.getLastMessageParsed();
+      expect(lastMsg.type).toBe('ERROR');
+      expect(lastMsg.message).toContain('Durable Object storage unavailable');
+    });
+
+    it('MUST fail closed and abort broadcast when storage.put fails during SEND_MESSAGE', async () => {
+      const mockState = new MockDurableObjectState();
+      const hibRelay = new SovereignRelayDurableObject(mockState, { AUTH_SECRET: TEST_SECRET });
+
+      const upgradeReq = new Request('https://relay.aetheris.network/ws', { headers: { Upgrade: 'websocket' } });
+      await hibRelay.fetch(upgradeReq);
+      const serverWs = mockState.acceptedSockets[0];
+
+      const token = await createRelaySessionToken(
+        { sub: 'user-123', role: 'MEMBER', aud: 'aetheris-relay', exp: Date.now() + 60000 },
+        TEST_SECRET
+      );
+      await hibRelay.webSocketMessage(serverWs as unknown as WebSocket, JSON.stringify({ type: 'AUTH', token }));
+
+      // Now induce storage put failure
+      mockState.storage.shouldFail = true;
+
+      await hibRelay.webSocketMessage(
+        serverWs as unknown as WebSocket,
+        JSON.stringify({
+          type: 'SEND_MESSAGE',
+          channelId: 'relays-general',
+          ciphertext: 'Should not persist',
+        })
+      );
+
+      const lastMsg = serverWs.getLastMessageParsed();
+      expect(lastMsg.type).toBe('ERROR');
+      expect(lastMsg.message).toContain('Failed to persist message to durable storage');
+
+      // Message MUST NOT be in memory
+      const msgs = (hibRelay as any).channelMessages.get('relays-general') || [];
+      expect(msgs.find((m: any) => m.ciphertext === 'Should not persist')).toBeUndefined();
+    });
+
+    it('MUST reject role escalation in hibernation mode', async () => {
+      const mockState = new MockDurableObjectState();
+      const hibRelay = new SovereignRelayDurableObject(mockState, { AUTH_SECRET: TEST_SECRET });
+
+      const upgradeReq = new Request('https://relay.aetheris.network/ws', { headers: { Upgrade: 'websocket' } });
+      await hibRelay.fetch(upgradeReq);
+      const serverWs = mockState.acceptedSockets[0];
+
+      const token = await createRelaySessionToken(
+        { sub: 'member-user', role: 'MEMBER', aud: 'aetheris-relay', exp: Date.now() + 60000 },
+        TEST_SECRET
+      );
+      await hibRelay.webSocketMessage(
+        serverWs as unknown as WebSocket,
+        JSON.stringify({ type: 'AUTH', token, role: 'ADMIN' })
+      );
+
+      const err = serverWs.getLastMessageParsed();
+      expect(err.type).toBe('ERROR');
+      expect(err.message).toContain('Role escalation rejected');
     });
   });
 

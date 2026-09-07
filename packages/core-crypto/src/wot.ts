@@ -135,7 +135,13 @@ export class WebOfTrustGraph {
       const neighborsMap = this.adjacency.get(currentNode);
       const neighbors = neighborsMap ? Array.from(neighborsMap.keys()) : [];
 
-      if (Math.random() < restartProbability || neighbors.length === 0) {
+      const randFloat = () => {
+        const arr = new Uint32Array(1);
+        crypto.getRandomValues(arr);
+        return arr[0] / 0x100000000;
+      };
+
+      if (randFloat() < restartProbability || neighbors.length === 0) {
         currentNode = source;
       } else {
         // Sample next node weighted by capacity
@@ -143,7 +149,7 @@ export class WebOfTrustGraph {
         if (totalWeight <= 0) {
           currentNode = source;
         } else {
-          let rand = Math.random() * totalWeight;
+          let rand = randFloat() * totalWeight;
           let chosen = neighbors[0];
           for (const n of neighbors) {
             rand -= neighborsMap!.get(n) || 0;

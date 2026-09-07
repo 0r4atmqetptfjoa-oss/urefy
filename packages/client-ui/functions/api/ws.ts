@@ -335,6 +335,18 @@ export async function onRequest(context: {
               authenticated = true;
               verifiedFingerprint = tokenVerification.payload.sub;
               verifiedRole = tokenVerification.payload.role || 'MEMBER';
+
+              // Role escalation prevention: if token grants role 'MEMBER', reject claims for elevated roles
+              const requestedRole = (packet.role || '').toUpperCase();
+              if (requestedRole && requestedRole !== tokenVerification.payload.role && ['ADMIN', 'GUARDIAN', 'MODERATOR', 'ARCHIVIST'].includes(requestedRole)) {
+                serverWs.send(
+                  JSON.stringify({
+                    type: 'ERROR',
+                    message: `Role escalation rejected: credential grants role '${tokenVerification.payload.role}', cannot escalate to '${requestedRole}'`,
+                  })
+                );
+                return;
+              }
             }
           }
 
@@ -518,6 +530,19 @@ export async function onRequest(context: {
 
         case 'SEND_MESSAGE': {
           const chId = packet.channelId || clientInfo.currentChannelId || 'relays-general';
+
+          // Strict Identity Spoofing Rejection:
+          const spoofedFp = packet.authorFingerprint || packet.fingerprint || packet.identity;
+          if (spoofedFp && spoofedFp !== clientInfo.fingerprint) {
+            serverWs.send(
+              JSON.stringify({
+                type: 'ERROR',
+                message: 'Identity spoofing rejected: message author fingerprint does not match authenticated session',
+              })
+            );
+            return;
+          }
+
           const rawNullifier = packet.nullifier || clientInfo.nullifier || '';
           const rawEpoch = String(packet.epoch || '#1');
           const rawX = packet.x ? String(packet.x).replace(/^0x/, '') : '';
@@ -713,6 +738,27 @@ export async function onRequest(context: {
               }
             }
           }
+          break;
+        }
+
+        case 'EXECUTE_ROLLBACK': {
+          const role = (clientInfo.role || '').toUpperCase();
+          if (!clientInfo.fingerprint || !['GUARDIAN', 'ADMIN', 'MODERATOR'].includes(role)) {
+            serverWs.send(
+              JSON.stringify({
+                type: 'ERROR',
+                message: 'Unauthorized: Cryptographically verified privileged role required for rollback',
+              })
+            );
+            break;
+          }
+          broadcast({
+            type: 'AUDIT_NOTIFICATION',
+            action: 'ROLLBACK',
+            targetActorFingerprint: packet.targetActorFingerprint,
+            initiator: clientInfo.fingerprint,
+            timestamp: Date.now(),
+          });
           break;
         }
 
