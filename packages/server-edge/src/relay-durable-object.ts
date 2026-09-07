@@ -891,7 +891,7 @@ export class RelayDurableObject {
 
   private async handleSendMessage(ws: WebSocket, session: SessionMetadata, packet: any): Promise<void> {
     const channelId = packet.channelId || session.currentChannelId || 'relays-general';
-    const authorFingerprint = packet.authorFingerprint || packet.fingerprint || session.fingerprint || 'anon-peer';
+    const authorFingerprint = session.fingerprint || 'anon-peer';
     const ciphertext = packet.ciphertext || packet.text || '';
     const epoch = String(packet.epoch || '#1');
     const rawNullifier = packet.nullifier || session.nullifier || '';

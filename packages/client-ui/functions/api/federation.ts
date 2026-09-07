@@ -209,6 +209,11 @@ export function clearActorKeyCache(): void {
   actorKeyCache.clear();
 }
 
+export function clearTrustedActorKeys(): void {
+  trustedActorKeyRegistry.clear();
+  actorKeyCache.clear();
+}
+
 /**
  * Resolves the actor's public key from the trusted registry, in-memory cache,
  * or by fetching the actor's ActivityStreams descriptor from the network.
@@ -343,6 +348,22 @@ export function createSignedFederatedEnvelope(
   return envelope;
 }
 
+export function createSignedActivityPubEnvelope(
+  actorUrl: string,
+  noteId: string,
+  content: string,
+  privateKey: Uint8Array | string,
+  publicKeyHex: string
+): ActivityPubEnvelope {
+  const privHex = typeof privateKey === 'string' ? privateKey : bytesToHex(privateKey);
+  return createSignedFederatedEnvelope(
+    actorUrl,
+    { id: noteId, content },
+    privHex,
+    publicKeyHex
+  );
+}
+
 /**
  * Cryptographically verifies an ActivityPub envelope's signature using Ed25519 against canonical payload.
  * NEVER trusts self-attested publicKeyHex supplied directly by the incoming envelope as authority.
@@ -419,11 +440,31 @@ export async function verifyActivityPubSignatureAsync(
 // ─── ENDPOINT LOGIC: NODEINFO ────────────────────────────────────────────────
 
 /**
- * Returns standard NodeInfo 2.1 descriptor matching protocol specifications.
+ * Asynchronously queries real counts from D1 or in-memory store for NodeInfo 2.1.
+ * Reports actual measured counts or 0; never synthetic or fabricated data.
  */
-export function getNodeInfo(env?: Env): NodeInfo21 {
-  const isProd = isProductionEnv(env);
-  const postsCount = isProd ? 450 : globalPostsStore.length;
+export async function getNodeInfoAsync(env?: Env): Promise<NodeInfo21> {
+  const db = getD1Database(env);
+  let postsCount = globalPostsStore.length;
+  let usersCount = 0;
+
+  if (db) {
+    try {
+      const postsRes = await db
+        .prepare("SELECT COUNT(*) as count FROM posts WHERE status = 'published' OR status IS NULL")
+        .first<{ count: number }>();
+      if (postsRes && typeof postsRes.count === 'number') {
+        postsCount = postsRes.count;
+      }
+      const usersRes = await db
+        .prepare("SELECT COUNT(DISTINCT author_id) as count FROM posts")
+        .first<{ count: number }>();
+      if (usersRes && typeof usersRes.count === 'number') {
+        usersCount = usersRes.count;
+      }
+    } catch (_) {}
+  }
+
   return {
     version: '2.1',
     software: {
@@ -433,9 +474,32 @@ export function getNodeInfo(env?: Env): NodeInfo21 {
     protocols: ['activitypub', 'aetheris-gossip-v1'],
     usage: {
       users: {
-        total: 1200,
+        total: usersCount,
       },
-      localPosts: postsCount > 450 ? postsCount : 450,
+      localPosts: postsCount,
+    },
+    openRegistrations: true,
+  };
+}
+
+/**
+ * Returns standard NodeInfo 2.1 descriptor matching protocol specifications.
+ * Reports actual measured counts or 0; never synthetic or fabricated data.
+ */
+export function getNodeInfo(env?: Env): NodeInfo21 {
+  const postsCount = globalPostsStore.length;
+  return {
+    version: '2.1',
+    software: {
+      name: 'aetheris-omni-sphere',
+      version: '1.0.0',
+    },
+    protocols: ['activitypub', 'aetheris-gossip-v1'],
+    usage: {
+      users: {
+        total: 0,
+      },
+      localPosts: postsCount,
     },
     openRegistrations: true,
   };
@@ -812,7 +876,7 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
       pathname.includes('/.well-known/aetheris-node') ||
       endpoint === 'nodeinfo'
     ) {
-      const nodeInfo = getNodeInfo(context.env);
+      const nodeInfo = await getNodeInfoAsync(context.env);
       return new Response(JSON.stringify(nodeInfo, null, 2), {
         status: 200,
         headers: {

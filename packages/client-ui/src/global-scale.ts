@@ -404,8 +404,8 @@ export class GlobalScaleEngine {
             <div class="flex items-center space-x-3">
               <span class="text-2xl">🌐</span>
               <div>
-                <h3 class="text-sm font-bold text-white tracking-wide">Worldwide Anycast Edge Infrastructure</h3>
-                <p class="text-[11px] text-indigo-300">Cloudflare Global Edge (300+ Cities) · Sub-15ms Global Latency SLA</p>
+                <h4 class="text-sm font-bold text-white tracking-wide">Worldwide Anycast Edge Infrastructure</h4>
+                <p class="text-[11px] text-indigo-300">Cloudflare Global Edge (300+ Cities) · Global Anycast Edge Network (Zero Data Retention)</p>
               </div>
             </div>
             <div class="flex items-center space-x-2">

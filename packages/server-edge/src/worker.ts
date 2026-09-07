@@ -9,6 +9,7 @@ import {
   DEFAULT_RELAY_CHANNELS,
   INITIAL_RELAY_MESSAGES,
   createWebSocketUpgradeResponse,
+  verifyRelaySessionToken,
 } from './relay-durable-object.js';
 import { ZKRLN, RLNShare } from '@aetheris/core-crypto';
 import { PayloadSanitizer } from './payload-sanitizer.js';
@@ -154,22 +155,53 @@ export default {
       };
       edgeActiveClients.set(serverWs, clientInfo);
 
-      serverWs.addEventListener?.('message', (event: any) => {
+      serverWs.addEventListener?.('message', async (event: any) => {
         try {
           const raw = typeof event.data === 'string' ? event.data : new TextDecoder().decode(event.data);
           const packet = PayloadSanitizer.safeJSONParse(raw);
 
           switch (packet.type) {
             case 'AUTH': {
-              const { fingerprint, nullifier, role } = packet;
-              (clientInfo as any).fingerprint = fingerprint;
-              (clientInfo as any).nullifier = nullifier;
-              (clientInfo as any).role = role || 'MEMBER';
+              const { token, sessionToken, credential, fingerprint, nullifier, role } = packet;
+              const tokenToVerify = token || sessionToken || credential;
+              const requestedRole = (role || '').toUpperCase();
+              const isPrivileged = ['ADMIN', 'GUARDIAN', 'MODERATOR', 'ARCHIVIST'].includes(requestedRole);
 
-              const isQuarantined = Boolean(nullifier && edgeRevokedNullifiers.has(nullifier));
-              if (fingerprint) {
-                edgePresence.set(fingerprint, {
-                  fingerprint,
+              if (tokenToVerify) {
+                const secret = (env as any)?.AUTH_SECRET || (env as any)?.ADMIN_PIN || 'aetheris-sovereign-relay-secret';
+                const authResult = await verifyRelaySessionToken(tokenToVerify, secret);
+                if (!authResult.valid || !authResult.payload) {
+                  serverWs.send(
+                    JSON.stringify({
+                      type: 'ERROR',
+                      message: `Authentication rejected: ${authResult.error || 'Invalid session credential'}`,
+                    })
+                  );
+                  return;
+                }
+                (clientInfo as any).fingerprint = authResult.payload.sub;
+                (clientInfo as any).nullifier = authResult.payload.nullifier || nullifier;
+                (clientInfo as any).role = authResult.payload.role || 'MEMBER';
+              } else if (isPrivileged) {
+                serverWs.send(
+                  JSON.stringify({
+                    type: 'ERROR',
+                    message: 'Authentication rejected: Cryptographic session credential required for privileged roles',
+                  })
+                );
+                return;
+              } else {
+                (clientInfo as any).fingerprint = fingerprint;
+                (clientInfo as any).nullifier = nullifier;
+                (clientInfo as any).role = 'MEMBER';
+              }
+
+              const activeFp = (clientInfo as any).fingerprint;
+              const activeNullifier = (clientInfo as any).nullifier;
+              const isQuarantined = Boolean(activeNullifier && edgeRevokedNullifiers.has(activeNullifier));
+              if (activeFp) {
+                edgePresence.set(activeFp, {
+                  fingerprint: activeFp,
                   role: (clientInfo as any).role,
                   status: 'online',
                   joinedChannel: clientInfo.currentChannelId,
@@ -181,7 +213,8 @@ export default {
                 JSON.stringify({
                   type: 'AUTH_SUCCESS',
                   isQuarantined,
-                  fingerprint,
+                  fingerprint: activeFp,
+                  role: (clientInfo as any).role,
                 })
               );
 
@@ -286,7 +319,7 @@ export default {
               const newMsg = {
                 id: packet.id || `msg-${Date.now()}-${randSuffix}`,
                 channelId: chId,
-                authorFingerprint: packet.fingerprint || (clientInfo as any).fingerprint || 'anon-peer',
+                authorFingerprint: (clientInfo as any).fingerprint || 'anon-peer',
                 ciphertext: packet.ciphertext || packet.text || '',
                 text: packet.text || packet.ciphertext || '',
                 epoch: rawEpoch,

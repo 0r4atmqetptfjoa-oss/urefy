@@ -137,7 +137,7 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
     const avgLatency =
       nodesWithLatency.length > 0
         ? Math.round((nodesWithLatency.reduce((acc, n) => acc + (n.latencyMs as number), 0) / nodesWithLatency.length) * 10) / 10
-        : (isProd ? 0 : null);
+        : null;
     const totalBandwidth = nodes.reduce((acc, n) => acc + (n.bandwidthMbps || 0), 0);
     const messagesSum = nodes.reduce((acc, n) => acc + (n.messagesProcessed || 0), totalMessages);
 

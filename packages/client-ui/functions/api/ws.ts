@@ -351,11 +351,12 @@ export async function onRequest(context: {
                     authenticated = true;
                     verifiedFingerprint = packet.fingerprint;
                     const requestedRole = (packet.role || '').toUpperCase();
-                    // Privileged roles like ADMIN or GUARDIAN require a valid session token!
-                    if (requestedRole === 'ADMIN' || requestedRole === 'GUARDIAN') {
+                    // Privileged roles (ADMIN, GUARDIAN, MODERATOR, ARCHIVIST) require a valid session token!
+                    const isPrivileged = ['ADMIN', 'GUARDIAN', 'MODERATOR', 'ARCHIVIST'].includes(requestedRole);
+                    if (isPrivileged) {
                       verifiedRole = 'ANONYMOUS';
                     } else {
-                      verifiedRole = packet.role || 'MEMBER';
+                      verifiedRole = 'MEMBER';
                     }
                   }
                 }
@@ -367,7 +368,8 @@ export async function onRequest(context: {
           if (!authenticated) {
             const requestedRole = (packet.role || '').toUpperCase();
             // Client-supplied privileged role from unverified message must be rejected and defaulted to ANONYMOUS
-            if (requestedRole === 'ADMIN' || requestedRole === 'GUARDIAN') {
+            const isPrivileged = ['ADMIN', 'GUARDIAN', 'MODERATOR', 'ARCHIVIST'].includes(requestedRole);
+            if (isPrivileged) {
               clientInfo.role = 'ANONYMOUS';
               clientInfo.fingerprint = undefined;
               clientInfo.lastSeen = Date.now();
@@ -375,7 +377,7 @@ export async function onRequest(context: {
               serverWs.send(
                 JSON.stringify({
                   type: 'AUTH_FAILED',
-                  error: 'Privileged role rejected: Valid session token required for ADMIN or GUARDIAN.',
+                  error: 'Privileged role rejected: Valid session token required for privileged roles.',
                   role: 'ANONYMOUS',
                 })
               );
@@ -584,7 +586,7 @@ export async function onRequest(context: {
           const newMsg = {
             id: packet.id || `msg-${Date.now()}-${randSuffix}`,
             channelId: chId,
-            authorFingerprint: packet.fingerprint || clientInfo.fingerprint || 'anon-peer',
+            authorFingerprint: clientInfo.fingerprint || 'anon-peer',
             ciphertext: packet.ciphertext || packet.text || '',
             text: packet.text || packet.ciphertext || '',
             epoch: rawEpoch,
@@ -618,7 +620,7 @@ export async function onRequest(context: {
 
         case 'TYPING_INDICATOR': {
           const chId = packet.channelId || clientInfo.currentChannelId;
-          const fingerprint = clientInfo.fingerprint || packet.fingerprint;
+          const fingerprint = clientInfo.fingerprint;
           if (fingerprint) {
             broadcast(
               {

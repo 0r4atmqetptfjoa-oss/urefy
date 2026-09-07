@@ -25,6 +25,7 @@ import {
   DEFAULT_RELAY_CHANNELS,
   INITIAL_RELAY_MESSAGES,
   createWebSocketUpgradeResponse,
+  verifyRelaySessionToken,
 } from './relay-durable-object.js';
 
 export interface SovereignSessionMetadata {
@@ -604,33 +605,75 @@ export class SovereignRelayDurableObject {
   // ─── PACKET HANDLERS ────────────────────────────────────────────────────────
 
   private async handleAuth(ws: WebSocket, session: SovereignSessionMetadata, packet: any): Promise<void> {
-    const { fingerprint, nullifier, role, status, channelId, circleId } = packet;
+    const { token, sessionToken, credential, fingerprint, nullifier, role, status, channelId, circleId } = packet;
+    const tokenToVerify = token || sessionToken || credential;
+    const secret = (this.env as any)?.AUTH_SECRET || (this.env as any)?.ADMIN_PIN || 'aetheris-sovereign-relay-secret';
 
-    if (!fingerprint || !PayloadSanitizer.isValidIdentifier(fingerprint)) {
-      this.send(ws, { type: 'ERROR', message: 'Invalid fingerprint identifier' });
-      return;
+    if (tokenToVerify) {
+      const authResult = await verifyRelaySessionToken(tokenToVerify, secret);
+      if (!authResult.valid || !authResult.payload) {
+        this.send(ws, {
+          type: 'ERROR',
+          message: `Authentication rejected: ${authResult.error || 'Invalid session credential'}`,
+        });
+        return;
+      }
+
+      const p = authResult.payload;
+      session.fingerprint = p.sub;
+      session.role = p.role || 'MEMBER';
+      session.nullifier = p.nullifier || session.nullifier;
+      session.authenticated = true;
+    } else {
+      const requestedRole = (role || '').toUpperCase();
+      const isPrivilegedRequest = ['ADMIN', 'GUARDIAN', 'MODERATOR', 'ARCHIVIST'].includes(requestedRole);
+
+      if (isPrivilegedRequest) {
+        this.send(ws, {
+          type: 'ERROR',
+          message: 'Authentication rejected: Cryptographic session credential required for privileged roles',
+        });
+        return;
+      }
+
+      if (packet.authenticated === true) {
+        this.send(ws, {
+          type: 'ERROR',
+          message: 'Authentication rejected: Cannot claim authenticated status without valid session credential',
+        });
+        return;
+      }
+
+      if (fingerprint && !PayloadSanitizer.isValidIdentifier(fingerprint)) {
+        this.send(ws, { type: 'ERROR', message: 'Invalid fingerprint identifier' });
+        return;
+      }
+
+      const guestFingerprint = fingerprint || `anon-${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID().substring(0, 8) : Date.now().toString(36)}`;
+
+      session.fingerprint = guestFingerprint;
+      session.nullifier = nullifier;
+      session.role = 'MEMBER';
+      session.authenticated = false;
     }
-
-    session.fingerprint = fingerprint;
-    session.nullifier = nullifier;
-    session.role = role || 'MEMBER';
-    session.authenticated = true;
 
     if (channelId) session.currentChannelId = channelId;
     if (circleId) session.currentCircleId = circleId;
 
+    const activeFingerprint = session.fingerprint!;
+    const activeNullifier = session.nullifier;
+    const isQuarantined = Boolean(activeNullifier && this.revokedNullifiers.has(activeNullifier));
+
     const tags = new Set<string>();
     tags.add(`channel:${session.currentChannelId}`);
     if (session.currentCircleId) tags.add(`circle:${session.currentCircleId}`);
-    tags.add(`user:${fingerprint}`);
+    tags.add(`user:${activeFingerprint}`);
     tags.add(`role:${session.role}`);
     this.setWebSocketTags(ws, Array.from(tags));
 
-    const isQuarantined = Boolean(nullifier && this.revokedNullifiers.has(nullifier));
-
     const presenceUser: PresenceUser = {
-      fingerprint,
-      nullifier,
+      fingerprint: activeFingerprint,
+      nullifier: activeNullifier,
       role: session.role || 'MEMBER',
       status: status || 'online',
       joinedChannel: session.currentChannelId,
@@ -638,12 +681,12 @@ export class SovereignRelayDurableObject {
       lastSeen: Date.now(),
       connectedAt: session.connectedAt,
     };
-    this.presence.set(fingerprint, presenceUser);
+    this.presence.set(activeFingerprint, presenceUser);
 
     this.send(ws, {
       type: 'AUTH_SUCCESS',
-      fingerprint,
-      nullifier,
+      fingerprint: activeFingerprint,
+      nullifier: activeNullifier,
       isQuarantined,
       role: session.role,
       channelId: session.currentChannelId,
@@ -781,7 +824,7 @@ export class SovereignRelayDurableObject {
 
   private async handleSendMessage(ws: WebSocket, session: SovereignSessionMetadata, packet: any): Promise<void> {
     const channelId = packet.channelId || session.currentChannelId || 'relays-general';
-    const authorFingerprint = packet.authorFingerprint || packet.fingerprint || session.fingerprint || 'anon-peer';
+    const authorFingerprint = session.fingerprint || 'anon-peer';
     const ciphertext = packet.ciphertext || packet.text || '';
     const epoch = String(packet.epoch || '#1');
 
@@ -838,7 +881,7 @@ export class SovereignRelayDurableObject {
       return;
     }
 
-    const authorFingerprint = packet.authorFingerprint || session.fingerprint || 'anon-peer';
+    const authorFingerprint = session.fingerprint || 'anon-peer';
     const content = packet.content || packet.text || '';
 
     const payload = {

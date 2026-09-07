@@ -6,6 +6,7 @@ import {
   DurableObjectState,
   DurableObjectStorage,
   createWebSocketUpgradeResponse,
+  createRelaySessionToken,
 } from '../src/relay-durable-object.js';
 import { ZKRLN, Field } from '@aetheris/core-crypto';
 
@@ -281,13 +282,22 @@ describe('SovereignRelayDurableObject — Cloudflare WebSocket Hibernation API',
       const ws = new MockWebSocket();
       mockState.acceptWebSocket(ws, ['channel:relays-general']);
 
+      const token = await createRelaySessionToken(
+        {
+          sub: 'genesis-core',
+          role: 'GUARDIAN',
+          nullifier: 'nullifier-valid-001',
+          aud: 'aetheris-relay',
+          exp: Date.now() + 60000,
+        },
+        'aetheris-sovereign-relay-secret'
+      );
+
       await relayDO.webSocketMessage(
         ws as unknown as WebSocket,
         JSON.stringify({
           type: 'AUTH',
-          fingerprint: 'genesis-core',
-          nullifier: 'nullifier-valid-001',
-          role: 'GUARDIAN',
+          token,
           channelId: 'relays-general',
           circleId: 'pulse-matrix',
         })

@@ -14,6 +14,7 @@ import {
   hexToBytes,
 } from '@aetheris/core-crypto';
 import { verifyAdminSessionToken } from './admin.js';
+import { verifyRelaySessionToken } from './ws.js';
 
 // Transient local edge memory cache (local PoP optimization; D1/KV remain authoritative)
 const challengeMemoryCache = new Map<string, { challenge: string; timestamp: number }>();
@@ -697,14 +698,20 @@ export async function verifyRegistrationIdentity(
   const adminPin = typeof env?.ADMIN_PIN === 'string' && env.ADMIN_PIN.trim().length > 0 ? env.ADMIN_PIN : undefined;
 
   if (bearerToken) {
-    if (bearerToken === `session_${fingerprint}` || bearerToken === fingerprint) {
+    // Non-production test harness fallback only (strictly forbidden in production)
+    if (!isProductionEnv(env) && (bearerToken === `session_${fingerprint}` || bearerToken === fingerprint)) {
       return { authorized: true };
     }
 
+    const secret = (env as any)?.AUTH_SECRET || (env as any)?.SESSION_SECRET || adminPin || 'aetheris-dev-secret-key-v1';
+    try {
+      const relayTokenCheck = verifyRelaySessionToken(bearerToken, secret);
+      if (relayTokenCheck.valid && relayTokenCheck.payload?.sub === fingerprint) {
+        return { authorized: true };
+      }
+    } catch (_) {}
+
     if (adminPin && (await verifyAdminSessionToken(bearerToken, adminPin))) {
-      return { authorized: true };
-    }
-    if (adminPin && bearerToken === adminPin) {
       return { authorized: true };
     }
 
@@ -1000,7 +1007,7 @@ export async function onRequest(context: { request: Request; env?: Env }): Promi
             if (!rpMatch) {
               return new Response(
                 JSON.stringify({ success: false, error: 'WebAuthn RP ID mismatch in attestation' }),
-                { status: 401, headers: corsHeaders }
+                { status: 400, headers: corsHeaders }
               );
             }
 
@@ -1244,7 +1251,7 @@ export async function onRequest(context: { request: Request; env?: Env }): Promi
         if (!rpIdHashMatch) {
           return new Response(
             JSON.stringify({ success: false, error: `WebAuthn rpIdHash mismatch for rpId "${rpId}"` }),
-            { status: 401, headers: corsHeaders }
+            { status: 400, headers: corsHeaders }
           );
         }
 

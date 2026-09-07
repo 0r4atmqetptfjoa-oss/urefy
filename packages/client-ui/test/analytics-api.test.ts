@@ -57,7 +57,7 @@ describe('Analytics API (/api/analytics) Production Enforcement', () => {
     expect(data.metrics.postsCount).toBe(0);
     expect(data.metrics.channelsCount).toBe(0);
     expect(data.metrics.nanopublicationsCount).toBe(0);
-    expect(data.metrics.avgLatencyMs).toBe(0);
+    expect(data.metrics.avgLatencyMs).toBeNull();
     expect(data.nodes.length).toBe(0);
   });
 

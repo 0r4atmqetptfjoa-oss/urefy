@@ -233,7 +233,7 @@ describe('Aetheris Omni-Sphere — Global Scale & Edge Architecture (global-scal
     it('should render the complete HTML observatory dashboard with metrics and controls', () => {
       const html = engine.renderGlobalScaleDashboard();
       expect(html).toContain('Worldwide Anycast Edge Infrastructure');
-      expect(html).toContain('Sub-15ms Global Latency SLA');
+      expect(html).toContain('Global Anycast Edge Network (Zero Data Retention)');
       expect(html).toContain('Cloudflare D1 Multi-Region Read Topology');
       expect(html).toContain('P2P WebRTC Direct Swarm Fallback');
       expect(html).toContain('Zero-Knowledge Data Sovereignty & Geo-Fencing');
