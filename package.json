@@ -1,16 +1,24 @@
 {
-  "name": "aetheris-monorepo",
+  "name": "urefy-monorepo",
   "version": "1.0.0",
   "private": true,
-  "description": "Aetheris - Sovereign Zero-Knowledge Hybrid Communication & Archival Platform",
+  "engines": {
+    "node": "^22.12.0 || >=24.0.0"
+  },
+  "description": "UREfy - Private Communication and Knowledge Workspace",
   "workspaces": [
     "packages/*"
   ],
   "scripts": {
-    "build": "npm run build --workspaces --if-present",
-    "test": "npm run test --workspaces --if-present",
+    "build:shared": "npm run build --workspace=packages/core-crypto && npm run build --workspace=packages/vault-engine",
+    "build": "npm run build:shared && npm run build --workspace=packages/server-edge && npm run build --workspace=packages/daemon-archivist && npm run build --workspace=packages/client-ui",
+    "test": "npm run test --workspaces --if-present && npm run test:smoke && npm run test:bundle && npm run test:branding",
+    "test:branding": "node --test scripts/rebrand-product.test.mjs && node scripts/rebrand-product.mjs --check",
+    "test:smoke": "node --test scripts/smoke-test.test.mjs",
+    "test:bundle": "node --test scripts/bundle-budget.test.mjs",
+    "audit:bundle": "node scripts/bundle-budget.mjs",
     "lint": "npm run typecheck",
-    "typecheck": "npm run build --workspaces --if-present && tsc --noEmit --project packages/client-ui/tsconfig.json",
+    "typecheck": "npm run build:shared && tsc --noEmit --project packages/server-edge/tsconfig.json && tsc --noEmit --project packages/daemon-archivist/tsconfig.json && tsc --noEmit --project packages/client-ui/tsconfig.json && tsc --noEmit --project packages/client-ui/functions/tsconfig.json",
     "server": "npm run start --workspace=packages/server-edge",
     "client": "npm run dev --workspace=packages/client-ui",
     "daemon": "npm run start --workspace=packages/daemon-archivist",
@@ -18,12 +26,15 @@
     "audit:ux": "npm run audit:ux --workspace=packages/client-ui",
     "pack:clean": "git archive --format=zip HEAD -o aetheris-clean.zip",
     "package:release": "node scripts/package-release.js",
-    "verify:release": "node scripts/verify-release.js"
+    "verify:release": "node scripts/verify-release.js",
+    "verify:reproducible": "node scripts/verify-reproducible-build.mjs",
+    "test:live-network": "node scripts/live-network-smoke.mjs"
   },
   "devDependencies": {
+    "@types/node": "^24.0.0",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.3",
-    "vitest": "^3.0.5"
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.0"
   },
   "supportedArchitectures": {
     "os": [
@@ -38,7 +49,11 @@
     ]
   },
   "optionalDependencies": {
-    "@rollup/rollup-linux-x64-gnu": "^4.63.1",
-    "@rollup/rollup-linux-x64-musl": "^4.63.1"
+    "@rolldown/binding-win32-x64-msvc": "1.2.7",
+    "@rolldown/binding-linux-x64-gnu": "1.2.7",
+    "@rolldown/binding-linux-x64-musl": "1.2.7",
+    "lightningcss-win32-x64-msvc": "1.33.0",
+    "lightningcss-linux-x64-gnu": "1.33.0",
+    "lightningcss-linux-x64-musl": "1.33.0"
   }
 }

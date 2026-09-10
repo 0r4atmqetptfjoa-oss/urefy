@@ -2,6 +2,7 @@ import { awardsSystem } from './awards.js';
 import { clientStore } from './client-state.js';
 import { sharePostOrCopyLink } from './dry-utils.js';
 import { markdownRenderer } from './markdown-renderer.js';
+import { t } from './i18n.js';
 
 export interface PostAttachment {
   fileName: string;
@@ -535,29 +536,29 @@ export class PostDetailView {
           <div class="flex items-center space-x-4">
             <button class="flex items-center space-x-1.5 text-cyphr hover:opacity-80 transition-opacity">
               <span>💬</span>
-              <span class="font-semibold">${meta.replyCount} Replies</span>
+              <span class="font-semibold">${meta.replyCount} ${t('pulse.replies', undefined, 'Replies')}</span>
             </button>
 
             <button data-boost-id="${postId}" class="btn-detail-boost flex items-center space-x-1.5 transition-all cursor-pointer ${post.userBoosted ? 'text-emerald-400 font-bold bg-emerald-500/15 px-2.5 py-1 rounded-xl border border-emerald-500/30' : 'hover:text-emerald-400'}">
               <span class="${post.userBoosted ? 'rotate-180 transition-transform duration-300' : ''}">⟳</span>
-              <span class="detail-boost-counter">${meta.boostCount} ${post.userBoosted ? 'Boosted' : 'Boosts'}</span>
+              <span class="detail-boost-counter">${meta.boostCount} ${t('pulse.boost', undefined, 'Boost')}</span>
             </button>
 
             <button data-bookmark-id="${postId}" class="btn-detail-bookmark flex items-center space-x-1.5 hover:text-amber transition-colors ${meta.isBookmarked ? 'text-amber font-bold' : ''}">
               <span>${meta.isBookmarked ? '★' : '☆'}</span>
-              <span>${meta.isBookmarked ? 'Bookmarked' : 'Bookmark'}</span>
+              <span>${meta.isBookmarked ? t('actions.unbookmark', undefined, 'Bookmarked') : t('actions.bookmark', undefined, 'Bookmark')}</span>
             </button>
 
             <button data-award-id="${postId}" class="btn-detail-award flex items-center space-x-1.5 hover:text-aether transition-colors">
               <span>🏆</span>
-              <span>Award</span>
+              <span>${t('actions.award', undefined, 'Award')}</span>
             </button>
           </div>
 
           <div class="flex items-center space-x-2">
             <button data-share-id="${postId}" class="btn-detail-share flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-surface-raised hover:bg-surface-overlay text-slate-300 hover:text-white border border-white/5 transition-all cursor-pointer">
               <span>🔗</span>
-              <span class="share-btn-label">Share Perma-Link</span>
+              <span class="share-btn-label">${t('pulse.share', undefined, 'Share')}</span>
             </button>
           </div>
         </div>
@@ -1062,7 +1063,7 @@ export class PostDetailView {
             replacement = `\n> ${sel || 'quoted text'}\n`;
             break;
           case 'link':
-            replacement = `[${sel || 'link title'}](https://aetheris.network)`;
+            replacement = `[${sel || 'link title'}](https://urefy.com)`;
             break;
           case 'list':
             replacement = `\n- ${sel || 'item 1'}\n- item 2\n`;

@@ -162,7 +162,7 @@ describe('RichBlockEditor Notion/Obsidian Block Engine', () => {
       const block = editor.addBlock('quote');
       expect(block.type).toBe('quote');
       expect(block.meta?.author).toBe('Sovereign Anonymous');
-      expect(block.meta?.source).toBe('Aetheris Network');
+      expect(block.meta?.source).toBe('UREfy');
     });
 
     it('adds an image block with alt and caption metadata', () => {
@@ -484,7 +484,7 @@ $$
     it('exports XSS-safe HTML with syntax highlighted code and MathML formulas', () => {
       editor.clear();
       const codeBlock = editor.addBlock('code');
-      editor.updateBlock(codeBlock.id, 'const num: number = 42;\nconsole.log("Aetheris");', {
+      editor.updateBlock(codeBlock.id, 'const num: number = 42;\nconsole.log("UREfy");', {
         language: 'typescript',
         filename: 'app.ts',
       });

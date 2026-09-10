@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { SovereignCircleEngine, sovereignCircleEngine } from '../src/sovereign-circle.js';
 
 describe('Sovereign Circles & Community Governance Engine', () => {
-  it('should initialize with default circles, rules, and member metrics', () => {
+  it('should initialize default circles without fabricated membership metrics', () => {
     const engine = new SovereignCircleEngine();
     const circles = engine.getAllCircles();
     expect(circles.length).toBeGreaterThanOrEqual(4);
@@ -11,7 +11,9 @@ describe('Sovereign Circles & Community Governance Engine', () => {
     expect(zkCircle).toBeDefined();
     expect(zkCircle?.name).toBe('zeroknowledge');
     expect(zkCircle?.rules.length).toBeGreaterThanOrEqual(3);
-    expect(zkCircle?.membersCount).toBeGreaterThan(1000);
+    expect(zkCircle?.membersCount).toBe(0);
+    expect(zkCircle?.onlineCount).toBe(0);
+    expect(zkCircle?.createdAt).toBe('');
   });
 
   it('should support toggling membership and expanding rule accordions', () => {
@@ -22,7 +24,7 @@ describe('Sovereign Circles & Community Governance Engine', () => {
 
     const newJoined = engine.toggleJoin(zkCircle.id);
     expect(newJoined).toBe(!initialJoined);
-    expect(zkCircle.membersCount).toBe(initialMembers + (newJoined ? 1 : -1));
+    expect(zkCircle.membersCount).toBe(Math.max(0, initialMembers + (newJoined ? 1 : -1)));
 
     // Rule expansion
     expect(engine.expandedRuleIndices.get(zkCircle.id)).toBeFalsy();

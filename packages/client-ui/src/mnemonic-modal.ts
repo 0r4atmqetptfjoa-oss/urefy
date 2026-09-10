@@ -2,6 +2,7 @@ import { clientStore } from './client-state.js';
 import { toastManager } from './toast.js';
 import { validateMnemonic } from '@aetheris/core-crypto';
 import { serviceRegistry, SERVICES } from './service-registry.js';
+import { t } from './i18n.js';
 
 export class SovereignMnemonicModal {
   public isOpen: boolean = false;
@@ -27,6 +28,7 @@ export class SovereignMnemonicModal {
   public closeModal(): void {
     this.isOpen = false;
     this.isRevealed = false;
+    this.quizAnswers = {};
     clientStore.notifySync();
   }
 
@@ -78,7 +80,7 @@ export class SovereignMnemonicModal {
     }
   }
 
-  public restore(phrase: string): boolean {
+  public async restore(phrase: string): Promise<boolean> {
     const clean = phrase.trim().toLowerCase();
     if (!validateMnemonic(clean)) {
       toastManager.warning('Invalid BIP-39 mnemonic phrase or checksum error', '⚠️');
@@ -86,6 +88,11 @@ export class SovereignMnemonicModal {
     }
     const success = clientStore.restoreIdentityFromMnemonic(clean);
     if (success) {
+      try { await clientStore.identityPersistence; }
+      catch {
+        toastManager.warning('The identity could not be saved. Keep this recovery phrase and retry.', '⚠️');
+        return false;
+      }
       this.quizPassed = true;
       if (typeof localStorage !== 'undefined') {
         localStorage.setItem('aetheris_seed_verified', 'true');
@@ -98,7 +105,8 @@ export class SovereignMnemonicModal {
   public renderModalHTML(): string {
     if (!this.isOpen) return '';
 
-    const words = clientStore.mnemonic.trim().split(/\s+/);
+    const wordCount = clientStore.mnemonic.trim().split(/\s+/).length;
+    const words = this.isRevealed ? clientStore.mnemonic.trim().split(/\s+/) : Array.from({ length: wordCount }, () => '----');
 
     return `
       <div id="mnemonic-vault-backdrop" class="fixed inset-0 bg-black/80 backdrop-blur-md z-[10000] flex items-center justify-center p-4 animate-fade-in pointer-events-auto" data-action="close-feature">
@@ -122,6 +130,8 @@ export class SovereignMnemonicModal {
               type="button"
               id="btn-close-mnemonic-modal" data-action="close-feature"
               class="text-slate-400 hover:text-white p-1.5 rounded-xl hover:bg-white/10 transition-colors cursor-pointer text-sm font-mono"
+              aria-label="${t('modal.close', undefined, 'Close')}"
+              title="${t('modal.close', undefined, 'Close')}"
             >
               ✕
             </button>
@@ -370,7 +380,7 @@ export class SovereignMnemonicModal {
 
     document.getElementById('btn-execute-restore')?.addEventListener('click', () => {
       if (restoreInput) {
-        this.restore(restoreInput.value);
+        void this.restore(restoreInput.value);
       }
     });
   }

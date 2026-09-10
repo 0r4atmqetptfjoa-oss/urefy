@@ -2,7 +2,7 @@
  * @file themes.ts
  * @package @aetheris/client-ui
  * @description Complete and ultra-premium Theme, Font Scaling, Accent Color, and Visual Synthesis system
- * for Aetheris Omni-Sphere. Synthesizes best visual practices for Daylight Light Mode,
+ * for UREfy. Synthesizes best visual practices for Daylight Light Mode,
  * Obsidian Cyber Dim Mode, Pure OLED Black Mode, and Display & Customizer Modal.
  * 100% functional, self-contained implementation with no external dependencies.
  */
@@ -11,6 +11,7 @@ import './window-augmentation.js';
 import { serviceRegistry, SERVICES } from './service-registry.js';
 import { sovereignFootprint } from './settings-footprint.js';
 import { localDiagnostics } from './local-diagnostics.js';
+import { t } from './i18n.js';
 
 // ─── INTERFACES & TYPES ─────────────────────────────────────────────────────────
 
@@ -584,8 +585,8 @@ export class ThemeEngine {
               id="btn-close-theme-modal"
               type="button" data-action="close-feature"
               class="w-8 h-8 rounded-lg bg-surface-raised hover:bg-surface-overlay border border-white/10 text-slate-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
-              title="Close (Esc)"
-              aria-label="Close modal"
+              title="${t('modal.close', undefined, 'Close')} (Esc)"
+              aria-label="${'Close modal'}"
             >
               ✕
             </button>
@@ -626,7 +627,7 @@ export class ThemeEngine {
                     </div>
                     <div>
                       <div class="font-bold flex items-center space-x-1.5" style="color: ${current.id === 'alabaster-light' ? '#0f172a' : '#f8fafc'}">
-                        <span>Aetheris Sovereign</span>
+                        <span>UREfy Sovereign</span>
                         <span class="text-[10px] font-mono px-1.5 py-0.2 rounded" style="background-color: ${effectiveAccent}20; color: ${effectiveAccent}; border: 1px solid ${effectiveAccent}40;">
                           ✓ STARK Verified
                         </span>

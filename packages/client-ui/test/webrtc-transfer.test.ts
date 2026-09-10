@@ -11,7 +11,7 @@ import {
 import { toastManager } from '../src/toast.js';
 import { clientStore } from '../src/client-state.js';
 
-describe('Aetheris Omni-Sphere — WebRTC P2P File Transfer Engine', () => {
+describe('UREfy — WebRTC P2P File Transfer Engine', () => {
   let transferEngine: WebRTCFileTransfer;
 
   beforeEach(() => {
@@ -107,7 +107,7 @@ describe('Aetheris Omni-Sphere — WebRTC P2P File Transfer Engine', () => {
     });
 
     it('should compute full file SHA-256 checksum asynchronously', async () => {
-      const fileContent = 'Aetheris Decentralized Peer-to-Peer Protocol Verification Payload';
+      const fileContent = 'UREfy Decentralized Peer-to-Peer Protocol Verification Payload';
       const file = new File([fileContent], 'payload.txt', { type: 'text/plain' });
 
       const hash = await transferEngine.computeFileSHA256(file);

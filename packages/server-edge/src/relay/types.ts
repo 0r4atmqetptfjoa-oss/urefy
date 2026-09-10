@@ -1,5 +1,5 @@
 /**
- * AETHERIS SOVEREIGN RELAY PROTOCOL SPECIFICATION (FAZA 3)
+ * UREfy SOVEREIGN RELAY PROTOCOL SPECIFICATION (FAZA 3)
  * 
  * Defines the canonical packet frame types, data structures, and transport
  * abstraction interfaces shared identically across:

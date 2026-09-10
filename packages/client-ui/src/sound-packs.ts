@@ -1,5 +1,5 @@
 /**
- * AETHERIS HYBRID SUITE — PROCEDURAL SOUND & HAPTIC PACKS (Item 12)
+ * UREfy HYBRID SUITE — PROCEDURAL SOUND & HAPTIC PACKS (Item 12)
  *
  * 100% Mathematically Synthesized Web Audio API Acoustic Themes with Zero External HTTP Assets.
  * Provides 4 distinct procedural sound themes:

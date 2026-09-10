@@ -1,7 +1,7 @@
-// profile-card.ts — Aetheris Omni-Sphere Profile Hover Card Engine
+// profile-card.ts — UREfy Profile Hover Card Engine
 // Self-contained, zero external dependencies, 100% functional implementation.
 
-import { isLocalDev } from './admin-auth.js';
+import { isDemoModeEnabled } from './demo-mode.js';
 
 export interface ProfileData {
   fingerprint: string;
@@ -207,7 +207,7 @@ export class ProfileCardEngine {
   private readonly _mountId: string = 'aetheris-profile-card-mount';
 
   constructor() {
-    if (isLocalDev()) {
+    if (isDemoModeEnabled()) {
       this._seedKnownMembers();
     }
   }
@@ -228,7 +228,7 @@ export class ProfileCardEngine {
       trustScore: 99,
       bio: 'Sovereign protocol architect & Genesis Key custodian. Maintaining zero-knowledge invariant proofs across Omni-Sphere nodes.',
       recentPosts: [
-        { id: 'post-gc-1', title: 'Aetheris Protocol v1.0 Zero-Knowledge Invariants Spec', channelId: '#protocol-core', meritVotes: 342 },
+        { id: 'post-gc-1', title: 'UREfy Protocol v1.0 Zero-Knowledge Invariants Spec', channelId: '#protocol-core', meritVotes: 342 },
         { id: 'post-gc-2', title: 'RLN Nullifier Slashing Conditions and Epoch Transitions', channelId: '#security-advisories', meritVotes: 218 },
         { id: 'post-gc-3', title: 'Decentralized Swarm Swapping without Central Gateways', channelId: '#tech-discussion', meritVotes: 189 },
       ],

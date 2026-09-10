@@ -84,7 +84,7 @@ export async function generateTechnicalSynthesis(
 SHA-256: ${sha256}
 \`\`\`
 
-> *Static Binary Analysis Attestation: Deterministic technical synthesis generated via Aetheris Binary Hygiene Inspector (Zero Cloud/Third-Party Telemetry).*`;
+> *Static Binary Analysis Attestation: Deterministic technical synthesis generated via UREfy Binary Hygiene Inspector (Zero Cloud/Third-Party Telemetry).*`;
 }
 
 /**

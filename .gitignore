@@ -1,15 +1,52 @@
+# Dependencies & Build Output
 node_modules/
 dist/
 .wrangler/
 .cache/
+coverage/
+tmp/
+
+# Logs
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-tmp/
-.tempmediaStorage/
+pnpm-debug.log*
+
+# Environment variables & Secret Keys
 .env
 .env.*
 *.env
+**/.dev.vars
+**/.dev.vars.*
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
+credentials*.json
+r2-credentials*.json
+cloudflare-secrets*.json
+
+# Archives & Temporary storage
 *.zip
+*.tar.gz
+*.7z
+*.bak
+*.backup
 release-manifest.json
+.tempmediaStorage/
+/.launch-backups/
+
+# Testing reports
+**/playwright-report/
+**/test-results/
+.serena/
+.vscode/
+git-status-baseline.txt
+.nyc_output/
+
+# OS Artifacts
+.DS_Store
+Thumbs.db

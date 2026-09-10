@@ -30,6 +30,12 @@ describe('Phase 2: BM25 Offline Search Engine with Fuzzy Typo-Tolerance', () => 
       expect(levenshteinDistance('pipewire', 'pipewir')).toBe(1);
       expect(levenshteinDistance('short', 'completelydifferentword')).toBe(999);
     });
+
+    it('should normalize diacritics while preserving international words', () => {
+      expect(searchIndex.tokenize('Criptografie românească și rețele suverane'))
+        .toEqual(['criptografie', 'romaneasca', 'si', 'retele', 'suverane']);
+      expect(searchIndex.tokenize('暗号化されたネットワーク')).toEqual(['暗号化されたネットワーク']);
+    });
   });
 
   describe('2. Post Indexing & BM25 Scoring', () => {
@@ -126,6 +132,13 @@ describe('Phase 2: BM25 Offline Search Engine with Fuzzy Typo-Tolerance', () => 
       const snippet = results[0].snippet;
       expect(snippet).toContain('<mark');
       expect(snippet).toContain('PipeWire');
+    });
+
+    it('should HTML-escape untrusted snippet content before highlighting', () => {
+      const snippet = searchIndex.highlightTerms('<img src=x onerror=alert(1)> secure', ['secure']);
+      expect(snippet).not.toContain('<img');
+      expect(snippet).toContain('&lt;img');
+      expect(snippet).toContain('<mark');
     });
   });
 });

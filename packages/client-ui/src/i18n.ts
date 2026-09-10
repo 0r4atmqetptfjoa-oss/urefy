@@ -1,5 +1,5 @@
 /**
- * AETHERIS OMNI-SPHERE — INTERNATIONALIZATION & LOCALIZATION ENGINE (i18n)
+ * UREfy — INTERNATIONALIZATION & LOCALIZATION ENGINE (i18n)
  *
  * Enterprise-grade Sovereign i18n & L10n Engine supporting:
  * 1. Dynamic language switching without page reload (100% reactive).
@@ -128,6 +128,9 @@ export class I18nEngine {
   private relativeTimeFormatters: Map<string, Intl.RelativeTimeFormat> = new Map();
 
   constructor() {
+    if (typeof window !== 'undefined') {
+      (window as any).i18n = this;
+    }
     this.initLocale();
   }
 
@@ -230,6 +233,20 @@ export class I18nEngine {
    */
   public getLanguage(): SupportedLocale {
     return this.currentLocale;
+  }
+
+  /**
+   * Alias for getLanguage() returning the active locale code.
+   */
+  public getCurrentLocale(): SupportedLocale {
+    return this.currentLocale;
+  }
+
+  /**
+   * Returns true if the active language requires right-to-left layout.
+   */
+  public isRTL(): boolean {
+    return this.getCurrentLanguageMeta()?.direction === 'rtl';
   }
 
   /**

@@ -78,6 +78,7 @@ export class LocalSearchIndex {
   private documents: Map<string, IndexedDocument> = new Map();
   private invertedIndex: Map<string, Map<string, number>> = new Map(); // term -> (docId -> freq)
   private docLengths: Map<string, number> = new Map();
+  private documentTerms: Map<string, Set<string>> = new Map();
   private totalLength: number = 0;
 
   // Standard BM25 hyperparameters
@@ -87,7 +88,9 @@ export class LocalSearchIndex {
   public tokenize(text: string): string[] {
     return text
       .toLowerCase()
-      .replace(/[^a-z0-9\s_#-]/g, ' ')
+      .normalize('NFKD')
+      .replace(/\p{M}/gu, '')
+      .replace(/[^\p{L}\p{N}\s_#-]/gu, ' ')
       .split(/\s+/)
       .filter(t => t.length > 1);
   }
@@ -125,6 +128,7 @@ export class LocalSearchIndex {
       }
       this.invertedIndex.get(term)!.set(doc.id, freq);
     }
+    this.documentTerms.set(doc.id, new Set(termFrequencies.keys()));
   }
 
   public indexPost(post: ClientPost): void {
@@ -164,18 +168,22 @@ export class LocalSearchIndex {
     this.docLengths.delete(docId);
     this.documents.delete(docId);
 
-    for (const [term, posting] of this.invertedIndex.entries()) {
+    for (const term of this.documentTerms.get(docId) || []) {
+      const posting = this.invertedIndex.get(term);
+      if (!posting) continue;
       posting.delete(docId);
       if (posting.size === 0) {
         this.invertedIndex.delete(term);
       }
     }
+    this.documentTerms.delete(docId);
   }
 
   public clear(): void {
     this.documents.clear();
     this.invertedIndex.clear();
     this.docLengths.clear();
+    this.documentTerms.clear();
     this.totalLength = 0;
   }
 
@@ -189,6 +197,7 @@ export class LocalSearchIndex {
 
     const N = this.documents.size;
     const avgdl = this.totalLength / N || 1;
+    const vocabulary = Array.from(this.invertedIndex.keys());
     const scores = new Map<string, number>();
     const docMatchedTokens = new Map<string, Set<string>>();
 
@@ -208,7 +217,7 @@ export class LocalSearchIndex {
 
       // 3. Prefix match (for query-as-you-type)
       if (token.length >= 3) {
-        for (const indexTerm of this.invertedIndex.keys()) {
+        for (const indexTerm of vocabulary) {
           if (indexTerm.startsWith(token) && indexTerm !== token) {
             matchedTerms.push({ term: indexTerm, weightMultiplier: 0.8 });
           }
@@ -217,7 +226,7 @@ export class LocalSearchIndex {
 
       // 4. Fuzzy match if no exact or prefix matches found
       if (matchedTerms.length === 0 && token.length >= 4) {
-        for (const indexTerm of this.invertedIndex.keys()) {
+        for (const indexTerm of vocabulary) {
           const maxDist = token.length >= 7 ? 2 : 1;
           if (Math.abs(indexTerm.length - token.length) <= maxDist) {
             const dist = levenshteinDistance(token, indexTerm);
@@ -301,16 +310,22 @@ export class LocalSearchIndex {
   }
 
   public highlightTerms(text: string, terms: string[]): string {
-    if (!terms.length) return text;
+    const safeText = text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+    if (!terms.length) return safeText;
 
     const escapedTerms = terms
       .map(t => t.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&'))
       .filter(t => t.length > 1);
 
-    if (escapedTerms.length === 0) return text;
+    if (escapedTerms.length === 0) return safeText;
 
     const regex = new RegExp(`\\b(${escapedTerms.join('|')})`, 'gi');
-    return text.replace(regex, (match) => `<mark class="bg-amber-500/25 text-amber-300 font-bold px-1 rounded">${match}</mark>`);
+    return safeText.replace(regex, (match) => `<mark class="bg-amber-500/25 text-amber-300 font-bold px-1 rounded">${match}</mark>`);
   }
 
   public size(): number {

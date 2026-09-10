@@ -1,5 +1,5 @@
 /**
- * Aetheris Omni-Sphere — Network Observatory (Network Statistics)
+ * UREfy — Network Observatory (Network Statistics)
  *
  * Full cryptographic observability and real-time P2P telemetry dashboard:
  * 1. Network Topology Map: Interactive SVG Radar with luminous nodes, animated connections, and propagation waves
@@ -13,6 +13,7 @@
 import './window-augmentation.js';
 import { nodeFederationEngine } from './node-federation.js';
 import { isSimulationModeEnabled } from './simulation-mode.js';
+import { t } from './i18n.js';
 
 // ---------------------------------------------------------------------------
 // 1. Mandatory & Extended Data Types & Interfaces
@@ -985,7 +986,7 @@ export class NetworkObservatory {
       <button
         id="btn-network-observatory-trigger" data-action="call-global" data-raw-click="window.__aetheris_observatory_toggle && window.__aetheris_observatory_toggle()"
         class="group inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface-raised hover:bg-surface-overlay border border-white/10 hover:border-cyphr/40 text-slate-200 hover:text-white transition-all text-xs font-medium shadow-sm hover:shadow-cyan-950/30 active:scale-95 cursor-pointer select-none"
-        title="Open Aetheris Network Observatory (Statistics & P2P Topology)"
+        title="Open UREfy Observatory (Statistics & P2P Topology)"
       >
         <span class="relative flex h-2 w-2">
           <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-signal opacity-75"></span>
@@ -1075,7 +1076,7 @@ export class NetworkObservatory {
           <div>
             <div class="flex items-center gap-2">
               <h2 class="text-base sm:text-lg font-bold text-white tracking-tight font-sans">
-                Aetheris Network Observatory
+                UREfy Observatory
               </h2>
               <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-cyphr/10 text-cyphr border border-cyphr/30">
                 v2.4 ZK-MESH
@@ -1114,7 +1115,7 @@ export class NetworkObservatory {
           <button
             id="btn-close-observatory-modal" data-action="call-global" data-raw-click="window.__aetheris_close_observatory && window.__aetheris_close_observatory()"
             class="flex items-center justify-center w-8 h-8 rounded-lg bg-surface-overlay hover:bg-crimson/20 hover:border-crimson/40 border border-white/10 text-slate-400 hover:text-crimson transition-all text-base font-bold cursor-pointer"
-            title="Close Observatory (ESC)"
+            title="${t('modal.close', undefined, 'Close Observatory')} (ESC)"
           >
             ✕
           </button>
@@ -2116,7 +2117,7 @@ export class NetworkObservatory {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `aetheris-network-observatory-${Date.now()}.json`;
+      a.download = `urefy-network-observatory-${Date.now()}.json`;
       a.click();
       URL.revokeObjectURL(url);
     };

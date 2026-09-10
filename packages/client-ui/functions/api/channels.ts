@@ -1,5 +1,5 @@
 // ===========================================================================
-// AETHERIS OMNI-SPHERE — SOVEREIGN CHANNELS EDGE API
+// UREfy — SOVEREIGN CHANNELS EDGE API
 // Supports: Cloudflare D1 (SQL), Cloudflare KV (Real-time edge cache)
 // Automatic zero-latency fallback to In-Memory Edge Store when bindings are absent.
 // ===========================================================================

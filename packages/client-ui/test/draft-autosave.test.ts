@@ -93,7 +93,7 @@ describe('Draft Autosave & Vault Manager', () => {
     const manager = new DraftAutosaveManager();
     manager.saveDraft('composer', {
       title: 'Authentic Test Title',
-      content: 'Detailed content for Aetheris Omni-Sphere.',
+      content: 'Detailed content for UREfy.',
       tags: ['crypto', 'zk'],
     });
 
@@ -101,7 +101,7 @@ describe('Draft Autosave & Vault Manager', () => {
     expect(retrieved).not.toBeNull();
     expect(retrieved?.key).toBe('composer');
     expect(retrieved?.title).toBe('Authentic Test Title');
-    expect(retrieved?.content).toBe('Detailed content for Aetheris Omni-Sphere.');
+    expect(retrieved?.content).toBe('Detailed content for UREfy.');
     expect(retrieved?.tags).toEqual(['crypto', 'zk']);
     expect(retrieved?.formatType).toBe('article');
     expect(retrieved?.updatedAt).toBeGreaterThan(0);
@@ -232,7 +232,7 @@ describe('Draft Autosave & Vault Manager', () => {
     const jsonExport = manager1.exportDraftsJSON();
     expect(jsonExport).toContain('Exported Draft 1');
     expect(jsonExport).toContain('Exported Draft 2');
-    expect(jsonExport).toContain('Aetheris Omni-Sphere');
+    expect(jsonExport).toContain('UREfy');
 
     // Import into new instance
     localStorageMock.clear();

@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { beforeAll, describe, it, expect } from 'vitest';
 import {
   generateBlindSignatureKeyPair,
   blindMessage,
@@ -15,7 +15,17 @@ import {
   gcd,
   isProbablePrime,
   generatePrime,
+  validateRsaKeyLength,
+  InsecureKeyError,
+  MINIMUM_RSA_KEY_BITS,
+  type BlindSignatureKeyPair,
 } from '../src/blind-signatures.js';
+
+let testRsaKeyPair: BlindSignatureKeyPair;
+
+beforeAll(async () => {
+  testRsaKeyPair = await generateBlindSignatureKeyPair(MINIMUM_RSA_KEY_BITS);
+});
 
 describe('Chaumian Blind Signatures Protocol (packages/core-crypto)', () => {
   describe('Mathematical Primitives', () => {
@@ -67,14 +77,15 @@ describe('Chaumian Blind Signatures Protocol (packages/core-crypto)', () => {
     });
   });
 
-  describe('Key Generation', () => {
-    it('generates a valid RSA keypair with e = 65537 and valid d', () => {
-      const keyPair = generateBlindSignatureKeyPair(512);
+  describe('RSA-2048 Key Generation & Security Enforcement', () => {
+    it('generates a valid NIST-compliant RSA-2048 keypair using WebCrypto', async () => {
+      const keyPair = await generateBlindSignatureKeyPair(2048);
 
       expect(keyPair.publicKey.e).toBe(65537n);
-      expect(keyPair.publicKey.n).toBeGreaterThan(0n);
+      expect(keyPair.publicKey.n.toString(2).length).toBeGreaterThanOrEqual(2048);
       expect(keyPair.privateKey.n).toBe(keyPair.publicKey.n);
       expect(keyPair.privateKey.d).toBeGreaterThan(0n);
+      expect(keyPair.publicKey.protocolVersion).toBe('2.0');
 
       // Verify that (m^e)^d == m mod n for arbitrary test value
       const testMsg = 123456789n;
@@ -82,11 +93,40 @@ describe('Chaumian Blind Signatures Protocol (packages/core-crypto)', () => {
       const plain = modExp(cipher, keyPair.privateKey.d, keyPair.publicKey.n);
       expect(plain).toBe(testMsg);
     });
+
+    it('strictly rejects key generation with keyBits < 2048', async () => {
+      await expect(generateBlindSignatureKeyPair(512)).rejects.toThrow(InsecureKeyError);
+      await expect(generateBlindSignatureKeyPair(1024)).rejects.toThrow(InsecureKeyError);
+      await expect(generateBlindSignatureKeyPair(2047)).rejects.toThrow(InsecureKeyError);
+    });
+
+    it('validateRsaKeyLength throws InsecureKeyError for moduli under 2048 bits', () => {
+      const small512Modulus = (1n << 512n) - 1n;
+      const small1024Modulus = (1n << 1024n) - 1n;
+
+      expect(() => validateRsaKeyLength(small512Modulus)).toThrow(InsecureKeyError);
+      expect(() => validateRsaKeyLength(small1024Modulus)).toThrow(InsecureKeyError);
+      expect(() => validateRsaKeyLength(0n)).toThrow(InsecureKeyError);
+      expect(() => validateRsaKeyLength(-5n)).toThrow(InsecureKeyError);
+      expect(() => validateRsaKeyLength(testRsaKeyPair.publicKey.n)).not.toThrow();
+    });
+
+    it('rejects legacy 512-bit and 1024-bit keys in all protocol functions', () => {
+      const legacy512Key = { n: (1n << 512n) - 5n, e: 65537n };
+      const legacy512Priv = { n: legacy512Key.n, d: 1234567n };
+
+      expect(() => blindMessage('test', legacy512Key)).toThrow(InsecureKeyError);
+      expect(() => blindMessageWithFactor('test', 42n, legacy512Key)).toThrow(InsecureKeyError);
+      expect(() => signBlindedMessage(100n, legacy512Priv)).toThrow(InsecureKeyError);
+      expect(() => directSignMessage('test', legacy512Priv)).toThrow(InsecureKeyError);
+      expect(() => unblindSignature(100n, 42n, legacy512Key)).toThrow(InsecureKeyError);
+      expect(() => verifyBlindSignature('test', 100n, legacy512Key)).toThrow(InsecureKeyError);
+    });
   });
 
   describe('Full Blind Signature Roundtrip', () => {
-    it('blinds, signs, unblinds, and successfully verifies vote message', () => {
-      const keyPair = generateBlindSignatureKeyPair(512);
+    it('blinds, signs, unblinds, and successfully verifies vote message with RSA-2048', () => {
+      const keyPair = testRsaKeyPair;
       const votePayload = 'pulse-vote:post-777:up:nullifier-98765';
 
       // 1. Voter blinds the message
@@ -120,7 +160,7 @@ describe('Chaumian Blind Signatures Protocol (packages/core-crypto)', () => {
     });
 
     it('works with Uint8Array binary payloads', () => {
-      const keyPair = generateBlindSignatureKeyPair(512);
+      const keyPair = testRsaKeyPair;
       const binaryMessage = new Uint8Array([10, 20, 30, 40, 50, 60, 70, 80]);
 
       const { blindedHash, blindingFactor } = blindMessage(
@@ -137,7 +177,7 @@ describe('Chaumian Blind Signatures Protocol (packages/core-crypto)', () => {
 
   describe('Unblinded Signature Matches Direct Signature', () => {
     it('proves mathematically that unblindSignature(s\', r) === directSign(m)', () => {
-      const keyPair = generateBlindSignatureKeyPair(512);
+      const keyPair = testRsaKeyPair;
       const votePayload = 'pulse-merit:post-42:up:nullifier-alpha';
 
       // Direct signature by validator who sees the message
@@ -162,7 +202,7 @@ describe('Chaumian Blind Signatures Protocol (packages/core-crypto)', () => {
 
   describe('Information-Theoretic Blindness (Signer Learns Zero Knowledge of m)', () => {
     it('signer cannot distinguish or learn original message m from blinded hash m\'', () => {
-      const keyPair = generateBlindSignatureKeyPair(512);
+      const keyPair = testRsaKeyPair;
       const msg1 = 'vote:proposal-1:support';
       const msg2 = 'vote:proposal-1:divergent';
 
@@ -194,7 +234,7 @@ describe('Chaumian Blind Signatures Protocol (packages/core-crypto)', () => {
     });
 
     it('supports deterministic blinding with blindMessageWithFactor', () => {
-      const keyPair = generateBlindSignatureKeyPair(512);
+      const keyPair = testRsaKeyPair;
       const msg = 'deterministic-token-data';
       const factor = 123456789012345678901234567890123456789n;
 
@@ -209,7 +249,7 @@ describe('Chaumian Blind Signatures Protocol (packages/core-crypto)', () => {
 
   describe('Tampering and Modification Rejection', () => {
     it('rejects signature if message content is tampered', () => {
-      const keyPair = generateBlindSignatureKeyPair(512);
+      const keyPair = testRsaKeyPair;
       const originalMessage = 'pulse-vote:post-10:up:null-100';
       const tamperedMessage = 'pulse-vote:post-10:down:null-100';
 
@@ -228,7 +268,7 @@ describe('Chaumian Blind Signatures Protocol (packages/core-crypto)', () => {
     });
 
     it('rejects tampered signature', () => {
-      const keyPair = generateBlindSignatureKeyPair(512);
+      const keyPair = testRsaKeyPair;
       const msg = 'pulse-vote:post-10:up';
 
       const { blindedHash, blindingFactor } = blindMessage(msg, keyPair.publicKey);
@@ -241,7 +281,7 @@ describe('Chaumian Blind Signatures Protocol (packages/core-crypto)', () => {
     });
 
     it('rejects invalid or out-of-range signature parameters', () => {
-      const keyPair = generateBlindSignatureKeyPair(512);
+      const keyPair = testRsaKeyPair;
       const msg = 'test-token';
 
       expect(verifyBlindSignature(msg, 0n, keyPair.publicKey)).toBe(false);

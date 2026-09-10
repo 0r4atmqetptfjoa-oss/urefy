@@ -1,10 +1,11 @@
-/**
- * Aetheris Sovereign Legal & Compliance Modal Component
+﻿/**
+ * UREfy Sovereign Legal & Compliance Modal Component
  * Displays Terms of Service, GDPR Privacy Policy, and EU Digital Services Act (DSA) Compliance.
  */
 
 import { serviceRegistry, SERVICES } from './service-registry.js';
 import { clientStore } from './client-state.js';
+import { t } from './i18n.js';
 
 export type LegalTab = 'about' | 'terms' | 'privacy' | 'rules' | 'dsa' | 'contact';
 
@@ -203,7 +204,8 @@ export class LegalModal {
             <button
               type="button" data-action="close-feature"
               class="text-slate-400 hover:text-white p-2 rounded-xl hover:bg-white/10 transition-colors cursor-pointer shrink-0 ml-2"
-              title="Close (Esc)"
+              title="${t('modal.close', undefined, 'Close')} (Esc)"
+              aria-label="${t('modal.close', undefined, 'Close')}"
             >
               ✕
             </button>
@@ -219,7 +221,7 @@ export class LegalModal {
                   : 'border-transparent text-slate-400 hover:text-slate-200'
               }"
             >
-              ℹ️ About Us
+              ℹ️ ${t('footer.about', undefined, 'About')}
             </button>
             <button
               type="button" data-action="set-legal-tab" data-tab="terms"
@@ -229,7 +231,7 @@ export class LegalModal {
                   : 'border-transparent text-slate-400 hover:text-slate-200'
               }"
             >
-              📜 Terms of Service
+              📜 ${'Terms of Service'}
             </button>
             <button
               type="button" data-action="set-legal-tab" data-tab="privacy"
@@ -239,7 +241,7 @@ export class LegalModal {
                   : 'border-transparent text-slate-400 hover:text-slate-200'
               }"
             >
-              🛡️ Privacy Policy (GDPR)
+              🛡️ ${'Privacy Policy (GDPR)'}
             </button>
             <button
               type="button" data-action="set-legal-tab" data-tab="rules"
@@ -249,7 +251,7 @@ export class LegalModal {
                   : 'border-transparent text-slate-400 hover:text-slate-200'
               }"
             >
-              ⚖️ Rules & Moderation
+              ⚖️ ${t('footer.rules', undefined, 'Community Rules')}
             </button>
             <button
               type="button" data-action="set-legal-tab" data-tab="dsa"
@@ -260,7 +262,7 @@ export class LegalModal {
               }"
             >
               <span>🚩</span>
-              <span class="hidden sm:inline">Notice & Takedown (DSA)</span>
+              <span class="hidden sm:inline">${'Notice & Takedown (DSA)'}</span>
               <span class="sm:hidden">Report (DSA)</span>
             </button>
             <button
@@ -271,7 +273,7 @@ export class LegalModal {
                   : 'border-transparent text-slate-400 hover:text-slate-200'
               }"
             >
-              📬 EU Contact Points
+              📬 ${t('footer.contact', undefined, 'Contact')}
             </button>
           </div>
 
@@ -300,15 +302,15 @@ export class LegalModal {
         return `
           <div class="space-y-4">
             <div class="p-3.5 rounded-xl bg-cyan-950/30 border border-cyan-500/20 space-y-1.5">
-              <h4 class="font-bold text-sm text-cyan-300">What is Aetheris Omni-Sphere?</h4>
+              <h4 class="font-bold text-sm text-cyan-300">What is UREfy?</h4>
               <p class="text-slate-300">
-                Aetheris is a sovereign decentralized communication and knowledge exchange platform, engineered on advanced cryptographic primitives (Zero-Knowledge proofs, hybrid post-quantum ML-KEM-768 cryptography, and peer-to-peer WebRTC mesh networks).
+                UREfy is a sovereign decentralized communication and knowledge exchange platform, engineered on advanced cryptographic primitives (Zero-Knowledge proofs, hybrid post-quantum ML-KEM-768 cryptography, and peer-to-peer WebRTC mesh networks).
               </p>
             </div>
 
             <div class="space-y-3">
               <h5 class="font-bold text-xs text-white">1. Non-Custodial Architecture & Zero Central Identity Databases</h5>
-              <p>Unlike traditional social networks, Aetheris never stores your identity credentials on central servers. Identity is generated directly on your device as an Ed25519 asymmetric keypair. You are the sole sovereign custodian of your cryptographic keys.</p>
+              <p>Unlike traditional social networks, UREfy never stores your identity credentials on central servers. Identity is generated directly on your device as an Ed25519 asymmetric keypair. You are the sole sovereign custodian of your cryptographic keys.</p>
 
               <h5 class="font-bold text-xs text-white">2. Algorithmic Transparency & Open Source</h5>
               <p>The entire source code is audited, verifiable, and open source. There are no opaque recommendation algorithms engineered for behavioral addiction or advertising monetization.</p>
@@ -322,7 +324,7 @@ export class LegalModal {
         return `
           <div class="space-y-3">
             <h4 class="font-bold text-sm text-white">1. Network Architecture & Identity Custody</h4>
-            <p>Aetheris Omni-Sphere operates exclusively via self-managed Ed25519 cryptographic identifiers. Each user maintains complete and sole custody over their private key stored locally on their device.</p>
+            <p>UREfy operates exclusively via self-managed Ed25519 cryptographic identifiers. Each user maintains complete and sole custody over their private key stored locally on their device.</p>
             
             <h4 class="font-bold text-sm text-white">2. Public Content & Cryptographic Signatures</h4>
             <p>All pulses, open channel messages, and Knowledge Vault artifacts are cryptographically signed by their author. The author bears sole legal responsibility for signed content broadcast across the network.</p>
@@ -336,7 +338,7 @@ export class LegalModal {
           <div class="space-y-3">
             <div class="p-3.5 rounded-xl bg-emerald-950/30 border border-emerald-500/20 space-y-1">
               <span class="text-[10px] font-mono uppercase text-emerald-400 font-bold">GDPR Compliance Statement (EU Regulation 2016/679)</span>
-              <p class="text-slate-300">Aetheris enforces Privacy by Design and by Default (Art. 25 GDPR). We do not collect personal data.</p>
+              <p class="text-slate-300">UREfy enforces Privacy by Design and by Default (Art. 25 GDPR). We do not collect personal data.</p>
             </div>
             <h4 class="font-bold text-sm text-white">1. Zero-Data Principle & No Tracking</h4>
             <p>The platform does not solicit or collect real names, email addresses, passwords, or phone numbers. There are zero third-party trackers, Google Analytics, or commercial profiling cookies.</p>
@@ -367,7 +369,7 @@ export class LegalModal {
             <p>Reports submitted through the notice mechanism are reviewed by compliance moderators within 24-48 hours. If content violates guidelines, it is withdrawn from the public feed and recorded in the D1 transparency ledger.</p>
 
             <h4 class="font-bold text-sm text-white">3. Right to Appeal (Art. 20 DSA)</h4>
-            <p>If you believe a moderation action (removal or restriction) was applied in error to your content, you may file an appeal to <code class="text-cyan-300">legal@aetheris.network</code> or <code class="text-cyan-300">love4jpx@gmail.com</code>, citing the content identifier.</p>
+            <p>If you believe a moderation action (removal or restriction) was applied in error to your content, you may file an appeal to <code class="text-cyan-300">razvan@urefy.com</code> or <code class="text-cyan-300">razvan@urefy.com</code>, citing the content identifier.</p>
           </div>
         `;
       case 'dsa':
@@ -379,7 +381,7 @@ export class LegalModal {
                 <span>Notice and Takedown Procedure (DSA Art. 16)</span>
               </h4>
               <p class="text-[11px] text-slate-400">
-                Under the EU Digital Services Act (DSA 2022/2065), any user or rights holder may report illegal or harmful content. Designated EU Single Point of Contact: <code class="text-cyan-300">legal@aetheris.network</code>.
+                Under the EU Digital Services Act (DSA 2022/2065), any user or rights holder may report illegal or harmful content. Designated EU Single Point of Contact: <code class="text-cyan-300">razvan@urefy.com</code>.
               </p>
             </div>
 
@@ -489,7 +491,7 @@ export class LegalModal {
                 </span>
                 <p class="text-[11px] text-slate-400">Designated point of contact for official communications:</p>
                 <div class="font-mono text-xs text-cyan-300 bg-black/40 p-2 rounded-lg border border-white/5 break-all">
-                  legal@aetheris.network
+                  razvan@urefy.com
                 </div>
                 <p class="text-[10px] text-slate-500">Accepted communication languages: English, Romanian.</p>
               </div>
@@ -501,8 +503,8 @@ export class LegalModal {
                 </span>
                 <p class="text-[11px] text-slate-400">For assistance, appeals, and legal inquiries:</p>
                 <div class="font-mono text-xs text-cyan-300 bg-black/40 p-2 rounded-lg border border-white/5 break-all">
-                  legal@aetheris.network<br>
-                  <span class="text-slate-400 text-[10px]">Secondary contact: love4jpx@gmail.com</span>
+                  razvan@urefy.com<br>
+                  <span class="text-slate-400 text-[10px]">Secondary contact: razvan@urefy.com</span>
                 </div>
                 <p class="text-[10px] text-slate-500">Average response time: 24 - 48 hours.</p>
               </div>
@@ -511,7 +513,7 @@ export class LegalModal {
             <div class="p-3.5 rounded-xl bg-surface-base border border-white/5 space-y-1.5">
               <h5 class="font-bold text-xs text-white">Legal Information / Provider Identification (Impressum)</h5>
               <p class="text-slate-400 text-[11px]">
-                The Aetheris Omni-Sphere digital service operates as a sovereign decentralized protocol across Cloudflare Pages Anycast & Edge Workers infrastructure, with data securely persisted on Cloudflare D1.
+                The UREfy digital service operates as a sovereign decentralized protocol across Cloudflare Pages Anycast & Edge Workers infrastructure, with data securely persisted on Cloudflare D1.
               </p>
             </div>
           </div>

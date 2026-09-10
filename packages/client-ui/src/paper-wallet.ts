@@ -1,15 +1,12 @@
 /**
- * Aetheris Deterministic Paper Wallet & Sovereign Cold Storage Backup Engine.
+ * UREfy Deterministic Paper Wallet & Sovereign Cold Storage Backup Engine.
  * Generates high-contrast printable cold storage paper certificates with 12-word
  * BIP-39 mnemonic seed phrases, Ed25519 public fingerprints, and Merkle root commitments.
  */
 
-const SEED_WORD_LIST = [
-  'aether', 'matrix', 'cipher', 'quantum', 'sovereign', 'shield', 'sentinel', 'ratchet',
-  'entropy', 'merkle', 'ledger', 'vector', 'falcon', 'kyber', 'signal', 'node',
-  'relay', 'torus', 'crystal', 'vertex', 'vault', 'pulse', 'kernel', 'glacier',
-  'beacon', 'starlight', 'monolith', 'horizon', 'zenith', 'solitude', 'obsidian', 'strata'
-];
+import { deriveKeyPairFromMnemonic, validateMnemonic } from '@aetheris/core-crypto';
+import { clientStore } from './client-state.js';
+import { renderIcon } from './ui/icons.js';
 
 export interface PaperWalletData {
   fingerprint: string;
@@ -47,25 +44,29 @@ export function zeroizeBuffer(buffer: Uint8Array | ArrayBuffer | string[] | numb
 
 export class PaperWalletEngine {
   public isOpen: boolean = false;
+  public isRevealed: boolean = false;
 
-  public open(): void { this.isOpen = true; }
-  public close(): void { this.isOpen = false; }
-  public openModal(): void { this.isOpen = true; }
-  public closeModal(): void { this.isOpen = false; }
+  public open(): void { this.isOpen = true; this.isRevealed = false; }
+  public close(): void { this.isOpen = false; this.isRevealed = false; }
+  public openModal(): void { this.open(); }
+  public closeModal(): void { this.close(); }
 
-  public generateMnemonic(seedStr: string): string[] {
-    const words: string[] = [];
-    let hash = 0;
-    for (let i = 0; i < seedStr.length; i++) {
-      hash = ((hash << 5) - hash) + seedStr.charCodeAt(i);
-      hash |= 0;
+  public toggleReveal(): void {
+    this.isRevealed = !this.isRevealed;
+    clientStore.notifySync();
+  }
+
+  public generateMnemonic(fingerprint: string): string[] {
+    const phrase = clientStore.mnemonic?.trim() ?? '';
+    if (fingerprint !== clientStore.keypair.fingerprint || !validateMnemonic(phrase)) return [];
+    const derived = deriveKeyPairFromMnemonic(phrase);
+    try {
+      if (derived.fingerprint !== fingerprint || derived.publicKeyHex !== clientStore.keypair.publicKeyHex) return [];
+      return phrase.split(/\s+/);
+    } finally {
+      zeroizeBuffer(derived.privateKey);
+      derived.privateKeyHex = '';
     }
-
-    for (let i = 0; i < 12; i++) {
-      const idx = Math.abs((hash ^ (i * 99991)) % SEED_WORD_LIST.length);
-      words.push(SEED_WORD_LIST[idx]);
-    }
-    return words;
   }
 
   public renderPaperWalletModal(fingerprint: string, publicKeyHex: string): string {
@@ -73,12 +74,13 @@ export class PaperWalletEngine {
 
     const safeFingerprint = escapeHtml(fingerprint);
     const safePubKey = escapeHtml(publicKeyHex);
-    const words = this.generateMnemonic(fingerprint);
+    const words = this.isRevealed && publicKeyHex === clientStore.keypair.publicKeyHex ? this.generateMnemonic(fingerprint) : [];
+    const displayedWords = this.isRevealed ? words : Array.from({ length: 12 }, () => '----');
     const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 
     return `
-      <div id="paper-wallet-backdrop" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 select-none animate-in fade-in duration-150 font-mono text-xs" data-action="call-global" data-raw-click="if(event.target.id === 'paper-wallet-backdrop') window.paperWallet && window.paperWallet.close();">
-        <div class="relative w-full max-w-2xl bg-surface-base border border-white/10 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6">
+      <div id="paper-wallet-backdrop" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 select-none animate-in fade-in duration-150 font-mono text-xs" data-action="close-feature">
+        <div class="relative w-full max-w-2xl max-h-[90dvh] overflow-y-auto bg-surface-base border border-white/10 rounded-lg p-6 sm:p-8 shadow-2xl space-y-6" data-action="stop-propagation">
           
           <!-- MODAL CONTROLS -->
           <div class="flex items-center justify-between pb-3 border-subtle-b">
@@ -100,15 +102,14 @@ export class PaperWalletEngine {
             <!-- CERTIFICATE HEADER -->
             <div class="flex items-center justify-between border-b border-white/10 pb-4">
               <div class="flex items-center space-x-3">
-                <div class="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-bold text-base">Æ</div>
+                <div class="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-bold text-base">U</div>
                 <div>
-                  <div class="font-bold text-sm text-white tracking-widest uppercase">Aetheris Sovereign Key</div>
+                  <div class="font-bold text-sm text-white tracking-widest uppercase">UREfy Sovereign Key</div>
                   <div class="text-[9px] text-slate-400">Issued: ${escapeHtml(dateStr)} · Zero-Knowledge Sovereign Node</div>
                 </div>
               </div>
               <div class="text-right">
-                <div class="text-[9px] text-emerald-400 font-bold uppercase">● Ed25519 Verified</div>
-                <div class="text-[9px] text-slate-400">Epoch: #412</div>
+                <div class="text-[9px] text-emerald-400 font-bold uppercase">${words.length ? 'Identity match verified' : 'Recovery words hidden'}</div>
               </div>
             </div>
 
@@ -127,19 +128,20 @@ export class PaperWalletEngine {
                 <span class="text-rose-400">⚠️ Never share online</span>
               </div>
               <div class="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                ${words.map((w, idx) => `
+                ${displayedWords.map((w, idx) => `
                   <div class="p-2 rounded-lg bg-black/70 border border-white/10 flex items-center space-x-2">
                     <span class="text-slate-500 text-[10px] select-none">${idx + 1}.</span>
                     <span class="text-indigo-200 font-bold">${escapeHtml(w)}</span>
                   </div>
                 `).join('')}
               </div>
+              ${this.isRevealed && words.length === 0 ? '<p class="text-rose-400">No matching recovery phrase is available. Unlock the current identity before printing.</p>' : ''}
             </div>
 
             <!-- SECURITY COMMITMENT -->
             <div class="p-2.5 rounded-xl bg-indigo-950/40 border border-indigo-500/20 text-[10px] text-indigo-300 flex items-center justify-between">
-              <span>Merkle Commitment: <code class="text-white">${safePubKey.substring(0, 16)}...</code></span>
-              <span class="text-emerald-400 font-bold">100% Offline Verifiable</span>
+              <span>Public key: <code class="text-white">${safePubKey.substring(0, 16)}...</code></span>
+              <span class="text-emerald-400 font-bold">Ed25519</span>
             </div>
 
           </div>
@@ -147,7 +149,8 @@ export class PaperWalletEngine {
           <!-- ACTIONS -->
           <div class="flex items-center justify-between pt-1">
             <span class="text-[10px] text-slate-500">Store this physical sheet in a secure, fireproof location.</span>
-            <button id="btn-print-paper-wallet" class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-all shadow-md cursor-pointer flex items-center space-x-2">
+            <button type="button" data-action="call-global" data-global-method="paperWallet.toggleReveal" aria-pressed="${this.isRevealed}" class="px-3 py-2 rounded-lg border border-white/10 inline-flex items-center gap-2">${renderIcon(this.isRevealed ? 'eyeOff' : 'eye', { size: 18 })}${this.isRevealed ? 'Hide words' : 'Reveal words'}</button>
+            <button type="button" id="btn-print-paper-wallet" ${words.length === 0 ? 'disabled' : ''} class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-all shadow-md cursor-pointer flex items-center space-x-2 disabled:opacity-40 disabled:cursor-not-allowed">
               <span>Print Paper Certificate</span>
               <span>🖨️</span>
             </button>
@@ -160,3 +163,4 @@ export class PaperWalletEngine {
 }
 
 export const paperWallet = new PaperWalletEngine();
+if (typeof window !== 'undefined') (window as any).paperWallet = paperWallet;

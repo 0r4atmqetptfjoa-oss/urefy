@@ -1,7 +1,7 @@
 /**
  * @file breadcrumbs.ts
  * @package @aetheris/client-ui
- * @description Omni-Breadcrumbs & History Navigation Engine for Aetheris Omni-Sphere.
+ * @description Omni-Breadcrumbs & History Navigation Engine for UREfy.
  * Provides hierarchical navigation trails, dual-direction history traversal (Back/Forward),
  * keyboard shortcuts (Alt+Left / Alt+Right), interactive Obsidian-styled path segments,
  * history stack flyout inspector, and Arc Browser-inspired pinned tabs bar with reactive badges.

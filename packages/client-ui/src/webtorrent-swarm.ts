@@ -1,5 +1,5 @@
 /**
- * AETHERIS HYBRID SUITE — BROWSER WEBTORRENT / BITTORRENT P2P SWARM ENGINE
+ * UREfy HYBRID SUITE — BROWSER WEBTORRENT / BITTORRENT P2P SWARM ENGINE
  * Item 5: Decentralized P2P distribution of Knowledge Vault files over WebRTC Data Channels.
  * 
  * Features:

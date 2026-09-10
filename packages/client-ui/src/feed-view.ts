@@ -18,6 +18,7 @@ import { obsidianMediaPlayer } from './media-player.js';
 import { pollEngine } from './polls.js';
 import { reactionsEngine } from './reactions.js';
 import { pulseActionsEngine } from './pulse-actions.js';
+import { t } from './i18n.js';
 
 function escapeHtml(text: string): string {
   return (text || '')
@@ -78,7 +79,7 @@ export function renderInlineQuickComposer(): string {
           <textarea 
             id="inline-composer-textarea"
             rows="2"
-            placeholder="What is happening in the sovereign matrix? (Markdown, #tags and @mentions supported)"
+            placeholder="${t('pulse.composerPlaceholder', undefined, 'What is happening in the sovereign matrix? (Markdown, #tags and @mentions supported)')}"
             class="w-full bg-transparent border-0 text-xs text-slate-200 placeholder-slate-500 focus:outline-none resize-none leading-relaxed"
           ></textarea>
 
@@ -110,7 +111,7 @@ export function renderInlineQuickComposer(): string {
                 ${omniComposer.renderCircularCountdownRing(0, 280)}
               </div>
               <button id="btn-inline-broadcast" type="button" class="px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition-all shadow-sm flex items-center space-x-1 cursor-pointer">
-                <span>Broadcast</span>
+                <span>${t('pulse.publishPost', undefined, 'Broadcast')}</span>
                 <span>⚡</span>
               </button>
             </div>
@@ -128,10 +129,6 @@ export function renderCommunityHeaderBanner(circle: import('./sovereign-circle.j
       <div class="h-28 sm:h-36 w-full relative" style="background: ${circle.banner};">
         <div class="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent"></div>
         <div class="absolute top-3 right-3 flex items-center space-x-2">
-          <span class="px-2.5 py-1 rounded-xl bg-black/60 backdrop-blur-md text-[10px] font-mono font-bold text-slate-300 border border-white/10 flex items-center space-x-1.5 shadow-sm">
-            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span>${circle.onlineCount} online</span>
-          </span>
           <span class="px-2.5 py-1 rounded-xl bg-black/60 backdrop-blur-md text-[10px] font-mono text-cyan-400 border border-cyan-500/30 shadow-sm">
             ${escapeHtml(circle.category)}
           </span>
@@ -204,17 +201,10 @@ export function renderCommunityHeaderBanner(circle: import('./sovereign-circle.j
 
           <div class="flex items-center space-x-4 text-[11px] font-mono text-slate-400 flex-wrap gap-y-1">
             <span class="flex items-center space-x-1">
-              <span class="font-bold text-white">${circle.membersCount.toLocaleString()}</span>
-              <span>members</span>
+              <span class="font-bold text-white">${clientStore.posts.filter(post => post.channelId === circle.channelId).length}</span>
+              <span>loaded posts</span>
             </span>
-            <span>•</span>
-            <span class="flex items-center space-x-1">
-              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-              <span class="font-bold text-white">${circle.onlineCount}</span>
-              <span>mesh nodes</span>
-            </span>
-            <span>•</span>
-            <span>Created ${escapeHtml(circle.createdAt)}</span>
+            ${circle.createdAt ? `<span>Created ${escapeHtml(circle.createdAt)}</span>` : ''}
           </div>
 
           <!-- COMMUNITY RULES TAGS -->

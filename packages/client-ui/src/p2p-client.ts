@@ -20,35 +20,63 @@ export class P2PFileClient {
     expectedSha256: string,
     onProgress?: (p: P2PTransferProgress) => void
   ): Promise<void> {
-    const CHUNK_SIZE = 64 * 1024;
-    const totalChunks = Math.ceil(byteSize / CHUNK_SIZE);
-    const assembled = new Uint8Array(byteSize);
+    const indexResponse = await fetch('/api/nanopublications', {
+      cache: 'no-store',
+      credentials: 'same-origin',
+    });
+    if (!indexResponse.ok) throw new Error(`Artifact index unavailable (HTTP ${indexResponse.status})`);
 
-    // Stream pieces from simulated WebRTC peers
-    for (let i = 0; i < totalChunks; i++) {
-      await new Promise(r => setTimeout(r, 60)); // Simulate peer wire transit
+    const index = await indexResponse.json() as { nanopublications?: Array<Record<string, unknown>> };
+    const artifact = index.nanopublications?.find((entry) =>
+      String(entry.sha256 || '').toLowerCase() === expectedSha256.toLowerCase() ||
+      String(entry.fileName || '') === fileName
+    );
+    const r2Key = typeof artifact?.r2Key === 'string' ? artifact.r2Key : '';
+    if (!r2Key) throw new Error('This artifact has no downloadable storage object');
 
-      const start = i * CHUNK_SIZE;
-      const end = Math.min(start + CHUNK_SIZE, byteSize);
-      const pieceData = new Uint8Array(end - start);
+    const response = await fetch(`/api/nanopublications?download=${encodeURIComponent(r2Key)}`, {
+      cache: 'no-store',
+      credentials: 'same-origin',
+    });
+    if (!response.ok) throw new Error(`Artifact download failed (HTTP ${response.status})`);
 
-      // Fill with verified deterministic pattern
-      for (let j = 0; j < pieceData.length; j++) {
-        pieceData[j] = ((start + j) * 31 + 17) % 256;
-      }
-
-      assembled.set(pieceData, start);
-
-      if (onProgress) {
-        onProgress({
+    const responseSize = Number(response.headers.get('Content-Length')) || byteSize || 0;
+    const chunks: Uint8Array[] = [];
+    let downloadedBytes = 0;
+    if (response.body) {
+      const reader = response.body.getReader();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (!value) continue;
+        chunks.push(value);
+        downloadedBytes += value.byteLength;
+        onProgress?.({
           fileName,
-          totalBytes: byteSize,
-          downloadedBytes: end,
-          percentage: Math.round((end / byteSize) * 100),
-          activePeers: 3,
+          totalBytes: responseSize,
+          downloadedBytes,
+          percentage: responseSize > 0 ? Math.min(99, Math.round((downloadedBytes / responseSize) * 100)) : 0,
+          activePeers: 1,
         });
       }
+    } else {
+      const value = new Uint8Array(await response.arrayBuffer());
+      chunks.push(value);
+      downloadedBytes = value.byteLength;
     }
+
+    const assembled = new Uint8Array(downloadedBytes);
+    let offset = 0;
+    for (const chunk of chunks) {
+      assembled.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+
+    const actualSha256 = bytesToHex(sha256(assembled));
+    if (expectedSha256 && actualSha256.toLowerCase() !== expectedSha256.toLowerCase()) {
+      throw new Error('SHA-256 verification failed; the artifact was not saved');
+    }
+    onProgress?.({ fileName, totalBytes: downloadedBytes, downloadedBytes, percentage: 100, activePeers: 1 });
 
     // Trigger browser file download
     const blob = new Blob([assembled], { type: 'application/octet-stream' });

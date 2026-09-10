@@ -1,5 +1,5 @@
 /**
- * AETHERIS HYBRID SUITE - SOVEREIGN STEGANOGRAPHY MODAL
+ * UREfy HYBRID SUITE - SOVEREIGN STEGANOGRAPHY MODAL
  * Cryptographic E2EE Pixel Canvas Steganography (LSB PNG Steganography).
  *
  * Conceals secret text, seed backups, and encrypted credentials inside PNG image pixels.
@@ -9,6 +9,7 @@
 import { clientStore } from './client-state.js';
 import { toastManager } from './toast.js';
 import { serviceRegistry, SERVICES } from './service-registry.js';
+import { t } from './i18n.js';
 import {
   encodeSteganography,
   decodeSteganography,
@@ -23,6 +24,8 @@ export interface ModalStatus {
 }
 
 export class SovereignSteganographyModal {
+  private operationVersion = 0;
+  private isRestoring = false;
   public isOpen: boolean = false;
   public activeTab: 'encode' | 'decode' = 'encode';
 
@@ -56,6 +59,17 @@ export class SovereignSteganographyModal {
 
   public closeModal(): void {
     this.isOpen = false;
+    this.operationVersion++;
+    for (const url of [this.encodePreviewUrl, this.decodePreviewUrl, this.encodedBlobUrl]) {
+      if (url) URL.revokeObjectURL(url);
+    }
+    this.encodePreviewUrl = this.decodePreviewUrl = this.encodedBlobUrl = null;
+    this.encodeCanvas = this.decodeCanvas = null;
+    this.encodeImageWidth = this.encodeImageHeight = 0;
+    this.encodeSecretPayload = this.encodePassphrase = this.decodePassphrase = '';
+    this.revealedPayload = null;
+    this.encodeStatus = this.decodeStatus = null;
+    this.isEncoding = this.isDecoding = this.isRestoring = false;
     clientStore.notify();
   }
 
@@ -156,6 +170,8 @@ export class SovereignSteganographyModal {
   }
 
   public async executeEncode(): Promise<void> {
+    if (this.isEncoding) return;
+    const operation = this.operationVersion;
     if (!this.encodeCanvas) {
       // Auto generate procedural canvas if user did not provide an image
       this.encodeCanvas = this.generateProceduralCanvas(512, 512);
@@ -194,6 +210,7 @@ export class SovereignSteganographyModal {
       );
 
       const blob = await canvasToPngBlob(stegoCanvas);
+      if (operation !== this.operationVersion) return;
       if (this.encodedBlobUrl) {
         URL.revokeObjectURL(this.encodedBlobUrl);
       }
@@ -206,18 +223,23 @@ export class SovereignSteganographyModal {
       };
       toastManager.success('Steganographic PNG synthesized successfully!', '🛡️');
     } catch (err: any) {
+      if (operation !== this.operationVersion) return;
       this.encodeStatus = {
         text: `Encoding error: ${err?.message || 'Steganography synthesis failed'}`,
         type: 'error',
       };
       toastManager.error(err?.message || 'Steganography error', '⚠️');
     } finally {
-      this.isEncoding = false;
-      clientStore.notify();
+      if (operation === this.operationVersion) {
+        this.isEncoding = false;
+        clientStore.notify();
+      }
     }
   }
 
   public async executeDecode(): Promise<void> {
+    if (this.isDecoding) return;
+    const operation = this.operationVersion;
     if (!this.decodeCanvas) {
       this.decodeStatus = { text: 'Please select or drag & drop a PNG image to inspect', type: 'warning' };
       clientStore.notify();
@@ -235,6 +257,7 @@ export class SovereignSteganographyModal {
         this.decodePassphrase.trim() || undefined
       );
 
+      if (operation !== this.operationVersion) return;
       this.revealedPayload = result.payload;
       this.isPayloadEncrypted = result.isEncrypted;
       this.decodeStatus = {
@@ -245,14 +268,17 @@ export class SovereignSteganographyModal {
       };
       toastManager.success('Sovereign payload recovered from image pixels!', '🔓');
     } catch (err: any) {
+      if (operation !== this.operationVersion) return;
       this.decodeStatus = {
         text: `${err?.message || 'Steganography decoding failed'}`,
         type: 'error',
       };
       toastManager.warning(err?.message || 'Steganography decode error', '⚠️');
     } finally {
-      this.isDecoding = false;
-      clientStore.notify();
+      if (operation === this.operationVersion) {
+        this.isDecoding = false;
+        clientStore.notify();
+      }
     }
   }
 
@@ -263,7 +289,7 @@ export class SovereignSteganographyModal {
     }
     const a = document.createElement('a');
     a.href = this.encodedBlobUrl;
-    a.download = `aetheris-stego-backup-${Date.now()}.png`;
+    a.download = `urefy-stego-backup-${Date.now()}.png`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -291,18 +317,27 @@ export class SovereignSteganographyModal {
     clientStore.notify();
   }
 
-  public restoreIdentityFromRevealed(): void {
-    if (!this.revealedPayload) return;
+  public async restoreIdentityFromRevealed(): Promise<void> {
+    if (!this.revealedPayload || this.isRestoring) return;
     const clean = this.revealedPayload.trim().toLowerCase();
     const words = clean.split(/\s+/).filter(Boolean);
     if (words.length !== 12 && words.length !== 24) {
       toastManager.warning(`Payload is not a valid 12 or 24 word mnemonic (detected ${words.length} words)`, '⚠️');
       return;
     }
-    const success = clientStore.restoreIdentityFromMnemonic(clean);
-    if (success) {
+    const operation = this.operationVersion;
+    this.isRestoring = true;
+    try {
+      const success = clientStore.restoreIdentityFromMnemonic(clean);
+      if (!success) return;
+      await clientStore.identityPersistence;
+      if (operation !== this.operationVersion) return;
       toastManager.success('Sovereign identity restored from steganographic recovery PNG!', '🛡️');
       this.closeModal();
+    } catch (error) {
+      if (operation === this.operationVersion) toastManager.warning(error instanceof Error ? error.message : 'Identity could not be saved');
+    } finally {
+      if (operation === this.operationVersion) this.isRestoring = false;
     }
   }
 
@@ -335,6 +370,8 @@ export class SovereignSteganographyModal {
               type="button"
               id="btn-close-steg-modal" data-action="close-feature"
               class="text-slate-400 hover:text-white p-1.5 rounded-xl hover:bg-white/10 transition-colors cursor-pointer text-sm font-mono"
+              aria-label="${t('modal.close', undefined, 'Close')}"
+              title="${t('modal.close', undefined, 'Close')}"
             >
               ✕
             </button>

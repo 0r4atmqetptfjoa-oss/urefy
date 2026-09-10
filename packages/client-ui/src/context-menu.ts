@@ -1,6 +1,6 @@
 ﻿/**
  * context-menu.ts
- * Aetheris Omni-Sphere — Context Menu Engine
+ * UREfy — Context Menu Engine
  * Right-click contextual actions for posts and comments.
  */
 

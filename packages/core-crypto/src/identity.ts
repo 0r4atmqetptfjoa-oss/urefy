@@ -57,6 +57,7 @@ export interface SovereignKeyPairSet {
 }
 
 export interface SovereignSignedEnvelope<T = any> {
+  version?: 1 | 2;
   payload: T;
   signature: string;        // 128-hex chars (64 bytes Ed25519 signature)
   nonce: string;            // Cryptographic random hex nonce (at least 32 hex chars)
@@ -69,6 +70,7 @@ export interface EnvelopeVerificationResult<T = any> {
   payload?: T;
   identity?: SovereignIdentity;
   fingerprint?: string;
+  identityBinding?: 'full' | 'signing-key';
   stage: 'signature' | 'fingerprint' | 'authorization' | 'replay' | 'complete';
   error?: string;
 }
@@ -89,15 +91,62 @@ export const DEFAULT_SOVEREIGN_CAPABILITIES: IdentityCapability[] = [
  * Deterministically serializes any JavaScript object or primitive into canonical JSON,
  * sorting object keys lexicographically so hashes match across environments.
  */
-export function canonicalizeJson(obj: any): string {
-  if (obj === null || typeof obj !== 'object') {
-    return JSON.stringify(obj);
-  }
-  if (Array.isArray(obj)) {
-    return '[' + obj.map(canonicalizeJson).join(',') + ']';
-  }
-  const keys = Object.keys(obj).sort();
-  return '{' + keys.map((k) => JSON.stringify(k) + ':' + canonicalizeJson(obj[k])).join(',') + '}';
+export const MAX_CANONICAL_DEPTH = 64;
+export const MAX_CANONICAL_NODES = 100000;
+export const MAX_CANONICAL_BYTES = 2 * 1024 * 1024;
+
+export function canonicalizeJson(obj: unknown): string {
+  const ancestors = new Set<object>();
+  const encoder = new TextEncoder();
+  let nodes = 0;
+  let bytes = 0;
+  const emit = (text: string): string => {
+    if (text.length > MAX_CANONICAL_BYTES) throw new Error('Canonical JSON size limit exceeded');
+    bytes += encoder.encode(text).byteLength;
+    if (bytes > MAX_CANONICAL_BYTES) throw new Error('Canonical JSON size limit exceeded');
+    return text;
+  };
+  const serialize = (value: unknown, depth: number): string => {
+    if (depth > MAX_CANONICAL_DEPTH) throw new Error('Canonical JSON depth limit exceeded');
+    if (++nodes > MAX_CANONICAL_NODES) throw new Error('Canonical JSON node limit exceeded');
+    if (value === null || typeof value === 'boolean') return emit(JSON.stringify(value));
+    if (typeof value === 'string') {
+      if (value.length > MAX_CANONICAL_BYTES) throw new Error('Canonical JSON size limit exceeded');
+      return emit(JSON.stringify(value));
+    }
+    if (typeof value === 'number') {
+      if (!Number.isFinite(value)) throw new Error('Canonical JSON numbers must be finite');
+      return emit(JSON.stringify(value));
+    }
+    if (typeof value !== 'object') throw new Error('Canonical JSON requires JSON-compatible values');
+    if (ancestors.has(value)) throw new Error('Canonical JSON cannot contain cycles');
+    const isArray = Array.isArray(value);
+    const prototype = Object.getPrototypeOf(value);
+    if (!isArray && prototype !== Object.prototype && prototype !== null) throw new Error('Canonical JSON requires plain objects');
+    ancestors.add(value);
+    try {
+      const parts = [emit(isArray ? '[' : '{')];
+      const keys = isArray ? null : Object.keys(value).sort();
+      const length = isArray ? value.length : keys!.length;
+      if (length > MAX_CANONICAL_NODES) throw new Error('Canonical JSON node limit exceeded');
+      let count = 0;
+      for (let index = 0; index < length; index++) {
+        const key = isArray ? String(index) : keys![index];
+        const descriptor = Object.getOwnPropertyDescriptor(value, key);
+        if (descriptor && !('value' in descriptor)) throw new Error('Canonical JSON cannot contain accessors');
+        const child = descriptor?.value;
+        if (!isArray && child === undefined) continue;
+        if (count++) parts.push(emit(','));
+        if (!isArray) parts.push(emit(JSON.stringify(key)), emit(':'));
+        parts.push(serialize(child === undefined ? null : child, depth + 1));
+      }
+      parts.push(emit(isArray ? ']' : '}'));
+      return parts.join('');
+    } finally {
+      ancestors.delete(value);
+    }
+  };
+  return serialize(obj, 0);
 }
 
 /**
@@ -119,6 +168,19 @@ export function canonicalizeEnvelopeDigest<T>(
   };
   const canonicalString = canonicalizeJson(canonicalObject);
   return sha256(new TextEncoder().encode(canonicalString));
+}
+
+export function canonicalizeSignedEnvelopeDigest<T>(
+  envelope: Pick<SovereignSignedEnvelope<T>, 'version' | 'payload' | 'nonce' | 'timestamp' | 'identity'>
+): Uint8Array {
+  if (envelope.version === 2) {
+    return sha256(new TextEncoder().encode(canonicalizeJson({
+      domain: 'UREFY_SIGNED_ENVELOPE_V2', version: 2, payload: envelope.payload,
+      nonce: envelope.nonce, timestamp: envelope.timestamp, identity: envelope.identity,
+    })));
+  }
+  if (envelope.version !== undefined && envelope.version !== 1) throw new Error('Unsupported signed envelope version');
+  return canonicalizeEnvelopeDigest(envelope.payload, envelope.nonce, envelope.timestamp, envelope.identity.fingerprint, envelope.identity.capabilities);
 }
 
 /**
@@ -179,6 +241,16 @@ export function verifySovereignIdentity(identity: SovereignIdentity): { valid: b
     return { valid: false, error: 'Identity must be an object' };
   }
 
+  const publicFields = ['version', 'fingerprint', 'signingPublicKey', 'encryptionPublicKey', 'pqPublicKey', 'credentialBindings', 'capabilities', 'createdAt'];
+  if (Object.keys(identity).some(field => !publicFields.includes(field))) return { valid: false, error: 'Identity contains unsupported public fields' };
+  if (identity.version !== SOVEREIGN_IDENTITY_VERSION || !Number.isSafeInteger(identity.createdAt) || identity.createdAt < 0 ||
+      !Array.isArray(identity.credentialBindings) || identity.credentialBindings.length > 32) {
+    return { valid: false, error: 'Invalid identity version, timestamp or credential bindings' };
+  }
+  if ((['fingerprint', 'signingPublicKey', 'encryptionPublicKey', 'pqPublicKey'] as const).some(field => typeof identity[field] !== 'string')) {
+    return { valid: false, error: 'Identity public keys must use hexadecimal strings' };
+  }
+
   if (!/^[0-9a-fA-F]{16}$/.test(identity.fingerprint)) {
     return { valid: false, error: 'Invalid fingerprint: must be 16 hexadecimal characters (8 bytes)' };
   }
@@ -201,8 +273,9 @@ export function verifySovereignIdentity(identity: SovereignIdentity): { valid: b
     return { valid: false, error: 'Fingerprint does not match signing public key hash derivation' };
   }
 
-  if (!Array.isArray(identity.capabilities)) {
-    return { valid: false, error: 'Capabilities must be an array' };
+  if (!Array.isArray(identity.capabilities) || identity.capabilities.length > 64 ||
+      identity.capabilities.some(capability => typeof capability !== 'string' || !capability.length || capability.length > 128)) {
+    return { valid: false, error: 'Invalid capability collection' };
   }
 
   return { valid: true };
@@ -224,29 +297,23 @@ export function hasCapability(identity: SovereignIdentity, capability?: string):
 export function createSignedEnvelope<T>(
   payload: T,
   keySet: SovereignKeyPairSet,
-  options?: { nonce?: string; timestamp?: number }
+  options?: { nonce?: string; timestamp?: number; version?: 1 | 2 }
 ): SovereignSignedEnvelope<T> {
-  const nonce = options?.nonce || generateEnvelopeNonce();
+  const nonce = options?.nonce !== undefined ? options.nonce : generateEnvelopeNonce();
   const timestamp = options?.timestamp !== undefined ? options.timestamp : Date.now();
-
-  const digest = canonicalizeEnvelopeDigest(
-    payload,
-    nonce,
-    timestamp,
-    keySet.identity.fingerprint,
-    keySet.identity.capabilities
-  );
+  if (typeof nonce !== 'string' || nonce.length < 16 || nonce.length > 256) throw new Error('Invalid signing nonce');
+  if (!Number.isSafeInteger(timestamp) || timestamp < 0) throw new Error('Invalid signing timestamp');
+  if (!verifySovereignIdentity(keySet.identity).valid) throw new Error('Invalid signing identity');
+  if (options?.version !== undefined && options.version !== 1 && options.version !== 2) throw new Error('Unsupported signed envelope version');
+  const identity = JSON.parse(canonicalizeJson(keySet.identity)) as SovereignIdentity;
+  const snapshot = JSON.parse(canonicalizeJson(payload)) as T;
+  const unsigned = { payload: snapshot, nonce, timestamp, identity, ...(options?.version === 2 ? { version: 2 as const } : {}) };
+  const digest = canonicalizeSignedEnvelopeDigest(unsigned);
 
   const sigBytes = signMessage(digest, keySet.signingPrivateKey);
   const signature = bytesToHex(sigBytes);
-
-  return {
-    payload,
-    signature,
-    nonce,
-    timestamp,
-    identity: { ...keySet.identity },
-  };
+  if (!verifySignature(signature, digest, identity.signingPublicKey)) throw new Error('Signing key does not match the identity');
+  return { ...unsigned, signature };
 }
 
 /**
@@ -261,32 +328,52 @@ export function verifySignedEnvelope<T>(
   envelope: SovereignSignedEnvelope<T>,
   options?: {
     requiredCapability?: string;
+    requireIdentityBinding?: boolean;
     maxDriftMs?: number;
     seenNonces?: Set<string> | { has(k: string): boolean; add(k: string): any };
   }
 ): EnvelopeVerificationResult<T> {
-  if (!envelope || typeof envelope !== 'object') {
+  if (!envelope || typeof envelope !== 'object' || Array.isArray(envelope)) {
     return { authorized: false, stage: 'signature', error: 'Envelope must be an object' };
   }
 
   const { payload, signature, nonce, timestamp, identity } = envelope;
+  if (options?.requireIdentityBinding && envelope.version !== 2) {
+    return { authorized: false, stage: 'signature', error: 'Identity-bound v2 envelope required' };
+  }
+  if (envelope.version !== undefined && envelope.version !== 1 && envelope.version !== 2) {
+    return { authorized: false, stage: 'signature', error: 'Unsupported signed envelope version' };
+  }
+  const maxDrift = options?.maxDriftMs ?? 300000;
+  if (!Number.isSafeInteger(timestamp) || timestamp < 0 || !Number.isSafeInteger(maxDrift) || maxDrift < 0) {
+    return { authorized: false, stage: 'replay', error: 'Timestamp and clock-skew policy must be non-negative safe integers' };
+  }
+  if (typeof nonce !== 'string' || nonce.length < 16 || nonce.length > 256) {
+    return { authorized: false, stage: 'replay', error: 'Nonce must contain between 16 and 256 characters' };
+  }
+  if (!Array.isArray(identity?.capabilities) || identity.capabilities.length > 64 ||
+      identity.capabilities.some(capability => typeof capability !== 'string' || !capability.length || capability.length > 128)) {
+    return { authorized: false, stage: 'authorization', error: 'Invalid capability collection' };
+  }
 
   // 1. Stage 1: Signature Format & Cryptographic Validation
-  if (!signature || !/^[0-9a-fA-F]{128}$/.test(signature)) {
+  if (typeof signature !== 'string' || !/^[0-9a-fA-F]{128}$/.test(signature)) {
     return { authorized: false, stage: 'signature', error: 'Invalid signature format: expected 128-hex chars' };
   }
 
-  if (!identity?.signingPublicKey || !/^[0-9a-fA-F]{64}$/.test(identity.signingPublicKey)) {
+  if (typeof identity?.signingPublicKey !== 'string' || !/^[0-9a-fA-F]{64}$/.test(identity.signingPublicKey)) {
     return { authorized: false, stage: 'signature', error: 'Invalid signingPublicKey: expected 64-hex chars' };
   }
 
-  const digest = canonicalizeEnvelopeDigest(
-    payload,
-    nonce,
-    timestamp,
-    identity.fingerprint,
-    identity.capabilities || []
-  );
+  let digest: Uint8Array;
+  try {
+    if (envelope.version === 2 && !verifySovereignIdentity(identity).valid) {
+      return { authorized: false, stage: 'fingerprint', error: 'Invalid bound identity descriptor' };
+    }
+    digest = canonicalizeSignedEnvelopeDigest(envelope);
+  } catch {
+    return { authorized: false, stage: 'signature', error: 'Payload cannot be canonically encoded' };
+  }
 
   const pubBytes = hexToBytes(identity.signingPublicKey);
   const isSignatureValid = verifySignature(signature, digest, pubBytes);
@@ -316,7 +403,6 @@ export function verifySignedEnvelope<T>(
   }
 
   // 4. Stage 4: Replay Protection (Timestamp Drift & Nonce Freshness)
-  const maxDrift = options?.maxDriftMs ?? 300000; // 5 minutes default
   const drift = Math.abs(Date.now() - timestamp);
   if (drift > maxDrift) {
     return {
@@ -325,16 +411,6 @@ export function verifySignedEnvelope<T>(
       fingerprint: identity.fingerprint,
       identity,
       error: `Request expired or excessive clock drift (${Math.round(drift / 1000)}s > ${maxDrift / 1000}s limit)`,
-    };
-  }
-
-  if (!nonce || typeof nonce !== 'string' || nonce.length < 16) {
-    return {
-      authorized: false,
-      stage: 'replay',
-      fingerprint: identity.fingerprint,
-      identity,
-      error: 'Invalid or missing nonce for replay protection',
     };
   }
 
@@ -358,6 +434,7 @@ export function verifySignedEnvelope<T>(
     payload,
     identity,
     fingerprint: identity.fingerprint,
+    identityBinding: envelope.version === 2 ? 'full' : 'signing-key',
   };
 }
 

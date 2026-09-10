@@ -1,12 +1,14 @@
 import { sovereignDialog } from './dialog-modal.js';
+import { t } from './i18n.js';
 // ============================================================================
-// governance.ts — Aetheris Omni-Sphere Sovereign DAO & Cryptographic Governance
+// governance.ts — UREfy Sovereign DAO & Cryptographic Governance
 // Complete, 100% functional merit-weighted sovereign voting engine with ZK proofs.
 // Strict TypeScript with full implementation.
 // ============================================================================
 
 import { serviceRegistry, SERVICES } from './service-registry.js';
 import { isLocalDev } from './admin-auth.js';
+import { isDemoModeEnabled } from './demo-mode.js';
 import { networkActivityFeed } from './activity-feed.js';
 
 export type ProposalCategory = 'protocol' | 'community' | 'security' | 'funding';
@@ -113,7 +115,7 @@ export class GovernanceDAO {
       } catch {
         this.proposals = [];
       }
-    } else if (isLocalDev()) {
+    } else if (isDemoModeEnabled()) {
       this.seedInitialProposals();
     }
 
@@ -149,10 +151,14 @@ export class GovernanceDAO {
     } catch {}
   }
 
+  public loadDemoData(): void {
+    this.seedInitialProposals();
+  }
+
   /**
    * Seed realistic initial proposals and votes for immediate high-fidelity rendering.
    */
-  private seedInitialProposals(): void {
+  public seedInitialProposals(): void {
     const now = Date.now();
     const dayMs = 24 * 3600 * 1000;
 
@@ -899,14 +905,14 @@ export class GovernanceDAO {
           <!-- MODAL ACTIONS FOOTER -->
           <div class="px-5 py-3.5 border-t border-white/5 flex items-center justify-end space-x-2 bg-surface-base">
             <button data-action="close-modal" class="px-3.5 py-1.5 rounded-lg bg-surface-overlay hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-colors cursor-pointer">
-              Cancel
+              ${t('common.cancel', undefined, 'Cancel')}
             </button>
             <button 
               id="btn-confirm-cast-vote" 
               data-proposal-id="${proposal.id}" 
               class="px-4 py-1.5 rounded-lg bg-[#00e5ff] hover:bg-[#00e5ff]/80 text-[#0d0f14] text-xs font-bold font-sans transition-all cursor-pointer shadow-lg shadow-[#00e5ff]/20 flex items-center space-x-1.5"
             >
-              <span>Confirm Vote</span>
+              <span>${t('modal.confirm', undefined, 'Confirm Vote')}</span>
               <span>⚡</span>
             </button>
           </div>
@@ -928,7 +934,7 @@ export class GovernanceDAO {
               <span class="text-xl">✍️</span>
               <div>
                 <h3 class="text-sm font-bold text-slate-100">New Sovereign DAO Proposal</h3>
-                <div class="text-[10px] font-mono text-[#00e5ff]">Aetheris Improvement Proposal (AIP)</div>
+                <div class="text-[10px] font-mono text-[#00e5ff]">UREfy Improvement Proposal (AIP)</div>
               </div>
             </div>
             <button data-action="close-modal" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-surface-overlay transition-colors">
@@ -1030,14 +1036,14 @@ export class GovernanceDAO {
           <!-- MODAL ACTIONS -->
           <div class="px-5 py-3.5 border-t border-white/5 flex items-center justify-end space-x-2 bg-surface-base">
             <button data-action="close-modal" class="px-3.5 py-1.5 rounded-lg bg-surface-overlay hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-colors cursor-pointer">
-              Cancel
+              ${t('common.cancel', undefined, 'Cancel')}
             </button>
             <button 
               id="btn-submit-proposal" 
               type="button" 
               class="px-4 py-1.5 rounded-lg bg-[#00e5ff] hover:bg-[#00e5ff]/80 text-[#0d0f14] text-xs font-bold font-sans transition-all cursor-pointer shadow-lg shadow-[#00e5ff]/20 flex items-center space-x-1.5"
             >
-              <span>Publish Proposal</span>
+              <span>${t('common.submit', undefined, 'Publish Proposal')}</span>
               <span>🚀</span>
             </button>
           </div>

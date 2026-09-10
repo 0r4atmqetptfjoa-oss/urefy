@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ZenModeManager, zenModeManager } from '../src/zen-mode.js';
 
-describe('Aetheris Omni-Sphere — Zen / Focus Mode System', () => {
+describe('UREfy — Zen / Focus Mode System', () => {
   let manager: ZenModeManager;
 
   beforeEach(() => {

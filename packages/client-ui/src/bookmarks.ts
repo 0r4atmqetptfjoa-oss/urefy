@@ -1,5 +1,5 @@
 import { serviceRegistry, SERVICES } from './service-registry.js';
-import { isLocalDev } from './admin-auth.js';
+import { isDemoModeEnabled } from './demo-mode.js';
 
 /**
  * Interface representing an individual encrypted bookmark entry stored in local vault.
@@ -67,7 +67,7 @@ export class BookmarksVault {
    */
   private load(): void {
     if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
-      if (isLocalDev()) {
+      if (isDemoModeEnabled()) {
         this.initDemoBookmarks();
       } else {
         this.bookmarks = [];
@@ -97,7 +97,7 @@ export class BookmarksVault {
       console.warn('[BookmarksVault] Failed to parse bookmarks from localStorage. Re-initializing default seeds.', err);
     }
 
-    if (isLocalDev()) {
+    if (isDemoModeEnabled()) {
       this.initDemoBookmarks();
       this.persist();
     } else {
@@ -114,7 +114,7 @@ export class BookmarksVault {
       {
         id: 'bm_demo_01',
         postId: 'post_zk_rollup_spec_v2',
-        postTitle: 'Aetheris Zero-Knowledge Rollup Specification v2.4 & Circuit Verification',
+        postTitle: 'UREfy Zero-Knowledge Rollup Specification v2.4 & Circuit Verification',
         postAuthor: '0x9F4B...3E1A',
         channelId: 'relays-core',
         savedAt: now - 86400000 * 2, // 2 days ago

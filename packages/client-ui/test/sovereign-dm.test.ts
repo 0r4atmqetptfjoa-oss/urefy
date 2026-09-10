@@ -1,12 +1,38 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { sovereignDM, SovereignDMManager, DirectMessage, DMConversation } from '../src/sovereign-dm.js';
+import { createSovereignIdentity, type SovereignKeyPairSet } from '@aetheris/core-crypto';
+import { DirectMessagingClient } from '../src/direct-messaging-client.js';
+import { onRequestPost } from '../functions/api/direct-messages.js';
+import { resetReplayNonceCache } from '../functions/api/_auth.js';
+import { createDmDatabase } from './helpers/dm-database.js';
 
 describe('Sovereign E2EE Direct Messaging (SFrame / TreeKEM)', () => {
   let dmManager: SovereignDMManager;
+  let fixture: ReturnType<typeof createDmDatabase>;
+  let owner: SovereignKeyPairSet;
+  let peer: SovereignKeyPairSet;
+  let peerClient: DirectMessagingClient;
 
-  beforeEach(() => {
-    // Instantiate a fresh manager for isolated test execution
-    dmManager = new SovereignDMManager();
+  beforeEach(async () => {
+    fixture = createDmDatabase();
+    resetReplayNonceCache();
+    owner = createSovereignIdentity();
+    peer = createSovereignIdentity();
+    const fetcher: typeof fetch = async (url, options) => onRequestPost({
+      env: { DB: fixture.database, ENVIRONMENT: 'production' },
+      request: new Request(new URL(String(url), 'https://example.test'), options),
+    });
+    peerClient = new DirectMessagingClient(async () => peer, fetcher);
+    await peerClient.register();
+    dmManager = new SovereignDMManager(new DirectMessagingClient(async () => owner, fetcher));
+    await dmManager.ready;
+  });
+
+  afterEach(async () => {
+    await dmManager.startLiveSync();
+    await dmManager.persistence;
+    dmManager.destroy();
+    fixture.sqlite.close();
   });
 
   it('1. Inițializarea managerului de DM-uri suverane', () => {
@@ -17,18 +43,7 @@ describe('Sovereign E2EE Direct Messaging (SFrame / TreeKEM)', () => {
     // Test fresh instance initialization and initial state
     expect(dmManager).toBeInstanceOf(SovereignDMManager);
     expect(dmManager.conversations).toBeInstanceOf(Map);
-    expect(dmManager.conversations.size).toBeGreaterThanOrEqual(2);
-
-    // Verify seeded peer conversations
-    const guardianConv = dmManager.getConversation('c3dc28cb705e');
-    expect(guardianConv).toBeDefined();
-    expect(guardianConv?.peerRole).toBe('GUARDIAN');
-    expect(guardianConv?.messages.length).toBeGreaterThan(0);
-
-    const archivistConv = dmManager.getConversation('a89104fa2211');
-    expect(archivistConv).toBeDefined();
-    expect(archivistConv?.peerRole).toBe('ARCHIVIST');
-    expect(archivistConv?.messages.length).toBeGreaterThan(0);
+    expect(dmManager.conversations.size).toBe(0);
 
     // Initial modal states
     expect(dmManager.isTreeKEMDrawerOpen).toBe(false);
@@ -37,7 +52,7 @@ describe('Sovereign E2EE Direct Messaging (SFrame / TreeKEM)', () => {
   });
 
   it('2. Deschiderea unei conversații cu openDM("peer-fp-123", "GUARDIAN")', () => {
-    const peerFP = 'peer-fp-123';
+    const peerFP = peer.identity.fingerprint;
     const peerRole = 'GUARDIAN';
 
     dmManager.openDM(peerFP, peerRole);
@@ -54,13 +69,13 @@ describe('Sovereign E2EE Direct Messaging (SFrame / TreeKEM)', () => {
     expect(conv?.unreadCount).toBe(0);
   });
 
-  it('3 & 4. Trimiterea unui mesaj și verificarea apariției în lista conversației', () => {
-    const peerFP = 'peer-fp-123';
-    const myFP = 'my-fp-000';
+  it('3 & 4. Trimiterea unui mesaj și verificarea apariției în lista conversației', async () => {
+    const peerFP = peer.identity.fingerprint;
+    const myFP = owner.identity.fingerprint;
     const text = 'Hello Sovereign World';
 
     dmManager.openDM(peerFP, 'GUARDIAN');
-    dmManager.sendMessage(text, myFP);
+    await dmManager.sendMessage(text, myFP);
 
     const conv = dmManager.getConversation(peerFP);
     expect(conv).toBeDefined();
@@ -68,7 +83,7 @@ describe('Sovereign E2EE Direct Messaging (SFrame / TreeKEM)', () => {
 
     const msg: DirectMessage = conv!.messages[0];
     expect(msg.id).toBeDefined();
-    expect(msg.id.startsWith('msg_')).toBe(true);
+    expect(msg.id).toMatch(/^[a-f0-9-]{36}$/);
     expect(msg.senderFP).toBe(myFP);
     expect(msg.receiverFP).toBe(peerFP);
     expect(msg.plaintext).toBe(text);
@@ -77,13 +92,13 @@ describe('Sovereign E2EE Direct Messaging (SFrame / TreeKEM)', () => {
     expect(conv?.lastMessageAt).toBe(msg.timestamp);
   });
 
-  it('5. Criptarea locală simulată (câmpul encryptedPayload este prezent și nevid)', () => {
-    const peerFP = 'peer-fp-123';
-    const myFP = 'my-fp-000';
+  it('5. Mesajele au pachete criptate si semnate reale', async () => {
+    const peerFP = peer.identity.fingerprint;
+    const myFP = owner.identity.fingerprint;
     const text = 'Hello Sovereign World';
 
     dmManager.openDM(peerFP, 'GUARDIAN');
-    dmManager.sendMessage(text, myFP);
+    await dmManager.sendMessage(text, myFP);
 
     const conv = dmManager.getConversation(peerFP);
     const msg: DirectMessage = conv!.messages[0];
@@ -91,13 +106,12 @@ describe('Sovereign E2EE Direct Messaging (SFrame / TreeKEM)', () => {
     // Encrypted payload must be non-empty string and adhere to SFrame format
     expect(typeof msg.encryptedPayload).toBe('string');
     expect(msg.encryptedPayload.length).toBeGreaterThan(0);
-    expect(msg.encryptedPayload).toContain('SFRAME::v2.4::');
-    expect(msg.encryptedPayload).toMatch(/^SFRAME::v2\.4::EP\d+::GEN\d+::[0-9a-f]+::MAC[0-9a-f]+$/);
-    expect(msg.encryptedPayload).not.toBe(text);
+    expect(JSON.parse(msg.encryptedPayload).payload.message.version).toBe(1);
+    expect(msg.encryptedPayload).not.toContain(text);
   });
 
   it('6. Închiderea ferestrei de chat cu closeDM()', () => {
-    const peerFP = 'peer-fp-123';
+    const peerFP = peer.identity.fingerprint;
     dmManager.openDM(peerFP, 'GUARDIAN');
     expect(dmManager.isOpen).toBe(true);
 
@@ -111,19 +125,20 @@ describe('Sovereign E2EE Direct Messaging (SFrame / TreeKEM)', () => {
     expect(dmManager.isConversationsDrawerOpen).toBe(false);
   });
 
-  it('7. Flux complet de mesagerie bidirecțională și Safety Numbers', () => {
-    const peerFP = 'peer-fp-node-x';
-    const myFP = 'my-local-fp';
+  it('7. Flux complet de mesagerie bidirecțională și Safety Numbers', async () => {
+    const peerFP = peer.identity.fingerprint;
+    const myFP = owner.identity.fingerprint;
 
     dmManager.openDM(peerFP, 'ARCHIVIST');
-    dmManager.sendMessage('Message from local node', myFP);
+    await dmManager.sendMessage('Message from local node', myFP);
 
-    // Simulate incoming peer response
-    const incoming = dmManager.receiveMessage(peerFP, 'Peer response acknowledged', myFP);
+    await peerClient.send(myFP, { text: 'Peer response acknowledged' });
+    await dmManager.synchronize();
+    const incoming = dmManager.getConversation(peerFP)!.messages.find(message => message.senderFP === peerFP)!;
     expect(incoming.senderFP).toBe(peerFP);
     expect(incoming.receiverFP).toBe(myFP);
     expect(incoming.plaintext).toBe('Peer response acknowledged');
-    expect(incoming.encryptedPayload).toContain('SFRAME::v2.4::');
+    expect(JSON.parse(incoming.encryptedPayload).payload.message.version).toBe(1);
 
     const conv = dmManager.getConversation(peerFP);
     expect(conv?.messages.length).toBe(2);
@@ -132,14 +147,14 @@ describe('Sovereign E2EE Direct Messaging (SFrame / TreeKEM)', () => {
     const safetyNumber1 = dmManager.getSafetyNumber(peerFP, myFP);
     const safetyNumber2 = dmManager.getSafetyNumber(myFP, peerFP);
     expect(safetyNumber1).toBe(safetyNumber2);
-    expect(safetyNumber1.split(' ').length).toBe(6);
+    expect(safetyNumber1.split(' ').length).toBe(12);
 
     // Export and import transcripts
     const exportedJSON = dmManager.exportTranscriptJSON(peerFP);
-    expect(exportedJSON).toContain('Aetheris_Sovereign_DM_Transcript_v2.4');
-    expect(exportedJSON).toContain('Peer response acknowledged');
+    expect(exportedJSON).toContain('UREfy_DM_Encrypted_Transcript_v1');
+    expect(exportedJSON).not.toContain('Peer response acknowledged');
 
-    const importSuccess = dmManager.importTranscriptJSON(exportedJSON);
+    const importSuccess = await dmManager.importTranscriptJSON(exportedJSON);
     expect(importSuccess).toBe(true);
 
     // Delete message & clear conversation
@@ -152,13 +167,13 @@ describe('Sovereign E2EE Direct Messaging (SFrame / TreeKEM)', () => {
     expect(conv?.messages.length).toBe(0);
   });
 
-  it('8. Randare HTML interfață DM cu clase Tailwind și selectori specifici', () => {
-    const peerFP = 'peer-fp-ui-test';
-    const myFP = 'my-fp-000';
+  it('8. Randare HTML interfață DM cu clase Tailwind și selectori specifici', async () => {
+    const peerFP = peer.identity.fingerprint;
+    const myFP = owner.identity.fingerprint;
 
     // Render DM Button
     const btnHtml = dmManager.renderDMButton(peerFP, 'GUARDIAN', '💬 Chat');
-    expect(btnHtml).toContain('data-sovereign-dm-trigger="peer-fp-ui-test"');
+    expect(btnHtml).toContain(`data-sovereign-dm-trigger="${peerFP}"`);
     expect(btnHtml).toContain('bg-surface-overlay');
     expect(btnHtml).toContain('text-cyphr');
 
@@ -170,12 +185,11 @@ describe('Sovereign E2EE Direct Messaging (SFrame / TreeKEM)', () => {
 
     // Render Open Chat Modal
     dmManager.openDM(peerFP, 'GUARDIAN');
-    dmManager.sendMessage('Encrypted UI test payload', myFP);
+    await dmManager.sendMessage('Encrypted UI test payload', myFP);
     const modalHtml = dmManager.renderDMModal(myFP);
 
     expect(modalHtml).toContain('sovereign-dm-modal');
     expect(modalHtml).toContain('sovereign-dm-messages-container');
-    expect(modalHtml).toContain('TreeKEM SFrame');
     expect(modalHtml).toContain('Encrypted UI test payload');
     expect(modalHtml).toContain('bg-surface-base');
 
@@ -183,6 +197,6 @@ describe('Sovereign E2EE Direct Messaging (SFrame / TreeKEM)', () => {
     dmManager.toggleCiphertext();
     expect(dmManager.showCiphertextToggle).toBe(true);
     const ciphertextModal = dmManager.renderDMModal(myFP);
-    expect(ciphertextModal).toContain('SFRAME::v2.4::');
+    expect(ciphertextModal).toContain('senderCopy');
   });
 });

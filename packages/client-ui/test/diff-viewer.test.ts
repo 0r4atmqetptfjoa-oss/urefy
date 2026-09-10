@@ -96,7 +96,7 @@ describe('InlineDiffViewer Engine & Sandbox System', () => {
 
   it('renders code sandbox toolbar with all interactive actions', () => {
     const viewer = new InlineDiffViewer();
-    const codeSnippet = 'console.log("Aetheris Kernel Initialized");';
+    const codeSnippet = 'console.log("UREfy Kernel Initialized");';
     const toolbarJs = viewer.renderCodeSandboxToolbar(codeSnippet, 'javascript');
 
     expect(toolbarJs).toContain('code-sandbox-toolbar');

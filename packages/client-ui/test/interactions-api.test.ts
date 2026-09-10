@@ -1,10 +1,19 @@
 import { describe, it, expect, beforeEach } from 'vitest';
+import { createSignedEnvelope, createSovereignIdentity } from '@aetheris/core-crypto';
 import {
   onRequestGet,
   onRequestPost,
   onRequestOptions,
   memoryInteractionsStore,
 } from '../functions/api/interactions.js';
+
+const owner = createSovereignIdentity();
+function signedRequest(targetId: string, action: string): Request {
+  return new Request('https://urefy.com/api/interactions', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(createSignedEnvelope({ targetId, action, userFingerprint: owner.identity.fingerprint }, owner)),
+  });
+}
 
 describe('Real Interactions API (/api/interactions)', () => {
   beforeEach(() => {
@@ -18,7 +27,7 @@ describe('Real Interactions API (/api/interactions)', () => {
   });
 
   it('returns 400 on GET without targetId or targetIds', async () => {
-    const req = new Request('https://aetheris.network/api/interactions');
+    const req = new Request('https://urefy.com/api/interactions');
     const res = await onRequestGet({ request: req });
     expect(res.status).toBe(400);
     const data = await res.json();
@@ -26,7 +35,7 @@ describe('Real Interactions API (/api/interactions)', () => {
   });
 
   it('returns 400 on POST with missing fields', async () => {
-    const req = new Request('https://aetheris.network/api/interactions', {
+    const req = new Request('https://urefy.com/api/interactions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ targetId: 'post-1' }), // missing userFingerprint
@@ -39,15 +48,7 @@ describe('Real Interactions API (/api/interactions)', () => {
 
   it('toggles like atomically (like -> unlike)', async () => {
     // 1. First Like
-    const req1 = new Request('https://aetheris.network/api/interactions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Admin-PIN': '11223' },
-      body: JSON.stringify({
-        targetId: 'post-100',
-        userFingerprint: 'user-alpha',
-        action: 'like',
-      }),
-    });
+    const req1 = signedRequest('post-100', 'like');
     const res1 = await onRequestPost({ request: req1 });
     expect(res1.status).toBe(200);
     const data1 = await res1.json();
@@ -56,7 +57,7 @@ describe('Real Interactions API (/api/interactions)', () => {
     expect(data1.newCount).toBe(1);
 
     // 2. Query GET to confirm
-    const getReq = new Request('https://aetheris.network/api/interactions?postId=post-100&userFingerprint=user-alpha');
+    const getReq = new Request(`https://urefy.com/api/interactions?postId=post-100&userFingerprint=${owner.identity.fingerprint}`);
     const getRes = await onRequestGet({ request: getReq });
     const getData = await getRes.json();
     expect(getData.success).toBe(true);
@@ -64,15 +65,7 @@ describe('Real Interactions API (/api/interactions)', () => {
     expect(getData.userInteractions.liked).toBe(true);
 
     // 3. Second Like (Toggle / Unlike)
-    const req2 = new Request('https://aetheris.network/api/interactions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Admin-PIN': '11223' },
-      body: JSON.stringify({
-        targetId: 'post-100',
-        userFingerprint: 'user-alpha',
-        action: 'like',
-      }),
-    });
+    const req2 = signedRequest('post-100', 'like');
     const res2 = await onRequestPost({ request: req2 });
     const data2 = await res2.json();
     expect(data2.active).toBe(false);
@@ -87,36 +80,20 @@ describe('Real Interactions API (/api/interactions)', () => {
 
   it('toggles bookmark and repost', async () => {
     // Repost
-    const repostReq = new Request('https://aetheris.network/api/interactions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Admin-PIN': '11223' },
-      body: JSON.stringify({
-        targetId: 'post-200',
-        userFingerprint: 'user-beta',
-        action: 'repost',
-      }),
-    });
+    const repostReq = signedRequest('post-200', 'repost');
     const repRes = await onRequestPost({ request: repostReq });
     const repData = await repRes.json();
     expect(repData.active).toBe(true);
     expect(repData.newCount).toBe(1);
 
     // Bookmark
-    const bkmkReq = new Request('https://aetheris.network/api/interactions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Admin-PIN': '11223' },
-      body: JSON.stringify({
-        targetId: 'post-200',
-        userFingerprint: 'user-beta',
-        action: 'bookmark',
-      }),
-    });
+    const bkmkReq = signedRequest('post-200', 'bookmark');
     const bkmkRes = await onRequestPost({ request: bkmkReq });
     const bkmkData = await bkmkRes.json();
     expect(bkmkData.active).toBe(true);
 
     // Verify GET
-    const getReq = new Request('https://aetheris.network/api/interactions?postId=post-200&userFingerprint=user-beta');
+    const getReq = new Request(`https://urefy.com/api/interactions?postId=post-200&userFingerprint=${owner.identity.fingerprint}`);
     const getRes = await onRequestGet({ request: getReq });
     const getData = await getRes.json();
     expect(getData.repostsCount).toBe(1);
@@ -128,23 +105,15 @@ describe('Real Interactions API (/api/interactions)', () => {
   it('supports batch fetching across multiple posts', async () => {
     // Like post-a
     await onRequestPost({
-      request: new Request('https://aetheris.network/api/interactions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Admin-PIN': '11223' },
-        body: JSON.stringify({ targetId: 'post-a', userFingerprint: 'user-1', action: 'like' }),
-      }),
+      request: signedRequest('post-a', 'like'),
     });
 
     // Like post-b
     await onRequestPost({
-      request: new Request('https://aetheris.network/api/interactions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Admin-PIN': '11223' },
-        body: JSON.stringify({ targetId: 'post-b', userFingerprint: 'user-1', action: 'like' }),
-      }),
+      request: signedRequest('post-b', 'like'),
     });
 
-    const batchReq = new Request('https://aetheris.network/api/interactions?postIds=post-a,post-b,post-c&userFingerprint=user-1');
+    const batchReq = new Request(`https://urefy.com/api/interactions?postIds=post-a,post-b,post-c&userFingerprint=${owner.identity.fingerprint}`);
     const batchRes = await onRequestGet({ request: batchReq });
     const batchData = await batchRes.json();
 

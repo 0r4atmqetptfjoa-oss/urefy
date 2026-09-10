@@ -1,6 +1,6 @@
 import { sovereignDialog } from './dialog-modal.js';
 /**
- * Aetheris Omni-Sphere — Feed Personalization & Sovereign Recommendation Engine
+ * UREfy — Feed Personalization & Sovereign Recommendation Engine
  *
  * 100% Self-Contained, Strict TypeScript, Zero External Dependencies, Zero Cloud Telemetry.
  *
@@ -1446,7 +1446,7 @@ export class FeedPersonalizationEngine {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `aetheris-personalization-${Date.now()}.json`;
+        a.download = `urefy-personalization-${Date.now()}.json`;
         a.click();
         URL.revokeObjectURL(url);
       } else if (target.id === 'btn-add-custom-topic') {

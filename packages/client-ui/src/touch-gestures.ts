@@ -22,6 +22,9 @@ export class TouchGestureEngine {
   public init(): void {
     if (typeof document === 'undefined') return;
 
+    // Hot reloads and shell re-mounts must never stack gesture listeners.
+    this.destroy();
+
     this.boundTouchStart = (e: TouchEvent) => this.handleTouchStart(e);
     this.boundTouchMove = (e: TouchEvent) => this.handleTouchMove(e);
     this.boundTouchEnd = (e: TouchEvent) => this.handleTouchEnd(e);
@@ -52,6 +55,11 @@ export class TouchGestureEngine {
 
     // Check if touch is on a post card
     const target = e.target as HTMLElement;
+    if (target.closest('input, textarea, select, [contenteditable="true"], [role="dialog"], #mobile-drawer')) {
+      this.isPulling = false;
+      this.activeSwipedCard = null;
+      return;
+    }
     const card = target.closest<HTMLElement>('[data-post-card-id], [data-post-id], article.rounded-2xl');
     if (card && !target.closest('button, a, input, textarea, video, audio')) {
       this.activeSwipedCard = card;
@@ -64,7 +72,8 @@ export class TouchGestureEngine {
     }
 
     // Check if scroll is at top of page for pull-to-refresh
-    const scrollY = window.scrollY || document.documentElement.scrollTop || 0;
+    const scrollHost = target.closest<HTMLElement>('#main-feed-scroll, [data-scroll-container], .overflow-y-auto');
+    const scrollY = scrollHost?.scrollTop ?? window.scrollY ?? document.documentElement.scrollTop ?? 0;
     this.isPulling = scrollY <= 2;
   }
 
@@ -75,7 +84,9 @@ export class TouchGestureEngine {
     const dx = touch.clientX - this.startX;
 
     // 1. Pull-to-Refresh handling
-    const scrollY = window.scrollY || document.documentElement.scrollTop || 0;
+    const target = e.target as HTMLElement;
+    const scrollHost = target.closest<HTMLElement>('#main-feed-scroll, [data-scroll-container], .overflow-y-auto');
+    const scrollY = scrollHost?.scrollTop ?? window.scrollY ?? document.documentElement.scrollTop ?? 0;
     if (this.isPulling && scrollY <= 2 && dy > 0 && Math.abs(dy) > Math.abs(dx) * 1.5) {
       // Elastic log-damped curve
       this.pullDistance = Math.min(dy * 0.42, 85);

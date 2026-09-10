@@ -1,7 +1,7 @@
 # ==========================================
 # Stage 1: Build & Compile
 # ==========================================
-FROM node:20-alpine AS builder
+FROM node:24-alpine AS builder
 
 WORKDIR /app
 
@@ -20,7 +20,7 @@ RUN npm run build --workspace=@aetheris/core-crypto \
 # ==========================================
 # Stage 2: Production Runner
 # ==========================================
-FROM node:20-alpine AS runner
+FROM node:24-alpine AS runner
 
 WORKDIR /app
 

@@ -1,5 +1,5 @@
 /**
- * Aetheris Zero-Day & Advanced Injection Firewall
+ * UREfy Zero-Day & Advanced Injection Firewall
  * 
  * Provides:
  * - Multi-pass HTML / Markdown XSS neutralization

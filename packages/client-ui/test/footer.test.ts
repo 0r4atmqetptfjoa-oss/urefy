@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+﻿import { describe, it, expect, beforeEach } from 'vitest';
 import { legalFooter } from '../src/footer.js';
 import { legalModal } from '../src/legal-modal.js';
 import { i18n } from '../src/i18n.js';
@@ -10,7 +10,7 @@ describe('EU Legal & Regulatory Footer Suite', () => {
   it('should render the multi-column global legal footer with all mandatory EU sections', () => {
     const html = legalFooter.renderGlobalLegalFooter();
     expect(html).toContain('aetheris-global-footer');
-    expect(html).toContain('AETHERIS OMNI-SPHERE');
+    expect(html).toContain('UREfy');
     // EU DSA Art. 14 / Terms
     expect(html).toContain('Terms & Conditions of Use');
     expect(html).toContain('terms');
@@ -28,7 +28,7 @@ describe('EU Legal & Regulatory Footer Suite', () => {
     expect(html).toContain('contact');
     // Zero-Tracker / Certificates
     expect(html).toContain('Zero Tracking Cookies');
-    expect(html).toContain('legal@aetheris.network');
+    expect(html).toContain('razvan@urefy.com');
   });
 
   it('should render the compact sidebar snippet for aside rail', () => {
@@ -73,7 +73,7 @@ describe('EU Legal & Regulatory Footer Suite', () => {
     expect(legalModal.isOpen).toBe(true);
     expect(legalModal.activeTab).toBe('about');
     let content = legalModal.render();
-    expect(content).toContain('What is Aetheris Omni-Sphere?');
+    expect(content).toContain('What is UREfy?');
     expect(content).toContain('Non-Custodial Architecture');
 
     // 2. Terms
@@ -109,8 +109,8 @@ describe('EU Legal & Regulatory Footer Suite', () => {
     expect(legalModal.activeTab).toBe('contact');
     content = legalModal.render();
     expect(content).toContain('Single Points of Contact');
-    expect(content).toContain('legal@aetheris.network');
-    expect(content).toContain('love4jpx@gmail.com');
+    expect(content).toContain('razvan@urefy.com');
+    expect(content).toContain('razvan@urefy.com');
 
     legalModal.close();
     expect(legalModal.isOpen).toBe(false);

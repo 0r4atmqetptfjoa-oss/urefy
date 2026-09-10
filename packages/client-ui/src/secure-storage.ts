@@ -1,5 +1,5 @@
 /**
- * AETHERIS SOVEREIGN SECURE STORAGE ENGINE (V7)
+ * UREfy SOVEREIGN SECURE STORAGE ENGINE (V7)
  * 
  * ============================================================================
  * THREAT MODEL & SECURITY SPECIFICATION:
@@ -123,6 +123,8 @@ export class SecureStorageEngine {
         this.isInitialized = true;
       } catch (err) {
         console.warn('[SecureStorage] IndexedDB unavailable or blocked, falling back to secure memory vault:', err);
+        this.db?.close();
+        this.db = null;
         await this.ensureMasterKeyMemory();
         await this.migrateLegacyData();
         this.isInitialized = true;
@@ -238,16 +240,9 @@ export class SecureStorageEngine {
    */
   public async encrypt(data: any): Promise<EncryptedEnvelope> {
     const subtle = this.getSubtleCrypto();
-    if (!subtle || !this.masterKey) {
-      // Ephemeral obfuscation fallback if WebCrypto unavailable
-      const jsonStr = JSON.stringify(data);
-      return {
-        iv: '000000000000000000000000',
-        ciphertext: bytesToHex(new TextEncoder().encode(jsonStr)),
-        version: 1,
-        timestamp: Date.now(),
-      };
-    }
+    if (!subtle) throw new Error('WebCrypto is required for encrypted storage');
+    if (!this.masterKey) await this.init();
+    if (!this.masterKey) throw new Error('Encrypted storage key is unavailable');
 
     const iv = crypto.getRandomValues(new Uint8Array(12));
     const encoded = new TextEncoder().encode(JSON.stringify(data));
@@ -276,11 +271,9 @@ export class SecureStorageEngine {
    */
   public async decrypt<T = any>(envelope: EncryptedEnvelope): Promise<T> {
     const subtle = this.getSubtleCrypto();
-    if (!subtle || !this.masterKey) {
-      const bytes = hexToBytes(envelope.ciphertext);
-      const decoded = new TextDecoder().decode(bytes);
-      return JSON.parse(decoded);
-    }
+    if (!subtle) throw new Error('WebCrypto is required for encrypted storage');
+    if (!this.masterKey) await this.init();
+    if (!this.masterKey) throw new Error('Encrypted storage key is unavailable');
 
     const iv = hexToBytes(envelope.iv);
     const ciphertext = hexToBytes(envelope.ciphertext);
@@ -333,6 +326,20 @@ export class SecureStorageEngine {
     return this.volatileIdentity;
   }
 
+  public async savePrivateState(key: string, value: unknown): Promise<void> {
+    if (!/^[a-z0-9:_-]{1,160}$/i.test(key)) throw new Error('Invalid private state key');
+    await this.init();
+    const envelope = await this.encrypt(value);
+    await this.putInStore('vault_meta', { id: `private_state:${key}`, envelope, updatedAt: Date.now() });
+  }
+
+  public async getPrivateState<T>(key: string): Promise<T | null> {
+    if (!/^[a-z0-9:_-]{1,160}$/i.test(key)) throw new Error('Invalid private state key');
+    await this.init();
+    const record = await this.getFromStore<{ envelope: EncryptedEnvelope }>('vault_meta', `private_state:${key}`);
+    return record?.envelope ? this.decrypt<T>(record.envelope) : null;
+  }
+
   /**
    * Encrypts and saves the sovereign identity into the secure vault.
    * NEVER touches localStorage.
@@ -352,8 +359,6 @@ export class SecureStorageEngine {
       sovereignIdentity,
     };
 
-    this.volatileIdentity = identity;
-
     await this.init();
     const envelope = await this.encrypt(identity);
 
@@ -364,8 +369,10 @@ export class SecureStorageEngine {
       updatedAt: Date.now(),
     });
 
+    this.volatileIdentity = identity;
+
     // Ensure localStorage is purged of any legacy identity artifacts
-    this.purgeLegacyLocalStorage();
+    if (this.db || typeof window === 'undefined') this.purgeLegacyLocalStorage();
   }
 
   // ─── PRIVATE MESSAGE OPERATIONS ──────────────────────────────────────────────
@@ -557,7 +564,9 @@ export class SecureStorageEngine {
           if (typeof parsed === 'object' && parsed !== null) {
             for (const [chId, msgs] of Object.entries(parsed)) {
               if (Array.isArray(msgs)) {
-                await this.saveChannelMessages(chId, msgs);
+                const envelope = await this.encrypt(msgs);
+                await this.putInStore('encrypted_messages', { channelId: chId, envelope, updatedAt: Date.now() });
+                this.volatileMessages.set(chId, msgs);
               }
             }
           }
@@ -565,7 +574,7 @@ export class SecureStorageEngine {
       }
 
       // Purge all plaintext secrets from localStorage
-      this.purgeLegacyLocalStorage();
+      if (this.db || typeof window === 'undefined') this.purgeLegacyLocalStorage();
     } catch (err) {
       console.warn('[SecureStorage] Error during legacy migration:', err);
     }
@@ -651,7 +660,9 @@ export class SecureStorageEngine {
         const tx = this.db!.transaction(storeName, 'readwrite');
         const store = tx.objectStore(storeName);
         const req = store.put(value);
-        req.onsuccess = () => resolve();
+        tx.oncomplete = () => resolve();
+        tx.onabort = () => reject(tx.error ?? new Error('Encrypted storage transaction aborted'));
+        tx.onerror = () => reject(tx.error ?? req.error);
         req.onerror = () => reject(req.error);
       } catch (err) {
         reject(err);
@@ -681,8 +692,14 @@ export class SecureStorageEngine {
   }
 
   private async loadVolatileCache(): Promise<void> {
-    await this.getIdentity();
-    await this.getAllChannelMessages();
+    const identity = await this.getFromStore<{ envelope: EncryptedEnvelope }>('encrypted_identity', 'current');
+    if (identity?.envelope) this.volatileIdentity = await this.decrypt<SovereignIdentityRecord>(identity.envelope);
+    const channels = await this.getAllFromStore<{ channelId: string; envelope: EncryptedEnvelope }>('encrypted_messages');
+    for (const channel of channels) {
+      if (!channel.channelId || !channel.envelope) continue;
+      try { this.volatileMessages.set(channel.channelId, await this.decrypt<any[]>(channel.envelope)); }
+      catch { console.warn('[SecureStorage] Unable to decrypt a stored message channel'); }
+    }
   }
 }
 

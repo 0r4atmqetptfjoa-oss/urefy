@@ -8,6 +8,7 @@
 
 import { serviceRegistry, SERVICES } from './service-registry.js';
 import './window-augmentation.js';
+import { t } from './i18n.js';
 
 export interface DialogOptions {
   title?: string;
@@ -46,7 +47,7 @@ export class SovereignDialog {
     const opts: DialogOptions = typeof options === 'string' ? { title: options } : (options || {});
     const title = opts.title || 'Notification';
     const type = opts.type || 'info';
-    const confirmText = opts.confirmText || 'OK';
+    const confirmText = opts.confirmText || t('common.confirm', undefined, 'OK');
 
     const iconMap = {
       info: '✦',
@@ -137,8 +138,8 @@ export class SovereignDialog {
   public confirm(message: string, options?: DialogOptions | string): Promise<boolean> {
     const opts: DialogOptions = typeof options === 'string' ? { title: options } : (options || {});
     const title = opts.title || 'Confirmation Required';
-    const confirmText = opts.confirmText || 'Confirm';
-    const cancelText = opts.cancelText || 'Cancel';
+    const confirmText = opts.confirmText || t('common.confirm', undefined, 'Confirm');
+    const cancelText = opts.cancelText || t('common.cancel', undefined, 'Cancel');
     const isDestructive = opts.destructive ?? false;
 
     return new Promise((resolve) => {
@@ -231,8 +232,8 @@ export class SovereignDialog {
     const defaultValue = opts.defaultValue || '';
     const placeholder = opts.placeholder || '';
     const inputType = opts.inputType || 'text';
-    const confirmText = opts.confirmText || 'Submit';
-    const cancelText = opts.cancelText || 'Cancel';
+    const confirmText = opts.confirmText || t('common.submit', undefined, 'Submit');
+    const cancelText = opts.cancelText || t('common.cancel', undefined, 'Cancel');
 
     return new Promise((resolve) => {
       if (typeof document === 'undefined') {

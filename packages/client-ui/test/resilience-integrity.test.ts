@@ -35,7 +35,7 @@ import {
 } from '@aetheris/core-crypto';
 import { createSafeAudioContext } from '../src/dry-utils.js';
 
-describe('Aetheris Sovereign Integrity & E2E Resilience Test Suite', () => {
+describe('UREfy Sovereign Integrity & E2E Resilience Test Suite', () => {
   let store: AetherisClientStore;
   let logger: StructuredLogger;
   let boundary: ErrorBoundary;
@@ -167,7 +167,7 @@ describe('Aetheris Sovereign Integrity & E2E Resilience Test Suite', () => {
         includeDrafts: false,
         includeMessages: false,
         includePreferences: false,
-        includeKeys: true,
+        includeKeys: false,
         encryptWithPassword: false,
         format: 'json',
       });

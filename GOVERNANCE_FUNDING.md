@@ -1,4 +1,4 @@
-# Aetheris — Document de Decizie: Modele de Sustenabilitate și Finanțare Guvernată (GOVERNANCE_FUNDING)
+# UREfy — Document de Decizie: Modele de Sustenabilitate și Finanțare Guvernată (GOVERNANCE_FUNDING)
 
 > **Document de decizie de produs (RFC / Decision Memo)**  
 > **Status:** În așteptarea deciziei umane a proprietarului de proiect  
@@ -8,7 +8,7 @@
 
 ## 1. Context și Constrângeri Fundamentale
 
-Platforma Aetheris funcționează după principiul arhitectural suveran: **zero servere centrale dedicate, zero urmărire, zero monetizare prin vânzare de date**. 
+Platforma UREfy funcționează după principiul arhitectural suveran: **zero servere centrale dedicate, zero urmărire, zero monetizare prin vânzare de date**. 
 
 Pentru a asigura sustenabilitatea pe termen lung fără a compromite aceste valori și fără a genera riscuri legale sau obligații de custodie financiară (MSB - Money Services Business, reglementări MiCA, licențiere custodială), prezentul document analizează opțiunile de finanțare și operare compatibile cu filozofia "sovereign".
 
@@ -27,7 +27,7 @@ Pentru a asigura sustenabilitatea pe termen lung fără a compromite aceste valo
 - **Mecanism propus:** 
   1. DAO afișează în `GovernanceDAO` propuneri de grant sau adresele publice ale operatorilor de relay verificat.
   2. Donatorul semnează tranzacția direct din propriul portofel (non-custodial, direct P2P).
-  3. Platforma Aetheris oferă doar verificarea identității criptografice (ZK attestation) și nu deține, nu atinge și nu transferă fonduri.
+  3. Platforma UREfy oferă doar verificarea identității criptografice (ZK attestation) și nu deține, nu atinge și nu transferă fonduri.
 - **Risc legal/custodie:** **MINIM / NUL** — software-ul acționează strict ca un client software de prezentare de metadate publice, fără funcții de custodie sau escrow.
 
 ### Opțiunea C: Granturi Publice Non-Extractive (Public Goods Grants)

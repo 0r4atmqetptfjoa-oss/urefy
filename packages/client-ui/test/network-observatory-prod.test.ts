@@ -1,4 +1,5 @@
 ﻿import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import './helpers/disable-demo.js';
 import { NetworkObservatory } from '../src/network-observatory.js';
 import { setSimulationMode } from '../src/simulation-mode.js';
 import * as adminAuth from '../src/admin-auth.js';
@@ -128,3 +129,4 @@ describe('Network Observatory Production Clean Initialization (Finding 4)', () =
     });
   });
 });
+(globalThis as any).__UREFY_DEMO_MODE__ = false;

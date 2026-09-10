@@ -1,4 +1,5 @@
 import { clientStore } from './client-state.js';
+import { isDemoModeEnabled } from './demo-mode.js';
 
 export interface CommandItem {
   id: string;
@@ -44,7 +45,7 @@ export function setupKeyboardShortcuts(): void {
 }
 
 export function getAvailableCommands(): CommandItem[] {
-  return [
+  return ([
     {
       id: 'nav-relays',
       title: 'Go to Space: Relays (E2EE Chat & Audio)',
@@ -123,5 +124,5 @@ export function getAvailableCommands(): CommandItem[] {
         }
       },
     },
-  ];
+  ] satisfies CommandItem[]).filter((command) => isDemoModeEnabled() || command.category !== 'Simulation');
 }

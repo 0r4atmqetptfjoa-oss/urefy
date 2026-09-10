@@ -1,5 +1,5 @@
 /**
- * Aetheris Omni-Sphere — Web-of-Trust (WoT) Interactive Graph Visualizer
+ * UREfy — Web-of-Trust (WoT) Interactive Graph Visualizer
  *
  * 100% Self-Contained, Strict TypeScript, Zero External Dependencies.
  * Pure SVG Force-Directed Layout Simulation Engine (Coulomb Repulsion + Hooke Attraction).
@@ -17,6 +17,7 @@ import './window-augmentation.js';
 import { serviceRegistry, SERVICES } from './service-registry.js';
 import { safeRequestAnimationFrame, safeCancelAnimationFrame, debounce, throttle } from './dry-utils.js';
 import { isSimulationModeEnabled, renderSimulationBadgeHTML } from './simulation-mode.js';
+import { t } from './i18n.js';
 
 // ---------------------------------------------------------------------------
 // 1. Data Structures & Interfaces
@@ -917,7 +918,7 @@ export class WoTGraphVisualizer {
               <button
                 id="btn-close-wot-modal" data-action="call-global" data-raw-click="window.__aetheris_close_wot_graph && window.__aetheris_close_wot_graph()"
                 class="w-8 h-8 rounded-lg bg-surface-overlay hover:bg-crimson/20 border border-white/10 hover:border-crimson/40 text-gray-400 hover:text-crimson flex items-center justify-center text-sm transition-all cursor-pointer"
-                title="Close modal (Esc)"
+                title="${t('modal.close', undefined, 'Close modal')} (Esc)"
               >
                 ✕
               </button>

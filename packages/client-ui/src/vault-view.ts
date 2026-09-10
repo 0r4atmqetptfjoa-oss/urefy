@@ -10,6 +10,7 @@ import { renderVaultFilesEmptyState, renderVaultReleasesEmptyState } from './emp
 import { markdownRenderer } from './markdown-renderer.js';
 import { bookmarksVault } from './bookmarks.js';
 import { threadManager, ThreadComment } from './threads.js';
+import { t } from './i18n.js';
 
 function escapeHtml(text: string): string {
   return (text || '')
@@ -92,6 +93,11 @@ export function renderVaultReleaseCard(p: ClientPost): string {
             Copy SHA
           </button>
         </div>
+
+        <div class="text-[10px] text-amber-300/80 bg-amber-950/30 border border-amber-500/20 rounded-lg p-2 flex items-start space-x-1.5">
+          <span>⚠️</span>
+          <span>Disclaimer: Static Shannon entropy & structure metrics provide heuristic indicators, but do NOT replace full antivirus scanning.</span>
+        </div>
       </div>
 
       <!-- ACTIONS BAR -->
@@ -99,11 +105,11 @@ export function renderVaultReleaseCard(p: ClientPost): string {
         <div class="flex items-center space-x-3 text-slate-400">
           <button data-expand-post="${p.id}" class="btn-toggle-post-expand flex items-center space-x-1 hover:text-white transition-colors cursor-pointer">
             <span>💬</span>
-            <span>${p.replyCount} Notes</span>
+            <span>${p.replyCount} ${t('pulse.replies', undefined, 'Notes')}</span>
           </button>
           <button data-boost-post="${p.id}" class="btn-boost flex items-center space-x-1 hover:text-white transition-colors cursor-pointer">
             <span>⟳</span>
-            <span>${p.boostCount} Re-broadcasts</span>
+            <span>${p.boostCount} ${t('pulse.boost', undefined, 'Re-broadcasts')}</span>
           </button>
           ${bookmarksVault.renderBookmarkButton(p.id)}
           <button
@@ -112,16 +118,16 @@ export function renderVaultReleaseCard(p: ClientPost): string {
             data-post-id="${p.id}"
             class="btn-pulse-report flex items-center space-x-1 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 px-2 py-1 rounded-lg transition-colors cursor-pointer"
             title="Report illegal content / Abuse (DSA Notice & Takedown)"
-            aria-label="Report content"
+            aria-label="${t('actions.report', undefined, 'Report content')}"
           >
             <span>🚩</span>
-            <span class="hidden sm:inline">Report</span>
+            <span class="hidden sm:inline">${t('actions.report', undefined, 'Report')}</span>
           </button>
         </div>
 
         <button data-file-name="${fileName}" data-byte-size="${byteSize}" data-sha="${sha}" class="btn-download-p2p px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition-all shadow-sm flex items-center space-x-2 cursor-pointer">
           <span>⬇</span>
-          <span>Download via P2P Mesh</span>
+          <span>${t('vault.downloadArtifact', undefined, 'Download via P2P Mesh')}</span>
         </button>
       </div>
 
@@ -156,8 +162,8 @@ export function renderVaultWorkspace(): string {
             📚
           </div>
           <div>
-            <h1 class="text-xs font-bold text-white tracking-wide">KNOWLEDGE VAULT & REPRODUCIBLE REPOSITORY</h1>
-            <p class="text-[10px] text-slate-400 font-mono">Decentralized binary distribution ledger with Merkle tree verification.</p>
+            <h1 class="text-xs font-bold text-white tracking-wide">${'KNOWLEDGE VAULT'} · ${t('vault.title', undefined, 'REPRODUCIBLE REPOSITORY')}</h1>
+            <p class="text-[10px] text-slate-400 font-mono">${t('vault.subtitle', undefined, 'Decentralized binary distribution ledger with Merkle tree verification.')}</p>
           </div>
         </div>
 
@@ -165,19 +171,19 @@ export function renderVaultWorkspace(): string {
         <div class="flex items-center space-x-2">
           <div class="flex items-center space-x-1 bg-surface-raised p-0.5 rounded-xl border border-white/5 text-xs">
             <button data-sort="hot" class="btn-sort px-2.5 py-1 rounded-lg font-medium ${clientStore.sortMode === 'hot' ? 'bg-emerald-950 text-emerald-400 font-bold border border-emerald-500/30' : 'text-slate-400 hover:text-slate-200'}">
-              🔥 Audited
+              🔥 ${t('feed.sortTrending', undefined, 'Audited')}
             </button>
             <button data-sort="new" class="btn-sort px-2.5 py-1 rounded-lg font-medium ${clientStore.sortMode === 'new' ? 'bg-emerald-950 text-emerald-400 font-bold border border-emerald-500/30' : 'text-slate-400 hover:text-slate-200'}">
-              ⏱️ Latest
+              ⏱️ ${t('feed.sortChronological', undefined, 'Latest')}
             </button>
             <button data-sort="top" class="btn-sort px-2.5 py-1 rounded-lg font-medium ${clientStore.sortMode === 'top' ? 'bg-emerald-950 text-emerald-400 font-bold border border-emerald-500/30' : 'text-slate-400 hover:text-slate-200'}">
-              🏆 Top Merit
+              🏆 ${t('feed.sortMerit', undefined, 'Top Merit')}
             </button>
           </div>
 
           <button id="btn-open-composer" class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition-all shadow-sm flex items-center space-x-1.5 cursor-pointer">
             <span>📦</span>
-            <span class="hidden sm:inline">Publish Release</span>
+            <span class="hidden sm:inline">${t('vault.uploadBinary', undefined, 'Publish Release')}</span>
           </button>
         </div>
       </div>

@@ -1,5 +1,5 @@
 // ===========================================================================
-// AETHERIS OMNI-SPHERE — TELEMETRY & ANALYTICS EDGE API
+// UREfy — TELEMETRY & ANALYTICS EDGE API
 // Route: /api/analytics
 // Aggregates real-time mesh metrics: uptime, processed messages, active nodes, latency
 // Supports: Cloudflare D1 (SQL), Cloudflare KV, In-Memory Edge Store fallback
@@ -144,7 +144,7 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
     const summary: AnalyticsSummary = {
       status: isProd ? (db ? 'healthy' : 'degraded') : 'healthy',
       serviceHealthVerified: Boolean(db),
-      protocol: 'Aetheris-Sovereign-v1.0.0',
+      protocol: 'URE-Relay-v2.0.0',
       uptimeSeconds: null,
       uptimePercentage: null,
       uptimeFormatted: 'Measured service uptime unavailable',

@@ -4,7 +4,9 @@ export async function onRequestGet(context: { request: Request; env: any }): Pro
 
   const healthData = {
     status: 'online',
-    protocol: 'Aetheris-Sovereign-v1.0.0',
+    product: 'UREfy',
+    framework: 'Unified Relay Enclave Framework for You',
+    protocol: 'URE-Relay-v2.0.0',
     timestamp: Date.now(),
     isoDate: new Date().toISOString(),
     edge: {

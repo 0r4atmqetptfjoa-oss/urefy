@@ -1,8 +1,10 @@
-import { MerkleTree, MerkleProof, verifySignature } from '@aetheris/core-crypto';
+import { MerkleTree, MerkleProof, verifySignature, hexToBytes, computeFingerprint } from '@aetheris/core-crypto';
 
-export type ReputationVerdict = 'CLEAN' | 'SUSPICIOUS' | 'PACKED' | 'MALICIOUS';
+export type ReputationVerdict = 'CLEAN' | 'SUSPICIOUS' | 'PACKED' | 'MALICIOUS' | 'UNKNOWN' | 'NOT_SCANNED';
 
 export interface PeerVerdict {
+  protocolVersion?: 2;
+  networkId?: string;
   sha256: string;
   verdict: ReputationVerdict;
   confidence: number; // 0.0 to 1.0 (or percentage up to 100)
@@ -12,6 +14,23 @@ export interface PeerVerdict {
   nodePublicKeyHex?: string;
   signature?: string;
   entropy?: number;
+}
+
+export const FILE_REPUTATION_PROTOCOL_VERSION = 2 as const;
+export const DEFAULT_REPUTATION_NETWORK_ID = 'urefy-mainnet';
+
+export function canonicalizePeerVerdict(verdict: PeerVerdict, nodeId: string): string {
+  return JSON.stringify({
+    domain: 'urefy:file-reputation:v2',
+    protocolVersion: FILE_REPUTATION_PROTOCOL_VERSION,
+    networkId: verdict.networkId,
+    nodeId,
+    sha256: verdict.sha256.toLowerCase(),
+    verdict: verdict.verdict,
+    confidence: verdict.confidence,
+    seederCount: verdict.seederCount,
+    timestamp: verdict.timestamp,
+  });
 }
 
 export interface FileReputationConsensus {
@@ -119,43 +138,77 @@ export class CollaborativeFileReputationVault {
     entropy: number | undefined,
     verdict: ReputationVerdict
   ): string {
+    if (verdict === 'UNKNOWN' || verdict === 'NOT_SCANNED') {
+      const entropyStr = entropy !== undefined ? ` (Entropy ${entropy.toFixed(2)})` : '';
+      return `Unrated binary (Status: ${verdict}${entropyStr}, zero peer attestations)`;
+    }
     const formattedVerdict = verdict.charAt(0).toUpperCase() + verdict.slice(1).toLowerCase();
     const entropyStr = entropy !== undefined ? `Entropy ${entropy.toFixed(2)}, ` : '';
     return `Verified by ${nodeOrSeederCount} sovereign nodes (${entropyStr}${formattedVerdict})`;
   }
 
   /**
-   * Registers a signed or unsigned peer verdict into the collaborative registry.
-   * Cryptographically validates Ed25519 signature if provided.
+   * Registers a signed peer verdict into the collaborative registry.
+   * Cryptographically validates Ed25519 signature and enforces nodeId === computeFingerprint(pubKey).
+   * Rejects unsigned or unauthenticated verdicts to guarantee Sybil resistance.
    */
   public registerVerdict(verdict: PeerVerdict): boolean {
     if (!verdict || !verdict.sha256 || !verdict.verdict) {
       return false;
     }
 
-    // If signed, verify peer signature
-    if (verdict.signature && verdict.nodePublicKeyHex) {
-      const payload = `${verdict.sha256.toLowerCase()}:${verdict.verdict}:${verdict.confidence}:${verdict.seederCount}:${verdict.timestamp}`;
-      const isValid = verifySignature(verdict.signature, payload, verdict.nodePublicKeyHex);
-      if (!isValid) {
+    // MANDATORY: Reject unsigned verdicts
+    if (!verdict.signature || !verdict.nodePublicKeyHex) {
+      return false;
+    }
+    if (verdict.protocolVersion !== FILE_REPUTATION_PROTOCOL_VERSION || verdict.networkId !== DEFAULT_REPUTATION_NETWORK_ID) return false;
+    if (!/^[0-9a-f]{64}$/i.test(verdict.sha256)) return false;
+    if (!Number.isFinite(verdict.confidence) || verdict.confidence < 0 || verdict.confidence > 1) return false;
+    if (!Number.isSafeInteger(verdict.seederCount) || verdict.seederCount < 0) return false;
+    if (!Number.isSafeInteger(verdict.timestamp) || verdict.timestamp > Date.now() + 300_000 || verdict.timestamp < Date.now() - 7 * 86_400_000) return false;
+
+    // Enforce cryptographic binding: nodeId MUST match fingerprint of public key
+    let expectedNodeId: string;
+    try {
+      const pubBytes = hexToBytes(verdict.nodePublicKeyHex);
+      if (pubBytes.length !== 32) {
         return false;
       }
+      expectedNodeId = computeFingerprint(pubBytes);
+    } catch {
+      return false;
     }
 
-    const key = verdict.sha256.toLowerCase();
+    if (verdict.nodeId && verdict.nodeId.toLowerCase() !== expectedNodeId.toLowerCase()) {
+      return false;
+    }
+    verdict.nodeId = expectedNodeId;
+
+    const cleanSha = verdict.sha256.toLowerCase();
+
+    // Version 1 payloads are intentionally rejected: they are not domain,
+    // network, or identity bound and cannot be migrated safely in place.
+    let isSigValid = false;
+    try {
+      isSigValid = verifySignature(verdict.signature, canonicalizePeerVerdict(verdict, expectedNodeId), verdict.nodePublicKeyHex);
+    } catch {
+      return false;
+    }
+
+    if (!isSigValid) {
+      return false;
+    }
+
+    const key = cleanSha;
     if (!this.peerVerdicts.has(key)) {
       this.peerVerdicts.set(key, []);
     }
 
     const list = this.peerVerdicts.get(key)!;
-    // Deduplicate by nodeId if provided
-    if (verdict.nodeId) {
-      const idx = list.findIndex((v) => v.nodeId === verdict.nodeId);
-      if (idx >= 0) {
-        list[idx] = verdict;
-      } else {
-        list.push(verdict);
-      }
+    // Deduplicate by verified nodeId
+    const idx = list.findIndex((v) => v.nodeId === verdict.nodeId);
+    if (idx >= 0) {
+      list[idx] = verdict;
     } else {
       list.push(verdict);
     }
@@ -167,6 +220,7 @@ export class CollaborativeFileReputationVault {
 
   /**
    * Recomputes consensus scoring across all submitted peer verdicts for a binary hash.
+   * Enforces bounded Sybil weighting: each node capped at weight <= 1.0; seederCount does NOT multiply weight.
    */
   private recomputeConsensus(key: string, currentEntropy?: number): FileReputationConsensus {
     const verdicts = this.peerVerdicts.get(key) || [];
@@ -175,6 +229,8 @@ export class CollaborativeFileReputationVault {
       SUSPICIOUS: 0,
       PACKED: 0,
       MALICIOUS: 0,
+      UNKNOWN: 0,
+      NOT_SCANNED: 0,
     };
 
     const weightedScores: Record<ReputationVerdict, number> = {
@@ -182,6 +238,8 @@ export class CollaborativeFileReputationVault {
       SUSPICIOUS: 0,
       PACKED: 0,
       MALICIOUS: 0,
+      UNKNOWN: 0,
+      NOT_SCANNED: 0,
     };
 
     let totalWeight = 0;
@@ -190,13 +248,25 @@ export class CollaborativeFileReputationVault {
     let latestTimestamp = 0;
     let recordedEntropy = currentEntropy;
 
+    const seenNodeIds = new Set<string>();
+
     for (const v of verdicts) {
+      const nodeId = v.nodeId!;
+      if (seenNodeIds.has(nodeId)) {
+        continue;
+      }
+      seenNodeIds.add(nodeId);
+
       breakdown[v.verdict] = (breakdown[v.verdict] || 0) + 1;
       const normalizedConfidence = v.confidence > 1 ? v.confidence / 100 : v.confidence;
-      const weight = Math.max(0.1, normalizedConfidence) * Math.max(1, v.seederCount || 1);
 
-      weightedScores[v.verdict] += weight;
-      totalWeight += weight;
+      // Sybil-resistant bounded weighting:
+      // Each unique validated cryptographic node identity is capped at weight <= 1.0.
+      // seederCount is NEVER allowed to multiply consensus voting weight!
+      const boundedWeight = Math.min(1.0, Math.max(0.1, normalizedConfidence));
+
+      weightedScores[v.verdict] += boundedWeight;
+      totalWeight += boundedWeight;
       sumConfidence += normalizedConfidence;
       maxSeederCount = Math.max(maxSeederCount, v.seederCount || 0);
       latestTimestamp = Math.max(latestTimestamp, v.timestamp);
@@ -216,7 +286,7 @@ export class CollaborativeFileReputationVault {
       }
     }
 
-    const nodeCount = verdicts.length;
+    const nodeCount = seenNodeIds.size;
     const avgConfidence = nodeCount > 0 ? Math.round((sumConfidence / nodeCount) * 100) / 100 : 0.95;
     const finalSeederCount = Math.max(maxSeederCount, nodeCount);
 
@@ -261,7 +331,11 @@ export class CollaborativeFileReputationVault {
    * Instant local lookup for binary reputation.
    * Resolves consensus verdict, Merkle verification status, and formatted summary string.
    */
-  public lookupReputation(sha256: string, entropy?: number): FileReputationConsensus | null {
+  public lookupReputation(
+    sha256: string,
+    entropy?: number,
+    options?: { defaultToUnknown?: boolean }
+  ): FileReputationConsensus | null {
     const key = sha256.toLowerCase();
     let consensus = this.consensusCache.get(key);
 
@@ -269,22 +343,35 @@ export class CollaborativeFileReputationVault {
       if (this.peerVerdicts.has(key)) {
         consensus = this.recomputeConsensus(key, entropy);
       } else if (this.merkleTree.hasHash(key)) {
-        // Verified in Merkle Tree by community
-        const defaultNodes = 40; // Default sovereign consensus network verification count
+        // Membership proves inclusion only; it does not prove a clean verdict
+        // or a fabricated number of independent attestations.
         consensus = {
           sha256: key,
-          verdict: 'CLEAN',
-          confidence: 0.99,
-          seederCount: defaultNodes,
-          nodeCount: defaultNodes,
+          verdict: 'UNKNOWN',
+          confidence: 0,
+          seederCount: 0,
+          nodeCount: 0,
           entropy,
           timestamp: Date.now(),
           isMerkleVerified: true,
           merkleProof: this.merkleTree.getProof(key),
-          verdictBreakdown: { CLEAN: defaultNodes, SUSPICIOUS: 0, PACKED: 0, MALICIOUS: 0 },
-          summary: CollaborativeFileReputationVault.formatSummary(defaultNodes, entropy, 'CLEAN'),
+          verdictBreakdown: { CLEAN: 0, SUSPICIOUS: 0, PACKED: 0, MALICIOUS: 0, UNKNOWN: 1, NOT_SCANNED: 0 },
+          summary: 'Hash is present in the reputation Merkle set, but no signed verdict attestations are available',
         };
         this.consensusCache.set(key, consensus);
+      } else if (options?.defaultToUnknown) {
+        consensus = {
+          sha256: key,
+          verdict: 'UNKNOWN',
+          confidence: 0,
+          seederCount: 0,
+          nodeCount: 0,
+          entropy,
+          timestamp: Date.now(),
+          isMerkleVerified: false,
+          verdictBreakdown: { CLEAN: 0, SUSPICIOUS: 0, PACKED: 0, MALICIOUS: 0, UNKNOWN: 1, NOT_SCANNED: 0 },
+          summary: CollaborativeFileReputationVault.formatSummary(0, entropy, 'UNKNOWN'),
+        };
       }
     } else {
       if (entropy !== undefined && consensus.entropy !== entropy) {
@@ -302,6 +389,30 @@ export class CollaborativeFileReputationVault {
     }
 
     return consensus || null;
+  }
+
+  /**
+   * Returns reputation consensus if known, or an honest UNKNOWN consensus record
+   * if no peer verdicts or Merkle attestations exist yet for this file hash.
+   */
+  public getReputationOrUnknown(sha256: string, entropy?: number): FileReputationConsensus {
+    const existing = this.lookupReputation(sha256, entropy);
+    if (existing) {
+      return existing;
+    }
+
+    return {
+      sha256: sha256.toLowerCase(),
+      verdict: 'UNKNOWN',
+      confidence: 0,
+      seederCount: 0,
+      nodeCount: 0,
+      entropy,
+      timestamp: Date.now(),
+      isMerkleVerified: false,
+      verdictBreakdown: { CLEAN: 0, SUSPICIOUS: 0, PACKED: 0, MALICIOUS: 0, UNKNOWN: 1, NOT_SCANNED: 0 },
+      summary: CollaborativeFileReputationVault.formatSummary(0, entropy, 'UNKNOWN'),
+    };
   }
 
   /**

@@ -23,6 +23,9 @@ import {
   signBlindedMessage,
   bigintToHex,
   hexToBigint,
+  validateRsaKeyLength,
+  InsecureKeyError,
+  MINIMUM_RSA_KEY_BITS,
   type BlindSignatureKeyPair,
   type BlindSignaturePublicKey,
 } from '@aetheris/core-crypto';
@@ -64,6 +67,7 @@ export interface ChaumianVotingManagerOptions {
   apiEndpoint?: string;
   meshRelay?: (submission: AnonymousVoteSubmission) => Promise<any>;
   storageKey?: string;
+  demoMode?: boolean;
 }
 
 /**
@@ -91,7 +95,7 @@ export function formatVotePayload(
   timestamp: number
 ): string {
   return JSON.stringify({
-    domain: 'aetheris:chaumian-vote:v1',
+    domain: 'aetheris:chaumian-vote:v2',
     postId,
     voteType,
     nullifier,
@@ -103,30 +107,34 @@ export function formatVotePayload(
  * Client-side Chaumian Anonymous Voting Manager.
  */
 export class ChaumianVotingManager {
-  private validatorPublicKey: BlindSignaturePublicKey;
+  private validatorPublicKey?: BlindSignaturePublicKey;
   private validatorKeyPair?: BlindSignatureKeyPair;
   private customSigner?: (blindedHash: bigint, postId: string) => Promise<bigint> | bigint;
   private apiEndpoint: string;
   private meshRelay?: (submission: AnonymousVoteSubmission) => Promise<any>;
   private storageKey: string;
   private spentNullifiers: Set<string> = new Set();
+  private demoMode: boolean = false;
 
   constructor(options?: ChaumianVotingManagerOptions) {
     this.apiEndpoint = options?.apiEndpoint || '/api/posts';
     this.storageKey = options?.storageKey || 'aetheris_chaumian_spent_nullifiers';
     this.customSigner = options?.validatorSigner;
     this.meshRelay = options?.meshRelay;
+    this.demoMode = options?.demoMode === true;
 
     if (options?.validatorKeyPair) {
+      validateRsaKeyLength(options.validatorKeyPair.publicKey.n);
       this.validatorKeyPair = options.validatorKeyPair;
       this.validatorPublicKey = options.validatorKeyPair.publicKey;
     } else if (options?.validatorPublicKey) {
+      validateRsaKeyLength(options.validatorPublicKey.n);
       this.validatorPublicKey = options.validatorPublicKey;
-    } else {
-      // Default sovereign keypair for standalone, peer-to-peer and testing environments
-      this.validatorKeyPair = generateBlindSignatureKeyPair(512);
-      this.validatorPublicKey = this.validatorKeyPair.publicKey;
+    } else if (this.demoMode) {
+      // Demo keys are generated ephemerally on first use; private validator
+      // material is never embedded in the production JavaScript bundle.
     }
+    // In production without demoMode, validatorPublicKey must be received from server.
 
     this._loadSpentNullifiers();
   }
@@ -169,15 +177,38 @@ export class ChaumianVotingManager {
   /**
    * Retrieves the current validator public key.
    */
-  public getValidatorPublicKey(): BlindSignaturePublicKey {
+  public getValidatorPublicKey(): BlindSignaturePublicKey | undefined {
     return this.validatorPublicKey;
   }
 
   /**
-   * Updates the validator public key.
+   * Updates the validator public key with strict RSA-2048 validation.
    */
   public setValidatorPublicKey(key: BlindSignaturePublicKey): void {
+    validateRsaKeyLength(key.n);
     this.validatorPublicKey = key;
+  }
+
+  /**
+   * Explicitly enables demo mode with a minimum 2048-bit RSA keypair.
+   */
+  public enableDemoMode(customKeyPair?: BlindSignatureKeyPair): void {
+    this.demoMode = true;
+    if (customKeyPair) {
+      validateRsaKeyLength(customKeyPair.publicKey.n);
+      this.validatorKeyPair = customKeyPair;
+      this.validatorPublicKey = customKeyPair.publicKey;
+    } else {
+      this.validatorKeyPair = undefined;
+      this.validatorPublicKey = undefined;
+    }
+  }
+
+  private async _ensureEphemeralDemoKey(): Promise<void> {
+    if (!this.demoMode || this.validatorPublicKey) return;
+    const keyPair = await generateBlindSignatureKeyPair(MINIMUM_RSA_KEY_BITS);
+    this.validatorKeyPair = keyPair;
+    this.validatorPublicKey = keyPair.publicKey;
   }
 
   /**
@@ -251,11 +282,17 @@ export class ChaumianVotingManager {
     voteType: VoteType,
     customNullifier?: string
   ): Promise<AnonymousVoteToken> {
+    await this._ensureEphemeralDemoKey();
     if (!postId || typeof postId !== 'string') {
       throw new Error('Valid postId string is required');
     }
     if (voteType !== 'up' && voteType !== 'down') {
       throw new Error("Vote type must be 'up' or 'down'");
+    }
+    if (!this.validatorPublicKey) {
+      throw new Error(
+        'No validator public key configured. In production mode, server validatorPublicKey must be provided before requesting vote tokens.'
+      );
     }
 
     const nullifier = customNullifier || generateEphemeralNullifier();
@@ -307,6 +344,7 @@ export class ChaumianVotingManager {
         n: hexToBigint(token.publicKey.n),
         e: hexToBigint(token.publicKey.e),
       };
+      validateRsaKeyLength(pubKey.n);
       const signature = hexToBigint(token.signature);
       return verifyBlindSignature(token.payload, signature, pubKey);
     } catch {

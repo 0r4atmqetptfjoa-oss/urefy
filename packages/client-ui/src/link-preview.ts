@@ -1,8 +1,8 @@
 // link-preview.ts
-// Aetheris Omni-Sphere — Link Preview Card Engine
+// UREfy — Link Preview Card Engine
 // Generates rich preview cards for URLs extracted from post content
 
-import { isLocalDev } from './admin-auth.js';
+import { isDemoModeEnabled } from './demo-mode.js';
 
 export interface LinkPreview {
   url: string;
@@ -179,7 +179,7 @@ class LinkPreviewEngine {
 
   // Seed 5 demo previews on construction (dev only)
   constructor() {
-    if (isLocalDev()) {
+    if (isDemoModeEnabled()) {
       this._seedDemoPreviews();
     }
   }

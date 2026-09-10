@@ -13,7 +13,6 @@ import { sovereignRouter } from '../router.js';
 import { themeEngine } from '../themes.js';
 import { soundEffects } from '../sound-effects.js';
 import { i18n } from '../i18n.js';
-import { walletBridge } from '../wallet-bridge.js';
 import { hybridComposer } from '../composer-hybrid.js';
 import { legalModal } from '../legal-modal.js';
 import { sovereignCircleEngine } from '../sovereign-circle.js';
@@ -27,9 +26,22 @@ import {
   toggleRelayEmojiPicker,
   closeEmojiPickers,
   handleFileAttachment,
+  getMessageDraft,
+  setMessageDraft,
+  captureMessageSelection,
+  insertMessageEmoji,
+  restoreMessageSelection,
 } from '../messages-view.js';
 import { binaryHygienePortal } from '../binary-hygiene-portal.js';
 import { exploreView } from '../explore-view.js';
+import { setWorkspaceLayout } from '../workspace-layout.js';
+import { sovereignWebPush } from '../web-push.js';
+
+function withWallet(action: (wallet: typeof import('../wallet-bridge.js').walletBridge) => unknown): void {
+  void import('../wallet-bridge.js').then(({ walletBridge }) => action(walletBridge)).catch(error => {
+    clientStore.showToast(error instanceof Error ? error.message : 'Wallet unavailable', 'warning');
+  });
+}
 
 export function safeExecuteStatement(stmt: string, el: HTMLElement, event: Event): void {
   stmt = stmt.trim();
@@ -269,6 +281,26 @@ export class ActionDispatcher {
   public init(): void {
     if (this.isInitialized || typeof document === 'undefined') return;
     this.isInitialized = true;
+
+    const captureSelection = (event: Event) => {
+      const input = event.target as HTMLInputElement | null;
+      if (input?.id === 'input-message') captureMessageSelection('relay', input);
+      else if (input?.id === 'input-dm-message') captureMessageSelection('dm', input);
+    };
+    document.addEventListener('select', captureSelection, true);
+    document.addEventListener('focusout', captureSelection, true);
+    document.addEventListener('pointerup', captureSelection);
+    document.addEventListener('keyup', captureSelection);
+    document.addEventListener('pointerdown', event => {
+      const action = (event.target as Element).closest<HTMLElement>('[data-action]')?.dataset.action;
+      if (action === 'toggle-relay-emoji' || action === 'toggle-dm-emoji') {
+        const target = action === 'toggle-dm-emoji' ? 'dm' : 'relay';
+        captureMessageSelection(target, document.getElementById(target === 'dm' ? 'input-dm-message' : 'input-message') as HTMLInputElement | null);
+        event.preventDefault();
+      } else if (action === 'insert-relay-emoji' || action === 'insert-dm-emoji') {
+        event.preventDefault();
+      }
+    });
 
     // 1. Click delegation
     document.addEventListener('click', (event: MouseEvent) => {
@@ -550,6 +582,21 @@ export class ActionDispatcher {
         break;
       }
 
+      case 'set-workspace-layout': {
+        setWorkspaceLayout(el.getAttribute('data-layout'));
+        break;
+      }
+
+      case 'push-dismiss': {
+        sovereignWebPush.dismissBanner();
+        break;
+      }
+
+      case 'push-subscribe': {
+        void sovereignWebPush.subscribeUser();
+        break;
+      }
+
       case 'close-circle-mod-tools': {
         sovereignCircleEngine.closeModModal();
         break;
@@ -694,6 +741,8 @@ export class ActionDispatcher {
         const role = el.getAttribute('data-peer-role') || el.getAttribute('data-role') || 'MEMBER';
         if (fp) {
           sovereignDM.openDM(fp, role);
+          setActiveMessagesTab('dm');
+          sovereignRouter.navigateTo('messages');
         }
         break;
       }
@@ -763,16 +812,17 @@ export class ActionDispatcher {
         break;
       }
 
-      case 'simulate-dm-reply': {
+      case 'send-dm-ping': {
         const activeFP = sovereignDM.activePeerFP;
         if (activeFP) {
           const myFP = clientStore.keypair?.fingerprint || 'me_local_node_0x9f4e';
-          sovereignDM.simulateIncomingMessage(activeFP, myFP);
-          clientStore.notifySync();
-          setTimeout(() => {
-            const container = document.getElementById('dm-thread-messages');
-            if (container) container.scrollTop = container.scrollHeight;
-          }, 50);
+          sovereignDM.sendMessage('🔐 URE secure connectivity check', myFP).then(() => {
+            clientStore.notifySync();
+            setTimeout(() => {
+              const container = document.getElementById('dm-thread-messages');
+              if (container) container.scrollTop = container.scrollHeight;
+            }, 50);
+          }).catch(() => clientStore.showToast('Secure ping could not be sent.', 'warning'));
         }
         break;
       }
@@ -1321,37 +1371,34 @@ export class ActionDispatcher {
       }
 
       case 'connect-metamask': {
-        if (typeof window !== 'undefined') {
-          const wb = (window as any).walletBridge || walletBridge;
-          if (wb && typeof wb.connectMetaMask === 'function') {
-            wb.connectMetaMask().then(() => {
-              if ((window as any).clientStore) (window as any).clientStore.notifySync();
-            }).catch(() => {});
-          }
-        }
+        withWallet(async wallet => {
+          await wallet.connectMetaMask();
+          clientStore.notifySync();
+        });
         break;
       }
 
       case 'disconnect-wallet': {
-        if (typeof window !== 'undefined') {
-          const wb = (window as any).walletBridge || walletBridge;
-          if (wb && typeof wb.disconnect === 'function') {
-            wb.disconnect();
-            if ((window as any).clientStore) (window as any).clientStore.notifySync();
-          }
-        }
+        withWallet(wallet => {
+          wallet.disconnect();
+          clientStore.notifySync();
+        });
         break;
       }
 
       case 'set-wallet-tab': {
         const tab = el.getAttribute('data-tab');
-        if (tab && typeof window !== 'undefined') {
-          const wb = (window as any).walletBridge || walletBridge;
-          if (wb && typeof wb.setActiveTab === 'function') {
-            wb.setActiveTab(tab);
-            if ((window as any).clientStore) (window as any).clientStore.notifySync();
-          }
-        }
+        if (tab === 'identity' || tab === 'signatures' || tab === 'token-gate' || tab === 'networks') withWallet(wallet => {
+          wallet.setTab(tab);
+          clientStore.notifySync();
+        });
+        break;
+      }
+
+      case 'add-wallet-token': {
+        const address = (document.getElementById('wallet-token-address') as HTMLInputElement | null)?.value ?? '';
+        const threshold = (document.getElementById('wallet-token-threshold') as HTMLInputElement | null)?.value ?? '';
+        withWallet(wallet => wallet.addTokenCheck(address, threshold));
         break;
       }
 
@@ -1499,12 +1546,14 @@ export class ActionDispatcher {
       case 'toggle-dm-emoji': {
         toggleDMEmojiPicker();
         clientStore.notifySync();
+        requestAnimationFrame(() => restoreMessageSelection('dm'));
         break;
       }
 
       case 'toggle-relay-emoji': {
         toggleRelayEmojiPicker();
         clientStore.notifySync();
+        requestAnimationFrame(() => restoreMessageSelection('relay'));
         break;
       }
 
@@ -1517,34 +1566,24 @@ export class ActionDispatcher {
       case 'insert-dm-emoji': {
         const emoji = el.getAttribute('data-emoji');
         if (emoji) {
-          const input = document.getElementById('input-dm-message') as HTMLInputElement | null;
-          if (input) {
-            const start = input.selectionStart ?? input.value.length;
-            const end = input.selectionEnd ?? input.value.length;
-            input.value = input.value.substring(0, start) + emoji + input.value.substring(end);
-            input.selectionStart = input.selectionEnd = start + emoji.length;
-            input.focus();
-          }
+          insertMessageEmoji('dm', emoji);
+          restoreMessageSelection('dm');
         }
         toggleDMEmojiPicker(false);
         clientStore.notifySync();
+        requestAnimationFrame(() => restoreMessageSelection('dm'));
         break;
       }
 
       case 'insert-relay-emoji': {
         const emoji = el.getAttribute('data-emoji');
         if (emoji) {
-          const input = document.getElementById('input-message') as HTMLInputElement | null;
-          if (input) {
-            const start = input.selectionStart ?? input.value.length;
-            const end = input.selectionEnd ?? input.value.length;
-            input.value = input.value.substring(0, start) + emoji + input.value.substring(end);
-            input.selectionStart = input.selectionEnd = start + emoji.length;
-            input.focus();
-          }
+          insertMessageEmoji('relay', emoji);
+          restoreMessageSelection('relay');
         }
         toggleRelayEmojiPicker(false);
         clientStore.notifySync();
+        requestAnimationFrame(() => restoreMessageSelection('relay'));
         break;
       }
 
@@ -1685,6 +1724,10 @@ export class ActionDispatcher {
     } else if (action === 'search-dm-peers') {
       setDMSearchQuery(el.value);
       clientStore.notifySync();
+    } else if (action === 'update-dm-draft') {
+      captureMessageSelection('dm', el as HTMLInputElement);
+    } else if (action === 'update-relay-draft') {
+      captureMessageSelection('relay', el as HTMLInputElement);
     } else if (typeof window !== 'undefined') {
       const customHandler = (window as any)[`__aetheris_input_${action}`];
       if (typeof customHandler === 'function') {
@@ -1725,22 +1768,26 @@ export class ActionDispatcher {
     } else if (action === 'submit-dm-message') {
       event.preventDefault();
       const input = el.querySelector('#input-dm-message') as HTMLInputElement | null;
-      const text = input ? input.value.trim() : '';
+      const submittedDraft = input?.value ?? '';
+      const text = submittedDraft.trim();
       const att = sovereignDM.getPendingAttachment();
       if (text || att) {
         const myFP = clientStore.keypair?.fingerprint || 'me_local_node_0x9f4e';
         sovereignDM.sendMessage(text, myFP, att || undefined).then(() => {
-          if (input) {
-            input.value = '';
-            input.focus();
+          if (getMessageDraft('dm') === submittedDraft && sovereignDM.getPendingAttachment() === att) {
+            setMessageDraft('dm', '');
+            const currentInput = document.getElementById('input-dm-message') as HTMLInputElement | null;
+            if (currentInput) currentInput.value = '';
+            sovereignDM.setPendingAttachment(null);
           }
-          sovereignDM.setPendingAttachment(null);
           clientStore.notifySync();
           setTimeout(() => {
             const container = document.getElementById('dm-thread-messages');
             if (container) container.scrollTop = container.scrollHeight;
           }, 50);
-        }).catch(console.error);
+        }).catch(error => {
+          clientStore.showToast(error instanceof Error ? error.message : 'Private message could not be sent', 'warning');
+        });
       }
     } else if (action === 'submit-relay-message') {
       event.preventDefault();
@@ -1749,6 +1796,7 @@ export class ActionDispatcher {
       const att = clientStore.pendingRelayAttachment;
       if (text || att) {
         clientStore.sendMessage(text, undefined, att || undefined);
+        setMessageDraft('relay', '');
         if (input) {
           input.value = '';
           input.focus();

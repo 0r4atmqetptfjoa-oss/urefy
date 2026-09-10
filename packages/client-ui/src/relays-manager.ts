@@ -1,5 +1,5 @@
 // ===========================================================================
-// AETHERIS OMNI-SPHERE — SOVEREIGN RELAYS & GUILDS MANAGER
+// UREfy — SOVEREIGN RELAYS & GUILDS MANAGER
 // Enables user-created decentralized real-time chat spaces, guilds,
 // sub-channels, and 1-click shareable invite codes / links.
 // Zero external trademarks (Sovereign Relays / Guild Hubs).
@@ -8,6 +8,7 @@
 import { serviceRegistry, SERVICES } from './service-registry.js';
 import { zkDeliveryManager, renderZKDeliveryBadge } from './delivery-proof.js';
 import { transparencyMode } from './transparency-mode.js';
+import { t } from './i18n.js';
 import './window-augmentation.js';
 
 export interface RelayChannel {
@@ -567,7 +568,7 @@ export class RelaysManager {
                 id="btn-cancel-create-relay"
                 class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-surface-raised transition-all cursor-pointer"
               >
-                Cancel
+                ${t('common.cancel', undefined, 'Cancel')}
               </button>
               <button
                 type="submit"
@@ -648,7 +649,7 @@ export class RelaysManager {
               id="btn-done-invite-modal"
               class="px-5 py-2 rounded-xl bg-surface-raised hover:bg-surface-base border border-white/10 text-white text-xs font-bold transition-all cursor-pointer"
             >
-              Done
+              ${t('modal.confirm', undefined, 'Done')}
             </button>
           </div>
         </div>
@@ -695,7 +696,7 @@ export class RelaysManager {
                 id="btn-cancel-join-modal" data-action="call-global" data-raw-click="if(window.relaysManager){window.relaysManager.isJoinModalOpen=false;window.clientStore&&window.clientStore.notifySync();}"
                 class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-surface-raised transition-all cursor-pointer"
               >
-                Cancel
+                ${t('common.cancel', undefined, 'Cancel')}
               </button>
               <button
                 type="submit"

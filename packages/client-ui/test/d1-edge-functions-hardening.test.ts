@@ -18,7 +18,7 @@ describe('D1 Edge Functions Hardening — Batch Atomicity & Error Transparency',
         batch: mockBatch,
       };
 
-      const req = new Request('https://aetheris.network/api/posts', {
+      const req = new Request('https://urefy.com/api/posts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Admin-PIN': 'sovereign-pin-999' },
         body: JSON.stringify({
@@ -54,7 +54,7 @@ describe('D1 Edge Functions Hardening — Batch Atomicity & Error Transparency',
         batch: mockBatch,
       };
 
-      const req = new Request('https://aetheris.network/api/posts', {
+      const req = new Request('https://urefy.com/api/posts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -91,7 +91,7 @@ describe('D1 Edge Functions Hardening — Batch Atomicity & Error Transparency',
         batch: vi.fn(),
       };
 
-      const req = new Request('https://aetheris.network/api/channels?space=relays');
+      const req = new Request('https://urefy.com/api/channels?space=relays');
       const res = await onRequestGet({
         request: req,
         env: { DB: mockDb as any, ENVIRONMENT: 'production' } as any,
@@ -113,7 +113,7 @@ describe('D1 Edge Functions Hardening — Batch Atomicity & Error Transparency',
         batch: vi.fn(),
       };
 
-      const req = new Request('https://aetheris.network/api/channels?space=relays');
+      const req = new Request('https://urefy.com/api/channels?space=relays');
       const res = await onRequestGet({
         request: req,
         env: { DB: mockDb as any, ENVIRONMENT: 'production' } as any,

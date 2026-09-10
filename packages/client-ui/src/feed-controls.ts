@@ -18,6 +18,7 @@ import { linkPreviewEngine } from './link-preview.js';
 import { collectionsEngine } from './collections.js';
 import { zkReputation } from './zk-reputation.js';
 import { threadManager } from './threads.js';
+import { t } from './i18n.js';
 
 export type ViewMode = 'card' | 'classic' | 'compact';
 export type SortType = 'hot' | 'new' | 'top' | 'rising' | 'chrono';
@@ -175,7 +176,7 @@ export class FeedControlsEngine {
             }"
           >
             <span>🔥</span>
-            <span>Hot</span>
+            <span>${t('feed.sortTrending', undefined, 'Hot')}</span>
           </button>
 
           <!-- NEW -->
@@ -190,7 +191,7 @@ export class FeedControlsEngine {
             }"
           >
             <span>✨</span>
-            <span>New</span>
+            <span>${t('feed.sortChronological', undefined, 'New')}</span>
           </button>
 
           <!-- TOP WITH TIMEFRAME DROPDOWN -->
@@ -206,7 +207,7 @@ export class FeedControlsEngine {
               }"
             >
               <span>🏆</span>
-              <span>Top</span>
+              <span>${t('feed.sortMerit', undefined, 'Top')}</span>
               ${this.sortType === 'top' ? `
                 <span class="text-[10px] text-indigo-400 ml-0.5">(${currentTfLabel})</span>
                 <span class="text-[9px] text-slate-400">▼</span>

@@ -1,5 +1,5 @@
 /**
- * Cloudflare Worker Edge Entry Point for Aetheris Sovereign Platform.
+ * Cloudflare Worker Edge Entry Point for UREfy Sovereign Platform.
  * Runs on Cloudflare's global edge network connecting to Cloudflare D1 SQL database
  * and Cloudflare Durable Objects for zero-latency hibernating WebSocket signaling.
  */
@@ -13,6 +13,7 @@ import {
 } from './relay-durable-object.js';
 import { ZKRLN, RLNShare } from '@aetheris/core-crypto';
 import { PayloadSanitizer } from './payload-sanitizer.js';
+import { resolveRelaySecret } from './relay-secret.js';
 
 export { RelayDurableObject };
 
@@ -54,7 +55,7 @@ export default {
       return new Response(
         JSON.stringify({
           status: 'healthy',
-          service: 'Aetheris Sovereign Edge Relay',
+          service: 'UREfy Edge Relay',
           edge: 'Cloudflare Workers & Durable Objects',
           region: (request as any).cf?.colo || 'GLOBAL',
           country: (request as any).cf?.country || 'XX',
@@ -129,7 +130,7 @@ export default {
         return new Response(
           JSON.stringify({
             status: 'online',
-            service: 'Aetheris Sovereign Edge Signaling (Standalone Mode)',
+            service: 'UREfy Edge Signaling (Standalone Mode)',
             transport: 'WebSocket',
             usage: 'Upgrade to WebSocket at /api/ws or /ws',
             activeConnections: edgeActiveClients.size,
@@ -168,7 +169,14 @@ export default {
               const isPrivileged = ['ADMIN', 'GUARDIAN', 'MODERATOR', 'ARCHIVIST'].includes(requestedRole);
 
               if (tokenToVerify) {
-                const secret = (env as any)?.AUTH_SECRET || (env as any)?.ADMIN_PIN || 'aetheris-sovereign-relay-secret';
+                const secret = resolveRelaySecret(env);
+                if (!secret) {
+                  serverWs.send(JSON.stringify({
+                    type: 'ERROR',
+                    message: 'Authentication temporarily unavailable: relay credential secret is not configured',
+                  }));
+                  return;
+                }
                 const authResult = await verifyRelaySessionToken(tokenToVerify, secret);
                 if (!authResult.valid || !authResult.payload) {
                   serverWs.send(
@@ -394,7 +402,7 @@ export default {
       return createWebSocketUpgradeResponse(clientWs);
     }
 
-    return new Response('Aetheris Sovereign Edge Relay Active', { status: 200 });
+    return new Response('UREfy Edge Relay Active', { status: 200 });
   },
 
   /**

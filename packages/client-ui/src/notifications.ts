@@ -1,12 +1,12 @@
 // ============================================================
-// notifications.ts — Aetheris Omni-Sphere Notification Center
+// notifications.ts — UREfy Notification Center
 // Self-contained, no external dependencies.
 // ============================================================
 
 import './window-augmentation.js';
 import { serviceRegistry, SERVICES } from './service-registry.js';
 import { sovereignWebPush } from './web-push.js';
-import { isLocalDev } from './admin-auth.js';
+import { isDemoModeEnabled } from './demo-mode.js';
 import { t } from './i18n.js';
 
 export interface NotificationItem {
@@ -61,7 +61,7 @@ class NotificationCenter {
   private static readonly MAX_ITEMS = 50;
 
   constructor() {
-    if (isLocalDev()) {
+    if (isDemoModeEnabled()) {
       this._seedDemoNotifications();
     }
     this._attachGlobalHandlers();
@@ -244,7 +244,7 @@ class NotificationCenter {
               type="button"
               class="notif-filter-btn px-2.5 py-1 rounded-lg font-mono text-[11px] transition-all cursor-pointer ${this.activeFilter === 'unread' ? 'bg-indigo-500/20 text-indigo-300 font-bold border border-indigo-500/30' : 'text-slate-400 hover:text-white'}" data-action="set-notif-filter" data-filter="unread"
             >
-              Unread (${this.unreadCount})
+              ${t('notifications.filterUnread', undefined, 'Unread')} (${this.unreadCount})
             </button>
             <button
               type="button"
@@ -313,7 +313,7 @@ class NotificationCenter {
     return `<div class="flex flex-col items-center justify-center py-14 gap-3 text-center select-none">
   <span class="text-3xl opacity-30">🔔</span>
   <p class="text-sm font-medium text-slate-500">${t('notifications.noNotifications', undefined, 'No notifications yet')}</p>
-  <p class="text-xs text-slate-600 max-w-[180px] leading-relaxed">${t('notifications.title', undefined, 'Activity on your posts and mentions will appear here.')}</p>
+  <p class="text-xs text-slate-600 max-w-[180px] leading-relaxed">${t('emptyState.notificationsDesc', undefined, 'Activity on your posts and mentions will appear here.')}</p>
 </div>`.trim();
   }
 

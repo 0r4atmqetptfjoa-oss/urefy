@@ -1,67 +1,59 @@
-async function runSmokeTests() {
+import { pathToFileURL } from 'node:url';
+
+export async function runSmokeTests({
+  baseUrl = process.env.SMOKE_BASE_URL || 'https://aetheris-omni-sphere.pages.dev',
+  fetchImpl = fetch,
+  log = console.log,
+} = {}) {
   const endpoints = [
-    { name: 'Pages Home', url: 'https://aetheris-omni-sphere.pages.dev' },
-    { name: 'NodeInfo Federation', url: 'https://aetheris-omni-sphere.pages.dev/.well-known/aetheris-node' },
-    { name: 'Analytics API (Real Telemetry)', url: 'https://aetheris-omni-sphere.pages.dev/api/analytics' },
-    { name: 'WebAuthn Challenge', url: 'https://aetheris-omni-sphere.pages.dev/api/webauthn?action=challenge' },
-    { name: 'Worker Relay Health', url: 'https://aetheris-edge-relay.love4jpx.workers.dev/health' },
-    { name: 'Worker Relay Stats', url: 'https://aetheris-edge-relay.love4jpx.workers.dev/stats' }
+    { path: '/', kind: 'html' },
+    { path: '/api/health', kind: 'json' },
+    { path: '/api/channels', kind: 'json' },
+    { path: '/api/analytics', kind: 'json' },
   ];
-
-  console.log('=====================================================');
-  console.log('       AETHERIS LIVE CLOUDFLARE SMOKE TESTS          ');
-  console.log('=====================================================\n');
-
-  let passed = 0;
-  let failed = 0;
-
-  for (const ep of endpoints) {
+  const results = await Promise.all(endpoints.map(async (endpoint) => {
+    const url = new URL(endpoint.path, baseUrl);
     try {
-      const t0 = performance.now();
-      const res = await fetch(ep.url, {
-        headers: { 'User-Agent': 'AetherisSmokeTest/1.0' }
-      });
-      const elapsed = (performance.now() - t0).toFixed(1);
-      const ct = res.headers.get('content-type') || '';
-      const text = await res.text();
-      let preview = '';
-      if (ct.includes('json')) {
-        try {
-          const parsed = JSON.parse(text);
-          preview = JSON.stringify(parsed).slice(0, 110) + '...';
-        } catch {
-          preview = text.slice(0, 80);
+      const response = await fetchImpl(url, { signal: AbortSignal.timeout(10_000), redirect: 'error' });
+      if (response.status !== 200) throw new Error(`HTTP ${response.status}`);
+      const contentType = response.headers.get('content-type') || '';
+      if (!contentType.includes(endpoint.kind === 'json' ? 'application/json' : 'text/html')) {
+        throw new Error(`Unexpected Content-Type: ${contentType}`);
+      }
+      if (endpoint.kind === 'json') {
+        const payload = await response.json();
+        if (!payload || typeof payload !== 'object' || payload.success === false ||
+            ['degraded', 'unhealthy', 'operational_state_unverified'].includes(payload.status)) {
+          throw new Error('API returned an unsuccessful or unverified state');
         }
       } else {
-        preview = text.slice(0, 80).replace(/\s+/g, ' ');
+        if (!response.headers.get('content-security-policy')?.includes("default-src 'self'")) {
+          throw new Error('Missing restrictive Content-Security-Policy');
+        }
+        if (response.headers.get('x-content-type-options')?.toLowerCase() !== 'nosniff') {
+          throw new Error('Missing X-Content-Type-Options: nosniff');
+        }
+        await response.arrayBuffer();
       }
-
-      if (res.status >= 200 && res.status < 400) {
-        console.log(`[PASS] ${ep.name}`);
-        console.log(`       URL: ${ep.url}`);
-        console.log(`       Status: ${res.status} ${res.statusText} (${elapsed}ms)`);
-        console.log(`       Body: ${preview}\n`);
-        passed++;
-      } else {
-        console.log(`[WARN/FAIL] ${ep.name}`);
-        console.log(`       URL: ${ep.url}`);
-        console.log(`       Status: ${res.status} ${res.statusText} (${elapsed}ms)`);
-        console.log(`       Body: ${preview}\n`);
-        failed++;
-      }
-    } catch (err) {
-      console.error(`[ERROR] ${ep.name} (${ep.url}): ${err.message}\n`);
-      failed++;
+      log(`[PASS] ${endpoint.path}`);
+      return true;
+    } catch (error) {
+      log(`[FAIL] ${endpoint.path}: ${error.message}`);
+      return false;
     }
-  }
-
-  console.log('=====================================================');
-  console.log(`Summary: ${passed} passed, ${failed} failed.`);
-  console.log('=====================================================');
-
-  if (failed > 0) {
-    process.exit(1);
-  }
+  }));
+  const passed = results.filter(Boolean).length;
+  const failed = results.length - passed;
+  log(`Smoke tests: ${passed} passed, ${failed} failed.`);
+  return { passed, failed };
 }
 
-runSmokeTests();
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  try {
+    const result = await runSmokeTests();
+    process.exitCode = result.failed > 0 ? 1 : 0;
+  } catch (error) {
+    console.error(error.message);
+    process.exitCode = 1;
+  }
+}

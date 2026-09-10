@@ -1,9 +1,9 @@
-// reactions.ts — Aetheris Omni-Sphere Emoji Reactions Engine
+// reactions.ts — UREfy Emoji Reactions Engine
 // Self-contained, no external dependencies
 
 import './window-augmentation.js';
 import { serviceRegistry, SERVICES } from './service-registry.js';
-import { isLocalDev } from './admin-auth.js';
+import { isDemoModeEnabled } from './demo-mode.js';
 
 export interface Reaction {
   emoji: string;
@@ -35,7 +35,7 @@ export class ReactionsEngine {
   ];
 
   constructor() {
-    if (isLocalDev()) {
+    if (isDemoModeEnabled()) {
       this._seedDemoReactions();
     }
   }

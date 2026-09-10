@@ -32,7 +32,7 @@ class MockElement {
   public addEventListener(event: string, handler: Function): void {}
 }
 
-describe('Aetheris Sovereign HUD Toast Notification System', () => {
+describe('UREfy Sovereign HUD Toast Notification System', () => {
   let toastManager: ToastManager;
 
   beforeEach(() => {

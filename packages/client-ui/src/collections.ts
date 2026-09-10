@@ -1,12 +1,12 @@
 /**
- * AETHERIS OMNI-SPHERE — KNOWLEDGE SERIES & CURATED COLLECTIONS ENGINE
+ * UREfy — KNOWLEDGE SERIES & CURATED COLLECTIONS ENGINE
  *
  * Self-contained technical series and curriculum system designed for sovereign peer nodes.
  * Empowers curators to organize multi-part deep dives, cryptographic specifications,
  * reverse-engineering guides, and binary hygiene audits into structured pedagogical tracks.
  */
 
-import { isLocalDev } from './admin-auth.js';
+import { isDemoModeEnabled } from './demo-mode.js';
 
 export interface SeriesItem {
   id: string;
@@ -53,7 +53,7 @@ export class CollectionsEngine {
   private fallbackCatalog: Record<string, SeriesEpisodeMeta> = {
     'post-1': {
       postId: 'post-1',
-      title: 'Aetheris Cryptographic Micro-Kernel v1.0.0 (Verified x86_64 Release)',
+      title: 'UREfy Cryptographic Micro-Kernel v1.0.0 (Verified x86_64 Release)',
       authorFingerprint: 'c3dc28cb705e',
       authorRole: 'ARCHIVIST',
       flair: 'VERIFIED RELEASE',
@@ -71,7 +71,7 @@ export class CollectionsEngine {
     },
     'post-images': {
       postId: 'post-images',
-      title: 'Reverse Engineering: Visual Section Analysis of Obfuscated Malware vs Aetheris Clean Builds',
+      title: 'Reverse Engineering: Visual Section Analysis of Obfuscated Malware vs UREfy Clean Builds',
       authorFingerprint: 'f40019bc88a2',
       authorRole: 'MEMBER',
       flair: 'TECH DISCUSSION',
@@ -244,7 +244,7 @@ export class CollectionsEngine {
     ];
 
     // Seed default read markers for realistic progress visualization in local dev only
-    if (isLocalDev()) {
+    if (isDemoModeEnabled()) {
       this.readPostIds.add('post-2');
       this.readPostIds.add('zk-series-2');
       this.readPostIds.add('post-1');

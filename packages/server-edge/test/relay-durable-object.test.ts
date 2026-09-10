@@ -737,7 +737,7 @@ describe('Cloudflare Durable Objects — RelayDurableObject & WebSocket Hibernat
       expect(res.status).toBe(200);
       const json = await res.json();
       expect(json.status).toBe('healthy');
-      expect(json.service).toContain('Aetheris');
+      expect(json.service).toContain('UREfy');
     });
   });
 

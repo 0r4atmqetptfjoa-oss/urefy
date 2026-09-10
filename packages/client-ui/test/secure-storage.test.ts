@@ -12,9 +12,9 @@ const mockLocalStorage = {
 };
 (globalThis as any).localStorage = mockLocalStorage;
 
-import { secureStorage, bytesToHex, hexToBytes, EncryptedEnvelope } from '../src/secure-storage.js';
+import { SecureStorageEngine, secureStorage, bytesToHex, hexToBytes, EncryptedEnvelope } from '../src/secure-storage.js';
 
-describe('Aetheris Sovereign Secure Storage Vault (Blockers 1 & 2)', () => {
+describe('UREfy Sovereign Secure Storage Vault (Blockers 1 & 2)', () => {
   beforeEach(async () => {
     mockLocalStorage.clear();
     secureStorage.zeroizeRam();
@@ -22,6 +22,12 @@ describe('Aetheris Sovereign Secure Storage Vault (Blockers 1 & 2)', () => {
   });
 
   describe('1. WebCrypto AES-GCM-256 Encryption & Decryption', () => {
+    it('never falls back to plaintext encoding when WebCrypto is unavailable', async () => {
+      const storage = new SecureStorageEngine();
+      vi.spyOn(storage as any, 'getSubtleCrypto').mockReturnValue(null);
+      await expect(storage.encrypt({ privateValue: 'test-only' })).rejects.toThrow('WebCrypto is required');
+    });
+
     it('should encrypt serializable data into an AES-GCM envelope with 12-byte IV', async () => {
       const payload = { secret: 'quantum-resistance', timestamp: Date.now() };
       const envelope = await secureStorage.encrypt(payload);

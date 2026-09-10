@@ -1,5 +1,5 @@
 /**
- * AETHERIS HYBRID SUITE — 3D SPATIAL AUDIO MESH ENGINE (Item 6)
+ * UREfy HYBRID SUITE — 3D SPATIAL AUDIO MESH ENGINE (Item 6)
  *
  * Real-time 3D Binaural HRTF Audio Localization Engine for Multi-Peer Sovereign Channels.
  * Utilizes Web Audio API AudioContext, AudioListener (with orientation & position vectors),
@@ -1027,7 +1027,7 @@ export class SpatialAudioMeshEngine {
             </div>
 
             <div class="flex items-center gap-3">
-              <span class="text-slate-500">Aetheris 3D Spatial Audio Mesh v3.0</span>
+              <span class="text-slate-500">UREfy 3D Spatial Audio Mesh v3.0</span>
               <button id="mesh-modal-done-btn" class="px-4 py-1.5 bg-cyan-500 hover:bg-cyan-400 text-black font-bold rounded-lg transition-all shadow-[0_0_12px_rgba(6,182,212,0.3)]">
                 Done
               </button>

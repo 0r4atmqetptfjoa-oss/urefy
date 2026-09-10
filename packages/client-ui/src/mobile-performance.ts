@@ -30,6 +30,7 @@ export class MobileResponsivePerformanceManager {
   private _frameTimes: number[] = [];
   private _maxFrameTimeSamples: number = 60;
   private _passiveSupported: boolean | null = null;
+  private _viewportAdaptationInitialized: boolean = false;
 
   public static readonly GPU_CLASSES = [
     'gpu-accelerated',
@@ -80,6 +81,36 @@ export class MobileResponsivePerformanceManager {
    */
   public supportsPassive(): boolean {
     return this.checkPassiveSupport();
+  }
+
+  /**
+   * Keeps the installed PWA shell aligned to the visual viewport. This avoids
+   * clipped navigation and composer controls when browser chrome or the mobile
+   * keyboard changes the usable height without updating legacy vh units.
+   */
+  public initViewportAdaptation(): void {
+    if (this._viewportAdaptationInitialized || typeof window === 'undefined' || typeof document === 'undefined') return;
+    this._viewportAdaptationInitialized = true;
+
+    const updateViewport = () => {
+      const viewport = window.visualViewport;
+      const height = Math.round(viewport?.height || window.innerHeight);
+      const width = Math.round(viewport?.width || window.innerWidth);
+      const keyboardOpen = window.innerHeight - height > 140;
+      const standalone = window.matchMedia('(display-mode: standalone)').matches ||
+        (navigator as unknown as { standalone?: boolean }).standalone === true;
+
+      document.documentElement.style.setProperty('--app-viewport-height', `${height}px`);
+      document.documentElement.style.setProperty('--app-viewport-width', `${width}px`);
+      document.documentElement.dataset.keyboardOpen = String(keyboardOpen);
+      document.documentElement.dataset.displayMode = standalone ? 'standalone' : 'browser';
+    };
+
+    updateViewport();
+    window.addEventListener('resize', updateViewport, { passive: true });
+    window.addEventListener('orientationchange', updateViewport, { passive: true });
+    window.visualViewport?.addEventListener('resize', updateViewport, { passive: true });
+    window.visualViewport?.addEventListener('scroll', updateViewport, { passive: true });
   }
 
   /**

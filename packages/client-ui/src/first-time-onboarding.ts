@@ -1,5 +1,5 @@
 /**
- * Aetheris Sovereign First-Time Onboarding & Quick-Start Tour
+ * UREfy Sovereign First-Time Onboarding & Quick-Start Tour
  * 
  * Provides an intuitive, breathable 3-step discovery banner for new users
  * to understand the platform immediately without cognitive overload.
@@ -53,11 +53,11 @@ export class SovereignOnboardingTour {
             <div class="flex items-center space-x-2.5 flex-wrap gap-y-1">
               <span class="text-lg">✨</span>
               <h2 class="text-sm font-bold text-white tracking-tight">
-                Welcome to Aetheris Omni-Sphere — Truly Private Communication &amp; Data
+                Welcome to UREfy — Truly Private Communication &amp; Data
               </h2>
               <span 
                 class="text-[9px] font-mono px-2 py-0.5 rounded-full bg-cyphr/20 text-cyphr font-bold border border-cyphr/40 cursor-help"
-                title="Technical Architecture: 100% P2P, Zero-Trust, Zero Central Intermediaries"
+                title="Technical Architecture: device-held identity, encrypted edge relay, and direct peer transport where available"
               >
                 🔒 100% Private &amp; Secure
               </span>
@@ -96,7 +96,7 @@ export class SovereignOnboardingTour {
               type="button"
               id="btn-onboarding-how-it-works" data-action="call-global" data-raw-click="const el = document.getElementById('onboarding-tech-specs'); if(el) el.classList.toggle('hidden')"
               class="px-2.5 py-1.5 rounded-xl bg-surface-base/60 hover:bg-surface-overlay text-slate-300 hover:text-white border border-white/10 text-[11px] font-mono transition-all cursor-pointer flex items-center space-x-1"
-              title="Explore the complete sovereign architecture specifications of Aetheris"
+              title="Explore the complete sovereign architecture specifications of UREfy"
             >
               <span>ℹ️</span>
               <span>How does it work?</span>

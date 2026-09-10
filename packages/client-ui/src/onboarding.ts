@@ -1,7 +1,7 @@
 /**
  * @file onboarding.ts
  * @package @aetheris/client-ui
- * @description Narrative 4-Step User Onboarding Flow for Aetheris Omni-Sphere.
+ * @description Narrative 4-Step User Onboarding Flow for UREfy.
  * Explains platform values before mechanics:
  *   Step 1: Your Identity Belongs to You (Sovereign Ed25519)
  *   Step 2: Your Content is Fully Protected (Client-side Zero-Knowledge E2EE)
@@ -93,7 +93,7 @@ export class OnboardingWizard {
       const warningText = i18n.t(
         'onboardingNarrative.step4Warning',
         undefined,
-        'This 12-word phrase is the only way to recover your account. Aetheris never holds your keys.'
+        'This 12-word phrase is the only way to recover your account. UREfy never holds your keys.'
       );
       const proceed = await sovereignDialog.confirm(`${warningText}\n\nAre you sure you want to skip without saving?`, {
         title: 'Skip Key Backup',
@@ -180,7 +180,7 @@ export class OnboardingWizard {
     const dateStr = new Date().toISOString().slice(0, 10);
     const content = [
       '================================================================================',
-      'AETHERIS SOVEREIGN IDENTITY & RECOVERY KEY BACKUP',
+      'UREfy SOVEREIGN IDENTITY & RECOVERY KEY BACKUP',
       '================================================================================',
       '',
       `Generated: ${new Date().toUTCString()}`,
@@ -192,7 +192,7 @@ export class OnboardingWizard {
       'CRITICAL SECURITY WARNING:',
       '- Store this file securely offline (encrypted USB or paper vault).',
       '- Never share these 12 words with anyone.',
-      '- Aetheris is a 100% zero-knowledge network and CANNOT recover lost keys.',
+      '- UREfy is a 100% zero-knowledge network and CANNOT recover lost keys.',
       '================================================================================',
     ].join('\n');
 
@@ -201,7 +201,7 @@ export class OnboardingWizard {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `aetheris-recovery-key-${dateStr}.txt`;
+      a.download = `urefy-recovery-key-${dateStr}.txt`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -295,8 +295,8 @@ export class OnboardingWizard {
         <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div class="p-3.5 rounded-xl bg-surface-base border border-white/5 space-y-1.5">
             <span class="text-lg">🛡️</span>
-            <div class="text-xs font-bold text-white">Zero Central Servers</div>
-            <p class="text-[11px] text-slate-400 leading-normal">No identity providers tracking your sessions or selling your metadata.</p>
+            <div class="text-xs font-bold text-white">No Custodial Identity Server</div>
+            <p class="text-[11px] text-slate-400 leading-normal">Identity keys stay on-device while Cloudflare edge relays carry encrypted traffic.</p>
           </div>
           <div class="p-3.5 rounded-xl bg-surface-base border border-white/5 space-y-1.5">
             <span class="text-lg">🔑</span>
@@ -469,7 +469,7 @@ export class OnboardingWizard {
     const warning = i18n.t(
       'onboardingNarrative.step4Warning',
       undefined,
-      'This 12-word phrase is the only way to recover your account. Aetheris never holds your keys.'
+      'This 12-word phrase is the only way to recover your account. UREfy never holds your keys.'
     );
     const savedWordsText = i18n.t('onboardingNarrative.step4SavedWords', undefined, 'I have safely saved my seed words');
     const downloadText = i18n.t('onboardingNarrative.step4DownloadBackup', undefined, 'Download Encrypted Backup');
@@ -651,9 +651,9 @@ export class OnboardingWizard {
           <div class="flex items-center justify-between px-6 py-4 border-b border-white/5 bg-surface-base/80">
             <div class="flex items-center space-x-3">
               <div class="w-7 h-7 rounded-lg bg-gradient-to-tr from-cyan-500 to-indigo-600 flex items-center justify-center text-white font-bold text-xs shadow-md">
-                Æ
+                U
               </div>
-              <span class="text-sm font-bold text-white tracking-wider font-mono">AETHERIS // SOVEREIGN WELCOME</span>
+              <span class="text-sm font-bold text-white tracking-wider font-mono">UREfy // SOVEREIGN WELCOME</span>
             </div>
 
             <div class="flex items-center space-x-2">

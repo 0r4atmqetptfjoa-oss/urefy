@@ -42,7 +42,7 @@ export interface SovereignMigratedItem {
 
 /**
  * 1-Click Sovereign Migration Engine for Legacy Community Archives.
- * Converts legacy centralized forum & chat archives into cryptographically signed Aetheris records.
+ * Converts legacy centralized forum & chat archives into cryptographically signed UREfy records.
  */
 export class CommunityImporter {
   private static readonly MAX_CACHED_PERSONAS = 5000;

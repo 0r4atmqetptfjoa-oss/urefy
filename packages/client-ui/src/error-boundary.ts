@@ -2,7 +2,7 @@
  * @file error-boundary.ts
  * @package @aetheris/client-ui
  * @description Comprehensive Graceful Degradation, Error Boundary, Structured Logging,
- * and Diagnostic Resilience Architecture for Aetheris Omni-Sphere.
+ * and Diagnostic Resilience Architecture for UREfy.
  * Provides global unhandled error interceptors, multi-level structured telemetry,
  * AES-GCM encrypted log export, and friendly Obsidian-styled fallback UI without white-screen crashes.
  */
@@ -742,7 +742,7 @@ export class ErrorBoundary {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `aetheris-diagnostic-${Date.now()}.json`;
+        a.download = `urefy-diagnostic-${Date.now()}.json`;
         a.click();
         URL.revokeObjectURL(url);
       } catch (e) {

@@ -22,6 +22,6 @@ const PORT = parseInt(process.env.PORT || '4000', 10);
 if (process.argv[1]?.endsWith('index.ts') || process.argv[1]?.endsWith('index.js')) {
   const server = new AetherisServer({ port: PORT });
   server.listen(PORT).then(() => {
-    console.log(`[Aetheris Edge Server] Running on http://localhost:${PORT} (WebSocket on ws://localhost:${PORT})`);
+    console.log(`[UREfy Edge Server] Running on http://localhost:${PORT} (WebSocket on ws://localhost:${PORT})`);
   });
 }

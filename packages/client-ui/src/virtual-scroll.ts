@@ -1,5 +1,5 @@
 // virtual-scroll.ts
-// Aetheris Omni-Sphere — High-Performance Virtual Scrolling & Infinite Feed Engine
+// UREfy — High-Performance Virtual Scrolling & Infinite Feed Engine
 // Complete virtualized rendering engine for infinite feeds with constant memory consumption and minimal DOM overhead
 
 import { PASSIVE_EVENT_OPTIONS, rafThrottle, safeRequestAnimationFrame, safeCancelAnimationFrame } from './dry-utils.js';
@@ -842,7 +842,7 @@ export class VirtualScrollEngine<T = unknown> {
         </div>
         <h3 class="text-lg font-bold font-sans text-white tracking-wide mb-2">No Events in Active Feed</h3>
         <p class="text-sm text-slate-400 max-w-md mb-6 leading-relaxed">
-          Current feed is empty or the ZK node is awaiting new blocks on the Aetheris P2P network.
+          Current feed is empty or the ZK node is awaiting new blocks on the UREfy P2P network.
         </p>
         <div class="flex items-center space-x-3">
           <button data-action="call-global" data-global-method="location.reload" class="px-4 py-2 rounded-xl bg-surface-overlay hover:bg-surface-highlight text-cyphr border border-cyphr/30 text-xs font-mono uppercase tracking-wider transition-all shadow-lg hover:shadow-cyan-500/20 active:scale-95">

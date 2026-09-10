@@ -1,6 +1,6 @@
 import { sovereignDialog } from './dialog-modal.js';
 // ============================================================================
-// sovereign-dm.ts — Aetheris Omni-Sphere Sovereign E2EE Direct Messaging
+// sovereign-dm.ts — UREfy Sovereign E2EE Direct Messaging
 // 100% Self-contained, Zero External Dependencies, Production-Ready Implementation.
 // Implements MLS TreeKEM / SFrame Protocol v2.4 simulation, Web of Trust attestation,
 // ratchet forward secrecy, localStorage persistence, and responsive glassmorphism UI.
@@ -11,14 +11,20 @@ import { serviceRegistry, SERVICES } from './service-registry.js';
 import { sovereignWebPush } from './web-push.js';
 import { zkDeliveryManager, renderZKDeliveryBadge } from './delivery-proof.js';
 import { transparencyMode } from './transparency-mode.js';
+import { t } from './i18n.js';
 import {
   generateHybridKemKeyPair,
   encapsulateHybrid,
   decapsulateHybrid,
   bytesToHex,
+  Field,
+  verifyStoredSignedEnvelope,
+  validateDirectMessageFrame,
 } from '@aetheris/core-crypto';
 import { encodeSteganography, decodeSteganography } from './steganography.js';
 import { isLocalDev } from './admin-auth.js';
+import { secureStorage } from './secure-storage.js';
+import { DirectMessagingClient, type PrivateMessageTransport, type PrivateMessageDelivery } from './direct-messaging-client.js';
 import type { DirectMessageAttachment } from './client-state.js';
 
 export type { DirectMessageAttachment };
@@ -32,6 +38,7 @@ export interface DirectMessage {
   timestamp: number;
   isRead: boolean;
   attachment?: DirectMessageAttachment;
+  deliveryStatus?: 'sent' | 'received' | 'local-only';
 }
 
 export interface DMConversation {
@@ -108,9 +115,7 @@ function escapeHtml(str: string): string {
  * Generates unique message identifier.
  */
 function generateId(prefix: string = 'msg'): string {
-  const rand = Math.random().toString(36).substring(2, 10);
-  const time = Date.now().toString(36);
-  return `${prefix}_${time}_${rand}`;
+  return `${prefix}_${crypto.randomUUID()}`;
 }
 
 /**
@@ -158,9 +163,9 @@ function deriveTreeKEMState(peerFP: string, myFP: string, messageCount: number):
     generation,
     treeRootHash,
     ratchetKey,
-    ciphersuite: 'MLS_128_DHKEMP256_AES128GCM_SHA256_Ed25519',
-    forwardSecrecyConfirmed: true,
-    postCompromiseSecurity: true,
+    ciphersuite: 'X25519 + ML-KEM-768 / AES-256-GCM',
+    forwardSecrecyConfirmed: false,
+    postCompromiseSecurity: false,
   };
 }
 
@@ -257,13 +262,28 @@ export class SovereignDMManager {
   private readonly stateKey: string = 'aetheris_sovereign_dm_ui_state';
   private readonly mountId: string = 'aetheris-sovereign-dm-root';
   private isInitialized: boolean = false;
+  public ready: Promise<void>;
+  public persistence: Promise<void> = Promise.resolve();
+  public syncError: string | null = null;
+  private ownerFingerprint = '';
+  private cursor = 0;
+  private inlineMode = true;
+  private syncPromise: Promise<void> | null = null;
+  private syncTimer: ReturnType<typeof setInterval> | null = null;
+  private readonly transport: PrivateMessageTransport;
 
-  constructor() {
+  constructor(transport?: PrivateMessageTransport) {
+    this.transport = transport ?? new DirectMessagingClient(async () => {
+      const { clientStore } = await import('./client-state.js');
+      await clientStore.identityPersistence;
+      if (!clientStore.sovereignKeySet) throw new Error('Unlock the current identity before private messaging');
+      return clientStore.sovereignKeySet;
+    });
     this._loadFromStorage();
-    if (this.conversations.size === 0 && isLocalDev()) {
-      this._seedDemoData();
-    }
+    this.ready = this.hydratePrivateState();
+    void this.ready.catch(error => { this.syncError = error instanceof Error ? error.message : 'Private history is unavailable'; });
     this._setupGlobalBindings();
+    this.attachEventListeners();
   }
 
   // ── Storage and Lifecycle ──────────────────────────────────────────────────
@@ -271,15 +291,6 @@ export class SovereignDMManager {
   private _loadFromStorage(): void {
     if (typeof localStorage === 'undefined') return;
     try {
-      const raw = localStorage.getItem(this.storageKey);
-      if (raw) {
-        const parsed: Record<string, DMConversation> = JSON.parse(raw);
-        this.conversations.clear();
-        for (const [fp, conv] of Object.entries(parsed)) {
-          this.conversations.set(fp, conv);
-        }
-      }
-
       const rawState = localStorage.getItem(this.stateKey);
       if (rawState) {
         const state = JSON.parse(rawState);
@@ -298,25 +309,117 @@ export class SovereignDMManager {
   }
 
   private _saveToStorage(): void {
-    if (typeof localStorage === 'undefined') return;
-    try {
-      const obj: Record<string, DMConversation> = {};
-      for (const [fp, conv] of this.conversations.entries()) {
-        obj[fp] = conv;
-      }
-      localStorage.setItem(this.storageKey, JSON.stringify(obj));
+    this.persistence = this.persistence.catch(() => {}).then(async () => {
+      await this.ready;
+      if (!this.ownerFingerprint) return;
+      await secureStorage.savePrivateState(`dm:${this.ownerFingerprint}`, {
+        version: 1, owner: this.ownerFingerprint, cursor: this.cursor,
+        activePeerFP: this.activePeerFP, conversations: [...this.conversations.values()],
+        showCiphertextToggle: this.showCiphertextToggle, ephemeralExpirySec: this.ephemeralExpirySec,
+      });
+    });
+    void this.persistence.catch(error => { this.syncError = error instanceof Error ? error.message : 'Private history could not be saved'; });
+  }
 
-      const state = {
-        activePeerFP: this.activePeerFP,
-        isOpen: this.isOpen,
-        isMinimized: this.isMinimized,
-        showCiphertextToggle: this.showCiphertextToggle,
-        ephemeralExpirySec: this.ephemeralExpirySec,
-      };
-      localStorage.setItem(this.stateKey, JSON.stringify(state));
-    } catch {
-      // Quota exceeded or private browsing restrictions
+  private async hydratePrivateState(): Promise<void> {
+    const owner = await this.transport.owner();
+    if (this.ownerFingerprint && this.ownerFingerprint !== owner.fingerprint) {
+      this.conversations.clear();
+      this.activePeerFP = null;
+      this.cursor = 0;
     }
+    this.ownerFingerprint = owner.fingerprint;
+    const saved = await secureStorage.getPrivateState<{ version: number; owner: string; cursor: number; activePeerFP?: string; conversations: DMConversation[] }>(`dm:${owner.fingerprint}`);
+    if (saved?.version === 1 && saved.owner === owner.fingerprint && Array.isArray(saved.conversations)) {
+      for (const conversation of saved.conversations) {
+        if (conversation && typeof conversation.peerFingerprint === 'string' && Array.isArray(conversation.messages) && !this.conversations.has(conversation.peerFingerprint)) {
+          this.conversations.set(conversation.peerFingerprint, conversation);
+        }
+      }
+      this.cursor = Number.isSafeInteger(saved.cursor) && saved.cursor >= 0 ? saved.cursor : 0;
+      if (!this.activePeerFP && saved.activePeerFP && this.conversations.has(saved.activePeerFP)) this.activePeerFP = saved.activePeerFP;
+    }
+    if (typeof localStorage !== 'undefined') {
+      const legacy = localStorage.getItem(this.storageKey);
+      if (legacy) {
+        await secureStorage.savePrivateState('legacy-dm-history', JSON.parse(legacy));
+        localStorage.removeItem(this.storageKey);
+      }
+    }
+  }
+
+  public setInlineMode(inline: boolean): void {
+    this.inlineMode = inline;
+    this.syncDOM(this.ownerFingerprint);
+  }
+
+  public async startLiveSync(): Promise<void> {
+    try {
+      await this.ready;
+      const owner = await this.transport.owner();
+      if (owner.fingerprint !== this.ownerFingerprint) {
+        this.ready = this.hydratePrivateState();
+        await this.ready;
+      }
+      await this.transport.register();
+      await this.synchronize();
+      if (!this.syncTimer && typeof window !== 'undefined') {
+        this.syncTimer = setInterval(() => {
+          if (typeof document === 'undefined' || !document.hidden) void this.synchronize();
+        }, 10000);
+        (this.syncTimer as any).unref?.();
+      }
+    } catch (error) {
+      this.syncError = error instanceof Error ? error.message : 'Private messaging is unavailable';
+      this.syncDOM(this.ownerFingerprint);
+    }
+  }
+
+  public async synchronize(): Promise<void> {
+    if (this.syncPromise) return this.syncPromise;
+    this.syncPromise = (async () => {
+      try {
+        await this.ready;
+        const page = await this.transport.poll(this.cursor);
+        for (const delivery of page.messages) this.ingestDelivery(delivery);
+        this._saveToStorage();
+        await this.persistence;
+        this.cursor = page.nextCursor;
+        this._saveToStorage();
+        await this.persistence;
+        this.syncError = page.rejected ? 'An unverifiable message was ignored.' : null;
+        this.syncDOM(this.ownerFingerprint);
+      } catch (error) {
+        this.syncError = error instanceof Error ? error.message : 'Private inbox is unavailable';
+        this.syncDOM(this.ownerFingerprint);
+      }
+    })();
+    try { await this.syncPromise; }
+    finally { this.syncPromise = null; }
+  }
+
+  private ingestDelivery(delivery: PrivateMessageDelivery): void {
+    const isMine = delivery.sender === this.ownerFingerprint;
+    const peer = isMine ? delivery.recipient : delivery.sender;
+    let conversation = this.conversations.get(peer);
+    if (!conversation) {
+      conversation = { peerFingerprint: peer, peerRole: 'MEMBER', messages: [], unreadCount: 0, lastMessageAt: 0 };
+      this.conversations.set(peer, conversation);
+    }
+    if (conversation.messages.some(message => message.id === delivery.id)) return;
+    const isRead = isMine || (this.isOpen && this.activePeerFP === peer);
+    conversation.messages.push({ id: delivery.id, senderFP: delivery.sender, receiverFP: delivery.recipient,
+      encryptedPayload: JSON.stringify(delivery.envelope), plaintext: delivery.content.text,
+      attachment: delivery.content.attachment, timestamp: delivery.createdAt, isRead,
+      deliveryStatus: isMine ? 'sent' : 'received',
+    });
+    conversation.lastMessageAt = Math.max(conversation.lastMessageAt, delivery.createdAt);
+    if (!isRead) conversation.unreadCount++;
+  }
+
+  public destroy(): void {
+    if (this.syncTimer) clearInterval(this.syncTimer);
+    this.syncTimer = null;
   }
 
   private _seedDemoData(): void {
@@ -444,6 +547,7 @@ export class SovereignDMManager {
     this._saveToStorage();
     this._dispatchEvent('aetheris:dm:opened', { peerFP });
     this.syncDOM();
+    void this.startLiveSync();
   }
 
   /**
@@ -521,8 +625,8 @@ export class SovereignDMManager {
     if (this.isOpen && (!peerFP || peerFP === this.activePeerFP)) {
       this.closeDM();
     } else {
-      const targetFP = peerFP || this.activePeerFP || (this.conversations.keys().next().value ?? 'c3dc28cb705e');
-      this.openDM(targetFP, peerRole);
+      const targetFP = peerFP || this.activePeerFP || this.conversations.keys().next().value;
+      if (targetFP) this.openDM(targetFP, peerRole);
     }
   }
 
@@ -590,23 +694,7 @@ export class SovereignDMManager {
         }
       }
     } else {
-      const data = new Uint8ClampedArray(width * height * 4);
-      for (let i = 0; i < data.length; i += 4) {
-        data[i] = 15;
-        data[i + 1] = 23;
-        data[i + 2] = 42;
-        data[i + 3] = 255;
-      }
-      canvas = {
-        width,
-        height,
-        data,
-        getContext: () => ({
-          getImageData: () => ({ width, height, data }),
-          putImageData: () => {},
-        }),
-        toDataURL: () => 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
-      } as unknown as HTMLCanvasElement;
+      throw new Error('Steganography requires a browser canvas');
     }
 
     const encodedCanvas = await encodeSteganography(canvas, plaintext, passphrase);
@@ -615,7 +703,7 @@ export class SovereignDMManager {
       dataUrl = encodedCanvas.toDataURL ? encodedCanvas.toDataURL('image/png') : '';
     } catch (_) {}
     if (!dataUrl || dataUrl === 'data:,' || dataUrl.length < 20) {
-      dataUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+      throw new Error('The encrypted PNG carrier could not be created');
     }
     return dataUrl;
   }
@@ -626,9 +714,7 @@ export class SovereignDMManager {
   public async revealStego(msgId: string, pngUrl: string, customPassphrase?: string): Promise<void> {
     try {
       if (typeof document === 'undefined') {
-        this.revealedStegoMap.set(msgId, 'Decoded confidential transmission');
-        this.syncDOM();
-        return;
+        throw new Error('Steganography requires a browser canvas');
       }
       const img = new Image();
       img.crossOrigin = 'anonymous';
@@ -661,18 +747,8 @@ export class SovereignDMManager {
   public async sendMessage(plaintext: string, myFP: string = 'me_local_node_0x9f4e', attachment?: DirectMessageAttachment): Promise<void> {
     const trimmed = plaintext ? plaintext.trim() : '';
     if ((!trimmed && !attachment) || !this.activePeerFP) return;
-
-    let conv = this.conversations.get(this.activePeerFP);
-    if (!conv) {
-      conv = {
-        peerFingerprint: this.activePeerFP,
-        peerRole: 'MEMBER',
-        messages: [],
-        unreadCount: 0,
-        lastMessageAt: Date.now(),
-      };
-      this.conversations.set(this.activePeerFP, conv);
-    }
+    await this.ready;
+    const peer = this.activePeerFP;
 
     let finalPlaintext = trimmed;
     if (this.isStegoModeActive) {
@@ -680,49 +756,33 @@ export class SovereignDMManager {
         const carrierDataUrl = await this._encodeStegoCarrier(trimmed, this.stegoDecoyPassphrase || undefined);
         finalPlaintext = `STEG_CARRIER_V1::${carrierDataUrl}::[Decoy: Routine network heartbeat ping]`;
       } catch (err) {
-        console.warn('Steganography carrier generation failed, falling back to standard E2EE:', err);
+        this.syncError = err instanceof Error ? err.message : 'The PNG carrier could not be created';
+        this.syncDOM(this.ownerFingerprint);
+        throw err;
       }
     }
 
-    const state = deriveTreeKEMState(this.activePeerFP, myFP, conv.messages.length);
-    const encryptedPayload = simulateEncrypt(
-      finalPlaintext || (attachment ? `[Attachment: ${attachment.name}]` : ''),
-      myFP,
-      this.activePeerFP,
-      state.epoch,
-      state.generation
-    );
-
-    const message: DirectMessage = {
-      id: generateId('msg'),
-      senderFP: myFP,
-      receiverFP: this.activePeerFP,
-      encryptedPayload,
-      plaintext: finalPlaintext,
-      timestamp: Date.now(),
-      isRead: true,
-      attachment,
-    };
-
-    conv.messages.push(message);
-    conv.lastMessageAt = message.timestamp;
-
     try {
-      transparencyMode.recordMessageJourney(message.id, finalPlaintext, myFP, this.activePeerFP, 'outbound');
-    } catch (_) {}
-
-    this._saveToStorage();
-    this._dispatchEvent('aetheris:dm:message_sent', { message });
-    this.syncDOM(myFP);
-
-    // Scroll chat to bottom
-    this._scrollToBottom();
+      const delivery = await this.transport.send(peer, { text: finalPlaintext, ...(attachment ? { attachment } : {}) });
+      this.ingestDelivery(delivery);
+      this._saveToStorage();
+      await this.persistence;
+      this.syncError = null;
+      this._dispatchEvent('aetheris:dm:message_sent', { id: delivery.id, peer });
+      this.syncDOM(delivery.sender);
+      this._scrollToBottom();
+    } catch (error) {
+      this.syncError = error instanceof Error ? error.message : 'Message could not be sent';
+      this.syncDOM(this.ownerFingerprint);
+      throw error;
+    }
   }
 
   /**
    * Receive an incoming message from a peer node into conversation state.
    */
   public receiveMessage(senderFP: string, plaintext: string, myFP: string = 'me_local_node_0x9f4e'): DirectMessage {
+    if (!isLocalDev()) throw new Error('Incoming messages must arrive through the authenticated encrypted transport');
     let conv = this.conversations.get(senderFP);
     if (!conv) {
       conv = {
@@ -782,6 +842,7 @@ export class SovereignDMManager {
    * Simulates an automated contextual reply from a peer node for testing and interactive UX.
    */
   public simulateIncomingMessage(peerFP: string, myFP: string = 'me_local_node_0x9f4e', customText?: string): DirectMessage {
+    if (!isLocalDev()) throw new Error('Simulated incoming messages are not available');
     const defaultReplies = [
       'Encrypted ratcheted frame received and authenticated via Ed25519 signature.',
       'Merkle tree root verified with zero proof violations. P2P relay stable.',
@@ -888,7 +949,18 @@ export class SovereignDMManager {
    * Get deterministic Safety Number verification code between two peers.
    */
   public getSafetyNumber(fpA: string, fpB: string): string {
-    return computeSafetyNumber(fpA, fpB);
+    const conversation = this.conversations.get(fpA) ?? this.conversations.get(fpB);
+    for (let index = (conversation?.messages.length ?? 0) - 1; index >= 0; index--) {
+      try {
+        const envelope = JSON.parse(conversation!.messages[index].encryptedPayload);
+        const frame = envelope.payload?.message;
+        if (!verifyStoredSignedEnvelope(envelope) || !validateDirectMessageFrame(frame)) continue;
+        if (![frame.sender, frame.recipient].includes(fpA) || ![frame.sender, frame.recipient].includes(fpB)) continue;
+        const keys = [frame.senderPublicKey, frame.recipientPublicKey].sort().join(':');
+        return Field.hashToField(`UREFY_DM_SAFETY_V1:${keys}`).toString().padStart(76, '0').slice(0, 60).match(/.{5}/g)!.join(' ');
+      } catch {}
+    }
+    return 'No verified message yet';
   }
 
   /**
@@ -897,48 +969,48 @@ export class SovereignDMManager {
   public exportTranscriptJSON(peerFP: string): string {
     const conv = this.conversations.get(peerFP);
     if (!conv) return '{}';
+    const envelopes = conv.messages.flatMap(message => {
+      try {
+        const envelope = JSON.parse(message.encryptedPayload);
+        return verifyStoredSignedEnvelope(envelope) && validateDirectMessageFrame(envelope.payload?.message) ? [envelope] : [];
+      } catch { return []; }
+    });
     return JSON.stringify({
-      schema: 'Aetheris_Sovereign_DM_Transcript_v2.4',
+      schema: 'UREfy_DM_Encrypted_Transcript_v1',
       peerFingerprint: conv.peerFingerprint,
-      peerRole: conv.peerRole,
       exportedAt: Date.now(),
-      messageCount: conv.messages.length,
-      messages: conv.messages,
+      messageCount: envelopes.length,
+      envelopes,
     }, null, 2);
   }
 
   /**
    * Import conversation transcript from JSON payload.
    */
-  public importTranscriptJSON(jsonString: string): boolean {
+  public async importTranscriptJSON(jsonString: string): Promise<boolean> {
     try {
+      if (jsonString.length > 10 * 1024 * 1024) return false;
       const data = JSON.parse(jsonString);
-      if (!data.peerFingerprint || !Array.isArray(data.messages)) return false;
-
-      const existing = this.conversations.get(data.peerFingerprint);
-      if (existing) {
-        // Merge without duplicates
-        const msgMap = new Map<string, DirectMessage>();
-        for (const m of existing.messages) msgMap.set(m.id, m);
-        for (const m of data.messages) msgMap.set(m.id, m);
-        existing.messages = Array.from(msgMap.values()).sort((a, b) => a.timestamp - b.timestamp);
-        existing.lastMessageAt = existing.messages[existing.messages.length - 1]?.timestamp || Date.now();
-      } else {
-        this.conversations.set(data.peerFingerprint, {
-          peerFingerprint: data.peerFingerprint,
-          peerRole: data.peerRole || 'MEMBER',
-          messages: data.messages,
-          unreadCount: 0,
-          lastMessageAt: data.messages[data.messages.length - 1]?.timestamp || Date.now(),
-        });
-      }
-
+      if (data.schema !== 'UREfy_DM_Encrypted_Transcript_v1' || !Array.isArray(data.envelopes) || data.envelopes.length > 1000) return false;
+      await this.ready;
+      const deliveries = await Promise.all(data.envelopes.map((envelope: any) => this.transport.decodeEnvelope(envelope)));
+      for (const delivery of deliveries) this.ingestDelivery(delivery);
       this._saveToStorage();
+      await this.persistence;
       this._dispatchEvent('aetheris:dm:imported', { peerFP: data.peerFingerprint });
       this.syncDOM();
       return true;
     } catch {
       return false;
+    }
+  }
+
+  public async copyTranscript(peerFP: string): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(this.exportTranscriptJSON(peerFP));
+      (window as any).clientStore?.showToast('Encrypted transcript copied.', 'success');
+    } catch {
+      (window as any).clientStore?.showToast('The transcript could not be copied.', 'warning');
     }
   }
 
@@ -1230,7 +1302,7 @@ export class SovereignDMManager {
                 id="sovereign-dm-input"
                 type="text"
                 autocomplete="off"
-                placeholder="Type an E2EE encrypted message (Enter to send)..."
+                placeholder="${t('relays.typeMessage', undefined, 'Type an E2EE encrypted message (Enter to send)...')}"
                 class="w-full h-10 px-3.5 pr-8 bg-surface-base text-slate-100 placeholder-slate-500 rounded-xl border border-white/10 focus:outline-none focus:border-cyphr/60 focus:ring-1 focus:ring-cyphr/40 text-xs font-sans transition-all" data-keydown="call-global" data-raw-keydown="if(event.key === 'Enter' && !event.shiftKey){ event.preventDefault(); const val = this.value.trim(); if(val){ window.__aetherisDM.sendMessage(val, '${escapeHtml(myFP)}'); this.value = ''; } }"
               />
               <button
@@ -1261,9 +1333,9 @@ export class SovereignDMManager {
             <button
               type="submit"
               class="h-10 px-3.5 rounded-xl bg-gradient-to-r from-cyphr/80 to-blue-600 hover:from-cyphr hover:to-blue-500 text-canvas font-bold text-xs flex items-center justify-center gap-1.5 shadow-lg shadow-cyphr/10 hover:shadow-cyphr/30 active:scale-95 transition-all cursor-pointer"
-              title="Send Encrypted Message"
+              title="${t('relays.sendMessage', undefined, 'Send Encrypted Message')}"
             >
-              <span class="hidden sm:inline font-sans">Send</span>
+              <span class="hidden sm:inline font-sans">${t('relays.sendMessage', undefined, 'Send')}</span>
               <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3" />
               </svg>
@@ -1289,11 +1361,11 @@ export class SovereignDMManager {
               P2P Mesh: 0-Relay Hop
             </span>
             <button
-              type="button" data-action="call-global" data-raw-click="window.__aetherisDM && window.__aetherisDM.simulateIncomingMessage('${escapeHtml(activeFP)}', '${escapeHtml(myFP)}')"
+              type="button" data-action="call-global" data-raw-click="window.__aetherisDM && window.__aetherisDM.sendMessage('URE secure connectivity check', '${escapeHtml(myFP)}')"
               class="text-slate-400 hover:text-cyphr transition-colors flex items-center gap-1"
-              title="Simulate peer reply in local test sandbox"
+              title="Send an encrypted connectivity check"
             >
-              <span>⚡ Echo Simulation</span>
+              <span>⚡ Secure Ping</span>
             </button>
           </div>
         </div>
@@ -1557,7 +1629,7 @@ export class SovereignDMManager {
 
           <div class="pt-2 flex gap-2">
             <button
-              type="button" data-action="call-global" data-raw-click="const t = window.__aetherisDM.exportTranscriptJSON('${escapeHtml(peerFP)}'); navigator.clipboard && navigator.clipboard.writeText(t); if(window.clientStore) window.clientStore.showToast('Encrypted transcript copied to clipboard!', 'success')"
+              type="button" data-action="call-global" data-global-method="__aetherisDM.copyTranscript" data-global-args='${escapeHtml(JSON.stringify([peerFP]))}'
               class="flex-1 py-2 rounded-lg bg-surface-overlay text-slate-200 hover:bg-surface-overlay/80 border border-white/10 text-center font-bold"
             >
               Export JSON Transcript
@@ -1741,7 +1813,17 @@ export class SovereignDMManager {
       document.body.appendChild(mount);
     }
 
-    mount.innerHTML = this.renderDMModal(myFP);
+    if (this.inlineMode) {
+      const peer = this.activePeerFP;
+      mount.innerHTML = peer ? [
+        this.isSafetyModalOpen ? this.renderSafetyNumberModal(peer, this.ownerFingerprint) : '',
+        this.isQuantumInspectorOpen ? this.renderQuantumInspector(peer, this.ownerFingerprint) : '',
+        this.isTreeKEMDrawerOpen ? this.renderTreeKEMInspector(peer) : '',
+      ].join('') : '';
+      (window as any).clientStore?.notify('DM_UPDATED');
+    } else {
+      mount.innerHTML = this.renderDMModal(myFP);
+    }
     this.attachEventListeners();
   }
 
@@ -1761,6 +1843,12 @@ export class SovereignDMManager {
       const peerRole = target.getAttribute('data-peer-role') || 'MEMBER';
       if (peerFP) {
         this.openDM(peerFP, peerRole);
+        if (this.inlineMode) {
+          void import('./messages-view.js').then(({ setActiveMessagesTab }) => {
+            setActiveMessagesTab('dm');
+            return import('./router.js');
+          }).then(({ sovereignRouter }) => sovereignRouter.navigateTo('messages'));
+        }
       }
     });
 

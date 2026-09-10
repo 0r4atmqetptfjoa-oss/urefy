@@ -1,5 +1,5 @@
 /**
- * Aetheris Sovereign Admin Control Panel & Infrastructure Guardian
+ * UREfy Sovereign Admin Control Panel & Infrastructure Guardian
  *
  * Provides real-time telemetry, zero-overage quota protection,
  * and edge observability for Cloudflare R2 and Sovereign Storage.

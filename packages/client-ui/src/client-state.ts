@@ -28,6 +28,7 @@ import { sovereignWebPush } from './web-push.js';
 import { pulseActionsEngine } from './pulse-actions.js';
 import { networkActivityFeed } from './activity-feed.js';
 import { isLocalDev } from './admin-auth.js';
+import { isDemoModeEnabled } from './demo-mode.js';
 import { secureStorage } from './secure-storage.js';
 
 export type SpaceType = 'relays' | 'vault' | 'pulse';
@@ -143,6 +144,8 @@ export class AetherisClientStore {
   public nullifier: string;
   public sovereignIdentity: SovereignIdentity;
   public sovereignKeySet?: SovereignKeyPairSet;
+  public identityPersistence: Promise<void>;
+  public messagesPersistence: Promise<void> = Promise.resolve();
 
   public activeSpace: SpaceType = 'relays';
   public activeChannelId: string = 'relays-general';
@@ -223,11 +226,7 @@ export class AetherisClientStore {
       seed = mnemonicToSeed(this.mnemonic).subarray(0, 32);
     } else if (syncIdentity && syncIdentity.seedHex) {
       seed = hexToBytes(syncIdentity.seedHex);
-      try {
-        this.mnemonic = entropyToMnemonic(seed.subarray(0, 16));
-      } catch {
-        this.mnemonic = generateMnemonic(128);
-      }
+      this.mnemonic = '';
     } else {
       this.mnemonic = generateMnemonic(128);
       seed = mnemonicToSeed(this.mnemonic).subarray(0, 32);
@@ -240,8 +239,8 @@ export class AetherisClientStore {
     this.sovereignIdentity = this.sovereignKeySet.identity;
 
     // Persist securely to Encrypted Vault and purge any legacy plaintext in localStorage
-    secureStorage.saveIdentity(this.mnemonic, seed, this.keypair.fingerprint, this.sovereignIdentity);
-    secureStorage.purgeLegacyLocalStorage();
+    this.identityPersistence = secureStorage.saveIdentity(this.mnemonic, seed, this.keypair.fingerprint, this.sovereignIdentity);
+    void this.identityPersistence.catch(() => this.showToast('Encrypted identity could not be saved. Keep a recovery backup.', 'warning'));
 
     if (typeof localStorage !== 'undefined') {
       const savedUiMode = localStorage.getItem('aetheris_ui_mode');
@@ -354,39 +353,24 @@ export class AetherisClientStore {
   /** Persist all in-memory messages to localStorage and IndexedDB */
   public persistMessagesLocally(): void {
     // Encrypted Vault: persist private messages via AES-GCM-256 in SecureStorage (zero plaintext in localStorage)
-    for (const [ch, msgs] of this.messages.entries()) {
-      secureStorage.saveChannelMessages(ch, msgs.slice(-100)).catch(() => {});
-    }
+    this.messagesPersistence = Promise.all([...this.messages.entries()].map(([channel, messages]) =>
+      secureStorage.saveChannelMessages(channel, messages)
+    )).then(() => {});
+    void this.messagesPersistence.catch(() => this.showToast('Encrypted message history could not be saved.', 'warning'));
     if (typeof localStorage !== 'undefined') {
       try {
         localStorage.removeItem('aetheris_messages_cache');
       } catch (_) {}
     }
 
-    if (typeof window !== 'undefined') {
-      import('./indexed-db.js').then(({ aethDB }) => {
-        aethDB.open().then(() => {
-          for (const [ch, msgs] of this.messages.entries()) {
-            for (const m of msgs.slice(-50)) {
-              aethDB.put('messages', {
-                id: m.id,
-                channelId: ch,
-                content: m.text,
-                authorFP: m.authorFingerprint,
-                timestamp: m.createdAt,
-                epoch: m.epoch,
-                status: m.status,
-                isMine: m.isMine,
-              }).catch(() => {});
-            }
-          }
-        }).catch(() => {});
-      }).catch(() => {});
-    }
+  }
+
+  public loadDemoData(): void {
+    this._populateDemoPostsAndMembers();
   }
 
   private seedInitialPostsAndMembers(): void {
-    if (!isLocalDev()) {
+    if (!isDemoModeEnabled()) {
       this.members = [
         { fingerprint: this.keypair.fingerprint, role: 'MEMBER', status: 'online', isZKVerified: true, avatarSeed: 'me' }
       ];
@@ -394,6 +378,10 @@ export class AetherisClientStore {
       return;
     }
 
+    this._populateDemoPostsAndMembers();
+  }
+
+  private _populateDemoPostsAndMembers(): void {
     this.members = [
       { fingerprint: 'genesis-core', role: 'GUARDIAN', status: 'online', isZKVerified: true, avatarSeed: 'gen' },
       { fingerprint: 'c3dc28cb705e', role: 'ARCHIVIST', status: 'online', isZKVerified: true, avatarSeed: 'arc' },
@@ -409,7 +397,7 @@ export class AetherisClientStore {
         channelId: 'vault-releases',
         authorFingerprint: 'c3dc28cb705e',
         authorRole: 'ARCHIVIST',
-        title: 'Aetheris Cryptographic Micro-Kernel v1.0.0 (Verified x86_64 Release)',
+        title: 'UREfy Cryptographic Micro-Kernel v1.0.0 (Verified x86_64 Release)',
         content: 'Official microkernel distribution compiled with zero telemetry and verified reproducible build hashes. Tested against GCC 14 and Clang 19 with hardened stack canary protection. Zero dead links via BitTorrent mesh.',
         flair: 'VERIFIED RELEASE',
         meritVotes: 342,
@@ -467,7 +455,7 @@ export class AetherisClientStore {
         authorFingerprint: 'a89104fa2211',
         authorRole: 'MODERATOR',
         title: 'Deep-Dive: How ZK-RLN Eradicates Bots without Selling Your Identity to Third-Party KYC',
-        content: 'Centralized platforms outsource identity verification to third-party brokers, which periodically leak passport scans. In Aetheris, Shamir Secret Sharing polynomials are evaluated locally in WebAssembly. You only ever reveal your secret key if you deliberately violate the rate limit by double-posting in the same epoch.',
+        content: 'Centralized platforms outsource identity verification to third-party brokers, which periodically leak passport scans. In UREfy, Shamir Secret Sharing polynomials are evaluated locally in WebAssembly. You only ever reveal your secret key if you deliberately violate the rate limit by double-posting in the same epoch.',
         flair: 'SECURITY ADVISORY',
         meritVotes: 218,
         userVoted: 0,
@@ -477,7 +465,7 @@ export class AetherisClientStore {
           id: 'post-1',
           authorFingerprint: 'c3dc28cb705e',
           authorRole: 'ARCHIVIST',
-          title: 'Aetheris Cryptographic Micro-Kernel v1.0.0 (Verified x86_64 Release)',
+          title: 'UREfy Cryptographic Micro-Kernel v1.0.0 (Verified x86_64 Release)',
           content: 'Official microkernel distribution compiled with zero telemetry and verified reproducible build hashes.',
         },
         createdAt: Date.now() - 1000 * 60 * 360,
@@ -488,7 +476,7 @@ export class AetherisClientStore {
         channelId: 'pulse-global',
         authorFingerprint: 'f40019bc88a2',
         authorRole: 'MEMBER',
-        title: 'Reverse Engineering: Visual Section Analysis of Obfuscated Malware vs Aetheris Clean Builds',
+        title: 'Reverse Engineering: Visual Section Analysis of Obfuscated Malware vs UREfy Clean Builds',
         content: 'Notice how commercial packers (UPX0, Themida) spike entropy into the 7.8-7.9 bit red zone, while clean compilers distribute code entropy evenly across text and rodata sections.',
         flair: 'TECH DISCUSSION',
         meritVotes: 194,
@@ -638,10 +626,10 @@ export class AetherisClientStore {
                 byteSize: obj.size || 0,
                 sha256: obj.sha256,
                 crc32: 'VERIFIED',
-                entropy: 7.85,
-                verdict: 'CLEAN',
-                merkleRoot: obj.sha256.substring(0, 32),
-                seederCount: 8,
+                entropy: Number.isFinite(obj.entropy) ? obj.entropy : 0,
+                verdict: obj.verdict || 'UNKNOWN',
+                merkleRoot: obj.merkleRoot || '',
+                seederCount: Number.isSafeInteger(obj.seederCount) ? obj.seederCount : 0,
                 createdAt: obj.uploadedAt || Date.now(),
               });
               hasChanged = true;
@@ -770,11 +758,11 @@ export class AetherisClientStore {
                 fileName: en.fileName,
                 byteSize: en.byteSize,
                 sha256: en.sha256,
-                crc32: en.crc32 || 'VERIFIED',
-                entropy: en.entropy || 7.5,
-                verdict: en.verdict || 'CLEAN',
-                merkleRoot: en.merkleRoot || en.sha256.substring(0, 32),
-                seederCount: en.seederCount || 1,
+                crc32: en.crc32 || 'UNKNOWN',
+                entropy: Number.isFinite(en.entropy) ? en.entropy : 0,
+                verdict: en.verdict || 'UNKNOWN',
+                merkleRoot: en.merkleRoot || '',
+                seederCount: Number.isSafeInteger(en.seederCount) ? en.seederCount : 0,
                 createdAt: en.createdAt || Date.now(),
               });
               hasChanged = true;
@@ -1422,7 +1410,7 @@ export class AetherisClientStore {
     if (this.uiMode === mode) return;
     this.uiMode = mode;
     if (typeof localStorage !== 'undefined') {
-      localStorage.setItem('aetheris_ui_mode', mode);
+      try { localStorage.setItem('aetheris_ui_mode', mode); } catch {}
     }
     const isSov = this.isSovereignMode();
     try {
@@ -1616,15 +1604,41 @@ export class AetherisClientStore {
     }
 
     const seed = mnemonicToSeed(cleanPhrase).subarray(0, 32);
-    this.mnemonic = cleanPhrase;
+    return this.restoreIdentityFromSeed(bytesToHex(seed), cleanPhrase);
+  }
+
+  public restoreIdentityFromSeed(seedHex: string, mnemonic = ''): boolean {
+    if (!/^[0-9a-f]{64}$/i.test(seedHex)) return false;
+    if (mnemonic && (!validateMnemonic(mnemonic) || bytesToHex(mnemonicToSeed(mnemonic).subarray(0, 32)) !== seedHex.toLowerCase())) return false;
+    const seed = hexToBytes(seedHex);
+    this.mnemonic = mnemonic;
     this.keypair = generateKeyPair(seed);
     this.secretKey = Field.hashToField(bytesToHex(seed));
     this.nullifier = ZKRLN.computeNullifier(this.secretKey);
+    this.sovereignKeySet = createSovereignIdentity({ seed });
+    this.sovereignIdentity = this.sovereignKeySet.identity;
 
-    secureStorage.saveIdentity(this.mnemonic, seed, this.keypair.fingerprint);
-    secureStorage.purgeLegacyLocalStorage();
+    this.identityPersistence = secureStorage.saveIdentity(this.mnemonic, seed, this.keypair.fingerprint, this.sovereignIdentity);
+    void this.identityPersistence.catch(() => this.showToast('The restored identity could not be saved. Do not close this session without a backup.', 'warning'));
 
-    this.showToast('✨ Sovereign identity successfully restored from seed phrase!', 'success');
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    if (this.ws) {
+      this.ws.onclose = null;
+      this.ws.onmessage = null;
+      this.ws.close();
+      this.ws = null;
+    }
+    this.isConnected = false;
+    const restoredFingerprint = this.keypair.fingerprint;
+    void this.identityPersistence.then(() => {
+      if (this.keypair.fingerprint !== restoredFingerprint) return;
+      this.showToast('Identity restored and saved in the encrypted vault.', 'success');
+      this.connect();
+      this.notify('IDENTITY_RESTORED', { fingerprint: restoredFingerprint });
+    }).catch(() => {});
     this.notify();
     this.syncFromEdge();
     return true;

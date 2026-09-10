@@ -1,5 +1,5 @@
 /**
- * Aetheris Web Application Firewall (WAF) & Layer 7 Anti-DDoS Defense
+ * UREfy Web Application Firewall (WAF) & Layer 7 Anti-DDoS Defense
  * 
  * Implements:
  * - Token Bucket Rate Limiter with burst capacity

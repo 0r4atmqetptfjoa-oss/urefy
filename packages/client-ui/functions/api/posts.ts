@@ -1,5 +1,5 @@
 // ===========================================================================
-// AETHERIS OMNI-SPHERE — POSTS & CHRONOSTREAM EDGE API
+// UREfy — POSTS & CHRONOSTREAM EDGE API
 // Supports: Cloudflare D1 (SQL), Cloudflare KV (Cache), Cloudflare R2
 // Automatic fallback to In-Memory Edge Store when bindings are not present.
 // ===========================================================================

@@ -1,5 +1,5 @@
-// ===========================================================================
-// AETHERIS OMNI-SPHERE — DSA NOTICE & TAKEDOWN API (/api/report)
+﻿// ===========================================================================
+// UREfy — DSA NOTICE & TAKEDOWN API (/api/report)
 // Compliance: EU Digital Services Act (DSA) Regulation 2022/2065 Art. 16
 // Handles public illegal content reporting & admin review queue.
 // ===========================================================================
@@ -140,7 +140,7 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
         targetId,
         status: 'pending',
         persisted: persistedToD1 ? 'Cloudflare-D1' : 'Edge-Memory',
-        legalNotice: 'Sesizarea a fost înregistrată cu succes conform Articolului 16 din Regulamentul (UE) 2022/2065 (Digital Services Act). Punctul de contact legal@aetheris.network a fost notificat.',
+        legalNotice: 'Sesizarea a fost înregistrată cu succes conform Articolului 16 din Regulamentul (UE) 2022/2065 (Digital Services Act). Punctul de contact razvan@urefy.com a fost notificat.',
         createdAt: now,
       }),
       {

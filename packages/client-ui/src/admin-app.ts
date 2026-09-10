@@ -1,6 +1,6 @@
 import { secureStorage } from './secure-storage.js';
 /**
- * Aetheris Admin Application
+ * UREfy Admin Application
  *
  * Standalone admin control panel — completely separate from the user-facing site.
  * Route: /admin.html (or /admin via server redirect)
@@ -54,9 +54,9 @@ function renderLoginPage(): string {
         <!-- LOGO -->
         <div class="text-center mb-8">
           <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-tr from-amber/30 via-orange-500/20 to-amber/10 border border-amber/30 shadow-2xl shadow-amber/10 mb-4">
-            <span class="text-2xl font-black text-amber tracking-widest">Æ</span>
+            <span class="text-2xl font-black text-amber tracking-widest">U</span>
           </div>
-          <h1 class="text-xl font-bold text-white tracking-wide">AETHERIS</h1>
+          <h1 class="text-xl font-bold text-white tracking-wide">UREfy</h1>
           <p class="text-xs text-slate-500 mt-1 font-mono uppercase tracking-widest">Admin Control Panel</p>
         </div>
 
@@ -111,7 +111,7 @@ function renderLoginPage(): string {
 
             <div class="mt-6 pt-4 border-t border-white/5 text-center">
               <a href="/" class="text-xs text-slate-600 hover:text-slate-400 transition-colors">
-                ← Back to Aetheris
+                ← Back to UREfy
               </a>
             </div>
           </div>

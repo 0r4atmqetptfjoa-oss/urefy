@@ -10,7 +10,7 @@ import { renderProfileTabsHTML } from './profile-tabs.js';
 import { filterProfilePosts, renderProfileTimelinePostsHTML } from './profile-posts.js';
 import { renderProfileSettingsHTML, renderSettingsCategoryContentHTML } from './profile-settings.js';
 import { ClientPost } from '../client-state.js';
-import { isLocalDev } from '../admin-auth.js';
+import { isDemoModeEnabled } from '../demo-mode.js';
 
 export class ProfileView {
   public activeTab: ProfileTab = 'pulses';
@@ -29,13 +29,13 @@ export class ProfileView {
       } catch {
         this.followingSet = new Set();
       }
-    } else if (isLocalDev()) {
+    } else if (isDemoModeEnabled()) {
       this.followingSet = new Set(['c3dc28cb705e', 'a89104fa2211', 'f40019bc88a2']);
     } else {
       this.followingSet = new Set();
     }
 
-    if (isLocalDev()) {
+    if (isDemoModeEnabled()) {
       this.seedDevProfiles();
     }
   }
@@ -47,7 +47,7 @@ export class ProfileView {
       handle: 'genesis',
       avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80',
       banner: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1200&auto=format&fit=crop&q=80',
-      bio: 'Sovereign root node for the Aetheris Mesh. Decoupled from central state, running Post-Quantum Cryptography and Web-of-Trust validation.',
+      bio: 'Sovereign root node for the UREfy Mesh. Decoupled from central state, running Post-Quantum Cryptography and Web-of-Trust validation.',
       location: 'Global Anycast Mesh (Cloudflare)',
       website: 'https://aetheris-omni-sphere.pages.dev',
       joinedEpoch: 'Epoch 0 (Genesis)',

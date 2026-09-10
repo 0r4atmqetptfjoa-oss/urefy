@@ -1,5 +1,5 @@
 /**
- * Aetheris Cyber Defense Center & Real-time WAF Threat Observatory
+ * UREfy Cyber Defense Center & Real-time WAF Threat Observatory
  * 
  * Provides:
  * - Live Layer 7 WAF Telemetry & Threat Map
@@ -45,6 +45,26 @@ export class CyberDefenseHub {
       this.ddosPacketsDropped = 18420;
       this.seedInitialLogs();
     }
+  }
+
+  public loadDemoData(): void {
+    this.totalAttacksMitigated = 247;
+    this.activeQuarantinedIPs = 14;
+    this.ddosPacketsDropped = 18420;
+    this.seedInitialLogs();
+  }
+
+  public getThreatLogs(): SecurityThreatLog[] {
+    return [...this.threatLogs];
+  }
+
+  public getSecurityTelemetry() {
+    return {
+      totalAttacksMitigated: this.totalAttacksMitigated,
+      activeQuarantinedIPs: this.activeQuarantinedIPs,
+      ddosPacketsDropped: this.ddosPacketsDropped,
+      powDifficulty: this.powDifficulty,
+    };
   }
 
   private seedInitialLogs(): void {

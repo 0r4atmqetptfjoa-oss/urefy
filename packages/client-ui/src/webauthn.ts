@@ -3,7 +3,7 @@ import { sovereignDialog } from './dialog-modal.js';
  * @file webauthn.ts
  * @package @aetheris/client-ui
  * @description Complete FIDO2 / WebAuthn Level 3 hardware security authentication engine,
- * biometrics manager, and encrypted vault gatekeeper for the Aetheris Omni-Sphere.
+ * biometrics manager, and encrypted vault gatekeeper for the UREfy.
  * Self-contained, zero external dependencies, 100% functional implementation.
  */
 
@@ -257,7 +257,7 @@ export class WebAuthnManager {
    */
   public async registerCredential(
     userName: string = 'sovereign_node',
-    displayName: string = 'Aetheris Sovereign Identity'
+    displayName: string = 'UREfy Sovereign Identity'
   ): Promise<WebAuthnCredential | null> {
     if (!this.isSupported) {
       this._showNotification('WebAuthn is not supported in this browser.', 'crimson');
@@ -272,7 +272,7 @@ export class WebAuthnManager {
       const publicKeyCredentialCreationOptions: PublicKeyCredentialCreationOptions = {
         challenge: toArrayBuffer(challenge),
         rp: {
-          name: 'Aetheris Omni-Sphere Sovereign Vault',
+          name: 'UREfy Sovereign Vault',
           id: rpId,
         },
         user: {

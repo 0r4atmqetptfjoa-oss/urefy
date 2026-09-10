@@ -1,5 +1,5 @@
 /**
- * Aetheris Omni-Sphere — On-Device Sovereign AI Assistant Engine
+ * UREfy — On-Device Sovereign AI Assistant Engine
  * (ai-assistant.ts)
  *
  * 100% Self-Contained, Strict TypeScript, Zero External Cloud Dependencies.
@@ -388,6 +388,16 @@ export class LocalAIAssistant {
    */
   public checkAndEmitSuggestions(): ProactiveSuggestion | null {
     if (!this.proactiveEnabled) return null;
+    // Mobile/PWA keeps the composer and bottom navigation unobstructed. The same
+    // recommendations remain available inside the assistant panel.
+    if (typeof window !== 'undefined' && typeof window.matchMedia === 'function' && (
+      window.matchMedia('(max-width: 767px)').matches ||
+      window.matchMedia('(display-mode: standalone)').matches
+    )) return null;
+    if (typeof document !== 'undefined' && (
+      document.getElementById('aetheris-onboarding-overlay') ||
+      document.getElementById('sovereign-push-opt-in-banner')
+    )) return null;
     const now = Date.now();
     if (this.lastSuggestionTime > 0 && now - this.lastSuggestionTime < this.suggestionCooldownMs) {
       return null;
@@ -1343,7 +1353,7 @@ export class LocalAIAssistant {
             </div>
             <div>
               <div class="flex items-center space-x-2">
-                <span class="font-bold text-sm text-white tracking-wide">Aetheris Sovereign AI</span>
+                <span class="font-bold text-sm text-white tracking-wide">UREfy Sovereign AI</span>
                 <span class="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-signal/10 text-signal border border-signal/30 font-medium">
                   On-Device NLP
                 </span>
@@ -2149,7 +2159,7 @@ export class LocalAIAssistant {
         }
       }
       if (!content) {
-        content = 'Aetheris sovereign decentralized communication protocol supporting zero-knowledge nullifiers and P2P gossip mesh synchronization.';
+        content = 'UREfy sovereign decentralized communication protocol supporting zero-knowledge nullifiers and P2P gossip mesh synchronization.';
       }
 
       state = {

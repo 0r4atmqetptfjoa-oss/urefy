@@ -1,4 +1,4 @@
-# Terms of Service & Digital Services Act Compliance — Aetheris Omni-Sphere
+# Terms of Service & Digital Services Act Compliance — UREfy
 
 **Governing Jurisdiction**: European Union (Digital Services Act — Regulation (EU) 2022/2065 & E-Commerce Directive 2000/31/EC).  
 **Effective Date**: September 5, 2026  
@@ -8,7 +8,7 @@
 
 ## 1. Decentralized Architecture & Network Topology
 
-1.1. **Aetheris Omni-Sphere** is a decentralized, peer-to-peer (P2P) protocol and software suite utilizing Zero-Knowledge proofs and post-quantum hybrid cryptographic primitives.  
+1.1. **UREfy** is a decentralized, peer-to-peer (P2P) protocol and software suite utilizing Zero-Knowledge proofs and post-quantum hybrid cryptographic primitives.  
 1.2. The network operates via autonomous, community-hosted relay nodes. Identities are self-sovereign, anchored in Ed25519 keypairs deterministically derived from user-held BIP-39 mnemonic phrases.  
 1.3. Private conversations and direct messages are end-to-end encrypted (E2EE) with hybrid ML-KEM-768 / X25519 and AES-256-GCM. Node operators and edge routers do not possess decryption keys and cannot inspect private payloads.
 
@@ -25,7 +25,7 @@
 ## 3. User Responsibility & Strictly Prohibited Content
 
 3.1. Users bear sole and direct legal liability for all public broadcasts, messages, binary payloads, and publications signed with their cryptographic keys.  
-3.2. Aetheris strictly prohibits the transmission, hosting, or distribution of:
+3.2. UREfy strictly prohibits the transmission, hosting, or distribution of:
 - **Child Sexual Abuse Material (CSAM)** — Absolute zero tolerance; immediate reporting and blacklisting.
 - **Terrorist Content & Incitement to Violence** pursuant to EU Regulation 2021/784.
 - **Active Exploits, Ransomware, & Malicious Payloads** intended to compromise computer systems.
@@ -35,7 +35,7 @@
 
 ## 4. Notice and Action Mechanism (DSA Article 16)
 
-4.1. Any party may submit an electronic notice concerning alleged illegal content via the integrated **"🚩 Report Illegal Content / Abuse"** interface available on every post, or via email to `legal@aetheris.network`.  
+4.1. Any party may submit an electronic notice concerning alleged illegal content via the integrated **"🚩 Report Illegal Content / Abuse"** interface available on every post, or via email to `love4jpx@gmail.com`.  
 4.2. In compliance with DSA Article 16, notices must include:
 - A substantiated explanation of why the information is alleged to be illegal.
 - The precise cryptographic identifier or URL of the content.
@@ -60,5 +60,5 @@ Operatorii de releu beneficiază de regimul „safe harbor” prevăzut de Artic
 Sunt interzise necondiționat: materialele CSAM, conținutul terorist, malware-ul și exploit-urile.
 
 ### 3. Mecanism Notice & Takedown (DSA Art. 16)
-Sesizările privind conținutul ilegal pot fi transmise prin butonul „Raportează” sau la `legal@aetheris.network`.
+Sesizările privind conținutul ilegal pot fi transmise prin butonul „Raportează” sau la `love4jpx@gmail.com`.
 

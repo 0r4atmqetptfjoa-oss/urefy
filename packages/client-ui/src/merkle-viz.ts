@@ -1,5 +1,5 @@
 ﻿/**
- * Aetheris Interactive Merkle Block & P2P Swarm Ingress Visualizer.
+ * UREfy Interactive Merkle Block & P2P Swarm Ingress Visualizer.
  * Provides a real-time cryptographic visualizer for BitTorrent/WebRTC piece-by-piece
  * Merkle verification, Shannon entropy distributions, and seeder swarm integrity.
  */

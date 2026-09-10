@@ -222,7 +222,7 @@ describe('Custom Theme Visual Builder & Real-time CSS Customizer', () => {
 
       const parsed = JSON.parse(jsonStr);
       expect(parsed.version).toBe('1.0.0');
-      expect(parsed.generator).toContain('Aetheris Omni-Sphere');
+      expect(parsed.generator).toContain('UREfy');
       expect(parsed.exportedAt).toBeDefined();
       expect(parsed.theme).toBeDefined();
       expect(parsed.theme.accentColor).toBe('#22c55e');
@@ -233,7 +233,7 @@ describe('Custom Theme Visual Builder & Real-time CSS Customizer', () => {
     it('should import a full exported theme bundle from JSON string', () => {
       const exportPayload = {
         version: '1.0.0',
-        generator: 'Aetheris Omni-Sphere Custom Theme Builder',
+        generator: 'UREfy Custom Theme Builder',
         exportedAt: new Date().toISOString(),
         theme: {
           id: 'imported-theme-1',
@@ -346,7 +346,7 @@ describe('Custom Theme Visual Builder & Real-time CSS Customizer', () => {
       const modalHtml = builder.renderBuilderModal();
 
       // Modal shell and header
-      expect(modalHtml).toContain('Aetheris Custom Theme Studio');
+      expect(modalHtml).toContain('UREfy Custom Theme Studio');
       expect(modalHtml).toContain('VISUAL BUILDER');
       expect(modalHtml).toContain('role="dialog"');
       expect(modalHtml).toContain('id="btn-close-custom-theme-builder"');

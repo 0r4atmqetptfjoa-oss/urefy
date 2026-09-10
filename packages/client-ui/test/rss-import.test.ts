@@ -530,7 +530,7 @@ describe('Sovereign RSS / Atom Feed Aggregator (RSSImporter)', () => {
       expect(panelHtml).toContain('rss-item-card');
       expect(panelHtml).toContain('btn-toggle-bookmark');
       expect(panelHtml).toContain('btn-toggle-read');
-      expect(panelHtml).toContain('Aetheris CyberSec Engine');
+      expect(panelHtml).toContain('UREfy CyberSec Engine');
     });
 
     it('should render the Add Feed modal when showAddFeedModal is true', () => {

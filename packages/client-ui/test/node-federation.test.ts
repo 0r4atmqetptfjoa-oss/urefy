@@ -33,7 +33,7 @@ describe('Sovereign Node Federation Protocol (Item 20)', () => {
       expect(nodeInfo).toBeDefined();
       expect(nodeInfo.version).toBe('2.1');
       expect(nodeInfo.software).toEqual({
-        name: 'aetheris-omni-sphere',
+        name: 'urefy',
         version: '1.0.0',
       });
       expect(Array.isArray(nodeInfo.protocols)).toBe(true);
@@ -56,7 +56,7 @@ describe('Sovereign Node Federation Protocol (Item 20)', () => {
       expect(wellKnownRes.headers.get('Content-Type')).toContain('application/json');
       const wellKnownData: NodeInfo21 = await wellKnownRes.json();
       expect(wellKnownData.version).toBe('2.1');
-      expect(wellKnownData.software.name).toBe('aetheris-omni-sphere');
+      expect(wellKnownData.software.name).toBe('urefy');
       expect(wellKnownData.protocols).toContain('activitypub');
 
       // Test /api/federation/nodeinfo
@@ -86,8 +86,8 @@ describe('Sovereign Node Federation Protocol (Item 20)', () => {
       expect(actor['@context']).toContain('https://w3id.org/security/v1');
       expect(actor.id).toBe(`${origin}/api/federation/actor`);
       expect(actor.type).toBe('Application');
-      expect(actor.preferredUsername).toBe('aetheris-node');
-      expect(actor.name).toBe('Aetheris Sovereign Node');
+      expect(actor.preferredUsername).toBe('urefy-node');
+      expect(actor.name).toBe('UREfy Sovereign Node');
       expect(actor.inbox).toBe(`${origin}/api/federation/inbox`);
       expect(actor.outbox).toBe(`${origin}/api/federation/outbox`);
 
@@ -421,7 +421,124 @@ describe('Sovereign Node Federation Protocol (Item 20)', () => {
       expect(html).toContain('id="btn-federation-sync-all"');
       expect(html).toContain('id="btn-federation-broadcast-test"');
       expect(html).toContain('Inbound Federated Pulse Stream');
-      expect(html).toContain('Ed25519 Verified');
+      expect(html).toContain('Ed25519 Enforced');
+
+      // Test with loaded pulses
+      nodeFederationEngine.loadDemoData();
+      const htmlWithPulses = nodeFederationEngine.renderFederatedMeshCard();
+      expect(htmlWithPulses).toContain('Ed25519 Verified');
+    });
+  });
+
+  // ─── 6. ACTIVITYPUB COMPLIANCE: WEBFINGER, HTTP SIGNATURES & SANITIZATION ──
+  describe('ActivityPub Federation Hardening (Etapa 2)', () => {
+    it('should respond to RFC 7033 WebFinger requests with valid JRD descriptor', async () => {
+      const { onRequestGet: onWebfingerGet } = await import('../functions/.well-known/webfinger.js');
+      const req = new Request('https://aetheris.mesh/.well-known/webfinger?resource=acct:alice@aetheris.mesh');
+      const res = await onWebfingerGet({ request: req });
+
+      expect(res.status).toBe(200);
+      expect(res.headers.get('Content-Type')).toContain('application/jrd+json');
+      const jrd = await res.json();
+      expect(jrd.subject).toBe('acct:alice@aetheris.mesh');
+      expect(jrd.links).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ rel: 'self', type: 'application/activity+json' }),
+          expect.objectContaining({ rel: 'http://nodeinfo.diaspora.software/ns/schema/2.1' }),
+        ])
+      );
+    });
+
+    it('should reject WebFinger requests without resource parameter', async () => {
+      const { onRequestGet: onWebfingerGet } = await import('../functions/.well-known/webfinger.js');
+      const req = new Request('https://aetheris.mesh/.well-known/webfinger');
+      const res = await onWebfingerGet({ request: req });
+      expect(res.status).toBe(400);
+    });
+
+    it('should sign and verify RFC 9421 / draft-cavage HTTP Message Signatures', async () => {
+      const { computeHttpDigest, signHttpRequest, verifyHttpRequestSignature } = await import(
+        '../functions/api/_http-signatures.js'
+      );
+      const testBody = JSON.stringify({ hello: 'federation' });
+      const digest = await computeHttpDigest(testBody);
+      expect(digest).toMatch(/^SHA-256=[A-Za-z0-9+/=]+$/);
+
+      const keyPair = generateKeyPair();
+      const headers: Record<string, string> = {
+        Host: 'relay.aetheris.mesh',
+        Date: new Date().toUTCString(),
+        Digest: digest,
+        'Content-Type': 'application/activity+json',
+      };
+
+      const sigHeader = signHttpRequest(
+        'POST',
+        '/api/federation/inbox',
+        headers,
+        'https://peer.mesh/actor#main-key',
+        keyPair.privateKeyHex
+      );
+      expect(sigHeader).toContain('keyId="https://peer.mesh/actor#main-key"');
+      expect(sigHeader).toContain('signature="');
+
+      const keyResolver = async (id: string) => (id === 'https://peer.mesh/actor#main-key' ? keyPair.publicKeyHex : null);
+
+      const verificationResult = await verifyHttpRequestSignature(
+        'POST',
+        '/api/federation/inbox',
+        { ...headers, Signature: sigHeader },
+        testBody,
+        keyResolver
+      );
+      expect(verificationResult.error).toBeUndefined();
+      expect(verificationResult.valid).toBe(true);
+
+      // Tampered path verification failure
+      const tamperedResult = await verifyHttpRequestSignature(
+        'POST',
+        '/api/federation/other',
+        { ...headers, Signature: sigHeader },
+        testBody,
+        keyResolver
+      );
+      expect(tamperedResult.valid).toBe(false);
+    });
+
+    it('should reject an unsigned Follow activity', async () => {
+      const followEnvelope = {
+        '@context': 'https://www.w3.org/ns/activitystreams',
+        type: 'Follow',
+        actor: 'https://mastodon.social/users/alice',
+        object: 'https://aetheris.mesh/api/federation/actor',
+      };
+
+      const req = new Request('https://aetheris.mesh/api/federation/inbox', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/activity+json' },
+        body: JSON.stringify(followEnvelope),
+      });
+
+      const res = await onRequestPost({ request: req });
+      expect(res.status).toBe(401);
+      expect(res.headers.get('Content-Type')).toContain('application/activity+json');
+      const data = await res.json();
+      expect(data.success).toBe(false);
+      expect(data.error).toContain('signature');
+    });
+
+    it('should sanitize dangerous HTML tags and scripts from federated content', async () => {
+      const { sanitizeFederatedContent } = await import('../functions/api/federation.js');
+      const maliciousPayload = '<p>Safe text</p><script>alert("xss")</script><img src="x" onerror="steal()"><a href="javascript:void(0)">Click</a>';
+      const sanitized = sanitizeFederatedContent(maliciousPayload);
+
+      expect(sanitized).not.toContain('<script>');
+      expect(sanitized).not.toContain('alert');
+      expect(sanitized).not.toContain('onerror');
+      expect(sanitized).not.toContain('javascript:');
+      expect(sanitized).toContain('Safe text');
+      expect(sanitized).not.toContain('<p>');
     });
   });
 });
+

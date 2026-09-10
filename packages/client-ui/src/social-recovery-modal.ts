@@ -9,6 +9,7 @@
 import { clientStore } from './client-state.js';
 import { toastManager } from './toast.js';
 import { serviceRegistry, SERVICES } from './service-registry.js';
+import { t } from './i18n.js';
 import {
   splitSecretIntoShards,
   reconstructSecretFromShards,
@@ -23,8 +24,10 @@ import {
   generateKeyPair,
   bytesToHex,
   validateMnemonic,
+  computeFingerprint,
+  hexToBytes,
+  deriveKeyPairFromMnemonic,
 } from '@aetheris/core-crypto';
-import { sha256 } from '@noble/hashes/sha256';
 
 export interface GuardianContact {
   fingerprint: string;
@@ -49,6 +52,7 @@ export class SocialRecoveryModal {
   // Recover tab state
   public shardInputs: string[] = ['', '', ''];
   public isRecovering: boolean = false;
+  private operationVersion = 0;
   public recoveredMnemonic: string = '';
   public validationStatus: { validCount: number; requiredThreshold: number; message: string } = {
     validCount: 0,
@@ -73,58 +77,7 @@ export class SocialRecoveryModal {
   }
 
   private _initializeDefaultGuardians(): void {
-    const candidates = [
-      {
-        fingerprint: 'genesis-core',
-        name: 'Genesis Protocol Archon',
-        role: 'GUARDIAN',
-        trustScore: 99,
-        isSelected: true,
-      },
-      {
-        fingerprint: 'c3dc28cb705e',
-        name: 'Archivist Seeder',
-        role: 'ARCHIVIST',
-        trustScore: 94,
-        isSelected: true,
-      },
-      {
-        fingerprint: 'a89104fa2211',
-        name: 'Network Moderator',
-        role: 'MODERATOR',
-        trustScore: 88,
-        isSelected: true,
-      },
-      {
-        fingerprint: 'f40019bc88a2',
-        name: 'Peer Node F4',
-        role: 'MEMBER',
-        trustScore: 82,
-        isSelected: true,
-      },
-      {
-        fingerprint: '9b22a011cd44',
-        name: 'Peer Node 9B',
-        role: 'MEMBER',
-        trustScore: 78,
-        isSelected: true,
-      },
-    ];
-
-    this.guardians = candidates.map((c) => {
-      // Deterministically derive guardian public key from candidate fingerprint
-      const seed = sha256(new TextEncoder().encode(`aetheris:guardian:seed:${c.fingerprint}`));
-      const kp = generateKeyPair(seed);
-      return {
-        fingerprint: c.fingerprint,
-        name: c.name,
-        role: c.role,
-        publicKeyHex: kp.publicKeyHex,
-        trustScore: c.trustScore,
-        isSelected: c.isSelected,
-      };
-    });
-
+    this.guardians = [];
     this._adjustThreshold();
   }
 
@@ -148,6 +101,13 @@ export class SocialRecoveryModal {
 
   public closeModal(): void {
     this.isOpen = false;
+    this.operationVersion++;
+    this.shardInputs = ['', '', ''];
+    this.recoveredMnemonic = '';
+    this.generatedPackage = null;
+    this.customGuardianInput = '';
+    this.isGenerating = false;
+    this.isRecovering = false;
     clientStore.notifySync();
   }
 
@@ -173,30 +133,26 @@ export class SocialRecoveryModal {
   }
 
   public addCustomGuardian(fingerprintOrPubkey: string): boolean {
-    const clean = fingerprintOrPubkey.trim();
-    if (!clean) return false;
+    const clean = fingerprintOrPubkey.trim().toLowerCase();
+    if (!/^[0-9a-f]{64}$/.test(clean)) {
+      toastManager.warning('A guardian must provide their full 64-character Ed25519 public key.');
+      return false;
+    }
 
     if (this.guardians.some((g) => g.fingerprint === clean || g.publicKeyHex === clean)) {
       toastManager.warning('Guardian already present in candidate list', '⚠️');
       return false;
     }
 
-    let pubkeyHex = clean;
-    let fp = clean.substring(0, 12);
-
-    if (clean.length !== 64) {
-      const seed = sha256(new TextEncoder().encode(`aetheris:custom-guardian:${clean}`));
-      const kp = generateKeyPair(seed);
-      pubkeyHex = kp.publicKeyHex;
-      fp = kp.fingerprint;
-    }
+    const pubkeyHex = clean;
+    const fp = computeFingerprint(hexToBytes(clean));
 
     this.guardians.push({
       fingerprint: fp,
       name: `Custom Guardian (${fp.substring(0, 6)})`,
       role: 'CUSTOM',
       publicKeyHex: pubkeyHex,
-      trustScore: 70,
+      trustScore: 0,
       isSelected: true,
     });
 
@@ -206,14 +162,28 @@ export class SocialRecoveryModal {
     return true;
   }
 
+  public addGuardianFromInput(): void {
+    const input = document.getElementById('custom-guardian-public-key') as HTMLInputElement | null;
+    if (input && this.addCustomGuardian(input.value)) input.value = '';
+  }
+
   /**
    * Executes Shamir Secret Sharing splitting on the user's active mnemonic
    * and encrypts each shard to the respective guardian's public key.
    */
   public async executeSetup(): Promise<SocialRecoverySetupPackage | null> {
+    if (this.isGenerating) return null;
     const mnemonic = clientStore.mnemonic?.trim();
     if (!mnemonic || !validateMnemonic(mnemonic)) {
       toastManager.warning('No active valid BIP-39 mnemonic found in current session.', '⚠️');
+      return null;
+    }
+    const derived = deriveKeyPairFromMnemonic(mnemonic);
+    const matches = derived.publicKeyHex === clientStore.keypair.publicKeyHex;
+    derived.privateKey.fill(0);
+    derived.privateKeyHex = '';
+    if (!matches) {
+      toastManager.warning('The recovery phrase does not match the active identity.');
       return null;
     }
 
@@ -229,10 +199,11 @@ export class SocialRecoveryModal {
     }
 
     this.isGenerating = true;
+    const operation = this.operationVersion;
+    const secretBytes = new TextEncoder().encode(mnemonic);
     clientStore.notify();
 
     try {
-      const secretBytes = new TextEncoder().encode(mnemonic);
       const guardianConfigs = selectedGuardians.map((g) => ({
         fingerprint: g.fingerprint,
         publicKeyHex: g.publicKeyHex,
@@ -245,6 +216,7 @@ export class SocialRecoveryModal {
         clientStore.keypair.fingerprint
       );
 
+      if (operation !== this.operationVersion) return null;
       this.generatedPackage = setupPkg;
       toastManager.success(
         `Successfully generated ${setupPkg.totalShards} encrypted shards (Quorum: ${this.threshold})!`,
@@ -255,6 +227,7 @@ export class SocialRecoveryModal {
       toastManager.warning(`Failed to generate recovery shards: ${err.message}`, '⚠️');
       return null;
     } finally {
+      secretBytes.fill(0);
       this.isGenerating = false;
       clientStore.notify();
     }
@@ -267,7 +240,7 @@ export class SocialRecoveryModal {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `aetheris-social-recovery-${this.generatedPackage.userFingerprint.substring(0, 8)}.json`;
+    a.download = `urefy-social-recovery-${this.generatedPackage.userFingerprint.substring(0, 8)}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -325,7 +298,8 @@ export class SocialRecoveryModal {
     };
   }
 
-  public executeRecovery(): boolean {
+  public async executeRecovery(): Promise<boolean> {
+    if (this.isRecovering) return false;
     const parsedShards: SecretShard[] = [];
     const seenIndices = new Set<number>();
 
@@ -358,19 +332,22 @@ export class SocialRecoveryModal {
       return false;
     }
 
+    let reconstructedBytes: Uint8Array | undefined;
+    const operation = this.operationVersion;
     try {
       this.isRecovering = true;
-      const reconstructedBytes = reconstructSecretFromShards(parsedShards);
+      reconstructedBytes = reconstructSecretFromShards(parsedShards);
       const recoveredStr = new TextDecoder().decode(reconstructedBytes).trim();
 
       if (!validateMnemonic(recoveredStr)) {
         throw new Error('Reconstructed secret is not a valid BIP-39 mnemonic phrase');
       }
 
-      this.recoveredMnemonic = recoveredStr;
       const restored = clientStore.restoreIdentityFromMnemonic(recoveredStr);
 
       if (restored) {
+        await clientStore.identityPersistence;
+        if (operation !== this.operationVersion) return false;
         toastManager.success('✨ Sovereign identity successfully restored from social guardians!', '🛡️');
         this.closeModal();
         return true;
@@ -382,6 +359,7 @@ export class SocialRecoveryModal {
       toastManager.warning(`Recovery failed: ${err.message}`, '⚠️');
       return false;
     } finally {
+      reconstructedBytes?.fill(0);
       this.isRecovering = false;
       clientStore.notify();
     }
@@ -415,7 +393,7 @@ export class SocialRecoveryModal {
                 <p class="text-[10px] text-slate-400 font-mono">Web-of-Trust decentralized quorum · 256-bit prime field Lagrange interpolation</p>
               </div>
             </div>
-            <button id="btn-close-social-recovery" data-action="close-feature" class="w-8 h-8 rounded-full bg-surface-raised hover:bg-surface-overlay text-slate-300 hover:text-white flex items-center justify-center text-sm border border-white/10 transition-colors cursor-pointer" title="Close (Esc)">
+            <button id="btn-close-social-recovery" data-action="close-feature" class="w-8 h-8 rounded-full bg-surface-raised hover:bg-surface-overlay text-slate-300 hover:text-white flex items-center justify-center text-sm border border-white/10 transition-colors cursor-pointer" title="${t('modal.close', undefined, 'Close')} (Esc)" aria-label="${t('modal.close', undefined, 'Close')}">
               ✕
             </button>
           </div>
@@ -487,7 +465,7 @@ export class SocialRecoveryModal {
                         </div>
                       </div>
                       <div class="text-right font-mono text-[10px]">
-                        <span class="text-emerald-400 font-bold">${g.trustScore}% WoT Trust</span>
+                        <span class="text-slate-400">Public key supplied</span>
                       </div>
                     </div>
                   `
@@ -497,6 +475,10 @@ export class SocialRecoveryModal {
               </div>
 
               <!-- THRESHOLD SLIDER -->
+              <div class="flex flex-wrap gap-2">
+                <input id="custom-guardian-public-key" type="text" maxlength="64" spellcheck="false" autocomplete="off" aria-label="Guardian Ed25519 public key" placeholder="Guardian Ed25519 public key (64 hex characters)" class="min-w-0 flex-1 rounded-lg border border-white/20 bg-surface-base px-3 py-2 font-mono text-xs" />
+                <button type="button" data-action="call-global" data-global-path="socialRecoveryModal.addGuardianFromInput" class="min-h-11 rounded-lg border border-white/20 px-3 py-2 text-xs">Add guardian</button>
+              </div>
               <div class="p-3.5 rounded-xl bg-surface-raised/80 border border-white/5 space-y-2 font-mono">
                 <div class="flex items-center justify-between text-xs">
                   <span class="text-slate-300 font-bold">Quorum Threshold (k):</span>

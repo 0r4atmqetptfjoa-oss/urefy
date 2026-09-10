@@ -1,6 +1,6 @@
 /**
  * autocomplete.ts
- * Aetheris Omni-Sphere — Intelligent Autocomplete Engine
+ * UREfy — Intelligent Autocomplete Engine
  * Real-time @mentions and #hashtags popup engine with caret coordinate tracking,
  * full keyboard navigation (ArrowUp, ArrowDown, Enter, Tab, Escape),
  * obsidian dark theme, and zero external dependencies.
@@ -798,7 +798,7 @@ export class AutocompleteEngine {
             <span><kbd class="px-1 py-0.5 rounded bg-surface-overlay text-slate-300 border border-white/5">↵</kbd> select</span>
             <span><kbd class="px-1 py-0.5 rounded bg-surface-overlay text-slate-300 border border-white/5">esc</kbd> close</span>
           </div>
-          <span class="text-cyphr/80 font-sans font-medium text-[9px]">Aetheris ZK</span>
+          <span class="text-cyphr/80 font-sans font-medium text-[9px]">UREfy ZK</span>
         </div>
 
       </div>

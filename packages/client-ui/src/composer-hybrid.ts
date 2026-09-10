@@ -1,5 +1,5 @@
 /**
- * Aetheris Omni-Sphere — Unified Hybrid Content Composer
+ * UREfy — Unified Hybrid Content Composer
  * (composer-hybrid.ts)
  *
  * 100% Self-Contained, Strict TypeScript, Zero External Dependencies.
@@ -23,6 +23,7 @@ import { aethDB } from './indexed-db.js';
 import { draftAutosave } from './draft-autosave.js';
 import { serviceRegistry, SERVICES } from './service-registry.js';
 import { signMessage, ZKRLN, bytesToHex } from '@aetheris/core-crypto';
+import { t } from './i18n.js';
 
 // ---------------------------------------------------------------------------
 // Types & Interfaces
@@ -205,7 +206,7 @@ export class HybridComposer {
   public codeState: CodeEditorState = {
     language: 'typescript',
     filename: 'smart_contract.ts',
-    code: `// Aetheris Sovereign Zero-Knowledge Smart Contract\nexport function verifyProof(nullifier: string, epoch: number): boolean {\n  return nullifier.length === 64 && epoch > 0;\n}`,
+    code: `// UREfy Sovereign Zero-Knowledge Smart Contract\nexport function verifyProof(nullifier: string, epoch: number): boolean {\n  return nullifier.length === 64 && epoch > 0;\n}`,
     sha256: '',
     entropy: 4.85,
     byteSize: 180,
@@ -465,7 +466,7 @@ export class HybridComposer {
                 ${this.renderDraftStatusHtml()}
               </div>
 
-              <button type="button" id="btn-close-composer" class="text-slate-400 hover:text-white font-mono w-7 h-7 flex items-center justify-center rounded-lg hover:bg-surface-overlay cursor-pointer transition-colors" title="Close Composer">
+              <button type="button" id="btn-close-composer" class="text-slate-400 hover:text-white font-mono w-7 h-7 flex items-center justify-center rounded-lg hover:bg-surface-overlay cursor-pointer transition-colors" title="${t('modal.close', undefined, 'Close')}">
                 ✕
               </button>
             </div>
@@ -527,12 +528,12 @@ export class HybridComposer {
                 </button>
                 
                 <button type="button" id="btn-cancel-composer" class="px-3.5 py-1.5 text-xs text-slate-300 hover:text-white cursor-pointer transition-colors">
-                  Cancel
+                  ${t('common.cancel', undefined, 'Cancel')}
                 </button>
 
                 <button type="button" id="btn-submit-hybrid-composer" class="px-5 py-2 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white font-bold text-xs rounded-xl shadow-lg shadow-indigo-500/20 transition-all flex items-center space-x-2 cursor-pointer active:scale-95">
                   <span>🚀</span>
-                  <span>Post</span>
+                  <span>${t('pulse.publishPost', undefined, 'Post')}</span>
                 </button>
               </div>
             </div>

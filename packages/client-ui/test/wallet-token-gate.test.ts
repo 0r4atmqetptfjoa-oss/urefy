@@ -38,6 +38,10 @@ describe('Wallet Token-Gate Security & Verification (Finding 3)', () => {
     } as unknown as Window & typeof globalThis;
 
     bridge = new WalletBridge();
+    bridge.tokenGates = [{
+      id: 'gate-aeth-guardian', name: 'Test threshold', tokenAddress: '0xA374F62184918e90E0e82fF4eB54673B8e725041',
+      minBalance: 100, symbol: 'TEST', icon: '', description: '', spaceChannelId: '', passed: false, checkedAt: 0, decimals: 18,
+    }];
   });
 
   afterEach(() => {

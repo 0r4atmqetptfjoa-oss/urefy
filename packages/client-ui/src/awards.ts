@@ -1,13 +1,14 @@
 // ============================================================================
-// awards.ts — Aetheris Omni-Sphere Sovereign Awards & Medals Engine
+// awards.ts — UREfy Sovereign Awards & Medals Engine
 // Cryptographic Proof-of-Merit, ZK-Badges, and Decentralized Accolades
 // 100% Self-contained, TypeScript strict, no external dependencies.
 // ============================================================================
 
 import './window-augmentation.js';
 import { serviceRegistry, SERVICES } from './service-registry.js';
-import { isLocalDev } from './admin-auth.js';
+import { isDemoModeEnabled } from './demo-mode.js';
 import { networkActivityFeed } from './activity-feed.js';
+import { t } from './i18n.js';
 
 export type SovereignAwardType =
   | 'PLATINUM'
@@ -177,7 +178,7 @@ export class AwardsSystem {
           this.postAwards.set(k, v as PostAward[]);
         }
       } catch {}
-    } else if (isLocalDev()) {
+    } else if (isDemoModeEnabled()) {
       this._seedDemoAwards();
     }
     this._initGlobalDomListeners();
@@ -709,7 +710,7 @@ export class AwardsSystem {
         title="Bestow Sovereign Proof Award"
       >
         <span class="text-sm group-hover:scale-110 transition-transform">🏅</span>
-        <span class="font-medium text-[11px] group-hover:text-amber transition-colors">Award</span>
+        <span class="font-medium text-[11px] group-hover:text-amber transition-colors">${t('actions.award', undefined, 'Award')}</span>
         ${total > 0 ? `<span class="text-[10px] px-1.5 py-0.2 rounded-full bg-surface-overlay text-amber font-bold border border-amber/20">${total}</span>` : ''}
       </button>
     `;
@@ -721,15 +722,15 @@ export class AwardsSystem {
   public renderGiveCommentAwardButton(commentId: string, postId: string, userRole: string = 'GUARDIAN'): string {
     return `
       <button 
-        type="button"
-        class="btn-open-comment-award-modal group inline-flex items-center space-x-1 px-2 py-0.5 rounded-lg hover:bg-surface-overlay text-slate-400 hover:text-amber transition-all font-mono text-[11px] cursor-pointer"
-        data-comment-id="${commentId}"
-        data-post-id="${postId}"
-        data-user-role="${userRole}"
-        title="Bestow Award on Comment"
+        type="button" 
+        class="btn-open-comment-award-modal group inline-flex items-center space-x-1 px-2 py-0.5 rounded-lg hover:bg-surface-overlay text-slate-400 hover:text-amber transition-all font-mono text-[11px] cursor-pointer" 
+        data-comment-id="${commentId}" 
+        data-post-id="${postId}" 
+        data-user-role="${userRole}" 
+        title="${t('actions.award', undefined, 'Bestow Award on Comment')}" 
       >
         <span class="text-xs group-hover:scale-110 transition-transform">🏅</span>
-        <span>Award</span>
+        <span>${t('actions.award', undefined, 'Award')}</span>
       </button>
     `;
   }
@@ -855,7 +856,7 @@ export class AwardsSystem {
             <button 
               type="button"
               class="btn-close-award-modal text-slate-400 hover:text-white p-1.5 rounded-xl hover:bg-surface-overlay transition-colors font-mono text-sm cursor-pointer"
-              title="Close modal (Esc)"
+              title="${t('modal.close', undefined, 'Close modal')} (Esc)"
             >
               ✕
             </button>
@@ -920,7 +921,7 @@ export class AwardsSystem {
                 type="button"
                 class="btn-close-award-modal px-3.5 py-1.5 rounded-xl text-xs font-mono text-slate-300 hover:text-white hover:bg-surface-overlay border border-white/5 transition-all cursor-pointer"
               >
-                Cancel
+                ${t('common.cancel', undefined, 'Cancel')}
               </button>
 
               <button 

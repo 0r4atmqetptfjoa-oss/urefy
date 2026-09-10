@@ -1,9 +1,10 @@
+import './helpers/disable-demo.js';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { CyberDefenseHub } from '../src/cyber-defense-hub.js';
 import { SovereignOnboardingTour } from '../src/first-time-onboarding.js';
 import { setSimulationMode } from '../src/simulation-mode.js';
 
-describe('Aetheris Cyber Defense Hub & First-Time Onboarding', () => {
+describe('UREfy Cyber Defense Hub & First-Time Onboarding', () => {
   describe('CyberDefenseHub', () => {
     let hub: CyberDefenseHub;
 
@@ -98,7 +99,7 @@ describe('Aetheris Cyber Defense Hub & First-Time Onboarding', () => {
     it('shows welcome banner by default for new visitors', () => {
       expect(tour.shouldShow()).toBe(true);
       const html = tour.renderWelcomeBanner();
-      expect(html).toContain('Welcome to Aetheris Omni-Sphere');
+      expect(html).toContain('Welcome to UREfy');
       expect(html).toContain('btn-dismiss-onboarding-tour');
     });
 
@@ -109,3 +110,4 @@ describe('Aetheris Cyber Defense Hub & First-Time Onboarding', () => {
     });
   });
 });
+(globalThis as any).__UREFY_DEMO_MODE__ = false;

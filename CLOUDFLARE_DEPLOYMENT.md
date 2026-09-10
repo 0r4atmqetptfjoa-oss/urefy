@@ -66,6 +66,19 @@ npx wrangler secret put ADMIN_PIN --cwd packages/client-ui
 npx wrangler secret put NODE_PRIVATE_KEY --cwd packages/client-ui
 `
 
+Pentru interoperabilitate cu servere Fediverse care folosesc RSA-SHA256, configurează
+ambele chei PEM ale aceluiași keypair RSA de minimum 2048 biți. Cheia privată trebuie
+să fie PKCS#8 (`BEGIN PRIVATE KEY`), nu PKCS#1. Nu configura doar una dintre ele.
+
+```bash
+npx wrangler secret put FEDERATION_RSA_PRIVATE_KEY_PEM --cwd packages/client-ui
+npx wrangler secret put FEDERATION_RSA_PUBLIC_KEY_PEM --cwd packages/client-ui
+```
+
+Dacă perechea RSA este configurată, actorul ActivityPub o publică și o folosește
+pentru livrările draft-cavage. `NODE_PRIVATE_KEY` rămâne cheia Ed25519 pentru
+protocoalele native UREfy.
+
 ### C. Cheile VAPID pentru Web Push
 `ash
 npx wrangler secret put VAPID_PRIVATE_KEY --cwd packages/client-ui

@@ -1,8 +1,8 @@
 // analytics-widget.ts
-// Aetheris Omni-Sphere — Local Analytics Dashboard
+// UREfy — Local Analytics Dashboard
 // Zero external dependencies. All data stays on device.
 
-import { isLocalDev } from './admin-auth.js';
+import { isDemoModeEnabled } from './demo-mode.js';
 
 export interface DailyMetric {
   date: string;          // ISO date string: 'YYYY-MM-DD'
@@ -82,7 +82,7 @@ class LocalAnalyticsDashboard {
   private _seedData(): DailyMetric[] {
     const result: DailyMetric[] = [];
     const now = new Date();
-    const isDev = isLocalDev();
+    const isDev = isDemoModeEnabled();
     for (let i = 6; i >= 0; i--) {
       const d = new Date(now);
       d.setDate(d.getDate() - i);
@@ -243,7 +243,7 @@ class LocalAnalyticsDashboard {
 
   /**
    * Renders the full analytics panel as an HTML string.
-   * Uses Tailwind classes consistent with the Aetheris design system.
+   * Uses Tailwind classes consistent with the UREfy design system.
    */
   public renderAnalyticsPanel(): string {
     const week = this.getWeekTotal();

@@ -9,6 +9,8 @@ import { relaysManager } from './relays-manager.js';
 import { renderRelaysEmptyState } from './empty-states.js';
 import { zkReputation } from './zk-reputation.js';
 import { sovereignDM, DirectMessage } from './sovereign-dm.js';
+import { MAX_PRIVATE_ATTACHMENT_BYTES } from './direct-messaging-client.js';
+import { renderIcon } from './ui/icons.js';
 
 export type MessagesTab = 'relays' | 'dm';
 export let activeMessagesTab: MessagesTab = 'relays';
@@ -16,9 +18,59 @@ export let isNewDMPickerOpen: boolean = false;
 export let isDMEmojiPickerOpen: boolean = false;
 export let isRelayEmojiPickerOpen: boolean = false;
 let dmSearchQuery: string = '';
+let dmMessageDraft: string = '';
+let relayMessageDraft: string = '';
+const messageSelections: Record<'dm' | 'relay', { start: number; end: number }> = {
+  dm: { start: 0, end: 0 },
+  relay: { start: 0, end: 0 },
+};
+
+export function setMessageDraft(targetType: 'dm' | 'relay', value: string): void {
+  const changed = getMessageDraft(targetType) !== value;
+  if (targetType === 'dm') dmMessageDraft = value;
+  else relayMessageDraft = value;
+  if (changed) messageSelections[targetType] = { start: value.length, end: value.length };
+}
+
+export function getMessageDraft(targetType: 'dm' | 'relay'): string {
+  return targetType === 'dm' ? dmMessageDraft : relayMessageDraft;
+}
+
+export function captureMessageSelection(targetType: 'dm' | 'relay', input: HTMLInputElement | null): void {
+  if (!input || input.isConnected === false) return;
+  setMessageDraft(targetType, input.value);
+  messageSelections[targetType] = {
+    start: input.selectionStart ?? input.value.length,
+    end: input.selectionEnd ?? input.value.length,
+  };
+}
+
+export function insertMessageEmoji(targetType: 'dm' | 'relay', emoji: string): number {
+  const value = getMessageDraft(targetType);
+  const selection = messageSelections[targetType];
+  const start = Math.max(0, Math.min(selection.start, value.length));
+  const end = Math.max(start, Math.min(selection.end, value.length));
+  setMessageDraft(targetType, value.slice(0, start) + emoji + value.slice(end));
+  const caret = start + emoji.length;
+  messageSelections[targetType] = { start: caret, end: caret };
+  return caret;
+}
+
+export function restoreMessageSelection(targetType: 'dm' | 'relay', focus = true): void {
+  const input = document.getElementById(targetType === 'dm' ? 'input-dm-message' : 'input-message') as HTMLInputElement | null;
+  if (!input) return;
+  const selection = messageSelections[targetType];
+  const draft = getMessageDraft(targetType);
+  if (input.value !== draft) input.value = draft;
+  if (focus) input.focus({ preventScroll: true });
+  input.setSelectionRange(selection.start, selection.end);
+}
 
 export function setActiveMessagesTab(tab: MessagesTab): void {
   activeMessagesTab = tab;
+  sovereignDM.setInlineMode(true);
+  sovereignDM.isOpen = tab === 'dm';
+  if (tab === 'dm') void sovereignDM.startLiveSync();
 }
 
 export function getActiveMessagesTab(): MessagesTab {
@@ -218,9 +270,9 @@ export function renderStagedAttachmentChip(att: DirectMessageAttachment | null, 
 }
 
 export async function handleFileAttachment(file: File, targetType: 'dm' | 'relay'): Promise<void> {
-  const MAX_SIZE = 50 * 1024 * 1024; // 50MB
+  const MAX_SIZE = targetType === 'dm' ? MAX_PRIVATE_ATTACHMENT_BYTES : 50 * 1024 * 1024;
   if (file.size > MAX_SIZE) {
-    clientStore.showToast(`File "${file.name}" exceeds the maximum allowed limit of 50 MB.`, 'warning');
+    clientStore.showToast(`File "${file.name}" exceeds the ${targetType === 'dm' ? '128 KiB private-message' : '50 MB'} limit.`, 'warning');
     return;
   }
 
@@ -312,9 +364,9 @@ export function renderMessageItem(m: ClientMessage): string {
   }
 
   return `
-    <div class="p-3.5 rounded-2xl bg-surface-raised/80 hover:bg-surface-raised border border-white/5 transition-all shadow-sm space-y-1.5 msg-bubble-enter max-w-full overflow-hidden">
-      <div class="flex items-center justify-between mb-1">
-        <div class="flex items-center space-x-2.5">
+    <div class="relay-message p-3.5 rounded-lg bg-surface-raised/80 hover:bg-surface-raised border border-white/5 transition-colors space-y-1.5 msg-bubble-enter max-w-full overflow-hidden">
+      <div class="flex items-center justify-between gap-2 mb-1 flex-wrap">
+        <div class="flex items-center gap-2 flex-wrap min-w-0">
           <div class="w-6 h-6 rounded-xl bg-gradient-to-br from-cyphr/30 to-aether/30 border border-cyphr/30 flex items-center justify-center font-mono text-[10px] font-bold text-white shadow-sm">
             ${m.authorFingerprint.substring(0, 2).toUpperCase()}
           </div>
@@ -324,8 +376,8 @@ export function renderMessageItem(m: ClientMessage): string {
         </div>
         <span class="text-[10px] font-mono text-slate-500">${time}</span>
       </div>
-      <div class="text-xs text-slate-200 select-text leading-relaxed whitespace-pre-wrap pl-8 break-words break-all [overflow-wrap:anywhere] min-w-0">
-        ${m.text ? `<div>${escapeHtml(m.text)}</div>` : ''}
+      <div class="message-body text-sm text-slate-200 select-text leading-relaxed pl-8 break-words [overflow-wrap:anywhere] min-w-0">
+        ${m.text ? `<div class="whitespace-pre-wrap">${escapeHtml(m.text)}</div>` : ''}
         ${renderAttachmentCard(m.attachment)}
       </div>
     </div>
@@ -351,7 +403,7 @@ export function renderMessagesTabHeader(): string {
               : 'bg-surface-raised/60 hover:bg-surface-raised text-slate-300 border border-white/5'
           }"
         >
-          <span>📡</span>
+          ${renderIcon('radio', { size: 17 })}
           <span>Sovereign Relays</span>
         </button>
         <button 
@@ -364,7 +416,7 @@ export function renderMessagesTabHeader(): string {
               : 'bg-surface-raised/60 hover:bg-surface-raised text-slate-300 border border-white/5'
           }"
         >
-          <span>💬</span>
+          ${renderIcon('messages', { size: 17 })}
           <span>Direct Messages (E2EE)</span>
           ${
             totalUnread > 0
@@ -376,7 +428,7 @@ export function renderMessagesTabHeader(): string {
       <div class="hidden sm:flex items-center space-x-3 text-[11px] font-mono text-slate-400">
         <span class="flex items-center space-x-1.5">
           <span class="w-1.5 h-1.5 rounded-full bg-signal animate-pulse"></span>
-          <span>TreeKEM SFrame v2.4</span>
+          <span>${activeMessagesTab === 'dm' ? 'Signed hybrid encryption' : 'Relay channels'}</span>
         </span>
         <span class="text-slate-600">•</span>
         <span class="text-cyphr">ML-KEM-768 Hybrid</span>
@@ -391,12 +443,8 @@ export function renderMessagesTabHeader(): string {
 export function renderNewDMModal(): string {
   if (!isNewDMPickerOpen) return '';
 
-  const knownPeers = [
-    { fp: 'c3dc28cb705e', role: 'GUARDIAN', alias: 'Guardian Alpha' },
-    { fp: 'a89104fa2211', role: 'ARCHIVIST', alias: 'Archivist Prime' },
-    { fp: 'e491290bb044', role: 'MODERATOR', alias: 'Network Scribe' },
-    { fp: '9f4e2219ac01', role: 'MEMBER', alias: 'Mesh Validator' },
-  ];
+  const knownPeers = clientStore.members.filter(member => member.fingerprint !== clientStore.keypair.fingerprint)
+    .map(member => ({ fp: member.fingerprint, role: member.role, alias: `id:${member.fingerprint.slice(0, 12)}` }));
 
   return `
     <div id="new-dm-modal-backdrop" class="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4" data-action="close-new-dm">
@@ -656,12 +704,12 @@ export function renderDirectMessagesWorkspace(): string {
 
               <button 
                 type="button" 
-                data-action="simulate-dm-reply" 
+                data-action="send-dm-ping"
                 class="px-2.5 py-1.5 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 hover:text-white border border-indigo-500/30 text-xs font-medium flex items-center space-x-1.5 transition-colors cursor-pointer"
-                title="Simulate peer node response"
+                title="Send an encrypted connectivity check"
               >
                 <span>⚡</span>
-                <span class="hidden sm:inline">Simulate Reply</span>
+                <span class="hidden sm:inline">Secure Ping</span>
               </button>
             </div>
           </div>
@@ -693,7 +741,7 @@ export function renderDirectMessagesWorkspace(): string {
                   }">
                     ${sovereignDM.showCiphertextToggle ? `
                       <div class="font-mono text-[10px] text-emerald-400 bg-black/40 p-2 rounded-lg border border-emerald-500/30 break-all space-y-1">
-                        <div class="text-slate-400 font-bold">RAW SFRAME CIPHERTEXT:</div>
+                        <div class="text-slate-400 font-bold">SIGNED ENCRYPTED ENVELOPE:</div>
                         <div>${escapeHtml(msg.encryptedPayload)}</div>
                       </div>
                     ` : `
@@ -708,6 +756,7 @@ export function renderDirectMessagesWorkspace(): string {
 
           <!-- DM COMPOSER FORM -->
           <div class="p-3 md:p-4 border-subtle-t bg-surface-base shrink-0 shadow-sm relative">
+            ${sovereignDM.syncError ? `<div role="status" class="mb-2 text-xs text-amber-300">${escapeHtml(sovereignDM.syncError)}</div>` : ''}
             ${renderEmojiPopover('dm')}
             ${renderStagedAttachmentChip(sovereignDM.getPendingAttachment(), 'dm')}
 
@@ -726,7 +775,7 @@ export function renderDirectMessagesWorkspace(): string {
                 type="button"
                 data-action="trigger-dm-attachment"
                 class="p-2.5 rounded-xl bg-surface-raised hover:bg-surface-elevated text-slate-400 hover:text-slate-200 border border-white/10 transition-colors cursor-pointer shrink-0"
-                title="Attach file or media (up to 50MB)"
+                title="Attach encrypted file (up to 128 KiB)" aria-label="Attach encrypted file"
               >
                 📎
               </button>
@@ -745,7 +794,9 @@ export function renderDirectMessagesWorkspace(): string {
                 <input 
                   type="text" 
                   id="input-dm-message"
-                  placeholder="Send encrypted direct message to node_${escapeHtml(activeConv.peerFingerprint.substring(0, 8))}... (TreeKEM SFrame E2EE)"
+                  data-input="update-dm-draft"
+                  value="${escapeHtml(dmMessageDraft)}"
+                  placeholder="Private message to id:${escapeHtml(activeConv.peerFingerprint.substring(0, 8))}..."
                   class="w-full bg-surface-raised border border-white/10 rounded-2xl px-4 py-3 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-all font-sans"
                   autocomplete="off"
                 />
@@ -846,6 +897,8 @@ export function renderRelaysWorkspace(): string {
                 <input 
                   type="text" 
                   id="input-message"
+                  data-input="update-relay-draft"
+                  value="${escapeHtml(relayMessageDraft)}"
                   placeholder="Message #${channelName} (E2EE encrypted & ZK-RLN verified)..."
                   class="w-full bg-surface-raised border border-white/10 rounded-2xl px-4 py-3 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500/50 transition-all font-sans"
                   autocomplete="off"
@@ -867,4 +920,3 @@ export function renderRelaysWorkspace(): string {
 setTimeout(() => {
   attachChatDropzoneListeners();
 }, 50);
-

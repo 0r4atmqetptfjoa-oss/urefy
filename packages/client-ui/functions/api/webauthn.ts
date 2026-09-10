@@ -781,7 +781,7 @@ async function listCredentialsByFingerprint(env: Env | undefined, fingerprint: s
 export const CANONICAL_WEBAUTHN_ORIGINS = new Set([
   'https://aetheris-omni-sphere.pages.dev',
   'https://aetheris.pages.dev',
-  'https://aetheris.network',
+  'https://urefy.com',
   'https://aetheris.io',
 ]);
 
@@ -1297,7 +1297,7 @@ export async function onRequest(context: { request: Request; env?: Env }): Promi
           );
         }
 
-        const clientDataHash = await crypto.subtle.digest('SHA-256', rawClientDataBytes);
+        const clientDataHash = await crypto.subtle.digest('SHA-256', new Uint8Array(rawClientDataBytes));
         const signedData = new Uint8Array(authDataBytes.length + 32);
         signedData.set(authDataBytes, 0);
         signedData.set(new Uint8Array(clientDataHash), authDataBytes.length);
@@ -1312,7 +1312,7 @@ export async function onRequest(context: { request: Request; env?: Env }): Promi
           isSigValid = await crypto.subtle.verify(
             { name: 'ECDSA', hash: 'SHA-256' },
             cryptoKey,
-            rawSigBytes,
+            new Uint8Array(rawSigBytes),
             signedData
           );
         } catch (sigErr: any) {

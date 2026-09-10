@@ -64,7 +64,7 @@ describe('WebAuthn Security Hardening (Findings 7, 9, 10, 11)', () => {
       const allowed = getAllowedWebAuthnOrigins();
       expect(allowed).toContain('https://aetheris-omni-sphere.pages.dev');
       expect(allowed).toContain('https://aetheris.pages.dev');
-      expect(allowed).toContain('https://aetheris.network');
+      expect(allowed).toContain('https://urefy.com');
       expect(allowed).toContain('https://aetheris.io');
       expect(allowed).not.toContain('https://attacker.pages.dev');
     });

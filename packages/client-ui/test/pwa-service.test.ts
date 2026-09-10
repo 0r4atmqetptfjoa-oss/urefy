@@ -7,7 +7,7 @@ import {
   type PWAEngineState,
 } from '../src/pwa-service.js';
 
-describe('Aetheris Omni-Sphere Progressive Web App (PWAService)', () => {
+describe('UREfy Progressive Web App (PWAService)', () => {
   let listenersMap: Map<string, Array<(event: any) => void>>;
   let mockMatchMedia: ReturnType<typeof vi.fn>;
   let mockDocumentHeadChildren: HTMLElement[];
@@ -106,6 +106,7 @@ describe('Aetheris Omni-Sphere Progressive Web App (PWAService)', () => {
         value: {
           register: vi.fn().mockResolvedValue({
             addEventListener: vi.fn(),
+            active: { state: 'activated' },
           }),
         },
         configurable: true,
@@ -160,13 +161,36 @@ describe('Aetheris Omni-Sphere Progressive Web App (PWAService)', () => {
   // ─── 1. WEB MANIFEST GENERATION ────────────────────────────────────────────
 
   describe('1. Web App Manifest Generation (generateWebManifest)', () => {
+    it('registers the static same-origin worker without duplicate concurrent registrations', async () => {
+      const service = new PWAService();
+      await service.register();
+      expect(navigator.serviceWorker.register).toHaveBeenCalledWith('/sw.js', { scope: '/', updateViaCache: 'none' });
+      expect(navigator.serviceWorker.register).toHaveBeenCalledTimes(1);
+      expect(service.getState().swStatus).toBe('active');
+    });
+
+    it('reports registration errors instead of claiming offline support is active', async () => {
+      vi.mocked(navigator.serviceWorker.register).mockRejectedValue(new Error('Registration denied'));
+      const service = new PWAService();
+      await service.register();
+      expect(service.getState().swStatus).toBe('error');
+      expect(service.swRegistration).toBeNull();
+    });
+
+    it('reports an unregistered worker when the browser has no service worker support', async () => {
+      delete (navigator as any).serviceWorker;
+      const service = new PWAService();
+      await service.register();
+      expect(service.getState().swStatus).toBe('unregistered');
+    });
+
     it('should generate a compliant W3C Web App Manifest with required metadata', () => {
       const service = new PWAService();
       const manifest: WebManifest = service.generateWebManifest();
 
       // Required Core Fields
-      expect(manifest.name).toBe('Aetheris Omni-Sphere');
-      expect(manifest.short_name).toBe('Aetheris');
+      expect(manifest.name).toBe('UREfy — Unified Relay Enclave Framework for You');
+      expect(manifest.short_name).toBe('UREfy');
       expect(manifest.description).toContain('Decentralized Sovereign Intelligence');
       expect(manifest.start_url).toBe('/');
       expect(manifest.scope).toBe('/');
@@ -399,7 +423,7 @@ describe('Aetheris Omni-Sphere Progressive Web App (PWAService)', () => {
 
       const manifestLink = mockDocumentHeadChildren.find(el => (el as any).rel === 'manifest');
       expect(manifestLink).toBeDefined();
-      expect((manifestLink as any).href).toContain('blob:');
+      expect((manifestLink as any).href).toBe('/manifest.json');
 
       const themeColorMeta = mockDocumentHeadChildren.find(el => (el as any).name === 'theme-color');
       expect(themeColorMeta).toBeDefined();
@@ -421,7 +445,7 @@ describe('Aetheris Omni-Sphere Progressive Web App (PWAService)', () => {
         el => (el as any).name === 'apple-mobile-web-app-title'
       );
       expect(appleTitleMeta).toBeDefined();
-      expect((appleTitleMeta as any).content).toBe('Aetheris');
+      expect((appleTitleMeta as any).content).toBe('UREfy');
     });
   });
 
@@ -436,7 +460,7 @@ describe('Aetheris Omni-Sphere Progressive Web App (PWAService)', () => {
 
       expect(html).toContain('id="aetheris-pwa-install-banner"');
       expect(html).toContain('PWA Ready');
-      expect(html).toContain('Install Aetheris on your device');
+      expect(html).toContain('Install UREfy');
       expect(html).toContain('data-action="pwa-dismiss"');
       expect(html).toContain('data-action="pwa-install"');
       expect(html).toContain('bg-surface-raised/95');

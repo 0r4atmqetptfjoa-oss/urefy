@@ -8,6 +8,12 @@ import {
   type RawBackupPayload,
 } from '../src/export-backup.js';
 
+async function checksumPayload(payload: RawBackupPayload): Promise<void> {
+  payload.manifest.checksum = '';
+  const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify(payload)));
+  payload.manifest.checksum = Array.from(new Uint8Array(hash), byte => byte.toString(16).padStart(2, '0')).join('');
+}
+
 describe('Sovereign Account Export & Encrypted Backup Engine', () => {
   let manager: ExportBackupManager;
   let mockStorage: Record<string, string>;
@@ -109,7 +115,7 @@ describe('Sovereign Account Export & Encrypted Backup Engine', () => {
 
   describe('2. Granular Storage Extraction & Manifest Generation', () => {
     it('should export unencrypted JSON payload with integrity checksum', async () => {
-      mockStorage['aetheris_posts'] = JSON.stringify([{ id: 'p1', title: 'Aetheris Core' }]);
+      mockStorage['aetheris_posts'] = JSON.stringify([{ id: 'p1', title: 'UREfy Core' }]);
       mockStorage['aetheris_bookmarks'] = JSON.stringify([{ id: 'b1', title: 'Saved Article' }]);
 
       const options: ExportOptions = {
@@ -236,6 +242,7 @@ describe('Sovereign Account Export & Encrypted Backup Engine', () => {
         bookmarks: [{ id: 'restored-bm-1', title: 'Restored Bookmark' }],
       };
 
+      await checksumPayload(payload);
       const file = new File([JSON.stringify(payload)], 'backup.json', { type: 'application/json' });
       const result = await manager.importAccount(file);
 
@@ -322,6 +329,7 @@ describe('Sovereign Account Export & Encrypted Backup Engine', () => {
         },
       };
 
+      await checksumPayload(virtualPayload);
       const file = new File([JSON.stringify(virtualPayload)], 'virtual.zip-json', { type: 'application/json' });
       const res = await manager.importAccount(file);
 
@@ -342,9 +350,9 @@ describe('Sovereign Account Export & Encrypted Backup Engine', () => {
       expect(html).toContain('id="chk-export-posts"');
       expect(html).toContain('id="chk-export-bookmarks"');
       expect(html).toContain('id="chk-export-drafts"');
-      expect(html).toContain('id="chk-export-messages"');
+      expect(html).toContain('data-action="open-dm"');
       expect(html).toContain('id="chk-export-preferences"');
-      expect(html).toContain('id="chk-export-keys"');
+      expect(html).toContain('data-feature="archive"');
       expect(html).toContain('id="toggle-export-encrypt"');
       expect(html).toContain('id="export-backup-password"');
       expect(html).toContain('id="btn-run-export"');

@@ -1,3 +1,4 @@
+import './helpers/disable-demo.js';
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import {
   WoTGraphVisualizer,
@@ -390,3 +391,4 @@ describe('Web-of-Trust (WoT) Interactive Graph Visualizer Engine', () => {
     });
   });
 });
+(globalThis as any).__UREFY_DEMO_MODE__ = false;

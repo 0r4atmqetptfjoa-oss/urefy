@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+﻿import { describe, it, expect, beforeEach } from 'vitest';
 import { LegalModal, legalModal } from '../src/legal-modal.js';
 import { pulseActionsEngine } from '../src/pulse-actions.js';
 
@@ -41,7 +41,7 @@ describe('Legal & DSA Compliance Suite', () => {
     const html = modal.render();
     expect(html).toContain('Notice & Takedown (DSA)');
     expect(html).toContain('Notice and Takedown Procedure (DSA Art. 16)');
-    expect(html).toContain('legal@aetheris.network');
+    expect(html).toContain('razvan@urefy.com');
   });
 
   it('should close cleanly', () => {

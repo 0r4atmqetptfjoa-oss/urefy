@@ -11,6 +11,7 @@ import { serviceRegistry, SERVICES } from './service-registry.js';
 import { clientStore } from './client-state.js';
 import { renderIcon, IconName } from './ui/icons.js';
 import { sovereignRouter } from './router.js';
+import { t } from './i18n.js';
 
 export type MobileTab = 'feed' | 'explore' | 'messages' | 'vault' | 'profile' | 'circle';
 
@@ -213,12 +214,12 @@ export class MobileTabBar {
     const unreadMessages = this.getUnreadMessagesCount();
     const unreadFeed = this.getUnreadFeedCount();
 
-    const tabs: Array<{ id: MobileTab; label: string; iconName: IconName; title: string; badge?: number }> = [
-      { id: 'feed', label: 'Feed', iconName: 'feed', title: 'Feed (Pulse Stream)', badge: unreadFeed > 0 ? unreadFeed : undefined },
-      { id: 'explore', label: 'Explore', iconName: 'explore', title: 'Explore' },
-      { id: 'messages', label: 'Messages', iconName: 'messages', title: 'Relays · Relay Servers & Chat Channels', badge: unreadMessages > 0 ? unreadMessages : undefined },
-      { id: 'vault', label: 'Vault', iconName: 'vault', title: 'Knowledge Vault' },
-      { id: 'profile', label: 'Profile', iconName: 'profile', title: 'Sovereign Profile' },
+    const tabs: Array<{ id: MobileTab; label: string; defaultLabel: string; iconName: IconName; title: string; defaultTitle: string; badge?: number }> = [
+      { id: 'feed', label: t('nav.feed', undefined, 'Feed'), defaultLabel: 'Feed', iconName: 'feed', title: t('pulse.subtitle', undefined, 'Feed (Pulse Stream)'), defaultTitle: 'Feed (Pulse Stream)', badge: unreadFeed > 0 ? unreadFeed : undefined },
+      { id: 'explore', label: t('nav.explore', undefined, 'Explore'), defaultLabel: 'Explore', iconName: 'explore', title: t('nav.explore', undefined, 'Explore'), defaultTitle: 'Explore' },
+      { id: 'messages', label: t('nav.messages', undefined, 'Messages'), defaultLabel: 'Messages Relays', iconName: 'messages', title: t('relays.title', undefined, 'Relays · Relay Servers & Chat Channels'), defaultTitle: 'Relays · Relay Servers & Chat Channels', badge: unreadMessages > 0 ? unreadMessages : undefined },
+      { id: 'vault', label: t('nav.vault', undefined, 'Vault'), defaultLabel: 'Vault', iconName: 'vault', title: t('vault.title', undefined, 'Knowledge Vault'), defaultTitle: 'Knowledge Vault' },
+      { id: 'profile', label: t('nav.profile', undefined, 'Profile'), defaultLabel: 'Profile', iconName: 'profile', title: t('profile.sovereignNode', undefined, 'Sovereign Profile'), defaultTitle: 'Sovereign Profile' },
     ];
 
     return `
@@ -244,6 +245,8 @@ export class MobileTabBar {
               type="button"
               id="btn-mobile-tab-${tab.id}"
               data-tab="${tab.id}"
+              data-nav-label="${tab.defaultLabel}"
+              data-nav-title="${tab.defaultTitle}"
               class="relative flex-1 min-h-[44px] flex flex-col items-center justify-center py-1 transition-all cursor-pointer active:scale-95 ${activeClass}"
               title="${tab.title}"
               aria-label="${tab.label}"

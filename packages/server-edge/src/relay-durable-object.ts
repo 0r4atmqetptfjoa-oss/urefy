@@ -1,5 +1,6 @@
 import { ZKRLN, RLNShare, Field } from '@aetheris/core-crypto';
 import { PayloadSanitizer } from './payload-sanitizer.js';
+import { resolveRelaySecret } from './relay-secret.js';
 
 export function createWebSocketUpgradeResponse(clientWs: any): Response {
   try {
@@ -203,7 +204,7 @@ export async function verifyRelaySessionToken(
 }
 
 /**
- * Cloudflare Durable Object implementation for Aetheris Sovereign Signaling & Messaging.
+ * Cloudflare Durable Object implementation for UREfy Sovereign Signaling & Messaging.
  * Fully leverages Cloudflare WebSocket Hibernation API for zero idle costs and scale to 10k+ concurrent peers.
  */
 export class RelayDurableObject {
@@ -373,10 +374,10 @@ export class RelayDurableObject {
       return new Response(
         JSON.stringify({
           status: 'online',
-          service: 'Aetheris Sovereign Relay Durable Object',
+          service: 'UREfy Relay Durable Object',
           transport: 'WebSocket Hibernation API',
           activeConnections: this.getActiveSockets().length,
-          usage: 'Connect via WebSocket with standard Aetheris signaling protocol',
+          usage: 'Connect via WebSocket with the URE relay protocol',
         }),
         {
           status: 426,
@@ -682,9 +683,16 @@ export class RelayDurableObject {
   private async handleAuth(ws: WebSocket, session: SessionMetadata, packet: any): Promise<void> {
     const { token, sessionToken, credential, fingerprint, role, nullifier, status } = packet;
     const tokenToVerify = token || sessionToken || credential;
-    const secret = (this.env as any)?.AUTH_SECRET || (this.env as any)?.ADMIN_PIN || 'aetheris-sovereign-relay-secret';
+    const secret = resolveRelaySecret(this.env);
 
     if (tokenToVerify) {
+      if (!secret) {
+        this.send(ws, {
+          type: 'ERROR',
+          message: 'Authentication temporarily unavailable: relay credential secret is not configured',
+        });
+        return;
+      }
       const authResult = await verifyRelaySessionToken(tokenToVerify, secret);
       if (!authResult.valid || !authResult.payload) {
         this.send(ws, {

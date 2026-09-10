@@ -57,7 +57,7 @@ export class ArchivistDaemon {
     payloadData: Uint8Array
   ): Promise<IngestedArtifact> {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      throw new Error('Daemon is not connected to Aetheris Server');
+      throw new Error('Daemon is not connected to UREfy Server');
     }
 
     const artifact = await processArtifact(title, fileName, 'vault-releases', payloadData);

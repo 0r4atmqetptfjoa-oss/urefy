@@ -15,7 +15,7 @@ import { onRequestPost as handleNanopubPost } from '../functions/api/nanopublica
 import { onRequestPost as handlePushPost } from '../functions/api/push.js';
 import { resetAdminStores, DEFAULT_ADMIN_PIN } from '../functions/api/admin.js';
 
-describe('Aetheris Mutating API Cryptographic Authorization & Hardening Suite', () => {
+describe('UREfy Mutating API Cryptographic Authorization & Hardening Suite', () => {
   beforeEach(() => {
     resetAdminStores();
   });

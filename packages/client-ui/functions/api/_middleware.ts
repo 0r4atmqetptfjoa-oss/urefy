@@ -1,5 +1,5 @@
-// ════════════════════════════════════════════════════════════════════════════
-// _middleware.ts — Aetheris Edge Intelligence Layer v2
+﻿// ════════════════════════════════════════════════════════════════════════════
+// _middleware.ts — UREfy Edge Intelligence Layer v2
 // Cloudflare Pages Functions Middleware
 // Features: CORS, CSRF, Rate Limiting, Bot Detection, Geo-Routing, ETag, Perf
 // ════════════════════════════════════════════════════════════════════════════
@@ -26,13 +26,17 @@ import { isProductionEnv } from './_db.js';
 export const SENSITIVE_ROUTES = ['/api/admin', '/api/storage', '/api/push', '/api/cron-backup', '/api/webauthn'];
 
 export const CANONICAL_PRODUCTION_ORIGINS = new Set([
+  'https://urefy.com',
+  'https://www.urefy.com',
   'https://aetheris-omni-sphere.pages.dev',
   'https://aetheris.pages.dev',
-  'https://aetheris.network',
+  'https://urefy.com',
   'https://aetheris.io',
 ]);
 
 export const CANONICAL_PRODUCTION_HOSTS = new Set([
+  'urefy.com',
+  'www.urefy.com',
   'aetheris-omni-sphere.pages.dev',
   'aetheris.pages.dev',
   'aetheris.network',
@@ -86,6 +90,8 @@ export function isPermittedOrigin(origin: string, requestUrl: URL, env?: any): b
     if (LOOPBACK_HOSTS.has(h)) return true;
     // 3. Whitelisted sovereign network domains
     if (
+      h === 'urefy.com' ||
+      h.endsWith('.urefy.com') ||
       h === 'aetheris.network' ||
       h.endsWith('.aetheris.network') ||
       h === 'aetheris.io' ||
@@ -107,7 +113,7 @@ export const CORS_HEADERS: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD',
   'Access-Control-Allow-Headers':
-    'Content-Type, Authorization, X-Requested-With, Upgrade, Sec-WebSocket-Key, Sec-WebSocket-Version, Sec-WebSocket-Extensions, Sec-WebSocket-Protocol, X-CSRF-Token, X-Aetheris-CSRF, X-File-Name, X-Author, X-Title, X-Key, X-Sha256, X-Merkle-Root, X-Channel-Id, X-RLN-Nullifier, Cache-Control, X-Admin-PIN, X-Admin-Fingerprint',
+    'Content-Type, Authorization, X-Requested-With, Upgrade, Sec-WebSocket-Key, Sec-WebSocket-Version, Sec-WebSocket-Extensions, Sec-WebSocket-Protocol, X-URE-CSRF, X-CSRF-Token, X-Aetheris-CSRF, X-File-Name, X-Author, X-Title, X-Key, X-Sha256, X-Merkle-Root, X-Channel-Id, X-RLN-Nullifier, Cache-Control, X-Admin-PIN, X-Admin-Fingerprint',
   'Access-Control-Expose-Headers':
     'Content-Disposition, Content-Length, Content-Type, X-SHA256-Checksum, X-Merkle-Root, X-Author, X-Title, X-Edge-Storage, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset, Retry-After, ETag, Cache-Control',
   'Access-Control-Max-Age': '86400',
@@ -121,7 +127,7 @@ export function getCorsHeaders(req: Request, env?: any): Record<string, string> 
   const headers: Record<string, string> = {
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD',
     'Access-Control-Allow-Headers':
-      'Content-Type, Authorization, X-Requested-With, Upgrade, Sec-WebSocket-Key, Sec-WebSocket-Version, Sec-WebSocket-Extensions, Sec-WebSocket-Protocol, X-CSRF-Token, X-Aetheris-CSRF, X-File-Name, X-Author, X-Title, X-Key, X-Sha256, X-Merkle-Root, X-Channel-Id, X-RLN-Nullifier, Cache-Control, X-Admin-PIN, X-Admin-Fingerprint',
+      'Content-Type, Authorization, X-Requested-With, Upgrade, Sec-WebSocket-Key, Sec-WebSocket-Version, Sec-WebSocket-Extensions, Sec-WebSocket-Protocol, X-URE-CSRF, X-CSRF-Token, X-Aetheris-CSRF, X-File-Name, X-Author, X-Title, X-Key, X-Sha256, X-Merkle-Root, X-Channel-Id, X-RLN-Nullifier, Cache-Control, X-Admin-PIN, X-Admin-Fingerprint',
     'Access-Control-Expose-Headers':
       'Content-Disposition, Content-Length, Content-Type, X-SHA256-Checksum, X-Merkle-Root, X-Author, X-Title, X-Edge-Storage, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset, Retry-After, ETag, Cache-Control',
     'Access-Control-Max-Age': '86400',
@@ -248,7 +254,10 @@ function validateCSRF(request: Request): { valid: boolean; reason?: string } {
   }
 
   const secFetchSite = request.headers.get('Sec-Fetch-Site');
-  const csrfToken = request.headers.get('X-CSRF-Token') || request.headers.get('X-Aetheris-CSRF');
+  const csrfToken =
+    request.headers.get('X-URE-CSRF') ||
+    request.headers.get('X-CSRF-Token') ||
+    request.headers.get('X-Aetheris-CSRF');
 
   if (secFetchSite === 'cross-site' && !csrfToken && !request.headers.get('Authorization')) {
     return { valid: false, reason: 'Cross-site state-changing requests require Anti-CSRF token.' };
@@ -278,6 +287,7 @@ function validateCSRF(request: Request): { valid: boolean; reason?: string } {
   return { valid: true };
 }
 
+
 // ─── SECRET SANITIZATION ──────────────────────────────────────────────────────
 function sanitizeResponseBody(bodyText: string): string {
   return bodyText
@@ -306,6 +316,15 @@ export const onRequest: PagesFunction = async (context) => {
   const url = new URL(req.url);
   const now = Date.now();
 
+  // ── 0. Canonical domain redirect — pages.dev → urefy.com ─────────────────
+  if (url.hostname.endsWith('.pages.dev') || url.hostname === 'pages.dev') {
+    const redirectUrl = new URL(req.url);
+    redirectUrl.hostname = 'urefy.com';
+    redirectUrl.protocol = 'https:';
+    redirectUrl.port = '';
+    return Response.redirect(redirectUrl.toString(), 301);
+  }
+
   const corsHeaders = getCorsHeaders(req, context.env);
 
   // ── 1. OPTIONS preflight ─────────────────────────────────────────────────
@@ -315,6 +334,7 @@ export const onRequest: PagesFunction = async (context) => {
 
   // ── 2. Bot Classification ─────────────────────────────────────────────────
   const { isBadBot, isGoodBot } = classifyRequest(req);
+  void isGoodBot;
 
   // Block bad bots outright from mutating endpoints
   if (isBadBot && ['POST', 'PUT', 'DELETE', 'PATCH'].includes(method)) {
@@ -421,7 +441,6 @@ export const onRequest: PagesFunction = async (context) => {
   const isSensitive = isSensitiveRoute(url.pathname);
 
   // CORS enforcement: On sensitive routes, never emit Access-Control-Allow-Origin: '*'
-  // Middleware must never replace a route-specific strict CORS header with a broader wildcard policy.
   if (isSensitive) {
     if (newHeaders.get('Access-Control-Allow-Origin') === '*') {
       newHeaders.delete('Access-Control-Allow-Origin');
@@ -430,7 +449,6 @@ export const onRequest: PagesFunction = async (context) => {
 
     const routeAcao = newHeaders.get('Access-Control-Allow-Origin');
     if (routeAcao) {
-      // Validate that the route-specific ACAO is permitted; if not permitted, strip it
       if (!isPermittedOrigin(routeAcao, url, context.env)) {
         newHeaders.delete('Access-Control-Allow-Origin');
         newHeaders.delete('Access-Control-Allow-Credentials');
@@ -479,4 +497,3 @@ export const onRequest: PagesFunction = async (context) => {
     headers: newHeaders,
   });
 };
-

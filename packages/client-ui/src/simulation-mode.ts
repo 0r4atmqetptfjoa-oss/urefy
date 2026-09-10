@@ -11,10 +11,15 @@
  */
 
 import { isProductionBuild } from './admin-auth.js';
+import { isDemoModeEnabled } from './demo-mode.js';
 
 export const isSimulationModeEnabled = (): boolean => {
   if (isProductionBuild()) {
     return false;
+  }
+
+  if (isDemoModeEnabled()) {
+    return true;
   }
 
   if (typeof globalThis !== 'undefined' && (globalThis as any).__AETHERIS_ENABLE_SIMULATION === true) {
@@ -42,6 +47,16 @@ export const setSimulationMode = (enabled: boolean): void => {
   }
   if (typeof window !== 'undefined') {
     (window as any).__AETHERIS_ENABLE_SIMULATION = enabled;
+  }
+};
+
+/** Test/logout helper: clear every explicit simulation override. */
+export const resetSimulationMode = (): void => {
+  if (typeof globalThis !== 'undefined') {
+    delete (globalThis as any).__AETHERIS_ENABLE_SIMULATION;
+  }
+  if (typeof window !== 'undefined') {
+    delete (window as any).__AETHERIS_ENABLE_SIMULATION;
   }
 };
 

@@ -1,5 +1,5 @@
 // ===========================================================================
-// AETHERIS OMNI-SPHERE — INTERACTIONS & ENGAGEMENT EDGE API (/api/interactions)
+// UREfy — INTERACTIONS & ENGAGEMENT EDGE API (/api/interactions)
 // Handles real likes, reposts, bookmarks, emoji reactions, awards & views.
 // Persists directly to Cloudflare D1 SQL table 'interactions' with memory fallback.
 // ===========================================================================

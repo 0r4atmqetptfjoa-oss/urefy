@@ -75,20 +75,19 @@ describe('Innovations Suite: Pillar 1, Pillar 3, and Pillar 5', () => {
       expect(modalHtml).toContain('DENIABLE TIER');
     });
 
-    it('sends message in stego mode encoding into STEG_CARRIER_V1 payload', async () => {
+    it('refuses to fabricate a steganographic transmission without a browser canvas', async () => {
       sovereignDM.openDM('c3dc28cb705e');
       sovereignDM.isStegoModeActive = true;
 
-      await sovereignDM.sendMessage('Classified operational pulse for whistleblowers');
+      const before = sovereignDM.getConversation('c3dc28cb705e')!.messages.length;
+      await expect(sovereignDM.sendMessage('Classified operational pulse for whistleblowers')).rejects.toThrow('browser canvas');
 
       const conv = sovereignDM.getConversation('c3dc28cb705e');
       expect(conv).toBeDefined();
-      const lastMsg = conv!.messages[conv!.messages.length - 1];
-      expect(lastMsg.plaintext).toContain('STEG_CARRIER_V1::');
-      expect(lastMsg.plaintext).toContain('data:image/png;base64');
+      expect(conv!.messages.length).toBe(before);
     });
 
-    it('renders stego carrier thumbnail and reveals plaintext on demand', async () => {
+    it('renders a carrier but never fabricates a decoded result when canvas is unavailable', async () => {
       const msgId = 'msg_stego_test_123';
       const syntheticCarrierPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
       const stegoPlaintext = `STEG_CARRIER_V1::${syntheticCarrierPng}::[Decoy: Routine network heartbeat ping]`;
@@ -114,8 +113,8 @@ describe('Innovations Suite: Pillar 1, Pillar 3, and Pillar 5', () => {
 
       // Revealed state
       const revealedHtml = sovereignDM.renderMessageItem(msg, 'me_local_node_0x9f4e');
-      expect(revealedHtml).toContain('REVEALED COVERT MESSAGE');
-      expect(revealedHtml).toContain('Decoded confidential transmission');
+      expect(sovereignDM.revealedStegoMap.has(msgId)).toBe(false);
+      expect(revealedHtml).not.toContain('Decoded confidential transmission');
     });
   });
 

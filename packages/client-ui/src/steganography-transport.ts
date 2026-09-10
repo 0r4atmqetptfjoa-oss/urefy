@@ -1,5 +1,5 @@
 /**
- * AETHERIS RESILIENT ANTI-CENSORSHIP STEGANOGRAPHIC FALLBACK TRANSPORT
+ * UREfy RESILIENT ANTI-CENSORSHIP STEGANOGRAPHIC FALLBACK TRANSPORT
  *
  * Emergency network transport adapter that evades deep packet inspection (DPI)
  * and state-level firewall censorship:

@@ -1,5 +1,5 @@
 /**
- * Aetheris Omni-Sphere Local IndexedDB Storage Engine
+ * UREfy Local IndexedDB Storage Engine
  * High-performance, 100% functional client-side storage replacing localStorage for large datasets.
  * Features TF-IDF vector-space full-text indexing, multi-store transactions, and status monitoring.
  */
@@ -680,7 +680,7 @@ export class AetherisDB {
 
   /**
    * Generates a fully styled dark-theme status widget for the footer or status bar.
-   * Complies with Aetheris UI design specs and Tailwind color mappings.
+   * Complies with UREfy UI design specs and Tailwind color mappings.
    */
   public renderDBStatusWidget(): string {
     const isOnline = !!this.db;

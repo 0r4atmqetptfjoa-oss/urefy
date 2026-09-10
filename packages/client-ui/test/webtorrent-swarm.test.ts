@@ -81,7 +81,7 @@ function createMockChannelPair(): [MockRTCDataChannel, MockRTCDataChannel] {
   return [channelA, channelB];
 }
 
-describe('Aetheris WebTorrent Swarm Engine — P2P Knowledge Vault', () => {
+describe('UREfy WebTorrent Swarm Engine — P2P Knowledge Vault', () => {
   // ──────────────────────────────────────────────────────────────────────────
   // 1. Piece Chunking, SHA-256 Verification & Merkle Root Consistency
   // ──────────────────────────────────────────────────────────────────────────
@@ -110,7 +110,7 @@ describe('Aetheris WebTorrent Swarm Engine — P2P Knowledge Vault', () => {
     });
 
     it('should calculate Merkle Root consistently for single piece', () => {
-      const singleData = new TextEncoder().encode('Aetheris Sovereign Microkernel v2.4');
+      const singleData = new TextEncoder().encode('UREfy Sovereign Microkernel v2.4');
       const hash = bytesToHex(sha256(singleData));
       const merkleRoot = computeMerkleRoot([hash]);
 

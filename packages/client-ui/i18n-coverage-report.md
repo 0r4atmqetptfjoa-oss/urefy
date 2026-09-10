@@ -1,6 +1,6 @@
 # i18n Coverage Report — Aetheris Omni-Sphere
 
-> Generated: 2026-09-05 10:03 UTC
+> Generated: 2026-09-09 19:50 UTC
 > Audit tool: `packages/client-ui/scripts/i18n-audit.ts`
 > Scope: `packages/client-ui/src/*.ts`
 
@@ -10,10 +10,10 @@
 
 | Metric | Value |
 |--------|-------|
-| Total i18n dictionary keys (EN baseline) | **310** |
-| Unique hardcoded template strings found | **1143** |
+| Total i18n dictionary keys (EN baseline) | **375** |
+| Unique hardcoded template strings found | **1186** |
 | Strings likely needing i18n attention | **50** (sample capped at 50) |
-| Registered translation keys | **311** |
+| Registered translation keys | **379** |
 
 ---
 
@@ -21,13 +21,13 @@
 
 | Language | Translated Strings | EN Baseline | Coverage % | Status |
 |----------|--------------------|-------------|------------|--------|
-| `en` | 310 | 310 | **100%** | ✅ |
-| `fr` | 307 | 310 | **99%** | ✅ |
-| `de` | 310 | 310 | **100%** | ✅ |
-| `es` | 309 | 310 | **100%** | ✅ |
-| `ro` | 310 | 310 | **100%** | ✅ |
-| `ja` | 305 | 310 | **98%** | ✅ |
-| `ar` | 311 | 310 | **100%** | ✅ |
+| `en` | 375 | 375 | **100%** | ✅ |
+| `fr` | 375 | 375 | **100%** | ✅ |
+| `de` | 375 | 375 | **100%** | ✅ |
+| `es` | 375 | 375 | **100%** | ✅ |
+| `ro` | 375 | 375 | **100%** | ✅ |
+| `ja` | 375 | 375 | **100%** | ✅ |
+| `ar` | 375 | 375 | **100%** | ✅ |
 
 ---
 
@@ -37,66 +37,75 @@
 
 | File | Line | String |
 |------|------|--------|
-| `zk-reputation.ts` | L289 | Close (Esc) |
-| `acoustic-dsp.ts` | L78 | Acoustic Lounge DSP Equalizer |
-| `acoustic-dsp.ts` | L79 | Biquad Filter |
-| `acoustic-dsp.ts` | L109 | Parametric Frequency Bands |
-| `acoustic-dsp.ts` | L135 | Reset Flat |
-| `acoustic-dsp.ts` | L139 | Apply to Soundstage |
-| `activity-feed.ts` | L296 | Fingerprint: ${evt.actorFP} |
-| `activity-feed.ts` | L317 | No activity yet |
-| `activity-feed.ts` | L372 | NETWORK ACTIVITY STREAM |
-| `admin-app.ts` | L93 | Enter admin password or PIN... |
-| `admin-app.ts` | L59 | Admin Control Panel |
-| `admin-app.ts` | L72 | RESTRICTED ACCESS |
-| `admin-auth.ts` | L309 | Unlock Admin Panel |
-| `admin-auth.ts` | L283 | Admin Access |
-| `webrtc-transfer.ts` | L1942 | Cancel |
-| `admin-panel.ts` | L447 | Admin Control Panel (Ctrl+Shift+A) |
-| `admin-panel.ts` | L525 | Sync live state with Cloudflare Edge D1/KV |
-| `admin-panel.ts` | L529 | Toggle 10s auto-refresh |
-| `admin-panel.ts` | L821 | Promote |
-| `admin-panel.ts` | L822 | Demote |
-| `admin-panel.ts` | L880 | Delete Channel |
-| `admin-panel.ts` | L1234 | Export cryptographic event ledger as formatted JSON |
-| `admin-panel.ts` | L1335 | Delete content and mark report as resolved |
-| `admin-panel.ts` | L1342 | Dismiss report as unfounded |
-| `admin-panel.ts` | L777 | Search by fingerprint... |
-| `admin-panel.ts` | L842 | channel-name |
-| `admin-panel.ts` | L1046 | IP address... |
-| `admin-panel.ts` | L1101 | Type system announcement (or leave blank to clear)... |
-| `admin-panel.ts` | L1208 | post-1... |
-| `admin-panel.ts` | L1200 | msg-1... |
-| `admin-panel.ts` | L468 | Admin Panel |
-| `admin-panel.ts` | L522 | ADMIN ONLY |
-| `admin-panel.ts` | L626 | CLOUDFLARE ANYCAST EDGE |
-| `admin-panel.ts` | L632 | Live Throughput |
-| `admin-panel.ts` | L636 | Avg Edge RTT |
-| `admin-panel.ts` | L679 | Live Inbound Ingress Stream |
-| `mesh-matrix.ts` | L486 | Status |
-| `admin-panel.ts` | L688 | Edge PoP |
-| `admin-panel.ts` | L689 | Protocol |
-| `admin-panel.ts` | L703 | WebSocket |
-| `admin-panel.ts` | L726 | Recent Sovereign Admin Audit Trail |
-| `admin-panel.ts` | L792 | Fingerprint |
-| `admin-panel.ts` | L795 | Messages |
-| `admin-panel.ts` | L796 | ZK Verified |
-| `admin-panel.ts` | L861 | Actions |
-| `admin-panel.ts` | L840 | Create New Channel |
-| `admin-panel.ts` | L857 | Channel |
-| `admin-panel.ts` | L859 | Encrypted |
-| `admin-panel.ts` | L860 | Members |
-| `admin-panel.ts` | L983 | Trigger Backup Now |
+| `activity-feed.ts` | L300 | Fingerprint: ${evt.actorFP} |
+| `admin-app.ts` | L94 | Enter admin password or PIN... |
+| `admin-app.ts` | L60 | Admin Control Panel |
+| `admin-app.ts` | L73 | RESTRICTED ACCESS |
+| `admin-auth.ts` | L329 | Unlock Admin Panel |
+| `admin-auth.ts` | L303 | Admin Access |
+| `post-detail.ts` | L751 | Cancel |
+| `admin-panel.ts` | L603 | Admin Control Panel (Ctrl+Shift+A) |
+| `admin-panel.ts` | L683 | Sync live state with Cloudflare Edge D1/KV |
+| `admin-panel.ts` | L687 | Toggle 10s auto-refresh |
+| `admin-panel.ts` | L1023 | Promote |
+| `admin-panel.ts` | L1024 | Demote |
+| `admin-panel.ts` | L1085 | Delete Channel |
+| `admin-panel.ts` | L1567 | Delete object from R2 |
+| `admin-panel.ts` | L1721 | Load into live editor |
+| `admin-panel.ts` | L1724 | Pin / Unpin post |
+| `admin-panel.ts` | L1727 | Lock / Unlock comments |
+| `admin-panel.ts` | L1730 | Delete post permanently |
+| `admin-panel.ts` | L1759 | Export cryptographic event ledger as formatted JSON |
+| `admin-panel.ts` | L1860 | Delete content and mark report as resolved |
+| `admin-panel.ts` | L1867 | Dismiss report as unfounded |
+| `admin-panel.ts` | L951 | User Fingerprint or ID... |
+| `admin-panel.ts` | L963 | Audit Notes (e.g. Lead Community Mod)... |
+| `admin-panel.ts` | L979 | Search by fingerprint... |
+| `admin-panel.ts` | L1047 | channel-name |
+| `admin-panel.ts` | L1251 | IP address... |
+| `admin-panel.ts` | L1330 | Type system announcement (or leave blank to clear)... |
+| `admin-panel.ts` | L1441 | SELECT * FROM posts WHERE status != |
+| `admin-panel.ts` | L1626 | post-1... |
+| `admin-panel.ts` | L1618 | msg-1... |
+| `admin-panel.ts` | L1647 | post-... |
+| `admin-panel.ts` | L1651 | New post title... |
+| `admin-panel.ts` | L1656 | TECH DISCUSSION |
+| `admin-panel.ts` | L1671 | Edit full post content here... |
+| `admin-panel.ts` | L624 | Admin Panel |
+| `admin-panel.ts` | L680 | ADMIN ONLY |
+| `admin-panel.ts` | L788 | CLOUDFLARE ANYCAST EDGE |
+| `admin-panel.ts` | L794 | Live Throughput |
+| `admin-panel.ts` | L798 | Avg Edge RTT |
+| `admin-panel.ts` | L841 | Live Inbound Ingress Stream |
+| `admin-panel.ts` | L1659 | Status |
+| `admin-panel.ts` | L850 | Edge PoP |
+| `admin-panel.ts` | L851 | Protocol |
+| `admin-panel.ts` | L865 | WebSocket |
+| `admin-panel.ts` | L888 | Recent Sovereign Admin Audit Trail |
+| `app.ts` | L872 | Messages |
+| `admin-panel.ts` | L998 | ZK Verified |
+| `admin-panel.ts` | L1554 | Actions |
+| `admin-panel.ts` | L1045 | Create New Channel |
+| `admin-panel.ts` | L1062 | Channel |
 
-_...and 1093 more. Run the full audit to see all._
+_...and 1136 more. Run the full audit to see all._
 
 ---
 
-## Registered i18n Keys (311 total)
+## Registered i18n Keys (379 total)
 
 The following top-level key paths are registered in `TranslationDictionary`:
 
 ```
+.
+acousticDsp.applyToSoundstage
+acousticDsp.biquadFilter
+acousticDsp.dbRange
+acousticDsp.parametricBands
+acousticDsp.presets
+acousticDsp.resetFlat
+acousticDsp.subtitle
+acousticDsp.title
 actions.award
 actions.blockUser
 actions.bookmark
@@ -120,6 +129,14 @@ actions.unfollowUser
 actions.unlike
 actions.unrepost
 actions.viewThread
+activityFeed.activityPaused
+activityFeed.eventsCount
+activityFeed.maxEvents
+activityFeed.noActivity
+activityFeed.pauseStream
+activityFeed.resumeStream
+activityFeed.streamLabel
+activityFeed.title
 common.all
 common.anonymous
 common.appName
@@ -127,13 +144,17 @@ common.back
 common.cancel
 common.close
 common.confirm
+common.connectWallet
 common.copied
 common.copy
 common.delete
 common.details
+common.disconnect
 common.edit
 common.error
 common.filter
+common.hello
+common.install
 common.loading
 common.next
 common.offline
@@ -156,28 +177,7 @@ crdt.merkleSync
 crdt.syncNow
 crdt.vectorClocks
 edge.activeRegion
-edge.anycastRouting
-edge.cacheHitRatio
-edge.d1Replicas
-edge.durableObjects
-edge.edgeLocations
-edge.failoverStatus
-edge.globalTopology
-edge.latency
-edge.p2pMeshFallback
-edge.r2Storage
-edge.sub15msTarget
-edge.title
-emptyState.bookmarksDesc
-emptyState.bookmarksTitle
-emptyState.loadingPulses
-emptyState.notificationsDesc
-emptyState.notificationsTitle
-emptyState.pulseAction
-emptyState.pulseDesc
-emptyState.pulseTitle
-emptyState.relaysAction
-... (231 more)
+... (299 more)
 ```
 
 ---

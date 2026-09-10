@@ -1,5 +1,5 @@
 // timeline-scrubber.ts
-// Aetheris Omni-Sphere — Timeline Scrubber & Temporal Navigation Engine
+// UREfy — Timeline Scrubber & Temporal Navigation Engine
 // Complete rapid temporal navigation engine through ZK-Pulse & Relays data stream
 
 import { PASSIVE_EVENT_OPTIONS, rafThrottle, safeRequestAnimationFrame, safeCancelAnimationFrame } from './dry-utils.js';
@@ -330,7 +330,7 @@ export class TimelineScrubber {
     const activeColor = activeEpochObj ? activeEpochObj.colorClass : 'text-cyphr';
 
     return `
-      <!-- AETHERIS TIMELINE SCRUBBER CONTAINER -->
+      <!-- UREfy TIMELINE SCRUBBER CONTAINER -->
       <aside 
         id="timeline-scrubber-container" 
         class="timeline-scrubber-root fixed right-4 top-20 z-40 hidden xl:flex flex-col select-none transition-all duration-300 ${

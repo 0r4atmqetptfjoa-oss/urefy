@@ -91,7 +91,7 @@ function createMockD1(): D1Database {
 
 // ─── TEST SUITE ───────────────────────────────────────────────────────────────
 
-describe('Aetheris Sovereign Web Push (VAPID) Engine', () => {
+describe('UREfy Sovereign Web Push (VAPID) Engine', () => {
   let mockPushSubscription: any;
   let mockPushManager: any;
   let mockRegistration: any;

@@ -165,12 +165,12 @@ describe('Unified Transparency Mode — Live Cryptographic Pipeline Inspector (I
 
   describe('3. Hex Formatting & Live Inspector', () => {
     it('formats raw hex into 16-byte row layout with ASCII preview', () => {
-      const rawHex = '48656c6c6f2c20416574686572697321'; // "Hello, Aetheris!" in hex
+      const rawHex = '48656c6c6f2c20555245667921'; // "Hello, UREfy!" in hex
       const formatted = manager.formatHexDump(rawHex, 32);
 
       expect(formatted).toContain('0000');
-      expect(formatted).toContain('48 65 6c 6c 6f 2c 20 41 65 74 68 65 72 69 73 21');
-      expect(formatted).toContain('Hello, Aetheris!');
+      expect(formatted).toContain('48 65 6c 6c 6f 2c 20 55 52 45 66 79 21');
+      expect(formatted).toContain('Hello, UREfy!');
     });
 
     it('truncates large hex dumps with omission indicator', () => {

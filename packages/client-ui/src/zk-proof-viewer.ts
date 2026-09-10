@@ -1,5 +1,5 @@
 /**
- * Aetheris Omni-Sphere — Interactive Zero-Knowledge Proof Visualizer (ZKProofVisualizer)
+ * UREfy — Interactive Zero-Knowledge Proof Visualizer (ZKProofVisualizer)
  *
  * Cryptographic graphical inspector for inspecting, decomposing, and verifying:
  * 1. ZK-RLN (Rate Limiting Nullifiers over BN254 prime field)
@@ -273,7 +273,7 @@ export class ZKProofVisualizer {
         title: 'Blind Sybil Nullifier Scope Binding',
         mathSymbol: 'Nullifier_Aetheris = Poseidon(PassportSecret, AppScope) ∈ 𝔽ₚ',
         description:
-          'Generating a deterministic unique ZK-based pseudonym per Aetheris community, preventing multi-accounting (Sybil Attack) without allowing cross-space identity correlation.',
+          'Generating a deterministic unique ZK-based pseudonym per UREfy community, preventing multi-accounting (Sybil Attack) without allowing cross-space identity correlation.',
         input: 'AppScope = "aetheris-genesis-relays-v1" | PassportSecret = 0x7c92... (hidden)',
         output: 'Unique_Sybil_Resistant_ID = 0x1fb7a94029c9103e91848a301f28b49e0c184092b19283749201928471019283',
         color: '#22c55e',
@@ -408,7 +408,7 @@ export class ZKProofVisualizer {
     const steps = this.getProofSteps(targetType);
 
     const witnessObj = {
-      protocol: 'Aetheris Omni-Sphere Sovereign ZK Engine',
+      protocol: 'UREfy Sovereign ZK Engine',
       proofType: targetType,
       specification: meta.title,
       curve: meta.curve,
@@ -496,7 +496,7 @@ export class ZKProofVisualizer {
           class="w-full max-w-5xl bg-surface-base border border-cyphr/30 rounded-2xl shadow-2xl shadow-cyan-950/40 flex flex-col max-h-[92vh] overflow-hidden text-slate-200 font-sans border-subtle-b"
           role="dialog"
           aria-modal="true"
-          aria-label="Aetheris Zero-Knowledge Proof Visualizer"
+          aria-label="UREfy Zero-Knowledge Proof Visualizer"
         >
           
           <!-- TERMINAL HEADER BAR -->
@@ -515,7 +515,7 @@ export class ZKProofVisualizer {
               <div class="flex items-center space-x-2">
                 <span class="text-base">${currentMeta.icon}</span>
                 <span class="font-bold text-sm text-white tracking-wider font-mono">
-                  AETHERIS ZK-INSPECTOR
+                  UREfy ZK-INSPECTOR
                 </span>
                 <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-surface-overlay text-cyphr border border-cyphr/30">
                   ${currentMeta.badge}

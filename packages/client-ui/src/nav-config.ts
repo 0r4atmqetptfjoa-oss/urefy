@@ -7,6 +7,7 @@
  */
 
 import { renderIcon, IconName } from './ui/icons.js';
+import { t } from './i18n.js';
 
 export interface NavItemConfig {
   id: string;
@@ -294,3 +295,37 @@ export function renderNavIcon(item: NavItemConfig, options = { size: 20 }): stri
   }
   return item.icon || '';
 }
+
+export function getLocalizedNavLabel(item: NavItemConfig): string {
+  if (!item) return '';
+  const keyMap: Record<string, string> = {
+    feed: 'nav.feed',
+    explore: 'nav.explore',
+    messages: 'nav.messages',
+    vault: 'nav.vault',
+    profile: 'nav.profile',
+    more: 'nav.more',
+    bookmarks: 'nav.bookmarks',
+    notifications: 'notifications.title',
+    communities: 'nav.communities',
+    governance: 'nav.governance',
+    security: 'settings.security',
+    backup: 'settings.backupTitle',
+    network: 'nav.observatory',
+    developer: 'nav.developer',
+    advanced: 'settings.advanced',
+    theme: 'nav.theme',
+    dao: 'nav.governance',
+    observatory: 'nav.observatory',
+    help: 'footer.about',
+  };
+
+  const key = keyMap[item.id] || `nav.${item.id}`;
+  return t(key, undefined, item.label);
+}
+
+export function getLocalizedNavDescription(item: NavItemConfig): string {
+  if (!item) return '';
+  return item.description;
+}
+

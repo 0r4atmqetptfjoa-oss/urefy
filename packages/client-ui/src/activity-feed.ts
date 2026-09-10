@@ -1,10 +1,11 @@
 // ─── activity-feed.ts ────────────────────────────────────────────────────────
-// Live Network Activity stream for Aetheris Omni-Sphere — Right Rail widget
+// Live Network Activity stream for UREfy — Right Rail widget
 // Self-contained, no external dependencies.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { isSimulationModeEnabled, renderSimulationBadgeHTML } from './simulation-mode.js';
 import { isLocalDev } from './admin-auth.js';
+import { t } from './i18n.js';
 
 export interface ActivityEvent {
   id: string;
@@ -101,7 +102,7 @@ const DEMO_ROLES: ActivityEvent['actorRole'][] = [
 const DEMO_TITLES: string[] = [
   'ZK Proof Collusion Patterns',
   'Relay Node Architecture v2',
-  'Aetheris Governance Proposal #17',
+  'UREfy Governance Proposal #17',
   'Deep Dive: Mesh Propagation',
   'Anonymous Voting Protocol',
   'Security Audit Q3 2026',
@@ -247,7 +248,7 @@ class NetworkActivityFeed {
 
   /**
    * Renders the full right-rail widget as an HTML string.
-   * Uses Tailwind utility classes per Aetheris dark-theme spec.
+   * Uses Tailwind utility classes per UREfy dark-theme spec.
    */
   renderActivityWidget(): string {
     const visibleEvents = this.events.slice(0, 15);
@@ -255,11 +256,13 @@ class NetworkActivityFeed {
     const pauseBanner = this.isPaused
       ? `<div class="flex items-center justify-center gap-2 py-2 px-3 mb-2
                      bg-amber/10 border border-amber/30 rounded-lg text-amber text-xs font-mono">
-           ⏸ Activity paused
+           ${t('activityFeed.activityPaused', undefined, '⏸ Activity paused')}
          </div>`
       : '';
 
-    const pauseButtonLabel = this.isPaused ? 'Resume ▶' : 'Pause ⏸';
+    const pauseButtonLabel = this.isPaused
+      ? `${t('activityFeed.resumeStream', undefined, 'Resume')} ▶`
+      : `${t('activityFeed.pauseStream', undefined, 'Pause')} ⏸`;
     const pauseButtonClass = this.isPaused
       ? 'bg-signal/20 hover:bg-signal/30 text-signal border-signal/40'
       : 'bg-surface-overlay hover:bg-surface-highlight text-white/60 border-white/10';
@@ -315,12 +318,12 @@ class NetworkActivityFeed {
     const emptyState = visibleEvents.length === 0
       ? `<div class="flex flex-col items-center justify-center py-8 text-white/25 text-sm gap-1">
            <span class="text-2xl">📭</span>
-           <span>No activity yet</span>
+           <span>${t('activityFeed.noActivity', undefined, 'No activity yet')}</span>
          </div>`
       : '';
 
     const footerIcons = EVENT_TYPES
-      .map(t => `<span class="text-[9px] ${TYPE_COLOUR[t] ?? ''} opacity-60" title="${t}">${TYPE_EMOJI[t] ?? ''}</span>`)
+      .map(evtType => `<span class="text-[9px] ${TYPE_COLOUR[evtType] ?? ''} opacity-60" title="${evtType}">${TYPE_EMOJI[evtType] ?? ''}</span>`)
       .join('');
 
     const pulseClass = this.isPaused ? '' : 'animate-pulse';
@@ -335,12 +338,12 @@ class NetworkActivityFeed {
               border-b border-white/5 bg-surface-raised">
     <div class="flex items-center gap-2">
       <div class="w-1.5 h-1.5 rounded-full bg-signal ${pulseClass}"></div>
-      <span class="text-white/90 text-sm font-semibold tracking-tight">⚡ Live Network Activity</span>
+      <span class="text-white/90 text-sm font-semibold tracking-tight">${t('activityFeed.title', undefined, '⚡ Live Network Activity')}</span>
       ${isSimulationModeEnabled() ? renderSimulationBadgeHTML('ml-1.5') : ''}
     </div>
     <button
       class="px-2 py-0.5 rounded border text-xs font-mono transition-all ${pauseButtonClass}" data-action="call-global" data-raw-click="networkActivityFeed.isPaused ? networkActivityFeed.resume() : networkActivityFeed.pause()"
-      title="${this.isPaused ? 'Resume activity stream' : 'Pause activity stream'}"
+      title="${this.isPaused ? t('activityFeed.resumeStream', undefined, 'Resume activity stream') : t('activityFeed.pauseStream', undefined, 'Pause activity stream')}"
     >
       ${pauseButtonLabel}
     </button>
@@ -349,9 +352,9 @@ class NetworkActivityFeed {
   <!-- Event count pill -->
   <div class="flex items-center justify-between px-3 pt-2 pb-1">
     <span class="text-white/30 text-[10px] font-mono">
-      ${this.events.length} events · showing ${visibleEvents.length}
+      ${this.events.length} ${t('activityFeed.eventsCount', undefined, 'events · showing')} ${visibleEvents.length}
     </span>
-    <span class="text-white/25 text-[10px] font-mono">max 50</span>
+    <span class="text-white/25 text-[10px] font-mono">${t('activityFeed.maxEvents', undefined, 'max 50')}</span>
   </div>
 
   <!-- Pause banner -->
@@ -370,7 +373,7 @@ class NetworkActivityFeed {
   <!-- Footer -->
   <div class="px-3 py-2 border-t border-white/5 bg-surface-raised/50">
     <div class="flex items-center justify-between">
-      <span class="text-white/20 text-[10px] font-mono">NETWORK ACTIVITY STREAM</span>
+      <span class="text-white/20 text-[10px] font-mono">${t('activityFeed.streamLabel', undefined, 'NETWORK ACTIVITY STREAM')}</span>
       <div class="flex gap-1">
         ${footerIcons}
       </div>

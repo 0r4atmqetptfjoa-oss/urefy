@@ -65,7 +65,7 @@ test.describe('Aetheris Sovereign Omni-Sphere: End-to-End User Journeys', () => 
       // Buttons must have accessible labels in English
       await expect(page.locator('#btn-mobile-tab-feed')).toBeVisible();
       await expect(page.locator('#btn-mobile-tab-vault')).toBeVisible();
-      await expect(page.locator('#btn-mobile-tab-circle')).toBeVisible();
+      await expect(page.locator('#btn-mobile-tab-messages')).toBeVisible();
       await expect(page.locator('#btn-mobile-tab-profile')).toBeVisible();
 
       // Click Vault tab
@@ -82,11 +82,12 @@ test.describe('Aetheris Sovereign Omni-Sphere: End-to-End User Journeys', () => 
       await dialog.dismiss();
     });
 
+    // Wait for sovereignDialog to be attached and hydrated
+    await page.waitForFunction(() => typeof (window as any).sovereignDialog?.alert === 'function');
+
     // Evaluate sovereignDialog in window context
     await page.evaluate(() => {
-      if ((window as any).sovereignDialog) {
-        (window as any).sovereignDialog.alert('Testing zero native alert compliance', { title: 'Security Audit' });
-      }
+      (window as any).sovereignDialog.alert('Testing zero native alert compliance', { title: 'Security Audit' });
     });
 
     // Check that Sovereign Modal rendered in DOM

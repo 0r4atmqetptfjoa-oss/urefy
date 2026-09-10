@@ -38,13 +38,14 @@ export function renderProfileSettingsHTML(
   return `
     <div id="profile-settings-panel" class="space-y-6 animate-in fade-in duration-200">
       <!-- CATEGORY NAVIGATION PILLS -->
-      <div class="flex items-center space-x-1.5 overflow-x-auto pb-2 scrollbar-none border-b border-white/5">
+      <div id="profile-settings-nav" role="tablist" aria-label="Profile settings" class="flex items-center space-x-1.5 overflow-x-auto pb-2 scrollbar-none border-b border-white/5">
         ${SETTINGS_CATEGORIES.map(cat => `
           <button
             type="button"
             id="btn-settings-cat-${cat.id}"
             data-action="set-profile-settings-cat"
             data-settings-cat="${cat.id}"
+            role="tab" aria-selected="${currentCat === cat.id}"
             class="px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center space-x-2 cursor-pointer border ${
               currentCat === cat.id
                 ? 'bg-cyan-500/20 text-cyan-200 border-cyan-400/40 shadow-sm shadow-cyan-500/10'

@@ -1,5 +1,5 @@
 /**
- * Aetheris Admin Authentication Module
+ * UREfy Admin Authentication Module
  *
  * Handles admin identity detection, PIN-based access, and session management.
  * Admin status is stored in memory only (clears on tab/browser close for security).
@@ -10,6 +10,8 @@ import { serviceRegistry, SERVICES } from './service-registry.js';
 import { safeLocalStorage } from './dry-utils.js';
 
 export function isLocalDev(): boolean {
+  const isTestRuntime = typeof process !== 'undefined' && process.env?.VITEST === 'true';
+  if (!isTestRuntime) return false;
   if (typeof window === 'undefined' || !window.location) return true;
   const host = window.location.hostname;
   return host === 'localhost' || host === '127.0.0.1' || host === '::1' || host === '[::1]';
@@ -18,6 +20,12 @@ export function isLocalDev(): boolean {
 export function isProductionBuild(): boolean {
   if (typeof import.meta !== 'undefined' && (import.meta as any).env && (import.meta as any).env.PROD) {
     return true;
+  }
+  if (typeof process !== 'undefined' && process.env?.VITEST === 'true') {
+    return !isLocalDev();
+  }
+  if (typeof import.meta !== 'undefined' && (import.meta as any).env && (import.meta as any).env.DEV) {
+    return false;
   }
   return !isLocalDev();
 }

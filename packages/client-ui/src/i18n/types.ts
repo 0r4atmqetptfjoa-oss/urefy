@@ -43,6 +43,9 @@ export interface TranslationDictionary {
     next: string;
     confirm: string;
     submit: string;
+    install?: string;
+    connectWallet?: string;
+    disconnect?: string;
   };
   nav: {
     relays: string;
@@ -57,6 +60,11 @@ export interface TranslationDictionary {
     theme: string;
     language: string;
     onboarding: string;
+    feed?: string;
+    explore?: string;
+    messages?: string;
+    profile?: string;
+    more?: string;
   };
   relays: {
     title: string;
@@ -255,6 +263,7 @@ export interface TranslationDictionary {
     reportSent: string;
     awardSent: string;
     reactionAdded: string;
+    dismiss: string;
   };
   footer?: {
     about: string;
@@ -297,6 +306,23 @@ export interface TranslationDictionary {
     emailNotifications: string;
     mentionNotifications: string;
     replyNotifications: string;
+    appearanceTitle?: string;
+    appearanceDesc?: string;
+    preferencesTitle?: string;
+    preferencesDesc?: string;
+    footprintTitle?: string;
+    footprintDesc?: string;
+    backupTitle?: string;
+    backupDesc?: string;
+    telemetryTitle?: string;
+    telemetryDesc?: string;
+    languageTitle?: string;
+    languageDesc?: string;
+    zenMode?: string;
+    meritThreshold?: string;
+    wotBadge?: string;
+    proactiveAi?: string;
+    demoteLowTrust?: string;
   };
   profile?: {
     editProfile: string;
@@ -328,6 +354,7 @@ export interface TranslationDictionary {
     newAward: string;
     systemMessage: string;
     filterAll: string;
+    filterUnread: string;
     filterMentions: string;
     filterReplies: string;
     filterAwards: string;
@@ -363,5 +390,50 @@ export interface TranslationDictionary {
     selectLanguage: string;
     languagePickerTitle: string;
     languagePickerSubtitle: string;
+  };
+  zkReputation?: {
+    title: string;
+    subtitle: string;
+    passportTier: string;
+    accumulatedMerit: string;
+    meritUnit: string;
+    progressTo: string;
+    maxLevel: string;
+    governanceMultiplier: string;
+    governanceWeight: string;
+    epochNullifier: string;
+    privilegesPerks: string;
+    generateProof: string;
+    generateProofDesc: string;
+    generateProofBtn: string;
+    closeEsc: string;
+    trustScore: string;
+  };
+  meshMatrix?: {
+    status: string;
+    online: string;
+    offline: string;
+    peers: string;
+    latency: string;
+  };
+  activityFeed?: {
+    title: string;
+    noActivity: string;
+    streamLabel: string;
+    pauseStream: string;
+    resumeStream: string;
+    activityPaused: string;
+    eventsCount: string;
+    maxEvents: string;
+  };
+  acousticDsp?: {
+    title: string;
+    biquadFilter: string;
+    subtitle: string;
+    presets: string;
+    parametricBands: string;
+    dbRange: string;
+    resetFlat: string;
+    applyToSoundstage: string;
   };
 }

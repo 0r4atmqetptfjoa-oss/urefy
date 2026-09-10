@@ -3,6 +3,7 @@ import { clientStore, ClientMessage, ClientPost } from '../src/client-state.js';
 import { renderRelaysWorkspace, renderMessageItem } from '../src/messages-view.js';
 import { renderVaultWorkspace, renderVaultReleaseCard } from '../src/vault-view.js';
 import { renderPulseWorkspace, renderPulsePostCard, renderInlineQuickComposer, renderPostCard } from '../src/feed-view.js';
+import { sovereignDM } from '../src/sovereign-dm.js';
 
 describe('Modular Views Architecture', () => {
   beforeEach(() => {
@@ -49,6 +50,9 @@ describe('Modular Views Architecture', () => {
       expect(html).toContain('id="form-send-message"');
 
       // Switch to DM tab
+      const peer = '0123456789abcdef';
+      sovereignDM.conversations.set(peer, { peerFingerprint: peer, peerRole: 'MEMBER', messages: [], unreadCount: 0, lastMessageAt: 0 });
+      sovereignDM.activePeerFP = peer;
       setActiveMessagesTab('dm');
       html = renderRelaysWorkspace();
       expect(html).toContain('Direct Messages');
@@ -57,7 +61,7 @@ describe('Modular Views Architecture', () => {
       expect(html).toContain('id="form-send-dm-message"');
       expect(html).toContain('id="input-dm-message"');
       expect(html).toContain('<span>Send</span>');
-      expect(html).toContain('<span>⚡</span>');
+      expect(html).toContain('type="submit"');
 
       // Test New DM Modal
       openNewDMPicker();

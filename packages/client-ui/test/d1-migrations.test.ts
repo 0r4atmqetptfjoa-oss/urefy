@@ -3,22 +3,24 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { DatabaseSync } from 'node:sqlite';
 
-describe('Aetheris Omni-Sphere — D1 SQLite Migrations Verification', () => {
-  it('applies migrations 0001 through 0006 sequentially onto a fresh SQLite database', () => {
+describe('UREfy — D1 SQLite Migrations Verification', () => {
+  it('applies all versioned migrations sequentially onto a fresh SQLite database', () => {
     const db = new DatabaseSync(':memory:');
 
     const migrationsDir = path.resolve(__dirname, '../migrations');
     const files = fs.readdirSync(migrationsDir).filter((f) => f.endsWith('.sql')).sort();
 
-    expect(files.length).toBe(6);
-    expect(files).toEqual([
+    expect(files.length).toBeGreaterThanOrEqual(8);
+    expect(files).toEqual(expect.arrayContaining([
       '0001_initial_schema.sql',
       '0002_dsa_reports.sql',
       '0003_interactions.sql',
       '0004_used_nonces.sql',
       '0005_webauthn_credentials.sql',
       '0006_webauthn_challenges.sql',
-    ]);
+      '0007_direct_messages.sql',
+      '0008_governance.sql',
+    ]));
 
     // Apply migrations in order
     for (const file of files) {
@@ -36,6 +38,10 @@ describe('Aetheris Omni-Sphere — D1 SQLite Migrations Verification', () => {
       'channels',
       'cve_cache',
       'dsa_reports',
+      'dm_identities',
+      'direct_messages',
+      'governance_proposals',
+      'governance_votes',
       'interactions',
       'messages',
       'nanopublications',

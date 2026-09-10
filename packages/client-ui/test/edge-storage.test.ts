@@ -185,7 +185,7 @@ describe('Cloudflare Pages Functions - R2 & Edge Vault Storage Architecture (sto
   // ─── 2. CRYPTOGRAPHIC CHECKSUMS & MERKLE TREE ──────────────────────────────
   describe('2. Cryptographic Integrity: SHA-256 & Merkle Tree Root Computation', () => {
     it('should calculate accurate standard SHA-256 hashes', async () => {
-      const testData = new TextEncoder().encode('Aetheris Sovereign Microkernel Release Matrix');
+      const testData = new TextEncoder().encode('UREfy Sovereign Microkernel Release Matrix');
       const hash = await computeSha256(testData);
 
       expect(typeof hash).toBe('string');
@@ -267,7 +267,7 @@ describe('Cloudflare Pages Functions - R2 & Edge Vault Storage Architecture (sto
           'Content-Type': 'application/octet-stream',
           'X-File-Name': 'microkernel.bin',
           'X-Author': 'c3dc28cb705e',
-          'X-Title': 'Aetheris Microkernel Release',
+          'X-Title': 'UREfy Microkernel Release',
           'X-Key': 'releases/microkernel.bin',
           'X-Admin-PIN': '11223',
         },
@@ -284,7 +284,7 @@ describe('Cloudflare Pages Functions - R2 & Edge Vault Storage Architecture (sto
       expect(json.sha256).toBe(expectedSha);
       expect(json.merkleRoot).toBe(expectedMerkle);
       expect(json.author).toBe('c3dc28cb705e');
-      expect(json.title).toBe('Aetheris Microkernel Release');
+      expect(json.title).toBe('UREfy Microkernel Release');
       expect(json.storage).toBe('Edge-Isolate-Memory');
       expect(json.downloadUrl).toBe('/api/storage?key=releases%2Fmicrokernel.bin');
 
@@ -369,7 +369,7 @@ describe('Cloudflare Pages Functions - R2 & Edge Vault Storage Architecture (sto
     it('should support multipart/form-data upload with File object and metadata', async () => {
       const mockBucket = createMockR2Bucket();
       const formData = new FormData();
-      const fileBlob = new Blob(['Aetheris MLS TreeKEM State Bundle'], {
+      const fileBlob = new Blob(['UREfy MLS TreeKEM State Bundle'], {
         type: 'application/octet-stream',
       });
       formData.append('file', fileBlob, 'treekem-bundle.bin');
@@ -447,7 +447,7 @@ describe('Cloudflare Pages Functions - R2 & Edge Vault Storage Architecture (sto
       expect(res.headers.get('Access-Control-Allow-Origin')).toBe('*');
 
       const text = await res.text();
-      expect(text).toContain('Aetheris Microkernel v1.0.0');
+      expect(text).toContain('UREfy Microkernel v1.0.0');
     });
 
     it('should stream binary from Cloudflare R2 bucket with full HTTP/3 headers', async () => {

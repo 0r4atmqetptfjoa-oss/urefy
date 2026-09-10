@@ -1,5 +1,5 @@
 /**
- * AETHERIS HYBRID SUITE - REUSABLE DRY UTILITIES
+ * UREfy HYBRID SUITE - REUSABLE DRY UTILITIES
  * Centralized, shared helper utilities eliminating duplicate patterns across the monorepo.
  */
 
@@ -304,11 +304,11 @@ export async function sharePostOrCopyLink(
   content?: string,
   targetButton?: HTMLElement | null
 ): Promise<boolean> {
-  const origin = typeof window !== 'undefined' ? (window.location.origin || '') : 'https://aetheris-omni-sphere.pages.dev';
+  const origin = typeof window !== 'undefined' ? (window.location.origin || '') : 'https://urefy.com';
   const url = `${origin}/#post-${postId}`;
   const shareData = {
-    title: title || 'Aetheris Sovereign Pulse',
-    text: content ? (content.slice(0, 140) + '...') : 'Check out this publication on Aetheris Omni-Sphere:',
+    title: title || 'UREfy verified publication',
+    text: content ? (content.slice(0, 140) + '...') : 'View this verified publication on UREfy:',
     url,
   };
 

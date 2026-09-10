@@ -1,5 +1,5 @@
 /**
- * Aetheris Offline Sync Queue & Conflict-Free Reconnection Daemon (CRDT).
+ * UREfy Offline Sync Queue & Conflict-Free Reconnection Daemon (CRDT).
  * Buffers publications, votes, reactions, and encrypted messages into IndexedDB/RAM
  * while offline, then automatically synchronizes and cryptographically signs them upon reconnection.
  *

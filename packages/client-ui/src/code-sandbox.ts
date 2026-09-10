@@ -1,5 +1,5 @@
 /**
- * AETHERIS HYBRID SUITE - SECURE IN-BROWSER WEBWINKER CODE SANDBOX
+ * UREfy HYBRID SUITE - SECURE IN-BROWSER WEBWINKER CODE SANDBOX
  * Isolated execution engine for untrusted user code in posts and articles.
  * Enforces memory/time boundaries, security isolation, and ergonomic terminal output.
  */

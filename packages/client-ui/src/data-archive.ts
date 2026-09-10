@@ -11,7 +11,7 @@ import { secureStorage } from './secure-storage.js';
 import { clientStore, ClientPost, ClientMessage, ChannelItem } from './client-state.js';
 import { bookmarksVault, BookmarkEntry } from './bookmarks.js';
 import { themeEngine } from './themes.js';
-import { bytesToHex, mnemonicToSeed } from '@aetheris/core-crypto';
+import { bytesToHex, mnemonicToSeed, generateKeyPair, validateMnemonic, hexToBytes } from '@aetheris/core-crypto';
 
 // ─── CONSTANTS & PROTOCOL ENVELOPE SPECIFICATION ───────────────────────────
 
@@ -96,20 +96,17 @@ export async function exportSovereignArchive(passphrase: string): Promise<Blob> 
   }
 
   // 1. Gather user identity
-  let seedHex = '';
-  if (typeof localStorage !== 'undefined') {
-    seedHex = secureStorage.getIdentitySync()?.seedHex || '';
-  }
-  if (!seedHex && clientStore.mnemonic) {
-    try {
-      seedHex = bytesToHex(mnemonicToSeed(clientStore.mnemonic).subarray(0, 32));
-    } catch {
-      seedHex = '';
-    }
-  }
+  const seedHex = bytesToHex(clientStore.keypair.privateKey);
+  const recovered = generateKeyPair(new Uint8Array(clientStore.keypair.privateKey));
+  const matches = recovered.fingerprint === clientStore.keypair.fingerprint;
+  recovered.privateKey.fill(0);
+  recovered.privateKeyHex = '';
+  if (!matches) throw new Error('The active identity is not ready for a recovery backup');
+  const phrase = clientStore.mnemonic || '';
+  const phraseMatches = validateMnemonic(phrase) && bytesToHex(mnemonicToSeed(phrase).subarray(0, 32)) === seedHex;
 
   const identity = {
-    mnemonic: clientStore.mnemonic || '',
+    mnemonic: phraseMatches ? phrase : '',
     seed: seedHex,
     fingerprint: clientStore.keypair?.fingerprint || '',
   };
@@ -173,6 +170,7 @@ export async function exportSovereignArchive(passphrase: string): Promise<Blob> 
     aesKey,
     jsonBytes as unknown as BufferSource
   );
+  jsonBytes.fill(0);
   const ciphertextWithTag = new Uint8Array(encryptedBuffer);
 
   // 8. Assemble binary envelope
@@ -197,7 +195,7 @@ export function downloadArchiveFile(
   blob: Blob,
   filename?: string
 ): void {
-  const actualFilename = filename || `aetheris-sovereign-archive-${new Date().toISOString().slice(0, 10)}.aeth`;
+  const actualFilename = filename || `urefy-enclave-${new Date().toISOString().slice(0, 10)}.ure`;
   if (typeof window === 'undefined' || typeof document === 'undefined') {
     return;
   }
@@ -273,11 +271,26 @@ export async function importSovereignArchive(
     payload = JSON.parse(jsonString);
   } catch (_err) {
     throw new Error('Invalid passphrase or corrupted archive');
+  } finally {
+    new Uint8Array(decryptedBuffer).fill(0);
   }
 
-  if (!payload || typeof payload !== 'object') {
+  if (!payload || typeof payload !== 'object' || payload.version !== 1 || payload.platform !== 'aetheris-sovereign-vault') {
     throw new Error('Invalid passphrase or corrupted archive');
   }
+
+  const identity = payload.identity;
+  if (!identity || typeof identity.seed !== 'string' || !/^[0-9a-f]{64}$/i.test(identity.seed)) throw new Error('Archive recovery identity is invalid');
+  const recovered = generateKeyPair(hexToBytes(identity.seed));
+  const identityMatches = recovered.fingerprint === identity.fingerprint;
+  recovered.privateKey.fill(0);
+  recovered.privateKeyHex = '';
+  const phrase = typeof identity.mnemonic === 'string' ? identity.mnemonic.trim() : '';
+  if (!identityMatches || (phrase && (!validateMnemonic(phrase) || bytesToHex(mnemonicToSeed(phrase).subarray(0, 32)) !== identity.seed.toLowerCase()))) {
+    throw new Error('Archive recovery identity does not match its fingerprint');
+  }
+  if (!clientStore.restoreIdentityFromSeed(identity.seed, phrase)) throw new Error('Archive identity could not be restored');
+  await clientStore.identityPersistence;
 
   let restoredPosts = 0;
   let restoredBookmarks = 0;
@@ -338,6 +351,7 @@ export async function importSovereignArchive(
     }
     if (typeof clientStore.persistMessagesLocally === 'function') {
       clientStore.persistMessagesLocally();
+      await clientStore.messagesPersistence;
     }
   }
 
@@ -362,11 +376,6 @@ export async function importSovereignArchive(
         clientStore.setDensity(payload.preferences.density as any);
       } catch {}
     }
-  }
-
-  // 9. If mnemonic is present in archive, call clientStore.restoreIdentityFromMnemonic
-  if (payload.identity && typeof payload.identity.mnemonic === 'string' && payload.identity.mnemonic.trim().length > 0) {
-    clientStore.restoreIdentityFromMnemonic(payload.identity.mnemonic.trim());
   }
 
   // 10. Call clientStore.notify('ARCHIVE_RESTORED')

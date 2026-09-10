@@ -1,4 +1,5 @@
 ﻿import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import './helpers/disable-demo.js';
 
 if (typeof globalThis.window === 'undefined') {
   (globalThis as any).window = globalThis;
@@ -55,3 +56,4 @@ describe('Centralized Simulation Mode Engine', () => {
     expect(badgeHTML).toContain('bg-amber-500/20');
   });
 });
+(globalThis as any).__UREFY_DEMO_MODE__ = false;

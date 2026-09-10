@@ -1,10 +1,11 @@
 {
-  "name": "Aetheris Omni-Sphere",
-  "short_name": "Aetheris",
-  "description": "Sovereign P2P Communication & Encrypted Knowledge Vault",
-  "start_url": "/",
+  "name": "UREfy — Unified Relay Enclave Framework for You",
+  "short_name": "UREfy",
+  "description": "Private communication, sovereign identity and verified knowledge unified for you",
+  "id": "/",
+  "start_url": "/#feed",
   "display": "standalone",
-  "display_override": ["window-controls-overlay", "standalone"],
+  "display_override": ["standalone", "minimal-ui"],
   "background_color": "#090a0f",
   "theme_color": "#090a0f",
   "orientation": "any",
@@ -50,14 +51,16 @@
   ],
   "shortcuts": [
     {
-      "name": "Stream",
-      "url": "/?view=stream",
-      "description": "Open Relay Stream"
+      "name": "Feed",
+      "url": "/#feed"
     },
     {
-      "name": "Compose",
-      "url": "/?compose=true",
-      "description": "Create a new post"
+      "name": "Messages",
+      "url": "/#messages"
+    },
+    {
+      "name": "Vault",
+      "url": "/#vault"
     }
   ],
   "screenshots": [
@@ -66,14 +69,14 @@
       "sizes": "1280x720",
       "type": "image/png",
       "form_factor": "wide",
-      "label": "Aetheris Sovereign Desktop Workspace"
+      "label": "UREfy desktop workspace"
     },
     {
       "src": "/screenshot-mobile.png",
       "sizes": "540x960",
       "type": "image/png",
       "form_factor": "narrow",
-      "label": "Aetheris Sovereign Mobile Interface"
+      "label": "UREfy mobile interface"
     }
   ],
   "prefer_related_applications": false,

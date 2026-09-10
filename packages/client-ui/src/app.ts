@@ -4,7 +4,7 @@ import { clientStore, ClientMessage, ClientPost, ClientNanopublication, SpaceTyp
 import { setupKeyboardShortcuts, getAvailableCommands } from './command-rail.js';
 import { threadManager, ThreadComment, DEPTH_COLORS } from './threads.js';
 import { voiceVisualizer } from './webrtc-voice.js';
-import { p2pFileClient } from './p2p-client.js';
+import { isDemoModeEnabled } from './demo-mode.js';
 import { localSearchIndex, SearchResult } from './search-index.js';
 import { screenShareEngine } from './screenshare.js';
 import { obsidianMediaPlayer } from './media-player.js';
@@ -23,21 +23,14 @@ import { relaysManager } from './relays-manager.js';
 import { sovereignDialog } from './dialog-modal.js';
 import { awardsSystem, awardPopoverManager } from './awards.js';
 import { crossPostEngine } from './crosspost.js';
-import { profileCardEngine } from './profile-card.js';
 import { keyboardNavigator } from './keyboard-nav.js';
 import { legalFooter } from './footer.js';
-import { exportSovereignArchive, importSovereignArchive, downloadArchiveFile } from './data-archive.js';
 import { touchGestureEngine } from './touch-gestures.js';
 import { crossTabSync } from './cross-tab-sync.js';
 import { hashtagExplorer } from './hashtag-explorer.js';
 import { flairFilter } from './flair-filter.js';
 import { postDetailView } from './post-detail.js';
 import { contextMenuEngine } from './context-menu.js';
-import { downloadManager } from './download-manager.js';
-import { networkActivityFeed } from './activity-feed.js';
-import { localAnalytics } from './analytics-widget.js';
-import { linkPreviewEngine } from './link-preview.js';
-import { collectionsEngine } from './collections.js';
 import { onboardingWizard } from './onboarding.js';
 import { markdownRenderer } from './markdown-renderer.js';
 import { themeEngine } from './themes.js';
@@ -46,10 +39,7 @@ import { zenModeManager } from './zen-mode.js';
 import { soundEffects } from './sound-effects.js';
 import { draftAutosave } from './draft-autosave.js';
 import { autocompleteEngine } from './autocomplete.js';
-import { floatingPiP } from './pip-float.js';
-import { inlineDiffViewer } from './diff-viewer.js';
 import { wotSlider } from './wot-slider.js';
-import { timelineScrubber } from './timeline-scrubber.js';
 import { commandRailV2 } from './command-rail-v2.js';
 import { sovereignDM } from './sovereign-dm.js';
 import { sharePostOrCopyLink } from './dry-utils.js';
@@ -59,16 +49,13 @@ import { sovereignRouter } from './router.js';
 // V4 Imports
 import { virtualScroll } from './virtual-scroll.js';
 import { aethDB } from './indexed-db.js';
-import { webrtcTransfer } from './webrtc-transfer.js';
 import { cryptoWorkerPool } from './web-workers.js';
-import { ambientNetworkMinimap } from './network-minimap.js';
 import { mobileTabBar } from './mobile-tab-bar.js';
 import { pwaService } from './pwa-service.js';
 import { webAuthnManager } from './webauthn.js';
 import { viewTransitions } from './view-transitions.js';
 import { moduleLoader } from './code-splitting.js';
 import { feedPersonalization } from './feed-personalization.js';
-import { cyberDefenseHub } from './cyber-defense-hub.js';
 import { sovereignOnboarding } from './first-time-onboarding.js';
 import { offlineSync } from './offline-sync.js';
 import { errorBoundary, structuredLogger } from './error-boundary.js';
@@ -85,6 +72,7 @@ import { renderPulseWorkspace, renderPulsePostCard, renderInlineQuickComposer, r
 import { adminAuth } from './admin-auth.js';
 import { PRIMARY_NAV_ITEMS, ADVANCED_TOOLS_ITEMS, renderNavIcon } from './nav-config.js';
 import { renderIcon } from './ui/icons.js';
+import { captureMessageSelection, restoreMessageSelection, getMessageDraft } from './messages-view.js';
 import { contextualSidebar } from './sidebar.js';
 import { modalManager, buildModalRootHTML as orchestrateModalRootHTML } from './modal-manager.js';
 import { settingsView } from './settings-view.js';
@@ -127,7 +115,6 @@ serviceRegistry.registerInstance(SERVICES.Reactions, reactionsEngine);
 serviceRegistry.registerInstance(SERVICES.Awards, awardsSystem);
 serviceRegistry.registerInstance(SERVICES.BookmarksVault, bookmarksVault);
 serviceRegistry.registerInstance(SERVICES.CrossPostEngine, crossPostEngine);
-serviceRegistry.registerInstance(SERVICES.ProfileCardEngine, profileCardEngine);
 serviceRegistry.registerInstance(SERVICES.PostDetailView, postDetailView);
 serviceRegistry.registerInstance(SERVICES.TrendingEngine, trendingEngine);
 serviceRegistry.registerInstance(SERVICES.StoriesEngine, storiesEngine);
@@ -135,7 +122,6 @@ serviceRegistry.registerInstance(SERVICES.Notifications, notificationCenter);
 serviceRegistry.registerInstance(SERVICES.MarkdownRenderer, markdownRenderer);
 // DiagramRenderer is loaded on-demand
 serviceRegistry.registerInstance(SERVICES.ZenMode, zenModeManager);
-serviceRegistry.registerInstance(SERVICES.TimelineScrubber, timelineScrubber);
 serviceRegistry.registerInstance(SERVICES.ViewTransitions, viewTransitions);
 serviceRegistry.registerInstance(SERVICES.VirtualScroll, virtualScroll);
 serviceRegistry.registerInstance(SERVICES.FeedPersonalization, feedPersonalization);
@@ -145,8 +131,6 @@ serviceRegistry.registerInstance(SERVICES.FeedPersonalization, feedPersonalizati
 // cveMonitor loaded on demand
 // gossipViz loaded on demand
 serviceRegistry.registerInstance(SERVICES.SearchIndex, localSearchIndex);
-serviceRegistry.registerInstance(SERVICES.LinkPreview, linkPreviewEngine);
-serviceRegistry.registerInstance(SERVICES.CollectionsEngine, collectionsEngine);
 serviceRegistry.registerInstance(SERVICES.SoundEffects, soundEffects);
 serviceRegistry.registerInstance(SERVICES.ContextMenu, contextMenuEngine);
 serviceRegistry.registerInstance(SERVICES.KeyboardNav, keyboardNavigator);
@@ -154,7 +138,6 @@ serviceRegistry.registerInstance(SERVICES.FlairFilter, flairFilter);
 serviceRegistry.registerInstance(SERVICES.HashtagExplorer, hashtagExplorer);
 serviceRegistry.registerInstance(SERVICES.AutocompleteEngine, autocompleteEngine);
 serviceRegistry.registerInstance(SERVICES.DraftAutosave, draftAutosave);
-serviceRegistry.registerInstance(SERVICES.FloatingPiP, floatingPiP);
 serviceRegistry.registerInstance(SERVICES.WotSlider, wotSlider);
 serviceRegistry.registerInstance(SERVICES.CommandRail, commandRailV2);
 // AIAssistant is loaded on-demand
@@ -172,6 +155,7 @@ serviceRegistry.registerInstance(SERVICES.SovereignOnboarding, sovereignOnboardi
 // NodeFederation is loaded on-demand
 
 if (typeof window !== 'undefined') {
+  (window as any).sovereignDialog = sovereignDialog;
   (window as any).settingsView = settingsView;
   (window as any).__aetheris_open_settings = (tab?: any) => { settingsView.open(tab); };
   (window as any).__aetheris_close_settings = () => { settingsView.close(); };
@@ -187,7 +171,7 @@ if (typeof window !== 'undefined') {
     const name = (document.getElementById('edit-profile-name') as HTMLInputElement)?.value.trim() || 'Sovereign Node';
     const bio = (document.getElementById('edit-profile-bio') as HTMLTextAreaElement)?.value.trim() || '';
     const location = (document.getElementById('edit-profile-location') as HTMLInputElement)?.value.trim() || 'Cyberspace';
-    const website = (document.getElementById('edit-profile-website') as HTMLInputElement)?.value.trim() || 'aetheris.eth';
+    const website = (document.getElementById('edit-profile-website') as HTMLInputElement)?.value.trim() || 'urefy.com';
     const avatar = (document.getElementById('edit-profile-avatar') as HTMLInputElement)?.value.trim() || profileView.getProfile(clientStore.keypair.fingerprint).avatar;
     const banner = (document.getElementById('edit-profile-banner') as HTMLInputElement)?.value.trim() || profileView.getProfile(clientStore.keypair.fingerprint).banner;
 
@@ -377,7 +361,7 @@ function bindReactionBarEvents(container: Document | HTMLElement = document): vo
       if (postId && emoji) {
         reactionsEngine.toggleReaction(postId, emoji, clientStore.keypair.fingerprint);
         soundEffects.playReaction();
-        localAnalytics.recordUpvote();
+        void import('./analytics-widget.js').then(({ localAnalytics }) => localAnalytics.recordUpvote());
 
         // Particle burst from button
         const rect = btn.getBoundingClientRect();
@@ -420,7 +404,7 @@ export function initApp(): void {
   // Ambient Network Minimap
   const minimapCanvas = document.getElementById('ambient-network-minimap') as HTMLCanvasElement;
   if (minimapCanvas) {
-    ambientNetworkMinimap.bindCanvas(minimapCanvas);
+    void import('./network-minimap.js').then(({ ambientNetworkMinimap }) => ambientNetworkMinimap.bindCanvas(minimapCanvas));
   }
 
   // PWA Install State & Network Monitoring
@@ -679,6 +663,53 @@ export function initApp(): void {
     });
   };
 
+  // Search indexing is incremental: UI-only updates no longer rebuild the full
+  // BM25 index, which keeps voting, reactions and typing responsive on large feeds.
+  const searchDocumentSignatures = new Map<string, string>();
+  const syncSearchIndex = (): void => {
+    const seen = new Set<string>();
+    const indexIfChanged = (doc: Parameters<typeof localSearchIndex.indexDocument>[0]): void => {
+      seen.add(doc.id);
+      const signature = `${doc.type}\u0000${doc.channelId}\u0000${doc.createdAt}\u0000${doc.content}`;
+      if (searchDocumentSignatures.get(doc.id) === signature) return;
+      localSearchIndex.indexDocument(doc);
+      searchDocumentSignatures.set(doc.id, signature);
+    };
+
+    for (const [channelId, messages] of clientStore.messages.entries()) {
+      for (const message of messages) {
+        indexIfChanged({
+          id: message.id,
+          channelId,
+          authorFingerprint: message.authorFingerprint,
+          content: message.text,
+          createdAt: message.createdAt,
+          type: 'message',
+        });
+      }
+    }
+
+    for (const post of clientStore.posts) {
+      indexIfChanged({
+        id: post.id,
+        channelId: post.channelId,
+        authorFingerprint: post.authorFingerprint,
+        content: `${post.title} ${post.content} ${post.flair}`,
+        createdAt: post.createdAt,
+        type: 'thread',
+        title: post.title,
+        flairs: post.flair ? [post.flair] : [],
+      });
+    }
+
+    for (const id of searchDocumentSignatures.keys()) {
+      if (!seen.has(id)) {
+        localSearchIndex.removeDocument(id);
+        searchDocumentSignatures.delete(id);
+      }
+    }
+  };
+
   const render = () => {
     errorBoundary.wrapRender(() => {
       // Preserve scroll positions across re-renders
@@ -689,29 +720,7 @@ export function initApp(): void {
       const mainFeed = document.getElementById('main-feed-scroll');
       const mainScroll = mainFeed ? mainFeed.scrollTop : 0;
 
-    // Sync search index
-    for (const [chId, msgs] of clientStore.messages.entries()) {
-      for (const m of msgs) {
-        localSearchIndex.indexDocument({
-          id: m.id,
-          channelId: chId,
-          authorFingerprint: m.authorFingerprint,
-          content: m.text,
-          createdAt: m.createdAt,
-          type: 'message',
-        });
-      }
-    }
-    for (const p of clientStore.posts) {
-      localSearchIndex.indexDocument({
-        id: p.id,
-        channelId: p.channelId,
-        authorFingerprint: p.authorFingerprint,
-        content: `${p.title} ${p.content} ${p.flair}`,
-        createdAt: p.createdAt,
-        type: 'thread',
-      });
-    }
+    syncSearchIndex();
 
     // Synchronize HTML lang and dir with i18n active locale
     if (typeof document !== 'undefined' && document.documentElement) {
@@ -727,7 +736,7 @@ export function initApp(): void {
     }
 
     appEl.innerHTML = `
-      <div id="main-layout" class="flex flex-col h-full h-[100dvh] w-full w-screen bg-canvas text-slate-200 overflow-hidden font-sans select-none relative">
+      <div id="main-layout" data-ui-mode="${clientStore.uiMode}" class="flex flex-col h-full h-[100dvh] w-full w-screen bg-canvas text-slate-200 overflow-hidden font-sans select-none relative">
         
         <!-- PULL TO REFRESH INDICATOR -->
         ${touchGestureEngine.renderIndicatorHTML()}
@@ -742,7 +751,7 @@ export function initApp(): void {
         <div id="broadcast-root">${renderBroadcastBanner()}</div>
 
         <!-- TOP BAR: SOVEREIGN HEADER & CONTROLS -->
-        <header class="h-14 border-subtle-b bg-surface-base/95 backdrop-blur-xl px-4 sm:px-6 flex items-center justify-between z-20 shrink-0 shadow-md">
+        <header id="app-top-header" class="app-top-header h-14 border-subtle-b bg-surface-base/95 backdrop-blur-xl px-4 sm:px-6 flex items-center justify-between z-20 shrink-0 shadow-md">
           
           <!-- LEFT: LOGO + PRIMARY WORKSPACE MODES -->
           <div class="flex items-center space-x-3 sm:space-x-6">
@@ -751,18 +760,18 @@ export function initApp(): void {
             </button>
             <div class="flex items-center space-x-3 cursor-pointer group" data-action="join-channel" data-channel="pulse-global">
               <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 via-indigo-600 to-slate-800 flex items-center justify-center font-bold text-sm text-white tracking-widest shadow-md group-hover:scale-105 transition-transform">
-                Æ
+                U
               </div>
               <div class="flex flex-col">
                 <div class="flex items-center space-x-2">
                   <span class="font-bold tracking-wider text-sm text-white font-sans">
-                    AETHERIS
+                    UREfy
                   </span>
                   <span class="text-[9px] uppercase font-mono px-1.5 py-0.5 rounded-full bg-indigo-950/80 text-indigo-300 border border-indigo-500/30 font-semibold">
-                    Sovereign Core
+                    U.R.E.
                   </span>
                 </div>
-                <span class="text-[10px] text-slate-400 font-mono -mt-0.5">Zero-Trust Protocol</span>
+                <span class="text-[10px] text-slate-400 font-mono -mt-0.5">Unified Relay Enclave</span>
               </div>
             </div>
 
@@ -805,7 +814,6 @@ export function initApp(): void {
               <button type="button" id="btn-identity-info" class="flex items-center space-x-1.5 sm:space-x-2 px-2 sm:px-2.5 py-1.5 rounded-xl bg-surface-raised/80 hover:bg-surface-overlay border border-white/5 transition-all cursor-pointer group" title="Sovereign Identity Passport & ZK Reputation">
                 <div class="w-2 h-2 rounded-full ${clientStore.isConnected ? 'bg-emerald-400' : 'bg-rose-500'}"></div>
                 <span class="font-mono text-xs text-slate-200 group-hover:text-indigo-300 truncate max-w-[70px] sm:max-w-none">id:${clientStore.keypair.fingerprint.substring(0, 6)}...</span>
-                <span class="hidden sm:inline"><span class="px-1.5 py-0.5 rounded text-[10px] font-mono bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">🛡️ 85</span></span>
               </button>
             </div>
 
@@ -813,7 +821,7 @@ export function initApp(): void {
         </header>
 
         <!-- MAIN TRIPLE-COLUMN BODY -->
-        <div class="flex-1 flex overflow-hidden relative">
+        <div class="app-shell-body flex-1 flex overflow-hidden relative">
           
           <!-- LEFT COMMAND RAIL + SOVEREIGN CIRCLES -->
           <aside id="left-rail-container" class="w-64 bg-surface-base border-subtle-r flex flex-col justify-between shrink-0 select-none hidden lg:flex">
@@ -883,12 +891,12 @@ export function initApp(): void {
                 </div>
 
                 <button type="button" id="rail-btn-bookmarks" class="w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
-                  <span class="text-base">🔖</span>
+                  ${renderIcon('bookmark', { size: 18 })}
                   <span class="flex-1">Saved Bookmarks</span>
                 </button>
 
                 <button type="button" id="rail-btn-theme" data-action="open-theme" class="w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
-                  <span class="text-base">🎨</span>
+                  ${renderIcon('sliders', { size: 18 })}
                   <span class="flex-1">Display & Themes</span>
                   <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 uppercase">${themeEngine.currentThemeId}</span>
                 </button>
@@ -896,50 +904,50 @@ export function initApp(): void {
                 <button type="button" id="btn-open-mesh-matrix" data-action="open-feature" data-feature="mesh-matrix" class="w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer"><span class="text-base">🕸️</span><span class="flex-1">Mesh Matrix</span></button>
 
                 <!-- DAO GOVERNANCE -->
-                <button type="button" id="nav-btn-dao" class="w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
-                  <span class="text-base">🏛️</span>
+                <button type="button" id="nav-btn-dao" data-action="open-feature" data-feature="governance" class="w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
+                  ${renderIcon('vote', { size: 18 })}
                   <span class="flex-1">DAO Governance</span>
                 </button>
 
                 <!-- RSS IMPORTER -->
-                <button type="button" id="btn-open-rss-panel" class="w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
-                  <span class="text-base">📡</span>
+                <button type="button" id="btn-open-rss-panel" data-action="open-feature" data-feature="rss" class="w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
+                  ${renderIcon('rss', { size: 18 })}
                   <span class="flex-1">RSS Importer</span>
                 </button>
 
                 <!-- CVE SECURITY MONITOR -->
-                <button type="button" id="btn-open-cve-monitor" class="w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
-                  <span class="text-base">🛡️</span>
+                <button type="button" id="btn-open-cve-monitor" data-action="open-feature" data-feature="cve" class="w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
+                  ${renderIcon('shield', { size: 18 })}
                   <span class="flex-1">CVE Monitor</span>
                 </button>
 
                 <!-- NETWORK OBSERVATORY -->
-                <button type="button" id="btn-open-network-observatory" class="w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
-                  <span class="text-base">🔭</span>
+                <button type="button" id="btn-open-network-observatory" data-action="open-feature" data-feature="observatory" class="w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
+                  ${renderIcon('activity', { size: 18 })}
                   <span class="flex-1">Network Observatory</span>
                 </button>
 
                 <!-- WOT GRAPH -->
-                <button type="button" id="btn-open-wot-graph" class="w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
-                  <span class="text-base">🕸️</span>
+                <button type="button" id="btn-open-wot-graph" data-action="open-feature" data-feature="wot-graph" class="w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
+                  ${renderIcon('network', { size: 18 })}
                   <span class="flex-1">Trust Graph</span>
                 </button>
 
                 <!-- GOSSIP VISUALIZER -->
-                <button type="button" id="btn-open-gossip-viz" class="w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
-                  <span class="text-base">📡</span>
+                <button type="button" id="btn-open-gossip-viz" data-action="open-feature" data-feature="gossip" class="w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
+                  ${renderIcon('radio', { size: 18 })}
                   <span class="flex-1">Gossip Visualizer</span>
                 </button>
 
                 <!-- EXPORT BACKUP -->
-                <button type="button" id="btn-open-backup-export" class="w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
-                  <span class="text-base">💾</span>
+                <button type="button" id="btn-open-backup-export" data-action="open-feature" data-feature="export-backup" class="w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
+                  ${renderIcon('download', { size: 18 })}
                   <span class="flex-1">Export & Backup</span>
                 </button>
 
                 <!-- PIXEL CANVAS STEGANOGRAPHY -->
                 <button type="button" id="btn-open-steganography" data-action="open-feature" data-feature="steganography" class="w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold text-cyan-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer" title="Pixel Canvas Steganography">
-                  <span class="text-base">🖼️</span>
+                  ${renderIcon('image', { size: 18 })}
                   <span class="flex-1">Pixel Canvas Steganography</span>
                 </button>
 
@@ -977,7 +985,6 @@ export function initApp(): void {
                     <span class="text-xs">📦</span>
                     <span class="truncate font-semibold">c/clean-releases</span>
                   </div>
-                  <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-400 border border-emerald-500/20">342p</span>
                 </button>
 
                 <button type="button" data-channel-id="vault-guides" class="btn-channel w-full text-left px-3 py-2 rounded-xl text-xs flex items-center justify-between transition-all cursor-pointer ${clientStore.activeChannelId === 'vault-guides' ? 'bg-emerald-950/60 text-emerald-300 font-bold border border-emerald-500/30' : 'text-slate-300 hover:text-white hover:bg-surface-raised'}">
@@ -1238,15 +1245,8 @@ export function initApp(): void {
     }
 
     errorBoundary.wrapRender(() => {
-      // Sync search index (no DOM touch)
-      for (const [chId, msgs] of clientStore.messages.entries()) {
-        for (const m of msgs) {
-          localSearchIndex.indexDocument({
-            id: m.id, channelId: chId, authorFingerprint: m.authorFingerprint,
-            content: m.text, createdAt: m.createdAt, type: 'message',
-          });
-        }
-      }
+      // Sync search index without rebuilding unchanged documents.
+      syncSearchIndex();
 
       // Preserve scroll positions before any patch
       const rightRailEl = document.getElementById('right-rail-scroll');
@@ -1255,12 +1255,19 @@ export function initApp(): void {
       const savedLeftScroll = leftRailEl ? leftRailEl.scrollTop : 0;
       const mainFeedEl = document.getElementById('main-feed-scroll');
       const savedMainScroll = mainFeedEl ? mainFeedEl.scrollTop : 0;
+      const savedProfileScroll = document.getElementById('sovereign-profile-container')?.scrollTop ?? 0;
+      const savedSettingsNavScroll = document.getElementById('profile-settings-nav')?.scrollLeft ?? 0;
 
       // Preserve focused input
       const focusedEl = document.activeElement as HTMLInputElement | null;
       const focusedId = focusedEl?.id ?? null;
       const focusedValue = focusedEl?.value ?? null;
       const focusedSelStart = (typeof focusedEl?.selectionStart === 'number') ? focusedEl.selectionStart : null;
+      const focusedSelEnd = (typeof focusedEl?.selectionEnd === 'number') ? focusedEl.selectionEnd : focusedSelStart;
+      const relayInputEl = document.getElementById('input-message') as HTMLInputElement | null;
+      if (relayInputEl?.isConnected) captureMessageSelection('relay', relayInputEl);
+      const dmInputEl = document.getElementById('input-dm-message') as HTMLInputElement | null;
+      if (dmInputEl?.isConnected) captureMessageSelection('dm', dmInputEl);
 
       // Patch dynamic zones
       patchEl('toast-root', renderToasts());
@@ -1268,7 +1275,12 @@ export function initApp(): void {
       patchEl('header-primary-nav', renderHeaderPrimaryNav());
       patchEl('header-tools-root', renderHeaderToolsRoot());
       patchEl('main-stage', renderMainStage());
+      restoreMessageSelection('relay', false);
+      restoreMessageSelection('dm', false);
+      document.getElementById('sovereign-profile-container')?.scrollTo({ top: savedProfileScroll, behavior: 'instant' });
+      document.getElementById('profile-settings-nav')?.scrollTo({ left: savedSettingsNavScroll, behavior: 'instant' });
       patchEl('app-modal-root', buildModalRootHTML());
+      document.getElementById('main-layout')?.setAttribute('data-ui-mode', clientStore.uiMode);
       updateNavigationActiveClasses();
 
       // Patch mobile drawer open/closed state reactively
@@ -1308,27 +1320,8 @@ export function initApp(): void {
       // Patch mobile bottom nav
       patchEl('app-mobile-bottom-nav', renderMobileBottomNav());
 
-      // Patch WebRTC transfer indicator (smart: show/remove based on active transfers)
-      const widgetHtml = webrtcTransfer.renderFloatingWidget();
-      const existingWidget = document.getElementById('webrtc-floating-transfer-widget') || document.getElementById('webrtc-transfer-indicator');
-      if (widgetHtml && !existingWidget) {
-        // Inject new widget at top level
-        const tmp = document.createElement('div');
-        tmp.innerHTML = widgetHtml.trim();
-        const widgetEl = tmp.firstElementChild;
-        if (widgetEl) document.getElementById('main-layout')?.appendChild(widgetEl);
-      } else if (widgetHtml && existingWidget) {
-        // Update existing widget content
-        const tmp = document.createElement('div');
-        tmp.innerHTML = widgetHtml.trim();
-        const newWidget = tmp.firstElementChild;
-        if (newWidget && existingWidget.outerHTML !== newWidget.outerHTML) {
-          existingWidget.replaceWith(newWidget);
-        }
-      } else if (!widgetHtml && existingWidget) {
-        // No active transfers: smoothly remove the indicator
-        existingWidget.remove();
-      }
+      void import('./webrtc-transfer-widget.js')
+        .then(({ patchWebRtcTransferWidget }) => patchWebRtcTransferWidget());
 
       // Patch status bar density text directly
       const densityEl = document.getElementById('status-bar-density');
@@ -1340,19 +1333,22 @@ export function initApp(): void {
       bindEvents();
       updateNavigationActiveClasses();
 
-      requestAnimationFrame(() => {
-        // Restore focused input value & cursor position without scroll jump
-        if (focusedId) {
-          const el = document.getElementById(focusedId) as HTMLInputElement | null;
-          if (el) {
+      if (focusedId) {
+        const el = document.getElementById(focusedId) as HTMLInputElement | null;
+        if (el) {
+          if (focusedId === 'input-message' || focusedId === 'input-dm-message') {
+            restoreMessageSelection(focusedId === 'input-message' ? 'relay' : 'dm');
+          } else {
             if (focusedValue !== null && el.value !== focusedValue) el.value = focusedValue;
-            if (focusedSelStart !== null) {
-              try { el.setSelectionRange(focusedSelStart, focusedSelStart); } catch (_) {}
-            }
             el.focus({ preventScroll: true });
+            if (focusedSelStart !== null) {
+              try { el.setSelectionRange(focusedSelStart, focusedSelEnd ?? focusedSelStart); } catch (_) {}
+            }
           }
         }
+      }
 
+      requestAnimationFrame(() => {
         // Restore scroll positions
         const rr = document.getElementById('right-rail-scroll');
         if (rr && savedRightScroll > 0) rr.scrollTop = savedRightScroll;
@@ -1369,7 +1365,7 @@ export function initApp(): void {
   clientStore.subscribe(patchRender);
 
   // Seed initial ephemeral stories so the carousel has content
-  if (storiesEngine.stories.length === 0) {
+  if (isDemoModeEnabled() && storiesEngine.stories.length === 0) {
     storiesEngine.addStory('Zero-Trust architecture is not a product—it is a philosophy. Every packet verified, every identity cryptographic.', 'text', 'genesis-core...', 'GUARDIAN');
     storiesEngine.addStory('BitTorrent Merkle pieces for Micro-Kernel v1.0.0 propagated to all 14 seeder nodes. 100% byte-match verified.', 'text', 'c3dc28cb705e...', 'ARCHIVIST');
     storiesEngine.addStory('ZK-RLN slashing event: rate-limit breacher nullified. Sovereign mesh remains clean.', 'text', 'a89104fa2211...', 'SENTINEL');
@@ -1620,14 +1616,14 @@ function renderMobileDrawer(): string {
         <div class="p-4 border-b border-white/10 flex items-center justify-between bg-surface-raised/60">
           <div class="flex items-center space-x-3">
             <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 via-indigo-600 to-slate-800 flex items-center justify-center font-bold text-sm text-white tracking-widest shadow-md">
-              Æ
+              U
             </div>
             <div>
               <div class="font-bold text-sm text-white font-sans flex items-center space-x-1.5">
-                <span>AETHERIS</span>
+                <span>UREfy</span>
                 <span class="text-[8px] font-mono uppercase px-1.5 py-0.2 rounded bg-cyan-950 text-cyan-300 border border-cyan-500/30">ZK</span>
               </div>
-              <div class="text-[10px] text-slate-400 font-mono">Sovereign Knowledge Vault</div>
+              <div class="text-[10px] text-slate-400 font-mono">Unified Relay Enclave Framework</div>
             </div>
           </div>
           <button type="button" id="btn-close-mobile-drawer" data-action="close-mobile-drawer" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-surface-raised cursor-pointer transition-colors" title="Close Drawer">
@@ -1703,7 +1699,6 @@ function renderMobileDrawer(): string {
                 <span class="text-xs">📦</span>
                 <span class="truncate font-semibold">c/clean-releases</span>
               </div>
-              <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-400 border border-emerald-500/20">342p</span>
             </button>
             <button type="button" data-channel-id="vault-guides" class="btn-channel btn-drawer-channel w-full text-left px-3 py-2 rounded-xl text-xs flex items-center justify-between transition-all cursor-pointer ${clientStore.activeChannelId === 'vault-guides' ? 'bg-emerald-950/60 text-emerald-300 font-bold border border-emerald-500/30' : 'text-slate-300 hover:text-white hover:bg-surface-raised'}">
               <div class="flex items-center space-x-2 truncate">
@@ -1830,7 +1825,7 @@ function renderMobileDrawer(): string {
               </button>
 
               <div class="px-3 py-2 text-[10px] font-mono text-slate-500 flex items-center justify-between">
-                <span>© 2026 Aetheris</span>
+                <span>© 2026 UREfy</span>
                 <span class="text-indigo-400">EU DSA Compliant</span>
               </div>
             </div>
@@ -1850,7 +1845,7 @@ function renderMobileDrawer(): string {
                 <span class="text-xs font-bold text-white truncate">@id:${clientStore.keypair.fingerprint.substring(0, 8)}</span>
                 <span class="text-[8px] font-mono px-1 rounded bg-emerald-950 text-emerald-400 border border-emerald-500/30">ZK</span>
               </div>
-              <div class="text-[10px] font-mono text-slate-500 truncate">sovereign.aetheris.eth</div>
+              <div class="text-[10px] font-mono text-slate-500 truncate">urefy.com</div>
             </div>
             <div class="w-2.5 h-2.5 rounded-full ${clientStore.isConnected ? 'bg-emerald-400 shadow-sm shadow-emerald-400/50' : 'bg-rose-500'}"></div>
           </div>
@@ -2039,7 +2034,7 @@ function bindEvents(): void {
   // Bind ambient network minimap canvas if present in DOM
   const minimapCanvas = document.getElementById('ambient-network-minimap') as HTMLCanvasElement | null;
   if (minimapCanvas) {
-    ambientNetworkMinimap.bindCanvas(minimapCanvas);
+    void import('./network-minimap.js').then(({ ambientNetworkMinimap }) => ambientNetworkMinimap.bindCanvas(minimapCanvas));
   }
 
   // ─── Scoped event binding helpers ─────────────────────────────────────────────
@@ -2317,7 +2312,7 @@ function bindEvents(): void {
       const postId = btn.getAttribute('data-open-detail');
       if (postId) {
         postDetailView.openPost(postId);
-        localAnalytics.recordPostView();
+        void import('./analytics-widget.js').then(({ localAnalytics }) => localAnalytics.recordPostView());
         clientStore.notify();
       }
     }, { signal });
@@ -2333,7 +2328,7 @@ function bindEvents(): void {
   postDetailView.bindEvents((postId: string, commentText: string) => {
     threadManager.addReply(postId, clientStore.keypair.fingerprint, commentText.trim());
     const post = clientStore.posts.find((p) => p.id === postId);
-    networkActivityFeed.addEvent({
+    void import('./activity-feed.js').then(({ networkActivityFeed }) => networkActivityFeed.addEvent({
       type: 'reply',
       actorFP: clientStore.keypair.fingerprint,
       actorRole: 'member',
@@ -2341,7 +2336,7 @@ function bindEvents(): void {
       targetId: postId,
       timestamp: Date.now(),
       meta: { length: commentText.trim().length },
-    });
+    }));
     clientStore.notify();
   });
 
@@ -2573,9 +2568,10 @@ function bindEvents(): void {
   document.getElementById('btn-dismiss-alert')?.addEventListener('click', () => clientStore.dismissQuarantineAlert(), { signal });
 
   // Primary Workspace Mode Navigation
-  document.querySelectorAll('.btn-nav-mode').forEach(btn => {
+  document.querySelectorAll('[data-nav-mode]').forEach(btn => {
     btn.addEventListener('click', () => {
       const mode = btn.getAttribute('data-nav-mode');
+      isMobileDrawerOpen = false;
       if (mode === 'pulse' || mode === 'feed') {
         clientStore.joinChannel('pulse-global');
         sovereignRouter.navigateTo('feed');
@@ -2870,7 +2866,7 @@ function bindEvents(): void {
 
   // Send live chat message form
   const formSend = document.getElementById('form-send-message') as HTMLFormElement;
-  if (formSend) {
+  if (formSend && !formSend.hasAttribute('data-submit')) {
     formSend.addEventListener('submit', (e) => {
       e.preventDefault();
       const input = document.getElementById('input-message') as HTMLInputElement;
@@ -3036,23 +3032,28 @@ function bindEvents(): void {
   // P2P File Download
   document.querySelectorAll('.btn-download-p2p').forEach(btn => {
     btn.addEventListener('click', async () => {
-      const fileName = btn.getAttribute('data-file-name') || 'aetheris-payload.bin';
+      const fileName = btn.getAttribute('data-file-name') || 'ure-payload.bin';
       const byteSize = parseInt(btn.getAttribute('data-byte-size') || '131072', 10);
       const sha = btn.getAttribute('data-sha') || '';
 
       activeDownloadName = fileName;
-      btn.textContent = 'Connecting Swarm...';
+      btn.textContent = 'Locating verified artifact...';
 
       const { p2pFileClient } = await import('./p2p-client.js');
-      await p2pFileClient.downloadFileFromSwarm(fileName, byteSize, sha, (p) => {
-        activeDownloadProgress = p.percentage;
-        btn.textContent = `Downloading ${p.percentage}%`;
-      });
-
-      btn.textContent = '✅ Verified & Downloaded';
-      clientStore.showToast(`P2P File ${fileName} verified & downloaded`, 'success');
-      activeDownloadName = null;
-      setTimeout(() => btn.textContent = '⬇ Download via P2P Mesh', 3000);
+      try {
+        await p2pFileClient.downloadFileFromSwarm(fileName, byteSize, sha, (p) => {
+          activeDownloadProgress = p.percentage;
+          btn.textContent = `Downloading ${p.percentage}%`;
+        });
+        btn.textContent = 'Verified & Downloaded';
+        clientStore.showToast(`Artifact ${fileName} passed SHA-256 verification`, 'success');
+      } catch (error) {
+        btn.textContent = 'Download unavailable';
+        clientStore.showToast(error instanceof Error ? error.message : 'Verified download failed', 'warning');
+      } finally {
+        activeDownloadName = null;
+        setTimeout(() => btn.textContent = 'Verified Download', 3000);
+      }
     }, { signal });
   });
 
@@ -3089,34 +3090,11 @@ function bindEvents(): void {
   });
 
   // V4 Sidebar Modal Buttons
-  document.getElementById('btn-open-network-observatory')?.addEventListener('click', () => {
-    modalManager.openFeature('wot-graph');
-  }, { signal });
   document.getElementById('btn-open-custom-theme-builder')?.addEventListener('click', () => {
     modalManager.openFeature('custom-theme');
   }, { signal });
   document.getElementById('btn-close-custom-theme-builder')?.addEventListener('click', () => {
     modalManager.closeFeature();
-  }, { signal });
-  document.getElementById('btn-open-gossip-viz')?.addEventListener('click', () => {
-    isGossipModalOpen = !isGossipModalOpen;
-    clientStore.notify();
-  }, { signal });
-  document.getElementById('btn-open-rss-panel')?.addEventListener('click', () => {
-    isRSSModalOpen = !isRSSModalOpen;
-    clientStore.notify();
-  }, { signal });
-  document.getElementById('btn-open-cve-monitor')?.addEventListener('click', () => {
-    isCVEModalOpen = !isCVEModalOpen;
-    clientStore.notify();
-  }, { signal });
-  document.getElementById('nav-btn-dao')?.addEventListener('click', () => {
-    isGovernanceModalOpen = !isGovernanceModalOpen;
-    clientStore.notify();
-  }, { signal });
-  document.getElementById('btn-open-backup-export')?.addEventListener('click', () => {
-    isExportBackupModalOpen = !isExportBackupModalOpen;
-    clientStore.notify();
   }, { signal });
 
   // Rail Navigation Buttons
@@ -3217,7 +3195,7 @@ function bindEvents(): void {
   }, { signal });
   document.getElementById('btn-dismiss-onboarding-tour')?.addEventListener('click', () => {
     sovereignOnboarding.dismiss();
-    clientStore.showToast('🚀 Tour completed! Welcome to Aetheris Sovereign Network.', 'success');
+    clientStore.showToast('🚀 Tour completed! Welcome to the URE Network.', 'success');
     clientStore.notify();
   }, { signal });
 
@@ -3422,7 +3400,7 @@ function bindEvents(): void {
     const name = (document.getElementById('edit-profile-name') as HTMLInputElement)?.value.trim() || 'Sovereign Node';
     const bio = (document.getElementById('edit-profile-bio') as HTMLTextAreaElement)?.value.trim() || '';
     const location = (document.getElementById('edit-profile-location') as HTMLInputElement)?.value.trim() || 'Cyberspace';
-    const website = (document.getElementById('edit-profile-website') as HTMLInputElement)?.value.trim() || 'aetheris.eth';
+    const website = (document.getElementById('edit-profile-website') as HTMLInputElement)?.value.trim() || 'urefy.com';
     const avatar = (document.getElementById('edit-profile-avatar') as HTMLInputElement)?.value.trim() || profileView.getProfile(clientStore.keypair.fingerprint).avatar;
     const banner = (document.getElementById('edit-profile-banner') as HTMLInputElement)?.value.trim() || profileView.getProfile(clientStore.keypair.fingerprint).banner;
 
@@ -3712,11 +3690,21 @@ function bindEvents(): void {
     }, { signal });
   });
   document.getElementById('btn-toggle-p2p-failover')?.addEventListener('click', async () => {
-    const { globalScale } = await import('./global-scale.js');
-    const nextState = !globalScale.isP2PFailoverActive();
-    globalScale.triggerEmergencyP2PFailover(nextState);
-    clientStore.showToast(nextState ? '📡 Switched to WebRTC Direct P2P Swarm' : '🌐 Connected to Anycast Global Edge', 'info');
-    clientStore.notify();
+    if (typeof RTCPeerConnection === 'undefined') {
+      clientStore.showToast('WebRTC DataChannel is not available in this browser', 'warning');
+      return;
+    }
+    const connection = new RTCPeerConnection({ iceServers: [] });
+    try {
+      connection.createDataChannel('ure-readiness');
+      const offer = await connection.createOffer();
+      await connection.setLocalDescription(offer);
+      clientStore.showToast('WebRTC secure peer transport is ready on this device', 'success');
+    } catch {
+      clientStore.showToast('WebRTC readiness check failed on this network', 'warning');
+    } finally {
+      connection.close();
+    }
   }, { signal });
 
   // ─── Sovereign Relays & Guilds Listeners ─────────────────────────────────
@@ -3954,7 +3942,9 @@ function bindEvents(): void {
         if (storiesEngine.isCreatorOpen) { storiesEngine.closeCreator(); changed = true; }
         if (modalManager.getActiveFeature()) { modalManager.closeFeature(); changed = true; }
         if (offlineSync.isOpen) { offlineSync.close(); changed = true; }
-        if (cyberDefenseHub.isOpen) { cyberDefenseHub.close(); changed = true; }
+        void import('./cyber-defense-hub.js').then(({ cyberDefenseHub }) => {
+          if (cyberDefenseHub.isOpen) cyberDefenseHub.close();
+        });
         if (isThemeModalOpen || themeEngine.isModalOpen) {
           isThemeModalOpen = false;
           themeEngine.closeModal();

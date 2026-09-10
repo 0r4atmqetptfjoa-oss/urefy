@@ -1,5 +1,5 @@
 /**
- * AETHERIS HYBRID SUITE - WINDOW AUGMENTATION & GLOBAL TYPE DEFINITIONS
+ * UREfy HYBRID SUITE - WINDOW AUGMENTATION & GLOBAL TYPE DEFINITIONS
  * Strict TypeScript typings for all window-level singleton registries,
  * modal triggers, EIP-1193 Ethereum providers, Web Audio APIs, and UI event hooks.
  */

@@ -1,5 +1,5 @@
 /**
- * Aetheris Anonymous ZK-Rollup Merit Reputation Aggregator & Credential Engine.
+ * UREfy Anonymous ZK-Rollup Merit Reputation Aggregator & Credential Engine.
  * Allows sovereign nodes to cryptographically prove their community standing, 
  * trust tier, and governance voting weight via Zero-Knowledge Membership Proofs (ZK-SNARK/RLN)
  * without revealing user voting history or tying actions to a public persistent identifier.
@@ -90,7 +90,8 @@ export const REPUTATION_TIERS: Record<ReputationTier, ZKTierInfo> = {
   }
 };
 
-import { isLocalDev } from './admin-auth.js';
+import { isDemoModeEnabled } from './demo-mode.js';
+import { t } from './i18n.js';
 
 export class ZKReputationAggregator {
   public proofs: Map<string, ZKReputationProof> = new Map();
@@ -98,7 +99,7 @@ export class ZKReputationAggregator {
   public activeProofModalId: string | null = null;
 
   constructor() {
-    if (isLocalDev()) {
+    if (isDemoModeEnabled()) {
       this.createProof('c3dc28cb705e', 342, 412);
     }
   }
@@ -182,10 +183,10 @@ export class ZKReputationAggregator {
     return `
       <span 
         class="inline-flex items-center space-x-1 px-1.5 py-0.2 rounded text-[9px] font-mono border ${badgeClass} transition-all select-none"
-        title="Web-of-Trust Reputation: ${tier.label} (Score: ${score} Merit)"
+        title="Web-of-Trust Reputation: ${tier.label} (Score: ${score} ${t('zkReputation.meritUnit', undefined, 'Merit')})"
       >
         <span>${isHighTrust ? '🛡️' : '🔰'}</span>
-        <span class="font-semibold">Trust ${score}</span>
+        <span class="font-semibold">${t('zkReputation.trustScore', undefined, 'Trust')} ${score}</span>
       </span>
     `;
   }
@@ -295,13 +296,13 @@ export class ZKReputationAggregator {
               </div>
               <div>
                 <h3 class="text-sm font-bold text-white font-mono flex items-center space-x-2">
-                  <span>Sovereign Identity Passport & ZK Reputation</span>
+                  <span>${t('zkReputation.title', undefined, 'Sovereign Identity Passport & ZK Reputation')}</span>
                   <span class="text-[9px] px-1.5 py-0.2 rounded font-mono bg-emerald-950 text-emerald-400 border border-emerald-500/30">Groth16</span>
                 </h3>
-                <p class="text-[10px] text-slate-400 font-mono">Zero-Knowledge verifiable standing · Identity decoupling enabled</p>
+                <p class="text-[10px] text-slate-400 font-mono">${t('zkReputation.subtitle', undefined, 'Zero-Knowledge verifiable standing · Identity decoupling enabled')}</p>
               </div>
             </div>
-            <button id="btn-close-reputation-modal" class="w-8 h-8 rounded-full bg-surface-raised hover:bg-surface-overlay text-slate-300 hover:text-white flex items-center justify-center text-sm border border-white/10 transition-colors cursor-pointer" title="Close (Esc)">
+            <button id="btn-close-reputation-modal" class="w-8 h-8 rounded-full bg-surface-raised hover:bg-surface-overlay text-slate-300 hover:text-white flex items-center justify-center text-sm border border-white/10 transition-colors cursor-pointer" title="${t('zkReputation.closeEsc', undefined, 'Close (Esc)')}">
               ✕
             </button>
           </div>
@@ -310,19 +311,19 @@ export class ZKReputationAggregator {
           <div class="p-4 rounded-2xl bg-gradient-to-r from-surface-raised to-surface-overlay border border-white/10 space-y-3">
             <div class="flex items-center justify-between">
               <div>
-                <span class="text-[10px] font-mono text-slate-400 uppercase tracking-wider">Cryptographic Passport Tier</span>
+                <span class="text-[10px] font-mono text-slate-400 uppercase tracking-wider">${t('zkReputation.passportTier', undefined, 'Cryptographic Passport Tier')}</span>
                 <h4 class="text-base font-bold text-white font-mono" style="color: ${currentTier.color};">${currentTier.label}</h4>
               </div>
               <div class="text-right">
-                <span class="text-[10px] font-mono text-slate-400 uppercase tracking-wider">Accumulated Merit</span>
-                <div class="text-base font-bold text-emerald-400 font-mono">${currentScore} Merit</div>
+                <span class="text-[10px] font-mono text-slate-400 uppercase tracking-wider">${t('zkReputation.accumulatedMerit', undefined, 'Accumulated Merit')}</span>
+                <div class="text-base font-bold text-emerald-400 font-mono">${currentScore} ${t('zkReputation.meritUnit', undefined, 'Merit')}</div>
               </div>
             </div>
 
             <!-- TIER PROGRESS BAR -->
             <div class="space-y-1">
               <div class="flex items-center justify-between text-[10px] font-mono text-slate-400">
-                <span>Progress to ${nextTier ? nextTier.label : 'Max Level'}</span>
+                <span>${t('zkReputation.progressTo', undefined, 'Progress to')} ${nextTier ? nextTier.label : t('zkReputation.maxLevel', undefined, 'Max Level')}</span>
                 <span>${currentScore} / ${nextTier ? nextTier.minScore : currentScore} Merit (${progressPct}%)</span>
               </div>
               <div class="w-full h-2 rounded-full bg-surface-base border border-white/5 overflow-hidden">
@@ -331,14 +332,14 @@ export class ZKReputationAggregator {
             </div>
 
             <div class="flex items-center justify-between pt-1 text-[10px] font-mono text-slate-400">
-              <span>Governance Vote Multiplier: <b class="text-white">${currentTier.governanceWeight}x Weight</b></span>
-              <span>Epoch Nullifier: <code class="text-indigo-300">0x${userFP.substring(0, 8)}...</code></span>
+              <span>${t('zkReputation.governanceMultiplier', undefined, 'Governance Vote Multiplier:')} <b class="text-white">${currentTier.governanceWeight}${t('zkReputation.governanceWeight', undefined, 'x Weight')}</b></span>
+              <span>${t('zkReputation.epochNullifier', undefined, 'Epoch Nullifier:')} <code class="text-indigo-300">0x${userFP.substring(0, 8)}...</code></span>
             </div>
           </div>
 
           <!-- UNLOCKED PERKS -->
           <div class="space-y-2">
-            <span class="text-[10px] font-mono text-slate-400 uppercase tracking-wider">Cryptographic Privileges & Perks:</span>
+            <span class="text-[10px] font-mono text-slate-400 uppercase tracking-wider">${t('zkReputation.privilegesPerks', undefined, 'Cryptographic Privileges & Perks:')}</span>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-mono">
               ${currentTier.perks.map(p => `
                 <div class="p-2.5 rounded-xl bg-surface-raised border border-white/5 flex items-center space-x-2 text-slate-200">
@@ -352,11 +353,11 @@ export class ZKReputationAggregator {
           <!-- ZK PROOF GENERATION TRIGGER -->
           <div class="p-3.5 rounded-xl bg-surface-raised/60 border border-white/5 flex items-center justify-between">
             <div class="space-y-0.5">
-              <div class="text-xs font-bold text-white font-mono">Generate Anonymous ZK-Proof Attestation</div>
-              <p class="text-[10px] text-slate-400 font-mono">Generates a detached zero-knowledge proof of tier for external voting.</p>
+              <div class="text-xs font-bold text-white font-mono">${t('zkReputation.generateProof', undefined, 'Generate Anonymous ZK-Proof Attestation')}</div>
+              <p class="text-[10px] text-slate-400 font-mono">${t('zkReputation.generateProofDesc', undefined, 'Generates a detached zero-knowledge proof of tier for external voting.')}</p>
             </div>
             <button id="btn-generate-zk-proof" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold font-mono rounded-xl transition-all shadow-sm flex items-center space-x-1.5 cursor-pointer shrink-0">
-              <span>Generate ZK Proof</span>
+              <span>${t('zkReputation.generateProofBtn', undefined, 'Generate ZK Proof')}</span>
               <span>🔒</span>
             </button>
           </div>

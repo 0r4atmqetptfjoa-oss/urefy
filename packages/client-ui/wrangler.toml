@@ -5,7 +5,7 @@ compatibility_flags = ["nodejs_compat"]
 
 [vars]
 ENVIRONMENT = "production"
-APP_NAME = "Aetheris Omni-Sphere"
+APP_NAME = "UREfy"
 MAX_STORAGE_CAP_BYTES = "8589934592" # 8.0 GB safe storage ceiling
 MAX_BINARY_SCAN_BYTES = "26214400" # 25 MB max edge binary scan limit
 
@@ -34,4 +34,3 @@ bucket_name = "aetheris-storage"
 [[r2_buckets]]
 binding = "VAULT_BUCKET"
 bucket_name = "aetheris-vault"
-

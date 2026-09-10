@@ -1,5 +1,5 @@
 ﻿// ===========================================================================
-// AETHERIS OMNI-SPHERE — DEVELOPMENT & TEST FIXTURES
+// UREfy — DEVELOPMENT & TEST FIXTURES
 // Dedicated fixtures for local development, simulation, and offline tests.
 // Strictly isolated: in production runtime, server routes must never initialize
 // or populate from these demo fixtures.
@@ -74,7 +74,7 @@ export const INITIAL_POSTS: EdgePost[] = [
     channelId: 'vault-releases',
     authorFingerprint: 'c3dc28cb705e',
     authorRole: 'ARCHIVIST',
-    title: 'Aetheris Cryptographic Micro-Kernel v1.0.0 (Verified x86_64 Release)',
+    title: 'UREfy Cryptographic Micro-Kernel v1.0.0 (Verified x86_64 Release)',
     content:
       'Official microkernel distribution compiled with zero telemetry and verified reproducible build hashes. Tested against GCC 14 and Clang 19 with hardened stack canary protection. Zero dead links via BitTorrent mesh.',
     flair: 'VERIFIED RELEASE',
@@ -139,7 +139,7 @@ export const INITIAL_POSTS: EdgePost[] = [
     authorRole: 'MODERATOR',
     title: 'Deep-Dive: How ZK-RLN Eradicates Bots without Selling Your Identity to Third-Party KYC',
     content:
-      'Centralized platforms outsource identity verification to third-party brokers, which periodically leak passport scans. In Aetheris, Shamir Secret Processing polynomials are evaluated locally in WebAssembly. You only ever reveal your secret key if you deliberately violate the rate limit by double-posting in the same epoch.',
+      'Centralized platforms outsource identity verification to third-party brokers, which periodically leak passport scans. In UREfy, Shamir Secret Processing polynomials are evaluated locally in WebAssembly. You only ever reveal your secret key if you deliberately violate the rate limit by double-posting in the same epoch.',
     flair: 'SECURITY ADVISORY',
     status: 'published',
     meritVotes: 218,
@@ -150,7 +150,7 @@ export const INITIAL_POSTS: EdgePost[] = [
       id: 'post-1',
       authorFingerprint: 'c3dc28cb705e',
       authorRole: 'ARCHIVIST',
-      title: 'Aetheris Cryptographic Micro-Kernel v1.0.0 (Verified x86_64 Release)',
+      title: 'UREfy Cryptographic Micro-Kernel v1.0.0 (Verified x86_64 Release)',
       content:
         'Official microkernel distribution compiled with zero telemetry and verified reproducible build hashes.',
     },
@@ -162,7 +162,7 @@ export const INITIAL_POSTS: EdgePost[] = [
     channelId: 'pulse-global',
     authorFingerprint: 'f40019bc88a2',
     authorRole: 'MEMBER',
-    title: 'Reverse Engineering: Visual Section Analysis of Obfuscated Malware vs Aetheris Clean Builds',
+    title: 'Reverse Engineering: Visual Section Analysis of Obfuscated Malware vs UREfy Clean Builds',
     content:
       'Notice how commercial packers (UPX0, Themida) spike entropy into the 7.8-7.9 bit red zone, while clean compilers distribute code entropy evenly across text and rodata sections.',
     flair: 'TECH DISCUSSION',
@@ -185,7 +185,7 @@ export const INITIAL_NANOPUBLICATIONS: EdgeNanopublication[] = [
   {
     id: 'nano-1',
     channelId: 'vault-releases',
-    title: 'Aetheris Microkernel v1.0.0 x86_64 Binary',
+    title: 'UREfy Microkernel v1.0.0 x86_64 Binary',
     fileName: 'aetheris-microkernel-x86_64.bin',
     byteSize: 131072,
     sha256: 'a11fe18f963518803fbebdaebf4d408609e3a323c70194b3b507d47a392a2496',

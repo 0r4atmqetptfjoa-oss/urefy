@@ -7,12 +7,12 @@ export * from './importer.js';
 const SERVER_URL = process.env.SERVER_URL || 'ws://localhost:4000';
 
 async function main() {
-  console.log(`[Aetheris Archivist Daemon] Connecting to ${SERVER_URL}...`);
+  console.log(`[UREfy Archivist Daemon] Connecting to ${SERVER_URL}...`);
   const daemon = new ArchivistDaemon(SERVER_URL);
 
   try {
     await daemon.connect();
-    console.log(`[Aetheris Archivist Daemon] Connected and authenticated. Fingerprint: ${daemon.getKeypair().fingerprint}`);
+    console.log(`[UREfy Archivist Daemon] Connected and authenticated. Fingerprint: ${daemon.getKeypair().fingerprint}`);
 
     // Seed an initial verified security release artifact
     const sampleBinary = new Uint8Array(1024 * 128); // 128 KB
@@ -21,14 +21,14 @@ async function main() {
     }
 
     const artifact = await daemon.publishRelease(
-      'Aetheris Cryptographic Micro-Kernel v1.0.0',
+      'UREfy Cryptographic Micro-Kernel v1.0.0',
       'aetheris-microkernel-x86_64.bin',
       sampleBinary
     );
 
-    console.log(`[Aetheris Archivist Daemon] Published artifact: ${artifact.title} (SHA-256: ${artifact.sha256.substring(0, 16)}...)`);
+    console.log(`[UREfy Archivist Daemon] Published artifact: ${artifact.title} (SHA-256: ${artifact.sha256.substring(0, 16)}...)`);
   } catch (err: any) {
-    console.error(`[Aetheris Archivist Daemon] Error: ${err.message}`);
+    console.error(`[UREfy Archivist Daemon] Error: ${err.message}`);
   }
 }
 

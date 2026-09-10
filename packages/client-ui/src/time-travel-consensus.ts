@@ -1,5 +1,5 @@
 /**
- * AETHERIS SOVEREIGN TIME-TRAVEL CONSENSUS (COMMUNITY-GOVERNED ROLLBACKS)
+ * UREfy SOVEREIGN TIME-TRAVEL CONSENSUS (COMMUNITY-GOVERNED ROLLBACKS)
  *
  * Decentralized community rollback proposals:
  * - Any member with WoT reputation >= 70 can propose a rollback on a contested

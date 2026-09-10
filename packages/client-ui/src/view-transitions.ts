@@ -1,6 +1,6 @@
 /**
  * view-transitions.ts
- * Aetheris Omni-Sphere — View Transitions API & Fluid Screen Animation Engine
+ * UREfy — View Transitions API & Fluid Screen Animation Engine
  * 
  * Provides seamless, hardware-accelerated transitions across channels, modals,
  * spaces, and views. Supports native View Transitions API (W3C standard) with an
@@ -488,7 +488,7 @@ export class ViewTransitionManager {
     styleEl.id = this.STYLE_TAG_ID;
     styleEl.textContent = `
 /* ═══════════════════════════════════════════════════════════════════════════
-   AETHERIS OMNI-SPHERE — VIEW TRANSITIONS ENGINE
+   UREfy — VIEW TRANSITIONS ENGINE
    Hardware-accelerated CSS animations for seamless view cross-fading & sliding.
    ═══════════════════════════════════════════════════════════════════════════ */
 

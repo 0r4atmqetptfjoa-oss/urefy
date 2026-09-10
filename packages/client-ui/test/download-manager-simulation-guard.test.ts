@@ -1,3 +1,4 @@
+import './helpers/disable-demo.js';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { P2PDownloadManager } from '../src/download-manager.js';
 import { setSimulationMode } from '../src/simulation-mode.js';
@@ -35,3 +36,4 @@ describe('Download Manager Simulation Guard & Zero-Fake-Peers Invariant', () => 
     expect(peers.length).toBeGreaterThan(0);
   });
 });
+(globalThis as any).__UREFY_DEMO_MODE__ = false;

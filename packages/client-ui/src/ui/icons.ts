@@ -1,7 +1,7 @@
 /**
  * @file ui/icons.ts
  * @package @aetheris/client-ui
- * @description Centralized Lucide SVG Icon Engine for Aetheris.
+ * @description Centralized Lucide SVG Icon Engine for UREfy.
  * Replaces ad-hoc emojis with high-performance, tree-shakable SVG icons.
  */
 
@@ -36,6 +36,7 @@ import {
   Activity,
   FileText,
   Layers,
+  Columns2,
   ExternalLink,
   Copy,
   RefreshCw,
@@ -74,9 +75,26 @@ import {
   CheckCircle2,
   XCircle,
   RotateCcw,
+  Smile,
+  Heart,
+  Menu,
+  Rss,
+  Vote,
+  FileKey,
+  Image,
+  Link,
+  Hash,
+  Flame,
+  Clock,
+  TrendingUp,
+  LayoutGrid,
+  List,
+  Pin,
+  Wallet,
 } from 'lucide';
+import type { IconNode } from 'lucide';
 
-export type IconDefinition = Array<[string, Record<string, string | number>]>;
+export type IconDefinition = IconNode;
 
 export const ICONS: Record<string, IconDefinition> = {
   // Primary Navigation
@@ -112,6 +130,7 @@ export const ICONS: Record<string, IconDefinition> = {
   activity: Activity,
   fileText: FileText,
   layers: Layers,
+  columns: Columns2,
   externalLink: ExternalLink,
   copy: Copy,
   refresh: RefreshCw,
@@ -150,6 +169,22 @@ export const ICONS: Record<string, IconDefinition> = {
   checkCircle: CheckCircle2,
   errorCircle: XCircle,
   rotateCcw: RotateCcw,
+  smile: Smile,
+  heart: Heart,
+  menu: Menu,
+  rss: Rss,
+  vote: Vote,
+  fileKey: FileKey,
+  image: Image,
+  link: Link,
+  hash: Hash,
+  flame: Flame,
+  clock: Clock,
+  trending: TrendingUp,
+  grid: LayoutGrid,
+  list: List,
+  pin: Pin,
+  wallet: Wallet,
 };
 
 export type IconName = keyof typeof ICONS;
@@ -164,6 +199,10 @@ export interface IconOptions {
   ariaHidden?: boolean;
 }
 
+function escapeAttribute(value: string | number): string {
+  return String(value).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/'/g, '&#39;');
+}
+
 /**
  * Converts a Lucide Icon Definition into an SVG string.
  */
@@ -173,19 +212,20 @@ export function iconToSvg(iconDef: IconDefinition, options: IconOptions = {}): s
   const cls = options.className || options.class || '';
   const color = options.color || 'currentColor';
   const ariaAttr = options.ariaLabel
-    ? `aria-label="${options.ariaLabel}" role="img"`
+    ? `aria-label="${escapeAttribute(options.ariaLabel)}" role="img"`
     : options.ariaHidden !== false ? 'aria-hidden="true"' : '';
 
   const children = iconDef
     .map(([tag, attrs]) => {
       const attrStr = Object.entries(attrs)
-        .map(([k, v]) => `${k}="${v}"`)
+        .filter(([, value]) => value !== undefined)
+        .map(([attribute, value]) => `${attribute}="${escapeAttribute(value!)}"`)
         .join(' ');
       return `<${tag} ${attrStr} />`;
     })
     .join('');
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round" class="lucide-icon ${cls}" ${ariaAttr}>${children}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${escapeAttribute(size)}" height="${escapeAttribute(size)}" viewBox="0 0 24 24" fill="none" stroke="${escapeAttribute(color)}" stroke-width="${escapeAttribute(strokeWidth)}" stroke-linecap="round" stroke-linejoin="round" focusable="false" class="lucide-icon ${escapeAttribute(cls)}" ${ariaAttr}>${children}</svg>`;
 }
 
 /**

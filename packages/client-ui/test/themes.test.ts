@@ -318,7 +318,7 @@ describe('Obsidian Theme Engine, Display Customizer & Typography System', () => 
       // Real-time Live Preview
       expect(modalHtml).toContain('Real-time Live Preview');
       expect(modalHtml).toContain('WCAG AAA PASS');
-      expect(modalHtml).toContain('Aetheris Sovereign');
+      expect(modalHtml).toContain('UREfy Sovereign');
       expect(modalHtml).toContain('Upvote');
 
       // All 5 Sovereign Accent colors rendered

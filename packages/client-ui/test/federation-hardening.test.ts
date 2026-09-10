@@ -126,6 +126,8 @@ describe('Federation Protocol Cryptographic Hardening (Findings 1, 13, 14, 15)',
               id: remoteActorUrl,
               type: 'Application',
               publicKey: {
+                id: `${remoteActorUrl}#main-key`,
+                owner: remoteActorUrl,
                 publicKeyHex: remoteKey.publicKeyHex,
               },
             }),
@@ -136,7 +138,7 @@ describe('Federation Protocol Cryptographic Hardening (Findings 1, 13, 14, 15)',
       });
       vi.stubGlobal('fetch', mockFetch);
 
-      const resolvedKey = await fetchActorPublicKey(remoteActorUrl);
+      const resolvedKey = await fetchActorPublicKey(remoteActorUrl, true);
       expect(resolvedKey).toBe(remoteKey.publicKeyHex.toLowerCase());
 
       // Verify cached entry

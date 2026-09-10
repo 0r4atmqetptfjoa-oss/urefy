@@ -1,5 +1,5 @@
 // ===========================================================================
-// AETHERIS OMNI-SPHERE — AUTOMATED D1 SQLITE -> CLOUDFLARE R2 ENCRYPTED BACKUP
+// UREfy — AUTOMATED D1 SQLITE -> CLOUDFLARE R2 ENCRYPTED BACKUP
 // Item 19: Automated Scheduled D1 SQLite -> Cloudflare R2 Backups
 // Features:
 // - Endpoint POST /api/cron-backup (supports Cloudflare Cron Triggers via scheduled() and Admin token trigger).
@@ -41,6 +41,21 @@ export const BACKUP_TABLES = [
 ] as const;
 
 export const DEFAULT_BACKUP_PASSPHRASE = 'aetheris-sovereign-r2-backup-key-v1';
+
+function resolveBackupSecret(env?: Env, requestedSecret?: string): string {
+  if (requestedSecret !== undefined) {
+    if (isProductionEnv(env) && requestedSecret.trim().length < 16) {
+      throw new Error('Production backup encryption key is missing or shorter than 16 characters.');
+    }
+    return requestedSecret;
+  }
+  const configured = env?.BACKUP_ENCRYPTION_KEY || env?.BACKUP_KEY || env?.ADMIN_PIN;
+  if (typeof configured === 'string' && configured.trim().length >= 16) return configured;
+  if (isProductionEnv(env)) {
+    throw new Error('Production backup encryption key is missing or shorter than 16 characters.');
+  }
+  return DEFAULT_BACKUP_PASSPHRASE;
+}
 
 export interface D1BackupManifest {
   version: '1.0.0';
@@ -399,12 +414,7 @@ export async function executeBackup(
   const compressedBytes = await compressGzip(rawBytes);
 
   // 4. Encrypt with AES-256-GCM
-  const backupSecret =
-    options?.customSecret ||
-    env?.BACKUP_ENCRYPTION_KEY ||
-    env?.BACKUP_KEY ||
-    env?.ADMIN_PIN ||
-    DEFAULT_BACKUP_PASSPHRASE;
+  const backupSecret = resolveBackupSecret(env, options?.customSecret);
 
   const { encryptedPayload, checksumSha256 } = await encryptBackupPayload(
     compressedBytes,
@@ -533,12 +543,7 @@ export async function restoreBackup(
     throw new Error('Production restore failed: D1 database binding is unavailable. In-memory fallback is disabled in production.');
   }
 
-  const secret =
-    passphrase ||
-    env?.BACKUP_ENCRYPTION_KEY ||
-    env?.BACKUP_KEY ||
-    env?.ADMIN_PIN ||
-    DEFAULT_BACKUP_PASSPHRASE;
+  const secret = resolveBackupSecret(env, passphrase);
 
   // 1. Decrypt AES-256-GCM
   const decompressedGzipBytes = await decryptBackupPayload(encryptedBytes, secret);

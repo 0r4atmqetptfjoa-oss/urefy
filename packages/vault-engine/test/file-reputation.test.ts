@@ -1,12 +1,28 @@
 import { describe, it, expect } from 'vitest';
-import { generateKeyPair, signMessage } from '@aetheris/core-crypto';
+import { generateKeyPair, signMessage, bytesToHex } from '@aetheris/core-crypto';
 import {
   ReputationMerkleTree,
   CollaborativeFileReputationVault,
   scanBinaryForPackers,
   scanPackerSignatures,
   calculateShannonEntropy,
+  canonicalizePeerVerdict,
+  FILE_REPUTATION_PROTOCOL_VERSION,
+  DEFAULT_REPUTATION_NETWORK_ID,
+  type PeerVerdict,
 } from '../src/index.js';
+
+function signedVerdict(kp: ReturnType<typeof generateKeyPair>, values: Omit<PeerVerdict, 'signature' | 'nodePublicKeyHex'>): PeerVerdict {
+  const verdict: PeerVerdict = {
+    protocolVersion: FILE_REPUTATION_PROTOCOL_VERSION,
+    networkId: DEFAULT_REPUTATION_NETWORK_ID,
+    nodeId: kp.fingerprint,
+    nodePublicKeyHex: kp.publicKeyHex,
+    ...values,
+  };
+  verdict.signature = bytesToHex(signMessage(canonicalizePeerVerdict(verdict, kp.fingerprint), kp.privateKey));
+  return verdict;
+}
 
 describe('Innovation 6: Collaborative File Reputation Vault & UPX Packer Detection', () => {
   describe('ReputationMerkleTree & Cryptographic Verification', () => {
@@ -54,37 +70,25 @@ describe('Innovation 6: Collaborative File Reputation Vault & UPX Packer Detecti
       const keypair2 = generateKeyPair();
 
       const timestamp = Date.now();
-      const payload1 = `${testSha}:CLEAN:0.98:25:${timestamp}`;
-      const sig1 = signMessage(payload1, keypair1.privateKey);
-
-      const payload2 = `${testSha}:CLEAN:0.95:15:${timestamp}`;
-      const sig2 = signMessage(payload2, keypair2.privateKey);
-
       // Register signed verdicts
-      const registered1 = vault.registerVerdict({
+      const registered1 = vault.registerVerdict(signedVerdict(keypair1, {
         sha256: testSha,
         verdict: 'CLEAN',
         confidence: 0.98,
         seederCount: 25,
         timestamp,
-        nodeId: keypair1.fingerprint,
-        nodePublicKeyHex: keypair1.publicKeyHex,
-        signature: Array.from(sig1).map((b) => b.toString(16).padStart(2, '0')).join(''),
         entropy: 6.12,
-      });
+      }));
       expect(registered1).toBe(true);
 
-      const registered2 = vault.registerVerdict({
+      const registered2 = vault.registerVerdict(signedVerdict(keypair2, {
         sha256: testSha,
         verdict: 'CLEAN',
         confidence: 0.95,
         seederCount: 15,
         timestamp,
-        nodeId: keypair2.fingerprint,
-        nodePublicKeyHex: keypair2.publicKeyHex,
-        signature: Array.from(sig2).map((b) => b.toString(16).padStart(2, '0')).join(''),
         entropy: 6.12,
-      });
+      }));
       expect(registered2).toBe(true);
 
       const consensus = vault.lookupReputation(testSha, 6.12);
@@ -102,18 +106,15 @@ describe('Innovation 6: Collaborative File Reputation Vault & UPX Packer Detecti
 
       // Signed for CLEAN, but payload claims MALICIOUS
       const timestamp = Date.now();
-      const legitSig = signMessage(`${testSha}:CLEAN:0.9:5:${timestamp}`, kp.privateKey);
-
-      const res = vault.registerVerdict({
+      const tampered = signedVerdict(kp, {
         sha256: testSha,
-        verdict: 'MALICIOUS', // Tampered verdict!
+        verdict: 'CLEAN',
         confidence: 0.9,
         seederCount: 5,
         timestamp,
-        nodeId: kp.fingerprint,
-        nodePublicKeyHex: kp.publicKeyHex,
-        signature: Array.from(legitSig).map((b) => b.toString(16).padStart(2, '0')).join(''),
       });
+      tampered.verdict = 'MALICIOUS';
+      const res = vault.registerVerdict(tampered);
 
       expect(res).toBe(false);
       expect(vault.lookupReputation(testSha)).toBeNull();
@@ -126,7 +127,9 @@ describe('Innovation 6: Collaborative File Reputation Vault & UPX Packer Detecti
       const result = vault.lookupReputation(verifiedHash, 6.12);
       expect(result).not.toBeNull();
       expect(result!.isMerkleVerified).toBe(true);
-      expect(result!.summary).toBe('Verified by 40 sovereign nodes (Entropy 6.12, Clean)');
+      expect(result!.verdict).toBe('UNKNOWN');
+      expect(result!.nodeCount).toBe(0);
+      expect(result!.summary).toContain('no signed verdict attestations');
     });
   });
 

@@ -1,5 +1,5 @@
 /**
- * Aetheris Omni-Sphere — Gossip Protocol P2P Visualizer (GossipProtocolVisualizer)
+ * UREfy — Gossip Protocol P2P Visualizer (GossipProtocolVisualizer)
  *
  * Interactive epidemic dissemination engine and animated topological network visualizer.
  * Simulates decentralized Push-Sum & Anti-Entropy Gossip propagation over peer swarms:

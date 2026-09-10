@@ -74,7 +74,7 @@ class MockDOMRoot {
   }
 }
 
-describe('Aetheris Omni-Sphere — Gossip Protocol Visualizer Engine', () => {
+describe('UREfy — Gossip Protocol Visualizer Engine', () => {
   let visualizer: GossipProtocolVisualizer;
 
   beforeEach(() => {

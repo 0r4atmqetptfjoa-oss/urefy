@@ -1,5 +1,5 @@
 /**
- * Aetheris Omni-Sphere — Web-of-Trust (WoT) Slider & Flow-Based Filtering System
+ * UREfy — Web-of-Trust (WoT) Slider & Flow-Based Filtering System
  *
  * 100% Self-Contained, Strict TypeScript, Zero External Dependencies.
  *

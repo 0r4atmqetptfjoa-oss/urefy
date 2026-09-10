@@ -1,13 +1,14 @@
 // ════════════════════════════════════════════════════════════════════════════
-// sw.js — Aetheris Omni-Sphere  ·  Service Worker v3 ULTRA
+// sw.js — UREfy · Service Worker v3
 // Strategy: Cache-First Assets · SWR Navigation · Background Sync · Push
 // ════════════════════════════════════════════════════════════════════════════
 
-const VERSION = 'v3.3';
-const CACHE_CORE    = `aetheris-core-${VERSION}`;
-const CACHE_ASSETS  = `aetheris-assets-${VERSION}`;
-const CACHE_API     = `aetheris-api-${VERSION}`;
-const CACHE_FONTS   = `aetheris-fonts-${VERSION}`;
+const VERSION = 'BUILD_VERSION';
+const BOOTSTRAP_ASSETS = [];
+const CACHE_CORE    = `urefy-core-${VERSION}`;
+const CACHE_ASSETS  = `urefy-assets-${VERSION}`;
+const CACHE_API     = `urefy-api-${VERSION}`;
+const CACHE_FONTS   = `urefy-fonts-${VERSION}`;
 const SYNC_QUEUE    = 'aetheris-sync-queue';
 
 // Assets to precache on install (shell + fonts)
@@ -17,6 +18,9 @@ const PRECACHE = [
   '/manifest.json',
   '/favicon.svg',
   '/favicon.ico',
+  '/icon-192.png',
+  '/icon-512.png',
+  ...BOOTSTRAP_ASSETS,
 ];
 
 // Assets that are NEVER cached (live feeds, admin, push, auth endpoints, private vaults)
@@ -40,7 +44,7 @@ const NEVER_CACHE_PATTERNS = [
 self.addEventListener('install', (e) => {
   e.waitUntil(
     caches.open(CACHE_CORE)
-      .then((cache) => cache.addAll(PRECACHE).catch(() => {}))
+      .then((cache) => cache.addAll(PRECACHE))
       .then(() => self.skipWaiting())
   );
 });
@@ -50,7 +54,7 @@ self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys().then((keys) =>
       Promise.all(
-        keys.filter((k) => k.startsWith('aetheris-') && ![CACHE_CORE, CACHE_ASSETS, CACHE_API, CACHE_FONTS].includes(k))
+        keys.filter((k) => (k.startsWith('aetheris-') || k.startsWith('urefy-')) && ![CACHE_CORE, CACHE_ASSETS, CACHE_API, CACHE_FONTS].includes(k))
           .map((k) => caches.delete(k))
       )
     ).then(() => self.clients.claim())
@@ -71,6 +75,7 @@ self.addEventListener('fetch', (e) => {
   if (req.method !== 'GET') return;
 
   const url = new URL(req.url);
+  if (url.origin !== self.location.origin) return;
 
   // Skip never-cache patterns
   if (NEVER_CACHE_PATTERNS.some((p) => p.test(url.pathname))) return;
@@ -127,7 +132,7 @@ const CACHEABLE_PUBLIC_API = [
 // ─── STRATEGIES ───────────────────────────────────────────────────────────────
 
 async function cacheFirst(req, cacheName) {
-  const cached = await caches.match(req, { ignoreSearch: false });
+  const cached = await caches.match(req, { ignoreSearch: false, ignoreVary: true });
   if (cached) return cached;
   try {
     const res = await fetch(req);
@@ -212,10 +217,10 @@ async function flushSyncQueue() {
 self.addEventListener('push', (e) => {
   if (!e.data) return;
   let data = {};
-  try { data = e.data.json(); } catch { data = { title: 'Aetheris', body: e.data.text() }; }
+  try { data = e.data.json(); } catch { data = { title: 'UREfy', body: e.data.text() }; }
 
   e.waitUntil(
-    self.registration.showNotification(data.title || 'Aetheris', {
+    self.registration.showNotification(data.title || 'UREfy', {
       body: data.body || '',
       icon: '/favicon.svg',
       badge: '/favicon.svg',

@@ -23,7 +23,7 @@ if (typeof (globalThis as any).localStorage === 'undefined') {
   };
 }
 
-describe('Aetheris Omni-Sphere — i18n & Localization Engine (i18n.ts)', () => {
+describe('UREfy — i18n & Localization Engine (i18n.ts)', () => {
   let engine: I18nEngine;
 
   beforeEach(() => {

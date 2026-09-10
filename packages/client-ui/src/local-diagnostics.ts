@@ -208,7 +208,7 @@ export class LocalDiagnosticsManager {
    */
   public getDiagnosticReport(): DiagnosticReport {
     return {
-      appName: 'Aetheris Omni-Sphere',
+      appName: 'UREfy',
       version: '1.0.0',
       reportType: 'Local Sovereign Diagnostics Telemetry',
       timestamp: Date.now(),

@@ -1,6 +1,6 @@
 /**
  * pip-float.ts
- * Aetheris Omni-Sphere — Sovereign Picture-in-Picture Scroll-Float Engine
+ * UREfy — Sovereign Picture-in-Picture Scroll-Float Engine
  * 
  * Automatically docks playing in-feed video streams into a high-fidelity floating
  * mini-player at the bottom-right corner when scrolled out of view, maintaining
@@ -74,7 +74,7 @@ export class FloatingPiPManager {
   public activeVideoEl: HTMLVideoElement | null = null;
   public currentVideoSrc: string | null = null;
   public currentPoster: string | null = null;
-  public currentTitle: string = 'Aetheris Sovereign Stream';
+  public currentTitle: string = 'UREfy Sovereign Stream';
   public currentPostId: string | null = null;
   public currentQuality: string = '1080p60 ZK';
 
@@ -182,7 +182,7 @@ export class FloatingPiPManager {
    * Generates the Obsidian Picture-in-Picture floating card HTML.
    */
   public renderFloatingPlayer(): string {
-    const safeTitle = escapeHtml(this.currentTitle || 'Aetheris Sovereign Stream');
+    const safeTitle = escapeHtml(this.currentTitle || 'UREfy Sovereign Stream');
     const safePoster = this.currentPoster ? escapeHtml(this.currentPoster) : '';
     const safeSrc = this.currentVideoSrc ? escapeHtml(this.currentVideoSrc) : '';
 
@@ -752,9 +752,9 @@ export class FloatingPiPManager {
       this.currentTitle = title;
     } else if (this.currentPostId) {
       const titleEl = document.querySelector(`[data-post-id="${this.currentPostId}"] h3, [data-post-id="${this.currentPostId}"] .post-title`);
-      this.currentTitle = titleEl?.textContent?.trim() || 'Aetheris Sovereign Stream';
+      this.currentTitle = titleEl?.textContent?.trim() || 'UREfy Sovereign Stream';
     } else {
-      this.currentTitle = 'Aetheris Sovereign Stream';
+      this.currentTitle = 'UREfy Sovereign Stream';
     }
 
     this.currentTime = videoEl.currentTime || 0;

@@ -1,5 +1,5 @@
 /**
- * AETHERIS OMNI-SPHERE — SOVEREIGN NODE FEDERATION PROTOCOL ENGINE
+ * UREfy — SOVEREIGN NODE FEDERATION PROTOCOL ENGINE
  * ActivityPub 2.0 & Sovereign Gossip Bridge:
  * 1. Node Discovery Handshake (NodeInfo 2.1 & Actor Resolution)
  * 2. Cryptographically Signed Pulse Broadcast (Ed25519 ActivityStreams envelopes)
@@ -16,6 +16,7 @@ import {
   computeFingerprint,
   KeyPair,
 } from '@aetheris/core-crypto';
+import { validateSafeUrl } from './ssrf-guard.js';
 
 // ─── DATA MODELS & TYPES ─────────────────────────────────────────────────────
 
@@ -178,9 +179,9 @@ export class NodeFederationEngine {
     // Generate sovereign Ed25519 identity keypair
     this.keyPair = generateKeyPair();
 
-    // Load peers from storage or initialize with defaults
+    // Honest production mode: initialize empty without fabricated peer nodes
     this.loadPeers();
-    this.inboundPulses = [...INITIAL_INBOUND_PULSES];
+    this.inboundPulses = [];
   }
 
   private loadPeers(): void {
@@ -196,7 +197,16 @@ export class NodeFederationEngine {
         }
       } catch (_) {}
     }
+    this.trustedPeers = [];
+  }
+
+  /**
+   * Explicitly populates simulated demo peer nodes and inbound pulses for demonstration / test mode.
+   */
+  public loadDemoData(): void {
     this.trustedPeers = JSON.parse(JSON.stringify(INITIAL_PEERS));
+    this.inboundPulses = [...INITIAL_INBOUND_PULSES];
+    this.notifySubscribers();
   }
 
   private savePeers(): void {
@@ -239,6 +249,14 @@ export class NodeFederationEngine {
       }
     }
     cleanUrl = cleanUrl.replace(/\/+$/, '');
+
+    // Client-side SSRF Guard validation
+    const allowLocal = typeof window !== 'undefined' && Boolean((window as any).__UREFY_ALLOW_LOCAL_DEV__);
+    const validation = validateSafeUrl(cleanUrl, { allowLocalDev: allowLocal });
+    if (!validation.safe) {
+      throw new Error(`SSRF Guard rejected external node discovery: ${validation.error}`);
+    }
+
     let domain: string;
     try {
       domain = new URL(cleanUrl).host;

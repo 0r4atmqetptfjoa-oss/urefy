@@ -1,4 +1,4 @@
-// sound-effects.ts — Aetheris Omni-Sphere Procedural Web Audio API Sound Generator
+// sound-effects.ts — UREfy Procedural Web Audio API Sound Generator
 // 100% Mathematically Synthesized Acoustic Engine — Zero external audio files
 
 import { createSafeAudioContext } from './dry-utils.js';
@@ -867,7 +867,7 @@ export class ProceduralSoundEffects {
 
   /**
    * Renders a small toggle button (🔊 / 🔇) for inclusion in header or footer.
-   * Conforms strictly to Aetheris dark Tailwind theme classes.
+   * Conforms strictly to UREfy dark Tailwind theme classes.
    */
   public renderSoundToggle(): string {
     const isMuted = !this.isEnabled;

@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+import { BrowserProvider, Wallet, toUtf8String, verifyMessage } from 'ethers';
 import {
   WalletBridge,
   walletBridge,
@@ -12,6 +13,7 @@ describe('Sovereign Wallet & Dual-Curve Cryptographic Bridge', () => {
   let mockStorage: Record<string, string>;
 
   beforeEach(() => {
+    vi.spyOn(BrowserProvider.prototype, 'lookupAddress').mockResolvedValue(null);
     mockStorage = {};
 
     const storageObj = {
@@ -41,20 +43,35 @@ describe('Sovereign Wallet & Dual-Curve Cryptographic Bridge', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
+
+  async function connectSigningProvider() {
+    const signer = Wallet.createRandom();
+    (window as any).clientStore = { keypair: { publicKey: new Uint8Array(32).fill(7) } };
+    (window as any).location = { origin: 'https://example.test' };
+    (window as any).ethereum = { request: vi.fn(async ({ method, params }) => {
+      if (method === 'eth_requestAccounts') return [signer.address];
+      if (method === 'eth_chainId') return '0x1';
+      if (method === 'personal_sign') return signer.signMessage(toUtf8String(params[0]));
+      if (method === 'wallet_switchEthereumChain') return null;
+      throw new Error('Unexpected provider request');
+    }) };
+    await bridge.connectMetaMask();
+    return signer;
+  }
+
+  function configureTestToken() {
+    bridge.tokenGates = [{ id: 'gate-aeth-guardian', name: 'Test token', tokenAddress: '0x1234567890123456789012345678901234567890', minBalance: 100, symbol: 'TEST', icon: '', description: '', spaceChannelId: '', passed: false, checkedAt: 0, decimals: 18 }];
+    return bridge.tokenGates[0];
+  }
 
   // ─── 1. CRYPTOGRAPHIC PRIMITIVES & ENCODINGS ───────────────────────────────
 
   describe('1. Dual-Curve Address Derivation & EIP-55 Checksum', () => {
-    it('should deterministically derive valid EIP-55 Ethereum address from Ed25519 public key', () => {
-      const ed25519Key = 'ed25519:7f2bc941d8e34a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b';
-      const ethAddr1 = bridge.deriveEthAddressFromED25519(ed25519Key);
-      const ethAddr2 = bridge.deriveEthAddressFromED25519(ed25519Key);
-
-      expect(ethAddr1).toBeDefined();
-      expect(ethAddr1.startsWith('0x')).toBe(true);
-      expect(ethAddr1.length).toBe(42);
-      expect(ethAddr1).toBe(ethAddr2); // Deterministic
+    it('does not derive a spendable Ethereum account from a public Ed25519 identifier', () => {
+      expect(bridge.identity).toBeNull();
+      expect(bridge.selectedAccount).toBe('');
     });
 
     it('should compute valid EIP-55 mixed-case checksum for Ethereum addresses', () => {
@@ -90,16 +107,13 @@ describe('Sovereign Wallet & Dual-Curve Cryptographic Bridge', () => {
   // ─── 2. DEFAULT INITIALIZATION & STATE ──────────────────────────────────────
 
   describe('2. Default Initialization & State', () => {
-    it('should initialize with derived Ed25519 identity and standard networks', () => {
-      expect(bridge.identity).toBeDefined();
-      expect(bridge.identity?.aetherisKey).toContain('ed25519:');
-      expect(bridge.identity?.ethAddress?.startsWith('0x')).toBe(true);
-      expect(bridge.identity?.verificationProof).toBeDefined();
+    it('should initialize without an authorized Ethereum identity and with standard networks', () => {
+      expect(bridge.identity).toBeNull();
       expect(bridge.isConnected).toBe(false);
       expect(bridge.activeTab).toBe('identity');
       expect(bridge.isModalOpen).toBe(false);
       expect(bridge.supportedNetworks.length).toBe(5);
-      expect(bridge.tokenGates.length).toBe(3);
+      expect(bridge.tokenGates.length).toBe(0);
     });
 
     it('should export singleton instance walletBridge correctly', () => {
@@ -112,13 +126,12 @@ describe('Sovereign Wallet & Dual-Curve Cryptographic Bridge', () => {
   // ─── 3. CONNECTION & METAMASK INTEGRATION ───────────────────────────────────
 
   describe('3. Connection & EVM Web3 Provider Flow', () => {
-    it('should activate derived Secp256k1 identity when MetaMask is not present', async () => {
+    it('should remain disconnected when MetaMask is not present', async () => {
       const address = await bridge.connectMetaMask();
 
-      expect(address).toBeDefined();
-      expect(address?.startsWith('0x')).toBe(true);
-      expect(bridge.isConnected).toBe(true);
-      expect(bridge.identity?.ethAddress).toBe(address);
+      expect(address).toBeNull();
+      expect(bridge.isConnected).toBe(false);
+      expect(bridge.identity).toBeNull();
     });
 
     it('should request accounts from window.ethereum and update active state', async () => {
@@ -144,7 +157,7 @@ describe('Sovereign Wallet & Dual-Curve Cryptographic Bridge', () => {
       expect(address?.toLowerCase()).toBe(mockAccount.toLowerCase());
       expect(bridge.selectedAccount.toLowerCase()).toBe(mockAccount.toLowerCase());
       expect(bridge.isConnected).toBe(true);
-      expect(bridge.identity?.ensName).toBe('vitalik.eth');
+      expect(bridge.identity?.ensName).toBeUndefined();
     });
 
     it('should handle user rejection gracefully when connecting MetaMask', async () => {
@@ -165,12 +178,12 @@ describe('Sovereign Wallet & Dual-Curve Cryptographic Bridge', () => {
       expect(bridge.toastMessage).toContain('User rejected');
     });
 
-    it('should disconnect cleanly and reset to standalone identity', () => {
+    it('should disconnect cleanly and remove account authorization', () => {
       bridge.isConnected = true;
       bridge.disconnect();
 
       expect(bridge.isConnected).toBe(false);
-      expect(bridge.identity?.ensName).toBe('sovereign.aetheris.eth');
+      expect(bridge.identity).toBeNull();
       expect(bridge.toastType).toBe('info');
     });
   });
@@ -178,51 +191,36 @@ describe('Sovereign Wallet & Dual-Curve Cryptographic Bridge', () => {
   // ─── 4. CRYPTOGRAPHIC MESSAGE SIGNING & ATTESTATIONS ────────────────────────
 
   describe('4. Message Signing & Attestations', () => {
-    it('should generate valid Secp256k1 compact signature in standalone mode', async () => {
-      const message = 'Aetheris Sovereign Consensus Attestation #42';
+    it('should refuse signing without a wallet provider', async () => {
+      const message = 'UREfy Sovereign Consensus Attestation #42';
       const signed: SignedMessage | null = await bridge.signWithEthereum(message);
 
-      expect(signed).toBeDefined();
-      expect(signed?.message).toBe(message);
-      expect(signed?.keyType).toBe('secp256k1');
-      expect(signed?.signature.startsWith('0x')).toBe(true);
-      expect(signed?.signature.length).toBeGreaterThan(100);
-      expect(bridge.recentSignatures.length).toBe(1);
-      expect(bridge.lastSignedProof).toBe(signed?.signature);
+      expect(signed).toBeNull();
+      expect(bridge.recentSignatures).toHaveLength(0);
     });
 
     it('should execute personal_sign via MetaMask when connected', async () => {
-      const mockSig = '0x11223344556677889900aabbccddeeff11223344556677889900aabbccddeeff11223344556677889900aabbccddeeff11223344556677889900aabbccddeeff1b';
-      const mockEth = {
-        request: vi.fn().mockResolvedValue(mockSig),
-      };
-
-      globalThis.window = {
-        crypto: globalThis.crypto,
-        ethereum: mockEth,
-        localStorage: globalThis.localStorage,
-        setTimeout: vi.fn(),
-        clearTimeout: vi.fn(),
-      } as unknown as Window & typeof globalThis;
-
-      bridge.isConnected = true;
+      const signer = await connectSigningProvider();
       const signed = await bridge.signWithEthereum('Hello Web3');
 
-      expect(mockEth.request).toHaveBeenCalledWith({
+      expect((window as any).ethereum.request).toHaveBeenCalledWith({
         method: 'personal_sign',
         params: [expect.any(String), expect.any(String)],
       });
-      expect(signed?.signature).toBe(mockSig);
+      expect(verifyMessage(signed!.message, signed!.signature)).toBe(signer.address);
     });
 
     it('should sign full dual-curve identity linkage proof', async () => {
+      const signer = await connectSigningProvider();
       const proof = await bridge.signIdentityProof();
       expect(proof).toBeDefined();
       expect(proof?.startsWith('0x')).toBe(true);
       expect(bridge.identity?.verificationProof).toBe(proof);
+      expect(verifyMessage(bridge.identity!.verificationMessage!, proof!)).toBe(signer.address);
     });
 
     it('should sign custom message from input field', async () => {
+      await connectSigningProvider();
       bridge.setCustomMessage('Sovereign Channel Message #99');
       await bridge.signCustomMessage();
 
@@ -234,7 +232,9 @@ describe('Sovereign Wallet & Dual-Curve Cryptographic Bridge', () => {
   // ─── 5. ENS NAME RESOLUTION & TOKEN GATING ──────────────────────────────────
 
   describe('5. ENS Resolution & Token Gating Verification', () => {
-    it('should resolve known addresses to ENS names', async () => {
+    it('should display an ENS name only when the provider resolves it', async () => {
+      await connectSigningProvider();
+      vi.mocked(BrowserProvider.prototype.lookupAddress).mockResolvedValueOnce('vitalik.eth').mockResolvedValueOnce('satoshi.eth');
       const vitalikAddr = '0xd8da6bf26964af9d7eed9e03e53415d37aa96045';
       const ens = await bridge.resolveENS(vitalikAddr);
       expect(ens).toBe('vitalik.eth');
@@ -243,20 +243,21 @@ describe('Sovereign Wallet & Dual-Curve Cryptographic Bridge', () => {
       expect(await bridge.resolveENS(satoshiAddr)).toBe('satoshi.eth');
     });
 
-    it('should fallback to deterministic sovereign-XXXX.eth alias for unknown addresses', async () => {
+    it('should return no ENS name when resolution is unavailable', async () => {
       const randomAddr = '0x1234567890abcdef1234567890abcdef12345678';
       const alias = await bridge.resolveENS(randomAddr);
-      expect(alias).toBe('sovereign-12345678.eth');
+      expect(alias).toBeNull();
     });
 
     it('should verify token gate access thresholds', async () => {
-      const gate: TokenGate = bridge.tokenGates[0]; // Guardian Council
+      const gate: TokenGate = configureTestToken();
       const hasAccess = await bridge.verifyTokenGate(gate.tokenAddress, gate.minBalance);
 
       expect(typeof hasAccess).toBe('boolean');
     });
 
     it('should check single and all token gates', async () => {
+      configureTestToken();
       await bridge.checkSingleGate('gate-aeth-guardian');
       const gate = bridge.tokenGates.find((g) => g.id === 'gate-aeth-guardian');
       expect(gate?.checkedAt).toBeDefined();
@@ -272,6 +273,7 @@ describe('Sovereign Wallet & Dual-Curve Cryptographic Bridge', () => {
 
   describe('6. Network Switching & Modal UI Navigation', () => {
     it('should switch active network to Arbitrum One and update state', async () => {
+      await connectSigningProvider();
       await bridge.switchNetwork('0xa4b1');
 
       expect(bridge.chainId).toBe('0xa4b1');
@@ -305,12 +307,15 @@ describe('Sovereign Wallet & Dual-Curve Cryptographic Bridge', () => {
       expect(bridge.isModalOpen).toBe(true);
     });
 
-    it('should trigger toast notifications and copy to clipboard', () => {
+    it('should trigger toast notifications and confirm an actual clipboard write', async () => {
+      const writeText = vi.fn().mockResolvedValue(undefined);
+      vi.stubGlobal('navigator', { clipboard: { writeText } });
       bridge.showToast('Test Toast Notification', 'success');
       expect(bridge.toastType).toBe('success');
 
       // Clipboard copy test
-      bridge.copyToClipboard('0x123', 'Adresă');
+      await bridge.copyToClipboard('0x123', 'Adresă');
+      expect(writeText).toHaveBeenCalledWith('0x123');
       expect(bridge.toastType).toBe('success');
     });
   });
@@ -321,8 +326,8 @@ describe('Sovereign Wallet & Dual-Curve Cryptographic Bridge', () => {
     it('should render header wallet button with connection indicator and address', () => {
       const html = bridge.renderWalletButton();
 
-      expect(html).toContain('💰');
-      expect(html).toContain('walletBridge.toggleModal');
+      expect(html).toContain('lucide-icon');
+      expect(html).toContain('data-feature="wallet"');
       expect(html).toContain('bg-surface-base');
     });
 
@@ -334,7 +339,7 @@ describe('Sovereign Wallet & Dual-Curve Cryptographic Bridge', () => {
       expect(html).toContain('Ed25519 ↔ Secp256k1');
       expect(html).toContain('Identity & Bridge');
       expect(html).toContain('Signatures & Attestations');
-      expect(html).toContain('Token-Gated Spaces');
+      expect(html).toContain('ERC-20 Checks');
       expect(html).toContain('EVM Networks');
       expect(html).toContain('close-feature');
       expect(html).toContain('bg-surface-base');

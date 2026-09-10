@@ -56,7 +56,7 @@ describe('Ticket 4.6: Local Diagnostics — 100% On-Device, Zero Network Telemet
     diagnostics.recordError(new Error('Test error'), 'UnitTest');
     const report = diagnostics.getDiagnosticReport();
 
-    expect(report.appName).toBe('Aetheris Omni-Sphere');
+    expect(report.appName).toBe('UREfy');
     expect(report.zeroNetworkGuaranteed).toBe(true);
     expect(typeof report.recordsCount).toBe('number');
     expect(Array.isArray(report.records)).toBe(true);

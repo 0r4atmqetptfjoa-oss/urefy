@@ -1,5 +1,5 @@
 // ===========================================================================
-// AETHERIS OMNI-SPHERE — NANOPUBLICATIONS & VERIFIED ARTIFACTS EDGE API
+// UREfy — NANOPUBLICATIONS & VERIFIED ARTIFACTS EDGE API
 // Supports: Cloudflare D1 (SQL), Cloudflare R2 (Object Storage), Cloudflare KV
 // Automatic fallback to In-Memory Edge Store when bindings are not present.
 // ===========================================================================

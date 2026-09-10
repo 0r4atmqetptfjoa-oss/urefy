@@ -35,6 +35,7 @@ import { merkleVisualizer } from './merkle-viz.js';
 import { networkObservatory } from './network-observatory.js';
 import { zkDeliveryManager } from './delivery-proof.js';
 import { clientStore } from './client-state.js';
+import { isDemoModeEnabled } from './demo-mode.js';
 
 export const STORAGE_KEY_TRANSPARENCY_MODE = 'aetheris_transparency_mode_enabled';
 
@@ -94,7 +95,7 @@ export class TransparencyModeManager {
 
   constructor() {
     this.loadSettings();
-    this.seedDefaultJourney();
+    if (isDemoModeEnabled()) this.seedDefaultJourney();
     this.bindGlobalShortcuts();
   }
 
@@ -207,7 +208,7 @@ export class TransparencyModeManager {
       if (found) return found;
     }
     if (this.journeys.length === 0) {
-      this.recordMessageJourney('msg_genesis', 'Aetheris Genesis Sovereign Communication Block', 'genesis-node', 'local-node', 'inbound');
+      this.recordMessageJourney('msg_genesis', 'UREfy Genesis Sovereign Communication Block', 'genesis-node', 'local-node', 'inbound');
     }
     return this.journeys[0];
   }
@@ -568,7 +569,7 @@ export class TransparencyModeManager {
   private seedDefaultJourney(): void {
     this.recordMessageJourney(
       'msg_genesis_pqc_001',
-      'Aetheris sovereign end-to-end post-quantum ratchet session initialized.',
+      'UREfy sovereign end-to-end post-quantum ratchet session initialized.',
       'genesis-core',
       'c3dc28cb705e',
       'outbound'
@@ -860,15 +861,16 @@ export class TransparencyModeManager {
 
             <!-- Controls: Mode Toggle, View Switch, Close -->
             <div class="flex items-center gap-2">
-              <!-- Simulate Journey Button -->
-              <button
-                type="button" data-action="call-global" data-raw-click="if(window.__aetherisTransparency) { window.__aetherisTransparency.recordMessageJourney('msg_live_' + Date.now(), 'Live encrypted ratcheted transmission at ' + new Date().toISOString(), 'local-node', 'peer-node', 'outbound'); if(window.__aetherisToast) window.__aetherisToast('Simulated real cryptographic journey!', 'info'); if(window.clientStore) window.clientStore.notifySync(); }"
-                class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-500/40 text-xs font-semibold text-indigo-200 transition-all cursor-pointer"
-                title="Run Live 5-Stage Cryptographic Simulation"
-              >
-                <span>⚡</span>
-                <span>Simulate Journey</span>
-              </button>
+              ${isDemoModeEnabled() ? `
+                <button
+                  type="button" data-action="call-global" data-raw-click="if(window.__aetherisTransparency) { window.__aetherisTransparency.recordMessageJourney('self_test_' + Date.now(), 'Local pipeline self-test at ' + new Date().toISOString(), 'local-node', 'test-sink', 'outbound'); if(window.__aetherisToast) window.__aetherisToast('Local cryptographic pipeline self-test recorded.', 'info'); if(window.clientStore) window.clientStore.notifySync(); }"
+                  class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-500/40 text-xs font-semibold text-indigo-200 transition-all cursor-pointer"
+                  title="Run an isolated local pipeline self-test"
+                >
+                  <span>⚡</span>
+                  <span>Pipeline Self-Test</span>
+                </button>
+              ` : ''}
 
               <!-- Full-Screen / Drawer Toggle -->
               <button

@@ -1,5 +1,7 @@
 import { awardsSystem, PostAward } from './awards.js';
 import { markdownRenderer } from './markdown-renderer.js';
+import { t } from './i18n.js';
+import { isDemoModeEnabled } from './demo-mode.js';
 
 export interface ThreadComment {
   id: string;
@@ -42,11 +44,17 @@ export class ThreadManager {
   public replyingCommentId: string | null = null;
 
   constructor() {
-    this.seedInitialThread();
+    if (isDemoModeEnabled()) {
+      this.seedInitialThread();
+    }
     this._initGlobalDomListeners();
   }
 
-  private seedInitialThread(): void {
+  public loadDemoData(): void {
+    this.seedInitialThread();
+  }
+
+  public seedInitialThread(): void {
     const root1: ThreadComment = {
       id: 'c-root-1',
       postId: 'post-1',
@@ -302,7 +310,7 @@ export class ThreadManager {
               class="btn-comment-toggle-reply flex items-center space-x-1 px-2 py-0.5 rounded-lg hover:bg-surface-overlay hover:text-white transition-colors cursor-pointer"
             >
               <span>💬</span>
-              <span>Reply</span>
+              <span>${t('feed.reply', undefined, 'Reply')}</span>
             </button>
 
             <!-- BESTOW AWARD ON COMMENT -->
@@ -329,7 +337,7 @@ export class ThreadManager {
                   data-cancel-reply="${c.id}" 
                   class="btn-cancel-reply px-3 py-1 text-xs font-mono text-slate-400 hover:text-white rounded-lg hover:bg-surface-overlay transition-colors cursor-pointer"
                 >
-                  Cancel
+                  ${t('common.cancel', undefined, 'Cancel')}
                 </button>
                 <button 
                   type="button" 
@@ -337,7 +345,7 @@ export class ThreadManager {
                   class="btn-submit-reply px-3.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-lg transition-all shadow-sm flex items-center space-x-1 cursor-pointer"
                 >
                   <span>⚡</span>
-                  <span>Post Reply</span>
+                  <span>${'Post Reply'}</span>
                 </button>
               </div>
             </div>

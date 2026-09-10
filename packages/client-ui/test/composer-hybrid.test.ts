@@ -103,12 +103,12 @@ describe('Unified Hybrid Composer (composer-hybrid.ts) — Comprehensive Test Su
 
     it('should manage Sovereign Poll Builder with 2 to 6 dynamic options and durations', () => {
       composer.activeTab = 'poll';
-      composer.pollState.question = 'Which ZK backend should Aetheris implement next?';
+      composer.pollState.question = 'Which ZK backend should UREfy implement next?';
       composer.pollState.options = ['Nova / SuperNova', 'Halo2 Poly-IOP', 'Plonky3 / Boojum'];
       composer.pollState.durationMs = 259200000; // 3 days
 
       const modalHtml = composer.renderComposerModal();
-      expect(modalHtml).toContain('Which ZK backend should Aetheris implement next?');
+      expect(modalHtml).toContain('Which ZK backend should UREfy implement next?');
       expect(modalHtml).toContain('Nova / SuperNova');
       expect(modalHtml).toContain('Halo2 Poly-IOP');
       expect(modalHtml).toContain('Plonky3 / Boojum');
@@ -255,7 +255,7 @@ describe('Unified Hybrid Composer (composer-hybrid.ts) — Comprehensive Test Su
     });
 
     it('should compute consistent SHA-256 digests', async () => {
-      const text = 'Aetheris Omni-Sphere Sovereign Cryptography';
+      const text = 'UREfy Sovereign Cryptography';
       const hash1 = await computeSha256Hex(text);
       const hash2 = await computeSha256Hex(text);
       expect(hash1).toBe(hash2);

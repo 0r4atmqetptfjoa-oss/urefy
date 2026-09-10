@@ -13,14 +13,43 @@
 
 import { sha256 } from '@noble/hashes/sha256';
 
+/** Minimum required RSA key modulus bit length for cryptographic security */
+export const MINIMUM_RSA_KEY_BITS = 2048;
+
+/** Error thrown when an RSA key modulus does not meet the minimum security threshold of 2048 bits */
+export class InsecureKeyError extends Error {
+  constructor(message: string = 'RSA key length is below the required security minimum of 2048 bits') {
+    super(message);
+    this.name = 'InsecureKeyError';
+  }
+}
+
+/**
+ * Validates that an RSA modulus meets or exceeds the minimum security threshold of 2048 bits.
+ * Rejects legacy/insecure 512-bit and 1024-bit keys.
+ */
+export function validateRsaKeyLength(n: bigint): void {
+  if (typeof n !== 'bigint' || n <= 0n) {
+    throw new InsecureKeyError('Invalid RSA modulus');
+  }
+  const bitLength = n.toString(2).length;
+  if (bitLength < MINIMUM_RSA_KEY_BITS) {
+    throw new InsecureKeyError(
+      `RSA modulus of ${bitLength} bits is insecure and rejected. Minimum required is ${MINIMUM_RSA_KEY_BITS} bits.`
+    );
+  }
+}
+
 export interface BlindSignaturePublicKey {
   n: bigint;
   e: bigint;
+  protocolVersion?: string;
 }
 
 export interface BlindSignaturePrivateKey {
   n: bigint;
   d: bigint;
+  protocolVersion?: string;
 }
 
 export interface BlindSignatureKeyPair {
@@ -213,33 +242,70 @@ export function generatePrime(bits: number, e: bigint = RSA_F4): bigint {
 }
 
 /**
- * Generates an RSA keypair for Chaumian Blind Signatures.
- * Modulus N = p * q with public exponent e = 65537n and private exponent d = e^-1 mod phi(N).
- *
- * @param keyBits RSA modulus bit length (e.g. 512 for high-speed tests, 1024 or 2048 for production).
+ * Decodes a base64url string to BigInt. Compatible with browser and Node runtimes.
  */
-export function generateBlindSignatureKeyPair(keyBits: number = 1024): BlindSignatureKeyPair {
-  const effectiveBits = Math.max(keyBits, 256);
-  const pBits = Math.floor(effectiveBits / 2);
-  const qBits = effectiveBits - pBits;
-  const e = RSA_F4;
+function base64UrlToBigInt(b64url: string): bigint {
+  let b64 = b64url.replace(/-/g, '+').replace(/_/g, '/');
+  while (b64.length % 4 !== 0) {
+    b64 += '=';
+  }
+  let hex = '';
+  if (typeof Buffer !== 'undefined') {
+    hex = Buffer.from(b64, 'base64').toString('hex');
+  } else {
+    const binary = atob(b64);
+    for (let i = 0; i < binary.length; i++) {
+      hex += binary.charCodeAt(i).toString(16).padStart(2, '0');
+    }
+  }
+  return BigInt('0x' + hex);
+}
 
-  const p = generatePrime(pBits, e);
-  let q = generatePrime(qBits, e);
-
-  // Ensure p != q and |p - q| is not dangerously small
-  const minDiff = 1n << BigInt(Math.max(pBits - 20, 16));
-  while (q === p || (p > q ? p - q : q - p) < minDiff) {
-    q = generatePrime(qBits, e);
+/**
+ * Generates a NIST-compliant RSA keypair for Chaumian Blind Signatures using WebCrypto.
+ * Enforces a strict minimum key length of 2048 bits.
+ *
+ * @param keyBits RSA modulus bit length (minimum 2048 bits).
+ */
+export async function generateBlindSignatureKeyPair(
+  keyBits: number = 2048
+): Promise<BlindSignatureKeyPair> {
+  if (keyBits < MINIMUM_RSA_KEY_BITS) {
+    throw new InsecureKeyError(
+      `Requested RSA key length (${keyBits} bits) is insecure. Minimum allowed is ${MINIMUM_RSA_KEY_BITS} bits.`
+    );
   }
 
-  const n = p * q;
-  const phi = (p - 1n) * (q - 1n);
-  const d = modInverse(e, phi);
+  const subtle = globalThis.crypto?.subtle;
+  if (!subtle) {
+    throw new Error('WebCrypto subtle is required for secure RSA key generation');
+  }
+
+  const keyPair = await subtle.generateKey(
+    {
+      name: 'RSASSA-PKCS1-v1_5',
+      modulusLength: keyBits,
+      publicExponent: new Uint8Array([1, 0, 1]), // 65537
+      hash: 'SHA-256',
+    },
+    true,
+    ['sign', 'verify']
+  );
+
+  const jwk = await subtle.exportKey('jwk', keyPair.privateKey);
+  if (!jwk.n || !jwk.d || !jwk.e) {
+    throw new Error('Failed to export RSA JWK components from WebCrypto');
+  }
+
+  const n = base64UrlToBigInt(jwk.n);
+  const d = base64UrlToBigInt(jwk.d);
+  const e = base64UrlToBigInt(jwk.e);
+
+  validateRsaKeyLength(n);
 
   return {
-    publicKey: { n, e },
-    privateKey: { n, d },
+    publicKey: { n, e, protocolVersion: '2.0' },
+    privateKey: { n, d, protocolVersion: '2.0' },
   };
 }
 
@@ -298,6 +364,7 @@ export function blindMessage(
   message: Uint8Array | string,
   publicKey: BlindSignaturePublicKey
 ): BlindedMessageResult {
+  validateRsaKeyLength(publicKey.n);
   const messageHash = hashToZStar(message, publicKey.n);
   const blindingFactor = generateBlindingFactor(publicKey.n);
   const rExpE = modExp(blindingFactor, publicKey.e, publicKey.n);
@@ -318,6 +385,7 @@ export function blindMessageWithFactor(
   blindingFactor: bigint,
   publicKey: BlindSignaturePublicKey
 ): BlindedMessageResult {
+  validateRsaKeyLength(publicKey.n);
   if (blindingFactor <= 1n || blindingFactor >= publicKey.n || gcd(blindingFactor, publicKey.n) !== 1n) {
     throw new Error('Blinding factor must be coprime to N and in range (1, N)');
   }
@@ -344,6 +412,7 @@ export function signBlindedMessage(
   blindedHash: bigint,
   privateKey: BlindSignaturePrivateKey
 ): bigint {
+  validateRsaKeyLength(privateKey.n);
   if (blindedHash <= 0n || blindedHash >= privateKey.n) {
     throw new Error('Blinded hash must be within range (0, N)');
   }
@@ -358,6 +427,7 @@ export function directSignMessage(
   message: Uint8Array | string,
   privateKey: BlindSignaturePrivateKey
 ): bigint {
+  validateRsaKeyLength(privateKey.n);
   const messageHash = hashToZStar(message, privateKey.n);
   return modExp(messageHash, privateKey.d, privateKey.n);
 }
@@ -375,6 +445,7 @@ export function unblindSignature(
   blindingFactor: bigint,
   publicKey: BlindSignaturePublicKey
 ): bigint {
+  validateRsaKeyLength(publicKey.n);
   if (blindSignature <= 0n || blindSignature >= publicKey.n) {
     throw new Error('Blind signature must be within range (0, N)');
   }
@@ -395,6 +466,7 @@ export function verifyBlindSignature(
   signature: bigint,
   publicKey: BlindSignaturePublicKey
 ): boolean {
+  validateRsaKeyLength(publicKey.n);
   if (signature <= 0n || signature >= publicKey.n) {
     return false;
   }

@@ -1,6 +1,6 @@
 import { sovereignDialog } from './dialog-modal.js';
 /**
- * Aetheris Omni-Sphere — Complete Rich Blocks Editor (Notion / Obsidian Style)
+ * UREfy — Complete Rich Blocks Editor (Notion / Obsidian Style)
  * (rich-editor.ts)
  *
  * 100% Self-Contained, Strict TypeScript, Zero External Dependencies.
@@ -738,7 +738,7 @@ export class RichBlockEditor {
         id: generateBlockId(),
         type: 'paragraph',
         content:
-          'Aetheris represents a decentralized peer-to-peer communication and binary validation network. All messages and publications are backed by Zero-Knowledge Proofs (ZK-Proofs) and cryptographic identities on **Ed25519** curves.',
+          'UREfy represents a decentralized peer-to-peer communication and binary validation network. All messages and publications are backed by Zero-Knowledge Proofs (ZK-Proofs) and cryptographic identities on **Ed25519** curves.',
       },
       {
         id: generateBlockId(),
@@ -811,7 +811,7 @@ export async function verifySwarmPayload(payload: Uint8Array, epoch: string): Pr
         type: 'quote',
         content: 'Digital sovereignty is not requested, it is engineered line by line with audited code.',
         meta: {
-          author: 'Aetheris Core Fellowship',
+          author: 'UREfy Core Fellowship',
           source: 'Omni-Sphere Network Manifesto',
         },
       },
@@ -1021,9 +1021,9 @@ export async function verifySwarmPayload(payload: Uint8Array, epoch: string): Pr
       case 'callout':
         return { calloutType: 'info', title: 'Key Information', icon: '💡' };
       case 'quote':
-        return { author: 'Sovereign Anonymous', source: 'Aetheris Network' };
+        return { author: 'Sovereign Anonymous', source: 'UREfy' };
       case 'image':
-        return { alt: 'Aetheris network graph', caption: 'Active nodes in mesh network' };
+        return { alt: 'UREfy network graph', caption: 'Active nodes in mesh network' };
       case 'embed':
         return { embedType: 'video', provider: 'Web Media' };
       default:

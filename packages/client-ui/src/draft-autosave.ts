@@ -2,13 +2,13 @@ import { sovereignDialog } from './dialog-modal.js';
 /**
  * @file draft-autosave.ts
  * @package @aetheris/client-ui
- * @description Local Encrypted & Persistent Draft Autosave Management System for Aetheris Omni-Sphere.
+ * @description Local Encrypted & Persistent Draft Autosave Management System for UREfy.
  * Provides instant debounce autosaving (400ms), recovery drawer UI, visual indicators,
  * JSON backup/restore, and interactive DOM bindings without external dependencies.
  */
 
 /**
- * Interface representing a persisted draft record in the Aetheris client.
+ * Interface representing a persisted draft record in the UREfy client.
  */
 export interface DraftRecord {
   key: string;
@@ -109,7 +109,7 @@ function formatByteSize(bytes: number): string {
 }
 
 /**
- * Draft Autosave Manager for Aetheris Omni-Sphere.
+ * Draft Autosave Manager for UREfy.
  * Manages persistent client-side draft auto-recovery, debounced typing sync,
  * status indicator rendering, and sliding drafts vault drawer.
  */
@@ -403,7 +403,7 @@ export class DraftAutosaveManager {
   }
 
   /**
-   * Clears all saved drafts matching the Aetheris prefix.
+   * Clears all saved drafts matching the UREfy prefix.
    */
   public clearAllDrafts(): void {
     // Clear debounce timers
@@ -469,7 +469,7 @@ export class DraftAutosaveManager {
     const payload = {
       version: '1.0',
       exportedAt: Date.now(),
-      client: 'Aetheris Omni-Sphere',
+      client: 'UREfy',
       draftCount: drafts.length,
       drafts
     };
@@ -1286,7 +1286,7 @@ export class DraftAutosaveManager {
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
       anchor.href = url;
-      anchor.download = `aetheris-drafts-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      anchor.download = `urefy-drafts-backup-${new Date().toISOString().slice(0, 10)}.json`;
       document.body.appendChild(anchor);
       anchor.click();
       document.body.removeChild(anchor);

@@ -1,5 +1,5 @@
 /**
- * Aetheris Omni-Sphere — Voice Lounge 2D Spatial Grid Audio Engine
+ * UREfy — Voice Lounge 2D Spatial Grid Audio Engine
  *
  * Implements real-time 2D binaural stereophonic sound localization, distance-based
  * acoustic rolloff, interactive acoustic radar canvas with draggable nodes, active speaker
@@ -10,6 +10,7 @@
 
 import { createSafeAudioContext } from './dry-utils.js';
 import { isLocalDev } from './admin-auth.js';
+import { isDemoModeEnabled } from './demo-mode.js';
 
 export interface SpatialParticipant {
   fingerprint: string;
@@ -108,13 +109,13 @@ export class SpatialAudioEngine {
   };
 
   constructor() {
-    if (isLocalDev()) {
+    if (isDemoModeEnabled()) {
       this.seedInitialParticipants();
     }
   }
 
   /**
-   * Seed realistic Aetheris cryptographic identities for the Voice Lounge (Dev/Diagnostic mode).
+   * Seed realistic UREfy cryptographic identities for the Voice Lounge (Dev/Diagnostic mode).
    */
   public seedInitialParticipants(): void {
     this.participants = [
@@ -851,7 +852,7 @@ export class SpatialAudioEngine {
             </div>
             
             <div class="flex items-center gap-3">
-              <span class="text-slate-500">Aetheris Spatial Audio v2.4</span>
+              <span class="text-slate-500">UREfy Spatial Audio v2.4</span>
               <button id="spatial-modal-done-btn" class="px-4 py-1.5 bg-cyphr hover:bg-cyphr-light text-black font-bold rounded-lg transition-all shadow-cyphr-sm">
                 Done
               </button>

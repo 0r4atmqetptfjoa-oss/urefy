@@ -223,7 +223,7 @@ describe('WebAuthn FIDO2 / Biometrics Security Manager', () => {
     });
 
     it('converts UTF-8 strings to ArrayBuffer and back to string', () => {
-      const sampleText = 'Aetheris Sovereign Vault — 🔐 ZK FIDO2 Biometrics';
+      const sampleText = 'UREfy Sovereign Vault — 🔐 ZK FIDO2 Biometrics';
       const buffer = stringToBuffer(sampleText);
       const restored = bufferToString(buffer);
 

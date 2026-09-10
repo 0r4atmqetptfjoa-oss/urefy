@@ -1,5 +1,5 @@
 // ===========================================================================
-// AETHERIS OMNI-SPHERE — CLOUDFLARE R2 & EDGE VAULT STORAGE ENGINE
+// UREfy — CLOUDFLARE R2 & EDGE VAULT STORAGE ENGINE
 // Supports: Cloudflare R2 (Object Storage: env.VAULT_BUCKET or env.R2).
 //           In production, all storage persistence requires Cloudflare R2 (fails closed).
 //           In-memory storage is strictly a development/test fixture fallback.
@@ -274,7 +274,7 @@ export const r2QuotaGuardian = {
 function initializeSeedStorage(): void {
   if (globalEdgeStorageMap.size === 0) {
     const seedPayload = new TextEncoder().encode(
-      'Aetheris Microkernel v1.0.0 Sovereign Binary Payload [Genesis Distribution]'
+      'UREfy Microkernel v1.0.0 Sovereign Binary Payload [Genesis Distribution]'
     );
     const seedSha256 = 'a11fe18f963518803fbebdaebf4d408609e3a323c70194b3b507d47a392a2496';
     const seedMerkle = 'a2d2ab5e55249f01020304050607080900000000000000000000000000000000';
@@ -288,7 +288,7 @@ function initializeSeedStorage(): void {
         sha256: seedSha256,
         merkleRoot: seedMerkle,
         author: 'genesis-core',
-        title: 'Aetheris Microkernel v1.0.0',
+        title: 'UREfy Microkernel v1.0.0',
         fileName: 'aetheris-microkernel-x86_64.bin',
         byteSize: String(seedPayload.byteLength),
         uploadedAt: String(1756650000000),
@@ -307,7 +307,7 @@ function initializeSeedStorage(): void {
       sha256: seedSha256,
       merkleRoot: seedMerkle,
       author: 'genesis-core',
-      title: 'Aetheris Microkernel v1.0.0',
+      title: 'UREfy Microkernel v1.0.0',
       fileName: 'aetheris-microkernel-x86_64.bin',
       contentType: 'application/octet-stream',
       storage: 'Edge-Isolate-Memory',
@@ -1574,7 +1574,7 @@ export async function onRequestDelete(context: {
       if (!objectAuthor) {
         const memObj = globalEdgeStorageMap.get(key);
         if (memObj) {
-          objectAuthor = memObj.customMetadata?.author || memObj.author;
+          objectAuthor = memObj.customMetadata?.author;
         }
       }
 

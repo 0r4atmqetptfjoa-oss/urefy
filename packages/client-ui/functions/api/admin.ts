@@ -1,5 +1,5 @@
 // ===========================================================================
-// AETHERIS OMNI-SPHERE — SOVEREIGN ADMIN & GOVERNANCE EDGE API
+// UREfy — SOVEREIGN ADMIN & GOVERNANCE EDGE API
 // Route: /api/admin
 // Features: PIN Authentication, User Role Management, WAF IP Ban Ledger,
 //           Server Configuration, Audit Logging, and Zero-Trust Telemetry.
@@ -484,7 +484,7 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
           status: 401,
           headers: {
             'Content-Type': 'application/json',
-            'WWW-Authenticate': 'Bearer realm="Aetheris Sovereign Admin"',
+            'WWW-Authenticate': 'Bearer realm="UREfy Sovereign Admin"',
           },
         }
       );

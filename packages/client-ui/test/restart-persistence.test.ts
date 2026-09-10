@@ -40,7 +40,7 @@ class PersistentMockD1 {
               return { success: true };
             }
 
-            if (/INSERT OR REPLACE INTO messages/i.test(cleanQuery)) {
+            if (/INSERT INTO messages/i.test(cleanQuery)) {
               // params: id, channel_id, author_id, ciphertext, nonce, epoch, status, signature, created_at
               const [id, channel_id, author_id, ciphertext, nonce, epoch, status, signature, created_at] = params;
               self.tables.get('messages')!.set(id, {

@@ -1,5 +1,5 @@
 /**
- * Aetheris Interactive Mesh Topology & Real-time Latency Matrix.
+ * UREfy Interactive Mesh Topology & Real-time Latency Matrix.
  * Visualizes direct WebRTC DTLS tunnels, peer round-trip times (RTT),
  * cipher suites, active TreeKEM ratchets, and bidirectional throughput.
  *
@@ -10,6 +10,8 @@
  * 4. WebSocket mesh signaling daemon with exponential backoff and randomized jitter
  * 5. Optimal route / peer selection heuristics
  */
+
+import { t } from './i18n.js';
 
 export interface MeshPeerNode {
   peerId: string;
@@ -387,7 +389,7 @@ export class MeshTopologyMatrix {
                 <p class="text-[10px] text-slate-400">Zero-Trust P2P Tunnels · SFrame E2EE Active · Edge Infrastructure Live Latency Matrix</p>
               </div>
             </div>
-            <button id="btn-close-mesh-modal" class="w-8 h-8 rounded-full bg-surface-raised hover:bg-surface-overlay text-slate-300 hover:text-white flex items-center justify-center text-sm border border-white/10 transition-colors cursor-pointer" title="Close (Esc)">
+            <button id="btn-close-mesh-modal" class="w-8 h-8 rounded-full bg-surface-raised hover:bg-surface-overlay text-slate-300 hover:text-white flex items-center justify-center text-sm border border-white/10 transition-colors cursor-pointer" title="${t('modal.close', undefined, 'Close')} (Esc)">
               ✕
             </button>
           </div>
@@ -489,7 +491,7 @@ export class MeshTopologyMatrix {
                   <th class="p-2.5">RTT (ms)</th>
                   <th class="p-2.5">Cipher Suite</th>
                   <th class="p-2.5">TreeKEM Epoch</th>
-                  <th class="p-2.5">Status</th>
+                  <th class="p-2.5">${t('meshMatrix.status', undefined, 'Status')}</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-white/5 text-slate-200">

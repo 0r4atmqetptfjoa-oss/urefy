@@ -1,5 +1,5 @@
 // ===========================================================================
-// AETHERIS OMNI-SPHERE — E2EE MESSAGES & RELAY FEED EDGE API
+// UREfy — E2EE MESSAGES & RELAY FEED EDGE API
 // Supports: Cloudflare D1 (SQL), Cloudflare KV (Real-time caching)
 // Automatic fallback to In-Memory Edge Store when bindings are not present.
 // ===========================================================================
@@ -39,8 +39,15 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
     const url = new URL(context.request.url);
     const channelId = url.searchParams.get('channelId') || 'relays-general';
     const sinceParam = url.searchParams.get('since');
-    const since = sinceParam ? parseInt(sinceParam, 10) : null;
-    const limit = Math.min(parseInt(url.searchParams.get('limit') || '100', 10), 500);
+    const since = sinceParam === null ? null : Number(sinceParam);
+    const requestedLimit = Number(url.searchParams.get('limit') ?? '100');
+    if (!Number.isSafeInteger(requestedLimit) || requestedLimit < 1 ||
+        (since !== null && (!Number.isSafeInteger(since) || since < 0 || sinceParam?.trim() === ''))) {
+      return new Response(JSON.stringify({ success: false, error: 'Invalid pagination parameters' }), {
+        status: 400, headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    const limit = Math.min(requestedLimit, 500);
 
     const db = getD1Database(context.env);
     const kv = getKVStore(context.env);
@@ -55,13 +62,13 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
         const params: any[] = [];
 
         if (channelId && channelId !== 'all') {
-          query += ' AND (channel_id = ? OR channelId = ?)';
-          params.push(channelId, channelId);
+          query += ' AND channel_id = ?';
+          params.push(channelId);
         }
 
         if (since !== null && !isNaN(since)) {
-          query += ' AND (created_at > ? OR createdAt > ?)';
-          params.push(since, since);
+          query += ' AND created_at > ?';
+          params.push(since);
         }
 
         query += ' ORDER BY created_at ASC LIMIT ?';
@@ -229,12 +236,18 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
 
     const isProd = isProductionEnv(context.env);
 
+    if (!db && globalMessagesStore.some((message) => message.id === newMsg.id)) {
+      return new Response(JSON.stringify({ success: false, error: 'Message ID already exists' }), {
+        status: 409, headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
     // Insert into Cloudflare D1 if available (only ciphertexts stored)
     if (db) {
       try {
         const stmt = db
           .prepare(
-            `INSERT OR REPLACE INTO messages (
+            `INSERT INTO messages (
               id, channel_id, author_id, ciphertext, nonce, epoch, status, signature, created_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
           )
@@ -258,6 +271,11 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
           );
         }
       } catch (dbErr: any) {
+        if (/UNIQUE constraint failed: messages\.id/i.test(String(dbErr?.message))) {
+          return new Response(JSON.stringify({ success: false, error: 'Message ID already exists' }), {
+            status: 409, headers: { 'Content-Type': 'application/json' },
+          });
+        }
         if (isProd) {
           return new Response(
             JSON.stringify({ success: false, error: `Database transaction failed: ${dbErr?.message || 'D1 message error'}` }),

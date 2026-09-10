@@ -1,5 +1,5 @@
 /**
- * Aetheris Omni-Sphere — Complete Inline Diff Viewer & Code Sandbox System
+ * UREfy — Complete Inline Diff Viewer & Code Sandbox System
  * (diff-viewer.ts)
  *
  * 100% Self-Contained, Strict TypeScript, Zero External Dependencies.
@@ -693,7 +693,7 @@ export class InlineDiffViewer {
             </span>
           </div>
           <div class="text-slate-400">
-            Aetheris Omni-Sphere Diff Engine · Unified Git Format
+            UREfy Diff Engine · Unified Git Format
           </div>
         </div>
       </div>

@@ -7,8 +7,9 @@
  * 4. Bookmarks and cryptographic permalink sharing.
  */
 
-import { isLocalDev } from './admin-auth.js';
+import { isDemoModeEnabled } from './demo-mode.js';
 import { safeLocalStorage } from './dry-utils.js';
+import { t } from './i18n.js';
 
 export interface PulseInteractionState {
   liked: boolean;
@@ -36,7 +37,7 @@ export class PulseActionsEngine {
   private syncedPostIds: Set<string> = new Set();
 
   constructor() {
-    if (isLocalDev()) {
+    if (isDemoModeEnabled()) {
       this._seedDemoInteractions();
     }
   }
@@ -350,8 +351,8 @@ export class PulseActionsEngine {
           data-pulse-action="reply"
           data-post-id="${postId}"
           class="btn-pulse-reply flex items-center space-x-1.5 group hover:text-cyan-400 transition-colors cursor-pointer"
-          title="Reply to pulse"
-          aria-label="Reply to pulse"
+          title="${t('actions.reply', undefined, 'Reply to pulse')}"
+          aria-label="${t('actions.reply', undefined, 'Reply to pulse')}"
         >
           <div class="p-2 rounded-full group-hover:bg-cyan-500/10 transition-colors">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -368,8 +369,8 @@ export class PulseActionsEngine {
             data-pulse-action="repost-menu"
             data-post-id="${postId}"
             class="btn-pulse-repost-menu flex items-center space-x-1.5 group transition-colors cursor-pointer ${state.reposted ? 'text-emerald-400 font-bold' : 'hover:text-emerald-400'}"
-            title="Repost or Quote Pulse"
-            aria-label="Repost or Quote pulse"
+            title="${t('actions.repost', undefined, 'Repost or Quote Pulse')}"
+            aria-label="${t('actions.repost', undefined, 'Repost or Quote pulse')}"
           >
             <div class="p-2 rounded-full group-hover:bg-emerald-500/10 transition-colors">
               <svg class="w-4 h-4 ${state.reposted ? 'rotate-180 transition-transform duration-300' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -386,10 +387,10 @@ export class PulseActionsEngine {
                 data-pulse-action="do-repost"
                 data-post-id="${postId}"
                 class="w-full flex items-center space-x-2.5 px-4 py-2.5 hover:bg-white/10 text-xs font-bold ${state.reposted ? 'text-emerald-400' : 'text-slate-200'} transition-colors cursor-pointer"
-                aria-label="${state.reposted ? 'Undo Repost' : 'Re-broadcast'}"
+                aria-label="${state.reposted ? t('actions.unrepost', undefined, 'Undo Repost') : t('actions.repost', undefined, 'Re-broadcast')}"
               >
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-                <span>${state.reposted ? 'Undo Repost' : 'Re-broadcast'}</span>
+                <span>${state.reposted ? t('actions.unrepost', undefined, 'Undo Repost') : t('actions.repost', undefined, 'Re-broadcast')}</span>
               </button>
 
               <button
@@ -397,10 +398,10 @@ export class PulseActionsEngine {
                 data-pulse-action="do-quote"
                 data-post-id="${postId}"
                 class="w-full flex items-center space-x-2.5 px-4 py-2.5 hover:bg-white/10 text-xs font-bold text-slate-200 transition-colors cursor-pointer border-t border-white/5"
-                aria-label="Quote Pulse"
+                aria-label="${t('actions.quotePost', undefined, 'Quote Pulse')}"
               >
                 <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"></path></svg>
-                <span>Quote Pulse</span>
+                <span>${t('actions.quotePost', undefined, 'Quote Pulse')}</span>
               </button>
             </div>
           ` : ''}
@@ -412,8 +413,8 @@ export class PulseActionsEngine {
           data-pulse-action="like"
           data-post-id="${postId}"
           class="btn-pulse-like relative flex items-center space-x-1.5 group transition-colors cursor-pointer ${state.liked ? 'text-[#f91880]' : 'hover:text-[#f91880]'}"
-          title="Like pulse"
-          aria-label="${state.liked ? 'Unlike pulse' : 'Like pulse'}"
+          title="${state.liked ? t('actions.unlike', undefined, 'Unlike pulse') : t('actions.like', undefined, 'Like pulse')}"
+          aria-label="${state.liked ? t('actions.unlike', undefined, 'Unlike pulse') : t('actions.like', undefined, 'Like pulse')}"
         >
           <div class="relative p-2 rounded-full group-hover:bg-[#f91880]/10 transition-colors">
             <svg class="w-4 h-4 ${state.liked ? 'fill-[#f91880] animate-heart-pop scale-110' : ''} transition-transform duration-150" viewBox="0 0 24 24" fill="${state.liked ? '#f91880' : 'none'}" stroke="currentColor" stroke-width="2">
@@ -442,8 +443,8 @@ export class PulseActionsEngine {
             data-pulse-action="bookmark"
             data-post-id="${postId}"
             class="btn-pulse-bookmark p-2 rounded-full transition-colors cursor-pointer ${state.bookmarked ? 'text-amber-400' : 'hover:text-amber-400 hover:bg-amber-400/10'}"
-            title="Bookmark"
-            aria-label="${state.bookmarked ? 'Remove bookmark' : 'Bookmark pulse'}"
+            title="${t('actions.bookmark', undefined, 'Bookmark')}"
+            aria-label="${state.bookmarked ? t('actions.unbookmark', undefined, 'Remove bookmark') : t('actions.bookmark', undefined, 'Bookmark pulse')}"
           >
             <svg class="w-4 h-4 ${state.bookmarked ? 'fill-amber-400' : ''}" fill="${state.bookmarked ? 'currentColor' : 'none'}" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path>
@@ -455,8 +456,8 @@ export class PulseActionsEngine {
             data-pulse-action="share"
             data-post-id="${postId}"
             class="btn-pulse-share p-2 rounded-full hover:text-cyan-400 hover:bg-cyan-500/10 transition-colors cursor-pointer"
-            title="Share sovereign permalink"
-            aria-label="Share sovereign permalink"
+            title="${t('actions.share', undefined, 'Share sovereign permalink')}"
+            aria-label="${t('actions.share', undefined, 'Share sovereign permalink')}"
           >
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path>
@@ -469,8 +470,8 @@ export class PulseActionsEngine {
             data-pulse-action="report"
             data-post-id="${postId}"
             class="btn-pulse-report p-2 rounded-full hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
-            title="Report illegal content / Abuse (DSA Notice & Takedown)"
-            aria-label="Report illegal content / DSA Notice and Takedown"
+            title="${t('actions.report', undefined, 'Report')} (${'DSA Notice & Takedown'})"
+            aria-label="${t('actions.report', undefined, 'Report')} (${'DSA Notice & Takedown'})"
           >
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"></path>

@@ -8,7 +8,7 @@
  * Generates i18n-coverage-report.md with per-language coverage metrics.
  */
 
-import { readFileSync, readdirSync, writeFileSync } from 'fs';
+import { readFileSync, readdirSync, writeFileSync, existsSync } from 'fs';
 import { join, resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -20,6 +20,8 @@ const __dirname = dirname(__filename);
 const SRC_DIR = resolve(__dirname, '..', 'src');
 const REPORT_PATH = resolve(__dirname, '..', 'i18n-coverage-report.md');
 const I18N_PATH = join(SRC_DIR, 'i18n.ts');
+const TYPES_PATH = join(SRC_DIR, 'i18n', 'types.ts');
+const LOCALES_DIR = join(SRC_DIR, 'i18n', 'locales');
 
 // Languages to audit
 const LANGUAGES = ['en', 'fr', 'de', 'es', 'ro', 'ja', 'ar'];
@@ -39,11 +41,12 @@ const HARDCODED_PATTERNS: RegExp[] = [
 
 // ─── i18n Key Extractor ────────────────────────────────────────────────────────
 
-function extractDictionaryKeys(i18nSource: string): Set<string> {
+function extractDictionaryKeys(i18nSource: string, typesSource: string): Set<string> {
   const keys = new Set<string>();
 
-  // Match top-level interface keys: "keyname:" patterns in TranslationDictionary
-  const interfaceMatch = i18nSource.match(/export interface TranslationDictionary \{([\s\S]*?)\n\}/);
+  // Match top-level interface keys: "keyname:" patterns in TranslationDictionary from types.ts or i18nSource
+  const sourceToScan = typesSource || i18nSource;
+  const interfaceMatch = sourceToScan.match(/export interface TranslationDictionary \{([\s\S]*?)\n\}/);
   if (interfaceMatch) {
     const interfaceBody = interfaceMatch[1];
     const keyLines = interfaceBody.matchAll(/^\s+(\w+)(?:\??:\s*\{([\s\S]*?)\})?\s*;/gm);
@@ -61,8 +64,9 @@ function extractDictionaryKeys(i18nSource: string): Set<string> {
     }
   }
 
-  // Also extract i18n.t() call key paths
-  const tCallMatches = i18nSource.matchAll(/i18n\.t\(['"]([^'"]+)['"]/g);
+  // Also extract i18n.t() and t() call key paths
+  const allSource = i18nSource + '\n' + typesSource;
+  const tCallMatches = allSource.matchAll(/(?:i18n\.)?t\(['"]([^'"]+)['"]/g);
   for (const m of tCallMatches) {
     keys.add(m[1]);
   }
@@ -86,7 +90,6 @@ function scanSourceFiles(srcDir: string): HardcodedString[] {
   for (const file of files) {
     const filePath = join(srcDir, file);
     const content = readFileSync(filePath, 'utf-8');
-    const lines = content.split('\n');
 
     for (const pattern of HARDCODED_PATTERNS) {
       pattern.lastIndex = 0;
@@ -96,7 +99,7 @@ function scanSourceFiles(srcDir: string): HardcodedString[] {
         // Skip: very short strings, pure identifiers, numbers, template vars
         if (text.length < 4 || /^\$\{/.test(text) || /^[A-Z_]+$/.test(text) || /^\d/.test(text)) continue;
         // Skip: already using i18n calls
-        if (text.startsWith('i18n.') || text.startsWith('${i18n')) continue;
+        if (text.startsWith('i18n.') || text.startsWith('${i18n') || text.startsWith('t(') || text.startsWith('${t(')) continue;
 
         // Compute approximate line number
         const beforeMatch = content.slice(0, match.index);
@@ -117,15 +120,26 @@ function scanSourceFiles(srcDir: string): HardcodedString[] {
 
 // ─── Language Coverage Estimator ──────────────────────────────────────────────
 
-function estimateLanguageCoverage(i18nSource: string, lang: string): { covered: number; total: number; pct: number } {
-  // Count keys in each language's dict by counting string values
-  const dictMatch = i18nSource.match(new RegExp(`export const ${lang}Dict: TranslationDictionary = \\{([\\s\\S]*?)\\n\\};`, 'm'));
-  if (!dictMatch) return { covered: 0, total: 0, pct: 0 };
-  const body = dictMatch[1];
-  const stringValues = (body.match(/:\s*['"][^'"]{2,}['"]/g) || []).length;
+function estimateLanguageCoverage(lang: string, i18nSource: string): { covered: number; total: number; pct: number } {
+  let body = '';
+  const localeFile = join(LOCALES_DIR, `${lang}.ts`);
+  if (existsSync(localeFile)) {
+    body = readFileSync(localeFile, 'utf-8');
+  } else {
+    const dictMatch = i18nSource.match(new RegExp(`export const ${lang}Dict: TranslationDictionary = \\{([\\s\\S]*?)\\n\\};`, 'm'));
+    if (dictMatch) body = dictMatch[1];
+  }
+  const stringValues = (body.match(/:\s*['"][^'"]*['"]/g) || []).length;
 
-  const enDictMatch = i18nSource.match(/export const enDict: TranslationDictionary = \{([\s\S]*?)\n\};/m);
-  const enCount = enDictMatch ? (enDictMatch[1].match(/:\s*['"][^'"]{2,}['"]/g) || []).length : 1;
+  let enBody = '';
+  const enFile = join(LOCALES_DIR, 'en.ts');
+  if (existsSync(enFile)) {
+    enBody = readFileSync(enFile, 'utf-8');
+  } else {
+    const enDictMatch = i18nSource.match(/export const enDict: TranslationDictionary = \{([\s\S]*?)\n\};/m);
+    if (enDictMatch) enBody = enDictMatch[1];
+  }
+  const enCount = enBody ? (enBody.match(/:\s*['"][^'"]*['"]/g) || []).length : (stringValues || 1);
 
   return {
     covered: stringValues,
@@ -139,8 +153,9 @@ function estimateLanguageCoverage(i18nSource: string, lang: string): { covered: 
 function generateReport(): void {
   console.log('[i18n-audit] Scanning source files...');
 
-  const i18nSource = readFileSync(I18N_PATH, 'utf-8');
-  const i18nKeys = extractDictionaryKeys(i18nSource);
+  const i18nSource = existsSync(I18N_PATH) ? readFileSync(I18N_PATH, 'utf-8') : '';
+  const typesSource = existsSync(TYPES_PATH) ? readFileSync(TYPES_PATH, 'utf-8') : '';
+  const i18nKeys = extractDictionaryKeys(i18nSource, typesSource);
   const hardcoded = scanSourceFiles(SRC_DIR);
 
   // Deduplicate by text
@@ -150,7 +165,7 @@ function generateReport(): void {
   // Per-language coverage
   const coverage: Record<string, { covered: number; total: number; pct: number }> = {};
   for (const lang of LANGUAGES) {
-    coverage[lang] = estimateLanguageCoverage(i18nSource, lang);
+    coverage[lang] = estimateLanguageCoverage(lang, i18nSource);
   }
 
   const reportDate = new Date().toISOString().slice(0, 16).replace('T', ' ') + ' UTC';

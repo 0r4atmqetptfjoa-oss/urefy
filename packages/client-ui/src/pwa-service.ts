@@ -1,5 +1,5 @@
 // ============================================================
-// pwa-service.ts — Aetheris Omni-Sphere Progressive Web App (PWA) Engine
+// pwa-service.ts — UREfy Progressive Web App (PWA) Engine
 // 100% Self-Contained, Zero External Dependencies, Strict TypeScript
 // ============================================================
 
@@ -86,6 +86,7 @@ export class PWAService {
   private _installOutcome: PWAEngineState['installOutcome'] = 'none';
   private _manifestBlobUrl: string | null = null;
   private _swBlobUrl: string | null = null;
+  private _registrationPromise: Promise<void> | null = null;
 
   private static readonly CACHE_NAME_CORE = 'aetheris-omni-core-v1';
   private static readonly CACHE_NAME_DYNAMIC = 'aetheris-omni-dynamic-v1';
@@ -111,65 +112,48 @@ export class PWAService {
   // ─── Lifecycle & Registration ──────────────────────────────
 
   /**
-   * Registers the Service Worker.
-   * Generates a fully functional offline caching worker using an inline Blob URL
-   * with complete support for Cache-First, Network-First, and Stale-While-Revalidate strategies.
+  * Registers the same-origin worker and reports its actual lifecycle state.
    */
   public async register(): Promise<void> {
     if (typeof window === 'undefined') return;
+    if ((import.meta as any).env?.DEV && (import.meta as any).env?.MODE !== 'test') {
+      const isAutomated = typeof navigator !== 'undefined' && Boolean(navigator.webdriver);
+      if (!isAutomated) return;
+    }
+    if (this._registrationPromise) return this._registrationPromise;
+    if (this.swRegistration) return;
+    this._registrationPromise = this._registerWorker();
+    try { await this._registrationPromise; }
+    finally { this._registrationPromise = null; }
+  }
 
+  private async _registerWorker(): Promise<void> {
     this._swStatus = 'registering';
     this._notifyListeners();
-
-    // Check if ServiceWorker API is supported
-    if ('serviceWorker' in navigator) {
-      try {
-        const swScriptContent = this._generateServiceWorkerScript();
-        const swBlob = new Blob([swScriptContent], { type: 'application/javascript' });
-        
-        if (this._swBlobUrl) {
-          URL.revokeObjectURL(this._swBlobUrl);
-        }
-        this._swBlobUrl = URL.createObjectURL(swBlob);
-
-        // Attempt registration
-        const registration = await navigator.serviceWorker.register(this._swBlobUrl, {
-          scope: './'
-        });
-
-        this.swRegistration = registration;
-        this._swStatus = 'active';
-
-        // Monitor service worker state changes
-        registration.addEventListener('updatefound', () => {
-          const installingWorker = registration.installing;
-          if (installingWorker) {
-            installingWorker.addEventListener('statechange', () => {
-              if (installingWorker.state === 'activated') {
-                this._swStatus = 'active';
-                this._refreshStorageMetrics();
-                this._notifyListeners();
-              } else if (installingWorker.state === 'redundant') {
-                this._swStatus = 'redundant';
-                this._notifyListeners();
-              }
-            });
-          }
-        });
-
-        // Initialize offline fallback cache storage directly in window context
-        await this._precacheCoreAssets();
-      } catch (err) {
-        // Fallback for restricted environments (e.g. data URI blob worker restrictions)
-        this._swStatus = 'active';
-        await this._precacheCoreAssets();
-      }
-    } else {
-      // Service worker unsupported: fallback to client-side CacheStorage emulation
-      this._swStatus = 'active';
-      await this._precacheCoreAssets();
+    if (!('serviceWorker' in navigator)) {
+      this._swStatus = 'unregistered';
+      this._notifyListeners();
+      return;
     }
-
+    try {
+      const registration = await navigator.serviceWorker.register('/sw.js', { scope: '/', updateViaCache: 'none' });
+      this.swRegistration = registration;
+      this._swStatus = registration.active ? 'active' : 'registering';
+      const watchInstalling = () => {
+        const worker = registration.installing;
+        if (!worker) return;
+        worker.addEventListener('statechange', () => {
+          if (worker.state === 'activated') this._swStatus = 'active';
+          else if (worker.state === 'redundant') this._swStatus = 'redundant';
+          this._notifyListeners();
+        });
+      };
+      registration.addEventListener('updatefound', watchInstalling);
+      watchInstalling();
+    } catch {
+      this.swRegistration = null;
+      this._swStatus = 'error';
+    }
     this._lastSyncTimestamp = Date.now();
     this._notifyListeners();
   }
@@ -190,7 +174,7 @@ export class PWAService {
 
       // Cache base shell mock metadata
       const shellPayload = JSON.stringify({
-        app: 'Aetheris Omni-Sphere',
+        app: 'UREfy',
         version: '1.0.0-SOVEREIGN',
         builtAt: new Date().toISOString(),
         spaces: ['relays', 'vault', 'pulse']
@@ -325,7 +309,7 @@ export class PWAService {
   // ─── Web App Manifest Generation & Injection ──────────────
 
   /**
-   * Generates a fully standard W3C Web App Manifest object for Aetheris.
+   * Generates a fully standard W3C Web App Manifest object for UREfy.
    */
   public generateWebManifest(): WebManifest {
     const origin = typeof window !== 'undefined' && window.location ? window.location.origin : '';
@@ -333,8 +317,8 @@ export class PWAService {
     const cyphrIcon512 = this._generateSvgDataUri('#00e5ff', '512');
 
     return {
-      name: 'Aetheris Omni-Sphere',
-      short_name: 'Aetheris',
+      name: 'UREfy — Unified Relay Enclave Framework for You',
+      short_name: 'UREfy',
       description: 'Decentralized Sovereign Intelligence & Zero-Knowledge Communication Matrix',
       start_url: origin ? `${origin}/` : '/',
       scope: origin ? `${origin}/` : '/',
@@ -387,13 +371,6 @@ export class PWAService {
 
     try {
       const manifest = this.generateWebManifest();
-      const manifestJson = JSON.stringify(manifest, null, 2);
-      const manifestBlob = new Blob([manifestJson], { type: 'application/manifest+json' });
-
-      if (this._manifestBlobUrl) {
-        URL.revokeObjectURL(this._manifestBlobUrl);
-      }
-      this._manifestBlobUrl = URL.createObjectURL(manifestBlob);
 
       // 1. Link Manifest
       let manifestLink = document.querySelector<HTMLLinkElement>('link[rel="manifest"]');
@@ -403,7 +380,7 @@ export class PWAService {
         manifestLink.id = 'aetheris-pwa-manifest';
         document.head.appendChild(manifestLink);
       }
-      manifestLink.href = this._manifestBlobUrl;
+      manifestLink.href = '/manifest.json';
 
       // 2. Meta Theme Color
       let themeColorMeta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
@@ -457,7 +434,7 @@ export class PWAService {
     }
 
     return `
-      <aside id="aetheris-pwa-install-banner" aria-label="Install Aetheris" class="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-2rem)] max-w-xl bg-surface-raised/95 border border-cyphr/40 rounded-xl p-4 shadow-2xl backdrop-blur-xl shadow-cyan-950/60 transition-all duration-300 animate-in fade-in slide-in-from-bottom-6">
+      <aside id="aetheris-pwa-install-banner" aria-label="Install UREfy" class="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-2rem)] max-w-xl bg-surface-raised/95 border border-cyphr/40 rounded-xl p-4 shadow-2xl backdrop-blur-xl shadow-cyan-950/60 transition-all duration-300 animate-in fade-in slide-in-from-bottom-6">
         <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           
           <div class="flex items-start sm:items-center gap-3.5 flex-1 min-w-0">
@@ -475,7 +452,7 @@ export class PWAService {
                 <span class="inline-block w-1.5 h-1.5 rounded-full bg-signal shadow-[0_0_6px_#22c55e]"></span>
               </div>
               <p class="text-xs sm:text-sm text-slate-200 font-medium leading-snug mt-0.5">
-                📥 Install Aetheris on your device for instant offline access and native notifications!
+                📥 Install UREfy for instant offline access and private native notifications.
               </p>
             </div>
           </div>
@@ -685,7 +662,7 @@ export class PWAService {
   // ─── Cache & Storage Management ────────────────────────────
 
   /**
-   * Clears all Aetheris caches in browser CacheStorage.
+   * Clears all UREfy caches in browser CacheStorage.
    */
   public async clearOfflineCache(): Promise<boolean> {
     if (typeof caches === 'undefined') return false;

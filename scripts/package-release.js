@@ -34,20 +34,23 @@ try {
     commitSha = execSync('git rev-parse HEAD', { cwd: rootDir, stdio: ['pipe', 'pipe', 'ignore'] }).toString().trim();
   } catch (_) {}
 
-  const buildTimestamp = new Date().toISOString();
-  const releaseId = `aetheris-${pkg.version}-${commitSha.substring(0, 8)}`;
+  const sourceEpoch = Number(process.env.SOURCE_DATE_EPOCH || 0);
+  const buildTimestamp = sourceEpoch > 0
+    ? new Date(sourceEpoch * 1000).toISOString()
+    : execSync('git show -s --format=%cI HEAD', { cwd: rootDir, stdio: ['pipe', 'pipe', 'ignore'] }).toString().trim();
+  const releaseId = `urefy-${pkg.version}-${commitSha.substring(0, 8)}`;
 
   const manifest = {
-    name: 'aetheris-omni-sphere',
+    name: 'urefy',
     version: pkg.version,
     releaseId,
     commitSha,
     buildTimestamp,
     environment: 'production',
-    reproducible: true,
-    testResult: 'PASSED',
-    auditResult: 'PASSED',
-    buildResult: 'REPRODUCIBLE_CLEAN_SOURCE',
+    reproducible: 'verify with npm run verify:reproducible',
+    testResult: 'verify in CI; not asserted by the packager',
+    auditResult: 'independent audit pending',
+    buildResult: 'source archive created from the referenced commit',
     invariants: {
       zeroNodeModules: true,
       zeroGitFolder: true,

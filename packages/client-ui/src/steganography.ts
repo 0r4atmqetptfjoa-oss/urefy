@@ -1,5 +1,5 @@
 /**
- * AETHERIS HYBRID SUITE - CRYPTOGRAPHIC PIXEL CANVAS STEGANOGRAPHY
+ * UREfy HYBRID SUITE - CRYPTOGRAPHIC PIXEL CANVAS STEGANOGRAPHY
  * Sovereign End-to-End Encrypted LSB (Least Significant Bit) Steganography.
  *
  * Conceals encrypted seed backups, key material, and confidential transmissions

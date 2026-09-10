@@ -1,5 +1,5 @@
 /**
- * Aetheris Omni-Sphere — Interactive Slide Deck & Course Presentation Engine
+ * UREfy — Interactive Slide Deck & Course Presentation Engine
  * (slide-deck.ts)
  *
  * 100% Self-Contained, Strict TypeScript, Zero External Dependencies.
@@ -310,7 +310,7 @@ export function renderSlideMarkdown(markdown: string): string {
         alertBorder = 'border-aether/40';
         alertBg = 'bg-aether/10';
         alertText = 'text-aether';
-        alertTitle = 'AETHERIS INSIGHT';
+        alertTitle = 'UREfy INSIGHT';
       } else if (alertType === 'warning') {
         alertIcon = '⚠️';
         alertBorder = 'border-amber/40';
@@ -459,7 +459,7 @@ export class SlideDeckManager {
   /** Metadata of current post / deck */
   public currentPostMeta: SlideDeckPostMeta = {
     postId: 'deck-001',
-    title: 'Aetheris Course Slide Deck',
+    title: 'UREfy Course Slide Deck',
     author: 'Omni-Sphere System',
     authorRole: 'Core Architect',
   };
@@ -516,7 +516,7 @@ export class SlideDeckManager {
       return [
         {
           index: 0,
-          title: fallbackTitle || 'Aetheris Presentation',
+          title: fallbackTitle || 'UREfy Presentation',
           content: 'No content provided for slide generation.',
           notes: 'This slide was automatically generated as a placeholder.',
         },
@@ -640,7 +640,7 @@ export class SlideDeckManager {
   public startPresentation(postId: string = 'post-default', content: string = '', title?: string, author?: string): void {
     this.currentPostMeta = {
       postId,
-      title: title || 'Aetheris Course Slide Deck',
+      title: title || 'UREfy Course Slide Deck',
       author: author || 'Sovereign Author',
       authorRole: 'ZK Researcher',
     };
@@ -1419,7 +1419,7 @@ export class SlideDeckManager {
                 
                 const titleText = titleElem ? titleElem.textContent.trim() : 'Presentation Module';
                 const bodyText = bodyElem ? (bodyElem.getAttribute('data-raw-content') || bodyElem.innerText || bodyElem.textContent) : '';
-                const authorText = authorElem ? authorElem.textContent.trim() : 'Aetheris Author';
+                const authorText = authorElem ? authorElem.textContent.trim() : 'UREfy Author';
                 
                 window.slideDeckManager.startPresentation('${safePostId}', bodyText, titleText, authorText);
               })()"
@@ -1439,9 +1439,9 @@ export class SlideDeckManager {
     return [
       {
         index: 0,
-        title: 'Aetheris Omni-Sphere Architecture',
+        title: 'UREfy Architecture',
         content: `
-Welcome to the deep-dive presentation of the **Aetheris Omni-Sphere** decentralized network.
+Welcome to the deep-dive presentation of the **UREfy** decentralized network.
 
 - End-to-end Zero-Knowledge cryptographic verification architecture
 - TreeKEM MLS (RFC 9420) based peer-to-peer gossip dissemination protocol
@@ -1450,7 +1450,7 @@ Welcome to the deep-dive presentation of the **Aetheris Omni-Sphere** decentrali
 > [!NOTE]
 > This presentation is 100% self-contained with no external dependencies.
         `,
-        notes: 'Briefly present the Aetheris vision and foundational principles.',
+        notes: 'Briefly present the UREfy vision and foundational principles.',
       },
       {
         index: 1,
@@ -1486,7 +1486,7 @@ template RLN(depth) {
         index: 2,
         title: 'Client-Side Performance & Scalability',
         content: `
-Key performance metrics achieved by the Aetheris rendering engine:
+Key performance metrics achieved by the UREfy rendering engine:
 
 | Component | Execution Time | Memory Footprint | ZK Verification |
 | :--- | :--- | :--- | :--- |
@@ -1504,7 +1504,7 @@ Key performance metrics achieved by the Aetheris rendering engine:
         index: 3,
         title: 'Conclusions & Next Steps',
         content: `
-The Aetheris platform provides a unified toolset for research and decentralized collaboration:
+The UREfy platform provides a unified toolset for research and decentralized collaboration:
 
 - Interactive technical course modules and tutorials
 - Full support for live presentation in conferences and workshops

@@ -41,7 +41,7 @@ describe('AetherisDB — Sovereign Local IndexedDB Storage & Search Engine', () 
     it('should insert and retrieve a PostRecord by ID', async () => {
       const post: PostRecord = {
         id: 'post-zk-001',
-        title: 'Zero-Knowledge Cryptography in Aetheris',
+        title: 'Zero-Knowledge Cryptography in UREfy',
         content: 'Deep dive into BN254 SNARKs and Halo2 recursion.',
         authorFP: 'fp-8f92a1',
         channelId: 'crypto-dev',
@@ -56,7 +56,7 @@ describe('AetherisDB — Sovereign Local IndexedDB Storage & Search Engine', () 
 
       expect(retrieved).not.toBeNull();
       expect(retrieved?.id).toBe('post-zk-001');
-      expect(retrieved?.title).toBe('Zero-Knowledge Cryptography in Aetheris');
+      expect(retrieved?.title).toBe('Zero-Knowledge Cryptography in UREfy');
       expect(retrieved?.authorFP).toBe('fp-8f92a1');
       expect(retrieved?.score).toBe(42);
     });
@@ -195,9 +195,9 @@ describe('AetherisDB — Sovereign Local IndexedDB Storage & Search Engine', () 
 
   describe('3. Text Tokenizer (tokenize)', () => {
     it('should tokenize text into lowercase terms', () => {
-      const tokens = db.tokenize('Aetheris Omni-Sphere Platform');
-      expect(tokens).toContain('aetheris');
-      expect(tokens).toContain('omni-sphere');
+      const tokens = db.tokenize('UREfy Privacy-First Platform');
+      expect(tokens).toContain('urefy');
+      expect(tokens).toContain('privacy-first');
       expect(tokens).toContain('platform');
     });
 

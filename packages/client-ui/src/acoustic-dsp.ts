@@ -1,8 +1,10 @@
-﻿/**
- * Aetheris Acoustic Lounge DSP Equalizer & Spatial Soundstage Engine.
+/**
+ * UREfy Acoustic Lounge DSP Equalizer & Spatial Soundstage Engine.
  * 5-band hardware-accelerated parametric equalizer with preset audio filters
  * and real-time frequency curve rendering for E2EE spatial audio streams.
  */
+
+import { t } from './i18n.js';
 
 export interface EQBand {
   freqHz: number;
@@ -75,20 +77,20 @@ export class AcousticDSPEngine {
               </div>
               <div>
                 <h3 class="text-sm font-bold text-white flex items-center space-x-2">
-                  <span>Acoustic Lounge DSP Equalizer</span>
-                  <span class="text-[9px] px-1.5 py-0.2 rounded bg-indigo-950 text-indigo-300 border border-indigo-500/30">Biquad Filter</span>
+                  <span>${t('acousticDsp.title', undefined, 'Acoustic Lounge DSP Equalizer')}</span>
+                  <span class="text-[9px] px-1.5 py-0.2 rounded bg-indigo-950 text-indigo-300 border border-indigo-500/30">${t('acousticDsp.biquadFilter', undefined, 'Biquad Filter')}</span>
                 </h3>
-                <p class="text-[10px] text-slate-400">Zero-Latency WebAudio SFrame Spatial Soundstage</p>
+                <p class="text-[10px] text-slate-400">${t('acousticDsp.subtitle', undefined, 'Zero-Latency WebAudio SFrame Spatial Soundstage')}</p>
               </div>
             </div>
-            <button id="btn-close-dsp-modal" class="w-8 h-8 rounded-full bg-surface-raised hover:bg-surface-overlay text-slate-300 hover:text-white flex items-center justify-center text-sm border border-white/10 transition-colors cursor-pointer" title="Close (Esc)">
+            <button id="btn-close-dsp-modal" class="w-8 h-8 rounded-full bg-surface-raised hover:bg-surface-overlay text-slate-300 hover:text-white flex items-center justify-center text-sm border border-white/10 transition-colors cursor-pointer" title="${t('modal.close', undefined, 'Close')} (Esc)">
               ✕
             </button>
           </div>
 
           <!-- PROFILES SELECTOR -->
           <div class="space-y-1.5">
-            <span class="text-[10px] text-slate-400 uppercase tracking-wider">Acoustic Presets:</span>
+            <span class="text-[10px] text-slate-400 uppercase tracking-wider">${t('acousticDsp.presets', undefined, 'Acoustic Presets:')}</span>
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
               ${AUDIO_PROFILES.map(prof => `
                 <button 
@@ -106,8 +108,8 @@ export class AcousticDSPEngine {
           <!-- 5-BAND EQUALIZER SLIDERS -->
           <div class="p-4 rounded-2xl bg-surface-raised border border-white/5 space-y-4">
             <div class="flex items-center justify-between text-[10px] text-slate-400 uppercase tracking-wider">
-              <span>Parametric Frequency Bands</span>
-              <span>-12 dB to +12 dB</span>
+              <span>${t('acousticDsp.parametricBands', undefined, 'Parametric Frequency Bands')}</span>
+              <span>${t('acousticDsp.dbRange', undefined, '-12 dB to +12 dB')}</span>
             </div>
 
             <div class="grid grid-cols-5 gap-3 pt-2">
@@ -133,10 +135,10 @@ export class AcousticDSPEngine {
           <!-- ACTIONS -->
           <div class="flex items-center justify-between pt-1 border-subtle-t">
             <button id="btn-reset-dsp-eq" class="px-3.5 py-1.5 rounded-xl bg-surface-raised hover:bg-surface-overlay text-slate-400 hover:text-white transition-all cursor-pointer">
-              Reset Flat
+              ${t('acousticDsp.resetFlat', undefined, 'Reset Flat')}
             </button>
             <button id="btn-apply-dsp-eq" class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-all shadow-md cursor-pointer flex items-center space-x-1.5">
-              <span>Apply to Soundstage</span>
+              <span>${t('acousticDsp.applyToSoundstage', undefined, 'Apply to Soundstage')}</span>
               <span>⚡</span>
             </button>
           </div>

@@ -1,5 +1,5 @@
 /**
- * Aetheris Omni-Sphere — Code Splitting & Dynamic Module Loader
+ * UREfy — Code Splitting & Dynamic Module Loader
  * Zero external dependencies. Self-contained strict TypeScript module.
  * 
  * Provides dynamic chunk loading, idle-time preloading (requestIdleCallback),
@@ -66,7 +66,7 @@ export class ModuleLoader {
   }
 
   /**
-   * Seed realistic Aetheris Omni-Sphere module registry
+   * Seed realistic UREfy module registry
    */
   private seedDefaultModules(): void {
     const defaultModules: Array<{ name: string; sizeKB: number; category: 'critical' | 'interactive' | 'heavy' | 'background' }> = [
@@ -542,7 +542,7 @@ export class ModuleLoader {
         <div class="flex items-center justify-between mb-3">
           <div class="flex items-center gap-2.5">
             <div class="w-3 h-3 rounded-full bg-cyphr animate-ping"></div>
-            <span class="text-sm font-bold tracking-wide text-slate-100 uppercase">Aetheris Omni-Sphere</span>
+            <span class="text-sm font-bold tracking-wide text-slate-100 uppercase">UREfy</span>
           </div>
           <span class="text-xs font-mono font-bold text-cyphr bg-cyphr/10 border border-cyphr/30 px-2 py-0.5 rounded">
             ${percent}%

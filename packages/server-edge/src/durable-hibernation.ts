@@ -1,5 +1,5 @@
 // ===========================================================================
-// AETHERIS OMNI-SPHERE — PRODUCTION CLOUDFLARE DURABLE OBJECT HIBERNATION
+// UREfy — PRODUCTION CLOUDFLARE DURABLE OBJECT HIBERNATION
 // Item 17: Production Cloudflare Durable Object class SovereignRelayDurableObject
 // Features:
 // - Cloudflare WebSocket Hibernation API: state.acceptWebSocket(ws, tags)
@@ -13,6 +13,7 @@
 
 import { ZKRLN, RLNShare, Field } from '@aetheris/core-crypto';
 import { PayloadSanitizer } from './payload-sanitizer.js';
+import { resolveRelaySecret } from './relay-secret.js';
 import {
   DurableObjectState,
   DurableObjectStorage,
@@ -185,9 +186,9 @@ export class SovereignRelayDurableObject {
       return new Response(
         JSON.stringify({
           status: 'online',
-          service: 'Aetheris Sovereign Relay Durable Object',
+          service: 'UREfy Relay Durable Object',
           mode: 'WebSocket Hibernation Engine',
-          usage: 'Connect via WebSocket with standard Aetheris signaling protocol',
+          usage: 'Connect via WebSocket with the URE relay protocol',
         }),
         {
           status: 426,
@@ -629,9 +630,16 @@ export class SovereignRelayDurableObject {
   private async handleAuth(ws: WebSocket, session: SovereignSessionMetadata, packet: any): Promise<void> {
     const { token, sessionToken, credential, fingerprint, nullifier, role, status, channelId, circleId } = packet;
     const tokenToVerify = token || sessionToken || credential;
-    const secret = (this.env as any)?.AUTH_SECRET || (this.env as any)?.ADMIN_PIN || 'aetheris-sovereign-relay-secret';
+    const secret = resolveRelaySecret(this.env);
 
     if (tokenToVerify) {
+      if (!secret) {
+        this.send(ws, {
+          type: 'ERROR',
+          message: 'Authentication temporarily unavailable: relay credential secret is not configured',
+        });
+        return;
+      }
       const authResult = await verifyRelaySessionToken(tokenToVerify, secret);
       if (!authResult.valid || !authResult.payload) {
         this.send(ws, {

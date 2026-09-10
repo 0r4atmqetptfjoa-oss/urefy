@@ -65,6 +65,7 @@ describe('Social Identity Recovery UI Suite (SocialRecoveryModal)', () => {
     socialRecoveryModal.shardInputs = ['', '', ''];
     socialRecoveryModal.generatedPackage = null;
     (socialRecoveryModal as any)._initializeDefaultGuardians();
+    for (let index = 0; index < 5; index++) socialRecoveryModal.addCustomGuardian(generateKeyPair().publicKeyHex);
     vi.restoreAllMocks();
   });
 
@@ -109,10 +110,13 @@ describe('Social Identity Recovery UI Suite (SocialRecoveryModal)', () => {
   });
 
   describe('2. Guardian Selection & Threshold Customization', () => {
-    it('initializes with default trusted WoT candidate guardians', () => {
-      expect(socialRecoveryModal.guardians.length).toBeGreaterThanOrEqual(3);
-      expect(socialRecoveryModal.guardians.some((g) => g.fingerprint === 'genesis-core')).toBe(true);
-      expect(socialRecoveryModal.guardians.some((g) => g.fingerprint === 'c3dc28cb705e')).toBe(true);
+    it('does not invent guardians or derive a private key from a fingerprint', () => {
+      const fresh = socialRecoveryModal;
+      (fresh as any)._initializeDefaultGuardians();
+      expect(fresh.guardians).toEqual([]);
+      expect(fresh.addCustomGuardian('genesis-core')).toBe(false);
+      expect(fresh.addCustomGuardian('c3dc28cb705e')).toBe(false);
+      expect(fresh.guardians).toEqual([]);
     });
 
     it('toggles guardian selection and recalculates threshold', () => {
@@ -214,7 +218,7 @@ describe('Social Identity Recovery UI Suite (SocialRecoveryModal)', () => {
       expect(socialRecoveryModal.shardInputs.length).toBe(initialSlots);
     });
 
-    it('executes 1-click identity reconstruction and updates clientStore', () => {
+    it('executes identity reconstruction after persistence and clears recovery inputs', async () => {
       const targetMnemonic = generateMnemonic(128);
       const secretBytes = new TextEncoder().encode(targetMnemonic);
       const shards = splitSecretIntoShards(secretBytes, 5, 3);
@@ -224,12 +228,14 @@ describe('Social Identity Recovery UI Suite (SocialRecoveryModal)', () => {
       socialRecoveryModal.setShardInput(1, serializeShard(shards[2]));
       socialRecoveryModal.setShardInput(2, serializeShard(shards[4]));
 
-      const recovered = socialRecoveryModal.executeRecovery();
+      const recovered = await socialRecoveryModal.executeRecovery();
       expect(recovered).toBe(true);
 
       // Verify clientStore has been rehydrated with restored mnemonic
       expect(clientStore.mnemonic).toBe(targetMnemonic);
       expect(socialRecoveryModal.isOpen).toBe(false);
+      expect(socialRecoveryModal.recoveredMnemonic).toBe('');
+      expect(socialRecoveryModal.shardInputs.every(value => value === '')).toBe(true);
     });
   });
 

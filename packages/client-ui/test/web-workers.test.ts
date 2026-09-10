@@ -96,7 +96,7 @@ describe('Web Workers Cryptographic Engine & Worker Pool', () => {
 
     it('ranks documents correctly based on term frequency and inverted frequency', async () => {
       const docs = [
-        'Aetheris is a decentralized zero knowledge privacy platform',
+        'UREfy is a decentralized zero knowledge privacy platform',
         'Cooking recipes for delicious homemade sourdough bread and pasta',
         'Zero knowledge proofs and zk-SNARK cryptographic consensus mechanisms',
       ];
@@ -158,7 +158,7 @@ describe('Web Workers Cryptographic Engine & Worker Pool', () => {
     it('dispatches TFIDF and Entropy tasks through dispatch()', async () => {
       const entropy = await pool.dispatch<number>({
         type: 'entropy',
-        payload: { data: 'Aetheris Security Test Payload' },
+        payload: { data: 'UREfy Security Test Payload' },
         priority: 'normal',
       });
       expect(entropy).toBeGreaterThan(0);
@@ -166,8 +166,8 @@ describe('Web Workers Cryptographic Engine & Worker Pool', () => {
       const tfidf = await pool.dispatch<number[]>({
         type: 'tfidf',
         payload: {
-          docs: ['Aetheris client engine', 'Database storage'],
-          query: 'Aetheris',
+          docs: ['UREfy client engine', 'Database storage'],
+          query: 'UREfy',
         },
         priority: 'high',
       });
@@ -187,7 +187,7 @@ describe('Web Workers Cryptographic Engine & Worker Pool', () => {
 
     it('renders expanded diagnostics panel', () => {
       const panel = pool.renderDiagnosticsPanel();
-      expect(panel).toContain('Aetheris Crypto Worker Matrix');
+      expect(panel).toContain('UREfy Crypto Worker Matrix');
       expect(panel).toContain('ACTIVE WORKERS');
       expect(panel).toContain('QUEUE DEPTH');
       expect(panel).toContain('AVG LATENCY');

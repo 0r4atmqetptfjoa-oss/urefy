@@ -1,5 +1,5 @@
 // ===========================================================================
-// AETHERIS OMNI-SPHERE — NATIVE BACKGROUND WEB PUSH NOTIFICATIONS ENGINE (VAPID)
+// UREfy — NATIVE BACKGROUND WEB PUSH NOTIFICATIONS ENGINE (VAPID)
 // Cloudflare Edge Pages Function (/api/push)
 // Supports: Cloudflare D1 (SQL), Cloudflare KV, In-Memory Edge Store Fallback
 // 100% Zero-Tracking Sovereign Push: No third-party brokers, direct E2EE push payloads.
@@ -530,7 +530,7 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
         );
       }
 
-      const title = body.title || 'Aetheris Sovereign Alert';
+      const title = body.title || 'UREfy Secure Alert';
       const bodyText = body.body || body.message || body.text || '';
       const icon = body.icon || '/favicon.svg';
       const badge = body.badge || '/favicon.svg';

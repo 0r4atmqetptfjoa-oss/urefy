@@ -1,5 +1,5 @@
 // sovereign-board-architecture.test.ts — Comprehensive Test Suite
-// Validates Sovereign Board Architecture in Aetheris Omni-Sphere Platform
+// Validates Sovereign Board Architecture in UREfy Platform
 // 100% English, 0% trademark names in codebase.
 // ============================================================================
 
@@ -255,7 +255,7 @@ describe('Sovereign Board Architecture — Comprehensive Test Suite', () => {
       circleEngine = new SovereignCircleEngine();
     });
 
-    it('should maintain seed communities with governance rules and member statistics', () => {
+    it('should maintain community rules without fabricated member statistics', () => {
       const circles = circleEngine.getAllCircles();
       expect(circles.length).toBeGreaterThanOrEqual(4);
 
@@ -263,8 +263,8 @@ describe('Sovereign Board Architecture — Comprehensive Test Suite', () => {
       expect(zkCircle.name).toBe('zeroknowledge');
       expect(zkCircle.displayName).toBe('Zero-Knowledge & Cryptographic Privacy');
       expect(zkCircle.rules.length).toBeGreaterThanOrEqual(3);
-      expect(zkCircle.membersCount).toBeGreaterThan(1000);
-      expect(zkCircle.onlineCount).toBeGreaterThan(50);
+      expect(zkCircle.membersCount).toBe(0);
+      expect(zkCircle.onlineCount).toBe(0);
     });
 
     it('should render sidebar community card with rules accordion and join toggle', () => {

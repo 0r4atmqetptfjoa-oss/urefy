@@ -1,5 +1,5 @@
 // ===========================================================================
-// AETHERIS OMNI-SPHERE — CLOUDFLARE D1 / KV / R2 STORAGE BINDINGS & FALLBACK ENGINE
+// UREfy — CLOUDFLARE D1 / KV / R2 STORAGE BINDINGS & FALLBACK ENGINE
 // Supports: Cloudflare D1 (SQLite), Cloudflare KV, Cloudflare R2
 // Seamless zero-latency fallback to In-Memory Edge Store when bindings are absent.
 // ===========================================================================

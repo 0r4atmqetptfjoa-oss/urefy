@@ -135,7 +135,7 @@ export class ModalManager {
         }
 
         case 'governance': {
-          const mod = this.loadedModules.get('governance') || (await import('./governance.js'));
+          const mod = this.loadedModules.get('governance') || (await import('./governance-workspace.js'));
           this.loadedModules.set('governance', mod);
           this.setActive(
             'governance',
@@ -146,12 +146,13 @@ export class ModalManager {
                     <span class="text-sm font-bold text-white font-mono">🏛️ DAO Governance</span>
                     <button type="button" data-action="close-feature" class="text-slate-400 hover:text-white px-2 py-1 cursor-pointer">✕</button>
                   </div>
-                  <div id="dao-container-root">${mod.governanceDAO.renderGovernanceHub(fp, 75)}</div>
+                  <div id="dao-container-root">${mod.governanceWorkspace.render()}</div>
                 </div>
               </div>
             `,
-            () => {}
+            () => mod.governanceWorkspace.close()
           );
+          mod.governanceWorkspace.open();
           break;
         }
 
@@ -445,7 +446,7 @@ export class ModalManager {
         case 'wallet': {
           const mod = this.loadedModules.get('wallet') || (await import('./wallet-bridge.js'));
           this.loadedModules.set('wallet', mod);
-          mod.walletBridge.openModal();
+          mod.walletBridge.openModal(true);
           this.setActive(
             'wallet',
             () => mod.walletBridge.renderWalletPanel(),
@@ -558,7 +559,7 @@ export function buildModalRootHTML(ctx: ModalStateContext): string {
     ${profileView.isEditProfileModalOpen ? profileView.renderEditProfileModal(profileView.getProfile(profileView.targetFingerprint)) : ''}
     ${clientStore.isComposerOpen ? hybridComposer.renderComposerModal() : (omniComposer.isModalOpen ? omniComposer.renderComposerModal() : '')}
     ${keyboardNavigator.isHelpModalOpen ? keyboardNavigator.renderModal() : ''}
-    ${sovereignWebPush.renderPushOptInBanner()}
+    ${onboardingWizard.isOpen ? '' : sovereignWebPush.renderPushOptInBanner()}
     ${onboardingWizard.renderWizardModal(fp)}
     ${commandRailV2.isOpen ? commandRailV2.renderModal() : ''}
     ${modalManager.getActiveFeatureHTML()}

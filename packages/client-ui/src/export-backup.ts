@@ -1,8 +1,9 @@
 import { sovereignDialog } from './dialog-modal.js';
+import { renderIcon } from './ui/icons.js';
 /**
  * @file export-backup.ts
  * @package @aetheris/client-ui
- * @description Sovereign Account Backup, Export & Restore Engine for Aetheris Omni-Sphere.
+ * @description Sovereign Account Backup, Export & Restore Engine for UREfy.
  * Provides client-side encrypted backups (AES-256-GCM / PBKDF2), multi-file virtual archives,
  * integrity checksums, granular payload selection, responsive Obsidian-styled UI components,
  * and seamless import/export operations without external dependencies.
@@ -11,7 +12,7 @@ import { sovereignDialog } from './dialog-modal.js';
 // ─── INTERFACES & DATA TYPES ──────────────────────────────────────────────────
 
 /**
- * Metadata manifest included in every Aetheris backup archive.
+ * Metadata manifest included in every UREfy backup archive.
  */
 export interface BackupManifest {
   version: string;
@@ -189,13 +190,7 @@ async function computeSha256(data: string | Uint8Array): Promise<string> {
     const digest = await crypto.subtle.digest('SHA-256', buffer as unknown as BufferSource);
     return bufferToHex(digest);
   }
-  // Fallback lightweight FNV-1a hash formatted as 64-char hex if SubtleCrypto is unavailable
-  let hash = 0x811c9dc5;
-  for (let i = 0; i < buffer.length; i++) {
-    hash ^= buffer[i];
-    hash = Math.imul(hash, 0x01000193);
-  }
-  return (hash >>> 0).toString(16).padStart(64, '0');
+  throw new Error('Web Crypto is required to verify backup integrity.');
 }
 
 /**
@@ -227,7 +222,7 @@ function getDeviceFingerprint(): string {
 // ─── EXPORT & BACKUP MANAGER CLASS ────────────────────────────────────────────
 
 /**
- * Complete Account Export and Backup Manager for Aetheris Omni-Sphere.
+ * Complete Account Export and Backup Manager for UREfy.
  * Handles granular data extraction, AES-256-GCM encryption with PBKDF2 key derivation,
  * multi-file JSON archiving, integrity verification, safe restoration, and modern UI templates.
  */
@@ -672,6 +667,9 @@ export class ExportBackupManager {
    * Exports account data into a structured file and triggers client-side download.
    */
   public async exportAccount(options: ExportOptions): Promise<Blob> {
+    if (options.includeKeys || options.includeMessages) {
+      throw new Error('Use the encrypted recovery archive for identity backups and signed DM transcripts for private messages.');
+    }
     const { payload, itemCount } = this.collectRawStorageData(options);
 
     // Compute integrity checksum over canonical representation
@@ -688,14 +686,14 @@ export class ExportBackupManager {
       }
       const envelope = await this.encryptPayload(JSON.stringify(payload, null, 2), options.password, payload.manifest);
       finalContent = JSON.stringify(envelope, null, 2);
-      extension = options.format === 'zip-json' ? 'aether.zip-json' : 'aether-vault.json';
+      extension = options.format === 'zip-json' ? 'ure.zip-json' : 'ure-vault.json';
     } else {
       if (options.format === 'zip-json') {
         finalContent = JSON.stringify(payload, null, 2);
-        extension = 'aether.zip-json';
+        extension = 'ure.zip-json';
       } else {
         finalContent = JSON.stringify(payload, null, 2);
-        extension = 'aether-backup.json';
+        extension = 'ure-backup.json';
       }
     }
 
@@ -711,7 +709,7 @@ export class ExportBackupManager {
 
     const blob = new Blob([finalContent], { type: 'application/json;charset=utf-8' });
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-    const filename = `aetheris_backup_${timestamp}.${extension}`;
+    const filename = `urefy_backup_${timestamp}.${extension}`;
 
     this.triggerDownload(blob, filename);
     return blob;
@@ -721,6 +719,7 @@ export class ExportBackupManager {
    * Imports and restores account data from a selected backup file.
    */
   public async importAccount(file: File, providedPassword?: string): Promise<{ imported: number; errors: number }> {
+    if (file.size > 10 * 1024 * 1024) throw new Error('Backup exceeds the 10 MiB limit.');
     const report: ImportReport = {
       imported: 0,
       errors: 0,
@@ -752,7 +751,7 @@ export class ExportBackupManager {
       let password = providedPassword;
       if (!password) {
         if (typeof window !== 'undefined' && (window as any).sovereignDialog) {
-          password = (await (window as any).sovereignDialog.prompt('Enter the decryption password for this Aetheris backup:', { title: 'Decryption Password', inputType: 'password' })) || undefined;
+          password = (await (window as any).sovereignDialog.prompt('Enter the decryption password for this UREfy backup:', { title: 'Decryption Password', inputType: 'password' })) || undefined;
         }
       }
       if (!password) {
@@ -773,6 +772,14 @@ export class ExportBackupManager {
       throw new Error('Backup data structure is invalid.');
     }
 
+    if (!payload.manifest || payload.manifest.version !== this.version || !/^[a-f0-9]{64}$/.test(payload.manifest.checksum)) {
+      throw new Error('Backup manifest or checksum is invalid.');
+    }
+    const expectedChecksum = payload.manifest.checksum;
+    payload.manifest.checksum = '';
+    const actualChecksum = await computeSha256(JSON.stringify(payload));
+    payload.manifest.checksum = expectedChecksum;
+    if (actualChecksum !== expectedChecksum) throw new Error('Backup checksum does not match its contents.');
     report.manifest = payload.manifest;
 
     // Handle virtual files unpack if present
@@ -795,6 +802,14 @@ export class ExportBackupManager {
       if (payload.virtualFiles['vault/cryptographic_identity.json'] && !payload.keys) {
         try { payload.keys = JSON.parse(payload.virtualFiles['vault/cryptographic_identity.json']); } catch { /* ignore */ }
       }
+    }
+
+    if (payload.keys || payload.messages) {
+      throw new Error('Legacy identity and message imports are not supported. Use the encrypted recovery archive or a signed DM transcript.');
+    }
+    if (payload.preferences && (Array.isArray(payload.preferences) || typeof payload.preferences !== 'object'
+      || Object.keys(payload.preferences).some(key => !this.storageKeys.preferences.includes(key)))) {
+      throw new Error('Backup contains unsupported preference keys.');
     }
 
     // 1. Restore Posts
@@ -881,34 +896,6 @@ export class ExportBackupManager {
       }
     }
 
-    // 4. Restore Messages & DMs
-    if (Array.isArray(payload.messages) && payload.messages.length > 0) {
-      try {
-        const targetKey = 'aetheris_direct_messages';
-        const existing = localStorage.getItem(targetKey);
-        let merged = payload.messages;
-        if (existing) {
-          try {
-            const parsed = JSON.parse(existing);
-            if (Array.isArray(parsed)) {
-              const map = new Map<string, unknown>();
-              for (const m of parsed) if (m && typeof m === 'object' && 'id' in m) map.set((m as { id: string }).id, m);
-              for (const m of payload.messages) if (m && typeof m === 'object' && 'id' in m) map.set((m as { id: string }).id, m);
-              merged = Array.from(map.values());
-            }
-          } catch {
-            // use imported
-          }
-        }
-        localStorage.setItem(targetKey, JSON.stringify(merged));
-        report.imported += payload.messages.length;
-        report.categories['messages'] = payload.messages.length;
-      } catch (err) {
-        report.errors++;
-        report.warnings.push(`Failed to restore messages: ${(err as Error).message}`);
-      }
-    }
-
     // 5. Restore Preferences
     if (payload.preferences && typeof payload.preferences === 'object') {
       try {
@@ -926,26 +913,6 @@ export class ExportBackupManager {
       } catch (err) {
         report.errors++;
         report.warnings.push(`Failed to restore preferences: ${(err as Error).message}`);
-      }
-    }
-
-    // 6. Restore Keys
-    if (payload.keys && typeof payload.keys === 'object') {
-      try {
-        let count = 0;
-        for (const [k, v] of Object.entries(payload.keys)) {
-          if (typeof v === 'string') {
-            localStorage.setItem(k, v);
-          } else {
-            localStorage.setItem(k, JSON.stringify(v));
-          }
-          count++;
-        }
-        report.imported += count;
-        report.categories['keys'] = count;
-      } catch (err) {
-        report.errors++;
-        report.warnings.push(`Failed to restore identity keys: ${(err as Error).message}`);
       }
     }
 
@@ -1066,17 +1033,10 @@ export class ExportBackupManager {
                 </div>
               </label>
 
-              <!-- Item 4: Messages -->
-              <label class="group flex items-start gap-3 p-3.5 rounded-xl bg-surface-raised/80 hover:bg-surface-overlay border border-white/5 hover:border-cyphr/40 transition-all cursor-pointer">
-                <input type="checkbox" id="chk-export-messages" checked class="mt-1 rounded bg-surface-base border-white/20 text-cyphr focus:ring-0 focus:ring-offset-0 transition-colors w-4 h-4 cursor-pointer accent-cyan-400" />
-                <div class="flex-1">
-                  <div class="flex items-center justify-between">
-                    <span class="text-sm font-medium text-slate-100 group-hover:text-cyphr transition-colors">Direct Messages (DM)</span>
-                    <span class="text-xs px-1.5 py-0.5 rounded bg-surface-base text-slate-400 font-mono">${sizeReport.messages}</span>
-                  </div>
-                  <p class="text-xs text-slate-400 mt-0.5">Peer-to-peer E2EE conversation history.</p>
-                </div>
-              </label>
+              <button type="button" data-action="open-dm" class="flex items-center gap-3 p-3.5 rounded-lg bg-surface-raised/80 hover:bg-surface-overlay border border-white/5 text-sm text-slate-100 text-left">
+                ${renderIcon('MessageSquare', { size: 20 })}
+                <span>Private Message Transcripts</span>
+              </button>
 
               <!-- Item 5: Preferences -->
               <label class="group flex items-start gap-3 p-3.5 rounded-xl bg-surface-raised/80 hover:bg-surface-overlay border border-white/5 hover:border-cyphr/40 transition-all cursor-pointer">
@@ -1090,19 +1050,10 @@ export class ExportBackupManager {
                 </div>
               </label>
 
-              <!-- Item 6: Cryptographic Keys -->
-              <label class="group flex items-start gap-3 p-3.5 rounded-xl bg-surface-raised/80 hover:bg-surface-overlay border border-amber/30 hover:border-amber/60 transition-all cursor-pointer bg-amber/5">
-                <input type="checkbox" id="chk-export-keys" checked class="mt-1 rounded bg-surface-base border-amber/40 text-amber focus:ring-0 focus:ring-offset-0 transition-colors w-4 h-4 cursor-pointer accent-amber-500" />
-                <div class="flex-1">
-                  <div class="flex items-center justify-between">
-                    <span class="text-sm font-medium text-amber-300 group-hover:text-amber-200 transition-colors flex items-center gap-1">
-                      <span>🔑 Cryptographic Keys</span>
-                    </span>
-                    <span class="text-xs px-1.5 py-0.5 rounded bg-amber/20 text-amber-300 font-mono">Sensitive</span>
-                  </div>
-                  <p class="text-xs text-slate-400 mt-0.5">Ed25519 keypair &amp; ZK-RLN Nullifier.</p>
-                </div>
-              </label>
+              <button type="button" data-action="open-feature" data-feature="archive" class="flex items-center gap-3 p-3.5 rounded-lg bg-surface-raised/80 hover:bg-surface-overlay border border-white/5 text-sm text-slate-100 text-left">
+                ${renderIcon('FileKey', { size: 20 })}
+                <span>Encrypted Recovery Archive</span>
+              </button>
             </div>
           </div>
 
@@ -1155,7 +1106,7 @@ export class ExportBackupManager {
                 <select id="select-export-format" class="w-full px-3.5 py-2.5 rounded-lg bg-surface-base border border-white/10 text-sm text-slate-200 focus:outline-none focus:border-cyphr transition-colors cursor-pointer">
                   <option value="json" selected>Standard JSON Format (.json)</option>
                   <option value="zip-json">Virtual Multi-File Format (.zip-json)</option>
-                  <option value="encrypted-json">Encrypted Enclave Container (.aether-vault)</option>
+                  <option value="encrypted-json">Encrypted URE Enclave Container (.ure-vault)</option>
                 </select>
               </div>
             </form>
@@ -1215,7 +1166,7 @@ export class ExportBackupManager {
               <input
                 type="file"
                 id="aether-backup-file-input"
-                accept=".json,.zip-json,.aether-vault"
+                accept=".json,.zip-json,.ure-vault,.aether-vault"
                 class="hidden"
               />
               <div class="flex flex-col items-center justify-center space-y-2">
@@ -1227,7 +1178,7 @@ export class ExportBackupManager {
                 <div class="text-sm font-medium text-slate-200">
                   <span class="text-signal underline cursor-pointer">Click to browse file</span> or drag and drop here
                 </div>
-                <p class="text-xs text-slate-400">Supports .json, .zip-json, or .aether-vault enclave files</p>
+                <p class="text-xs text-slate-400">Supports .json, .zip-json, .ure-vault, and legacy .aether-vault files</p>
               </div>
             </div>
 
@@ -1296,9 +1247,7 @@ export class ExportBackupManager {
         const postsChecked = (root.querySelector('#chk-export-posts') as HTMLInputElement)?.checked ?? true;
         const bookmarksChecked = (root.querySelector('#chk-export-bookmarks') as HTMLInputElement)?.checked ?? true;
         const draftsChecked = (root.querySelector('#chk-export-drafts') as HTMLInputElement)?.checked ?? true;
-        const messagesChecked = (root.querySelector('#chk-export-messages') as HTMLInputElement)?.checked ?? true;
         const prefsChecked = (root.querySelector('#chk-export-preferences') as HTMLInputElement)?.checked ?? true;
-        const keysChecked = (root.querySelector('#chk-export-keys') as HTMLInputElement)?.checked ?? true;
         const encryptChecked = encryptToggle?.checked ?? true;
         const password = pwdInput?.value || '';
         const format = ((root.querySelector('#select-export-format') as HTMLSelectElement)?.value || 'json') as 'json' | 'zip-json' | 'encrypted-json';
@@ -1331,9 +1280,9 @@ export class ExportBackupManager {
             includePosts: postsChecked,
             includeBookmarks: bookmarksChecked,
             includeDrafts: draftsChecked,
-            includeMessages: messagesChecked,
+            includeMessages: false,
             includePreferences: prefsChecked,
-            includeKeys: keysChecked,
+            includeKeys: false,
             encryptWithPassword: encryptChecked,
             password: password,
             format: format

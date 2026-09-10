@@ -22,7 +22,7 @@ import {
   isSensitiveRoute,
 } from '../functions/api/_middleware.js';
 
-describe('Aetheris Admin Security Hardening & Zero-Trust Authentication Suite', () => {
+describe('UREfy Admin Security Hardening & Zero-Trust Authentication Suite', () => {
   beforeEach(() => {
     resetAdminStores();
   });
@@ -230,7 +230,7 @@ describe('Aetheris Admin Security Hardening & Zero-Trust Authentication Suite', 
   describe('4. Strict Production Configuration Requirements (HTTP 503)', () => {
     it('returns HTTP 503 when ADMIN_PIN is missing in a production environment', async () => {
       const prodEnv = { ENVIRONMENT: 'production' };
-      const req = new Request('https://aetheris.network/api/admin');
+      const req = new Request('https://urefy.com/api/admin');
 
       // GET
       const getRes = await handleAdminGet({ request: req, env: prodEnv });
@@ -240,7 +240,7 @@ describe('Aetheris Admin Security Hardening & Zero-Trust Authentication Suite', 
       expect(getJson.error).toBe('ADMIN_PIN not configured in environment variables.');
 
       // POST verify-pin
-      const postReq = new Request('https://aetheris.network/api/admin', {
+      const postReq = new Request('https://urefy.com/api/admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'verify-pin', pin: '12345' }),
@@ -251,7 +251,7 @@ describe('Aetheris Admin Security Hardening & Zero-Trust Authentication Suite', 
       expect(postJson.error).toBe('ADMIN_PIN not configured in environment variables.');
 
       // DELETE
-      const delReq = new Request('https://aetheris.network/api/admin?ip=1.2.3.4', {
+      const delReq = new Request('https://urefy.com/api/admin?ip=1.2.3.4', {
         method: 'DELETE',
       });
       const delRes = await handleAdminDelete({ request: delReq, env: prodEnv });
@@ -260,7 +260,7 @@ describe('Aetheris Admin Security Hardening & Zero-Trust Authentication Suite', 
 
     it('permits access in production when ADMIN_PIN is properly configured', async () => {
       const prodEnv = { ENVIRONMENT: 'production', ADMIN_PIN: 'super-secure-production-pin' };
-      const req = new Request('https://aetheris.network/api/admin', {
+      const req = new Request('https://urefy.com/api/admin', {
         headers: { Authorization: `Bearer super-secure-production-pin` },
       });
       const res = await handleAdminGet({ request: req, env: prodEnv });
@@ -287,7 +287,7 @@ describe('Aetheris Admin Security Hardening & Zero-Trust Authentication Suite', 
     });
 
     it('emits exact matched origin with Allow-Credentials: true for permitted origins', () => {
-      const permittedOrigin = 'https://aetheris.network';
+      const permittedOrigin = 'https://urefy.com';
       const req = new Request('https://aetheris.pages.dev/api/admin', {
         headers: { Origin: permittedOrigin },
       });
@@ -302,11 +302,14 @@ describe('Aetheris Admin Security Hardening & Zero-Trust Authentication Suite', 
       expect(isPermittedOrigin('http://localhost:3000', publicUrl)).toBe(true);
       expect(isPermittedOrigin('http://127.0.0.1:5173', publicUrl)).toBe(true);
       expect(isPermittedOrigin('https://preview.pages.dev', publicUrl)).toBe(true);
-      expect(isPermittedOrigin('https://aetheris.network', publicUrl)).toBe(true);
+      expect(isPermittedOrigin('https://urefy.com', publicUrl)).toBe(true);
+      expect(isPermittedOrigin('https://urefy.com', publicUrl, { ENVIRONMENT: 'production' })).toBe(true);
       expect(isPermittedOrigin('https://malicious-attacker.com', publicUrl)).toBe(false);
 
       // On sensitive routes, arbitrary .pages.dev is strictly rejected
       const sensitiveUrl = new URL('https://aetheris.pages.dev/api/admin');
+      expect(isPermittedOrigin('https://urefy.com', sensitiveUrl, { ENVIRONMENT: 'production' })).toBe(true);
+      expect(isPermittedOrigin('https://www.urefy.com', sensitiveUrl, { ENVIRONMENT: 'production' })).toBe(true);
       expect(isPermittedOrigin('https://preview.pages.dev', sensitiveUrl)).toBe(false);
       expect(isPermittedOrigin('https://attacker.pages.dev', sensitiveUrl)).toBe(false);
     });

@@ -11,6 +11,7 @@ import { clientStore } from './client-state.js';
 import { toastManager } from './toast.js';
 import { exportSovereignArchive, importSovereignArchive, downloadArchiveFile } from './data-archive.js';
 import { serviceRegistry, SERVICES } from './service-registry.js';
+import { t } from './i18n.js';
 
 export interface PasswordStrength {
   score: number; // 0 to 4
@@ -113,7 +114,7 @@ export class SovereignArchiveModal {
 
     try {
       const blob = await exportSovereignArchive(this.exportPassphrase);
-      const filename = `aetheris-sovereign-vault-${new Date().toISOString().slice(0, 10)}.aeth`;
+      const filename = `urefy-enclave-${new Date().toISOString().slice(0, 10)}.ure`;
       downloadArchiveFile(blob, filename);
 
       this.successMessage = `Encrypted archive successfully generated and downloaded (${(blob.size / 1024).toFixed(1)} KB)!`;
@@ -131,7 +132,7 @@ export class SovereignArchiveModal {
 
   public async executeRestore(): Promise<void> {
     if (!this.restoreFileData) {
-      this.errorMessage = 'Please select or drop an encrypted .aeth archive file';
+      this.errorMessage = 'Please select or drop an encrypted .ure or legacy .aeth archive file';
       clientStore.notify();
       return;
     }
@@ -193,6 +194,8 @@ export class SovereignArchiveModal {
               type="button"
               id="btn-close-archive-modal" data-action="close-feature"
               class="text-slate-400 hover:text-white p-1.5 rounded-xl hover:bg-white/10 transition-colors cursor-pointer text-sm font-mono"
+              aria-label="${t('modal.close', undefined, 'Close')}"
+              title="${t('modal.close', undefined, 'Close')}"
             >
               ✕
             </button>
@@ -329,7 +332,7 @@ export class SovereignArchiveModal {
                   <span>Deriving Keys & Encrypting Vault...</span>
                 ` : `
                   <span>📦</span>
-                  <span>Download Encrypted Archive (.aeth)</span>
+                  <span>Download Encrypted Enclave (.ure)</span>
                 `}
               </button>
             </div>
@@ -344,7 +347,7 @@ export class SovereignArchiveModal {
                 <input
                   type="file"
                   id="input-archive-file"
-                  accept=".aeth,.bin,application/octet-stream"
+                  accept=".ure,.aeth,.bin,application/octet-stream"
                   class="hidden"
                 />
                 <div class="text-3xl">📥</div>
@@ -357,7 +360,7 @@ export class SovereignArchiveModal {
                   <p class="text-[11px] text-indigo-300">Click to choose a different archive file</p>
                 ` : `
                   <div class="text-xs text-white font-bold">
-                    Drag & Drop your <span class="font-mono text-indigo-400">.aeth</span> archive file here
+                    Drag & drop your <span class="font-mono text-indigo-400">.ure</span> enclave or legacy <span class="font-mono text-slate-400">.aeth</span> archive here
                   </div>
                   <p class="text-[11px] text-slate-400">or click to browse local files</p>
                 `}

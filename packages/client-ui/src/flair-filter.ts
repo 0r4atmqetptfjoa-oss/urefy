@@ -1,5 +1,5 @@
 // flair-filter.ts
-// Aetheris Omni-Sphere — Flair Filter Engine
+// UREfy — Flair Filter Engine
 // Feed post flair filtering engine
 
 // ---------------------------------------------------------------------------

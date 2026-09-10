@@ -1,3 +1,4 @@
+import './helpers/disable-demo.js';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   globalScale,
@@ -11,7 +12,7 @@ import {
 import { CRDTSyncRecord, createVectorClock } from '../src/offline-sync.js';
 import { setSimulationMode } from '../src/simulation-mode.js';
 
-describe('Aetheris Omni-Sphere — Global Scale & Edge Architecture (global-scale.ts)', () => {
+describe('UREfy — Global Scale & Edge Architecture (global-scale.ts)', () => {
   let engine: GlobalScaleEngine;
 
   beforeEach(() => {
@@ -200,7 +201,7 @@ describe('Aetheris Omni-Sphere — Global Scale & Edge Architecture (global-scal
       const record1: CRDTSyncRecord = {
         id: 'rec-1',
         entityType: 'post',
-        data: { text: 'Hello Aetheris' },
+        data: { text: 'Hello UREfy' },
         timestamp: 1000,
         vectorClock: clock,
         authorId: 'node-1',
@@ -282,3 +283,4 @@ describe('Aetheris Omni-Sphere — Global Scale & Edge Architecture (global-scal
     });
   });
 });
+(globalThis as any).__UREFY_DEMO_MODE__ = false;

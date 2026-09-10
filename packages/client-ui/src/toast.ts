@@ -1,9 +1,10 @@
 // ============================================================
-// toast.ts — Aetheris Sovereign HUD Toast Notification System
+// toast.ts — UREfy Sovereign HUD Toast Notification System
 // Lightweight, reactive, hardware-accelerated floating HUD toasts.
 // ============================================================
 
 import './window-augmentation.js';
+import { t } from './i18n.js';
 
 export type ToastType = 'success' | 'info' | 'warning' | 'error';
 
@@ -162,7 +163,7 @@ export class ToastManager {
       <div class="flex-1 text-xs font-medium text-slate-200 leading-snug">
         ${this._escapeHtml(toast.message)}
       </div>
-      <button type="button" class="text-slate-500 hover:text-slate-300 text-xs px-1 py-0.5 ml-1 flex-shrink-0 cursor-pointer transition-colors" title="Dismiss">
+      <button type="button" class="text-slate-500 hover:text-slate-300 text-xs px-1 py-0.5 ml-1 flex-shrink-0 cursor-pointer transition-colors" title="${t('toast.dismiss', undefined, 'Dismiss')}">
         ✕
       </button>
     `;

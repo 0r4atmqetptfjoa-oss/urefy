@@ -25,7 +25,7 @@ describe('View Transitions API & Fluid Screen Animation Engine', () => {
   // ─── 1. INITIALIZATION & DEFAULT CONFIGURATION ─────────────────────────────
 
   describe('1. Default Initialization State', () => {
-    it('should initialize with canonical Aetheris default values', () => {
+    it('should initialize with canonical UREfy default values', () => {
       expect(manager.currentView).toBe('feed');
       expect(manager.transitionHistory).toEqual(['feed']);
       expect(manager.defaultDuration).toBe(250);

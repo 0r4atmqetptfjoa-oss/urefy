@@ -6,6 +6,10 @@ import {
   renderAttachmentCard,
   renderEmojiPopover,
   renderStagedAttachmentChip,
+  getMessageDraft,
+  setMessageDraft,
+  captureMessageSelection,
+  insertMessageEmoji,
   isDMEmojiPickerOpen,
   isRelayEmojiPickerOpen,
   toggleDMEmojiPicker,
@@ -15,12 +19,24 @@ import {
   renderRelaysWorkspace,
 } from '../src/messages-view.js';
 import { renderCommunityHeaderBanner, renderPulseWorkspace } from '../src/feed-view.js';
+import { createSovereignIdentity } from '@aetheris/core-crypto';
+import { DirectMessagingClient } from '../src/direct-messaging-client.js';
+import { onRequestPost } from '../functions/api/direct-messages.js';
+import { createDmDatabase } from './helpers/dm-database.js';
 
 describe('Production Live Chat, Attachments, Emojis & Reddit-Style Communities', () => {
   beforeEach(() => {
     clientStore.pendingRelayAttachment = null;
     sovereignDM.setPendingAttachment(null);
     closeEmojiPickers();
+    setMessageDraft('dm', '');
+    setMessageDraft('relay', '');
+    const peer = '0123456789abcdef';
+    sovereignDM.conversations.clear();
+    sovereignDM.conversations.set(peer, { peerFingerprint: peer, peerRole: 'MEMBER', unreadCount: 0, lastMessageAt: 1,
+      messages: [{ id: 'render-only-message', senderFP: peer, receiverFP: clientStore.keypair.fingerprint, encryptedPayload: '', plaintext: 'Rendering fixture', timestamp: 1, isRead: true, deliveryStatus: 'local-only' }],
+    });
+    sovereignDM.activePeerFP = peer;
   });
 
   describe('1. Chat Bubble Overflow Constraints & Wrapping', () => {
@@ -42,6 +58,21 @@ describe('Production Live Chat, Attachments, Emojis & Reddit-Style Communities',
   });
 
   describe('2. Chat Emoji Popover and Insertion', () => {
+    it.each(['dm', 'relay'] as const)('inserts emojis at the saved %s cursor after a render', (target) => {
+      for (const position of [0, 3, 7]) {
+        captureMessageSelection(target, { value: 'abc def', selectionStart: position, selectionEnd: position } as HTMLInputElement);
+        expect(insertMessageEmoji(target, '😊')).toBe(position + 2);
+        expect(getMessageDraft(target)).toBe('abc def'.slice(0, position) + '😊' + 'abc def'.slice(position));
+      }
+    });
+
+    it('replaces the selected text and advances the caret for consecutive emojis', () => {
+      captureMessageSelection('relay', { value: 'hello world', selectionStart: 6, selectionEnd: 11 } as HTMLInputElement);
+      expect(insertMessageEmoji('relay', '😊')).toBe(8);
+      expect(insertMessageEmoji('relay', '👍')).toBe(10);
+      expect(getMessageDraft('relay')).toBe('hello 😊👍');
+    });
+
     it('manages emoji picker state cleanly for DMs and Relays', () => {
       expect(isDMEmojiPickerOpen).toBe(false);
       expect(isRelayEmojiPickerOpen).toBe(false);
@@ -74,7 +105,18 @@ describe('Production Live Chat, Attachments, Emojis & Reddit-Style Communities',
     });
   });
 
-  describe('3. Chat Media and File Attachments (50MB ceiling & cards)', () => {
+  describe('3. Chat draft resilience', () => {
+    it('preserves typed drafts across emoji-picker re-renders', () => {
+      setMessageDraft('relay', 'Mesaj important ');
+      toggleRelayEmojiPicker(true);
+
+      expect(getMessageDraft('relay')).toBe('Mesaj important ');
+      expect(renderRelaysWorkspace()).toContain('value="Mesaj important "');
+      expect(renderRelaysWorkspace()).toContain('data-input="update-relay-draft"');
+    });
+  });
+
+  describe('4. Chat Media and File Attachments (50MB ceiling & cards)', () => {
     it('renders staged attachment chips with removal button', () => {
       const testAtt: DirectMessageAttachment = {
         name: 'audit_report.pdf',
@@ -132,37 +174,40 @@ describe('Production Live Chat, Attachments, Emojis & Reddit-Style Communities',
     });
 
     it('attaches and transmits file in sovereign DM', async () => {
-      const testManager = new SovereignDMManager();
-      const peer = 'c3dc28cb705e';
-      testManager.openDM(peer, 'GUARDIAN');
-
-      const att: DirectMessageAttachment = {
-        name: 'contract.pdf',
-        size: 2048,
-        type: 'application/pdf',
-        dataUrl: 'data:application/pdf;base64,dGVzdA==',
-      };
-
-      await testManager.sendMessage('Enclosed contract', 'my_fingerprint', att);
-
-      const conv = testManager.getConversation(peer);
-      expect(conv).toBeDefined();
-      const lastMsg = conv!.messages[conv!.messages.length - 1];
-      expect(lastMsg.attachment).toBeDefined();
-      expect(lastMsg.attachment?.name).toBe('contract.pdf');
+      const fixture = createDmDatabase();
+      const owner = createSovereignIdentity();
+      const recipient = createSovereignIdentity();
+      const fetcher: typeof fetch = async (url, options) => onRequestPost({ env: { DB: fixture.database, ENVIRONMENT: 'production' }, request: new Request(new URL(String(url), 'https://example.test'), options) });
+      const recipientClient = new DirectMessagingClient(async () => recipient, fetcher);
+      await recipientClient.register();
+      const testManager = new SovereignDMManager(new DirectMessagingClient(async () => owner, fetcher));
+      try {
+        await testManager.ready;
+        testManager.openDM(recipient.identity.fingerprint);
+        const att: DirectMessageAttachment = { name: 'note.txt', size: 4, type: 'text/plain', dataUrl: 'data:text/plain;base64,dGVzdA==' };
+        await testManager.sendMessage('Enclosed note', owner.identity.fingerprint, att);
+        const inbox = await recipientClient.poll(0);
+        expect(inbox.messages[0].content.attachment).toEqual(att);
+      } finally {
+        await testManager.startLiveSync();
+        await testManager.persistence;
+        testManager.destroy();
+        fixture.sqlite.close();
+      }
     });
   });
 
-  describe('4. Sovereign Communities Reddit-Style Architecture', () => {
-    it('renders Reddit-style community header banner with members, online nodes, and rules', () => {
+  describe('5. Sovereign Communities Reddit-Style Architecture', () => {
+    it('renders community rules and observed posts without unverified presence', () => {
       const circle = sovereignCircleEngine.getCircle('pulse-global')!;
       expect(circle).toBeDefined();
 
       const bannerHtml = renderCommunityHeaderBanner(circle);
       expect(bannerHtml).toContain(`c/${circle.name}`);
       expect(bannerHtml).toContain('Sovereign Community');
-      expect(bannerHtml).toContain(`${circle.onlineCount} online`);
-      expect(bannerHtml).toContain(circle.membersCount.toLocaleString());
+      expect(bannerHtml).not.toContain(`${circle.onlineCount} online`);
+      expect(bannerHtml).toContain(`<span class="font-bold text-white">${clientStore.posts.filter(post => post.channelId === circle.channelId).length}</span>`);
+      expect(bannerHtml).toContain('loaded posts');
       expect(bannerHtml).toContain('data-action="toggle-join-circle"');
       expect(bannerHtml).toContain('data-action="open-composer-for-circle"');
       expect(bannerHtml).toContain('Rules:');

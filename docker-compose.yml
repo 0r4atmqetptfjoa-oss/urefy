@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   server-edge:
     build:
@@ -26,7 +24,7 @@ services:
     restart: unless-stopped
 
   client-ui:
-    image: node:20-alpine
+    image: node:24-alpine
     container_name: aetheris-client-ui
     working_dir: /app
     ports:

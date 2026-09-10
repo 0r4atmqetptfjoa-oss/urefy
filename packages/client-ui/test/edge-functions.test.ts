@@ -119,7 +119,7 @@ function createMockD1(): D1Database {
             return { success: true, meta: {} };
           }
 
-          if (query.includes('INSERT OR REPLACE INTO messages') || query.includes('INSERT OR IGNORE INTO messages')) {
+          if (query.includes('INSERT INTO messages') || query.includes('INSERT OR IGNORE INTO messages')) {
             const isCanonical = query.includes('author_id');
             const isExtended = boundParams.length >= 12;
             const row = isCanonical
@@ -411,7 +411,7 @@ describe('Cloudflare Pages Functions - Full-Stack Edge Backend & D1/KV/R2 Bindin
 
       const json = await res.json();
       expect(json.status).toBe('online');
-      expect(json.protocol).toBe('Aetheris-Sovereign-v1.0.0');
+      expect(json.protocol).toBe('URE-Relay-v2.0.0');
       expect(json.edge.colo).toBe('OTP');
       expect(json.edge.country).toBe('RO');
       expect(json.meshActive).toBe(true);
@@ -742,7 +742,7 @@ describe('Cloudflare Pages Functions - Full-Stack Edge Backend & D1/KV/R2 Bindin
 
       const json = await res.json();
       expect(json.status).toBe('healthy');
-      expect(json.protocol).toBe('Aetheris-Sovereign-v1.0.0');
+      expect(json.protocol).toBe('URE-Relay-v2.0.0');
       expect(json.metrics.totalNodes).toBeGreaterThanOrEqual(4);
       expect(json.metrics.activeNodes).toBeGreaterThanOrEqual(4);
       expect(json.metrics.messagesProcessed).toBeGreaterThan(1000);
@@ -803,7 +803,7 @@ describe('Cloudflare Pages Functions - Full-Stack Edge Backend & D1/KV/R2 Bindin
       expect(res.status).toBe(426);
 
       const json = await res.json();
-      expect(json.service).toBe('Aetheris Sovereign WebSocket Signaling Edge');
+      expect(json.service).toBe('UREfy WebSocket Signaling Edge');
       expect(json.transport).toBe('WebSocket');
     });
   });

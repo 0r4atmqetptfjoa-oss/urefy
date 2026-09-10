@@ -1,7 +1,7 @@
 /**
  * @file settings-view.ts
  * @package @aetheris/client-ui
- * @description Sovereign Unified Settings Engine for Aetheris Omni-Sphere.
+ * @description Sovereign Unified Settings Engine for UREfy.
  * Provides a responsive obsidian-styled modal dialog unifying:
  * 1. Appearance (Teme & Aspect) - Theme switcher, OLED black mode, font family, Custom Theme Studio launcher.
  * 2. Preferences (Network & WoT Preferences) - Web-of-Trust badges, demote low trust, merit threshold, proactive AI, zen mode.
@@ -18,6 +18,7 @@ import { localDiagnostics } from './local-diagnostics.js';
 import { themeEngine, THEMES } from './themes.js';
 import { clientStore } from './client-state.js';
 import { zenModeManager } from './zen-mode.js';
+import { i18n, t } from './i18n.js';
 
 // ─── INTERFACES & DEFINITIONS ──────────────────────────────────────────────────
 
@@ -191,6 +192,8 @@ export class SettingsView {
   public renderSettingsModal(): string {
     const tabsHTML = SETTINGS_SECTIONS.map((sec) => {
       const isSelected = this.activeTab === sec.id;
+      const label = t(`settings.${sec.id}Title`, undefined, sec.label);
+      const desc = t(`settings.${sec.id}Desc`, undefined, sec.description);
       return `
         <button
           type="button"
@@ -203,8 +206,8 @@ export class SettingsView {
         >
           <span class="text-base md:text-lg shrink-0 group-hover:scale-110 transition-transform">${sec.icon}</span>
           <div class="hidden sm:block min-w-0 flex-1">
-            <div class="truncate ${isSelected ? 'text-cyan-200 font-semibold' : 'text-slate-300'}">${sec.label}</div>
-            <div class="text-[10px] text-slate-500 truncate hidden md:block">${sec.description}</div>
+            <div class="truncate ${isSelected ? 'text-cyan-200 font-semibold' : 'text-slate-300'}">${label}</div>
+            <div class="text-[10px] text-slate-500 truncate hidden md:block">${desc}</div>
           </div>
         </button>
       `;
@@ -262,8 +265,8 @@ export class SettingsView {
               type="button"
               id="btn-close-settings-modal" data-action="close-settings" data-raw-click="if(window.__aetheris_close_settings) window.__aetheris_close_settings();"
               class="text-slate-400 hover:text-white p-2 rounded-xl hover:bg-white/10 transition-colors cursor-pointer text-sm font-mono flex items-center justify-center"
-              title="Close Settings"
-              aria-label="Close settings"
+              title="${t('common.close', undefined, 'Close Settings')}"
+              aria-label="${t('common.close', undefined, 'Close settings')}"
             >
               ✕
             </button>
@@ -296,7 +299,7 @@ export class SettingsView {
                 class="px-5 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white font-bold text-xs shadow-lg shadow-cyan-500/20 transition-all cursor-pointer flex items-center space-x-1.5"
               >
                 <span>✓</span>
-                <span>Save &amp; Close</span>
+                <span>${t('common.save', undefined, 'Save & Close')}</span>
               </button>
             </div>
           </div>
@@ -509,9 +512,9 @@ export class SettingsView {
           <div>
             <h3 class="text-base font-bold text-white flex items-center gap-2">
               <span>⚙️</span>
-              <span>Network &amp; Web-of-Trust Preferences</span>
+              <span>${t('settings.preferencesTitle', undefined, 'Network & Web-of-Trust Preferences')}</span>
             </h3>
-            <p class="text-xs text-slate-400">Configure cryptographic attestations, feed filtering thresholds, and local AI assistant.</p>
+            <p class="text-xs text-slate-400">${t('settings.preferencesDesc', undefined, 'Configure cryptographic attestations, feed filtering thresholds, and local AI assistant.')}</p>
           </div>
           <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/30">
             WOT &amp; AI GOVERNANCE
@@ -524,7 +527,7 @@ export class SettingsView {
             <div class="space-y-0.5 pr-4">
               <span class="text-xs font-semibold text-white flex items-center gap-1.5">
                 <span>🛡️</span>
-                <span>Web-of-Trust Badges</span>
+                <span>${t('settings.wotBadge', undefined, 'Web-of-Trust Badges')}</span>
               </span>
               <p class="text-[11px] text-slate-400">
                 Display cryptographic trust level and ZK-Human attestation path next to author handles.
@@ -543,7 +546,7 @@ export class SettingsView {
             <div class="space-y-0.5 pr-4">
               <span class="text-xs font-semibold text-white flex items-center gap-1.5">
                 <span>📉</span>
-                <span>Demote Low-Trust Content</span>
+                <span>${t('settings.demoteLowTrust', undefined, 'Demote Low-Trust Content')}</span>
               </span>
               <p class="text-[11px] text-slate-400">
                 Automatically deprioritizes posts from unverified or low-trust nodes to the end of the feed.
@@ -562,7 +565,7 @@ export class SettingsView {
             <div class="flex items-center justify-between">
               <span class="text-xs font-semibold text-white flex items-center gap-1.5">
                 <span>⭐</span>
-                <span>Minimum Merit Threshold</span>
+                <span>${t('settings.meritThreshold', undefined, 'Minimum Merit Threshold')}</span>
               </span>
               <span class="text-xs font-mono font-bold text-cyan-300 px-2.5 py-0.5 rounded bg-surface-base border border-cyan-500/30">
                 <span id="merit-threshold-value">${meritThreshold}</span> Merit
@@ -593,7 +596,7 @@ export class SettingsView {
             <div class="space-y-0.5 pr-4">
               <span class="text-xs font-semibold text-white flex items-center gap-1.5">
                 <span>🤖</span>
-                <span>Proactive On-Device AI Assistant</span>
+                <span>${t('settings.proactiveAi', undefined, 'Proactive On-Device AI Assistant')}</span>
               </span>
               <p class="text-[11px] text-slate-400">
                 Allows local zero-telemetry AI to suggest context, security warnings, and summaries.
@@ -612,7 +615,7 @@ export class SettingsView {
             <div class="space-y-0.5 pr-4">
               <span class="text-xs font-semibold text-white flex items-center gap-1.5">
                 <span>🧘</span>
-                <span>Zen Mode / Immersive Focus</span>
+                <span>${t('settings.zenMode', undefined, 'Zen Mode / Immersive Focus')}</span>
               </span>
               <p class="text-[11px] text-slate-400">
                 Hides side rails and maximizes feed reading area for a distraction-free experience.
@@ -625,6 +628,23 @@ export class SettingsView {
               class="w-4 h-4 rounded text-purple-500 focus:ring-0 cursor-pointer accent-purple-500"
             />
           </label>
+
+          <!-- 6. LANGUAGE & RTL PICKER -->
+          <div class="p-4 rounded-2xl bg-surface-raised border border-white/5 space-y-3" id="settings-language-picker-container">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-semibold text-white flex items-center gap-1.5">
+                <span>🌐</span>
+                <span>${t('settings.languageTitle', undefined, 'Language & Regional Localization')}</span>
+              </span>
+              <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-bold uppercase">
+                ${i18n.getCurrentLanguageMeta().code} · ${i18n.getCurrentLanguageMeta().direction.toUpperCase()}
+              </span>
+            </div>
+            <p class="text-[11px] text-slate-400">
+              ${t('settings.languageDesc', undefined, 'Seamless zero-reload dynamic localization across 7 languages. RTL layout adjusts automatically.')}
+            </p>
+            ${i18n.renderLanguagePicker('inline')}
+          </div>
         </div>
       </div>
     `;
@@ -775,6 +795,21 @@ export class SettingsView {
         exportBackup.attachEventListeners(root);
       } catch (_) {}
     }
+
+    // Language picker buttons
+    const langBtns = root.querySelectorAll('[data-action="select-lang"]');
+    langBtns.forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const code = (e.currentTarget as HTMLElement).getAttribute('data-lang');
+        if (code) {
+          i18n.setLanguage(code as any);
+          if (typeof window !== 'undefined' && (window as any).clientStore) {
+            (window as any).clientStore.notifySync();
+          }
+          this.setActiveTab(this.activeTab);
+        }
+      });
+    });
   }
 }
 

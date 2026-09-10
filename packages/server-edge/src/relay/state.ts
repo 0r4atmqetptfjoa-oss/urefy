@@ -1,5 +1,5 @@
 /**
- * AETHERIS SOVEREIGN RELAY STATE MANAGER
+ * UREfy SOVEREIGN RELAY STATE MANAGER
  * 
  * Enforces strict memory-bounding policies and automatic epoch eviction
  * resolving Item 17 ("Structuri în memorie insuficient controlate") from the audit.

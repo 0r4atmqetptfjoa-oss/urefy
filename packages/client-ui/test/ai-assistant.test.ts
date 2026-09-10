@@ -131,14 +131,14 @@ describe('LocalAIAssistant Engine & Sovereign NLP Suite', () => {
     });
 
     it('returns full text if sentence count is less than or equal to requested count', () => {
-      const shortText = 'Aetheris operates as a decentralized sovereign platform. All data is verified with cryptographic signatures.';
+      const shortText = 'UREfy operates as a decentralized sovereign platform. All data is verified with cryptographic signatures.';
       const summary = assistant.summarizeByExtractiveSentences(shortText, 3);
-      expect(summary).toContain('Aetheris operates as a decentralized sovereign platform.');
+      expect(summary).toContain('UREfy operates as a decentralized sovereign platform.');
       expect(summary).toContain('All data is verified with cryptographic signatures.');
     });
 
     it('selects top extractive sentences using centroid similarity and MMR without redundancy', () => {
-      const longText = 'Aetheris Omni-Sphere is an autonomous sovereign communication environment. It uses zero-knowledge cryptography to safeguard peer identity and prevent tracking. Local WebAssembly modules execute verification algorithms on the client device directly. All message traffic is routed through encrypted peer-to-peer gossip meshes. Zero cloud dependencies ensure absolute censorship resistance for participants. Validators maintain deterministic state consistency across distributed consensus epochs.';
+      const longText = 'UREfy is an autonomous sovereign communication environment. It uses zero-knowledge cryptography to safeguard peer identity and prevent tracking. Local WebAssembly modules execute verification algorithms on the client device directly. All message traffic is routed through encrypted peer-to-peer gossip meshes. Zero cloud dependencies ensure absolute censorship resistance for participants. Validators maintain deterministic state consistency across distributed consensus epochs.';
 
       const summary = assistant.summarizeByExtractiveSentences(longText, 2);
       expect(summary).toBeDefined();
@@ -146,7 +146,7 @@ describe('LocalAIAssistant Engine & Sovereign NLP Suite', () => {
 
       // Should be composed of sentences from the text (markdown cleaner replaces dashes with spaces)
       expect(
-        summary.includes('Aetheris Omni') ||
+        summary.includes('UREfy Omni') ||
         summary.includes('zero knowledge') ||
         summary.includes('WebAssembly') ||
         summary.includes('censorship resistance')
@@ -455,7 +455,7 @@ describe('LocalAIAssistant Engine & Sovereign NLP Suite', () => {
   describe('suggestCompletion Draft Proposal Engine', () => {
     it('generates comprehensive continuation proposals and tags for drafts', async () => {
       const draft = `
-        Proposal for optimizing ZK-SNARK circuits within the Aetheris network.
+        Proposal for optimizing ZK-SNARK circuits within the UREfy network.
         We optimized the constraint schema to reduce R1CS gate count significantly.
       `;
 
@@ -493,10 +493,10 @@ describe('LocalAIAssistant Engine & Sovereign NLP Suite', () => {
 
     it('renders active open panel with all tabs and action buttons after togglePanel', () => {
       assistant.togglePanel('post-101');
-      const panelHtml = assistant.renderAIPanel('post-101', 'Aetheris decentralized protocol with ZK proofs.');
+      const panelHtml = assistant.renderAIPanel('post-101', 'UREfy decentralized protocol with ZK proofs.');
 
       expect(panelHtml).not.toContain('class="hidden"');
-      expect(panelHtml).toContain('Aetheris Sovereign AI');
+      expect(panelHtml).toContain('UREfy Sovereign AI');
       expect(panelHtml).toContain('data-ai-tab="summary"');
       expect(panelHtml).toContain('data-ai-tab="code"');
       expect(panelHtml).toContain('data-ai-tab="security"');
@@ -550,7 +550,7 @@ describe('LocalAIAssistant Engine & Sovereign NLP Suite', () => {
       assistant.switchTab('post-reanalyze', 'summary');
 
       await assistant.reanalyzeCurrentTab('post-reanalyze');
-      const html = assistant.renderAIPanel('post-reanalyze', 'Aetheris sovereign mesh communications.');
+      const html = assistant.renderAIPanel('post-reanalyze', 'UREfy sovereign mesh communications.');
       expect(html).toContain('3-Sentence Extractive Summary');
     });
   });

@@ -18,6 +18,7 @@ import {
 } from '@aetheris/vault-engine';
 import { clientStore } from './client-state.js';
 import { toastManager } from './toast.js';
+import { t } from './i18n.js';
 
 export interface BlockEntropyInfo {
   index: number;
@@ -321,7 +322,7 @@ export class BinaryHygienePortal {
 
       // 7. Construct signed audit certificate
       const auditCertificate: BinaryAuditCertificate = {
-        protocol: 'Aetheris Sovereign Binary Hygiene v1.0',
+        protocol: 'UREfy Sovereign Binary Hygiene v1.0',
         version: '1.0',
         timestamp: Date.now(),
         fileName,
@@ -391,7 +392,7 @@ export class BinaryHygienePortal {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `aetheris-audit-${this.scanReport.fileName}-${this.scanReport.sha256.slice(0, 8)}.json`;
+    a.download = `urefy-audit-${this.scanReport.fileName}-${this.scanReport.sha256.slice(0, 8)}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -457,9 +458,17 @@ export class BinaryHygienePortal {
                 <p class="text-[10px] text-slate-400 font-mono">Static Shannon entropy breakdown · PE / ELF / Mach-O inspection · UPX signature scanner</p>
               </div>
             </div>
-            <button id="btn-close-binary-hygiene" data-action="close-binary-hygiene" class="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center text-sm border border-white/10 transition-colors cursor-pointer" title="Close (Esc)">
+            <button id="btn-close-binary-hygiene" data-action="close-binary-hygiene" class="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center text-sm border border-white/10 transition-colors cursor-pointer" title="${t('modal.close', undefined, 'Close')} (Esc)" aria-label="${t('modal.close', undefined, 'Close')}">
               ✕
             </button>
+          </div>
+
+          <!-- SECURITY NOTICE & HYGIENE DISCLAIMER -->
+          <div class="p-3 rounded-xl bg-amber-950/40 border border-amber-500/30 text-amber-200 text-xs flex items-start space-x-2.5">
+            <span class="text-base shrink-0">⚠️</span>
+            <div class="text-[11px] leading-relaxed">
+              <span class="font-bold">Security Notice:</span> Static Shannon entropy metrics and header inspection provide heuristic structural hygiene indicators, but do <strong>NOT</strong> substitute for full antivirus scanning or dynamic behavioral sandbox analysis.
+            </div>
           </div>
 
           <!-- DROPZONE -->

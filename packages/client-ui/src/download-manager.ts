@@ -1,5 +1,5 @@
 /**
- * Aetheris Omni-Sphere P2P Swarm Download Manager
+ * UREfy P2P Swarm Download Manager
  * Sovereign decentralized chunk-based BitTorrent / libp2p mesh transfer engine.
  * Features 64KB Merkle piece verification, Shannon entropy validation,
  * swarm telemetry, dynamic bandwidth throttling, and rich Obsidian-themed UI rendering.
@@ -167,8 +167,8 @@ export class P2PDownloadManager {
       return;
     }
     const clients = [
-      'Aetheris-Desktop/v2.4 (x86_64)',
-      'Aetheris-Vault-CLI/v2.1',
+      'UREfy-Desktop/v2.4 (x86_64)',
+      'UREfy-Vault-CLI/v2.1',
       'Go-Swarm-Node/v1.9',
       'Rust-P2P-Router/v0.8.2',
       'Tor-Bridge-Relay/v4.2',

@@ -3,8 +3,11 @@
  * @package @aetheris/client-ui
  * @description Sovereign RSS / Atom Feed Aggregator & Threat Intelligence Monitor.
  * Provides real-time ingestion, manual and DOM XML parsing, category-based classification,
- * CORS proxy forwarding, and responsive cyber-themed UI components for Aetheris Omni-Sphere.
+ * CORS proxy forwarding, and responsive cyber-themed UI components for UREfy.
  */
+
+import { isDemoModeEnabled } from './demo-mode.js';
+import { t } from './i18n.js';
 
 /**
  * Interface representing a subscribed RSS/Atom feed source.
@@ -301,12 +304,12 @@ export class RSSImporter {
         console.warn('[RSSImporter] Failed to load feeds from localStorage:', err);
       }
     }
-    this.feeds = this.getDefaultFeeds();
+    this.feeds = this.getDefaultFeeds().map(({ lastFetched, itemCount, ...feed }) => ({ ...feed, itemCount: 0 }));
     this.saveFeeds();
   }
 
   /**
-   * Initializes feed items from localStorage or populates high-fidelity seed entries.
+  * Initializes feed items from localStorage, with isolated test fixtures only.
    */
   private initializeItems(): void {
     if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
@@ -323,7 +326,7 @@ export class RSSImporter {
         console.warn('[RSSImporter] Failed to load items from localStorage:', err);
       }
     }
-    this.items = this.getDefaultSeedItems();
+    this.items = isDemoModeEnabled() ? this.getDefaultSeedItems() : [];
     this.saveItems();
   }
 
@@ -1173,7 +1176,7 @@ export class RSSImporter {
                 <span class="text-cyphr">⚡</span>
                 <span>Subscribe to New RSS / Atom Feed</span>
               </span>
-              <button id="btn-rss-close-add-modal" class="text-slate-400 hover:text-slate-200 text-sm font-mono transition-colors">✕</button>
+              <button id="btn-rss-close-add-modal" aria-label="${t('modal.close', undefined, 'Close')}" title="${t('modal.close', undefined, 'Close')}" class="text-slate-400 hover:text-slate-200 text-sm font-mono transition-colors">✕</button>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
@@ -1221,7 +1224,7 @@ export class RSSImporter {
                   id="btn-rss-cancel-add"
                   class="px-3 py-1.5 rounded-lg bg-surface-overlay hover:bg-surface-highlight text-xs text-slate-300 transition-colors"
                 >
-                  Cancel
+                  ${t('common.cancel', undefined, 'Cancel')}
                 </button>
                 <button
                   id="btn-rss-submit-add"
@@ -1310,7 +1313,7 @@ export class RSSImporter {
           <div class="flex items-center space-x-2">
             <span>Last Sync: ${formatFullDate(this.lastSyncTime)}</span>
             <span>•</span>
-            <span class="text-cyphr">Aetheris CyberSec Engine</span>
+            <span class="text-cyphr">UREfy CyberSec Engine</span>
           </div>
         </div>
       </div>

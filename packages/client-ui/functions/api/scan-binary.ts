@@ -232,7 +232,7 @@ export async function onRequestPost(context: { request: Request; env?: any }): P
  */
 export async function onRequestGet(): Promise<Response> {
   const apiDoc = {
-    service: 'Aetheris Sovereign Binary Hygiene & Packer Detection Micro-SaaS API',
+    service: 'UREfy Sovereign Binary Hygiene & Packer Detection Micro-SaaS API',
     endpoint: '/api/scan-binary',
     version: '1.0.0',
     protocol: 'Aetheris-Vault-Engine',
@@ -255,8 +255,8 @@ export async function onRequestGet(): Promise<Response> {
       'False-positive elimination (distinguishing assets from packed code)',
     ],
     usageExample: {
-      curlStream: 'curl -X POST https://aetheris.network/api/scan-binary -H "Content-Type: application/octet-stream" --data-binary @app.exe',
-      curlJson: 'curl -X POST https://aetheris.network/api/scan-binary -H "Content-Type: application/json" -d \'{"dataHex":"4d5a9000...","fileName":"test.exe"}\'',
+      curlStream: 'curl -X POST https://urefy.com/api/scan-binary -H "Content-Type: application/octet-stream" --data-binary @app.exe',
+      curlJson: 'curl -X POST https://urefy.com/api/scan-binary -H "Content-Type: application/json" -d \'{"dataHex":"4d5a9000...","fileName":"test.exe"}\'',
     },
   };
 

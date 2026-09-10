@@ -1,5 +1,5 @@
-/**
- * Aetheris Sovereign Legal & Regulatory Footer Component
+﻿/**
+ * UREfy Sovereign Legal & Regulatory Footer Component
  * Provides comprehensive EU Digital Services Act (DSA), GDPR, and eCommerce Directive
  * compliant navigation, point-of-contact info, community guidelines, and legal disclosures.
  */
@@ -22,8 +22,8 @@ export class LegalFooter {
             <!-- Col 1: Platform & Architecture -->
             <div class="space-y-3">
               <div class="flex items-center space-x-2">
-                <span class="text-xl">Æ</span>
-                <span class="font-bold text-sm text-white tracking-wide">AETHERIS OMNI-SPHERE</span>
+                <span class="text-xl">U</span>
+                <span class="font-bold text-sm text-white tracking-wide">UREfy</span>
               </div>
               <p class="text-[11px] text-slate-400 leading-relaxed">
                 Sovereign decentralized protocol for communication and knowledge. Non-custodial architecture based on Ed25519 cryptographic identities and hybrid post-quantum encryption.
@@ -44,31 +44,31 @@ export class LegalFooter {
                 <li>
                   <button type="button" data-action="open-legal" data-legal-tab="terms" class="hover:text-cyan-300 transition-colors text-left cursor-pointer flex items-center space-x-1">
                     <span>📜</span>
-                    <span>Terms & Conditions of Use</span>
+                    <span>${'Terms & Conditions of Use'}</span>
                   </button>
                 </li>
                 <li>
                   <button type="button" data-action="open-legal" data-legal-tab="privacy" class="hover:text-cyan-300 transition-colors text-left cursor-pointer flex items-center space-x-1">
                     <span>🛡️</span>
-                    <span>Privacy & GDPR (EU 2016/679)</span>
+                    <span>${'Privacy & GDPR (EU 2016/679)'}</span>
                   </button>
                 </li>
                 <li>
                   <button type="button" data-action="open-legal" data-legal-tab="rules" class="hover:text-cyan-300 transition-colors text-left cursor-pointer flex items-center space-x-1">
                     <span>⚖️</span>
-                    <span>Community Rules & Moderation (Art. 14 DSA)</span>
+                    <span>${'Community Rules & Moderation (Art. 14 DSA)'}</span>
                   </button>
                 </li>
                 <li>
                   <button type="button" data-action="open-legal" data-legal-tab="dsa" class="hover:text-rose-400 font-medium transition-colors text-left cursor-pointer flex items-center space-x-1">
                     <span>🚩</span>
-                    <span>Report Illegal Content (Art. 16 DSA)</span>
+                    <span>${'Report Illegal Content (Art. 16 DSA)'}</span>
                   </button>
                 </li>
                 <li>
                   <button type="button" data-action="open-legal" data-legal-tab="contact" class="hover:text-cyan-300 transition-colors text-left cursor-pointer flex items-center space-x-1">
                     <span>📬</span>
-                    <span>Single Points of Contact (Art. 11/12)</span>
+                    <span>${'Single Points of Contact (Art. 11/12)'}</span>
                   </button>
                 </li>
               </ul>
@@ -84,7 +84,7 @@ export class LegalFooter {
                 <li>
                   <button type="button" data-action="open-legal" data-legal-tab="about" class="hover:text-cyan-300 transition-colors text-left cursor-pointer flex items-center space-x-1">
                     <span>ℹ️</span>
-                    <span>About Aetheris Architecture</span>
+                    <span>${t('footer.about', undefined, 'About UREfy Architecture')}</span>
                   </button>
                 </li>
                 <li>
@@ -152,14 +152,14 @@ export class LegalFooter {
           <!-- Bottom Notice & Contact -->
           <div class="pt-6 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-4 text-[11px] text-slate-500">
             <div>
-              © 2026 Aetheris Omni-Sphere · Sovereign open-source protocol (AS-IS). Engineered in full compliance with European digital transparency and data protection standards.
+              © 2026 UREfy · Sovereign open-source protocol (AS-IS). Engineered in full compliance with European digital transparency and data protection standards.
             </div>
             <div class="flex items-center space-x-3 shrink-0">
               <span class="text-slate-400">EU Point of Contact:</span>
-              <a href="mailto:legal@aetheris.network" class="text-cyan-400 hover:underline font-mono">legal@aetheris.network</a>
+              <a href="mailto:razvan@urefy.com" class="text-cyan-400 hover:underline font-mono">razvan@urefy.com</a>
               <span>·</span>
               <button type="button" data-action="open-legal" data-legal-tab="dsa" class="px-2.5 py-1 rounded bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/20 text-[10px] font-bold cursor-pointer transition-colors">
-                🚩 Report Content
+                🚩 ${t('footer.dsa', undefined, 'Report Content')}
               </button>
             </div>
           </div>
@@ -190,7 +190,7 @@ export class LegalFooter {
         </div>
 
         <div class="text-[9px] text-slate-500 flex items-center justify-between pt-0.5">
-          <span>${t('footer.copyright', undefined, '© 2026 Aetheris')}</span>
+          <span>${t('footer.copyright', undefined, '© 2026 UREfy')}</span>
           <span class="px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-[9px] text-emerald-400 font-mono">0 Trackers</span>
         </div>
       </div>
@@ -208,8 +208,8 @@ export class LegalFooter {
         <!-- LEFT: BRAND & SECURITY STATUS -->
         <div class="flex items-center space-x-1.5 sm:space-x-3 shrink-0">
           <div class="flex items-center space-x-1 sm:space-x-1.5 font-bold text-white tracking-wide">
-            <span class="w-5 h-5 rounded-lg bg-indigo-600/30 border border-indigo-500/40 flex items-center justify-center text-[10px] sm:text-[11px] text-indigo-400 font-mono">Æ</span>
-            <span class="hidden sm:inline text-xs">AETHERIS</span>
+            <span class="w-5 h-5 rounded-lg bg-indigo-600/30 border border-indigo-500/40 flex items-center justify-center text-[10px] sm:text-[11px] text-indigo-400 font-mono">U</span>
+            <span class="hidden sm:inline text-xs">UREfy</span>
           </div>
           <span class="text-slate-600 hidden sm:inline">•</span>
           <span class="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-mono font-bold hidden md:inline-flex items-center space-x-1" title="0 tracking cookies">
@@ -232,7 +232,7 @@ export class LegalFooter {
             type="button"
             data-action="open-legal" data-legal-tab="about"
             class="px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition-all cursor-pointer flex items-center space-x-1 whitespace-nowrap font-medium"
-            title="About Aetheris Omni-Sphere, decentralized architecture and open source"
+            title="About UREfy, decentralized architecture and open source"
           >
             <span>ℹ️</span>
             <span class="hidden sm:inline">${t('footer.about', undefined, 'About Us')}</span>
@@ -308,7 +308,7 @@ export class LegalFooter {
             <span>🇪🇺</span>
             <span>EU DSA Compliant</span>
           </span>
-          <span class="text-slate-400 text-[11px] sm:text-xs font-mono font-medium whitespace-nowrap">${t('footer.copyright', undefined, '© 2026 Aetheris')}</span>
+          <span class="text-slate-400 text-[11px] sm:text-xs font-mono font-medium whitespace-nowrap">${t('footer.copyright', undefined, '© 2026 UREfy')}</span>
           <span class="text-slate-600 hidden sm:inline">•</span>
           <span class="text-signal flex items-center space-x-1 text-xs font-mono font-bold">
             <span class="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-emerald-400 animate-pulse"></span>

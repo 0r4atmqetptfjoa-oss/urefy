@@ -1,7 +1,7 @@
 /**
  * @file custom-theme-builder.ts
  * @package @aetheris/client-ui
- * @description Visual custom theme builder for the Aetheris Omni-Sphere platform.
+ * @description Visual custom theme builder for the UREfy platform.
  * Enables live configuration of CSS color palettes, interactive preview on mini post cards,
  * buttons, and chat, local storage persistence, and fully functional JSON import/export.
  * 100% functional, strict TypeScript, self-contained, no external libraries.
@@ -9,6 +9,7 @@
 
 import './window-augmentation.js';
 import { serviceRegistry, SERVICES } from './service-registry.js';
+import { t } from './i18n.js';
 
 // ─── INTERFACES AND TYPES ─────────────────────────────────────────────────────────
 
@@ -102,7 +103,7 @@ export const DEFAULT_THEME_PRESETS: PresetPalette[] = [
     emoji: '🌌',
     theme: {
       name: 'Obsidian Cyan',
-      author: 'Aetheris Core',
+      author: 'UREfy Core',
       accentColor: '#00e5ff',
       bgCanvas: '#090a0f',
       bgSurfaceBase: '#12151c',
@@ -162,10 +163,10 @@ export const DEFAULT_THEME_PRESETS: PresetPalette[] = [
   },
   {
     id: 'preset-aether-violet',
-    name: 'Aetheris Sovereign',
+    name: 'UREfy Sovereign',
     emoji: '🔮',
     theme: {
-      name: 'Aetheris Sovereign',
+      name: 'UREfy Sovereign',
       author: 'ZK Sentinel',
       accentColor: '#a855f7',
       bgCanvas: '#080710',
@@ -505,7 +506,7 @@ export class CustomThemeBuilder {
     const draft = this.getResolvedDraft();
     const payload = {
       version: '1.0.0',
-      generator: 'Aetheris Omni-Sphere Custom Theme Builder',
+      generator: 'UREfy Custom Theme Builder',
       exportedAt: new Date().toISOString(),
       theme: draft,
       allSavedThemes: this.savedThemes,
@@ -527,7 +528,7 @@ export class CustomThemeBuilder {
     const safeName = draft.name.toLowerCase().replace(/[^a-z0-9_-]/g, '_');
     const link = document.createElement('a');
     link.href = url;
-    link.download = `aetheris-theme-${safeName}.json`;
+    link.download = `urefy-theme-${safeName}.json`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -602,7 +603,7 @@ export class CustomThemeBuilder {
       }
 
       if (!candidateTheme && importedCount === 0) {
-        throw new Error('No valid Aetheris theme object found in JSON.');
+        throw new Error('No valid UREfy theme object found in JSON.');
       }
 
       if (candidateTheme) {
@@ -765,7 +766,7 @@ export class CustomThemeBuilder {
                 type="button" data-action="call-global" data-raw-click="window.customThemeBuilder ? window.customThemeBuilder.closeImportModal() : null"
                 class="px-3 py-1.5 rounded-lg bg-surface-raised hover:bg-surface-overlay text-xs text-slate-400"
               >
-                Cancel
+                ${t('common.cancel', undefined, 'Cancel')}
               </button>
               <button
                 type="button" data-action="call-global" data-raw-click="const el = document.getElementById('aetheris-import-json-textarea');
@@ -807,7 +808,7 @@ export class CustomThemeBuilder {
         type="button"
         id="aetheris-custom-theme-builder-btn" data-action="call-global" data-raw-click="window.customThemeBuilder ? window.customThemeBuilder.openModal() : null"
         class="flex items-center space-x-2 px-3 py-2 rounded-xl bg-gradient-to-r from-cyphr/15 to-aether/15 hover:from-cyphr/25 hover:to-aether/25 border border-cyphr/30 hover:border-cyphr text-xs font-semibold text-slate-100 transition-all duration-200 shadow-sm hover:shadow-cyan-500/20 group cursor-pointer"
-        title="Open Aetheris Custom Theme Visual Builder"
+        title="Open UREfy Custom Theme Visual Builder"
         aria-label="Custom Theme Visual Builder"
       >
         <span class="text-sm transition-transform duration-200 group-hover:scale-125 group-hover:rotate-12">🎨</span>
@@ -962,7 +963,7 @@ export class CustomThemeBuilder {
               </div>
               <div>
                 <h2 id="custom-theme-modal-title" class="text-base font-bold text-white flex items-center space-x-2">
-                  <span>Aetheris Custom Theme Studio</span>
+                  <span>UREfy Custom Theme Studio</span>
                   <span class="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-cyphr/15 text-cyphr border border-cyphr/30">VISUAL BUILDER</span>
                 </h2>
                 <p class="text-xs text-slate-400">Customize OLED colors, visual accents, and live test Omni-Sphere components.</p>
@@ -983,8 +984,8 @@ export class CustomThemeBuilder {
                 type="button"
                 id="btn-close-custom-theme-builder" data-action="close-feature" data-raw-click="if(window.customThemeBuilder) window.customThemeBuilder.closeModal(); if(window.__aetheris_close_custom_theme_builder) window.__aetheris_close_custom_theme_builder();"
                 class="w-8 h-8 rounded-lg bg-surface-raised hover:bg-surface-overlay border border-white/10 text-slate-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
-                title="Close window (Esc)"
-                aria-label="Close modal"
+                title="${t('modal.close', undefined, 'Close')} (Esc)"
+                aria-label="${t('modal.close', undefined, 'Close modal')}"
               >
                 ✕
               </button>
@@ -1178,7 +1179,7 @@ export class CustomThemeBuilder {
                       Sovereign P2P Consensus & Zero-Knowledge Cryptographic Verification
                     </h4>
                     <p class="text-xs leading-relaxed opacity-90" style="color: ${draft.textPrimary};">
-                      Aetheris Omni-Sphere implements confidential off-chain transactions with recursive STARK proofs, guaranteeing absolute mathematical privacy across every mesh node.
+                      UREfy implements confidential off-chain transactions with recursive STARK proofs, guaranteeing absolute mathematical privacy across every mesh node.
                     </p>
                   </div>
 

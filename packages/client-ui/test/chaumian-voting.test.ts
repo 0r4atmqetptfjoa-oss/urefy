@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
 import {
   ChaumianVotingManager,
   formatVotePayload,
@@ -11,7 +11,15 @@ import {
   signBlindedMessage,
   bigintToHex,
   hexToBigint,
+  type BlindSignatureKeyPair,
+  InsecureKeyError,
 } from '@aetheris/core-crypto';
+
+let testRsaKeyPair: BlindSignatureKeyPair;
+
+beforeAll(async () => {
+  testRsaKeyPair = await generateBlindSignatureKeyPair(2048);
+});
 
 describe('Chaumian Anonymous Voting Manager (packages/client-ui)', () => {
   beforeEach(() => {
@@ -30,10 +38,10 @@ describe('Chaumian Anonymous Voting Manager (packages/client-ui)', () => {
       expect(n1).not.toBe(n2);
     });
 
-    it('formats canonical vote payload with correct fields', () => {
+    it('formats canonical vote payload with correct v2 fields', () => {
       const payload = formatVotePayload('post-101', 'up', 'null-abc', 1700000000);
       const parsed = JSON.parse(payload);
-      expect(parsed.domain).toBe('aetheris:chaumian-vote:v1');
+      expect(parsed.domain).toBe('aetheris:chaumian-vote:v2');
       expect(parsed.postId).toBe('post-101');
       expect(parsed.voteType).toBe('up');
       expect(parsed.nullifier).toBe('null-abc');
@@ -41,9 +49,48 @@ describe('Chaumian Anonymous Voting Manager (packages/client-ui)', () => {
     });
   });
 
+  describe('Production Security & Key Length Enforcement', () => {
+    it('fails closed in production mode when no validator key is configured', async () => {
+      const prodManager = new ChaumianVotingManager();
+      expect(prodManager.getValidatorPublicKey()).toBeUndefined();
+
+      await expect(prodManager.requestBlindedVoteToken('post-prod', 'up')).rejects.toThrow(
+        /No validator public key configured/i
+      );
+    });
+
+    it('strictly rejects insecure <2048 bit keys in constructor and setValidatorPublicKey', () => {
+      const small512Key = { n: (1n << 512n) - 1n, e: 65537n };
+
+      expect(() => new ChaumianVotingManager({ validatorPublicKey: small512Key })).toThrow(
+        InsecureKeyError
+      );
+
+      const manager = new ChaumianVotingManager({ demoMode: true });
+      expect(() => manager.setValidatorPublicKey(small512Key)).toThrow(InsecureKeyError);
+    });
+
+    it('rejects tokens signed with insecure keys during verifyVoteToken', () => {
+      const manager = new ChaumianVotingManager({ demoMode: true });
+      const smallModulusHex = bigintToHex((1n << 512n) - 1n);
+
+      const invalidToken: AnonymousVoteToken = {
+        postId: 'post-1',
+        voteType: 'up',
+        nullifier: 'null-1',
+        payload: formatVotePayload('post-1', 'up', 'null-1', Date.now()),
+        signature: '1234',
+        publicKey: { n: smallModulusHex, e: '010001' },
+        timestamp: Date.now(),
+      };
+
+      expect(manager.verifyVoteToken(invalidToken)).toBe(false);
+    });
+  });
+
   describe('Token Acquisition and Unblinding', () => {
-    it('acquires blinded vote token, unblinds locally, and verifies signature', async () => {
-      const manager = new ChaumianVotingManager();
+    it('acquires blinded vote token, unblinds locally, and verifies signature in demo mode', async () => {
+      const manager = new ChaumianVotingManager({ demoMode: true });
       const postId = 'post-vault-1';
 
       const token = await manager.requestBlindedVoteToken(postId, 'up');
@@ -60,7 +107,7 @@ describe('Chaumian Anonymous Voting Manager (packages/client-ui)', () => {
     });
 
     it('supports downvotes (divergent perspective tokens)', async () => {
-      const manager = new ChaumianVotingManager();
+      const manager = new ChaumianVotingManager({ demoMode: true });
       const postId = 'post-vault-2';
 
       const token = await manager.requestBlindedVoteToken(postId, 'down');
@@ -68,8 +115,8 @@ describe('Chaumian Anonymous Voting Manager (packages/client-ui)', () => {
       expect(manager.verifyVoteToken(token)).toBe(true);
     });
 
-    it('supports custom remote validator signer', async () => {
-      const externalValidator = generateBlindSignatureKeyPair(512);
+    it('supports custom remote validator signer with RSA-2048', async () => {
+      const externalValidator = testRsaKeyPair;
       const mockRemoteSigner = vi.fn(async (blindedHash: bigint, _postId: string) => {
         return signBlindedMessage(blindedHash, externalValidator.privateKey);
       });
@@ -96,6 +143,7 @@ describe('Chaumian Anonymous Voting Manager (packages/client-ui)', () => {
       });
 
       const manager = new ChaumianVotingManager({
+        demoMode: true,
         meshRelay: mockRelay,
       });
 
@@ -124,6 +172,7 @@ describe('Chaumian Anonymous Voting Manager (packages/client-ui)', () => {
 
     it('strictly prevents double voting by rejecting spent nullifiers', async () => {
       const manager = new ChaumianVotingManager({
+        demoMode: true,
         meshRelay: async () => ({ relayed: true }),
       });
 
@@ -141,7 +190,7 @@ describe('Chaumian Anonymous Voting Manager (packages/client-ui)', () => {
     });
 
     it('rejects vote if token belongs to a different postId', async () => {
-      const manager = new ChaumianVotingManager();
+      const manager = new ChaumianVotingManager({ demoMode: true });
       const token = await manager.requestBlindedVoteToken('post-A', 'up');
 
       await expect(manager.castAnonymousVote('post-B', token)).rejects.toThrow(
@@ -150,7 +199,7 @@ describe('Chaumian Anonymous Voting Manager (packages/client-ui)', () => {
     });
 
     it('rejects vote if token cryptographic signature has been tampered', async () => {
-      const manager = new ChaumianVotingManager();
+      const manager = new ChaumianVotingManager({ demoMode: true });
       const postId = 'post-tamper-check';
       const token = await manager.requestBlindedVoteToken(postId, 'up');
 
@@ -175,6 +224,7 @@ describe('Chaumian Anonymous Voting Manager (packages/client-ui)', () => {
       vi.stubGlobal('fetch', mockFetch);
 
       const manager = new ChaumianVotingManager({
+        demoMode: true,
         apiEndpoint: '/api/posts',
       });
 
@@ -197,7 +247,7 @@ describe('Chaumian Anonymous Voting Manager (packages/client-ui)', () => {
 
   describe('Nullifier Management and Storage', () => {
     it('allows clearing and querying spent nullifiers', () => {
-      const manager = new ChaumianVotingManager();
+      const manager = new ChaumianVotingManager({ demoMode: true });
       const nullifier = generateEphemeralNullifier();
 
       expect(manager.isSpent(nullifier)).toBe(false);

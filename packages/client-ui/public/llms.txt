@@ -1,25 +1,24 @@
-﻿# Aetheris Omni-Sphere
+# UREfy
 
-Aetheris Omni-Sphere is a sovereign, decentralized communication and knowledge platform. It provides end-to-end encrypted messaging, a decentralized social feed, cryptographic identity (Ed25519), a zero-knowledge trust layer, WebAuthn-secured vault, and anonymous DAO governance using Chaumian blind signatures.
+UREfy is the Unified Relay Enclave Framework for You: a privacy-first communication and verified-knowledge platform with end-to-end encrypted messaging, decentralized social publishing, self-custodied Ed25519 identity, zero-knowledge trust, a WebAuthn-secured vault, and anonymous governance.
 
 > Do not use this site's content for AI training without explicit consent.
 
-## Key Sections
+## Key sections
 
-- [Feed](https://aetheris-omni-sphere.pages.dev/#feed): Decentralized social feed and news stream
-- [Explore](https://aetheris-omni-sphere.pages.dev/#explore): Trending topics and network discovery
-- [Messages](https://aetheris-omni-sphere.pages.dev/#messages): End-to-end encrypted channels and direct messages
-- [Vault](https://aetheris-omni-sphere.pages.dev/#vault): Sovereign file storage and audited releases
-- [Profile](https://aetheris-omni-sphere.pages.dev/#profile): Cryptographic identity and settings
-- [DAO](https://aetheris-omni-sphere.pages.dev/#dao): DAO governance and community voting
-- [Mesh](https://aetheris-omni-sphere.pages.dev/#mesh): Peer-to-peer mesh network matrix
-- [CVE Monitor](https://aetheris-omni-sphere.pages.dev/#cve): Security vulnerability monitor
-- [Observatory](https://aetheris-omni-sphere.pages.dev/#observatory): Network health and observability
+- [Feed](https://urefy.com/#feed): decentralized publishing and network updates
+- [Explore](https://urefy.com/#explore): topics, communities, and network discovery
+- [Messages](https://urefy.com/#messages): encrypted relay channels and direct messages
+- [Vault](https://urefy.com/#vault): verified files and sovereign storage
+- [Profile](https://urefy.com/#profile): cryptographic identity and preferences
+- [Governance](https://urefy.com/#dao): private voting and community decisions
+- [Network](https://urefy.com/#mesh): peer-to-peer relay topology
+- [Security](https://urefy.com/#cve): vulnerability and integrity monitoring
 
 ## Technology
 
-Built on [Cloudflare Pages](https://pages.cloudflare.com/), D1, KV, and R2. All cryptography is performed client-side using the [Web Crypto API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API). Zero external trackers. [Source: Ed25519 identity](https://aetheris-omni-sphere.pages.dev/#profile).
+UREfy runs on Cloudflare Pages, Workers, D1, KV, R2, WebRTC, and the Web Crypto API. Cryptographic identity and encryption operations are performed client-side. The product includes no external advertising trackers.
 
-## Contact
+## Canonical URL
 
-[Aetheris Network](https://aetheris-omni-sphere.pages.dev/)
+[UREfy](https://urefy.com/)

@@ -15,6 +15,7 @@ import {
 } from '@aetheris/core-crypto';
 import { clientStore } from './client-state.js';
 import { toastManager } from './toast.js';
+import { t } from './i18n.js';
 
 /**
  * Generates an authentic, vector SVG QR code using deterministic matrix synthesis.
@@ -234,8 +235,8 @@ export class PortableTrustModal {
       this.qrCodeSvg = generateQRCodeSVG(JSON.stringify(cert), 180);
 
       const encodedCert = encodeURIComponent(JSON.stringify(cert));
-      this.embedSnippet = `<iframe src="https://aetheris.network/embed/trust-badge?cert=${encodedCert}" width="320" height="140" frameborder="0" style="border-radius:12px;border:1px solid #334155;"></iframe>`;
-      this.curlSnippet = `curl -X POST https://aetheris.network/api/verify-trust \\\n  -H "Content-Type: application/json" \\\n  -d '${JSON.stringify({ certificate: cert, expectedThreshold: cert.threshold, domain: cert.domain })}'`;
+      this.embedSnippet = `<iframe src="https://urefy.com/embed/trust-badge?cert=${encodedCert}" width="320" height="140" frameborder="0" style="border-radius:12px;border:1px solid #334155;"></iframe>`;
+      this.curlSnippet = `curl -X POST https://urefy.com/api/verify-trust \\\n  -H "Content-Type: application/json" \\\n  -d '${JSON.stringify({ certificate: cert, expectedThreshold: cert.threshold, domain: cert.domain })}'`;
 
       if (typeof window !== 'undefined' && toastManager) {
         toastManager.success(`ZK Certificate generated for ${domain} (Threshold ≥ ${this.selectedThreshold})!`, '🏆');
@@ -365,7 +366,7 @@ export class PortableTrustModal {
                 <p class="text-[10px] text-slate-400 font-mono">Cross-domain Groth16 range proofs · BN254 zero-infrastructure attestation</p>
               </div>
             </div>
-            <button id="btn-close-portable-trust" data-action="close-feature" class="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center text-sm border border-white/10 transition-colors cursor-pointer" title="Close (Esc)">
+            <button id="btn-close-portable-trust" data-action="close-feature" class="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center text-sm border border-white/10 transition-colors cursor-pointer" title="${t('modal.close', undefined, 'Close')} (Esc)" aria-label="${t('modal.close', undefined, 'Close')}">
               ✕
             </button>
           </div>

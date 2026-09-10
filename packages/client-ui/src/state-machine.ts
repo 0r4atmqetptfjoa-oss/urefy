@@ -1,5 +1,5 @@
 /**
- * AETHERIS HYBRID SUITE - MODULAR ASYNC STATE MACHINE
+ * UREfy HYBRID SUITE - MODULAR ASYNC STATE MACHINE
  * Deterministic, strongly-typed Finite State Machine engine for critical asynchronous workflows
  * (WebAuthn hardware auth, WebRTC signaling & chunk streaming, Merkle offline sync, Vault enclaves).
  */

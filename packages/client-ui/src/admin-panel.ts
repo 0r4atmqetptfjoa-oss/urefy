@@ -381,7 +381,7 @@ export class AdminPanelManager {
   public exportAuditLogs(): void {
     if (typeof document === 'undefined') return;
     const data = {
-      title: 'Aetheris Sovereign Security Audit Ledger',
+      title: 'UREfy Sovereign Security Audit Ledger',
       exportedAt: new Date().toISOString(),
       adminFingerprint: adminAuth.adminFingerprintId,
       totalEntries: this.adminLogs.length,
@@ -394,7 +394,7 @@ export class AdminPanelManager {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `aetheris_audit_ledger_${Date.now()}.json`;
+    a.download = `urefy_audit_ledger_${Date.now()}.json`;
     document.body.appendChild(a);
     a.click();
     setTimeout(() => {
@@ -404,18 +404,18 @@ export class AdminPanelManager {
   }
 
   public async runDefenseSimulation(): Promise<string> {
-    const probeIps = ['198.51.100.42', '203.0.113.19', '192.0.2.77'];
-    const targetIp = probeIps[Math.floor(Math.random() * probeIps.length)];
-    const reasons = [
-      'Automated SQLi Probe on /api/messages',
-      'High-Rate Replay Attack detected by ZK-RLN Nullifier Engine',
-      'Honeypot Scanner: Attempted access to restricted admin RPC',
-    ];
-    const reason = reasons[Math.floor(Math.random() * reasons.length)];
-    
-    this.banIP(targetIp, reason);
-    this._log('DEFENSE_PROBE_MITIGATED', targetIp);
-    return `Security incident simulated: IP ${targetIp} neutralized & quarantined by WAF.`;
+    try {
+      const response = await fetch('/api/health', { cache: 'no-store', credentials: 'same-origin' });
+      const required = ['x-content-type-options', 'x-frame-options', 'content-security-policy', 'referrer-policy'];
+      const missing = required.filter((header) => !response.headers.get(header));
+      this._log('EDGE_SECURITY_HEADERS_VERIFIED', response.ok ? 'PASS' : `HTTP_${response.status}`);
+      if (!response.ok) return `Edge security verification failed with HTTP ${response.status}.`;
+      if (missing.length > 0) return `Edge is online, but required headers are missing: ${missing.join(', ')}.`;
+      return 'UREfy edge verified: API healthy and all mandatory browser security headers are active.';
+    } catch {
+      this._log('EDGE_SECURITY_HEADERS_VERIFIED', 'NETWORK_FAILURE');
+      return 'Edge security verification could not reach the health endpoint.';
+    }
   }
 
   public async createChannel(name: string, space: 'relays' | 'vault' | 'pulse'): Promise<void> {
@@ -1217,9 +1217,9 @@ export class AdminPanelManager {
         <div class="bg-surface-raised border border-white/10 rounded-2xl p-5 space-y-4">
           <div class="flex items-center justify-between">
             <h3 class="text-sm font-bold text-white">WAF Configuration & Threat Mitigation</h3>
-            <button id="btn-admin-run-stress-test" class="px-3 py-1.5 text-xs rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 font-mono flex items-center space-x-1.5 transition-all cursor-pointer" title="Simulate automated honeypot/SQLi probe to verify live edge isolation">
+            <button id="btn-admin-run-stress-test" class="px-3 py-1.5 text-xs rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 font-mono flex items-center space-x-1.5 transition-all cursor-pointer" title="Verify the live edge API and mandatory browser security headers">
               <span>⚡</span>
-              <span>Run WAF Stress Probe</span>
+              <span>Verify Edge Security</span>
             </button>
           </div>
           <div class="grid grid-cols-2 gap-4 text-sm">
@@ -2267,7 +2267,7 @@ export class AdminPanelManager {
     document.getElementById('btn-admin-run-stress-test')?.addEventListener('click', async () => {
       const msg = await this.runDefenseSimulation();
       onStateChange();
-      await sovereignDialog.alert(msg, { title: 'WAF Defense Stress Probe', type: 'info' });
+      await sovereignDialog.alert(msg, { title: 'UREfy Edge Security Verification', type: 'info' });
     });
 
     // Cloudflare R2 Free Tier Quota Guardian Refresh

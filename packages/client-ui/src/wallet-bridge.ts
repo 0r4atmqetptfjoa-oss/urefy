@@ -1,16 +1,18 @@
 // ============================================================================
-// wallet-bridge.ts — Aetheris Omni-Sphere Sovereign Wallet & Identity Bridge
-// Ed25519 (Aetheris Core Curve) → Secp256k1 (Ethereum / EVM) Dual-Curve Bridge
+// wallet-bridge.ts — UREfy Sovereign Wallet & Identity Bridge
+// Ed25519 (UREfy Core Curve) → Secp256k1 (Ethereum / EVM) Dual-Curve Bridge
 // 100% Self-Contained, Strict TypeScript, Zero External Dependencies.
 // ============================================================================
 
 import './window-augmentation.js';
 import { serviceRegistry, SERVICES } from './service-registry.js';
 import { getEthereumProvider } from './dry-utils.js';
+import { BrowserProvider, getAddress, verifyMessage, parseUnits, hexlify, toUtf8Bytes, type Eip1193Provider } from 'ethers';
+import { renderIcon } from './ui/icons.js';
 
 /**
  * @interface BlockchainIdentity
- * Sovereign Cross-Chain Identity linking an Aetheris Ed25519 keypair to an EVM Secp256k1 identity.
+ * Sovereign Cross-Chain Identity linking an UREfy Ed25519 keypair to an EVM Secp256k1 identity.
  */
 export interface BlockchainIdentity {
   ensName?: string;
@@ -18,6 +20,7 @@ export interface BlockchainIdentity {
   aetherisKey: string;
   linkedAt: number;
   verificationProof: string;
+  verificationMessage?: string;
 }
 
 /**
@@ -29,6 +32,7 @@ export interface SignedMessage {
   signature: string;
   keyType: 'ed25519' | 'secp256k1';
   timestamp: number;
+  address?: string;
 }
 
 /**
@@ -46,6 +50,8 @@ export interface TokenGate {
   spaceChannelId: string;
   passed: boolean;
   checkedAt: number;
+  chainId?: string;
+  error?: string;
   decimals?: number;
 }
 
@@ -385,7 +391,7 @@ export class WalletBridge {
   public selectedAccount: string = '';
   public recentSignatures: SignedMessage[] = [];
   public defaultAetherisKey: string = '';
-  public customMessageInput: string = 'Aetheris Sovereign Attestation #';
+  public customMessageInput: string = 'UREfy Sovereign Attestation #';
   public lastSignedProof: string = '';
   public toastMessage: string | null = null;
   public toastType: 'info' | 'success' | 'warn' | 'error' = 'info';
@@ -434,66 +440,19 @@ export class WalletBridge {
     }
   ];
 
-  public tokenGates: TokenGate[] = [
-    {
-      id: 'gate-aeth-guardian',
-      name: 'Aetheris Guardian Council DAO',
-      tokenAddress: '0xA374F62184918e90E0e82fF4eB54673B8e725041',
-      minBalance: 100,
-      symbol: 'AETH',
-      icon: '🏛️',
-      description: 'Sovereign governance quorum, parameter modification, and protocol treasury voting.',
-      spaceChannelId: 'channel-guardian-council',
-      passed: false,
-      checkedAt: 0,
-      decimals: 18
-    },
-    {
-      id: 'gate-cyphr-relays',
-      name: 'Cyphr Private Relays & Dark-Mesh',
-      tokenAddress: '0xC4F842526e828D24E3a52140D0c66Eb45548E19B',
-      minBalance: 25,
-      symbol: 'CYPHR',
-      icon: '⚡',
-      description: 'Uncensored high-bandwidth WebRTC encrypted tunnels and low-latency gossip routing.',
-      spaceChannelId: 'channel-cyphr-darkmesh',
-      passed: false,
-      checkedAt: 0,
-      decimals: 18
-    },
-    {
-      id: 'gate-zkid-passport',
-      name: 'ZK-Sovereign Humanity Passport',
-      tokenAddress: '0x7E192D8B8f7734E27d92F8d5a15320875c754d92',
-      minBalance: 1,
-      symbol: 'ZKID',
-      icon: '🛡️',
-      description: 'Zero-Knowledge Proof-of-Humanity token verifying non-sybil status without KYC.',
-      spaceChannelId: 'channel-zk-citizens',
-      passed: false,
-      checkedAt: 0,
-      decimals: 18
-    }
-  ];
+  public tokenGates: TokenGate[] = [];
+  private tokenVerificationError: string | null = null;
 
   private readonly STORAGE_KEY = 'aetheris_wallet_bridge_state_v1';
+  private observedProvider: object | null = null;
+  private managedByShell = false;
 
   constructor() {
     this.defaultAetherisKey = this.generateDeterministicEd25519Key();
     this.loadFromStorage();
-
-    // Default standalone identity derivation if not yet connected
-    if (!this.identity) {
-      const derivedEth = this.deriveEthAddressFromED25519(this.defaultAetherisKey);
-      this.identity = {
-        ethAddress: derivedEth,
-        ensName: 'sovereign.aetheris.eth',
-        aetherisKey: this.defaultAetherisKey,
-        linkedAt: Date.now(),
-        verificationProof: this.createVerificationProof(this.defaultAetherisKey, derivedEth)
-      };
-      this.selectedAccount = derivedEth;
-    }
+    this.isConnected = false;
+    this.selectedAccount = '';
+    this.identity = null;
 
     // Attach to global window and IoC service container
     if (typeof window !== 'undefined') {
@@ -508,18 +467,29 @@ export class WalletBridge {
    */
   private initMetaMaskListeners(): void {
     const eth = getEthereumProvider();
+    if (eth === this.observedProvider) return;
     if (eth && typeof eth.on === 'function') {
+      this.observedProvider = eth;
       eth.on('accountsChanged', (accounts: unknown) => {
+        if (eth !== getEthereumProvider()) return;
         const accs = accounts as string[];
         if (accs && accs.length > 0) {
-          this.handleAccountChange(accs[0]);
+          void this.handleAccountChange(accs[0]).catch(() => this.disconnect());
         } else {
           this.disconnect();
         }
       });
 
       eth.on('chainChanged', (chainIdHex: unknown) => {
+        if (eth !== getEthereumProvider()) return;
         const hex = chainIdHex as string;
+        if (typeof hex !== 'string' || !/^0x[0-9a-f]+$/i.test(hex)) return;
+        this.lastSignedProof = '';
+        if (this.identity) {
+          this.identity.verificationProof = '';
+          this.identity.verificationMessage = undefined;
+        }
+        this.tokenGates.forEach(gate => { gate.passed = false; gate.checkedAt = 0; });
         this.chainId = hex;
         const net = this.supportedNetworks.find((n) => n.chainId.toLowerCase() === hex.toLowerCase());
         this.currentNetwork = net ? `${net.chainName} (${parseInt(hex, 16)})` : `Chain ${hex}`;
@@ -536,13 +506,18 @@ export class WalletBridge {
     const formatted = this.encodeEIP55(account);
     this.selectedAccount = formatted;
     this.isConnected = true;
+    this.lastSignedProof = '';
+    this.tokenGates.forEach(gate => { gate.passed = false; gate.checkedAt = 0; });
+    this.identity = null;
+    this.defaultAetherisKey = this.generateDeterministicEd25519Key();
     const ens = await this.resolveENS(formatted);
+    if (!this.isConnected || this.selectedAccount !== formatted) return;
     this.identity = {
       ethAddress: formatted,
       ensName: ens || undefined,
       aetherisKey: this.defaultAetherisKey,
       linkedAt: Date.now(),
-      verificationProof: this.createVerificationProof(this.defaultAetherisKey, formatted)
+      verificationProof: ''
     };
     this.saveToStorage();
     this.showToast(`Active MetaMask account: ${this.truncateAddress(formatted)}`, 'success');
@@ -553,36 +528,8 @@ export class WalletBridge {
    * Generates a deterministic sovereign Ed25519 public key representation for the local node.
    */
   private generateDeterministicEd25519Key(): string {
-    const seed = 'aetheris_core_sovereign_identity_seed_2026';
-    const hash = bytesToHex(sha256(seed));
-    return `ed25519:${hash.slice(0, 64)}`;
-  }
-
-  /**
-   * Generates a verifiable dual-curve linkage cryptographic proof string.
-   */
-  private createVerificationProof(edKey: string, ethAddr: string): string {
-    const header = 'AETHERIS_SOVEREIGN_ID_BRIDGE_V1';
-    const payload = `${header}|ED25519:${edKey}|SECP256K1:${ethAddr}|TIMESTAMP:${Date.now()}`;
-    const sigBytes = sha256(`PROOF_SIG:${payload}`);
-    const sigHex = bytesToHex(sigBytes);
-    return `0x${sigHex}b01f94a872e45c71d3a68128`;
-  }
-
-  /**
-   * Derives a deterministic Ethereum address from an Ed25519 public key.
-   * 1. Hashes the Ed25519 public key using SHA-256 (pure TypeScript engine)
-   * 2. Extracts the last 20 bytes (indices 12 to 31) as simulated Secp256k1 address
-   * 3. Formats the raw address using standard Ethereum EIP-55 checksum
-   */
-  public deriveEthAddressFromED25519(pubKeyHex: string): string {
-    const cleanKey = pubKeyHex.replace(/^(0x|ed25519:)/i, '').replace(/[^0-9a-fA-F]/g, '');
-    const keyBytes = cleanKey.length >= 64 ? hexToBytes(cleanKey.slice(0, 64)) : utf8ToBytes(pubKeyHex);
-    const hash = sha256(keyBytes);
-    // Take the last 20 bytes (indices 12 to 31) of the 32-byte SHA-256 hash
-    const ethAddressBytes = hash.slice(12, 32);
-    const rawHex = bytesToHex(ethAddressBytes);
-    return this.encodeEIP55(rawHex);
+    const publicKey = typeof window !== 'undefined' ? window.clientStore?.keypair?.publicKey : undefined;
+    return publicKey instanceof Uint8Array ? `ed25519:${bytesToHex(publicKey)}` : '';
   }
 
   /**
@@ -590,23 +537,7 @@ export class WalletBridge {
    * Based on the Keccak-256 hash of the lowercase address string.
    */
   public encodeEIP55(address: string): string {
-    const clean = address.toLowerCase().replace(/^0x/, '');
-    if (clean.length !== 40) {
-      return `0x${clean}`;
-    }
-
-    const hash = bytesToHex(keccak256(clean));
-    let checksummed = '0x';
-    for (let i = 0; i < 40; i++) {
-      const char = clean[i];
-      const hashNibble = parseInt(hash[i], 16);
-      if (hashNibble >= 8) {
-        checksummed += char.toUpperCase();
-      } else {
-        checksummed += char.toLowerCase();
-      }
-    }
-    return checksummed;
+    return getAddress(`0x${address.replace(/^0x/i, '').toLowerCase()}`);
   }
 
   /**
@@ -615,6 +546,8 @@ export class WalletBridge {
    */
   public async connectMetaMask(): Promise<string | null> {
     const eth = getEthereumProvider();
+    this.defaultAetherisKey = this.generateDeterministicEd25519Key();
+    this.initMetaMaskListeners();
     if (eth && typeof eth.request === 'function') {
       try {
           this.showToast('Requesting MetaMask connection...', 'info');
@@ -643,7 +576,7 @@ export class WalletBridge {
               ensName: ens || undefined,
               aetherisKey: this.defaultAetherisKey,
               linkedAt: Date.now(),
-              verificationProof: this.createVerificationProof(this.defaultAetherisKey, checksummed)
+              verificationProof: ''
             };
 
             this.saveToStorage();
@@ -658,22 +591,11 @@ export class WalletBridge {
         }
       }
 
-    // Standalone sovereign fallback
-    this.isConnected = true;
-    const derived = this.deriveEthAddressFromED25519(this.defaultAetherisKey);
-    this.selectedAccount = derived;
-    const ens = await this.resolveENS(derived);
-    this.identity = {
-      ethAddress: derived,
-      ensName: ens || 'sovereign.aetheris.eth',
-      aetherisKey: this.defaultAetherisKey,
-      linkedAt: Date.now(),
-      verificationProof: this.createVerificationProof(this.defaultAetherisKey, derived)
-    };
-    this.saveToStorage();
-    this.showToast('Derived Secp256k1 identity active (Standalone Sovereign Mode)', 'success');
-    this.updateUI();
-    return derived;
+    this.isConnected = false;
+    this.selectedAccount = '';
+    this.identity = null;
+    this.showToast('No wallet account is available. Install or unlock an EVM wallet and connect it.', 'warn');
+    return null;
   }
 
   /**
@@ -681,15 +603,10 @@ export class WalletBridge {
    */
   public disconnect(): void {
     this.isConnected = false;
-    const derived = this.deriveEthAddressFromED25519(this.defaultAetherisKey);
-    this.selectedAccount = derived;
-    this.identity = {
-      ethAddress: derived,
-      ensName: 'sovereign.aetheris.eth',
-      aetherisKey: this.defaultAetherisKey,
-      linkedAt: Date.now(),
-      verificationProof: this.createVerificationProof(this.defaultAetherisKey, derived)
-    };
+    this.selectedAccount = '';
+    this.identity = null;
+    this.lastSignedProof = '';
+    this.tokenGates.forEach(gate => { gate.passed = false; gate.checkedAt = 0; });
     this.saveToStorage();
     this.showToast('MetaMask session disconnected.', 'info');
     this.updateUI();
@@ -709,18 +626,25 @@ export class WalletBridge {
     if (eth && typeof eth.request === 'function' && this.isConnected) {
       try {
           this.showToast('Sign the message in your MetaMask window...', 'info');
-          const hexMsg = `0x${bytesToHex(utf8ToBytes(message))}`;
+          const hexMsg = hexlify(toUtf8Bytes(message));
           const signature = (await eth.request({
             method: 'personal_sign',
             params: [hexMsg, activeAddress]
           })) as string;
 
           if (signature) {
+            if (!this.isConnected || this.selectedAccount.toLowerCase() !== activeAddress.toLowerCase()) {
+              throw new Error('Wallet account changed while signing. Please retry.');
+            }
+            if (verifyMessage(message, signature).toLowerCase() !== activeAddress.toLowerCase()) {
+              throw new Error('Signature does not match the connected wallet account.');
+            }
             const signedObj: SignedMessage = {
               message,
               signature,
               keyType: 'secp256k1',
-              timestamp: Date.now()
+              timestamp: Date.now(),
+              address: activeAddress,
             };
             this.recentSignatures.unshift(signedObj);
             if (this.recentSignatures.length > 20) this.recentSignatures.pop();
@@ -737,27 +661,8 @@ export class WalletBridge {
         }
       }
 
-    // Sovereign standalone cryptographic signature simulation
-    const prefix = `\x19Ethereum Signed Message:\n${message.length}${message}`;
-    const hash = bytesToHex(keccak256(prefix));
-    const r = hash.slice(0, 64);
-    const s = bytesToHex(sha256(`s_${hash}`)).slice(0, 64);
-    const v = '1b'; // 27 in hex
-    const compactSig = `0x${r}${s}${v}`;
-
-    const signedObj: SignedMessage = {
-      message,
-      signature: compactSig,
-      keyType: 'secp256k1',
-      timestamp: Date.now()
-    };
-    this.recentSignatures.unshift(signedObj);
-    if (this.recentSignatures.length > 20) this.recentSignatures.pop();
-    this.lastSignedProof = compactSig;
-    this.saveToStorage();
-    this.showToast('Secp256k1 signature generated locally (Sovereign Engine).', 'success');
-    this.updateUI();
-    return signedObj;
+    this.showToast('Signing requires a connected EVM wallet.', 'warn');
+    return null;
   }
 
   /**
@@ -765,53 +670,12 @@ export class WalletBridge {
    * Performs reverse resolution with graceful fallback if offline.
    */
   public async resolveENS(address: string): Promise<string | null> {
-    const cleanAddr = address.toLowerCase().replace(/^0x/, '');
-
-    // High-priority known registry mapping for immediate lookup
-    const KNOWN_ENS_REGISTRY: Record<string, string> = {
-      d8da6bf26964af9d7eed9e03e53415d37aa96045: 'vitalik.eth',
-      de0b295669a9fd93d5f28d9ec85e40f4cb697bae: 'ethereum.eth',
-      '3b415a77cfbe0ee46cc7a0a65bb5ec92f038be28': 'aetheris.eth',
-      '8129fc1c0288077ebf743770e03beeb1f949c797': 'sovereign.eth',
-      a79e63e78e20224a0d507d5765f774e66d3dac48: 'satoshi.eth'
-    };
-
-    if (KNOWN_ENS_REGISTRY[cleanAddr]) {
-      return KNOWN_ENS_REGISTRY[cleanAddr];
-    }
-
-    // Try public RPC reverse resolution if available
-    if (typeof fetch === 'function') {
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 1200);
-
-        const res = await fetch(`https://api.ensideas.com/ens/resolve/${address}`, {
-          method: 'GET',
-          signal: controller.signal
-        }).catch(() => null);
-
-        clearTimeout(timeoutId);
-
-        if (res && res.ok) {
-          const data = (await res.json()) as { name?: string };
-          if (data && data.name) {
-            return data.name;
-          }
-        }
-      } catch {
-        // Offline fallback
-      }
-    }
-
-    // Sovereign deterministic alias fallback for standard addresses
-    if (cleanAddr.length === 40) {
-      const prefix = cleanAddr.slice(0, 4);
-      const suffix = cleanAddr.slice(36, 40);
-      return `sovereign-${prefix}${suffix}.eth`;
-    }
-
-    return null;
+    const eth = getEthereumProvider();
+    if (!eth || !this.isConnected) return null;
+    const provider = new BrowserProvider(eth as Eip1193Provider);
+    try { return await provider.lookupAddress(this.encodeEIP55(address)); }
+    catch { return null; }
+    finally { provider.destroy(); }
   }
 
   /**
@@ -821,8 +685,10 @@ export class WalletBridge {
    * Never uses mock balance fallbacks or local passed cache as authoritative.
    */
   public async verifyTokenGate(tokenAddress: string, minBalance: number, specifiedDecimals?: number): Promise<boolean> {
+    this.tokenVerificationError = null;
     const activeAddress = this.identity?.ethAddress || this.selectedAccount;
     if (!activeAddress) {
+      this.tokenVerificationError = 'Wallet not connected';
       this.showToast('Token verification unavailable: Web3 provider disconnected', 'warn');
       return false;
     }
@@ -833,6 +699,7 @@ export class WalletBridge {
     // Check if Web3 provider is connected to execute real eth_call ERC-20 balanceOf
     const eth = getEthereumProvider();
     if (!eth || typeof eth.request !== 'function' || !this.isConnected) {
+      this.tokenVerificationError = 'Wallet not connected';
       this.showToast('Token verification unavailable: Web3 provider disconnected', 'warn');
       return false;
     }
@@ -865,8 +732,9 @@ export class WalletBridge {
         }
       }
 
-      if (decimals === undefined) {
-        decimals = 18;
+      if (decimals === undefined || !Number.isInteger(decimals) || decimals < 0 || decimals > 36 || !Number.isFinite(minBalance) || minBalance < 0) {
+        this.tokenVerificationError = 'Token decimals or threshold unavailable';
+        return false;
       }
 
       // 2. Query ERC-20 balanceOf(address) selector: 0x70a08231 + 32-byte zero-padded address
@@ -878,33 +746,34 @@ export class WalletBridge {
       })) as string;
 
       if (!resHex || resHex === '0x') {
+        this.tokenVerificationError = 'Contract returned no balance';
         return false;
       }
 
       const rawBal = BigInt(resHex);
 
       // 3. Normalize threshold and compare with BigInt precision
-      const factor = 10n ** BigInt(decimals);
-      const wholePart = Math.floor(minBalance);
-      const fracPart = minBalance - wholePart;
-      const minThresholdRaw = BigInt(wholePart) * factor +
-        BigInt(Math.round(fracPart * Number(factor)));
+      const minThresholdRaw = parseUnits(String(minBalance), decimals);
 
       return rawBal >= minThresholdRaw;
     } catch {
+      this.tokenVerificationError = 'The balance request could not be verified';
       this.showToast('Token verification unavailable: Web3 provider disconnected', 'warn');
       return false;
     }
   }
 
   /**
-   * Signs the Aetheris Sovereign Identity Bridge Attestation.
+   * Signs the UREfy Sovereign Identity Bridge Attestation.
    */
   public async signIdentityProof(): Promise<string | null> {
-    if (!this.identity) {
+    const localKey = this.generateDeterministicEd25519Key();
+    if (!this.identity || !this.isConnected || !localKey) {
       this.showToast('Identity is not initialized.', 'error');
       return null;
     }
+    const identity = this.identity;
+    identity.aetherisKey = localKey;
 
     const nonceBytes = new Uint8Array(32);
     const cryptoObj = (typeof window !== 'undefined' && (window.crypto || (window as any).msCrypto))
@@ -916,10 +785,11 @@ export class WalletBridge {
       throw new Error('CSPRNG unavailable: crypto.getRandomValues is required for secure wallet nonce.');
     }
     const nonce = Array.from(nonceBytes, (b) => b.toString(16).padStart(2, '0')).join('');
-    const payload = `AETHERIS_SOVEREIGN_ID_BRIDGE\nAetherisKey: ${this.identity.aetherisKey}\nEthAddress: ${this.identity.ethAddress}\nLinkedAt: ${this.identity.linkedAt}\nNonce: ${nonce}`;
+    const payload = `UREFY_IDENTITY_BINDING_V1\nOrigin: ${window.location?.origin ?? ''}\nAetherisKey: ${identity.aetherisKey}\nEthAddress: ${identity.ethAddress}\nChainId: ${this.chainId}\nIssuedAt: ${new Date().toISOString()}\nNonce: ${nonce}`;
     const signed = await this.signWithEthereum(payload);
-    if (signed) {
-      this.identity.verificationProof = signed.signature;
+    if (signed && this.identity === identity) {
+      identity.verificationProof = signed.signature;
+      identity.verificationMessage = payload;
       this.saveToStorage();
       this.showToast('Cross-curve identity proof generated and signed!', 'success');
       this.updateUI();
@@ -945,15 +815,24 @@ export class WalletBridge {
   public async checkSingleGate(gateId: string): Promise<void> {
     const gate = this.tokenGates.find((g) => g.id === gateId);
     if (!gate) return;
+    if (gate.chainId && gate.chainId.toLowerCase() !== this.chainId.toLowerCase()) {
+      gate.passed = false;
+      gate.error = 'Switch to the network where this token was added';
+      this.updateUI();
+      return;
+    }
 
     this.showToast(`Verifying balance for ${gate.name}...`, 'info');
     const result = await this.verifyTokenGate(gate.tokenAddress, gate.minBalance, gate.decimals);
     gate.passed = result;
+    gate.error = this.tokenVerificationError ?? undefined;
     gate.checkedAt = Date.now();
     this.saveToStorage();
 
-    if (result) {
-      this.showToast(`Access Unlocked! Sufficient balance for ${gate.symbol}.`, 'success');
+    if (gate.error) {
+      this.showToast(gate.error, 'warn');
+    } else if (result) {
+      this.showToast(`The on-chain balance meets the configured threshold.`, 'success');
     } else {
       this.showToast(`Access Restricted: Insufficient funds for ${gate.symbol}.`, 'warn');
     }
@@ -964,13 +843,50 @@ export class WalletBridge {
    * Re-evaluates all configured token gates.
    */
   public async checkAllTokenGates(): Promise<void> {
-    this.showToast('Verifying all token-gated spaces...', 'info');
     for (const gate of this.tokenGates) {
-      gate.passed = await this.verifyTokenGate(gate.tokenAddress, gate.minBalance, gate.decimals);
-      gate.checkedAt = Date.now();
+      await this.checkSingleGate(gate.id);
     }
     this.saveToStorage();
-    this.showToast('All access gates re-verified.', 'success');
+    this.updateUI();
+  }
+
+  public async addTokenCheck(address: string, threshold: string): Promise<boolean> {
+    const eth = getEthereumProvider();
+    if (!this.isConnected || !eth) {
+      this.showToast('Connect a wallet before adding a token.', 'warn');
+      return false;
+    }
+    try {
+      const tokenAddress = this.encodeEIP55(address.trim());
+      const minBalance = Number(threshold);
+      if (!threshold.trim() || !Number.isFinite(minBalance) || minBalance < 0) throw new Error('Enter a valid threshold');
+      const code = await eth.request({ method: 'eth_getCode', params: [tokenAddress, 'latest'] });
+      if (!code || code === '0x') throw new Error('No contract exists at this address on the active network');
+      const rawDecimals = await eth.request({ method: 'eth_call', params: [{ to: tokenAddress, data: '0x313ce567' }, 'latest'] });
+      const decimals = Number(BigInt(rawDecimals as string));
+      if (!Number.isInteger(decimals) || decimals < 0 || decimals > 36) throw new Error('Unsupported token decimals');
+      parseUnits(threshold, decimals);
+      const id = `user-token:${this.chainId}:${tokenAddress.toLowerCase()}`;
+      const gate: TokenGate = {
+        id, tokenAddress, minBalance, decimals, chainId: this.chainId,
+        name: this.truncateAddress(tokenAddress), symbol: 'tokens', icon: '',
+        description: this.currentNetwork, spaceChannelId: '', passed: false, checkedAt: 0,
+      };
+      this.tokenGates = [...this.tokenGates.filter(existing => existing.id !== id), gate];
+      this.saveToStorage();
+      await this.checkSingleGate(id);
+      return true;
+    } catch (error) {
+      this.showToast(error instanceof Error ? error.message : 'Unable to verify this token', 'error');
+      return false;
+    }
+  }
+
+  public async refreshENS(): Promise<void> {
+    const account = this.selectedAccount;
+    const name = await this.resolveENS(account);
+    if (this.identity && this.selectedAccount === account) this.identity.ensName = name ?? undefined;
+    this.showToast(name ? `ENS: ${name}` : 'No verified ENS name is available on this network.', 'info');
     this.updateUI();
   }
 
@@ -994,14 +910,12 @@ export class WalletBridge {
           this.updateUI();
           return;
         } catch {
-          // If network doesn't exist, try adding or set local
+          this.showToast('The wallet did not approve the network switch.', 'warn');
+          return;
         }
       }
 
-    this.chainId = targetChainId;
-    this.currentNetwork = `${net.chainName} (${parseInt(targetChainId, 16)})`;
-    this.showToast(`Active network set to ${net.chainName}`, 'info');
-    this.updateUI();
+    this.showToast('Connect an EVM wallet before switching networks.', 'warn');
   }
 
   /**
@@ -1015,7 +929,8 @@ export class WalletBridge {
   /**
    * Opens the wallet bridge modal.
    */
-  public openModal(): void {
+  public openModal(managedByShell = false): void {
+    this.managedByShell = managedByShell;
     this.isModalOpen = true;
     this.updateUI();
   }
@@ -1032,21 +947,25 @@ export class WalletBridge {
    * Toggles modal visibility.
    */
   public toggleModal(): void {
-    this.isModalOpen = !this.isModalOpen;
-    this.updateUI();
+    if (this.isModalOpen) this.closeModal();
+    else this.openModal();
   }
 
   /**
    * Copies text to system clipboard and displays a feedback toast.
    */
-  public copyToClipboard(text: string, label: string = 'Text'): void {
-    if (typeof navigator !== 'undefined' && navigator.clipboard) {
-      navigator.clipboard.writeText(text).then(
-        () => this.showToast(`${label} copied to clipboard!`, 'success'),
-        () => this.showToast('Copy failed.', 'error')
-      );
-    } else {
-      this.showToast(`${label} copied!`, 'success');
+  public async copyToClipboard(text: string, label: string = 'Text'): Promise<boolean> {
+    if (!text || typeof navigator === 'undefined' || !navigator.clipboard) {
+      this.showToast('Clipboard is unavailable. Select the value to copy it manually.', 'warn');
+      return false;
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      this.showToast(`${label} copied to clipboard!`, 'success');
+      return true;
+    } catch {
+      this.showToast('Copy failed.', 'error');
+      return false;
     }
   }
 
@@ -1097,12 +1016,9 @@ export class WalletBridge {
     if (typeof window === 'undefined' || !window.localStorage) return;
     try {
       const payload = {
-        identity: this.identity,
-        isConnected: this.isConnected,
         chainId: this.chainId,
         currentNetwork: this.currentNetwork,
-        recentSignatures: this.recentSignatures.slice(0, 20),
-        tokenGates: this.tokenGates
+        tokenGates: this.tokenGates.map(gate => ({ ...gate, passed: false, checkedAt: 0 }))
       };
       window.localStorage.setItem(this.STORAGE_KEY, JSON.stringify(payload));
     } catch {
@@ -1119,12 +1035,11 @@ export class WalletBridge {
       const raw = window.localStorage.getItem(this.STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (parsed.identity) this.identity = parsed.identity;
-        if (typeof parsed.isConnected === 'boolean') this.isConnected = parsed.isConnected;
         if (parsed.chainId) this.chainId = parsed.chainId;
         if (parsed.currentNetwork) this.currentNetwork = parsed.currentNetwork;
-        if (Array.isArray(parsed.recentSignatures)) this.recentSignatures = parsed.recentSignatures;
-        if (Array.isArray(parsed.tokenGates)) this.tokenGates = parsed.tokenGates;
+        if (Array.isArray(parsed.tokenGates)) this.tokenGates = parsed.tokenGates
+          .filter((gate: TokenGate) => typeof gate.id === 'string' && gate.id.startsWith('user-token:') && /^0x[0-9a-f]{40}$/i.test(gate.tokenAddress))
+          .map((gate: TokenGate) => ({ ...gate, passed: false, checkedAt: 0, error: undefined }));
       }
     } catch {
       // Storage parsing failed
@@ -1142,6 +1057,12 @@ export class WalletBridge {
     const btnContainer = document.getElementById('aetheris-wallet-button-container');
     if (btnContainer) {
       btnContainer.innerHTML = this.renderWalletButton();
+    }
+
+    if (this.managedByShell) {
+      document.getElementById('aetheris-wallet-modal-container')?.remove();
+      window.clientStore?.notify();
+      return;
     }
 
     // Main Modal / Panel Container
@@ -1168,7 +1089,7 @@ export class WalletBridge {
     const label = ens ? ens : addr ? this.truncateAddress(addr, 6, 4) : 'Wallet';
 
     return `
-      <button data-action="call-global" data-global-method="walletBridge.toggleModal"
+      <button type="button" data-action="open-feature" data-feature="wallet"
         class="group relative flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all duration-200 font-mono text-xs shadow-sm
           ${
             isConn
@@ -1177,7 +1098,7 @@ export class WalletBridge {
           }"
         title="Open Sovereign Wallet & Dual-Curve Bridge"
       >
-        <span class="text-sm">💰</span>
+        ${renderIcon('wallet', { size: 18 })}
         <span class="font-semibold tracking-tight text-white">${escapeHtml(label)}</span>
         ${
           isConn
@@ -1211,7 +1132,7 @@ export class WalletBridge {
                     Ed25519 ↔ Secp256k1
                   </span>
                 </div>
-                <p class="text-xs text-slate-400">Cryptographic bridge linking Aetheris Core identity with the Ethereum / EVM ecosystem</p>
+                <p class="text-xs text-slate-400">Cryptographic bridge linking UREfy Core identity with the Ethereum / EVM ecosystem</p>
               </div>
             </div>
 
@@ -1259,7 +1180,7 @@ export class WalletBridge {
                     : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-surface-raised/50'
                 }"
             >
-              <span>🚪</span> Token-Gated Spaces
+              ${renderIcon('shield', { size: 16 })} ERC-20 Checks
             </button>
 
             <button data-action="set-wallet-tab" data-tab="networks"
@@ -1295,11 +1216,11 @@ export class WalletBridge {
                 <span>${escapeHtml(this.currentNetwork)}</span>
               </span>
               <span>·</span>
-              <span>EIP-55 Checksum: <strong class="text-cyphr">Valid</strong></span>
+              <span>EIP-55: <strong class="text-cyphr">${this.selectedAccount ? 'Valid' : 'No account'}</strong></span>
             </div>
 
             <div class="flex items-center gap-2">
-              <button data-action="call-global" data-global-method="walletBridge.copyToClipboard" data-global-args='["${escapeHtml(this.identity?.ethAddress || '')}', 'Ethereum Address"]'
+              <button data-action="call-global" data-global-method="walletBridge.copyToClipboard" data-global-args='${escapeHtml(JSON.stringify([this.identity?.ethAddress || '', 'Ethereum Address']))}'
                 class="px-2.5 py-1 rounded bg-surface-base hover:bg-surface-overlay text-slate-300 hover:text-white border border-white/5 transition-all text-[11px]"
               >
                 📋 Copy Address
@@ -1342,13 +1263,13 @@ export class WalletBridge {
             </div>
             <div>
               <div class="font-bold text-sm text-white">
-                ${isConn ? 'MetaMask Connected & Synced' : 'Derived Ed25519 Identity (Standalone Sovereign)'}
+                ${isConn ? 'Wallet connected' : 'Wallet not connected'}
               </div>
               <div class="text-xs text-slate-400">
                 ${
                   isConn
                     ? `Active address on ${this.currentNetwork}`
-                    : 'Active bridge via SHA-256 / EIP-55 non-custodial derivation'
+                    : 'No Ethereum account authorized'
                 }
               </div>
             </div>
@@ -1384,7 +1305,7 @@ export class WalletBridge {
                 ? `<span class="px-2.5 py-1 text-xs font-mono font-bold rounded-md bg-cyphr/10 text-cyphr border border-cyphr/30 flex items-center gap-1">
                      🔗 ENS Verified: <strong class="text-white">${escapeHtml(ensName)}</strong>
                    </span>`
-                : `<button data-action="call-global" data-global-method="walletBridge.resolveENS" data-global-args='["${ethAddr}").then(() => walletBridge.updateUI()]' class="text-xs text-slate-400 hover:text-cyphr transition-colors underline">
+                : `<button data-action="call-global" data-global-method="walletBridge.refreshENS" class="text-xs text-slate-400 hover:text-cyphr transition-colors underline">
                      🔍 Resolve ENS
                    </button>`
             }
@@ -1392,7 +1313,7 @@ export class WalletBridge {
 
           <div class="flex items-center justify-between p-3 rounded-lg bg-surface-base border border-white/5 font-mono text-sm">
             <span class="text-white select-all break-all">${escapeHtml(ethAddr)}</span>
-            <button data-action="call-global" data-global-method="walletBridge.copyToClipboard" data-global-args='["${escapeHtml(ethAddr)}', 'Ethereum Address"]'
+            <button data-action="call-global" data-global-method="walletBridge.copyToClipboard" data-global-args='${escapeHtml(JSON.stringify([ethAddr, 'Ethereum Address']))}'
               class="ml-3 px-2 py-1 rounded bg-surface-overlay hover:bg-slate-700 text-xs text-slate-300 transition-colors shrink-0"
               title="Copy address"
             >
@@ -1403,16 +1324,16 @@ export class WalletBridge {
           <!-- Dual Curve Derivation Box -->
           <div class="p-4 rounded-lg bg-surface-base/80 border border-white/5 space-y-2 text-xs">
             <div class="flex items-center justify-between text-slate-400">
-              <span class="font-bold text-slate-300">Aetheris Core Public Key (Ed25519)</span>
+              <span class="font-bold text-slate-300">UREfy Core Public Key (Ed25519)</span>
               <span class="font-mono text-[10px] text-aether">RFC 8032 Canonical</span>
             </div>
             <div class="p-2 rounded bg-canvas border border-white/5 font-mono text-[11px] text-slate-300 break-all select-all">
               ${escapeHtml(aetherKey)}
             </div>
             <div class="flex items-center gap-2 text-[11px] text-slate-400 pt-1">
-              <span class="text-cyphr">Derivation:</span>
+              <span class="text-cyphr">Identity binding:</span>
               <span class="font-mono text-[10px] bg-slate-800/80 px-1.5 py-0.5 rounded text-slate-300">
-                SHA-256(Ed25519_Pub)[12..31] → EIP-55 Checksum
+                Ed25519 public key + wallet-signed attestation
               </span>
             </div>
           </div>
@@ -1470,7 +1391,7 @@ export class WalletBridge {
             <span>✍️</span> personal_sign Digital Signature Generator
           </h3>
           <p class="text-xs text-slate-400">
-            Generate standardized cryptographic signatures for arbitrary messages or P2P payloads across the Aetheris network.
+            Generate standardized cryptographic signatures for arbitrary messages or P2P payloads across the UREfy network.
           </p>
 
           <div class="space-y-2">
@@ -1524,7 +1445,7 @@ export class WalletBridge {
                           </div>
                           <div class="flex items-center justify-between text-[10px] text-slate-400">
                             <span class="truncate max-w-md select-all text-slate-400">Sig: ${escapeHtml(sig.signature)}</span>
-                            <button data-action="call-global" data-global-method="walletBridge.copyToClipboard" data-global-args='["${escapeHtml(sig.signature)}', 'Signature"]'
+                            <button data-action="call-global" data-global-method="walletBridge.copyToClipboard" data-global-args='${escapeHtml(JSON.stringify([sig.signature, 'Signature']))}'
                               class="px-2 py-0.5 rounded bg-surface-overlay hover:bg-slate-700 text-slate-200 transition-colors ml-2 shrink-0"
                             >
                               Copy
@@ -1552,8 +1473,8 @@ export class WalletBridge {
         
         <div class="flex items-center justify-between p-4 rounded-xl bg-surface-raised border border-white/5">
           <div>
-            <h3 class="text-sm font-bold text-white">Token-Gated Access Gates (ERC-20 & ERC-721)</h3>
-            <p class="text-xs text-slate-400">Encrypted channels and sovereign spaces unlock automatically based on on-chain token balance.</p>
+            <h3 class="text-sm font-bold text-white">ERC-20 balance checks</h3>
+            <p class="text-xs text-slate-400">${escapeHtml(this.currentNetwork)}</p>
           </div>
           <button data-action="call-global" data-global-method="walletBridge.checkAllTokenGates"
             class="px-3.5 py-1.5 rounded-lg bg-surface-overlay hover:bg-slate-700 text-white font-semibold text-xs border border-white/10 transition-all flex items-center gap-1.5"
@@ -1562,6 +1483,11 @@ export class WalletBridge {
           </button>
         </div>
 
+        <div class="grid sm:grid-cols-[1fr_8rem_auto] gap-3 items-end">
+          <label class="text-xs text-slate-300">Token contract<input id="wallet-token-address" type="text" spellcheck="false" class="w-full mt-1 p-2 rounded-lg border border-white/10" placeholder="0x..." /></label>
+          <label class="text-xs text-slate-300">Threshold<input id="wallet-token-threshold" type="number" min="0" step="any" value="1" class="w-full mt-1 p-2 rounded-lg border border-white/10" /></label>
+          <button type="button" data-action="add-wallet-token" class="px-3 py-2 rounded-lg bg-cyphr text-canvas font-semibold inline-flex items-center gap-2">${renderIcon('plus', { size: 16 })} Add token</button>
+        </div>
         <div class="space-y-4">
           ${this.tokenGates
             .map(
@@ -1570,7 +1496,7 @@ export class WalletBridge {
                   <div class="flex items-start justify-between">
                     <div class="flex items-center gap-3">
                       <div class="w-10 h-10 rounded-lg bg-surface-base border border-white/10 flex items-center justify-center text-xl">
-                        ${gate.icon}
+                        ${renderIcon('wallet', { size: 20 })}
                       </div>
                       <div>
                         <div class="text-sm font-bold text-white">${escapeHtml(gate.name)}</div>
@@ -1583,7 +1509,7 @@ export class WalletBridge {
                         ? 'bg-signal/15 text-signal border border-signal/30'
                         : 'bg-crimson/15 text-crimson border border-crimson/30'
                     }">
-                      ${gate.passed ? '✓ ACCESS GRANTED' : '✗ INSUFFICIENT FUNDS'}
+                      ${gate.error ? 'UNAVAILABLE' : !gate.checkedAt ? 'NOT CHECKED' : gate.passed ? 'THRESHOLD MET' : 'BELOW THRESHOLD'}
                     </span>
                   </div>
 
@@ -1594,7 +1520,7 @@ export class WalletBridge {
                     </div>
                     <div class="p-2 rounded bg-surface-base border border-white/5">
                       <div class="text-[10px] text-slate-500 uppercase">Required Threshold</div>
-                      <div class="text-cyphr font-bold">${gate.minBalance} ${gate.symbol}</div>
+                      <div class="text-cyphr font-bold">${gate.minBalance} ${escapeHtml(gate.symbol)}</div>
                     </div>
                     <div class="p-2 rounded bg-surface-base border border-white/5 col-span-2 sm:col-span-1 flex items-center justify-between">
                       <div>

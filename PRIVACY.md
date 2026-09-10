@@ -1,4 +1,4 @@
-# Privacy Policy — Aetheris Omni-Sphere
+# Privacy Policy — UREfy
 
 **Compliance Framework**: European Union General Data Protection Regulation (GDPR — Regulation (EU) 2016/679).  
 **Effective Date**: September 5, 2026  
@@ -8,7 +8,7 @@
 
 ## 1. Fundamental Principle: Privacy by Design & Zero Centralized Collection
 
-Aetheris Omni-Sphere was engineered from its mathematical foundations on the principle of **radical data minimization** (GDPR Article 5(1)(c)):
+UREfy was engineered from its mathematical foundations on the principle of **radical data minimization** (GDPR Article 5(1)(c)):
 - **Zero Account Registration**: We do not solicit, collect, or store personal data, including email addresses, phone numbers, real names, KYC credentials, or passwords.
 - **Self-Sovereign Cryptographic Identity**: Your identity is defined entirely by an Ed25519 keypair deterministically generated client-side from a local BIP-39 12-word mnemonic. Private keys never transmit across network boundaries or touch any server.
 - **Zero Third-Party Trackers & Telemetry**: The platform operates with strictly zero tracking cookies, zero tracking pixels, and zero third-party analytics engines (No Google Analytics, no Facebook Pixels, no Datadog/Sentry beacons). All interface preferences reside exclusively within local device storage (`localStorage` and `IndexedDB`).
@@ -49,7 +49,7 @@ For technical questions regarding cryptographic privacy guarantees or GDPR compl
 ## Traducere în Limba Română (Informativă)
 
 ### 1. Principiu Fundamental: Minimizare Radicală
-Aetheris Omni-Sphere nu colectează, nu stochează și nu comercializează date cu caracter personal. Identitatea aparține exclusiv utilizatorului prin chei Ed25519 gestionate local.
+UREfy nu colectează, nu stochează și nu comercializează date cu caracter personal. Identitatea aparține exclusiv utilizatorului prin chei Ed25519 gestionate local.
 
 ### 2. Dreptul la Ștergere și Zeroizare
 Utilizatorul poate activa oricând funcția de zeroizare criptografică a memoriei, ștergând ireversibil toate datele locale de pe dispozitiv.

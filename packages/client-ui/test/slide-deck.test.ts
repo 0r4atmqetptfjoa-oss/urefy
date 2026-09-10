@@ -259,7 +259,7 @@ describe('Interactive Slide Deck & Course Presentation Engine', () => {
     it('should return a fallback slide when content is empty or whitespace', () => {
       const slidesEmpty = manager.parsePostAsSlides('');
       expect(slidesEmpty.length).toBe(1);
-      expect(slidesEmpty[0].title).toBe('Aetheris Presentation');
+      expect(slidesEmpty[0].title).toBe('UREfy Presentation');
       expect(slidesEmpty[0].content).toContain('No content');
 
       const slidesCustomFallback = manager.parsePostAsSlides('   ', 'Custom Title');
@@ -393,7 +393,7 @@ Mesh content.
       expect(tipHtml).toContain('text-signal');
 
       const importantHtml = renderSlideMarkdown('> [!IMPORTANT]\n> Crucial detail.');
-      expect(importantHtml).toContain('AETHERIS INSIGHT');
+      expect(importantHtml).toContain('UREfy INSIGHT');
       expect(importantHtml).toContain('text-aether');
 
       const warnHtml = renderSlideMarkdown('> [!WARNING]\n> Watch out for rate limiting.');
@@ -481,7 +481,7 @@ Al doilea slide.
 # Slide 3
 Al treilea slide.
       `;
-      manager.startPresentation('post-100', samplePost, 'Curs Aetheris', 'Alice');
+      manager.startPresentation('post-100', samplePost, 'Curs UREfy', 'Alice');
     });
 
     it('should initialize presentation state properly', () => {
@@ -489,7 +489,7 @@ Al treilea slide.
       expect(manager.currentIndex).toBe(0);
       expect(manager.slides.length).toBe(3);
       expect(manager.currentPostMeta.postId).toBe('post-100');
-      expect(manager.currentPostMeta.title).toBe('Curs Aetheris');
+      expect(manager.currentPostMeta.title).toBe('Curs UREfy');
       expect(manager.currentPostMeta.author).toBe('Alice');
     });
 
@@ -728,7 +728,7 @@ const a = 10;
 
     it('should render complete presentation modal with title, progress, and controls', () => {
       const sample = `
-# Slide Aetheris 1
+# Slide UREfy 1
 Conținut slide 1.
 \`\`\`typescript
 const val: number = 42;
@@ -743,7 +743,7 @@ const val: number = 42;
       expect(html).toContain('aetheris-slide-deck-modal-stage');
       expect(html).toContain('Curs Complet');
       expect(html).toContain('Dave');
-      expect(html).toContain('Slide Aetheris 1');
+      expect(html).toContain('Slide UREfy 1');
       expect(html).toContain('val:');
       expect(html).toContain('number');
       expect(html).toContain('42');

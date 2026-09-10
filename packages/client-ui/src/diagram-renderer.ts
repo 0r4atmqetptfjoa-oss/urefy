@@ -1,5 +1,5 @@
 /**
- * AETHERIS RICH DIAGRAM & SCIENTIFIC TYPESETTING ENGINE
+ * UREfy RICH DIAGRAM & SCIENTIFIC TYPESETTING ENGINE
  * Self-contained, zero-dependency LaTeX Math (KaTeX-grade) & Mermaid Diagram Renderer.
  * Conforms to Dark and Alabaster Light theme invariants, responsive SVG, and strict zero-knowledge architecture.
  */

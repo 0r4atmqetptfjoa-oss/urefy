@@ -1,5 +1,5 @@
 /**
- * AETHERIS HYBRID SUITE - SERVICE REGISTRY & DEPENDENCY INJECTION CONTAINER
+ * UREfy HYBRID SUITE - SERVICE REGISTRY & DEPENDENCY INJECTION CONTAINER
  * Type-safe, modular, testable Inversion of Control (IoC) container.
  * Eliminates ad-hoc global state mutation and promotes loose coupling across modules.
  */

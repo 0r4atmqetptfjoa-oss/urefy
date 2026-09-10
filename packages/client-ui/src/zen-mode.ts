@@ -1,6 +1,6 @@
 /**
  * zen-mode.ts
- * Aetheris Omni-Sphere — Zen / Focus Mode System
+ * UREfy — Zen / Focus Mode System
  * 
  * Provides a distraction-free, ultra-focused reading and writing environment.
  * Hides sidebars, expands the central feed stage, enhances reading typography,
@@ -225,7 +225,7 @@ export class ZenModeManager {
     styleEl.id = this.STYLE_ELEMENT_ID;
     styleEl.innerHTML = `
       /* ==========================================================================
-         AETHERIS ZEN / FOCUS MODE DYNAMIC STYLES
+         UREfy ZEN / FOCUS MODE DYNAMIC STYLES
          ========================================================================== */
 
       /* Base smooth transitions on layout elements */

@@ -235,8 +235,8 @@ describe('Procedural Sound & Haptic Packs (Item 12)', () => {
     }
 
     (globalThis as unknown as { window: unknown }).window = {
-      AudioContext: vi.fn(() => mockAudioCtx),
-      webkitAudioContext: vi.fn(() => mockAudioCtx),
+      AudioContext: vi.fn(function () { return mockAudioCtx; }),
+      webkitAudioContext: vi.fn(function () { return mockAudioCtx; }),
       navigator: {
         vibrate: vibrateSpy,
       },

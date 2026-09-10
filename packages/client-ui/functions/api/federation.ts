@@ -1,5 +1,5 @@
 // ===========================================================================
-// AETHERIS OMNI-SPHERE — SOVEREIGN NODE FEDERATION PROTOCOL EDGE API
+// UREfy — SOVEREIGN NODE FEDERATION PROTOCOL EDGE API
 // Implements ActivityPub 2.0 & Sovereign Gossip Bridge:
 // 1. GET /.well-known/aetheris-node & GET /api/federation/nodeinfo (NodeInfo 2.1)
 // 2. GET /api/federation/actor (Public Ed25519 node actor in ActivityStreams 2.0)
@@ -25,6 +25,14 @@ import {
   computeFingerprint,
   KeyPair,
 } from '@aetheris/core-crypto';
+import { safeFetch, validateSafeUrl } from './_ssrf-guard.js';
+import {
+  verifyHttpRequestSignature,
+  signHttpRequest,
+  signHttpRequestRsa,
+  computeHttpDigest,
+  ResolvedHttpVerificationKey,
+} from './_http-signatures.js';
 
 // ─── STANDARD ACTIVITYPUB & NODEINFO SCHEMAS ─────────────────────────────────
 
@@ -57,7 +65,7 @@ export interface ActivityPubActor {
     id: string;
     owner: string;
     publicKeyPem?: string;
-    publicKeyHex: string;
+    publicKeyHex?: string;
   };
   nodeInfo?: string;
   endpoints?: {
@@ -184,18 +192,17 @@ export async function sha256Hex(data: string): Promise<string> {
 // ─── ACTOR PUBLIC KEY RESOLUTION & CACHING (Finding 1) ───────────────────────
 
 export interface CachedActorKey {
-  publicKeyHex: string;
+  publicKeyHex?: string;
+  publicKeyPem?: string;
+  inbox?: string;
   expiresAt: number;
 }
 
 export const ACTOR_KEY_TTL_MS = 60 * 60 * 1000; // 1 hour bounded TTL
 export const actorKeyCache = new Map<string, CachedActorKey>();
-export const trustedActorKeyRegistry = new Map<string, string>([
-  ['https://relay-fra.aetheris.mesh/api/federation/actor', '112233445566778899aabbccddeeff000112233445566778899aabbccddeeff1'],
-  ['https://seeder-ams.aetheris.mesh/api/federation/actor', '2233445566778899aabbccddeeff001112233445566778899aabbccddeeff12'],
-  ['https://gateway-otp.aetheris.mesh/api/federation/actor', '33445566778899aabbccddeeff00112212233445566778899aabbccddeeff13'],
-  ['https://relay-lon.aetheris.mesh/api/federation/actor', '445566778899aabbccddeeff0011223312233445566778899aabbccddeeff14'],
-]);
+// Empty by default. Deployments may explicitly pin peers at startup, but the
+// application never ships synthetic production trust anchors.
+export const trustedActorKeyRegistry = new Map<string, string>();
 
 export function registerTrustedActorKey(actorUrl: string, publicKeyHex: string): void {
   trustedActorKeyRegistry.set(actorUrl, publicKeyHex.toLowerCase());
@@ -215,10 +222,30 @@ export function clearTrustedActorKeys(): void {
 }
 
 /**
- * Resolves the actor's public key from the trusted registry, in-memory cache,
- * or by fetching the actor's ActivityStreams descriptor from the network.
+ * Converts untrusted federated HTML to escaped plain text. A regex allow-list
+ * sanitizer is unsafe for adversarial HTML; preserving rich markup should use
+ * a maintained HTML parser/sanitizer in a separate, audited change.
  */
-export async function fetchActorPublicKey(actorUrl: string): Promise<string | null> {
+export function sanitizeFederatedContent(rawHtml: string): string {
+  if (!rawHtml || typeof rawHtml !== 'string') return '';
+  const text = rawHtml
+    .replace(/<(script|style|iframe|object|embed|svg|math)\b[\s\S]*?<\/\1\s*>/gi, ' ')
+    .replace(/<br\s*\/?\s*>/gi, '\n')
+    .replace(/<\/p\s*>/gi, '\n')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+  return text.replace(/[&<>"']/g, (character) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[character]!));
+}
+
+/**
+ * Resolves the actor's public key from the trusted registry, in-memory cache,
+ * or by fetching the actor's ActivityStreams descriptor from the network via safeFetch (SSRF Guard).
+ */
+export async function fetchActorPublicKey(actorUrl: string, allowLocalDev: boolean = false): Promise<string | null> {
   if (!actorUrl || typeof actorUrl !== 'string') return null;
 
   // 1. Check trusted registry
@@ -230,44 +257,82 @@ export async function fetchActorPublicKey(actorUrl: string): Promise<string | nu
   const cached = actorKeyCache.get(actorUrl);
   if (cached) {
     if (Date.now() < cached.expiresAt) {
-      return cached.publicKeyHex;
+      return cached.publicKeyHex || null;
     }
     actorKeyCache.delete(actorUrl);
   }
 
-  // 3. Resolve from actor URL
+  // 3. Resolve from actor URL using fail-closed SSRF Guard
   try {
-    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-    const timeoutId = controller ? setTimeout(() => controller.abort(), 4000) : null;
-
-    const resp = await fetch(actorUrl, {
-      headers: {
-        Accept: 'application/activity+json, application/json',
+    const resp = await safeFetch(
+      actorUrl,
+      {
+        headers: {
+          Accept: 'application/activity+json, application/ld+json; profile="https://www.w3.org/ns/activitystreams", application/json',
+        },
       },
-      signal: controller?.signal,
-    });
-
-    if (timeoutId) clearTimeout(timeoutId);
+      {
+        allowLocalDev,
+        timeoutMs: 4000,
+        allowedContentTypes: ['application/activity+json', 'application/ld+json', 'application/json'],
+      }
+    );
 
     if (resp.ok) {
       const data = (await resp.json()) as any;
+      if (typeof data?.id !== 'string' || data.id !== actorUrl || data?.publicKey?.owner !== actorUrl) {
+        return null;
+      }
+      if (typeof data?.publicKey?.id === 'string' && !data.publicKey.id.startsWith(`${actorUrl}#`)) {
+        return null;
+      }
       const pubKey =
         data?.publicKey?.publicKeyHex ||
         (typeof data?.publicKey === 'string' && /^[0-9a-f]{64}$/i.test(data.publicKey) ? data.publicKey : null);
+      const publicKeyPem = typeof data?.publicKey?.publicKeyPem === 'string'
+        ? data.publicKey.publicKeyPem
+        : undefined;
+      const inbox = typeof data?.inbox === 'string' ? data.inbox : undefined;
 
       if (pubKey && typeof pubKey === 'string' && /^[0-9a-f]{64}$/i.test(pubKey)) {
         const canonicalKey = pubKey.toLowerCase();
         actorKeyCache.set(actorUrl, {
           publicKeyHex: canonicalKey,
+          publicKeyPem,
+          inbox,
           expiresAt: Date.now() + ACTOR_KEY_TTL_MS,
         });
         return canonicalKey;
       }
+      if (publicKeyPem) {
+        actorKeyCache.set(actorUrl, { publicKeyPem, inbox, expiresAt: Date.now() + ACTOR_KEY_TTL_MS });
+      }
     }
   } catch (_) {
-    // Network or parse failure
+    // Blocked by SSRF guard or network failure
   }
 
+  return null;
+}
+
+/** Resolve either an UREfy Ed25519 key or a standard Fediverse RSA SPKI key. */
+export async function fetchActorHttpVerificationKey(
+  actorUrl: string,
+  allowLocalDev: boolean = false
+): Promise<ResolvedHttpVerificationKey | null> {
+  const registered = trustedActorKeyRegistry.get(actorUrl);
+  if (registered) return { algorithm: 'ed25519', publicKey: registered };
+
+  const cached = actorKeyCache.get(actorUrl);
+  if (cached && Date.now() < cached.expiresAt) {
+    if (cached.publicKeyHex) return { algorithm: 'ed25519', publicKey: cached.publicKeyHex };
+    if (cached.publicKeyPem) return { algorithm: 'rsa-sha256', publicKey: cached.publicKeyPem };
+  }
+
+  await fetchActorPublicKey(actorUrl, allowLocalDev);
+  const resolved = actorKeyCache.get(actorUrl);
+  if (resolved?.publicKeyHex) return { algorithm: 'ed25519', publicKey: resolved.publicKeyHex };
+  if (resolved?.publicKeyPem) return { algorithm: 'rsa-sha256', publicKey: resolved.publicKeyPem };
   return null;
 }
 
@@ -302,7 +367,16 @@ export function createSignedFederatedEnvelope(
   const randSuffix = typeof crypto !== 'undefined' && crypto.randomUUID
     ? crypto.randomUUID().replace(/-/g, '').substring(0, 8)
     : Date.now().toString(36);
-  const noteId = note.id || `urn:pulse:${Date.now()}:${randSuffix}`;
+  let noteId = note.id || `urn:pulse:${Date.now()}:${randSuffix}`;
+  if (!noteId.startsWith('urn:pulse:')) {
+    try {
+      const parsed = new URL(noteId);
+      if (parsed.protocol !== 'https:') throw new Error('non-HTTPS object id');
+    } catch {
+      const actorOrigin = new URL(actorUrl).origin;
+      noteId = `${actorOrigin}/objects/${encodeURIComponent(noteId)}`;
+    }
+  }
   const noteObject: ActivityStreamsNote = {
     id: noteId,
     type: 'Note',
@@ -468,7 +542,7 @@ export async function getNodeInfoAsync(env?: Env): Promise<NodeInfo21> {
   return {
     version: '2.1',
     software: {
-      name: 'aetheris-omni-sphere',
+      name: 'urefy',
       version: '1.0.0',
     },
     protocols: ['activitypub', 'aetheris-gossip-v1'],
@@ -491,7 +565,7 @@ export function getNodeInfo(env?: Env): NodeInfo21 {
   return {
     version: '2.1',
     software: {
-      name: 'aetheris-omni-sphere',
+      name: 'urefy',
       version: '1.0.0',
     },
     protocols: ['activitypub', 'aetheris-gossip-v1'],
@@ -511,9 +585,18 @@ export function getNodeInfo(env?: Env): NodeInfo21 {
  * Returns the public Ed25519 node actor object in ActivityStreams 2.0 format.
  */
 export function getNodeActor(origin: string = 'https://aetheris.mesh', env?: Env): ActivityPubActor {
-  const keyPair = getNodeKeyPair(env);
   const cleanOrigin = origin.replace(/\/+$/, '');
   const actorId = `${cleanOrigin}/api/federation/actor`;
+  const rsaPublicKeyPem = typeof env?.FEDERATION_RSA_PUBLIC_KEY_PEM === 'string'
+    ? env.FEDERATION_RSA_PUBLIC_KEY_PEM
+    : undefined;
+  const rsaPrivateKeyPem = typeof env?.FEDERATION_RSA_PRIVATE_KEY_PEM === 'string'
+    ? env.FEDERATION_RSA_PRIVATE_KEY_PEM
+    : undefined;
+  if (Boolean(rsaPublicKeyPem) !== Boolean(rsaPrivateKeyPem)) {
+    throw new Error('Both FEDERATION_RSA_PUBLIC_KEY_PEM and FEDERATION_RSA_PRIVATE_KEY_PEM must be configured together');
+  }
+  const keyPair = rsaPublicKeyPem ? undefined : getNodeKeyPair(env);
 
   return {
     '@context': [
@@ -522,16 +605,16 @@ export function getNodeActor(origin: string = 'https://aetheris.mesh', env?: Env
     ],
     id: actorId,
     type: 'Application',
-    preferredUsername: 'aetheris-node',
-    name: 'Aetheris Sovereign Node',
+    preferredUsername: 'urefy-node',
+    name: 'UREfy Sovereign Node',
     summary: 'Sovereign Zero-Knowledge Hybrid Communication & Archival Node',
     inbox: `${cleanOrigin}/api/federation/inbox`,
     outbox: `${cleanOrigin}/api/federation/outbox`,
     publicKey: {
       id: `${actorId}#main-key`,
       owner: actorId,
-      publicKeyPem: ed25519PublicKeyToPem(keyPair.publicKey),
-      publicKeyHex: keyPair.publicKeyHex,
+      publicKeyPem: rsaPublicKeyPem || ed25519PublicKeyToPem(keyPair!.publicKey),
+      ...(keyPair ? { publicKeyHex: keyPair.publicKeyHex } : {}),
     },
     nodeInfo: `${cleanOrigin}/api/federation/nodeinfo`,
     endpoints: {
@@ -547,29 +630,185 @@ export function getNodeActor(origin: string = 'https://aetheris.mesh', env?: Env
  */
 export async function handleInboxPost(request: Request, env?: Env): Promise<Response> {
   try {
+    const isProd = isProductionEnv(env);
+
+    const declaredLength = Number(request.headers.get('content-length') || 0);
+    if (declaredLength > 1024 * 1024) {
+      return new Response(JSON.stringify({ success: false, error: 'ActivityPub request exceeds 1 MB' }), {
+        status: 413, headers: { 'Content-Type': 'application/activity+json' },
+      });
+    }
+    const rawBody = await request.text();
+    if (new TextEncoder().encode(rawBody).byteLength > 1024 * 1024) {
+      return new Response(JSON.stringify({ success: false, error: 'ActivityPub request exceeds 1 MB' }), {
+        status: 413, headers: { 'Content-Type': 'application/activity+json' },
+      });
+    }
     let envelope: ActivityPubEnvelope;
     try {
-      envelope = (await request.json()) as ActivityPubEnvelope;
+      envelope = JSON.parse(rawBody) as ActivityPubEnvelope;
     } catch {
       return new Response(
         JSON.stringify({ success: false, error: 'Invalid JSON body payload' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
+        { status: 400, headers: { 'Content-Type': 'application/activity+json' } }
       );
     }
 
     if (!envelope || !envelope.object || !envelope.actor) {
       return new Response(
         JSON.stringify({ success: false, error: 'Malformed ActivityStreams envelope: actor or object missing' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
+        { status: 400, headers: { 'Content-Type': 'application/activity+json' } }
       );
     }
 
+    // Authenticate before routing, including Follow/Delete/Undo. Standard
+    // Fediverse HTTP signatures and the versioned UREfy envelope are accepted
+    // as alternative authenticated transports.
+    let authenticatedByHttp = false;
+    const sigHeader = request.headers.get('signature') || request.headers.get('authorization');
+    if (sigHeader && sigHeader.includes('keyId=')) {
+      const reqUrl = new URL(request.url);
+      const httpSigResult = await verifyHttpRequestSignature(
+        request.method,
+        reqUrl.pathname + reqUrl.search,
+        request.headers,
+        rawBody,
+        async (keyId: string) => fetchActorHttpVerificationKey(keyId.split('#')[0], !isProd)
+      );
+      authenticatedByHttp = Boolean(httpSigResult.valid && httpSigResult.keyId?.split('#')[0] === envelope.actor);
+      if (!authenticatedByHttp) {
+        return new Response(JSON.stringify({ success: false, error: `HTTP Signature verification failed: ${httpSigResult.error || 'actor/keyId mismatch'}` }), {
+          status: 401, headers: { 'Content-Type': 'application/activity+json' },
+        });
+      }
+    }
+    let authenticatedByEnvelope = false;
+    if (!authenticatedByHttp && envelope.signature) {
+      authenticatedByEnvelope = verifyActivityPubSignature(envelope) || await verifyActivityPubSignatureAsync(envelope);
+    }
+    if (!authenticatedByHttp && !authenticatedByEnvelope) {
+      return new Response(JSON.stringify({ success: false, error: 'Cryptographic signature verification failed: a valid HTTP or UREfy federation signature is required' }), {
+        status: 401, headers: { 'Content-Type': 'application/activity+json' },
+      });
+    }
+
     const object = envelope.object;
+
+    const supportedTypes = new Set(['Create', 'Update', 'Follow', 'Delete', 'Undo', 'Reject']);
+    if (!supportedTypes.has(envelope.type)) {
+      return new Response(JSON.stringify({ success: false, error: `Unsupported ActivityPub activity type: ${envelope.type}` }), {
+        status: 422, headers: { 'Content-Type': 'application/activity+json' },
+      });
+    }
+
+    // ─── STANDARD ACTIVITYPUB ACTIVITY ROUTING ─────────────────────────────────
+    const cleanOrigin = new URL(request.url).origin;
+
+    // A. Follow Activity: respond with standard Accept
+    if (envelope.type === 'Follow') {
+      const localActor = `${cleanOrigin}/api/federation/actor`;
+      const followTarget = typeof object === 'string' ? object : object?.id;
+      if (followTarget !== localActor) {
+        return new Response(JSON.stringify({ success: false, error: 'Follow target does not match this actor' }), {
+          status: 403, headers: { 'Content-Type': 'application/activity+json' },
+        });
+      }
+      const acceptEnvelope = {
+        '@context': 'https://www.w3.org/ns/activitystreams',
+        id: `${cleanOrigin}/api/federation/activities/accept-${Date.now()}`,
+        type: 'Accept',
+        actor: localActor,
+        object: envelope,
+      } as ActivityPubEnvelope;
+      const remoteInbox = actorKeyCache.get(envelope.actor)?.inbox;
+      if (isProd && !remoteInbox) {
+        return new Response(JSON.stringify({ success: false, error: 'Remote actor did not publish an inbox' }), {
+          status: 502, headers: { 'Content-Type': 'application/activity+json' },
+        });
+      }
+      if (remoteInbox) {
+        const rsaPrivateKeyPem = typeof env?.FEDERATION_RSA_PRIVATE_KEY_PEM === 'string'
+          ? env.FEDERATION_RSA_PRIVATE_KEY_PEM
+          : undefined;
+        const delivery = await deliverFederatedPulse(
+          remoteInbox,
+          acceptEnvelope,
+          rsaPrivateKeyPem ? undefined : getNodeKeyPair(env),
+          cleanOrigin,
+          { allowLocalDev: !isProd, rsaPrivateKeyPem }
+        );
+        if (!delivery.success && isProd) {
+          return new Response(JSON.stringify({ success: false, error: 'Could not deliver signed Accept activity' }), {
+            status: 502, headers: { 'Content-Type': 'application/activity+json' },
+          });
+        }
+      }
+      return new Response(JSON.stringify({ success: true, accepted: true }), {
+        status: 202,
+        headers: { 'Content-Type': 'application/activity+json; charset=utf-8' },
+      });
+    }
+
+    // B. Delete Activity: mark federated post deleted
+    if (envelope.type === 'Delete') {
+      const targetId = typeof object === 'string' ? object : object?.id;
+      const db = getD1Database(env);
+      if (targetId && db) {
+        try {
+          const canonicalId = `fed-${(await sha256Hex(`${envelope.actor}:${targetId}`)).substring(0, 16)}`;
+          await db.prepare("UPDATE posts SET status = 'deleted' WHERE id = ?")
+            .bind(canonicalId)
+            .run();
+        } catch (_) {}
+      }
+      return new Response(JSON.stringify({ success: true, status: 'deleted', id: targetId }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/activity+json; charset=utf-8' },
+      });
+    }
+
+    // C. Undo / Reject Activity
+    if (envelope.type === 'Undo' || envelope.type === 'Reject') {
+      return new Response(JSON.stringify({ success: true, status: 'acknowledged', type: envelope.type }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/activity+json; charset=utf-8' },
+      });
+    }
+
     if (typeof object !== 'object') {
       return new Response(
         JSON.stringify({ success: false, error: 'Malformed ActivityStreams envelope: object must be an object' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
+        { status: 400, headers: { 'Content-Type': 'application/activity+json' } }
       );
+    }
+
+    if ((envelope.type === 'Create' || envelope.type === 'Update') && object.attributedTo !== envelope.actor) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Activity actor does not match object.attributedTo' }),
+        { status: 403, headers: { 'Content-Type': 'application/activity+json' } }
+      );
+    }
+
+    if (envelope.type === 'Create' || envelope.type === 'Update') {
+      if (object.type !== 'Note' || typeof object.id !== 'string') {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Only ActivityStreams Note objects with an HTTPS id are accepted' }),
+          { status: 422, headers: { 'Content-Type': 'application/activity+json' } }
+        );
+      }
+      try {
+        const actorUrl = new URL(envelope.actor);
+        const isUrefyUrn = object.id.startsWith('urn:pulse:');
+        const objectUrl = isUrefyUrn ? null : new URL(object.id);
+        if (actorUrl.protocol !== 'https:' || (objectUrl && (objectUrl.protocol !== 'https:' || actorUrl.origin !== objectUrl.origin))) {
+          throw new Error('origin mismatch');
+        }
+      } catch {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Object id must be an actor-owned HTTPS URL or a UREfy urn:pulse identifier' }),
+          { status: 403, headers: { 'Content-Type': 'application/activity+json' } }
+        );
+      }
     }
 
     // ─── Finding 14: Timestamp Freshness Window ──────────────────────────────
@@ -577,14 +816,14 @@ export async function handleInboxPost(request: Request, env?: Env): Promise<Resp
     if (!object.published) {
       return new Response(
         JSON.stringify({ success: false, error: 'Missing published timestamp in object' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
+        { status: 400, headers: { 'Content-Type': 'application/activity+json' } }
       );
     }
     const createdAt = Date.parse(object.published);
     if (isNaN(createdAt)) {
       return new Response(
         JSON.stringify({ success: false, error: 'Invalid published timestamp format' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
+        { status: 400, headers: { 'Content-Type': 'application/activity+json' } }
       );
     }
 
@@ -595,35 +834,24 @@ export async function handleInboxPost(request: Request, env?: Env): Promise<Resp
           success: false,
           error: 'Timestamp out of freshness window: published time cannot be more than 10 minutes in future or older than 7 days',
         }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
+        { status: 400, headers: { 'Content-Type': 'application/activity+json' } }
       );
     }
 
     // ─── Finding 1: Cryptographic signature verification ─────────────────────
-    let isValid = verifyActivityPubSignature(envelope);
-    if (!isValid) {
-      isValid = await verifyActivityPubSignatureAsync(envelope);
-    }
-    if (!isValid) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: 'Cryptographic signature verification failed: invalid Ed25519 signature',
-        }),
-        { status: 401, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Extract note details
-    const content = object.content || '';
-    if (!content) {
+    // Extract & sanitize note details
+    const rawContent = object.content || '';
+    if (!rawContent) {
       return new Response(
         JSON.stringify({ success: false, error: 'Cannot ingest empty pulse content' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
+        { status: 400, headers: { 'Content-Type': 'application/activity+json' } }
       );
     }
+    const content = sanitizeFederatedContent(rawContent).slice(0, 100_000);
 
-    const title = object.title || (content.length > 60 ? content.slice(0, 57) + '...' : content);
+    const title = sanitizeFederatedContent(
+      object.title || (content.length > 60 ? content.slice(0, 57) + '...' : content)
+    ).slice(0, 300);
     let authorFingerprint = 'federated-peer';
     const pubKeyHex =
       envelope.signature?.publicKeyHex ||
@@ -640,8 +868,6 @@ export async function handleInboxPost(request: Request, env?: Env): Promise<Resp
     } else if (envelope.actor) {
       authorFingerprint = envelope.actor.replace(/https?:\/\//, '').slice(0, 12);
     }
-
-    const isProd = isProductionEnv(env);
 
     // ─── Finding 15: Idempotent Ingestion via Canonical Remote Object ID ─────
     const rawId = `${envelope.actor}:${object.id}`;
@@ -670,15 +896,23 @@ export async function handleInboxPost(request: Request, env?: Env): Promise<Resp
       return createD1UnavailableResponse();
     }
 
-    // Ingest into D1 database if binding available (idempotent with ON CONFLICT DO NOTHING)
+    // Create is idempotent. Update may mutate only the same canonical actor-owned row.
     if (db) {
       try {
+        const conflictAction = envelope.type === 'Update'
+          ? `DO UPDATE SET
+               title = excluded.title,
+               content = excluded.content,
+               status = excluded.status,
+               created_at = excluded.created_at
+             WHERE posts.author_id = excluded.author_id`
+          : 'DO NOTHING';
         await db.prepare(
           `INSERT INTO posts (
              id, channel_id, author_id, author_role, title, content, flair,
              merit_votes, user_voted, reply_count, boost_count, status, created_at, is_expanded
            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-           ON CONFLICT(id) DO NOTHING`
+           ON CONFLICT(id) ${conflictAction}`
         ).bind(
           newPost.id,
           newPost.channelId,
@@ -711,6 +945,8 @@ export async function handleInboxPost(request: Request, env?: Env): Promise<Resp
       const existingIdx = globalPostsStore.findIndex((p) => p.id === newPost.id);
       if (existingIdx === -1) {
         globalPostsStore.unshift(newPost);
+      } else if (envelope.type === 'Update' && globalPostsStore[existingIdx].authorFingerprint === newPost.authorFingerprint) {
+        globalPostsStore[existingIdx] = newPost;
       }
     }
 
@@ -725,7 +961,7 @@ export async function handleInboxPost(request: Request, env?: Env): Promise<Resp
       {
         status: 201,
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/activity+json; charset=utf-8',
           'Access-Control-Allow-Origin': '*',
         },
       }
@@ -733,8 +969,69 @@ export async function handleInboxPost(request: Request, env?: Env): Promise<Resp
   } catch (err: any) {
     return new Response(
       JSON.stringify({ success: false, error: err?.message || 'Internal error handling inbox post' }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
+      { status: 500, headers: { 'Content-Type': 'application/activity+json; charset=utf-8' } }
     );
+  }
+}
+
+/**
+ * Dispatches an ActivityPub envelope to a remote actor's inbox using safeFetch (SSRF Guard)
+ * and draft-cavage HTTP Signatures, the format currently deployed by major
+ * ActivityPub implementations.
+ */
+export async function deliverFederatedPulse(
+  recipientInboxUrl: string,
+  envelope: ActivityPubEnvelope,
+  keyPair: KeyPair | undefined,
+  origin: string = 'https://aetheris.mesh',
+  options?: { allowLocalDev?: boolean; rsaPrivateKeyPem?: string }
+): Promise<{ success: boolean; status?: number; error?: string }> {
+  try {
+    const rawBody = JSON.stringify(envelope);
+    const digest = await computeHttpDigest(rawBody);
+    const parsedUrl = new URL(recipientInboxUrl);
+    const dateStr = new Date().toUTCString();
+
+    const headers: Record<string, string> = {
+      Host: parsedUrl.host,
+      Date: dateStr,
+      Digest: digest,
+      'Content-Type': 'application/activity+json',
+      Accept: 'application/activity+json, application/ld+json',
+    };
+
+    const keyId = `${origin}/api/federation/actor#main-key`;
+    const targetPath = parsedUrl.pathname + parsedUrl.search;
+    const sigHeader = options?.rsaPrivateKeyPem
+      ? await signHttpRequestRsa('POST', targetPath, headers, keyId, options.rsaPrivateKeyPem)
+      : keyPair
+        ? signHttpRequest('POST', targetPath, headers, keyId, keyPair.privateKeyHex)
+        : (() => { throw new Error('No federation signing key configured'); })();
+    headers['Signature'] = sigHeader;
+
+    const response = await safeFetch(
+      recipientInboxUrl,
+      {
+        method: 'POST',
+        headers,
+        body: rawBody,
+      },
+      {
+        allowLocalDev: options?.allowLocalDev,
+        timeoutMs: 5000,
+        maxSizeBytes: 64 * 1024,
+      }
+    );
+
+    return {
+      success: response.ok,
+      status: response.status,
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err?.message || 'Failed outbound federation delivery',
+    };
   }
 }
 

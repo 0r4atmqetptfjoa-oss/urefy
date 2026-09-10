@@ -1,18 +1,34 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { PaperWalletEngine } from '../src/paper-wallet';
+import { clientStore } from '../src/client-state.js';
+import { deriveKeyPairFromMnemonic, validateMnemonic } from '@aetheris/core-crypto';
 
 describe('PaperWalletEngine — Cold Storage Mnemonic Generator', () => {
   let engine: PaperWalletEngine;
 
   beforeEach(() => {
+    clientStore.mnemonic = 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
+    clientStore.keypair = deriveKeyPairFromMnemonic(clientStore.mnemonic);
     engine = new PaperWalletEngine();
   });
 
-  it('should generate deterministic 12-word recovery mnemonic from fingerprint', () => {
-    const words1 = engine.generateMnemonic('fingerprint-alpha-1234');
-    const words2 = engine.generateMnemonic('fingerprint-alpha-1234');
+  it('returns only the actual recovery phrase matching the current identity', () => {
+    const words1 = engine.generateMnemonic(clientStore.keypair.fingerprint);
+    const words2 = engine.generateMnemonic(clientStore.keypair.fingerprint);
     expect(words1.length).toBe(12);
     expect(words1).toEqual(words2);
+    expect(validateMnemonic(words1.join(' '))).toBe(true);
+    expect(deriveKeyPairFromMnemonic(words1.join(' ')).fingerprint).toBe(clientStore.keypair.fingerprint);
+    expect(engine.generateMnemonic('another-identity')).toEqual([]);
+  });
+
+  it('keeps recovery words out of the DOM until explicitly revealed', () => {
+    engine.open();
+    expect(engine.renderPaperWalletModal(clientStore.keypair.fingerprint, clientStore.keypair.publicKeyHex)).not.toContain('abandon');
+    engine.toggleReveal();
+    expect(engine.renderPaperWalletModal(clientStore.keypair.fingerprint, clientStore.keypair.publicKeyHex)).toContain('abandon');
+    engine.close();
+    expect(engine.isRevealed).toBe(false);
   });
 
   it('should toggle paper wallet modal open/close state and render printable certificate', () => {

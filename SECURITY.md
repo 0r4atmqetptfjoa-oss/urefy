@@ -1,8 +1,8 @@
-# Aetheris Security Policy & Architecture
+# UREfy Security Policy & Architecture
 
 ## 1. Overview & Sovereign Security Philosophy
 
-Aetheris Omni-Sphere is engineered as a sovereign, zero-trust, privacy-first peer-to-peer communications and archival platform. Security is treated as an architectural invariant rather than an add-on. Every packet is cryptographically authenticated, every identity is self-custodied via cryptographic keypairs, and all administrative surfaces enforce defense-in-depth controls.
+UREfy is engineered as a sovereign, zero-trust, privacy-first peer-to-peer communications and archival platform. Security is treated as an architectural invariant rather than an add-on. Every packet is cryptographically authenticated, every identity is self-custodied via cryptographic keypairs, and all administrative surfaces enforce defense-in-depth controls.
 
 ---
 
@@ -41,7 +41,7 @@ All authentication tokens, HMAC signatures, admin PINs, and cryptographic digest
 - **Mitigation**: Eliminates timing side-channel attacks where an adversary deduces secret bytes based on microsecond-level response duration variances.
 
 ### 2.3 Post-Quantum Hybrid Key Encapsulation (ML-KEM-768 / Kyber768 + X25519)
-To defend against "Harvest Now, Decrypt Later" adversaries, Aetheris implements a hybrid dual-layer key encapsulation mechanism:
+To defend against "Harvest Now, Decrypt Later" adversaries, UREfy implements a hybrid dual-layer key encapsulation mechanism:
 - **Classical Layer**: Curve25519 (X25519) ECDH providing battle-tested elliptic curve security.
 - **Post-Quantum Layer**: NIST FIPS 203 standardized ML-KEM-768 (Kyber768) lattice-based cryptography, resistant to Shor's algorithm on large-scale quantum computers.
 - **Shared Secret Derivation**: HKDF-SHA256 binds the classical ECDH shared secret and the post-quantum shared secret into a single unified session key:
@@ -49,7 +49,7 @@ To defend against "Harvest Now, Decrypt Later" adversaries, Aetheris implements 
 - Even if one of the two cryptographic primitives is compromised in the future, confidentiality remains guaranteed by the intact layer.
 
 ### 2.4 Zero-Knowledge Rate-Limiting Nullifier (ZK-RLN) Spam Defense
-Aetheris protects open peer-to-peer networks from denial-of-service and flooding attacks without centralized identity verification or phone/email requirements:
+UREfy protects open peer-to-peer networks from denial-of-service and flooding attacks without centralized identity verification or phone/email requirements:
 - **Mechanism**: Uses zk-SNARK circuits and Shamir's Secret Sharing over finite fields.
 - **Operation**: Users register an identity commitment into an on-chain/edge Merkle tree. For every epoch (e.g., 10 seconds), a user can publish one message by generating a ZK proof and revealing an evaluation point $y = a \cdot x + b$.
 - **Slashing**: If a peer broadcasts two distinct messages in the same epoch, their two evaluation points intersect, revealing their private identity secret $a$ to the network and permanently slashing their stake or banning their membership without revealing their identity on compliant messages.
@@ -107,7 +107,7 @@ $$r = 21888242871839275222246405745257275088548364400416034343698204186575808495
    The recovered $a_0$ is compared against the known identity commitment $\text{IDCommit} = \text{Poseidon}(a_0)$. Upon match, the peer's membership is irreversibly slashed, revoked from the relay registry, and broadcasted to the mesh gossip layer.
 
 ### 2.6 Chaumian Blind RSA Signatures for Anonymous Merit Voting
-To ensure zero correlation between a user's identity and their votes, Aetheris utilizes Chaumian blind signatures over RSA with full-domain hashing:
+To ensure zero correlation between a user's identity and their votes, UREfy utilizes Chaumian blind signatures over RSA with full-domain hashing:
 1. **Blinding**: The client prepares the vote message $m$ and hashes it to $\mathbb{Z}_N^*$. It generates a random secret blinding factor $r \in \mathbb{Z}_N^*$ with $\gcd(r, N) = 1$, and blinds the message:
    $$m' = (m \cdot r^e) \bmod N$$
 2. **Signing**: The validator verifies the client's eligibility (e.g., WoT reputation $\ge 50$) and signs the blinded payload without ever learning $m$:

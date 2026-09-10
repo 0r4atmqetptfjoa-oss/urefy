@@ -12,6 +12,7 @@ import { pwaService } from './pwa-service.js';
 import { notificationCenter } from './notifications.js';
 import { i18n } from './i18n.js';
 import { renderIcon } from './ui/icons.js';
+import { renderWorkspaceLayoutControls } from './workspace-layout.js';
 
 function escapeHtml(text: string): string {
   return String(text)
@@ -32,29 +33,29 @@ export interface HeaderToolsOptions {
  */
 export function renderHeaderPrimaryNav(): string {
   return `
-    <button type="button" data-nav-mode="pulse" class="btn-nav-mode px-3 py-1.5 rounded-xl font-semibold transition-all flex items-center space-x-1.5 cursor-pointer ${clientStore.activeChannelId.startsWith('pulse-') ? 'is-active nav-item-active shadow-sm' : 'text-slate-400 hover:text-slate-200 hover:bg-surface-overlay/50'}" title="Feed & sovereign pulse stream">
+    <button type="button" data-nav-mode="pulse" class="btn-nav-mode px-3 py-1.5 rounded-xl font-semibold transition-all flex items-center space-x-1.5 cursor-pointer ${clientStore.activeChannelId.startsWith('pulse-') ? 'is-active nav-item-active shadow-sm' : 'text-slate-400 hover:text-slate-200 hover:bg-surface-overlay/50'}" title="${i18n.t('pulse.subtitle', undefined, 'Feed & sovereign pulse stream')}">
       <span class="shrink-0 text-cyan-400">${renderIcon('feed', { size: 14 })}</span>
-      <span>Feed</span>
+      <span>${i18n.t('nav.feed', undefined, 'Feed')}</span>
     </button>
 
-    <button type="button" data-nav-mode="explore" class="btn-nav-mode px-3 py-1.5 rounded-xl font-semibold transition-all flex items-center space-x-1.5 cursor-pointer ${clientStore.activeChannelId === 'explore' ? 'is-active nav-item-active shadow-sm' : 'text-slate-400 hover:text-slate-200 hover:bg-surface-overlay/50'}" title="Explore network and trending nodes">
+    <button type="button" data-nav-mode="explore" class="btn-nav-mode px-3 py-1.5 rounded-xl font-semibold transition-all flex items-center space-x-1.5 cursor-pointer ${clientStore.activeChannelId === 'explore' ? 'is-active nav-item-active shadow-sm' : 'text-slate-400 hover:text-slate-200 hover:bg-surface-overlay/50'}" title="${i18n.t('nav.explore', undefined, 'Explore')}">
       <span class="shrink-0 text-indigo-400">${renderIcon('explore', { size: 14 })}</span>
-      <span>Explore</span>
+      <span>${i18n.t('nav.explore', undefined, 'Explore')}</span>
     </button>
 
-    <button type="button" data-nav-mode="relays" class="btn-nav-mode px-3 py-1.5 rounded-xl font-semibold transition-all flex items-center space-x-1.5 cursor-pointer ${clientStore.activeChannelId.startsWith('relays-') || clientStore.activeChannelId.startsWith('relay-') || clientStore.activeChannelId.startsWith('dm-') ? 'is-active nav-item-active shadow-sm' : 'text-slate-400 hover:text-slate-200 hover:bg-surface-overlay/50'}" title="End-to-end encrypted messaging">
+    <button type="button" data-nav-mode="relays" class="btn-nav-mode px-3 py-1.5 rounded-xl font-semibold transition-all flex items-center space-x-1.5 cursor-pointer ${clientStore.activeChannelId.startsWith('relays-') || clientStore.activeChannelId.startsWith('relay-') || clientStore.activeChannelId.startsWith('dm-') ? 'is-active nav-item-active shadow-sm' : 'text-slate-400 hover:text-slate-200 hover:bg-surface-overlay/50'}" title="${i18n.t('relays.title', undefined, 'End-to-end encrypted messaging')}">
       <span class="shrink-0 text-emerald-400">${renderIcon('messages', { size: 14 })}</span>
-      <span>Messages</span>
+      <span>${i18n.t('nav.messages', undefined, 'Messages')}</span>
     </button>
 
-    <button type="button" data-nav-mode="vault" class="btn-nav-mode px-3 py-1.5 rounded-xl font-semibold transition-all flex items-center space-x-1.5 cursor-pointer ${clientStore.activeChannelId.startsWith('vault-') ? 'is-active nav-item-active shadow-sm' : 'text-slate-400 hover:text-slate-200 hover:bg-surface-overlay/50'}" title="Encrypted files vault & audited releases">
+    <button type="button" data-nav-mode="vault" class="btn-nav-mode px-3 py-1.5 rounded-xl font-semibold transition-all flex items-center space-x-1.5 cursor-pointer ${clientStore.activeChannelId.startsWith('vault-') ? 'is-active nav-item-active shadow-sm' : 'text-slate-400 hover:text-slate-200 hover:bg-surface-overlay/50'}" title="${i18n.t('vault.subtitle', undefined, 'Encrypted files vault & audited releases')}">
       <span class="shrink-0 text-amber-400">${renderIcon('vault', { size: 14 })}</span>
-      <span>Vault</span>
+      <span>${i18n.t('nav.vault', undefined, 'Vault')}</span>
     </button>
 
-    <button type="button" data-nav-mode="profile" class="btn-nav-mode px-3 py-1.5 rounded-xl font-semibold transition-all flex items-center space-x-1.5 cursor-pointer ${clientStore.activeChannelId.startsWith('profile') ? 'is-active nav-item-active shadow-sm' : 'text-slate-400 hover:text-slate-200 hover:bg-surface-overlay/50'}" title="Your sovereign cryptographic identity & settings">
+    <button type="button" data-nav-mode="profile" class="btn-nav-mode px-3 py-1.5 rounded-xl font-semibold transition-all flex items-center space-x-1.5 cursor-pointer ${clientStore.activeChannelId.startsWith('profile') ? 'is-active nav-item-active shadow-sm' : 'text-slate-400 hover:text-slate-200 hover:bg-surface-overlay/50'}" title="${i18n.t('profile.sovereignNode', undefined, 'Your sovereign cryptographic identity & settings')}">
       <span class="shrink-0 text-purple-400">${renderIcon('profile', { size: 14 })}</span>
-      <span>Profile</span>
+      <span>${i18n.t('nav.profile', undefined, 'Profile')}</span>
     </button>
   `;
 }
@@ -104,10 +105,11 @@ export function renderBroadcastBanner(): string {
  */
 export function renderHeaderTools(options: HeaderToolsOptions): string {
   return `
+    ${renderWorkspaceLayoutControls()}
     <!-- PWA 1-CLICK INSTALL (visible when installable) -->
-    <button type="button" id="btn-pwa-install" data-action="pwa-install" class="${pwaService.isInstallable && !pwaService.isInstalled ? 'inline-flex' : 'hidden'} px-2.5 py-1.5 text-xs rounded-xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 font-mono items-center space-x-1.5 transition-all shadow-sm cursor-pointer" title="Install Aetheris as Native App">
+    <button type="button" id="btn-pwa-install" data-action="pwa-install" class="${pwaService.isInstallable && !pwaService.isInstalled ? 'inline-flex' : 'hidden'} px-2.5 py-1.5 text-xs rounded-xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 font-mono items-center space-x-1.5 transition-all shadow-sm cursor-pointer" title="${i18n.t('common.install', undefined, 'Install UREfy as Native App')}">
       <span>📲</span>
-      <span class="font-sans font-medium">Install</span>
+      <span class="font-sans font-medium">${i18n.t('common.install', undefined, 'Install')}</span>
     </button>
 
     <!-- AMBIENT NETWORK MINIMAP & STATUS -->
@@ -152,7 +154,7 @@ export function renderHeaderTools(options: HeaderToolsOptions): string {
 
     <!-- NOTIFICATIONS BELL (all screens) -->
     <div class="relative flex items-center">
-      <button type="button" id="btn-toggle-notifs" data-action="toggle-notifs" class="relative p-2 min-w-[24px] min-h-[24px] rounded-xl text-slate-400 hover:text-white hover:bg-surface-raised transition-all cursor-pointer" title="Notifications">
+      <button type="button" id="btn-toggle-notifs" data-action="toggle-notifs" class="relative p-2 min-w-[24px] min-h-[24px] rounded-xl text-slate-400 hover:text-white hover:bg-surface-raised transition-all cursor-pointer" title="${i18n.t('notifications.title', undefined, 'Notifications')}">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
         ${notificationCenter.unreadCount > 0 ? `<span class="absolute top-1 right-1 w-2 h-2 bg-rose-500 rounded-full animate-ping"></span><span class="absolute top-1 right-1 w-2 h-2 bg-rose-500 rounded-full"></span>` : ''}
       </button>

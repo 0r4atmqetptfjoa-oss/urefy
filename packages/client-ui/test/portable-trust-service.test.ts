@@ -90,7 +90,7 @@ describe('Pillar 2: Portable Trust Score (ZK-RLN as a Service) Suite', () => {
 
   describe('2. Vector SVG QR Code Synthesis', () => {
     it('should generate valid vector SVG markup with finder and timing patterns', () => {
-      const svg = generateQRCodeSVG('https://aetheris.network/verify?test=123', 200);
+      const svg = generateQRCodeSVG('https://urefy.com/verify?test=123', 200);
       expect(svg).toContain('<svg');
       expect(svg).toContain('viewBox="0 0 29 29"');
       expect(svg).toContain('xmlns="http://www.w3.org/2000/svg"');
@@ -153,8 +153,8 @@ describe('Pillar 2: Portable Trust Score (ZK-RLN as a Service) Suite', () => {
       expect(cert?.domain).toBe('dao-voting.eth');
       expect(modal.formattedToken).toContain('"domain": "dao-voting.eth"');
       expect(modal.qrCodeSvg).toContain('<svg');
-      expect(modal.embedSnippet).toContain('<iframe src="https://aetheris.network/embed/trust-badge');
-      expect(modal.curlSnippet).toContain('curl -X POST https://aetheris.network/api/verify-trust');
+      expect(modal.embedSnippet).toContain('<iframe src="https://urefy.com/embed/trust-badge');
+      expect(modal.curlSnippet).toContain('curl -X POST https://urefy.com/api/verify-trust');
     });
 
     it('should render modal HTML for export tab with all required controls', async () => {
@@ -223,7 +223,7 @@ describe('Pillar 2: Portable Trust Score (ZK-RLN as a Service) Suite', () => {
     it('should successfully verify a valid certificate via POST /api/verify-trust', async () => {
       const cert = await exportPortableReputationCertificate(85, 75, testSecretKey, 'forum.sovereign.eth');
 
-      const request = new Request('https://aetheris.network/api/verify-trust', {
+      const request = new Request('https://urefy.com/api/verify-trust', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -247,7 +247,7 @@ describe('Pillar 2: Portable Trust Score (ZK-RLN as a Service) Suite', () => {
     it('should reject POST verification if expected threshold is not met', async () => {
       const cert = await exportPortableReputationCertificate(60, 50, testSecretKey, testDomain);
 
-      const request = new Request('https://aetheris.network/api/verify-trust', {
+      const request = new Request('https://urefy.com/api/verify-trust', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -269,7 +269,7 @@ describe('Pillar 2: Portable Trust Score (ZK-RLN as a Service) Suite', () => {
     it('should reject POST verification if domain does not match', async () => {
       const cert = await exportPortableReputationCertificate(85, 75, testSecretKey, 'real-domain.com');
 
-      const request = new Request('https://aetheris.network/api/verify-trust', {
+      const request = new Request('https://urefy.com/api/verify-trust', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -293,7 +293,7 @@ describe('Pillar 2: Portable Trust Score (ZK-RLN as a Service) Suite', () => {
       const b64Cert = btoa(JSON.stringify(cert));
 
       const request = new Request(
-        `https://aetheris.network/api/verify-trust?cert=${encodeURIComponent(b64Cert)}&domain=${testDomain}&threshold=75`,
+        `https://urefy.com/api/verify-trust?cert=${encodeURIComponent(b64Cert)}&domain=${testDomain}&threshold=75`,
         { method: 'GET' }
       );
 
@@ -307,7 +307,7 @@ describe('Pillar 2: Portable Trust Score (ZK-RLN as a Service) Suite', () => {
     });
 
     it('should return 400 on GET /api/verify-trust without cert parameter', async () => {
-      const request = new Request('https://aetheris.network/api/verify-trust', { method: 'GET' });
+      const request = new Request('https://urefy.com/api/verify-trust', { method: 'GET' });
       const response = await handleVerifyTrustGet({ request });
       expect(response.status).toBe(400);
 

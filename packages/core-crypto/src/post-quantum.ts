@@ -10,7 +10,7 @@ import { x25519 } from '@noble/curves/ed25519';
 import { ml_kem768 } from '@noble/post-quantum/ml-kem.js';
 import { sha256 } from '@noble/hashes/sha256';
 import { hkdf } from '@noble/hashes/hkdf';
-import { zeroize } from './security.js';
+import { timingSafeEqual, zeroize } from './security.js';
 
 /**
  * Standard HKDF context info string for Aetheris Hybrid PQC ML-KEM-768 V1.
@@ -84,8 +84,8 @@ export interface HybridKemEncapsulationResult {
  */
 export function generateHybridKemKeyPair(seed?: Uint8Array): HybridKemKeyPair {
   if (seed !== undefined) {
-    if (!(seed instanceof Uint8Array) || seed.length === 0) {
-      throw new Error('Seed must be a non-empty Uint8Array');
+    if (!(seed instanceof Uint8Array) || seed.length < 32) {
+      throw new Error('Hybrid KEM seed must contain at least 32 bytes');
     }
     // Deterministic expansion: 32 bytes for X25519, 64 bytes for ML-KEM-768 seed
     const info = new TextEncoder().encode('AETHERIS_HYBRID_KEM_KEYGEN_V1');
@@ -102,6 +102,9 @@ export function generateHybridKemKeyPair(seed?: Uint8Array): HybridKemKeyPair {
         pqPublicKey: pqKeyPair.publicKey,
         pqPrivateKey: pqKeyPair.secretKey,
       };
+    } catch (error) {
+      zeroize(classicalPrivateKey);
+      throw error;
     } finally {
       zeroize(expanded);
       zeroize(pqSeed);
@@ -109,15 +112,14 @@ export function generateHybridKemKeyPair(seed?: Uint8Array): HybridKemKeyPair {
   }
 
   const classicalPrivateKey = x25519.utils.randomPrivateKey();
-  const classicalPublicKey = x25519.getPublicKey(classicalPrivateKey);
-  const pqKeyPair = ml_kem768.keygen();
-
-  return {
-    classicalPublicKey,
-    classicalPrivateKey,
-    pqPublicKey: pqKeyPair.publicKey,
-    pqPrivateKey: pqKeyPair.secretKey,
-  };
+  try {
+    const classicalPublicKey = x25519.getPublicKey(classicalPrivateKey);
+    const pqKeyPair = ml_kem768.keygen();
+    return { classicalPublicKey, classicalPrivateKey, pqPublicKey: pqKeyPair.publicKey, pqPrivateKey: pqKeyPair.secretKey };
+  } catch (error) {
+    zeroize(classicalPrivateKey);
+    throw error;
+  }
 }
 
 /**
@@ -138,6 +140,9 @@ export function encapsulateHybrid(
 ): { ciphertext: HybridKemCiphertext; sharedSecret: Uint8Array } {
   if (!recipientPublicKey || !recipientPublicKey.classicalPublicKey || !recipientPublicKey.pqPublicKey) {
     throw new Error('Invalid recipient public key: classicalPublicKey and pqPublicKey are required');
+  }
+  if (!(recipientPublicKey.classicalPublicKey instanceof Uint8Array) || !(recipientPublicKey.pqPublicKey instanceof Uint8Array)) {
+    throw new Error('Hybrid KEM public keys must be Uint8Array values');
   }
   if (recipientPublicKey.classicalPublicKey.length !== X25519_KEY_SIZE) {
     throw new Error(
@@ -214,6 +219,9 @@ export function decapsulateHybrid(
   if (!ciphertext || !ciphertext.classicalEphemeralPublicKey || !ciphertext.pqCiphertext) {
     throw new Error('Invalid ciphertext: classicalEphemeralPublicKey and pqCiphertext are required');
   }
+  if (!(ciphertext.classicalEphemeralPublicKey instanceof Uint8Array) || !(ciphertext.pqCiphertext instanceof Uint8Array)) {
+    throw new Error('Hybrid KEM ciphertext must contain Uint8Array values');
+  }
   if (ciphertext.classicalEphemeralPublicKey.length !== X25519_KEY_SIZE) {
     throw new Error(
       `Invalid classical ephemeral public key length: ${ciphertext.classicalEphemeralPublicKey.length}, expected ${X25519_KEY_SIZE}`
@@ -228,6 +236,9 @@ export function decapsulateHybrid(
   if (!privateKey || !privateKey.classicalPrivateKey || !privateKey.pqPrivateKey) {
     throw new Error('Invalid private key: classicalPrivateKey and pqPrivateKey are required');
   }
+  if (!(privateKey.classicalPrivateKey instanceof Uint8Array) || !(privateKey.pqPrivateKey instanceof Uint8Array)) {
+    throw new Error('Hybrid KEM private keys must be Uint8Array values');
+  }
   if (privateKey.classicalPrivateKey.length !== X25519_KEY_SIZE) {
     throw new Error(
       `Invalid classical private key length: ${privateKey.classicalPrivateKey.length}, expected ${X25519_KEY_SIZE}`
@@ -237,6 +248,12 @@ export function decapsulateHybrid(
     throw new Error(
       `Invalid PQ private key length: ${privateKey.pqPrivateKey.length}, expected ${ML_KEM_768_SECRET_KEY_SIZE}`
     );
+  }
+
+  const recipientClassicalPublicKey = x25519.getPublicKey(privateKey.classicalPrivateKey);
+  if (privateKey.classicalPublicKey !== undefined && (!(privateKey.classicalPublicKey instanceof Uint8Array) ||
+      !timingSafeEqual(recipientClassicalPublicKey, privateKey.classicalPublicKey))) {
+    throw new Error('Hybrid KEM public and private keys do not match');
   }
 
   let classical_ss: Uint8Array | null = null;
@@ -253,10 +270,6 @@ export function decapsulateHybrid(
     ikm = new Uint8Array(classical_ss.length + pq_ss.length);
     ikm.set(classical_ss, 0);
     ikm.set(pq_ss, classical_ss.length);
-
-    // Derive recipient classical public key from private key to ensure authentic HKDF salt
-    const recipientClassicalPublicKey =
-      privateKey.classicalPublicKey ?? x25519.getPublicKey(privateKey.classicalPrivateKey);
 
     const infoBytes = new TextEncoder().encode(HYBRID_KEM_INFO);
     return hkdf(
@@ -278,6 +291,7 @@ export function decapsulateHybrid(
  * [32 bytes classicalPublicKey || 1184 bytes pqPublicKey]
  */
 export function serializeHybridKemPublicKey(key: HybridKemPublicKey): Uint8Array {
+  if (!(key?.classicalPublicKey instanceof Uint8Array) || !(key?.pqPublicKey instanceof Uint8Array)) throw new Error('Hybrid KEM public keys must be Uint8Array values');
   if (key.classicalPublicKey.length !== X25519_KEY_SIZE) {
     throw new Error(`Invalid classical public key length: ${key.classicalPublicKey.length}`);
   }
@@ -294,6 +308,7 @@ export function serializeHybridKemPublicKey(key: HybridKemPublicKey): Uint8Array
  * Deserializes a contiguous 1216-byte buffer into a HybridKemPublicKey.
  */
 export function deserializeHybridKemPublicKey(bytes: Uint8Array): HybridKemPublicKey {
+  if (!(bytes instanceof Uint8Array)) throw new Error('Serialized hybrid public key must be a Uint8Array');
   if (bytes.length !== HYBRID_KEM_PUBLIC_KEY_SIZE) {
     throw new Error(
       `Invalid serialized public key length: ${bytes.length}, expected ${HYBRID_KEM_PUBLIC_KEY_SIZE}`
@@ -310,6 +325,7 @@ export function deserializeHybridKemPublicKey(bytes: Uint8Array): HybridKemPubli
  * [32 bytes classicalEphemeralPublicKey || 1088 bytes pqCiphertext]
  */
 export function serializeHybridKemCiphertext(ct: HybridKemCiphertext): Uint8Array {
+  if (!(ct?.classicalEphemeralPublicKey instanceof Uint8Array) || !(ct?.pqCiphertext instanceof Uint8Array)) throw new Error('Hybrid KEM ciphertext must contain Uint8Array values');
   if (ct.classicalEphemeralPublicKey.length !== X25519_KEY_SIZE) {
     throw new Error(`Invalid classical ephemeral public key length: ${ct.classicalEphemeralPublicKey.length}`);
   }
@@ -326,6 +342,7 @@ export function serializeHybridKemCiphertext(ct: HybridKemCiphertext): Uint8Arra
  * Deserializes a contiguous 1120-byte buffer into a HybridKemCiphertext.
  */
 export function deserializeHybridKemCiphertext(bytes: Uint8Array): HybridKemCiphertext {
+  if (!(bytes instanceof Uint8Array)) throw new Error('Serialized hybrid ciphertext must be a Uint8Array');
   if (bytes.length !== HYBRID_KEM_CIPHERTEXT_SIZE) {
     throw new Error(
       `Invalid serialized ciphertext length: ${bytes.length}, expected ${HYBRID_KEM_CIPHERTEXT_SIZE}`

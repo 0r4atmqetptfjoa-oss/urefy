@@ -3,7 +3,7 @@ import { onRequest as handleMiddleware, evaluateRateLimit, resetRateLimits } fro
 import { markdownRenderer } from '../src/markdown-renderer.js';
 import { sanitizeStorageKey, computeSha256, computeMerkleRoot } from '../functions/api/storage.js';
 
-describe('Aetheris Omni-Sphere — Zero-Trust Security & OWASP Top 10 Hardening Suite', () => {
+describe('UREfy — Zero-Trust Security & OWASP Top 10 Hardening Suite', () => {
   beforeEach(() => {
     resetRateLimits();
   });
@@ -269,10 +269,10 @@ describe('Aetheris Omni-Sphere — Zero-Trust Security & OWASP Top 10 Hardening 
     });
 
     it('permits safe protocols in links (https, http, ipfs, hyper, magnet, mailto)', () => {
-      const safeLink = '[Aetheris Docs](https://aetheris.network/docs)';
+      const safeLink = '[UREfy Docs](https://urefy.com/docs)';
       const rendered = markdownRenderer.renderMarkdown(safeLink);
 
-      expect(rendered).toContain('href="https://aetheris.network/docs"');
+      expect(rendered).toContain('href="https://urefy.com/docs"');
       expect(rendered).toContain('target="_blank"');
       expect(rendered).toContain('rel="noopener noreferrer"');
     });

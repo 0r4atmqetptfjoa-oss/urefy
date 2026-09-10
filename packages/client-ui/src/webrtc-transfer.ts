@@ -1,5 +1,5 @@
 /**
- * Aetheris Omni-Sphere WebRTC Direct Peer-to-Peer File Transfer System
+ * UREfy WebRTC Direct Peer-to-Peer File Transfer System
  * Sovereign decentralized E2EE direct data channel file exchange.
  * Features adaptive 64KB chunking with SHA-256 per-piece verification, Merkle piece verification,
  * Shannon entropy validation, WebRTC DataChannel flow control, automatic selective retransmission,
@@ -10,6 +10,8 @@ import './window-augmentation.js';
 import { serviceRegistry, SERVICES } from './service-registry.js';
 import { toastManager } from './toast.js';
 import { isLocalDev } from './admin-auth.js';
+import { isDemoModeEnabled } from './demo-mode.js';
+import { t } from './i18n.js';
 
 /**
  * Display non-blocking HUD toast notification for storage & transfer operations.
@@ -420,11 +422,15 @@ export class WebRTCFileTransfer {
   };
 
   constructor() {
-    if (isLocalDev()) {
+    if (isDemoModeEnabled()) {
       this.seedInitialTransfers();
     }
     this.bindWindowGlobals();
     this.initSignaling();
+  }
+
+  public loadDemoData(): void {
+    this.seedInitialTransfers();
   }
 
   private initSignaling(): void {
@@ -1937,7 +1943,7 @@ export class WebRTCFileTransfer {
           class="px-2.5 py-1 text-xs font-mono rounded-lg bg-surface-base hover:bg-crimson/20 text-crimson border border-white/10 hover:border-crimson/30 transition-colors flex items-center gap-1 cursor-pointer"
           title="Cancel Transfer"
         >
-          Cancel
+          ${t('common.cancel', undefined, 'Cancel')}
         </button>
       `;
     } else if (isError) {

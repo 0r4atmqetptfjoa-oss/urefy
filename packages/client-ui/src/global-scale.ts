@@ -1,5 +1,5 @@
 /**
- * AETHERIS OMNI-SPHERE — GLOBAL SCALE & EDGE ARCHITECTURE ENGINE
+ * UREfy — GLOBAL SCALE & EDGE ARCHITECTURE ENGINE
  * Worldwide Production Infrastructure Blueprint, Edge Delivery, D1 Multi-Region,
  * R2 Zero-Egress Storage, Merkle Tree CRDT Multi-Master Sync & Sovereign Compliance.
  * 
@@ -684,7 +684,7 @@ export class GlobalScaleEngine {
                 : 'bg-surface-overlay hover:bg-white/10 text-slate-300 border border-white/10'
             }"
           >
-            ${this.isP2PDirectMeshActive ? 'Deactivate P2P Swarm' : 'Simulate P2P Failover'}
+            Verify P2P Readiness
           </button>
         </div>
 

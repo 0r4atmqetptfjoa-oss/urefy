@@ -1,7 +1,7 @@
 // hashtag-explorer.ts
-// Aetheris Omni-Sphere — Hashtag Explorer Module
+// UREfy — Hashtag Explorer Module
 
-import { isLocalDev } from './admin-auth.js';
+import { isDemoModeEnabled } from './demo-mode.js';
 import { escapeHtml } from './dry-utils.js';
 
 type TagChangeListener = (tag: string | null) => void;
@@ -48,7 +48,7 @@ export class HashtagExplorer {
   private postTagIndex: Map<string, Set<string>> = new Map();
 
   constructor() {
-    if (isLocalDev()) {
+    if (isDemoModeEnabled()) {
       this._seedData();
     }
   }

@@ -1,3 +1,4 @@
+import './helpers/disable-demo.js';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   NetworkObservatory,
@@ -340,7 +341,7 @@ describe('Network Observatory Telemetry & Cryptographic Monitoring System', () =
 
       // Modal container and headers
       expect(html).toContain('id="network-observatory-modal-root"');
-      expect(html).toContain('Aetheris Network Observatory');
+      expect(html).toContain('UREfy Observatory');
       expect(html).toContain('ZK-MESH');
       expect(html).toContain('LIVE SYNC');
 
@@ -459,3 +460,4 @@ describe('Network Observatory Telemetry & Cryptographic Monitoring System', () =
     });
   });
 });
+(globalThis as any).__UREFY_DEMO_MODE__ = false;

@@ -1,5 +1,5 @@
 /**
- * Aetheris Omni-Sphere — Cryptographic Web Worker Pool System (web-workers.ts)
+ * UREfy — Cryptographic Web Worker Pool System (web-workers.ts)
  *
  * High-performance concurrent cryptographic & mathematical execution engine:
  * 1. Merkle Tree Root derivation (XOR / SHA-256 binary reduction)
@@ -1096,7 +1096,7 @@ export class CryptoWorkerPool {
     // 4. TF-IDF Benchmark (50 docs)
     const tt0 = performance.now();
     const docs = Array.from({ length: 50 }, (_, i) =>
-      `Aetheris decentralized zero-knowledge mesh network node ${i} running consensus and state verification.`
+      `UREfy decentralized zero-knowledge mesh network node ${i} running consensus and state verification.`
     );
     await this.computeTFIDF(docs, 'zero-knowledge consensus mesh');
     const tfidfTime = performance.now() - tt0;
@@ -1241,7 +1241,7 @@ export class CryptoWorkerPool {
         <div class="flex items-center justify-between pb-3 mb-3 border-b border-white/5">
           <div class="flex items-center gap-2">
             <span class="text-lg text-cyphr">⚡</span>
-            <h3 class="font-semibold text-sm text-slate-100">Aetheris Crypto Worker Matrix</h3>
+            <h3 class="font-semibold text-sm text-slate-100">UREfy Crypto Worker Matrix</h3>
           </div>
           <div class="flex items-center gap-2">
             <span class="text-xs px-2 py-0.5 rounded-full bg-cyphr/10 text-cyphr border border-cyphr/20 font-mono">
@@ -1291,6 +1291,6 @@ export class CryptoWorkerPool {
 }
 
 /**
- * Singleton instance of the Cryptographic Worker Pool for the Aetheris Client.
+ * Singleton instance of the Cryptographic Worker Pool for the UREfy Client.
  */
 export const cryptoWorkerPool = new CryptoWorkerPool();

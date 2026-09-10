@@ -241,7 +241,7 @@ describe('Pillar 4: Binary Hygiene Free Web Portal & API Suite', () => {
   describe('4. Cloudflare Pages Edge Function (/api/scan-binary)', () => {
     it('should analyze raw binary stream via POST application/octet-stream', async () => {
       const cleanPE = createSyntheticPE({ payloadEntropy: 'low' });
-      const request = new Request('https://aetheris.network/api/scan-binary', {
+      const request = new Request('https://urefy.com/api/scan-binary', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/octet-stream',
@@ -267,7 +267,7 @@ describe('Pillar 4: Binary Hygiene Free Web Portal & API Suite', () => {
         .map((b) => b.toString(16).padStart(2, '0'))
         .join('');
 
-      const request = new Request('https://aetheris.network/api/scan-binary', {
+      const request = new Request('https://urefy.com/api/scan-binary', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -287,7 +287,7 @@ describe('Pillar 4: Binary Hygiene Free Web Portal & API Suite', () => {
     });
 
     it('should return 400 for empty payload', async () => {
-      const request = new Request('https://aetheris.network/api/scan-binary', {
+      const request = new Request('https://urefy.com/api/scan-binary', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),

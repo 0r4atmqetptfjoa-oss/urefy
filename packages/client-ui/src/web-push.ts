@@ -1,5 +1,5 @@
 // ============================================================================
-// web-push.ts — Aetheris Omni-Sphere Sovereign Web Push Notifications Engine (VAPID)
+// web-push.ts — UREfy Sovereign Web Push Notifications Engine (VAPID)
 // 100% Self-Contained, Zero External Dependencies, Production-Ready Implementation.
 // Zero-Tracking Sovereign Push: No Google Firebase, no third-party trackers, direct E2EE push payloads.
 // Implements W3C Push API, RFC 8291 / 8292 VAPID ECDSA P-256 Key Processing.
@@ -462,6 +462,12 @@ export class SovereignWebPush {
     if (this._bannerDismissed || this.getPermissionState() === 'granted') {
       return '';
     }
+    // Keep compact and installed-PWA navigation unobstructed. Push opt-in stays
+    // fully available from Profile > Settings on these devices.
+    if (typeof window !== 'undefined' && typeof window.matchMedia === 'function' && (
+      window.matchMedia('(max-width: 767px)').matches ||
+      window.matchMedia('(display-mode: standalone)').matches
+    )) return '';
 
     return `
       <aside
@@ -495,14 +501,14 @@ export class SovereignWebPush {
               <button
                 type="button"
                 data-action="push-dismiss"
-                class="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white bg-surface-overlay hover:bg-slate-700 transition-colors border border-white/5 cursor-pointer" data-action="call-global" data-raw-click="window.__aetherisWebPush && window.__aetherisWebPush.dismissBanner()"
+                class="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white bg-surface-overlay hover:bg-slate-700 transition-colors border border-white/5 cursor-pointer"
               >
                 Later
               </button>
               <button
                 type="button"
                 data-action="push-subscribe"
-                class="px-3.5 py-1.5 rounded-lg text-xs font-bold text-canvas bg-cyphr hover:bg-[#33ebff] transition-all shadow-md shadow-cyphr/20 flex items-center gap-1.5 cursor-pointer ml-auto" data-action="call-global" data-raw-click="window.__aetherisWebPush && window.__aetherisWebPush.subscribeUser()"
+                class="px-3.5 py-1.5 rounded-lg text-xs font-bold text-canvas bg-cyphr hover:bg-[#33ebff] transition-all shadow-md shadow-cyphr/20 flex items-center gap-1.5 cursor-pointer ml-auto"
               >
                 <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>

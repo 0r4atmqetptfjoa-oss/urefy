@@ -19,7 +19,7 @@ export class PollEngine {
 
   constructor() {
     // Seed initial poll
-    this.createPoll('poll-genesis-1', 'Should Aetheris prioritize native mobile NFC ZK-Passport reading or Tor / I2P onion onion routing bridges first?', [
+    this.createPoll('poll-genesis-1', 'Should UREfy prioritize native mobile NFC ZK-Passport reading or Tor / I2P onion onion routing bridges first?', [
       'Native Mobile NFC ZK-Passport (Android/iOS)',
       'Tor / I2P Hidden Service Onion Bridges',
       'Quantum-Resistant Kyber-1024 Ratchet Expansion',

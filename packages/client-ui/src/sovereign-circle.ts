@@ -7,6 +7,7 @@
 import './window-augmentation.js';
 import { serviceRegistry, SERVICES } from './service-registry.js';
 import { clientStore } from './client-state.js';
+import { t } from './i18n.js';
 
 export interface CircleRule {
   id: number;
@@ -91,8 +92,8 @@ export class SovereignCircleEngine {
         banner: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%)',
         description: 'Decentralized cryptographic research, recursive SNARK verification, zero-leakage rate limiting, and private computing architectures.',
         category: 'Cryptography & Security',
-        membersCount: 14200,
-        onlineCount: 342,
+        membersCount: 0,
+        onlineCount: 0,
         primaryColor: '#6366f1',
         rules: [
           { id: 1, title: 'Cryptographic Citations Mandatory', description: 'Submissions must cite verifiable mathematical formulas, RFC specs, or audited circuit repositories.' },
@@ -102,7 +103,7 @@ export class SovereignCircleEngine {
         ],
         flairs: ['VERIFIED RELEASE', 'SECURITY ADVISORY', 'TECH DISCUSSION', 'MICRO-PULSE', 'ASK COMMUNITY'],
         isJoined: true,
-        createdAt: 'Jan 2026',
+        createdAt: '',
       },
       {
         id: 'vault-releases',
@@ -113,8 +114,8 @@ export class SovereignCircleEngine {
         banner: 'linear-gradient(135deg, #064e3b 0%, #065f46 50%, #047857 100%)',
         description: 'Audited reproducible software distributions, deterministic builds, Merkle tree ledgers, and PE/ELF binary hygiene passports.',
         category: 'Software & Vault',
-        membersCount: 8900,
-        onlineCount: 184,
+        membersCount: 0,
+        onlineCount: 0,
         primaryColor: '#10b981',
         rules: [
           { id: 1, title: 'Zero PE/ELF RWX Memory Segments', description: 'All uploaded software must pass static analysis without writable+executable memory sections.' },
@@ -123,7 +124,7 @@ export class SovereignCircleEngine {
         ],
         flairs: ['VERIFIED RELEASE', 'SECURITY ADVISORY', 'TECH DISCUSSION'],
         isJoined: true,
-        createdAt: 'Feb 2026',
+        createdAt: '',
       },
       {
         id: 'vault-guides',
@@ -134,8 +135,8 @@ export class SovereignCircleEngine {
         banner: 'linear-gradient(135deg, #701a75 0%, #86198f 50%, #a21caf 100%)',
         description: 'Hardening protocols, threat modeling documentation, zero-trust cryptographic architectures, and CVE mitigations.',
         category: 'Cyber Defense',
-        membersCount: 6500,
-        onlineCount: 98,
+        membersCount: 0,
+        onlineCount: 0,
         primaryColor: '#ec4899',
         rules: [
           { id: 1, title: 'Responsible Vulnerability Disclosure', description: 'Follow standard zero-day embargo protocols before publicly posting exploit proof-of-concepts.' },
@@ -143,7 +144,7 @@ export class SovereignCircleEngine {
         ],
         flairs: ['SECURITY ADVISORY', 'TECH DISCUSSION', 'VERIFIED RELEASE'],
         isJoined: false,
-        createdAt: 'Feb 2026',
+        createdAt: '',
       },
       {
         id: 'relays-general',
@@ -154,8 +155,8 @@ export class SovereignCircleEngine {
         banner: 'linear-gradient(135deg, #0c4a6e 0%, #0369a1 50%, #0284c7 100%)',
         description: 'Decentralized DHT discovery, WebRTC direct transport, SFrame E2EE media streams, and MLS TreeKEM relay routing.',
         category: 'P2P Networking',
-        membersCount: 11300,
-        onlineCount: 276,
+        membersCount: 0,
+        onlineCount: 0,
         primaryColor: '#06b6d4',
         rules: [
           { id: 1, title: 'SFrame Noise Protocol Compliance', description: 'Audio and video payload packets must adhere strictly to TreeKEM RFC 9420 framing.' },
@@ -163,7 +164,7 @@ export class SovereignCircleEngine {
         ],
         flairs: ['MICRO-PULSE', 'TECH DISCUSSION', 'ASK COMMUNITY'],
         isJoined: true,
-        createdAt: 'Jan 2026',
+        createdAt: '',
       }
     ];
 
@@ -261,7 +262,7 @@ export class SovereignCircleEngine {
     if (!c) return false;
     c.isJoined = !c.isJoined;
     c.membersCount += c.isJoined ? 1 : -1;
-    if (c.membersCount < 1) c.membersCount = 1;
+    if (c.membersCount < 0) c.membersCount = 0;
     this.saveToStorage();
     clientStore.showToast(c.isJoined ? `✓ Joined c/${c.name}` : `Left c/${c.name}`, 'info');
     clientStore.notifySync();
@@ -543,20 +544,7 @@ export class SovereignCircleEngine {
             ${escapeHtml(circle.description)}
           </p>
 
-          <!-- METRICS GRID -->
-          <div class="grid grid-cols-2 gap-2 pt-1 font-mono text-xs">
-            <div class="p-2 rounded-xl bg-surface-overlay border border-white/5 text-center">
-              <div class="text-[10px] text-slate-400 font-bold uppercase">NODES</div>
-              <div class="font-bold text-white text-xs mt-0.5">${(circle.membersCount).toLocaleString()}</div>
-            </div>
-            <div class="p-2 rounded-xl bg-surface-overlay border border-white/5 text-center">
-              <div class="text-[10px] text-slate-400 font-bold uppercase">ONLINE</div>
-              <div class="font-bold text-emerald-400 text-xs mt-0.5 flex items-center justify-center space-x-1">
-                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
-                <span>${circle.onlineCount} Mesh</span>
-              </div>
-            </div>
-          </div>
+          <div class="text-xs text-slate-400 font-mono">${clientStore.posts.filter(post => post.channelId === circle.channelId).length} loaded posts</div>
 
           <!-- ACTIONS: JOIN & CREATE PUBLICATION -->
           <div class="grid grid-cols-2 gap-2 pt-1">
@@ -578,7 +566,7 @@ export class SovereignCircleEngine {
               id="btn-circle-create-post" 
               class="py-2 px-3 rounded-xl bg-surface-overlay hover:bg-surface-highlight text-white text-xs font-bold border border-white/10 transition-all flex items-center justify-center space-x-1 cursor-pointer"
             >
-              <span>✍️ Broadcast</span>
+              <span>✍️ ${t('pulse.publishPost', undefined, 'Broadcast')}</span>
             </button>
           </div>
 
@@ -1302,7 +1290,7 @@ export class SovereignCircleEngine {
                 id="btn-cancel-create-circle" data-action="call-global" data-raw-click="if(window.sovereignCircleEngine){window.sovereignCircleEngine.isCreateModalOpen=false;window.clientStore&&window.clientStore.notifySync();}"
                 class="px-4 py-2 text-xs font-mono font-semibold text-slate-400 hover:text-white rounded-xl transition-all cursor-pointer"
               >
-                Cancel
+                ${t('common.cancel', undefined, 'Cancel')}
               </button>
 
               <button 

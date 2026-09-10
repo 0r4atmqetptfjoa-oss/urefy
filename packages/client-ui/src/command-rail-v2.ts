@@ -1,4 +1,4 @@
-// command-rail-v2.ts — Aetheris Omni-Sphere Command Rail 2.0 Split View Engine
+// command-rail-v2.ts — UREfy Command Rail 2.0 Split View Engine
 // 100% Functional, Self-Contained, Strict TypeScript, Zero Stub Implementation.
 
 import {
@@ -8,7 +8,7 @@ import {
   ClientNanopublication,
   SpaceType,
 } from './client-state.js';
-import { isLocalDev } from './admin-auth.js';
+import { isDemoModeEnabled } from './demo-mode.js';
 import { sovereignCircleEngine } from './sovereign-circle.js';
 import { sovereignRouter } from './router.js';
 
@@ -175,7 +175,7 @@ export class CommandRailV2Engine {
 
   constructor() {
     this._initCommands();
-    if (isLocalDev()) {
+    if (isDemoModeEnabled()) {
       this._seedFallbackData();
     }
   }
@@ -184,7 +184,7 @@ export class CommandRailV2Engine {
    * Initialize built-in sovereign command palette.
    */
   private _initCommands(): void {
-    this._commandsRegistry = [
+    this._commandsRegistry = ([
       {
         id: 'nav-relays',
         title: 'Go to Space: Relays',
@@ -357,7 +357,7 @@ export class CommandRailV2Engine {
           }
         },
       },
-    ];
+    ] satisfies CommandItem[]).filter((command) => isDemoModeEnabled() || command.category !== 'Simulation');
   }
 
   /**
@@ -598,7 +598,7 @@ export class CommandRailV2Engine {
     // 1. Gather Posts
     const posts: ClientPost[] = (typeof clientStore !== 'undefined' && clientStore.posts && clientStore.posts.length > 0)
       ? clientStore.posts
-      : (isLocalDev() ? this._cachedPosts : []);
+      : (isDemoModeEnabled() ? this._cachedPosts : []);
 
     if (filter === 'ALL' || filter === 'POSTS') {
       for (const p of posts) {
@@ -637,7 +637,7 @@ export class CommandRailV2Engine {
     // 2. Gather Members
     const members: CommunityMember[] = (typeof clientStore !== 'undefined' && clientStore.members && clientStore.members.length > 0)
       ? clientStore.members
-      : (isLocalDev() ? this._cachedMembers : []);
+      : (isDemoModeEnabled() ? this._cachedMembers : []);
 
     if (filter === 'ALL' || filter === 'MEMBERS') {
       for (const m of members) {
@@ -672,7 +672,7 @@ export class CommandRailV2Engine {
     // 3. Gather Binaries / Nanopublications
     const binaries: ClientNanopublication[] = (typeof clientStore !== 'undefined' && clientStore.nanopublications && clientStore.nanopublications.length > 0)
       ? clientStore.nanopublications
-      : (isLocalDev() ? this._cachedBinaries : []);
+      : (isDemoModeEnabled() ? this._cachedBinaries : []);
 
     if (filter === 'ALL' || filter === 'BINARIES') {
       for (const b of binaries) {
@@ -898,7 +898,7 @@ export class CommandRailV2Engine {
             <div class="flex items-center space-x-4 text-slate-400">
               <span class="flex items-center space-x-1.5">
                 <span class="w-2 h-2 rounded-full bg-signal shadow-signal-sm animate-pulse"></span>
-                <span class="text-slate-300">Aetheris Local ZK-SSE BM25</span>
+                <span class="text-slate-300">UREfy Local ZK-SSE BM25</span>
               </span>
               <span class="text-slate-600">|</span>
               <span class="text-slate-500">Sub-millisecond memory index</span>
@@ -1461,7 +1461,7 @@ export class CommandRailV2Engine {
           ⚡
         </div>
         <div>
-          <h4 class="text-sm font-bold text-slate-200">Aetheris Command Rail 2.0</h4>
+          <h4 class="text-sm font-bold text-slate-200">UREfy Command Rail 2.0</h4>
           <p class="text-xs text-slate-500 mt-1 max-w-xs leading-relaxed">
             Select any post, sovereign member, verified binary, or protocol action from the left pane to inspect instant live preview.
           </p>

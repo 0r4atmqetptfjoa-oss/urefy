@@ -1,4 +1,4 @@
-# Aetheris Omni-Sphere — Sovereign Sustainability Model
+# UREfy — Sovereign Sustainability Model
 
 > **Version**: 1.0 · **Last Updated**: September 2026 · **Status**: Canonical Reference
 
@@ -6,15 +6,15 @@
 
 ## Overview
 
-Aetheris is designed from the ground up as a **zero-server, peer-to-peer sovereign communication platform**. Its sustainability model deliberately avoids the structural weaknesses of traditional cloud-dependent platforms: no single point of corporate failure, no subscription-rent-seeking, no surveillance monetization.
+UREfy is designed from the ground up as a **zero-server, peer-to-peer sovereign communication platform**. Its sustainability model deliberately avoids the structural weaknesses of traditional cloud-dependent platforms: no single point of corporate failure, no subscription-rent-seeking, no surveillance monetization.
 
-This document outlines the five pillars of Aetheris's long-term sustainability.
+This document outlines the five pillars of UREfy's long-term sustainability.
 
 ---
 
 ## Pillar 1 — Open-Source Public Good & Foundation Grants
 
-Aetheris is a **commons infrastructure project** — free as in freedom, free as in cost. The codebase is maintained under a permissive open-source license, and contributions from the community are welcomed and recognized through the platform's own Web-of-Trust merit system.
+UREfy is a **commons infrastructure project** — free as in freedom, free as in cost. The codebase is maintained under a permissive open-source license, and contributions from the community are welcomed and recognized through the platform's own Web-of-Trust merit system.
 
 ### Sustainable Funding Sources (Non-Extractive)
 
@@ -33,7 +33,7 @@ Aetheris is a **commons infrastructure project** — free as in freedom, free as
 
 ## Pillar 2 — Zero-Cloud-Cost Peer-to-Peer Economics
 
-Unlike traditional platforms, Aetheris has **no recurring server bandwidth bill** and **no cloud storage costs** for its core communication model.
+Unlike traditional platforms, UREfy has **no recurring server bandwidth bill** and **no cloud storage costs** for its core communication model.
 
 ### How This Works
 
@@ -58,13 +58,13 @@ API requests: $0.40/M calls    Local computation: $0.00
 | Core cryptography | **$0/month** | Runs in browser WASM/WebCrypto |
 | Developer domains | **~\$10/year** | Only recurring infra cost |
 
-> **Economic invariant**: Aetheris's marginal cost per additional user is **zero**. Scaling does not require fundraising rounds.
+> **Economic invariant**: UREfy's marginal cost per additional user is **zero**. Scaling does not require fundraising rounds.
 
 ---
 
 ## Pillar 3 — Decentralized Validator Merit & Community Staking
 
-Aetheris operates a **merit-weighted governance model** through its DAO engine (`src/governance.ts` + `src/chaumian-voting.ts`). This is explicitly NOT a token-sale or speculative DeFi scheme.
+UREfy operates a **merit-weighted governance model** through its DAO engine (`src/governance.ts` + `src/chaumian-voting.ts`). This is explicitly NOT a token-sale or speculative DeFi scheme.
 
 ### What Merit Represents
 
@@ -83,11 +83,11 @@ Aetheris operates a **merit-weighted governance model** through its DAO engine (
 
 ## Pillar 4 — Environmental Impact & Carbon Minimization
 
-Aetheris is among the most energy-efficient communication platforms possible:
+UREfy is among the most energy-efficient communication platforms possible:
 
 ### Energy Consumption Model
 
-| Scenario | Traditional Social Platform | Aetheris |
+| Scenario | Traditional Social Platform | UREfy |
 |---------|-----------------------------|---------|
 | Active user session energy | 1–5 kWh/month (datacenters) | **< 0.001 kWh/month** (client-only) |
 | Data center continuous load | 24/7 server fleets | **Zero dedicated servers** |
@@ -102,7 +102,7 @@ Aetheris is among the most energy-efficient communication platforms possible:
 - No CDN origin server bandwidth for media (WebRTC direct transfer).
 - ZK-SNARK proofs use client CPU for seconds during creation, then never again.
 
-> **Carbon metric**: An active Aetheris node consumes less than **0.001 kWh/month** in server-side energy — orders of magnitude below cloud-based equivalents.
+> **Carbon metric**: An active UREfy node consumes less than **0.001 kWh/month** in server-side energy — orders of magnitude below cloud-based equivalents.
 
 ---
 
@@ -111,7 +111,7 @@ Aetheris is among the most energy-efficient communication platforms possible:
 ### Decision-Making Structure
 
 ```
-AIP (Aetheris Improvement Proposal) lifecycle:
+AIP (UREfy Improvement Proposal) lifecycle:
 Draft → Active ballot → Quorum verification → Binding result → Implementation
         (Anonymous ZK       (Merit-weighted      (On-chain-style
          Chaumian ballot)    aggregation)         audit log)
@@ -149,4 +149,4 @@ If the core team becomes unavailable:
 
 ---
 
-*This document is maintained by the Aetheris core contributors and is subject to governance review via the DAO proposal process.*
+*This document is maintained by the UREfy core contributors and is subject to governance review via the DAO proposal process.*

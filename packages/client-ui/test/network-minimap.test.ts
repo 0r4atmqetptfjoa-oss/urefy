@@ -1,3 +1,4 @@
+import './helpers/disable-demo.js';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { AmbientNetworkMinimap } from '../src/network-minimap.js';
 import { setSimulationMode } from '../src/simulation-mode.js';
@@ -151,3 +152,4 @@ describe('Ticket 3.1: Ambient Network Minimap', () => {
     expect(minimap.isPaused).toBe(false);
   });
 });
+(globalThis as any).__UREFY_DEMO_MODE__ = false;

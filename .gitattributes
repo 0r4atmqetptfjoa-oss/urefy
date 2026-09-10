@@ -1,11 +1,54 @@
-# Git attributes for clean repository archiving
-# Ensures node_modules, build output, temporary files, and secrets are excluded from distribution archives
+# Auto-detect text files and perform LF normalization on checkout
+* text=auto eol=lf
 
+# Explicit text files with enforced LF line endings
+*.ts text eol=lf
+*.tsx text eol=lf
+*.js text eol=lf
+*.mjs text eol=lf
+*.cjs text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.css text eol=lf
+*.html text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.toml text eol=lf
+*.sh text eol=lf
+*.sql text eol=lf
+*.svg text eol=lf
+*.xml text eol=lf
+
+# Binary files that must not undergo line ending conversion
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.otf binary
+*.wasm binary
+*.zkey binary
+*.bin binary
+*.tar.gz binary
+*.zip binary
+*.7z binary
+
+# Git archive export exclusions (clean distribution tarballs)
 node_modules/ export-ignore
 dist/ export-ignore
+.wrangler/ export-ignore
 .env* export-ignore
 *.zip export-ignore
 .tempmediaStorage/ export-ignore
 .system_generated/ export-ignore
 scratch/ export-ignore
 coverage/ export-ignore
+.launch-backups/ export-ignore
+playwright-report/ export-ignore
+test-results/ export-ignore

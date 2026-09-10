@@ -284,7 +284,7 @@ class MockDocument {
   }
 }
 
-describe('Aetheris Omni-Sphere — SpatialAudioEngine Unit Tests', () => {
+describe('UREfy — SpatialAudioEngine Unit Tests', () => {
   let mockDoc: MockDocument;
   let originalWindow: unknown;
   let originalDocument: unknown;
@@ -565,7 +565,7 @@ describe('Aetheris Omni-Sphere — SpatialAudioEngine Unit Tests', () => {
       expect(html).toContain('id="spatial-btn-self-deafen"');
       expect(html).toContain('id="spatial-master-volume"');
       expect(html).toContain('id="spatial-participant-list-hud"');
-      expect(html).toContain('Aetheris Spatial Audio v2.4');
+      expect(html).toContain('UREfy Spatial Audio v2.4');
     });
   });
 

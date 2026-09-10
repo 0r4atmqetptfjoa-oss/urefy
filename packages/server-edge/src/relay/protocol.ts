@@ -1,5 +1,5 @@
 /**
- * AETHERIS CANONICAL RELAY PROTOCOL ENGINE (FAZA 3)
+ * UREfy CANONICAL RELAY PROTOCOL ENGINE (FAZA 3)
  * 
  * Provides a single, authoritative packet handling and message dispatching engine
  * shared across Node.js server, Cloudflare Worker, and Cloudflare Durable Objects.

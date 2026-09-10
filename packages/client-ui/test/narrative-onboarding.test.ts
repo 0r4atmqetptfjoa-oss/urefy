@@ -76,7 +76,7 @@ describe('Ticket 2.1: Narrative 4-Step User Onboarding Flow', () => {
     // Step 1: Identity
     expect(steps[0].icon).toBe('🌱');
     expect(steps[0].title).toBe('Your Identity Belongs to You');
-    expect(steps[0].componentHtml).toContain('Zero Central Servers');
+    expect(steps[0].componentHtml).toContain('No Custodial Identity Server');
     expect(steps[0].componentHtml).toContain('aeth1_test_fingerprint'.substring(0, 16));
 
     // Step 2: Protection / E2EE & Network
@@ -97,7 +97,7 @@ describe('Ticket 2.1: Narrative 4-Step User Onboarding Flow', () => {
     wizard.isOpen = true;
     const modalHtml = wizard.renderWizardModal('aeth1_test_fingerprint');
     expect(modalHtml).toContain('aetheris-onboarding-overlay');
-    expect(modalHtml).toContain('AETHERIS // SOVEREIGN WELCOME');
+    expect(modalHtml).toContain('UREfy // SOVEREIGN WELCOME');
 
     wizard.isOpen = false;
     expect(wizard.renderWizardModal()).toBe('');

@@ -1,6 +1,7 @@
 import { ed25519 } from '@noble/curves/ed25519';
 import { sha256 } from '@noble/hashes/sha256';
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
+import { zeroize } from './security.js';
 
 export interface KeyPair {
   publicKey: Uint8Array;
@@ -15,7 +16,8 @@ export interface KeyPair {
  * @param seed Optional 32-byte seed for deterministic key derivation
  */
 export function generateKeyPair(seed?: Uint8Array): KeyPair {
-  const privateKey = seed || ed25519.utils.randomPrivateKey();
+  if (seed !== undefined && (!(seed instanceof Uint8Array) || seed.length !== 32)) throw new Error('Ed25519 seed must contain exactly 32 bytes');
+  const privateKey = seed === undefined ? ed25519.utils.randomPrivateKey() : new Uint8Array(seed);
   const publicKey = ed25519.getPublicKey(privateKey);
   const publicKeyHex = bytesToHex(publicKey);
   const privateKeyHex = bytesToHex(privateKey);
@@ -44,7 +46,11 @@ export function computeFingerprint(publicKey: Uint8Array): string {
 export function signMessage(message: Uint8Array | string, privateKey: Uint8Array | string): Uint8Array {
   const msgBytes = typeof message === 'string' ? new TextEncoder().encode(message) : message;
   const privBytes = typeof privateKey === 'string' ? hexToBytes(privateKey) : privateKey;
-  return ed25519.sign(msgBytes, privBytes);
+  try {
+    return ed25519.sign(msgBytes, privBytes);
+  } finally {
+    if (typeof privateKey === 'string') zeroize(privBytes);
+  }
 }
 
 /**
@@ -59,7 +65,7 @@ export function verifySignature(
     const sigBytes = typeof signature === 'string' ? hexToBytes(signature) : signature;
     const msgBytes = typeof message === 'string' ? new TextEncoder().encode(message) : message;
     const pubBytes = typeof publicKey === 'string' ? hexToBytes(publicKey) : publicKey;
-    return ed25519.verify(sigBytes, msgBytes, pubBytes);
+    return ed25519.verify(sigBytes, msgBytes, pubBytes, { zip215: false });
   } catch {
     return false;
   }

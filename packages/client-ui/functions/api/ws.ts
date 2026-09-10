@@ -1,5 +1,5 @@
 // ===========================================================================
-// AETHERIS OMNI-SPHERE — CLOUDFLARE PAGES WEBSOCKET SIGNALING & RELAY ENGINE
+// UREfy — CLOUDFLARE PAGES WEBSOCKET SIGNALING & RELAY ENGINE
 // Supports: Cloudflare Durable Objects Hibernation API (when env.RELAY_DO is bound)
 // Zero-Config Fallback: In-Isolate Cloudflare Pages WebSocketPair with ZK-RLN & Presence.
 // ===========================================================================
@@ -275,11 +275,11 @@ export async function onRequest(context: {
     return new Response(
       JSON.stringify({
         status: 'online',
-        service: 'Aetheris Sovereign WebSocket Signaling Edge',
+        service: 'UREfy WebSocket Signaling Edge',
         transport: 'WebSocket',
         usage: 'Connect via wss://<domain>/api/ws with standard WebSocket protocol',
         activeConnections: activeClients.size,
-        protocol: 'Aetheris-Sovereign-v1.0.0',
+        protocol: 'URE-Relay-v2.0.0',
         durableObjectAvailable: Boolean(env.RELAY_DO),
         zkRlnEnabled: true,
         presenceCount: presenceStore.size,

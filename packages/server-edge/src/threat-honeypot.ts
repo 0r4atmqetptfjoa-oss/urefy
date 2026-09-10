@@ -1,5 +1,5 @@
 /**
- * Aetheris Threat Honeypot & Decoy Security Engine
+ * UREfy Threat Honeypot & Decoy Security Engine
  * 
  * Traps automated exploit scanners, web vulnerability bots, and malicious actors
  * probing standard vulnerable endpoints (e.g. `/.env`, `/admin`, `/wp-login.php`, `/actuator/health`).

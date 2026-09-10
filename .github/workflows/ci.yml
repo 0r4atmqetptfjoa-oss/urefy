@@ -1,4 +1,4 @@
-name: Aetheris Omni-Sphere CI/CD Pipeline
+name: UREfy CI/CD Pipeline
 
 on:
   push:
@@ -27,10 +27,10 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up Node.js 20
+      - name: Set up Node.js 24 LTS
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: 'npm'
 
       - name: Clean dependency installation (npm ci)
@@ -40,13 +40,28 @@ jobs:
         run: npm run typecheck
 
       - name: Unit & Integration tests across all workspaces
-        run: npm run test --workspaces --if-present
-
-      - name: 23-Gate Production Security Audit (Strict Fail-Closed)
-        run: npm run audit:production
+        run: npm test
 
       - name: Production build across workspaces
-        run: npm run build --workspaces --if-present
+        run: npm run build
+
+      - name: Verify reproducible production build
+        run: npm run verify:reproducible
+
+      - name: Transitive startup bundle budget
+        run: npm run audit:bundle
+
+      - name: Production Security Audit (Strict Fail-Closed)
+        run: npm run audit:production
+
+      - name: Install Chromium for browser regression tests
+        run: npx playwright install --with-deps chromium
+
+      - name: Workspace desktop and mobile browser regressions
+        working-directory: packages/client-ui
+        env:
+          PLAYWRIGHT_PREVIEW: '1'
+        run: npm run test:e2e -- premium-workspace.spec.ts functional-controls.spec.ts push-banner.spec.ts private-messaging.spec.ts governance-live.spec.ts pwa-runtime.spec.ts brand-release.spec.ts webrtc-live.spec.ts --project=chromium
 
       - name: Package reproducible release archive
         run: npm run package:release
@@ -73,17 +88,17 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Node.js 20
+      - name: Set up Node.js 24 LTS
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
 
       - name: Build client-ui production bundle
-        run: npm run build --workspace=packages/client-ui
+        run: npm run build:shared && npm run build --workspace=packages/client-ui
 
       - name: Deploy to Cloudflare Pages
         id: pages_deploy
@@ -94,46 +109,20 @@ jobs:
           if [ -n "$CLOUDFLARE_API_TOKEN" ]; then
             echo "Deploying to Cloudflare Pages: aetheris-omni-sphere..."
             npx wrangler pages deploy packages/client-ui/dist --project-name=aetheris-omni-sphere --branch=main
+            echo "deployed=true" >> "$GITHUB_OUTPUT"
           else
             echo "CLOUDFLARE_API_TOKEN not provided; skipping automated Pages deployment in this runner."
           fi
 
       - name: Execute Live Smoke Tests & Health Check
-        run: |
-          PROD_URL="https://aetheris-omni-sphere.pages.dev"
-          echo "Executing live smoke tests against $PROD_URL..."
+        if: steps.pages_deploy.outputs.deployed == 'true'
+        env:
+          SMOKE_BASE_URL: https://aetheris-omni-sphere.pages.dev
+        run: node scripts/smoke-test.mjs
 
-          echo "[1/4] Probing NodeInfo / Federation endpoint..."
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$PROD_URL/.well-known/aetheris-node" || echo "000")
-          if [ "$STATUS" = "200" ]; then
-            echo "  ✓ NodeInfo endpoint accessible (HTTP $STATUS)"
-          else
-            echo "  ⚠ NodeInfo endpoint status: $STATUS"
-          fi
-
-          echo "[2/4] Probing Live Analytics Telemetry..."
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$PROD_URL/api/analytics" || echo "000")
-          if [ "$STATUS" = "200" ]; then
-            echo "  ✓ Analytics endpoint active (HTTP $STATUS)"
-          else
-            echo "  ⚠ Analytics endpoint status: $STATUS"
-          fi
-
-          echo "[3/4] Probing WebAuthn Challenge Generation..."
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$PROD_URL/api/webauthn?action=challenge" || echo "000")
-          if [ "$STATUS" = "200" ]; then
-            echo "  ✓ WebAuthn challenge endpoint functional (HTTP $STATUS)"
-          else
-            echo "  ⚠ WebAuthn endpoint status: $STATUS"
-          fi
-
-          echo "[4/4] Probing Edge Security Headers..."
-          HEADERS=$(curl -s -I "$PROD_URL" || true)
-          if echo "$HEADERS" | grep -iq "content-security-policy"; then
-            echo "  ✓ Content-Security-Policy header verified"
-          fi
-          if echo "$HEADERS" | grep -iq "x-content-type-options"; then
-            echo "  ✓ X-Content-Type-Options header verified"
-          fi
-
-          echo "Live smoke tests complete. System operational."
+      - name: Execute opt-in multi-node and Fediverse interoperability checks
+        if: steps.pages_deploy.outputs.deployed == 'true' && secrets.UREFY_SECONDARY_NODE_URL != ''
+        env:
+          UREFY_NODE_URLS: https://aetheris-omni-sphere.pages.dev,${{ secrets.UREFY_SECONDARY_NODE_URL }}
+          FEDIVERSE_TEST_HANDLE: ${{ secrets.FEDIVERSE_TEST_HANDLE }}
+        run: npm run test:live-network

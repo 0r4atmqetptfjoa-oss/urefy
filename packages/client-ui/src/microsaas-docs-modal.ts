@@ -2,11 +2,13 @@
  * microsaas-docs-modal.ts — Developer Documentation & Micro-SaaS Showcase Hub
  *
  * Provides an interactive developer showcase, cURL generators, and embed code
- * snippets for Aetheris Zero-Cost Edge APIs:
+ * snippets for UREfy Zero-Cost Edge APIs:
  *   1. /api/scan-binary (Binary Hygiene as a Service)
  *   2. /api/verify-trust (Portable ZK-RLN Trust Badges)
  *   3. Client-Side Post-Quantum (ML-KEM-768) & Steganography SDK
  */
+
+import { t } from './i18n.js';
 
 export class MicroSaaSDocsModal {
   private container: HTMLElement | null = null;
@@ -55,7 +57,7 @@ export class MicroSaaSDocsModal {
                 <p class="text-xs text-slate-400">Zero-cost sovereign endpoints, ZK verifiers, and client-side cryptographic utilities</p>
               </div>
             </div>
-            <button id="close-microsaas-btn" data-action="close-feature" class="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/80 transition-colors cursor-pointer">
+            <button id="close-microsaas-btn" data-action="close-feature" class="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/80 transition-colors cursor-pointer" title="${t('modal.close', undefined, 'Close')} (Esc)" aria-label="${t('modal.close', undefined, 'Close')}">
               ✕
             </button>
           </div>
@@ -99,7 +101,7 @@ export class MicroSaaSDocsModal {
               <span class="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
               <span>Cloudflare Pages Edge: 100,000 req/day included at $0/mo</span>
             </div>
-            <div>Aetheris Sovereign Micro-SaaS Engine</div>
+            <div>UREfy Sovereign Micro-SaaS Engine</div>
           </div>
         </div>
       </div>
@@ -175,7 +177,7 @@ export class MicroSaaSDocsModal {
             <span class="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
             <span>Cloudflare Pages Edge: 100,000 req/day included at $0/mo</span>
           </div>
-          <div>Aetheris Sovereign Micro-SaaS Engine</div>
+          <div>UREfy Sovereign Micro-SaaS Engine</div>
         </div>
       </div>
     `;
