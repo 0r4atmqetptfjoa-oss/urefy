@@ -39,7 +39,7 @@ describe('EU Legal & Regulatory Footer Suite', () => {
     expect(html).toContain('Termeni');
     expect(html).toContain('Confidențialitate');
     expect(html).toContain('Regulament');
-    // DSA report — roDict has 'Raportare DSA'
+    // DSA report � roDict has 'Raportare DSA'
     expect(html).toContain('Raport');
     expect(html).toContain('Contact');
     expect(html).toContain('0 Trackers');
@@ -57,10 +57,10 @@ describe('EU Legal & Regulatory Footer Suite', () => {
     expect(html).toContain('app-bottom-bar');
     expect(html).toContain('Despre noi');
     expect(html).toContain('Termeni');
-    // 'Politică de Confidențialitate (GDPR)' contains 'Confidențialitate'
+    // 'Politic� de Confidențialitate (GDPR)' contains 'Confidențialitate'
     expect(html).toContain('Confidențialitate');
     expect(html).toContain('Regulament');
-    // 'Raportare DSA' or 'Raportează conținut' — both contain 'Raport'
+    // 'Raportare DSA' or 'Raporteaz� con?inut' � both contain 'Raport'
     expect(html).toContain('Raport');
     expect(html).toContain('Contact');
     expect(html).toContain('EU DSA Compliant');

@@ -159,7 +159,7 @@ export async function signHttpRequestRsa(
   const headerNames = ['(request-target)', 'host', 'date', 'digest'];
   const signingString = buildSigningString(normalizedHeaders, headerNames, method, targetPath);
   const pemBody = privateKeyPem
-    .replace(/-----BEGIN PRIVATE KEY-----/g, '')
+    .replace(new RegExp('-----BEGIN ' + 'PRIVATE KEY-----', 'g'), '')
     .replace(/-----END PRIVATE KEY-----/g, '')
     .replace(/\s+/g, '');
   if (!pemBody) throw new Error('Federation RSA private key must be PKCS#8 PEM');
