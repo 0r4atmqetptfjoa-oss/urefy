@@ -184,14 +184,16 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
     }
     const body = rawBody.payload && typeof rawBody.payload === 'object' ? rawBody.payload : rawBody;
 
-    const targetId = typeof body.targetId === 'string' ? body.targetId.trim() : (typeof body.postId === 'string' ? body.postId.trim() : '');
-    const targetType = typeof body.targetType === 'string' ? body.targetType.trim() : 'post';
-    let userFingerprint = typeof body.userFingerprint === 'string' ? body.userFingerprint.trim() : '';
+    const rawTargetId = typeof body.targetId === 'string' ? body.targetId.trim() : (typeof body.postId === 'string' ? body.postId.trim() : '');
+    const targetId = rawTargetId.slice(0, 256);
+    const targetType = (typeof body.targetType === 'string' ? body.targetType.trim() : 'post').slice(0, 64);
+    let userFingerprint = typeof body.userFingerprint === 'string' ? body.userFingerprint.trim().slice(0, 128) : '';
     if (!userFingerprint && rawBody.identity?.fingerprint) {
-      userFingerprint = rawBody.identity.fingerprint;
+      userFingerprint = String(rawBody.identity.fingerprint).trim().slice(0, 128);
     }
     const action = typeof body.action === 'string' ? body.action.trim().toLowerCase() : '';
-    const value = typeof body.value === 'string' ? body.value.trim() : null;
+    const rawValue = typeof body.value === 'string' ? body.value.trim() : null;
+    const value = rawValue ? rawValue.slice(0, 128) : null;
 
     if (!targetId) {
       return new Response(
@@ -365,7 +367,7 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
       if (db) {
         try {
           await db
-            .prepare(`INSERT INTO interactions (id, target_type, target_id, user_fingerprint, interaction_type, value, created_at) VALUES (?, ?, ?, ?, 'award', ?, ?)`)
+            .prepare(`INSERT OR IGNORE INTO interactions (id, target_type, target_id, user_fingerprint, interaction_type, value, created_at) VALUES (?, ?, ?, ?, 'award', ?, ?)`)
             .bind(interactionId, targetType, targetId, userFingerprint, value || 'gold', now)
             .run();
           isActive = true;

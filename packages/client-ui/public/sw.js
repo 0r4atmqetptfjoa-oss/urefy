@@ -35,6 +35,8 @@ const NEVER_CACHE_PATTERNS = [
   /\/api\/webauthn/,
   /\/api\/messages/,
   /\/api\/vault\/private/,
+  /\/api\/storage/,
+  /\/api\/interactions/,
   /\/api\/recovery/,
   /\/api\/report/,
   /\/admin\.html/,
@@ -102,7 +104,8 @@ const CACHEABLE_PUBLIC_API = [
 
   // ── 3. API requests → Safe-By-Default Network-Only, cache ONLY explicit public whitelist ──
   if (url.pathname.startsWith('/api/')) {
-    const isPublicCacheable = CACHEABLE_PUBLIC_API.some((pattern) => pattern.test(url.pathname));
+    const hasAuthHeaders = req.headers.has('authorization') || req.headers.has('x-sovereign-envelope') || req.headers.has('x-admin-pin');
+    const isPublicCacheable = !hasAuthHeaders && CACHEABLE_PUBLIC_API.some((pattern) => pattern.test(url.pathname));
     if (isPublicCacheable) {
       e.respondWith(networkFirst(req, CACHE_API));
     } else {
@@ -136,7 +139,8 @@ async function cacheFirst(req, cacheName) {
   if (cached) return cached;
   try {
     const res = await fetch(req);
-    if (res && res.status === 200) {
+    const cc = res?.headers?.get('cache-control') || '';
+    if (res && res.status === 200 && !cc.includes('no-store') && !cc.includes('private')) {
       const cache = await caches.open(cacheName);
       cache.put(req, res.clone());
     }
@@ -149,7 +153,8 @@ async function cacheFirst(req, cacheName) {
 async function networkFirst(req, cacheName) {
   try {
     const res = await fetch(req);
-    if (res && res.status === 200) {
+    const cc = res?.headers?.get('cache-control') || '';
+    if (res && res.status === 200 && !cc.includes('no-store') && !cc.includes('private')) {
       const cache = await caches.open(cacheName);
       cache.put(req, res.clone());
     }
@@ -167,7 +172,8 @@ async function staleWhileRevalidate(req, cacheName) {
   const cache = await caches.open(cacheName);
   const cached = await cache.match(req);
   const fetchPromise = fetch(req).then((res) => {
-    if (res && res.status === 200) cache.put(req, res.clone());
+    const cc = res?.headers?.get('cache-control') || '';
+    if (res && res.status === 200 && !cc.includes('no-store') && !cc.includes('private')) cache.put(req, res.clone());
     return res;
   }).catch(() => cached);
   return cached || fetchPromise;
@@ -249,11 +255,16 @@ self.addEventListener('notificationclick', (e) => {
   );
 });
 
-// ─── SKIP WAITING — Message from main thread ──────────────────────────────────
+// ─── MESSAGES FROM MAIN THREAD ───────────────────────────────────────────────
 self.addEventListener('message', (e) => {
   if (e.data?.type === 'SKIP_WAITING') self.skipWaiting();
   if (e.data?.type === 'CACHE_URLS' && Array.isArray(e.data.urls)) {
     caches.open(CACHE_ASSETS).then((c) => c.addAll(e.data.urls).catch(() => {}));
+  }
+  if (e.data?.type === 'PURGE_USER_DATA' || e.data?.type === 'LOGOUT') {
+    e.waitUntil(
+      caches.delete(CACHE_API).catch(() => {})
+    );
   }
 });
 

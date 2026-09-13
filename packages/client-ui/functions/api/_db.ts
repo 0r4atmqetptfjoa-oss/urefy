@@ -222,6 +222,120 @@ export interface EdgePushSubscription {
   createdAt: number;
 }
 
+export interface EdgeFollow {
+  followerId: string;
+  followingId: string;
+  createdAt: number;
+}
+
+export interface EdgeNotification {
+  id: string;
+  userId: string;
+  actorId: string;
+  actorName?: string;
+  type: 'follow' | 'reply_post' | 'reply_comment' | 'mention' | 'reaction' | 'award' | 'mod_action' | 'message_request' | 'message' | 'community_activity';
+  targetId?: string;
+  targetType?: string;
+  previewText?: string;
+  isRead: boolean;
+  createdAt: number;
+}
+
+export interface EdgeBlock {
+  blockerId: string;
+  blockedId: string;
+  createdAt: number;
+}
+
+export interface EdgeMute {
+  muterId: string;
+  mutedId: string;
+  createdAt: number;
+}
+
+export interface EdgeUserProfile {
+  userId: string;
+  displayName: string;
+  handle: string;
+  bio?: string;
+  avatarUrl?: string;
+  bannerUrl?: string;
+  pinnedPostId?: string;
+  interests?: string[];
+  website?: string;
+  location?: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface EdgeCommunity {
+  id: string;
+  name: string;
+  displayName: string;
+  description?: string;
+  category: string;
+  icon?: string;
+  banner?: string;
+  primaryColor?: string;
+  channelId: string;
+  rulesJson?: string;
+  memberCount: number;
+  createdAt: number;
+}
+
+export interface EdgeCommunityMember {
+  communityId: string;
+  userId: string;
+  role: 'member' | 'moderator' | 'admin';
+  joinedAt: number;
+}
+
+export interface EdgeCommunityModLog {
+  id: string;
+  communityId: string;
+  moderatorId: string;
+  action: 'pin_post' | 'unpin_post' | 'remove_post' | 'lock_thread' | 'unlock_thread' | 'mute_user' | 'ban_user' | 'unban_user' | 'edit_info' | 'approve_report' | 'reject_report';
+  targetType: string;
+  targetId: string;
+  reason?: string;
+  createdAt: number;
+}
+
+export interface EdgeSocialReport {
+  id: string;
+  targetType: 'post' | 'comment' | 'user' | 'message' | 'community';
+  targetId: string;
+  reasonCategory: 'spam' | 'harassment' | 'impersonation' | 'illegal' | 'malware' | 'other';
+  details?: string;
+  reporterId: string;
+  communityId?: string;
+  status: 'pending' | 'reviewed' | 'dismissed' | 'actioned';
+  actionTaken?: string;
+  moderatorId?: string;
+  createdAt: number;
+  reviewedAt?: number;
+}
+
+export interface EdgeMessageRequest {
+  id: string;
+  senderId: string;
+  recipientId: string;
+  status: 'pending' | 'accepted' | 'declined' | 'blocked';
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface EdgeComment {
+  id: string;
+  postId: string;
+  parentId?: string;
+  authorId: string;
+  authorRole: string;
+  content: string;
+  meritVotes: number;
+  createdAt: number;
+}
+
 // ─── INITIAL IN-MEMORY SEEDS (CLEAN RUNTIME DEFAULTS) ────────────────────────
 import {
   INITIAL_CHANNELS as DEV_CHANNELS,
@@ -252,8 +366,19 @@ export const globalPostsStore: EdgePost[] = isProductionRuntime ? [] : [...DEV_P
 export const globalNanopublicationsStore: EdgeNanopublication[] = isProductionRuntime ? [] : [...DEV_NANOPUBLICATIONS];
 export const globalNodesTelemetryStore: EdgeNodeTelemetry[] = isProductionRuntime ? [] : [...DEV_NODES];
 export const globalVotesStore: EdgeVote[] = [];
+export const globalFollowsStore: EdgeFollow[] = [];
 export const globalPushSubscriptionsStore: EdgePushSubscription[] = [];
 export const globalSpentNullifiers: Set<string> = new Set();
+export const globalNotificationsStore: EdgeNotification[] = [];
+export const globalBlocksStore: EdgeBlock[] = [];
+export const globalMutesStore: EdgeMute[] = [];
+export const globalProfilesStore: EdgeUserProfile[] = [];
+export const globalCommunitiesStore: EdgeCommunity[] = [];
+export const globalCommunityMembersStore: EdgeCommunityMember[] = [];
+export const globalCommunityModLogsStore: EdgeCommunityModLog[] = [];
+export const globalSocialReportsStore: EdgeSocialReport[] = [];
+export const globalMessageRequestsStore: EdgeMessageRequest[] = [];
+export const globalCommentsStore: EdgeComment[] = [];
 
 // Server start epoch for uptime calculation
 export const EDGE_START_TIME = Date.now();

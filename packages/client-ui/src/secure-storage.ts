@@ -85,6 +85,38 @@ export function hexToBytes(hex: string): Uint8Array {
   return bytes;
 }
 
+/**
+ * Recursively zeroizes all Uint8Array buffers in an object graph to prevent memory residual traces.
+ */
+function deepZeroize(obj: any, visited = new WeakSet()): void {
+  if (!obj || typeof obj !== 'object') return;
+  if (visited.has(obj)) return;
+  visited.add(obj);
+
+  if (obj instanceof Uint8Array) {
+    zeroize(obj);
+    return;
+  }
+  if (Array.isArray(obj)) {
+    for (let i = 0; i < obj.length; i++) {
+      if (obj[i] instanceof Uint8Array) {
+        zeroize(obj[i]);
+      } else if (obj[i] && typeof obj[i] === 'object') {
+        deepZeroize(obj[i], visited);
+      }
+    }
+    return;
+  }
+  for (const key of Object.keys(obj)) {
+    const val = obj[key];
+    if (val instanceof Uint8Array) {
+      zeroize(val);
+    } else if (val && typeof val === 'object') {
+      deepZeroize(val, visited);
+    }
+  }
+}
+
 export class SecureStorageEngine {
   private readonly dbName = 'aetheris_secure_vault_v1';
   private readonly dbVersion = 1;
@@ -312,6 +344,7 @@ export class SecureStorageEngine {
     try {
       const decrypted = await this.decrypt<SovereignIdentityRecord>(record.envelope);
       this.volatileIdentity = decrypted;
+      this.isUnlocked = true;
       return decrypted;
     } catch (err) {
       console.error('[SecureStorage] Failed to decrypt identity envelope:', err);
@@ -370,6 +403,7 @@ export class SecureStorageEngine {
     });
 
     this.volatileIdentity = identity;
+    this.isUnlocked = true;
 
     // Ensure localStorage is purged of any legacy identity artifacts
     if (this.db || typeof window === 'undefined') this.purgeLegacyLocalStorage();
@@ -447,7 +481,7 @@ export class SecureStorageEngine {
   // ─── MEMORY ZEROIZATION, LOGOUT & WIPE ──────────────────────────────────────
 
   /**
-   * Securely zeroizes all active in-memory cryptographic secrets.
+   * Securely zeroizes all active in-memory cryptographic secrets and volatile message buffers.
    */
   public zeroizeRam(): void {
     if (this.volatileIdentity) {
@@ -455,25 +489,71 @@ export class SecureStorageEngine {
         const seedBytes = hexToBytes(this.volatileIdentity.seedHex);
         zeroize(seedBytes);
       }
+      if (this.volatileIdentity.sovereignIdentity) {
+        deepZeroize(this.volatileIdentity.sovereignIdentity);
+      }
       this.volatileIdentity.mnemonic = '';
       this.volatileIdentity.seedHex = '';
+      this.volatileIdentity.fingerprint = '';
+      this.volatileIdentity.sovereignIdentity = null;
       this.volatileIdentity = null;
     }
 
+    for (const msgs of this.volatileMessages.values()) {
+      if (Array.isArray(msgs)) {
+        deepZeroize(msgs);
+      }
+    }
     this.volatileMessages.clear();
-    this.fallbackStore.clear();
     this.isUnlocked = false;
   }
 
   /**
-   * Full logout: zeroizes RAM and purges private message cache.
+   * Locks the vault and zeroizes active volatile RAM.
    */
-  public async logout(): Promise<void> {
+  public lock(): void {
     this.zeroizeRam();
-    if (this.db) {
-      await this.clearStore('encrypted_messages');
+  }
+
+  /**
+   * Returns true if the vault in-memory state is currently locked.
+   */
+  public isLocked(): boolean {
+    return !this.isUnlocked || this.volatileIdentity === null;
+  }
+
+  /**
+   * Full logout: zeroizes RAM and purges private message cache.
+   * If clearIdentity is true, also permanently deletes encrypted identity from
+   * IndexedDB storage to prevent secret rehydration on reload.
+   */
+  public async logout(options?: { clearIdentity?: boolean }): Promise<void> {
+    this.zeroizeRam();
+    await this.clearStore('encrypted_messages');
+    if (options?.clearIdentity) {
+      await this.clearStore('encrypted_identity');
     }
     this.purgeLegacyLocalStorage();
+  }
+
+  /**
+   * Switches to a new account, securely wiping all in-memory traces of the
+   * previous account (RAM zeroization, volatile messages, private cache)
+   * before persisting the new credentials.
+   */
+  public async switchAccount(
+    mnemonic: string,
+    seed: Uint8Array,
+    fingerprint: string,
+    sovereignIdentity?: any
+  ): Promise<void> {
+    // 1. Thoroughly wipe old account's volatile memory and message buffers
+    this.zeroizeRam();
+    await this.clearStore('encrypted_messages');
+    this.purgeLegacyLocalStorage();
+
+    // 2. Persist new account's identity
+    await this.saveIdentity(mnemonic, seed, fingerprint, sovereignIdentity);
   }
 
   /**
@@ -481,6 +561,7 @@ export class SecureStorageEngine {
    */
   public async wipeAll(): Promise<void> {
     this.zeroizeRam();
+    this.fallbackStore.clear();
 
     if (this.db) {
       this.db.close();
@@ -693,7 +774,10 @@ export class SecureStorageEngine {
 
   private async loadVolatileCache(): Promise<void> {
     const identity = await this.getFromStore<{ envelope: EncryptedEnvelope }>('encrypted_identity', 'current');
-    if (identity?.envelope) this.volatileIdentity = await this.decrypt<SovereignIdentityRecord>(identity.envelope);
+    if (identity?.envelope) {
+      this.volatileIdentity = await this.decrypt<SovereignIdentityRecord>(identity.envelope);
+      this.isUnlocked = true;
+    }
     const channels = await this.getAllFromStore<{ channelId: string; envelope: EncryptedEnvelope }>('encrypted_messages');
     for (const channel of channels) {
       if (!channel.channelId || !channel.envelope) continue;

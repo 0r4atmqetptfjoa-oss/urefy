@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="100%" height="100%" role="img" aria-label="UREfy Master Emblem">
+  <defs>
+    <linearGradient id="urefy-bg-grad" x1="0" y1="0" x2="120" y2="120" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0E131F" />
+      <stop offset="100%" stop-color="#07090E" />
+    </linearGradient>
+    <linearGradient id="urefy-stroke-grad" x1="0" y1="0" x2="120" y2="120" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#38BDF8" stop-opacity="0.3" />
+      <stop offset="100%" stop-color="#4F46E5" stop-opacity="0.1" />
+    </linearGradient>
+    <linearGradient id="urefy-m-left" x1="32" y1="24" x2="68" y2="96" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#818CF8" />
+      <stop offset="100%" stop-color="#4F46E5" />
+    </linearGradient>
+    <linearGradient id="urefy-m-right" x1="88" y1="24" x2="52" y2="96" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#22D3EE" />
+      <stop offset="100%" stop-color="#0891B2" />
+    </linearGradient>
+  </defs>
+
+  <!-- Squircle Base Chassis -->
+  <rect x="2" y="2" width="116" height="116" rx="32" fill="url(#urefy-bg-grad)" stroke="url(#urefy-stroke-grad)" stroke-width="1.5" />
+
+  <!-- Left Sovereign Peer Arc (Alpha) -->
+  <path d="M 38 28 L 38 64 C 38 82, 48 92, 62 92 C 68 92, 73 89, 76 84" fill="none" stroke="url(#urefy-m-left)" stroke-width="11" stroke-linecap="round" />
+
+  <!-- Right Sovereign Peer Arc (Beta) -->
+  <path d="M 82 28 L 82 64 C 82 82, 72 92, 58 92 C 52 92, 47 89, 44 84" fill="none" stroke="url(#urefy-m-right)" stroke-width="11" stroke-linecap="round" opacity="0.96" />
+
+  <!-- Vertex Terminals -->
+  <circle cx="38" cy="28" r="5.5" fill="#C7D2FE" />
+  <circle cx="82" cy="28" r="5.5" fill="#A5F3FC" />
+</svg>

@@ -231,7 +231,7 @@ describe('Cloudflare Pages Functions - R2 & Edge Vault Storage Architecture (sto
   // ─── 3. BINARY UPLOAD & R2 STORAGE (onRequestPost) ─────────────────────────
   describe('3. Secure Binary Upload & Storage (onRequestPost)', () => {
     it('should reject requests missing Content-Type header with 400 status', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/storage', {
+      const req = new Request('https://urefy.com/api/storage', {
         method: 'POST',
         body: new Uint8Array([1, 2, 3, 4]),
       });
@@ -244,7 +244,7 @@ describe('Cloudflare Pages Functions - R2 & Edge Vault Storage Architecture (sto
     });
 
     it('should reject empty binary payload with 400 status', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/storage', {
+      const req = new Request('https://urefy.com/api/storage', {
         method: 'POST',
         headers: { 'Content-Type': 'application/octet-stream' },
         body: new Uint8Array(0),
@@ -261,7 +261,7 @@ describe('Cloudflare Pages Functions - R2 & Edge Vault Storage Architecture (sto
       const expectedSha = await computeSha256(payloadBytes);
       const expectedMerkle = await computeMerkleRoot(payloadBytes);
 
-      const req = new Request('https://aetheris.pages.dev/api/storage', {
+      const req = new Request('https://urefy.com/api/storage', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/octet-stream',
@@ -303,7 +303,7 @@ describe('Cloudflare Pages Functions - R2 & Edge Vault Storage Architecture (sto
       const expectedSha = await computeSha256(payloadBytes);
       const expectedMerkle = await computeMerkleRoot(payloadBytes);
 
-      const req = new Request('https://aetheris.pages.dev/api/storage', {
+      const req = new Request('https://urefy.com/api/storage', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-executable',
@@ -344,7 +344,7 @@ describe('Cloudflare Pages Functions - R2 & Edge Vault Storage Architecture (sto
       const mockR2 = createMockR2Bucket();
       const payloadBytes = new TextEncoder().encode('Kyber-1024 Public Parameters');
 
-      const req = new Request('https://aetheris.pages.dev/api/storage', {
+      const req = new Request('https://urefy.com/api/storage', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/octet-stream',
@@ -377,7 +377,7 @@ describe('Cloudflare Pages Functions - R2 & Edge Vault Storage Architecture (sto
       formData.append('title', 'MLS TreeKEM Group State');
       formData.append('key', 'vault/treekem-bundle.bin');
 
-      const req = new Request('https://aetheris.pages.dev/api/storage', {
+      const req = new Request('https://urefy.com/api/storage', {
         method: 'POST',
         headers: { 'X-Admin-PIN': '11223' },
         body: formData,
@@ -401,7 +401,7 @@ describe('Cloudflare Pages Functions - R2 & Edge Vault Storage Architecture (sto
       const rawText = 'Base64 Encoded Sovereign Release Test';
       const base64Data = btoa(rawText);
 
-      const req = new Request('https://aetheris.pages.dev/api/storage', {
+      const req = new Request('https://urefy.com/api/storage', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Admin-PIN': '11223' },
         body: JSON.stringify({
@@ -426,7 +426,7 @@ describe('Cloudflare Pages Functions - R2 & Edge Vault Storage Architecture (sto
   describe('4. Binary Streaming, Security Headers & Verification (onRequestGet)', () => {
     it('should stream seeded release binary with immutable caching & verification headers', async () => {
       const req = new Request(
-        'https://aetheris.pages.dev/api/storage?key=releases/aetheris-microkernel-x86_64.bin'
+        'https://urefy.com/api/storage?key=releases/aetheris-microkernel-x86_64.bin'
       );
       const res = await onRequestGet({ request: req });
 
@@ -468,7 +468,7 @@ describe('Cloudflare Pages Functions - R2 & Edge Vault Storage Architecture (sto
       });
 
       const req = new Request(
-        'https://aetheris.pages.dev/api/storage?key=releases/firmware-v2.bin'
+        'https://urefy.com/api/storage?key=releases/firmware-v2.bin'
       );
       const res = await onRequestGet({
         request: req,
@@ -496,7 +496,7 @@ describe('Cloudflare Pages Functions - R2 & Edge Vault Storage Architecture (sto
 
     it('should return metadata JSON when requested with ?meta=true or ?info=true', async () => {
       const req = new Request(
-        'https://aetheris.pages.dev/api/storage?key=releases/aetheris-microkernel-x86_64.bin&meta=true'
+        'https://urefy.com/api/storage?key=releases/aetheris-microkernel-x86_64.bin&meta=true'
       );
       const res = await onRequestGet({ request: req });
 
@@ -517,7 +517,7 @@ describe('Cloudflare Pages Functions - R2 & Edge Vault Storage Architecture (sto
       const targetSha =
         'a11fe18f963518803fbebdaebf4d408609e3a323c70194b3b507d47a392a2496';
       const req = new Request(
-        `https://aetheris.pages.dev/api/storage?sha256=${targetSha}`
+        `https://urefy.com/api/storage?sha256=${targetSha}`
       );
       const res = await onRequestGet({ request: req });
 
@@ -526,7 +526,7 @@ describe('Cloudflare Pages Functions - R2 & Edge Vault Storage Architecture (sto
     });
 
     it('should list all available vault releases when list=true or no key provided', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/storage?list=true');
+      const req = new Request('https://urefy.com/api/storage?list=true');
       const res = await onRequestGet({ request: req });
 
       expect(res.status).toBe(200);
@@ -543,7 +543,7 @@ describe('Cloudflare Pages Functions - R2 & Edge Vault Storage Architecture (sto
 
     it('should return 404 when object key does not exist', async () => {
       const req = new Request(
-        'https://aetheris.pages.dev/api/storage?key=releases/non-existent-file.bin'
+        'https://urefy.com/api/storage?key=releases/non-existent-file.bin'
       );
       const res = await onRequestGet({ request: req });
 
@@ -558,7 +558,7 @@ describe('Cloudflare Pages Functions - R2 & Edge Vault Storage Architecture (sto
   describe('5. HTTP HEAD Metadata Probing (onRequestHead)', () => {
     it('should return 200 with checksum and length headers but empty body for HEAD request', async () => {
       const req = new Request(
-        'https://aetheris.pages.dev/api/storage?key=releases/aetheris-microkernel-x86_64.bin',
+        'https://urefy.com/api/storage?key=releases/aetheris-microkernel-x86_64.bin',
         { method: 'HEAD' }
       );
       const res = await onRequestHead({ request: req });
@@ -578,7 +578,7 @@ describe('Cloudflare Pages Functions - R2 & Edge Vault Storage Architecture (sto
   // ─── 6. DELETE REQUEST HANDLING (onRequestDelete) ───────────────────────────
   describe('6. Vault Artifact Deletion (onRequestDelete)', () => {
     it('should reject DELETE request without key parameter', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/storage', {
+      const req = new Request('https://urefy.com/api/storage', {
         method: 'DELETE',
       });
       const res = await onRequestDelete({ request: req });
@@ -590,7 +590,7 @@ describe('Cloudflare Pages Functions - R2 & Edge Vault Storage Architecture (sto
 
     it('should delete existing object from in-memory store', async () => {
       // Upload temp item
-      const postReq = new Request('https://aetheris.pages.dev/api/storage', {
+      const postReq = new Request('https://urefy.com/api/storage', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/octet-stream',
@@ -603,7 +603,7 @@ describe('Cloudflare Pages Functions - R2 & Edge Vault Storage Architecture (sto
 
       // Delete it
       const deleteReq = new Request(
-        'https://aetheris.pages.dev/api/storage?key=temp/artifact-to-delete.bin',
+        'https://urefy.com/api/storage?key=temp/artifact-to-delete.bin',
         {
           method: 'DELETE',
           headers: {
@@ -619,7 +619,7 @@ describe('Cloudflare Pages Functions - R2 & Edge Vault Storage Architecture (sto
 
       // Verify subsequent GET returns 404
       const getReq = new Request(
-        'https://aetheris.pages.dev/api/storage?key=temp/artifact-to-delete.bin'
+        'https://urefy.com/api/storage?key=temp/artifact-to-delete.bin'
       );
       const getRes = await onRequestGet({ request: getReq });
       expect(getRes.status).toBe(404);
@@ -630,7 +630,7 @@ describe('Cloudflare Pages Functions - R2 & Edge Vault Storage Architecture (sto
       await mockBucket.put('releases/obsolete.bin', new Uint8Array([9, 9, 9]));
 
       const deleteReq = new Request(
-        'https://aetheris.pages.dev/api/storage?key=releases/obsolete.bin',
+        'https://urefy.com/api/storage?key=releases/obsolete.bin',
         {
           method: 'DELETE',
           headers: {
@@ -658,7 +658,7 @@ describe('Cloudflare Pages Functions - R2 & Edge Vault Storage Architecture (sto
     it('should reject uploads exceeding single upload cap (25 MB) with HTTP 413', async () => {
       // 25MB + 1 byte
       const oversizedPayload = new Uint8Array(25 * 1024 * 1024 + 1024);
-      const req = new Request('https://aetheris.pages.dev/api/storage', {
+      const req = new Request('https://urefy.com/api/storage', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/octet-stream',
@@ -679,7 +679,7 @@ describe('Cloudflare Pages Functions - R2 & Edge Vault Storage Architecture (sto
       setMockQuotaStats({ storageBytes: MAX_STORAGE_CAP_BYTES - 50 });
 
       const testPayload = new Uint8Array(100);
-      const req = new Request('https://aetheris.pages.dev/api/storage', {
+      const req = new Request('https://urefy.com/api/storage', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/octet-stream',
@@ -700,7 +700,7 @@ describe('Cloudflare Pages Functions - R2 & Edge Vault Storage Architecture (sto
     it('should reject upload with HTTP 429 when Class A operations ceiling (750,000 ops) is reached', async () => {
       setMockQuotaStats({ classA: MAX_CLASS_A_MONTHLY_OPS });
 
-      const req = new Request('https://aetheris.pages.dev/api/storage', {
+      const req = new Request('https://urefy.com/api/storage', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/octet-stream',
@@ -723,7 +723,7 @@ describe('Cloudflare Pages Functions - R2 & Edge Vault Storage Architecture (sto
       await mockBucket.put('releases/test-item.bin', new Uint8Array([1, 2, 3]));
       const listSpy = vi.spyOn(mockBucket, 'list');
 
-      const req1 = new Request('https://aetheris.pages.dev/api/storage?list=true');
+      const req1 = new Request('https://urefy.com/api/storage?list=true');
       const res1 = await onRequestGet({
         request: req1,
         env: { VAULT_BUCKET: mockBucket },
@@ -736,7 +736,7 @@ describe('Cloudflare Pages Functions - R2 & Edge Vault Storage Architecture (sto
       expect(listSpy).toHaveBeenCalledTimes(1);
 
       // Immediate second call should hit the 60-second in-memory cache
-      const req2 = new Request('https://aetheris.pages.dev/api/storage?list=true');
+      const req2 = new Request('https://urefy.com/api/storage?list=true');
       const res2 = await onRequestGet({
         request: req2,
         env: { VAULT_BUCKET: mockBucket },
@@ -756,14 +756,14 @@ describe('Cloudflare Pages Functions - R2 & Edge Vault Storage Architecture (sto
 
       // Prime the listing cache
       await onRequestGet({
-        request: new Request('https://aetheris.pages.dev/api/storage?list=true'),
+        request: new Request('https://urefy.com/api/storage?list=true'),
         env: { VAULT_BUCKET: mockBucket },
       });
       expect(listSpy).toHaveBeenCalledTimes(1);
 
       // Upload a new file which must invalidate the cache
       await onRequestPost({
-        request: new Request('https://aetheris.pages.dev/api/storage', {
+        request: new Request('https://urefy.com/api/storage', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/octet-stream',
@@ -777,7 +777,7 @@ describe('Cloudflare Pages Functions - R2 & Edge Vault Storage Architecture (sto
 
       // Subsequent listing must call bucket.list() again
       await onRequestGet({
-        request: new Request('https://aetheris.pages.dev/api/storage?list=true'),
+        request: new Request('https://urefy.com/api/storage?list=true'),
         env: { VAULT_BUCKET: mockBucket },
       });
       expect(listSpy).toHaveBeenCalledTimes(2);
@@ -790,7 +790,7 @@ describe('Cloudflare Pages Functions - R2 & Edge Vault Storage Architecture (sto
       const originalPayload = new Uint8Array([7, 14, 21, 28, 35]);
 
       // First upload: creates object in R2
-      const firstReq = new Request('https://aetheris.pages.dev/api/storage', {
+      const firstReq = new Request('https://urefy.com/api/storage', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/octet-stream',
@@ -816,7 +816,7 @@ describe('Cloudflare Pages Functions - R2 & Edge Vault Storage Architecture (sto
       const initialTotalBytes = getTotalStorageBytes();
 
       // Second upload: duplicate payload with different key name
-      const duplicateReq = new Request('https://aetheris.pages.dev/api/storage', {
+      const duplicateReq = new Request('https://urefy.com/api/storage', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/octet-stream',
@@ -848,7 +848,7 @@ describe('Cloudflare Pages Functions - R2 & Edge Vault Storage Architecture (sto
       const seedSha = 'a11fe18f963518803fbebdaebf4d408609e3a323c70194b3b507d47a392a2496';
 
       const reqWithExactEtag = new Request(
-        'https://aetheris.pages.dev/api/storage?key=releases/aetheris-microkernel-x86_64.bin',
+        'https://urefy.com/api/storage?key=releases/aetheris-microkernel-x86_64.bin',
         {
           headers: {
             'If-None-Match': `"${seedSha}"`,
@@ -875,7 +875,7 @@ describe('Cloudflare Pages Functions - R2 & Edge Vault Storage Architecture (sto
       });
 
       const req = new Request(
-        'https://aetheris.pages.dev/api/storage?key=vault/test-r2-etag.bin',
+        'https://urefy.com/api/storage?key=vault/test-r2-etag.bin',
         {
           headers: {
             'If-None-Match': `"mock-etag-vault/test-r2-etag.bin"`,
@@ -908,7 +908,7 @@ describe('Cloudflare Pages Functions - R2 & Edge Vault Storage Architecture (sto
       const getSpy = vi.spyOn(mockBucket, 'get');
 
       const req1 = new Request(
-        'https://aetheris.pages.dev/api/storage?key=releases/small-ram-cache.bin'
+        'https://urefy.com/api/storage?key=releases/small-ram-cache.bin'
       );
       const res1 = await onRequestGet({
         request: req1,
@@ -920,7 +920,7 @@ describe('Cloudflare Pages Functions - R2 & Edge Vault Storage Architecture (sto
 
       // Subsequent read hits edge isolate RAM cache
       const req2 = new Request(
-        'https://aetheris.pages.dev/api/storage?key=releases/small-ram-cache.bin'
+        'https://urefy.com/api/storage?key=releases/small-ram-cache.bin'
       );
       const res2 = await onRequestGet({
         request: req2,
@@ -938,7 +938,7 @@ describe('Cloudflare Pages Functions - R2 & Edge Vault Storage Architecture (sto
 
       setMockQuotaStats({ classB: MAX_CLASS_B_MONTHLY_OPS });
 
-      const req = new Request('https://aetheris.pages.dev/api/storage?key=vault/uncached-file.bin');
+      const req = new Request('https://urefy.com/api/storage?key=vault/uncached-file.bin');
       const res = await onRequestGet({
         request: req,
         env: { VAULT_BUCKET: mockBucket },
@@ -953,7 +953,7 @@ describe('Cloudflare Pages Functions - R2 & Edge Vault Storage Architecture (sto
     });
 
     it('should return complete quota telemetry when query parameter action=quota or quota=true', async () => {
-      const req1 = new Request('https://aetheris.pages.dev/api/storage?action=quota');
+      const req1 = new Request('https://urefy.com/api/storage?action=quota');
       const res1 = await onRequestGet({ request: req1 });
 
       expect(res1.status).toBe(200);
@@ -990,7 +990,7 @@ describe('Cloudflare Pages Functions - R2 & Edge Vault Storage Architecture (sto
       expect(json1.classB.status).toBe('HEALTHY');
 
       // Check quota=true alias
-      const req2 = new Request('https://aetheris.pages.dev/api/storage?quota=true');
+      const req2 = new Request('https://urefy.com/api/storage?quota=true');
       const res2 = await onRequestGet({ request: req2 });
       expect(res2.status).toBe(200);
       const json2 = await res2.json();

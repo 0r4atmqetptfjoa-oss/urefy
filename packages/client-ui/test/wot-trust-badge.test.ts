@@ -1,4 +1,4 @@
-﻿import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { AetherisClientStore, ClientPost } from '../src/client-state.js';
 import { zkReputation, REPUTATION_TIERS } from '../src/zk-reputation.js';
 import { feedControlsEngine } from '../src/feed-controls.js';

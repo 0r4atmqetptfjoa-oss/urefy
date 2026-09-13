@@ -420,17 +420,38 @@ function hexToUint8Array(hex: string): Uint8Array {
 }
 
 /**
- * Sanitizes storage key to prevent directory traversal and null-byte injection.
+ * Validates and normalizes storage key to prevent directory traversal and key collision attacks.
+ * Unsafe keys containing traversal sequences (..), control characters, URL-encoded dots,
+ * backslashes, repeated slashes, or unicode slash variants are strictly rejected (returning empty string)
+ * to ensure legitimate object keys are never silently transformed into another user's key.
  */
 export function sanitizeStorageKey(key: string): string {
-  if (!key) return '';
-  return key
-    .replace(/\0/g, '')
-    .replace(/\\/g, '/')
-    .replace(/\.{2,}\//g, '')
-    .replace(/\/\.{2,}/g, '')
-    .replace(/^\/+/, '')
-    .replace(/[^a-zA-Z0-9._\-/]/g, '_');
+  if (!key || typeof key !== 'string') return '';
+
+  // Reject control characters (0x00 - 0x1F, 0x7F) and null bytes
+  if (/[\x00-\x1f\x7f]/.test(key)) return '';
+
+  // Reject backslashes and repeated/leading/trailing forward slashes
+  if (key.includes('\\') || key.includes('//') || key.startsWith('/') || key.endsWith('/')) {
+    return '';
+  }
+
+  // Reject Unicode slash-like characters (e.g. U+2215, U+FF0F, U+2044, U+29F8, U+FE68, U+FF3C)
+  if (/[\u2215\uFF0F\u2044\u29F8\uFE68\uFF3C]/.test(key)) return '';
+
+  // Reject URL-encoded traversal patterns (e.g. %2e%2e, %2f, %5c, %25)
+  if (/%(?:2e|2f|5c|25)/i.test(key)) return '';
+
+  const segments = key.split('/');
+  if (segments.length === 0) return '';
+
+  for (const seg of segments) {
+    if (!seg || seg === '.' || seg === '..') return '';
+    // Segment must consist strictly of alphanumeric, dot, underscore, or hyphen characters
+    if (!/^[a-zA-Z0-9._-]+$/.test(seg)) return '';
+  }
+
+  return segments.join('/');
 }
 
 /**
@@ -617,6 +638,10 @@ export async function onRequestPost(context: {
       binaryData = new Uint8Array(arrayBuffer);
     }
 
+    fileName = fileName.replace(/[\r\n\0]/g, '').trim();
+    author = author.replace(/[\r\n\0]/g, '').trim() || 'anon-peer';
+    title = title.replace(/[\r\n\0]/g, '').trim();
+
     if (binaryData.length === 0) {
       return new Response(
         JSON.stringify({
@@ -763,6 +788,15 @@ export async function onRequestPost(context: {
     }
 
     // Determine storage key
+    if (customKey && !sanitizeStorageKey(customKey)) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Invalid custom storage key: path traversal sequences, control characters, and ambiguous separators are prohibited',
+        }),
+        { status: 400, headers: { 'Content-Type': 'application/json', ...STORAGE_CORS_HEADERS } }
+      );
+    }
     let key = customKey ? sanitizeStorageKey(customKey) : '';
     if (!key) {
       const sanitizedName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
@@ -1045,6 +1079,15 @@ export async function onRequestGet(context: {
       url.searchParams.get('id') ||
       url.searchParams.get('file') ||
       url.searchParams.get('download');
+    if (rawKey && !sanitizeStorageKey(rawKey)) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Invalid storage key: path traversal sequences, control characters, and ambiguous separators are prohibited',
+        }),
+        { status: 400, headers: { 'Content-Type': 'application/json', ...STORAGE_CORS_HEADERS } }
+      );
+    }
     const key = rawKey ? sanitizeStorageKey(rawKey) : null;
     const sha256Query = url.searchParams.get('sha256')
       ? url.searchParams.get('sha256')!.trim().toLowerCase()
@@ -1253,20 +1296,24 @@ export async function onRequestGet(context: {
         headers.set(k, v);
       }
 
+      const safeFileName = fileName.replace(/["\r\n\\]/g, '_');
       headers.set('Content-Type', memItem.contentType || 'application/octet-stream');
       headers.set('Content-Length', String(memItem.size));
-      headers.set('Content-Disposition', `attachment; filename="${fileName}"`);
+      headers.set('Content-Disposition', `attachment; filename="${safeFileName}"`);
       headers.set('Cache-Control', 'public, max-age=31536000, immutable');
+      headers.set('X-Content-Type-Options', 'nosniff');
+      headers.set('Content-Security-Policy', "default-src 'none'; sandbox");
+      headers.set('X-Frame-Options', 'DENY');
       headers.set('ETag', etag);
       headers.set('X-SHA256-Checksum', memItem.sha256);
       headers.set('X-Merkle-Root', memItem.merkleRoot);
       headers.set('X-Edge-Storage', itemStorage);
 
       if (memItem.customMetadata?.author) {
-        headers.set('X-Author', memItem.customMetadata.author);
+        headers.set('X-Author', memItem.customMetadata.author.replace(/[\r\n]/g, ''));
       }
       if (memItem.customMetadata?.title) {
-        headers.set('X-Title', memItem.customMetadata.title);
+        headers.set('X-Title', memItem.customMetadata.title.replace(/[\r\n]/g, ''));
       }
 
       return new Response(memItem.data as unknown as BodyInit, {
@@ -1375,17 +1422,21 @@ export async function onRequestGet(context: {
             headers.set(k, v);
           }
 
+          const safeFileName = fileName.replace(/["\r\n\\]/g, '_');
           headers.set('Content-Type', contentType);
           headers.set('Content-Length', String(object.size));
-          headers.set('Content-Disposition', `attachment; filename="${fileName}"`);
+          headers.set('Content-Disposition', `attachment; filename="${safeFileName}"`);
           headers.set('Cache-Control', 'public, max-age=31536000, immutable');
+          headers.set('X-Content-Type-Options', 'nosniff');
+          headers.set('Content-Security-Policy', "default-src 'none'; sandbox");
+          headers.set('X-Frame-Options', 'DENY');
           headers.set('ETag', etag);
           headers.set('X-Edge-Storage', 'Cloudflare-R2');
 
           if (sha256) headers.set('X-SHA256-Checksum', sha256);
           if (merkleRoot) headers.set('X-Merkle-Root', merkleRoot);
-          if (author) headers.set('X-Author', author);
-          if (title) headers.set('X-Title', title);
+          if (author) headers.set('X-Author', author.replace(/[\r\n]/g, ''));
+          if (title) headers.set('X-Title', title.replace(/[\r\n]/g, ''));
 
           // RAM cache: Keep small files (< 2 MB) in edge isolate memory
           if (object.size <= RAM_CACHE_MAX_BYTES) {
@@ -1494,9 +1545,12 @@ export async function onRequestDelete(context: {
     const url = new URL(context.request.url);
     const rawKey = url.searchParams.get('key') || url.searchParams.get('id');
 
-    if (!rawKey) {
+    if (!rawKey || !sanitizeStorageKey(rawKey)) {
       return new Response(
-        JSON.stringify({ success: false, error: 'Key parameter required for DELETE' }),
+        JSON.stringify({
+          success: false,
+          error: 'Valid non-traversal storage key parameter required for DELETE',
+        }),
         {
           status: 400,
           headers: { 'Content-Type': 'application/json', ...STORAGE_CORS_HEADERS },
@@ -1543,7 +1597,7 @@ export async function onRequestDelete(context: {
       const identityAuth = await requireSignedEnvelope(
         context,
         delEnvelope || {},
-        'storage:upload'
+        'storage:delete'
       );
       if (!identityAuth.authorized) {
         return (
@@ -1558,6 +1612,28 @@ export async function onRequestDelete(context: {
               headers: { 'Content-Type': 'application/json', ...STORAGE_CORS_HEADERS },
             }
           )
+        );
+      }
+
+      // Verify that the signed envelope explicitly targets this key
+      const payloadKey = delEnvelope?.payload?.key || delEnvelope?.payload?.targetKey || delEnvelope?.payload?.fileKey;
+      if (!payloadKey || payloadKey !== key) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: `Forbidden: Signed envelope key "${payloadKey || '(missing)'}" does not match target deletion key "${key}".`,
+          }),
+          { status: 403, headers: { 'Content-Type': 'application/json', ...STORAGE_CORS_HEADERS } }
+        );
+      }
+      const envelopeAction = delEnvelope?.payload?.action;
+      if (envelopeAction !== 'delete' && envelopeAction !== 'storage:delete') {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: `Forbidden: Signed envelope action "${envelopeAction || '(missing)'}" is not authorized for deletion. Must be "delete" or "storage:delete".`,
+          }),
+          { status: 403, headers: { 'Content-Type': 'application/json', ...STORAGE_CORS_HEADERS } }
         );
       }
 

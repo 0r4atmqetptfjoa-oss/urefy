@@ -28,7 +28,7 @@ describe('Admin Edge API Endpoint (/api/admin) Specification & Status Code Confo
 
   describe('2. Authentication & Authorization (401 vs 200)', () => {
     it('should return 401 Unauthorized on GET when no credentials provided', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/admin');
+      const req = new Request('https://urefy.com/api/admin');
       const res = await handleAdminGet({ request: req });
       expect(res.status).toBe(401);
       const json = await res.json();
@@ -38,7 +38,7 @@ describe('Admin Edge API Endpoint (/api/admin) Specification & Status Code Confo
     });
 
     it('should return 200 OK on GET with valid Authorization Bearer PIN', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/admin', {
+      const req = new Request('https://urefy.com/api/admin', {
         headers: { Authorization: `Bearer ${DEFAULT_ADMIN_PIN}` },
       });
       const res = await handleAdminGet({ request: req });
@@ -50,7 +50,7 @@ describe('Admin Edge API Endpoint (/api/admin) Specification & Status Code Confo
     });
 
     it('should return 401 Unauthorized on GET with X-Admin-Fingerprint header (backdoor removed)', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/admin?tab=waf', {
+      const req = new Request('https://urefy.com/api/admin?tab=waf', {
         headers: { 'X-Admin-Fingerprint': 'genesis-core' },
       });
       const res = await handleAdminGet({ request: req });
@@ -59,7 +59,7 @@ describe('Admin Edge API Endpoint (/api/admin) Specification & Status Code Confo
 
     it('should verify PIN via POST action verify-pin (200 on success, 401 on wrong PIN)', async () => {
       // Wrong PIN
-      const reqFail = new Request('https://aetheris.pages.dev/api/admin', {
+      const reqFail = new Request('https://urefy.com/api/admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'verify-pin', pin: '00000' }),
@@ -70,7 +70,7 @@ describe('Admin Edge API Endpoint (/api/admin) Specification & Status Code Confo
       expect(jsonFail.authorized).toBe(false);
 
       // Correct PIN
-      const reqSuccess = new Request('https://aetheris.pages.dev/api/admin', {
+      const reqSuccess = new Request('https://urefy.com/api/admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'verify-pin', pin: DEFAULT_ADMIN_PIN }),
@@ -87,7 +87,7 @@ describe('Admin Edge API Endpoint (/api/admin) Specification & Status Code Confo
     it('should trigger 429 Too Many Requests after 5 consecutive failed PIN attempts', async () => {
       const clientIp = '198.51.100.42';
       for (let i = 0; i < 5; i++) {
-        const req = new Request('https://aetheris.pages.dev/api/admin', {
+        const req = new Request('https://urefy.com/api/admin', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -100,7 +100,7 @@ describe('Admin Edge API Endpoint (/api/admin) Specification & Status Code Confo
       }
 
       // 6th attempt must be 429
-      const req6 = new Request('https://aetheris.pages.dev/api/admin', {
+      const req6 = new Request('https://urefy.com/api/admin', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -124,7 +124,7 @@ describe('Admin Edge API Endpoint (/api/admin) Specification & Status Code Confo
     };
 
     it('should return 400 Bad Request on malformed body or missing action', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/admin', {
+      const req = new Request('https://urefy.com/api/admin', {
         method: 'POST',
         headers: authHeaders,
         body: JSON.stringify({ notAction: 'xyz' }),
@@ -137,7 +137,7 @@ describe('Admin Edge API Endpoint (/api/admin) Specification & Status Code Confo
 
     it('should promote user role with 200 OK (and 404 if user missing)', async () => {
       // 404 case
-      const req404 = new Request('https://aetheris.pages.dev/api/admin', {
+      const req404 = new Request('https://urefy.com/api/admin', {
         method: 'POST',
         headers: authHeaders,
         body: JSON.stringify({ action: 'promote-user', fingerprint: 'non-existent-user-999' }),
@@ -146,7 +146,7 @@ describe('Admin Edge API Endpoint (/api/admin) Specification & Status Code Confo
       expect(res404.status).toBe(404);
 
       // 200 case
-      const req200 = new Request('https://aetheris.pages.dev/api/admin', {
+      const req200 = new Request('https://urefy.com/api/admin', {
         method: 'POST',
         headers: authHeaders,
         body: JSON.stringify({ action: 'promote-user', fingerprint: 'f40019bc88a2' }),
@@ -158,7 +158,7 @@ describe('Admin Edge API Endpoint (/api/admin) Specification & Status Code Confo
     });
 
     it('should toggle user quarantine with 200 OK (and 404 if missing)', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/admin', {
+      const req = new Request('https://urefy.com/api/admin', {
         method: 'POST',
         headers: authHeaders,
         body: JSON.stringify({ action: 'toggle-quarantine', fingerprint: '9b22a011cd44' }),
@@ -171,7 +171,7 @@ describe('Admin Edge API Endpoint (/api/admin) Specification & Status Code Confo
 
     it('should ban IP with 201 Created and unban with 200 OK (404 if unbanning unknown IP)', async () => {
       // Ban IP -> 201 Created
-      const banReq = new Request('https://aetheris.pages.dev/api/admin', {
+      const banReq = new Request('https://urefy.com/api/admin', {
         method: 'POST',
         headers: authHeaders,
         body: JSON.stringify({ action: 'ban-ip', ip: '203.0.113.88', reason: 'Bot spam' }),
@@ -182,7 +182,7 @@ describe('Admin Edge API Endpoint (/api/admin) Specification & Status Code Confo
       expect(banJson.bannedIP.ip).toBe('203.0.113.88');
 
       // Unban IP -> 200 OK
-      const unbanReq = new Request('https://aetheris.pages.dev/api/admin', {
+      const unbanReq = new Request('https://urefy.com/api/admin', {
         method: 'POST',
         headers: authHeaders,
         body: JSON.stringify({ action: 'unban-ip', ip: '203.0.113.88' }),
@@ -191,7 +191,7 @@ describe('Admin Edge API Endpoint (/api/admin) Specification & Status Code Confo
       expect(unbanRes.status).toBe(200);
 
       // Unban non-existent IP -> 404 Not Found
-      const unban404Req = new Request('https://aetheris.pages.dev/api/admin', {
+      const unban404Req = new Request('https://urefy.com/api/admin', {
         method: 'POST',
         headers: authHeaders,
         body: JSON.stringify({ action: 'unban-ip', ip: '1.2.3.4' }),
@@ -201,7 +201,7 @@ describe('Admin Edge API Endpoint (/api/admin) Specification & Status Code Confo
     });
 
     it('should update server config with 200 OK', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/admin', {
+      const req = new Request('https://urefy.com/api/admin', {
         method: 'POST',
         headers: authHeaders,
         body: JSON.stringify({
@@ -217,7 +217,7 @@ describe('Admin Edge API Endpoint (/api/admin) Specification & Status Code Confo
     });
 
     it('should purge logs with 200 OK', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/admin', {
+      const req = new Request('https://urefy.com/api/admin', {
         method: 'POST',
         headers: authHeaders,
         body: JSON.stringify({ action: 'purge-logs' }),
@@ -233,7 +233,7 @@ describe('Admin Edge API Endpoint (/api/admin) Specification & Status Code Confo
     it('should delete banned IP via DELETE ?ip= with 200 OK or 404', async () => {
       // First ban
       await handleAdminPost({
-        request: new Request('https://aetheris.pages.dev/api/admin', {
+        request: new Request('https://urefy.com/api/admin', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${DEFAULT_ADMIN_PIN}` },
           body: JSON.stringify({ action: 'ban-ip', ip: '192.0.2.1' }),
@@ -241,7 +241,7 @@ describe('Admin Edge API Endpoint (/api/admin) Specification & Status Code Confo
       });
 
       // DELETE existing
-      const delReq = new Request('https://aetheris.pages.dev/api/admin?ip=192.0.2.1', {
+      const delReq = new Request('https://urefy.com/api/admin?ip=192.0.2.1', {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${DEFAULT_ADMIN_PIN}` },
       });
@@ -249,7 +249,7 @@ describe('Admin Edge API Endpoint (/api/admin) Specification & Status Code Confo
       expect(delRes.status).toBe(200);
 
       // DELETE non-existent -> 404
-      const del404Req = new Request('https://aetheris.pages.dev/api/admin?ip=192.0.2.1', {
+      const del404Req = new Request('https://urefy.com/api/admin?ip=192.0.2.1', {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${DEFAULT_ADMIN_PIN}` },
       });
@@ -258,7 +258,7 @@ describe('Admin Edge API Endpoint (/api/admin) Specification & Status Code Confo
     });
 
     it('should return 400 if DELETE is invoked without target parameter', async () => {
-      const delReq = new Request('https://aetheris.pages.dev/api/admin', {
+      const delReq = new Request('https://urefy.com/api/admin', {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${DEFAULT_ADMIN_PIN}` },
       });

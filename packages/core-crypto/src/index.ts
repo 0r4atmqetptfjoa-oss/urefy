@@ -19,3 +19,11 @@ export * from './zk-wot-reputation.js';
 export * from './social-recovery.js';
 export * from './identity.js';
 export * from './direct-message.js';
+
+// Crypto Innovation Sprint — 6 new modules
+export * from './sealed-sender.js';
+export * from './session-aead.js';
+export * from './pake-auth.js';
+export * from './mls-group.js';
+export * from './nonce-guard-persistent.js';
+export * from './double-ratchet.js';

@@ -569,7 +569,7 @@ describe('UREfy Sovereign Web Push (VAPID) Engine', () => {
     };
 
     it('GET /api/push?action=vapid-public-key should return sovereign ECDSA P-256 key when configured in env', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/push?action=vapid-public-key');
+      const req = new Request('https://urefy.com/api/push?action=vapid-public-key');
       const res = await handlePushGet({ request: req, env: testVapidEnv });
 
       expect(res.status).toBe(200);
@@ -581,7 +581,7 @@ describe('UREfy Sovereign Web Push (VAPID) Engine', () => {
     });
 
     it('GET /api/push?action=vapid-public-key should return 503 when VAPID keys missing in env', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/push?action=vapid-public-key');
+      const req = new Request('https://urefy.com/api/push?action=vapid-public-key');
       const res = await handlePushGet({ request: req, env: {} });
 
       expect(res.status).toBe(503);
@@ -591,7 +591,7 @@ describe('UREfy Sovereign Web Push (VAPID) Engine', () => {
     });
 
     it('GET /api/push?action=stats should return current subscription count', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/push?action=stats');
+      const req = new Request('https://urefy.com/api/push?action=stats');
       const res = await handlePushGet({ request: req });
 
       expect(res.status).toBe(200);
@@ -611,7 +611,7 @@ describe('UREfy Sovereign Web Push (VAPID) Engine', () => {
         fingerprint: 'node_test_fingerprint',
       };
 
-      const req = new Request('https://aetheris.pages.dev/api/push', {
+      const req = new Request('https://urefy.com/api/push', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -640,7 +640,7 @@ describe('UREfy Sovereign Web Push (VAPID) Engine', () => {
         fingerprint: 'node_d1_user',
       };
 
-      const req = new Request('https://aetheris.pages.dev/api/push', {
+      const req = new Request('https://urefy.com/api/push', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -650,7 +650,7 @@ describe('UREfy Sovereign Web Push (VAPID) Engine', () => {
       expect(res.status).toBe(201);
 
       // Verify D1 stats
-      const statsReq = new Request('https://aetheris.pages.dev/api/push?action=stats');
+      const statsReq = new Request('https://urefy.com/api/push?action=stats');
       const statsRes = await handlePushGet({ request: statsReq, env: { DB: mockD1 } });
       const statsJson = await statsRes.json();
       expect(statsJson.count).toBe(1);
@@ -667,7 +667,7 @@ describe('UREfy Sovereign Web Push (VAPID) Engine', () => {
         createdAt: Date.now(),
       });
 
-      const req = new Request('https://aetheris.pages.dev/api/push', {
+      const req = new Request('https://urefy.com/api/push', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -696,7 +696,7 @@ describe('UREfy Sovereign Web Push (VAPID) Engine', () => {
         createdAt: Date.now(),
       });
 
-      const req = new Request('https://aetheris.pages.dev/api/push', {
+      const req = new Request('https://urefy.com/api/push', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -719,7 +719,7 @@ describe('UREfy Sovereign Web Push (VAPID) Engine', () => {
     });
 
     it('POST /api/push action=broadcast should return 503 when VAPID keys missing in env', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/push', {
+      const req = new Request('https://urefy.com/api/push', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -736,7 +736,7 @@ describe('UREfy Sovereign Web Push (VAPID) Engine', () => {
     });
 
     it('POST /api/push should return 400 for missing mandatory subscription parameters', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/push', {
+      const req = new Request('https://urefy.com/api/push', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'subscribe' }), // missing endpoint and keys
@@ -751,7 +751,7 @@ describe('UREfy Sovereign Web Push (VAPID) Engine', () => {
     });
 
     it('POST /api/push should return 400 for invalid action', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/push', {
+      const req = new Request('https://urefy.com/api/push', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'unknown_action' }),

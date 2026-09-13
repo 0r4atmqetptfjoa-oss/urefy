@@ -486,5 +486,114 @@ describe('SovereignRelayDurableObject — Cloudflare WebSocket Hibernation API',
       expect(leaveNotice.type).toBe('PRESENCE_LEAVE');
       expect(leaveNotice.fingerprint).toBe('disconnecting-peer');
     });
+
+    it('cleans up presence and multicasts leave even when woken from hibernation without cached in-memory session', async () => {
+      const ws = new MockWebSocket();
+      const peerWs = new MockWebSocket();
+
+      mockState.acceptWebSocket(ws, ['channel:relays-general', 'user:hibernated-ghost']);
+      mockState.acceptWebSocket(peerWs, ['channel:relays-general']);
+
+      // Inject presence as if previously stored or synced
+      relayDO.getPresence().set('hibernated-ghost', {
+        fingerprint: 'hibernated-ghost',
+        role: 'MEMBER',
+        status: 'online',
+        joinedChannel: 'relays-general',
+        subscribedChannels: ['relays-general'],
+        lastSeen: Date.now(),
+        connectedAt: Date.now() - 10000,
+      });
+
+      expect(relayDO.getPresence().has('hibernated-ghost')).toBe(true);
+
+      // Trigger webSocketClose on a socket that was never registered in `sessions` Map (hibernation isolate cold start)
+      await relayDO.webSocketClose(ws as unknown as WebSocket, 1000, 'Hibernation wake close');
+
+      expect(relayDO.getPresence().has('hibernated-ghost')).toBe(false);
+      const leaveNotice = peerWs.getLastMessageParsed();
+      expect(leaveNotice.type).toBe('PRESENCE_LEAVE');
+      expect(leaveNotice.fingerprint).toBe('hibernated-ghost');
+      expect(leaveNotice.channelId).toBe('relays-general');
+    });
+  });
+
+  describe('6. WebRTC P2P Signaling & Trust Boundary Routing', () => {
+    it('routes WebRTC SDP/ICE signaling between peers using user tags', async () => {
+      const aliceWs = new MockWebSocket();
+      const bobWs = new MockWebSocket();
+
+      mockState.acceptWebSocket(aliceWs, ['channel:relays-general', 'user:alice-p2p']);
+      mockState.acceptWebSocket(bobWs, ['channel:relays-general', 'user:bob-p2p']);
+
+      // Authenticate Alice
+      await relayDO.webSocketMessage(
+        aliceWs as unknown as WebSocket,
+        JSON.stringify({
+          type: 'AUTH',
+          fingerprint: 'alice-p2p',
+          role: 'MEMBER',
+          channelId: 'relays-general',
+        })
+      );
+
+      // Authenticate Bob
+      await relayDO.webSocketMessage(
+        bobWs as unknown as WebSocket,
+        JSON.stringify({
+          type: 'AUTH',
+          fingerprint: 'bob-p2p',
+          role: 'MEMBER',
+          channelId: 'relays-general',
+        })
+      );
+
+      // Alice sends WebRTC signal (SDP offer) to Bob
+      await relayDO.webSocketMessage(
+        aliceWs as unknown as WebSocket,
+        JSON.stringify({
+          type: 'WEBRTC_SIGNAL',
+          targetFingerprint: 'bob-p2p',
+          signal: { sdp: 'v=0\r\no=alice 12345 2 IN IP4 127.0.0.1' },
+          channelId: 'relays-general',
+        })
+      );
+
+      const bobReceived = bobWs.getLastMessageParsed();
+      expect(bobReceived.type).toBe('WEBRTC_SIGNAL');
+      expect(bobReceived.fromFingerprint).toBe('alice-p2p');
+      expect(bobReceived.targetFingerprint).toBe('bob-p2p');
+      expect(bobReceived.signal.sdp).toContain('alice 12345');
+    });
+
+    it('prevents fromFingerprint spoofing and alerts sender if target peer is unreachable', async () => {
+      const aliceWs = new MockWebSocket();
+      mockState.acceptWebSocket(aliceWs, ['channel:relays-general', 'user:alice-p2p']);
+
+      await relayDO.webSocketMessage(
+        aliceWs as unknown as WebSocket,
+        JSON.stringify({
+          type: 'AUTH',
+          fingerprint: 'alice-p2p',
+          role: 'MEMBER',
+          channelId: 'relays-general',
+        })
+      );
+
+      // Alice tries to send a signal to offline target, claiming fromFingerprint: 'malicious-spoof'
+      await relayDO.webSocketMessage(
+        aliceWs as unknown as WebSocket,
+        JSON.stringify({
+          type: 'WEBRTC_SIGNAL',
+          fromFingerprint: 'malicious-spoof',
+          targetFingerprint: 'offline-bob',
+          signal: { candidate: 'candidate:1 1 UDP ...' },
+        })
+      );
+
+      const response = aliceWs.getLastMessageParsed();
+      expect(response.type).toBe('SIGNAL_UNDELIVERABLE');
+      expect(response.targetFingerprint).toBe('offline-bob');
+    });
   });
 });

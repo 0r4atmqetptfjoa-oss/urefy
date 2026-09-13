@@ -1,4 +1,4 @@
-﻿import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { LegalModal, legalModal } from '../src/legal-modal.js';
 import { pulseActionsEngine } from '../src/pulse-actions.js';
 

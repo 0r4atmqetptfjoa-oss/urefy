@@ -2,6 +2,7 @@ import { awardsSystem, PostAward } from './awards.js';
 import { markdownRenderer } from './markdown-renderer.js';
 import { t } from './i18n.js';
 import { isDemoModeEnabled } from './demo-mode.js';
+import { socialSafety } from './social-safety.js';
 
 export interface ThreadComment {
   id: string;
@@ -42,6 +43,7 @@ export class ThreadManager {
   private comments: Map<string, ThreadComment> = new Map();
   private rootCommentIds: string[] = [];
   public replyingCommentId: string | null = null;
+  public sortMode: 'best' | 'top' | 'new' | 'old' = 'best';
 
   constructor() {
     if (isDemoModeEnabled()) {
@@ -126,8 +128,31 @@ export class ThreadManager {
     return this.comments.get(id);
   }
 
+  public setSortMode(mode: 'best' | 'top' | 'new' | 'old'): void {
+    this.sortMode = mode;
+  }
+
+  public sortComments(comments: ThreadComment[]): ThreadComment[] {
+    const list = [...comments];
+    if (this.sortMode === 'best') {
+      list.sort((a, b) => {
+        const scoreA = (a.meritScore + 1) / Math.pow((Date.now() - a.createdAt) / 3600000 + 2, 1.2);
+        const scoreB = (b.meritScore + 1) / Math.pow((Date.now() - b.createdAt) / 3600000 + 2, 1.2);
+        return scoreB - scoreA;
+      });
+    } else if (this.sortMode === 'top') {
+      list.sort((a, b) => b.meritScore - a.meritScore);
+    } else if (this.sortMode === 'new') {
+      list.sort((a, b) => b.createdAt - a.createdAt);
+    } else if (this.sortMode === 'old') {
+      list.sort((a, b) => a.createdAt - b.createdAt);
+    }
+    return list;
+  }
+
   public getRootComments(): ThreadComment[] {
-    return this.rootCommentIds.map(id => this.comments.get(id)!).filter(Boolean);
+    const raw = this.rootCommentIds.map(id => this.comments.get(id)!).filter(Boolean);
+    return this.sortComments(raw);
   }
 
   public toggleCollapse(commentId: string): void {
@@ -148,7 +173,7 @@ export class ThreadManager {
   public addReply(parentId: string, authorFingerprint: string, content: string, postId: string = 'post-1'): ThreadComment {
     const parent = this.comments.get(parentId);
     const newComment: ThreadComment = {
-      id: `c-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      id: `c-${Date.now()}-${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID().slice(0, 8) : Date.now().toString(36)}`,
       postId: parent?.postId || postId,
       authorFingerprint,
       authorRole: 'MEMBER',
@@ -205,6 +230,15 @@ export class ThreadManager {
     const isOP = c.authorFingerprint === postAuthorFP || c.isAuthorOP;
     const isMe = currentFP && c.authorFingerprint === currentFP;
     const isReplyingThis = this.replyingCommentId === c.id;
+
+    if (socialSafety.isBlocked(c.authorFingerprint)) {
+      return `
+        <div id="comment-${c.id}" class="py-1.5 px-3 rounded-xl bg-surface-base/40 text-xs text-slate-500 flex items-center space-x-2 border border-white/5 font-mono select-none my-1 opacity-70">
+          <span class="text-rose-400">🚫</span>
+          <span>[Comment from blocked user hidden]</span>
+        </div>
+      `;
+    }
 
     if (c.isCollapsed) {
       return `
@@ -315,6 +349,16 @@ export class ThreadManager {
 
             <!-- BESTOW AWARD ON COMMENT -->
             ${awardsSystem.renderGiveCommentAwardButton(c.id, c.postId || 'post-1', 'GUARDIAN')}
+
+            <!-- COMMENT PERMALINK -->
+            <button 
+              data-comment-permalink="${c.id}" 
+              class="btn-comment-permalink flex items-center space-x-1 px-2 py-0.5 rounded-lg hover:bg-surface-overlay hover:text-white transition-colors cursor-pointer"
+              title="Copy link to comment"
+            >
+              <span>🔗</span>
+              <span>Link</span>
+            </button>
           </div>
 
           <!-- INLINE REPLY COMPOSER BOX -->
@@ -363,6 +407,30 @@ export class ThreadManager {
     `;
   }
 
+  public renderSortingToolbar(): string {
+    const sorts: Array<{ key: 'best' | 'top' | 'new' | 'old'; label: string; icon: string }> = [
+      { key: 'best', label: 'Best', icon: '✨' },
+      { key: 'top', label: 'Top', icon: '🔥' },
+      { key: 'new', label: 'New', icon: '⚡' },
+      { key: 'old', label: 'Old', icon: '📜' },
+    ];
+    return `
+      <div class="flex items-center justify-between pb-2 mb-2 border-b border-white/5 text-xs">
+        <span class="text-slate-400 font-mono text-[11px] font-bold uppercase tracking-wider">Sort comments:</span>
+        <div class="flex items-center space-x-1 bg-surface-overlay/80 p-0.5 rounded-lg border border-white/5">
+          ${sorts.map(s => `
+            <button 
+              data-thread-sort="${s.key}" 
+              class="px-2 py-1 rounded-md text-[11px] font-mono cursor-pointer transition-colors ${this.sortMode === s.key ? 'bg-indigo-600 text-white font-bold' : 'text-slate-400 hover:text-slate-200'}"
+            >
+              ${s.icon} ${s.label}
+            </button>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }
+
   public renderCommentTree(
     comments: ThreadComment[] = this.getRootComments(),
     postAuthorFP: string = 'c3dc28cb705e',
@@ -370,6 +438,7 @@ export class ThreadManager {
   ): string {
     return `
       <div class="space-y-2 thread-comments-root">
+        ${this.renderSortingToolbar()}
         ${comments.map(c => this.renderCommentNode(c, postAuthorFP, currentFP)).join('')}
       </div>
     `;
@@ -381,6 +450,36 @@ export class ThreadManager {
     document.addEventListener('click', (e: MouseEvent) => {
       const target = e.target as HTMLElement | null;
       if (!target) return;
+
+      // Thread sort toggle
+      const sortBtn = target.closest('[data-thread-sort]') as HTMLElement | null;
+      if (sortBtn) {
+        e.preventDefault();
+        const mode = sortBtn.getAttribute('data-thread-sort') as 'best' | 'top' | 'new' | 'old';
+        if (mode) {
+          this.setSortMode(mode);
+          this._refreshCommentsTreeInDom();
+        }
+        return;
+      }
+
+      // Permalink copy
+      const permalinkBtn = target.closest('.btn-comment-permalink') as HTMLElement | null;
+      if (permalinkBtn) {
+        e.preventDefault();
+        const cid = permalinkBtn.getAttribute('data-comment-permalink');
+        if (cid) {
+          const url = typeof window !== 'undefined' ? `${window.location.origin}${window.location.pathname}#comment-${cid}` : `#comment-${cid}`;
+          if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(url).catch(() => {});
+          }
+          permalinkBtn.innerText = '✓ Copied';
+          setTimeout(() => {
+            permalinkBtn.innerHTML = '<span>🔗</span><span>Link</span>';
+          }, 1500);
+        }
+        return;
+      }
 
       // Collapse toggle
       const collapseBtn = target.closest('.btn-toggle-collapse') as HTMLElement | null;

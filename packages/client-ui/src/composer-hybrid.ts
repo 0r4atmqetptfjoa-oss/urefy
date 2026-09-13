@@ -24,6 +24,8 @@ import { draftAutosave } from './draft-autosave.js';
 import { serviceRegistry, SERVICES } from './service-registry.js';
 import { signMessage, ZKRLN, bytesToHex } from '@aetheris/core-crypto';
 import { t } from './i18n.js';
+import { processMediaFile } from './media-pipeline.js';
+import { sovereignCircleEngine } from './sovereign-circle.js';
 
 // ---------------------------------------------------------------------------
 // Types & Interfaces
@@ -175,6 +177,7 @@ export function formatBytes(bytes: number): string {
 export class HybridComposer {
   public activeTab: ComposerTab = 'pulse';
   public audience: AudienceCircle = 'public-stream';
+  public targetCommunityId: string = '';
 
   // Article Tab State
   public articleTitle: string = '';
@@ -474,15 +477,29 @@ export class HybridComposer {
 
           <!-- AUDIENCE & ENCRYPTION DESTINATION BAR -->
           <div class="px-5 py-2.5 bg-surface-base/50 border-subtle-b flex flex-wrap items-center justify-between gap-2 text-xs">
-            <div class="flex items-center space-x-2">
-              <span class="text-slate-400 font-medium text-[11px]">Audience Destination:</span>
-              <select id="composer-audience-select" class="bg-surface-raised border border-white/10 text-slate-200 text-xs rounded-lg px-2.5 py-1 focus:outline-none focus:border-indigo-500 cursor-pointer font-medium">
-                <option value="public-stream" ${this.audience === 'public-stream' ? 'selected' : ''}>🌐 Public Pulse Stream (Zero Central Tracking)</option>
-                <option value="circle-core" ${this.audience === 'circle-core' ? 'selected' : ''}>🛡️ Sovereign Core Circle (SFrame E2EE)</option>
-                <option value="circle-guardians" ${this.audience === 'circle-guardians' ? 'selected' : ''}>🏛️ Guardians & Archivists (E2EE Multi-Sig)</option>
-                <option value="relays-general" ${this.audience === 'relays-general' ? 'selected' : ''}>⚡ Developer Matrix / Relays</option>
-                <option value="vault-releases" ${this.audience === 'vault-releases' ? 'selected' : ''}>📦 Vault Security Audits (Binary Releases)</option>
-              </select>
+            <div class="flex flex-wrap items-center gap-3">
+              <div class="flex items-center space-x-2">
+                <span class="text-slate-400 font-medium text-[11px]">Community:</span>
+                <select id="composer-community-select" class="bg-surface-raised border border-white/10 text-slate-200 text-xs rounded-lg px-2.5 py-1 focus:outline-none focus:border-indigo-500 cursor-pointer font-medium">
+                  <option value="" ${!this.targetCommunityId ? 'selected' : ''}>🌐 Global Feed</option>
+                  ${sovereignCircleEngine.getAllCircles().map(c => `
+                    <option value="${c.channelId}" ${this.targetCommunityId === c.channelId ? 'selected' : ''}>
+                      ${c.icon || '🏛️'} c/${c.name}
+                    </option>
+                  `).join('')}
+                </select>
+              </div>
+
+              <div class="flex items-center space-x-2">
+                <span class="text-slate-400 font-medium text-[11px]">Audience Destination:</span>
+                <select id="composer-audience-select" class="bg-surface-raised border border-white/10 text-slate-200 text-xs rounded-lg px-2.5 py-1 focus:outline-none focus:border-indigo-500 cursor-pointer font-medium">
+                  <option value="public-stream" ${this.audience === 'public-stream' ? 'selected' : ''}>🌐 Public Pulse Stream</option>
+                  <option value="circle-core" ${this.audience === 'circle-core' ? 'selected' : ''}>🛡️ Sovereign Core Circle</option>
+                  <option value="circle-guardians" ${this.audience === 'circle-guardians' ? 'selected' : ''}>🏛️ Guardians & Archivists</option>
+                  <option value="relays-general" ${this.audience === 'relays-general' ? 'selected' : ''}>⚡ Developer Matrix</option>
+                  <option value="vault-releases" ${this.audience === 'vault-releases' ? 'selected' : ''}>📦 Vault Releases</option>
+                </select>
+              </div>
             </div>
 
             <div class="flex items-center space-x-2">
@@ -1146,15 +1163,18 @@ export class HybridComposer {
     if (typeof document === 'undefined') return;
 
     // 1. Close & Cancel
-    document.getElementById('btn-close-composer')?.addEventListener('click', () => {
+    const handleCloseWithPrompt = async () => {
       soundEffects.playClick();
+      const hasContent = (this.articleTitle.trim().length > 0 || this.articleBody.trim().length > 0 || this.threadSegments.some(s => s.content.trim().length > 0) || this.mediaItems.length > 0);
+      if (hasContent) {
+        const confirmed = await sovereignDialog.confirm('You have unsaved content in this composer. Discard changes?', { title: 'Discard Draft', destructive: true });
+        if (!confirmed) return;
+      }
       clientStore.toggleComposer();
-    });
+    };
 
-    document.getElementById('btn-cancel-composer')?.addEventListener('click', () => {
-      soundEffects.playClick();
-      clientStore.toggleComposer();
-    });
+    document.getElementById('btn-close-composer')?.addEventListener('click', handleCloseWithPrompt);
+    document.getElementById('btn-cancel-composer')?.addEventListener('click', handleCloseWithPrompt);
 
     // 2. Tab switching
     document.querySelectorAll('.btn-composer-tab').forEach((tabBtn) => {
@@ -1169,7 +1189,16 @@ export class HybridComposer {
       });
     });
 
-    // 3. Audience Selector
+    // 3. Community Selector
+    const communitySelect = document.getElementById('composer-community-select') as HTMLSelectElement;
+    if (communitySelect) {
+      communitySelect.addEventListener('change', () => {
+        this.targetCommunityId = communitySelect.value;
+        this.queueAutosave();
+      });
+    }
+
+    // 3b. Audience Selector
     const audienceSelect = document.getElementById('composer-audience-select') as HTMLSelectElement;
     if (audienceSelect) {
       audienceSelect.addEventListener('change', () => {
@@ -1543,28 +1572,42 @@ export class HybridComposer {
       }
 
       try {
-        const buffer = await file.arrayBuffer();
-        const sha256 = await computeSha256Hex(buffer);
-        const dataUrl = await new Promise<string>((resolve) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result as string);
-          reader.readAsDataURL(file);
-        });
+        if (isImage) {
+          const processed = await processMediaFile(file, '', file.name);
+          this.mediaItems.push({
+            id: processed.id,
+            fileName: processed.fileName,
+            fileType: 'image',
+            mimeType: processed.mimeType,
+            dataUrl: processed.dataUrl,
+            byteSize: processed.byteSize,
+            sha256: processed.sha256,
+            caption: processed.altText,
+          });
+        } else {
+          const buffer = await file.arrayBuffer();
+          const sha256 = await computeSha256Hex(buffer);
+          const dataUrl = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.readAsDataURL(file);
+          });
 
-        this.mediaItems.push({
-          id: `media-${Date.now()}-${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID().slice(0, 8) : Date.now().toString(36)}`,
-          fileName: file.name,
-          fileType: isVideo ? 'video' : 'image',
-          mimeType: file.type,
-          dataUrl,
-          byteSize: file.size,
-          sha256,
-          caption: '',
-        });
+          this.mediaItems.push({
+            id: `media-${Date.now()}-${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID().slice(0, 8) : Date.now().toString(36)}`,
+            fileName: file.name,
+            fileType: 'video',
+            mimeType: file.type,
+            dataUrl,
+            byteSize: file.size,
+            sha256,
+            caption: '',
+          });
+        }
 
         soundEffects.playPop();
-      } catch (err) {
-        console.error('[HybridComposer] Failed to process media file:', err);
+      } catch (err: any) {
+        clientStore.showToast(err?.message || 'Failed to process media file', 'warning');
       }
     }
 
@@ -1662,7 +1705,7 @@ export class HybridComposer {
       // 3. Construct Primary ClientPost
       const primaryPost: ClientPost = {
         id: `post-${Date.now()}-${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID().slice(0, 8) : Date.now().toString(36)}`,
-        channelId: this.audience,
+        channelId: this.targetCommunityId || this.audience,
         authorFingerprint: authorFp,
         authorRole: 'MEMBER',
         title,

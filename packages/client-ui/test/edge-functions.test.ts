@@ -359,7 +359,7 @@ function createMockR2(): R2Bucket {
 describe('Cloudflare Pages Functions - Full-Stack Edge Backend & D1/KV/R2 Bindings', () => {
   describe('1. Security & CORS Middleware (_middleware.ts)', () => {
     it('should handle OPTIONS preflight with 204 status and CORS headers', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/health', { method: 'OPTIONS' });
+      const req = new Request('https://urefy.com/api/health', { method: 'OPTIONS' });
       const res = await handleMiddleware({
         request: req,
         functionPath: '/api/health',
@@ -377,7 +377,7 @@ describe('Cloudflare Pages Functions - Full-Stack Edge Backend & D1/KV/R2 Bindin
     });
 
     it('should attach CORS and security headers to standard downstream responses', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/health', { method: 'GET' });
+      const req = new Request('https://urefy.com/api/health', { method: 'GET' });
       const res = await handleMiddleware({
         request: req,
         functionPath: '/api/health',
@@ -397,7 +397,7 @@ describe('Cloudflare Pages Functions - Full-Stack Edge Backend & D1/KV/R2 Bindin
 
   describe('2. Health & Edge Diagnostics Endpoint (health.ts)', () => {
     it('should return 200 with online status, protocol, and Cloudflare edge info', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/health');
+      const req = new Request('https://urefy.com/api/health');
       (req as any).cf = {
         colo: 'OTP',
         country: 'RO',
@@ -420,7 +420,7 @@ describe('Cloudflare Pages Functions - Full-Stack Edge Backend & D1/KV/R2 Bindin
 
   describe('3. E2EE Messages Edge Store (messages.ts)', () => {
     it('should return seeded messages on GET /api/messages with in-memory fallback', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/messages?channelId=relays-general');
+      const req = new Request('https://urefy.com/api/messages?channelId=relays-general');
       const res = await handleMessagesGet({ request: req });
       expect(res.status).toBe(200);
 
@@ -433,7 +433,7 @@ describe('Cloudflare Pages Functions - Full-Stack Edge Backend & D1/KV/R2 Bindin
 
     it('should filter messages with since timestamp', async () => {
       const futureTime = Date.now() + 1000000;
-      const req = new Request(`https://aetheris.pages.dev/api/messages?channelId=relays-general&since=${futureTime}`);
+      const req = new Request(`https://urefy.com/api/messages?channelId=relays-general&since=${futureTime}`);
       const res = await handleMessagesGet({ request: req });
       const json = await res.json();
 
@@ -450,7 +450,7 @@ describe('Cloudflare Pages Functions - Full-Stack Edge Backend & D1/KV/R2 Bindin
         signature: 'deadbeef0123',
       };
 
-      const req = new Request('https://aetheris.pages.dev/api/messages', {
+      const req = new Request('https://urefy.com/api/messages', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -469,7 +469,7 @@ describe('Cloudflare Pages Functions - Full-Stack Edge Backend & D1/KV/R2 Bindin
       expect(json.message.id).toBeDefined();
 
       // Verify retrieval on GET
-      const getReq = new Request('https://aetheris.pages.dev/api/messages?channelId=relays-general');
+      const getReq = new Request('https://urefy.com/api/messages?channelId=relays-general');
       const getRes = await handleMessagesGet({ request: getReq });
       const getJson = await getRes.json();
       const found = getJson.messages.find((m: any) => m.id === json.message.id);
@@ -480,7 +480,7 @@ describe('Cloudflare Pages Functions - Full-Stack Edge Backend & D1/KV/R2 Bindin
       const mockD1 = createMockD1();
       const mockKV = createMockKV();
 
-      const postReq = new Request('https://aetheris.pages.dev/api/messages', {
+      const postReq = new Request('https://urefy.com/api/messages', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -498,7 +498,7 @@ describe('Cloudflare Pages Functions - Full-Stack Edge Backend & D1/KV/R2 Bindin
       const postJson = await postRes.json();
       expect(postJson.success).toBe(true);
 
-      const getReq = new Request('https://aetheris.pages.dev/api/messages?channelId=relays-dev');
+      const getReq = new Request('https://urefy.com/api/messages?channelId=relays-dev');
       const getRes = await handleMessagesGet({ request: getReq, env: { DB: mockD1 } });
       const getJson = await getRes.json();
       expect(getJson.success).toBe(true);
@@ -506,7 +506,7 @@ describe('Cloudflare Pages Functions - Full-Stack Edge Backend & D1/KV/R2 Bindin
     });
 
     it('should reject empty message text with 400 status', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/messages', {
+      const req = new Request('https://urefy.com/api/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: '   ' }),
@@ -519,7 +519,7 @@ describe('Cloudflare Pages Functions - Full-Stack Edge Backend & D1/KV/R2 Bindin
 
   describe('4. Posts & Chronostream Edge API (posts.ts)', () => {
     it('should return initial seed posts on GET /api/posts', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/posts?sort=hot');
+      const req = new Request('https://urefy.com/api/posts?sort=hot');
       const res = await handlePostsGet({ request: req });
       expect(res.status).toBe(200);
 
@@ -529,12 +529,12 @@ describe('Cloudflare Pages Functions - Full-Stack Edge Backend & D1/KV/R2 Bindin
     });
 
     it('should support sort modes: hot, new, top', async () => {
-      const reqNew = new Request('https://aetheris.pages.dev/api/posts?sort=new');
+      const reqNew = new Request('https://urefy.com/api/posts?sort=new');
       const resNew = await handlePostsGet({ request: reqNew });
       const jsonNew = await resNew.json();
       expect(jsonNew.posts[0].createdAt).toBeGreaterThanOrEqual(jsonNew.posts[jsonNew.posts.length - 1].createdAt);
 
-      const reqTop = new Request('https://aetheris.pages.dev/api/posts?sort=top');
+      const reqTop = new Request('https://urefy.com/api/posts?sort=top');
       const resTop = await handlePostsGet({ request: reqTop });
       const jsonTop = await resTop.json();
       expect(jsonTop.posts[0].meritVotes).toBeGreaterThanOrEqual(jsonTop.posts[jsonTop.posts.length - 1].meritVotes);
@@ -549,7 +549,7 @@ describe('Cloudflare Pages Functions - Full-Stack Edge Backend & D1/KV/R2 Bindin
         flair: 'TECH DISCUSSION',
       };
 
-      const req = new Request('https://aetheris.pages.dev/api/posts', {
+      const req = new Request('https://urefy.com/api/posts', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -574,7 +574,7 @@ describe('Cloudflare Pages Functions - Full-Stack Edge Backend & D1/KV/R2 Bindin
         direction: 1,
       };
 
-      const req = new Request('https://aetheris.pages.dev/api/posts', {
+      const req = new Request('https://urefy.com/api/posts', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -598,7 +598,7 @@ describe('Cloudflare Pages Functions - Full-Stack Edge Backend & D1/KV/R2 Bindin
         postId: 'post-1',
       };
 
-      const req = new Request('https://aetheris.pages.dev/api/posts', {
+      const req = new Request('https://urefy.com/api/posts', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -619,7 +619,7 @@ describe('Cloudflare Pages Functions - Full-Stack Edge Backend & D1/KV/R2 Bindin
       const mockD1 = createMockD1();
       const mockKV = createMockKV();
 
-      const postReq = new Request('https://aetheris.pages.dev/api/posts', {
+      const postReq = new Request('https://urefy.com/api/posts', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -639,7 +639,7 @@ describe('Cloudflare Pages Functions - Full-Stack Edge Backend & D1/KV/R2 Bindin
       expect(postRes.status).toBe(201);
 
       // Verify D1 GET query
-      const getReq = new Request('https://aetheris.pages.dev/api/posts?channelId=vault-releases&sort=hot');
+      const getReq = new Request('https://urefy.com/api/posts?channelId=vault-releases&sort=hot');
       const getRes = await handlePostsGet({ request: getReq, env: { DB: mockD1, KV: mockKV } });
       expect(getRes.status).toBe(200);
       const getJson = await getRes.json();
@@ -649,7 +649,7 @@ describe('Cloudflare Pages Functions - Full-Stack Edge Backend & D1/KV/R2 Bindin
 
   describe('5. Nanopublications & Artifacts API (nanopublications.ts)', () => {
     it('should list initial seed nanopublications on GET /api/nanopublications', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/nanopublications?channelId=vault-releases');
+      const req = new Request('https://urefy.com/api/nanopublications?channelId=vault-releases');
       const res = await handleNanopubsGet({ request: req });
       expect(res.status).toBe(200);
 
@@ -663,7 +663,7 @@ describe('Cloudflare Pages Functions - Full-Stack Edge Backend & D1/KV/R2 Bindin
 
     it('should filter nanopublications by sha256 checksum', async () => {
       const targetSha = 'a11fe18f963518803fbebdaebf4d408609e3a323c70194b3b507d47a392a2496';
-      const req = new Request(`https://aetheris.pages.dev/api/nanopublications?sha256=${targetSha}`);
+      const req = new Request(`https://urefy.com/api/nanopublications?sha256=${targetSha}`);
       const res = await handleNanopubsGet({ request: req });
       const json = await res.json();
 
@@ -685,7 +685,7 @@ describe('Cloudflare Pages Functions - Full-Stack Edge Backend & D1/KV/R2 Bindin
         channelId: 'vault-releases',
       };
 
-      const req = new Request('https://aetheris.pages.dev/api/nanopublications', {
+      const req = new Request('https://urefy.com/api/nanopublications', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -707,7 +707,7 @@ describe('Cloudflare Pages Functions - Full-Stack Edge Backend & D1/KV/R2 Bindin
       const mockR2 = createMockR2();
       await mockR2.put('releases/test-binary.bin', new Uint8Array([0x7f, 0x45, 0x4c, 0x46]));
 
-      const req = new Request('https://aetheris.pages.dev/api/nanopublications?download=releases/test-binary.bin');
+      const req = new Request('https://urefy.com/api/nanopublications?download=releases/test-binary.bin');
       const res = await handleNanopubsGet({ request: req, env: { R2: mockR2 } });
       expect(res.status).toBe(200);
       expect(res.headers.get('Content-Disposition')).toContain('test-binary.bin');
@@ -717,7 +717,7 @@ describe('Cloudflare Pages Functions - Full-Stack Edge Backend & D1/KV/R2 Bindin
     });
 
     it('should validate missing mandatory fields on POST', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/nanopublications', {
+      const req = new Request('https://urefy.com/api/nanopublications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: 'Missing Hash' }),
@@ -730,7 +730,7 @@ describe('Cloudflare Pages Functions - Full-Stack Edge Backend & D1/KV/R2 Bindin
 
   describe('6. Telemetry & Mesh Analytics API (analytics.ts)', () => {
     it('should return aggregated real-time mesh statistics on GET /api/analytics', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/analytics');
+      const req = new Request('https://urefy.com/api/analytics');
       (req as any).cf = {
         colo: 'OTP',
         country: 'RO',
@@ -765,7 +765,7 @@ describe('Cloudflare Pages Functions - Full-Stack Edge Backend & D1/KV/R2 Bindin
         zkRlnEpoch: 413,
       };
 
-      const req = new Request('https://aetheris.pages.dev/api/analytics', {
+      const req = new Request('https://urefy.com/api/analytics', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -785,7 +785,7 @@ describe('Cloudflare Pages Functions - Full-Stack Edge Backend & D1/KV/R2 Bindin
     });
 
     it('should reject invalid telemetry payload missing nodeId', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/analytics', {
+      const req = new Request('https://urefy.com/api/analytics', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: 'Node Without ID' }),
@@ -798,7 +798,7 @@ describe('Cloudflare Pages Functions - Full-Stack Edge Backend & D1/KV/R2 Bindin
 
   describe('7. WebSocket Signaling Endpoint (ws.ts)', () => {
     it('should return 426 Upgrade Required for standard HTTP requests to /api/ws', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/ws', { method: 'GET' });
+      const req = new Request('https://urefy.com/api/ws', { method: 'GET' });
       const res = await handleWebSocket({ request: req });
       expect(res.status).toBe(426);
 
@@ -844,7 +844,7 @@ describe('Cloudflare Pages Functions - Full-Stack Edge Backend & D1/KV/R2 Bindin
 
   describe('9. Sovereign Channels Edge API (channels.ts)', () => {
     it('should list initial seeded channels on GET /api/channels', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/channels');
+      const req = new Request('https://urefy.com/api/channels');
       const res = await handleChannelsGet({ request: req });
       expect(res.status).toBe(200);
 
@@ -856,7 +856,7 @@ describe('Cloudflare Pages Functions - Full-Stack Edge Backend & D1/KV/R2 Bindin
     });
 
     it('should filter channels by space (e.g. vault, relays, pulse)', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/channels?space=vault');
+      const req = new Request('https://urefy.com/api/channels?space=vault');
       const res = await handleChannelsGet({ request: req });
       expect(res.status).toBe(200);
 
@@ -874,7 +874,7 @@ describe('Cloudflare Pages Functions - Full-Stack Edge Backend & D1/KV/R2 Bindin
         isEncrypted: false,
       };
 
-      const req = new Request('https://aetheris.pages.dev/api/channels', {
+      const req = new Request('https://urefy.com/api/channels', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Admin-PIN': '11223' },
         body: JSON.stringify(payload),
@@ -894,7 +894,7 @@ describe('Cloudflare Pages Functions - Full-Stack Edge Backend & D1/KV/R2 Bindin
       const mockD1 = createMockD1();
       const mockKV = createMockKV();
 
-      const postReq = new Request('https://aetheris.pages.dev/api/channels', {
+      const postReq = new Request('https://urefy.com/api/channels', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Admin-PIN': '11223' },
         body: JSON.stringify({
@@ -908,7 +908,7 @@ describe('Cloudflare Pages Functions - Full-Stack Edge Backend & D1/KV/R2 Bindin
       const postRes = await handleChannelsPost({ request: postReq, env: { DB: mockD1, KV: mockKV } });
       expect(postRes.status).toBe(201);
 
-      const getReq = new Request('https://aetheris.pages.dev/api/channels?space=relays');
+      const getReq = new Request('https://urefy.com/api/channels?space=relays');
       const getRes = await handleChannelsGet({ request: getReq, env: { DB: mockD1, KV: mockKV } });
       expect(getRes.status).toBe(200);
       const getJson = await getRes.json();
@@ -916,7 +916,7 @@ describe('Cloudflare Pages Functions - Full-Stack Edge Backend & D1/KV/R2 Bindin
     });
 
     it('should reject invalid channel payload without name or with invalid space', async () => {
-      const reqNoName = new Request('https://aetheris.pages.dev/api/channels', {
+      const reqNoName = new Request('https://urefy.com/api/channels', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ space: 'relays' }),
@@ -924,7 +924,7 @@ describe('Cloudflare Pages Functions - Full-Stack Edge Backend & D1/KV/R2 Bindin
       const resNoName = await handleChannelsPost({ request: reqNoName });
       expect(resNoName.status).toBe(400);
 
-      const reqBadSpace = new Request('https://aetheris.pages.dev/api/channels', {
+      const reqBadSpace = new Request('https://urefy.com/api/channels', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: 'test', space: 'invalid-space' }),

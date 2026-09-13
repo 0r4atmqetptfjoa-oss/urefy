@@ -1,5 +1,6 @@
 import { serviceRegistry, SERVICES } from './service-registry.js';
 import { isDemoModeEnabled } from './demo-mode.js';
+import { isLocalDev } from './admin-auth.js';
 
 /**
  * Interface representing an individual encrypted bookmark entry stored in local vault.
@@ -67,7 +68,7 @@ export class BookmarksVault {
    */
   private load(): void {
     if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
-      if (isDemoModeEnabled()) {
+      if (isDemoModeEnabled() && isLocalDev()) {
         this.initDemoBookmarks();
       } else {
         this.bookmarks = [];
@@ -97,7 +98,7 @@ export class BookmarksVault {
       console.warn('[BookmarksVault] Failed to parse bookmarks from localStorage. Re-initializing default seeds.', err);
     }
 
-    if (isDemoModeEnabled()) {
+    if (isDemoModeEnabled() && isLocalDev()) {
       this.initDemoBookmarks();
       this.persist();
     } else {
@@ -109,6 +110,7 @@ export class BookmarksVault {
    * Populates the vault with two initial cryptographic demo bookmarks.
    */
   private initDemoBookmarks(): void {
+    if (!isLocalDev()) return;
     const now = Date.now();
     this.bookmarks = [
       {

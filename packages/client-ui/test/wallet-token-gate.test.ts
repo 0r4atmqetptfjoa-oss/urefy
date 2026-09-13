@@ -1,4 +1,4 @@
-﻿import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { WalletBridge, type TokenGate } from '../src/wallet-bridge.js';
 
 describe('Wallet Token-Gate Security & Verification (Finding 3)', () => {

@@ -203,6 +203,7 @@ export interface WindowAugmentation {
   __aetheris_close_archive_modal?: () => void;
   __aetheris_open_settings?: (tab?: any) => void;
   __aetheris_close_settings?: () => void;
+  __aetheris_open_transparency?: () => void;
   __aetheris_dismiss_broadcast?: () => void;
   sovereignMnemonicModal?: any;
   steganographyModal?: any;

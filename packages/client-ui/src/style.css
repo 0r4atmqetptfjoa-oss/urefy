@@ -82,7 +82,7 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
-  font-feature-settings: 'kern' 1, 'liga' 1, 'calt' 1;
+  font-feature-settings: 'kern' 1, 'liga' 1, 'calt' 1, "cv02", "cv03", "cv04", "cv11";
   /* Prevent layout shift from scrollbar appearing/disappearing */
   scrollbar-gutter: stable;
   /* Isolate compositing context — prevents repaints from bleeding up */

@@ -271,14 +271,20 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
           );
         }
       } catch (dbErr: any) {
-        if (/UNIQUE constraint failed: messages\.id/i.test(String(dbErr?.message))) {
+        const errMsg = String(dbErr?.message || '');
+        if (/UNIQUE constraint failed: messages\.id/i.test(errMsg)) {
           return new Response(JSON.stringify({ success: false, error: 'Message ID already exists' }), {
             status: 409, headers: { 'Content-Type': 'application/json' },
           });
         }
+        if (/FOREIGN KEY constraint failed/i.test(errMsg)) {
+          return new Response(JSON.stringify({ success: false, error: `Channel "${newMsg.channelId}" does not exist` }), {
+            status: 400, headers: { 'Content-Type': 'application/json' },
+          });
+        }
         if (isProd) {
           return new Response(
-            JSON.stringify({ success: false, error: `Database transaction failed: ${dbErr?.message || 'D1 message error'}` }),
+            JSON.stringify({ success: false, error: `Database transaction failed: ${errMsg || 'D1 message error'}` }),
             { status: 500, headers: { 'Content-Type': 'application/json' } }
           );
         }

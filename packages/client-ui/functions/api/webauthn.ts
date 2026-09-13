@@ -60,35 +60,48 @@ function bufferToBase64Url(buffer: ArrayBuffer | Uint8Array): string {
  * expected by Web Crypto API SubtleCrypto.verify().
  */
 export function derToRawSignature(der: Uint8Array): Uint8Array {
+  if (!der || !(der instanceof Uint8Array)) {
+    return new Uint8Array(0);
+  }
   if (der.length === 64) {
     return der; // Already IEEE P1363 raw signature
   }
-  if (der[0] !== 0x30) {
+  if (der.length < 8 || der[0] !== 0x30) {
     return der;
   }
 
   let offset = 2;
   if (der[1] & 0x80) {
-    offset += (der[1] & 0x7f);
+    const lenBytes = der[1] & 0x7f;
+    offset += lenBytes;
   }
 
-  if (der[offset] !== 0x02) {
+  if (offset >= der.length || der[offset] !== 0x02) {
     return der;
   }
   offset++;
+  if (offset >= der.length) return der;
   const rLen = der[offset++];
+  if (offset + rLen > der.length) return der;
   let r = der.subarray(offset, offset + rLen);
   offset += rLen;
 
-  if (der[offset] !== 0x02) {
+  if (offset >= der.length || der[offset] !== 0x02) {
     return der;
   }
   offset++;
+  if (offset >= der.length) return der;
   const sLen = der[offset++];
+  if (offset + sLen > der.length) return der;
   let s = der.subarray(offset, offset + sLen);
 
   if (r.length === 33 && r[0] === 0) r = r.subarray(1);
   if (s.length === 33 && s[0] === 0) s = s.subarray(1);
+
+  // Strict P-256 scalar bounds check: r and s must each be at most 32 bytes
+  if (r.length > 32 || s.length > 32 || r.length === 0 || s.length === 0) {
+    return der;
+  }
 
   const raw = new Uint8Array(64);
   raw.set(r, 32 - r.length);

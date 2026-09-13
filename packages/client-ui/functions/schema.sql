@@ -166,9 +166,318 @@ CREATE INDEX IF NOT EXISTS idx_interactions_target ON interactions(target_id, ta
 CREATE INDEX IF NOT EXISTS idx_interactions_user ON interactions(user_fingerprint, interaction_type);
 CREATE INDEX IF NOT EXISTS idx_interactions_created ON interactions(created_at DESC);
 
+-- 10. SYSTEM_CONFIG TABLE (Emergency freeze, broadcast notifications, network configs)
+CREATE TABLE IF NOT EXISTS system_config (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+
+-- 11. USER_ROLES TABLE (RBAC, moderation quarantine, shadowban flags)
+CREATE TABLE IF NOT EXISTS user_roles (
+    fingerprint TEXT PRIMARY KEY,
+    role TEXT NOT NULL DEFAULT 'MEMBER',
+    is_quarantined INTEGER NOT NULL DEFAULT 0,
+    is_shadowbanned INTEGER NOT NULL DEFAULT 0,
+    notes TEXT,
+    updated_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_roles_role ON user_roles(role);
+CREATE INDEX IF NOT EXISTS idx_user_roles_quarantined ON user_roles(is_quarantined);
+
+-- 12. USED_NONCES TABLE (Cross-worker, cross-region atomic replay protection)
+CREATE TABLE IF NOT EXISTS used_nonces (
+    fingerprint TEXT NOT NULL,
+    nonce TEXT NOT NULL,
+    expires_at INTEGER NOT NULL,
+    created_at INTEGER NOT NULL,
+    PRIMARY KEY (fingerprint, nonce)
+);
+
+CREATE INDEX IF NOT EXISTS idx_nonces_expires ON used_nonces(expires_at);
+
+-- 13. DSA_REPORTS TABLE (EU Digital Services Act Regulation compliance)
+CREATE TABLE IF NOT EXISTS dsa_reports (
+    id TEXT PRIMARY KEY,
+    target_id TEXT NOT NULL,
+    target_type TEXT NOT NULL DEFAULT 'post',
+    reason TEXT NOT NULL,
+    details TEXT,
+    reporter_fingerprint TEXT,
+    reporter_email TEXT,
+    status TEXT NOT NULL DEFAULT 'pending',
+    created_at INTEGER NOT NULL,
+    reviewed_at INTEGER,
+    resolution_notes TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_dsa_reports_created ON dsa_reports(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_dsa_reports_status ON dsa_reports(status);
+
+-- 14. WEBAUTHN_CREDENTIALS TABLE (FIDO2 / Passkey L3 storage)
+CREATE TABLE IF NOT EXISTS webauthn_credentials (
+    credential_id TEXT PRIMARY KEY,
+    fingerprint TEXT NOT NULL,
+    public_key_spki TEXT NOT NULL,
+    algorithm TEXT NOT NULL DEFAULT 'ES256',
+    sign_count INTEGER NOT NULL DEFAULT 0,
+    transports TEXT,
+    created_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_webauthn_fingerprint ON webauthn_credentials(fingerprint);
+
+-- 15. WEBAUTHN_CHALLENGES TABLE (Expiring single-use auth challenges)
+CREATE TABLE IF NOT EXISTS webauthn_challenges (
+    fingerprint TEXT PRIMARY KEY,
+    challenge TEXT NOT NULL,
+    expires_at INTEGER NOT NULL,
+    created_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_challenges_expires ON webauthn_challenges(expires_at);
+
+-- 16. DM_IDENTITIES TABLE (Private E2EE messaging identities)
+CREATE TABLE IF NOT EXISTS dm_identities (
+    fingerprint TEXT PRIMARY KEY,
+    signing_public_key TEXT NOT NULL,
+    registration_json TEXT NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+
+-- 17. DIRECT_MESSAGES TABLE (Encrypted direct message outbox/inbox)
+CREATE TABLE IF NOT EXISTS direct_messages (
+    sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+    id TEXT NOT NULL UNIQUE,
+    sender_fingerprint TEXT NOT NULL,
+    recipient_fingerprint TEXT NOT NULL,
+    envelope_json TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_direct_messages_sender_sequence ON direct_messages(sender_fingerprint, sequence);
+CREATE INDEX IF NOT EXISTS idx_direct_messages_recipient_sequence ON direct_messages(recipient_fingerprint, sequence);
+
+-- 18. GOVERNANCE_PROPOSALS & VOTES TABLES (Decentralized DAO ballots)
+CREATE TABLE IF NOT EXISTS governance_proposals (
+    id TEXT PRIMARY KEY,
+    author_fingerprint TEXT NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT NOT NULL,
+    category TEXT NOT NULL CHECK(category IN ('protocol', 'community', 'security', 'funding')),
+    quorum INTEGER NOT NULL CHECK(quorum > 0),
+    created_at INTEGER NOT NULL,
+    expires_at INTEGER NOT NULL,
+    envelope_json TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS governance_votes (
+    proposal_id TEXT NOT NULL REFERENCES governance_proposals(id),
+    voter_fingerprint TEXT NOT NULL,
+    choice TEXT NOT NULL CHECK(choice IN ('for', 'against', 'abstain')),
+    created_at INTEGER NOT NULL,
+    envelope_json TEXT NOT NULL,
+    PRIMARY KEY (proposal_id, voter_fingerprint)
+);
+
+CREATE INDEX IF NOT EXISTS idx_governance_proposals_created ON governance_proposals(created_at DESC);
+
+-- 19. ACTIVITYPUB_INBOX TABLE (Atomic cross-worker ActivityPub deduplication)
+CREATE TABLE IF NOT EXISTS activitypub_inbox (
+    id TEXT PRIMARY KEY,
+    activity_type TEXT NOT NULL,
+    actor TEXT NOT NULL,
+    received_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_activitypub_inbox_received ON activitypub_inbox(received_at DESC);
+
+-- 20. FOLLOWS TABLE (Sovereign Social Graph)
+CREATE TABLE IF NOT EXISTS follows (
+    follower_id TEXT NOT NULL,
+    following_id TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    PRIMARY KEY (follower_id, following_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_follows_follower ON follows(follower_id);
+CREATE INDEX IF NOT EXISTS idx_follows_following ON follows(following_id);
+
+-- 21. COMMUNITIES TABLE (Reddit/Discord-style Sovereign Workspaces)
+CREATE TABLE IF NOT EXISTS communities (
+    id TEXT PRIMARY KEY,
+    name TEXT UNIQUE NOT NULL,
+    display_name TEXT NOT NULL,
+    description TEXT,
+    category TEXT NOT NULL,
+    icon TEXT,
+    banner TEXT,
+    primary_color TEXT,
+    channel_id TEXT NOT NULL,
+    rules_json TEXT,
+    member_count INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_communities_name ON communities(name);
+CREATE INDEX IF NOT EXISTS idx_communities_category ON communities(category);
+
+-- 22. COMMUNITY_MEMBERS TABLE (Memberships & Moderation Roles)
+CREATE TABLE IF NOT EXISTS community_members (
+    community_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    role TEXT NOT NULL DEFAULT 'member' CHECK(role IN ('member', 'moderator', 'admin')),
+    joined_at INTEGER NOT NULL,
+    PRIMARY KEY (community_id, user_id),
+    FOREIGN KEY(community_id) REFERENCES communities(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_community_members_user ON community_members(user_id);
+
+-- 23. COMMENTS TABLE (Discussion Tree Threads)
+CREATE TABLE IF NOT EXISTS comments (
+    id TEXT PRIMARY KEY,
+    post_id TEXT NOT NULL,
+    parent_id TEXT,
+    author_id TEXT NOT NULL,
+    author_role TEXT NOT NULL DEFAULT 'MEMBER',
+    content TEXT NOT NULL,
+    merit_votes INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL,
+    FOREIGN KEY(post_id) REFERENCES posts(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_comments_post_id ON comments(post_id, created_at ASC);
+CREATE INDEX IF NOT EXISTS idx_comments_author_id ON comments(author_id);
+
+-- 24. POST_TAGS TABLE (Hashtag & Topic Indices for Discovery)
+CREATE TABLE IF NOT EXISTS post_tags (
+    post_id TEXT NOT NULL,
+    tag TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    PRIMARY KEY (post_id, tag),
+    FOREIGN KEY(post_id) REFERENCES posts(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_post_tags_tag ON post_tags(tag);
+
+-- 25. NOTIFICATIONS TABLE (Activity & Engagement Alerts)
+CREATE TABLE IF NOT EXISTS notifications (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    actor_id TEXT NOT NULL,
+    actor_name TEXT,
+    type TEXT NOT NULL CHECK(type IN ('follow', 'reply_post', 'reply_comment', 'mention', 'reaction', 'award', 'mod_action', 'message_request', 'message', 'community_activity')),
+    target_id TEXT,
+    target_type TEXT,
+    preview_text TEXT,
+    is_read INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_notifications_user_read_created ON notifications(user_id, is_read, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_notifications_user_created ON notifications(user_id, created_at DESC);
+
+-- 26. USER_BLOCKS TABLE (Sovereign Safety & Content Filtering)
+CREATE TABLE IF NOT EXISTS user_blocks (
+    blocker_id TEXT NOT NULL,
+    blocked_id TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    PRIMARY KEY (blocker_id, blocked_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_blocks_blocker ON user_blocks(blocker_id);
+CREATE INDEX IF NOT EXISTS idx_user_blocks_blocked ON user_blocks(blocked_id);
+
+-- 27. USER_MUTES TABLE (Feed Timeline Content Muting)
+CREATE TABLE IF NOT EXISTS user_mutes (
+    muter_id TEXT NOT NULL,
+    muted_id TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    PRIMARY KEY (muter_id, muted_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_mutes_muter ON user_mutes(muter_id);
+
+-- 28. USER_PROFILES TABLE (Public Sovereign Profiles & Metadata)
+CREATE TABLE IF NOT EXISTS user_profiles (
+    user_id TEXT PRIMARY KEY,
+    display_name TEXT NOT NULL,
+    handle TEXT NOT NULL UNIQUE,
+    bio TEXT,
+    avatar_url TEXT,
+    banner_url TEXT,
+    pinned_post_id TEXT,
+    interests_json TEXT,
+    website TEXT,
+    location TEXT,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_profiles_handle ON user_profiles(handle);
+CREATE INDEX IF NOT EXISTS idx_user_profiles_updated ON user_profiles(updated_at DESC);
+
+-- 29. COMMUNITY_MODERATION_LOGS TABLE (Verifiable Audited Mod Actions)
+CREATE TABLE IF NOT EXISTS community_moderation_logs (
+    id TEXT PRIMARY KEY,
+    community_id TEXT NOT NULL,
+    moderator_id TEXT NOT NULL,
+    action TEXT NOT NULL CHECK(action IN ('pin_post', 'unpin_post', 'remove_post', 'lock_thread', 'unlock_thread', 'mute_user', 'ban_user', 'unban_user', 'edit_info', 'approve_report', 'reject_report')),
+    target_type TEXT NOT NULL,
+    target_id TEXT NOT NULL,
+    reason TEXT,
+    created_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_community_mod_logs_comm_created ON community_moderation_logs(community_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_community_mod_logs_mod ON community_moderation_logs(moderator_id);
+
+-- 30. REPORTS TABLE (Social Safety & Community Moderation Queue)
+CREATE TABLE IF NOT EXISTS reports (
+    id TEXT PRIMARY KEY,
+    target_type TEXT NOT NULL CHECK(target_type IN ('post', 'comment', 'user', 'message', 'community')),
+    target_id TEXT NOT NULL,
+    reason_category TEXT NOT NULL CHECK(reason_category IN ('spam', 'harassment', 'impersonation', 'illegal', 'malware', 'other')),
+    details TEXT,
+    reporter_id TEXT NOT NULL,
+    community_id TEXT,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'reviewed', 'dismissed', 'actioned')),
+    action_taken TEXT,
+    moderator_id TEXT,
+    created_at INTEGER NOT NULL,
+    reviewed_at INTEGER
+);
+
+CREATE INDEX IF NOT EXISTS idx_reports_community_status ON reports(community_id, status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_reports_status_created ON reports(status, created_at DESC);
+
+-- 31. MESSAGE_REQUESTS TABLE (E2EE DM Safety for Non-Mutuals)
+CREATE TABLE IF NOT EXISTS message_requests (
+    id TEXT PRIMARY KEY,
+    sender_id TEXT NOT NULL,
+    recipient_id TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'accepted', 'declined', 'blocked')),
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    UNIQUE(sender_id, recipient_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_message_requests_recipient_status ON message_requests(recipient_id, status, created_at DESC);
+
 -- ===========================================================================
 -- SEED INITIAL DATA (Idempotent INSERT OR IGNORE)
 -- ===========================================================================
+
+-- Communities Seed
+INSERT OR IGNORE INTO communities (id, name, display_name, description, category, icon, banner, primary_color, channel_id, member_count, created_at) VALUES
+('c-technology', 'technology', 'Technology & Computing', 'Latest tech breakthroughs, computing, AI hardware, and developer software.', 'Technology', '💻', 'linear-gradient(135deg, #0ea5e9, #6366f1)', '#38bdf8', 'c/technology', 1420, 1756600000000),
+('c-privacy-ai', 'privacy-ai', 'Privacy, AI & Autonomy', 'Local AI models, open weights, privacy engineering, and autonomous agents.', 'Artificial Intelligence', '🤖', 'linear-gradient(135deg, #8b5cf6, #ec4899)', '#a855f7', 'c/privacy-ai', 980, 1756600000000),
+('c-opensource', 'opensource', 'Open Source & Dev Hub', 'Free software, Linux kernel, developer tooling, and self-hosted tools.', 'Software & Dev', '🌐', 'linear-gradient(135deg, #10b981, #06b6d4)', '#34d399', 'c/opensource', 1150, 1756600000000),
+('c-gaming', 'gaming', 'Gaming & Digital Worlds', 'Indie game development, open gaming rigs, modding, and game design.', 'Gaming', '🎮', 'linear-gradient(135deg, #f59e0b, #ef4444)', '#fbbf24', 'c/gaming', 820, 1756600000000),
+('c-creative', 'creative', 'Design & Digital Arts', 'Generative art, UI/UX design, electronic music, and creative coding.', 'Creative Arts', '🎨', 'linear-gradient(135deg, #ec4899, #8b5cf6)', '#f472b6', 'c/creative', 640, 1756600000000),
+('c-digitalfreedom', 'digitalfreedom', 'Digital Rights & Freedom', 'Decentralized speech, civil liberties, encryption rights, and open protocols.', 'Society & Rights', '⚡', 'linear-gradient(135deg, #6366f1, #0ea5e9)', '#818cf8', 'c/digitalfreedom', 1290, 1756600000000);
 
 -- Channels
 INSERT OR IGNORE INTO channels (id, space, name, description, is_encrypted, created_at) VALUES

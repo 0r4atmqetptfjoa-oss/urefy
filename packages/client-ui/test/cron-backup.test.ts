@@ -357,7 +357,7 @@ describe('Automated D1 SQLite to Cloudflare R2 Encrypted Backup Engine (Item 19)
 
   describe('5. HTTP Endpoint & Cron Trigger Conformance', () => {
     it('POST /api/cron-backup rejects unauthorized requests with 401', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/cron-backup', {
+      const req = new Request('https://urefy.com/api/cron-backup', {
         method: 'POST',
       });
       const res = await handleBackupPost({ request: req });
@@ -368,7 +368,7 @@ describe('Automated D1 SQLite to Cloudflare R2 Encrypted Backup Engine (Item 19)
     });
 
     it('POST /api/cron-backup succeeds when authenticated with Admin PIN', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/cron-backup', {
+      const req = new Request('https://urefy.com/api/cron-backup', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -384,7 +384,7 @@ describe('Automated D1 SQLite to Cloudflare R2 Encrypted Backup Engine (Item 19)
     });
 
     it('POST /api/cron-backup succeeds when triggered via Cloudflare CF-Cron header', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/cron-backup', {
+      const req = new Request('https://urefy.com/api/cron-backup', {
         method: 'POST',
         headers: {
           'CF-Cron': 'true',
@@ -415,7 +415,7 @@ describe('Automated D1 SQLite to Cloudflare R2 Encrypted Backup Engine (Item 19)
       // Run a backup first
       await executeBackup();
 
-      const req = new Request('https://aetheris.pages.dev/api/cron-backup');
+      const req = new Request('https://urefy.com/api/cron-backup');
       const res = await handleBackupGet({ request: req });
       expect(res.status).toBe(200);
       const json = await res.json();
@@ -488,7 +488,7 @@ describe('Automated D1 SQLite to Cloudflare R2 Encrypted Backup Engine (Item 19)
       const backupRes = await executeBackup();
       const snapshot = inMemoryBackupSnapshots.get(DAILY_BACKUP_KEY);
 
-      const req = new Request('https://aetheris.pages.dev/api/cron-backup?action=restore', {
+      const req = new Request('https://urefy.com/api/cron-backup?action=restore', {
         method: 'POST',
         headers: {
           'X-Admin-PIN': DEFAULT_ADMIN_PIN,

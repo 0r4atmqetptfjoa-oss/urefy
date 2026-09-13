@@ -1,7 +1,7 @@
-﻿import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { AcousticDSPEngine, AUDIO_PROFILES } from '../src/acoustic-dsp';
 
-describe('AcousticDSPEngine — 5-Band Parametric Equalizer & Audio Profiles', () => {
+describe('AcousticDSPEngine � 5-Band Parametric Equalizer & Audio Profiles', () => {
   let dsp: AcousticDSPEngine;
 
   beforeEach(() => {

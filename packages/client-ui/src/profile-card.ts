@@ -92,25 +92,25 @@ function generateDeterministicBio(fp: string, role: ProfileData['role']): string
   const hash = fnv1a32(fp);
   const biosByRole: Record<ProfileData['role'], string[]> = {
     GUARDIAN: [
-      'Sovereign protocol architect & consensus validator. Enforcing zero-knowledge invariants across mesh relays.',
-      'Core genesis guardian. Auditing cryptographic zero-knowledge circuits and decentralized state transitions.',
-      'Decentralized identity custodian. Maintaining Byzantine fault tolerance and Sybil resistance invariants.',
+      'Building sovereign, open-source technology. Passionate about user privacy and decentralized social.',
+      'Security researcher & systems engineer. Advocating for zero-tracking, user-owned social networks.',
+      'Product engineer focused on modern private web architecture and sovereign protocols.',
     ],
     ARCHIVIST: [
-      'Forensic binary hygiene inspector & Merkle DAG indexer. Ensuring deterministic byte-level artifact provenance.',
-      'Immutable archive curator. Verifying cryptographic multi-roots and zero-entropy payload distributions.',
-      'Swarm storage keeper. Auditing distributed payload chunks and validating erasure coding health.',
+      'Curating open-access knowledge, research papers, and verified software releases.',
+      'Digital archivist & open-source enthusiast. Preserving important software and tech culture.',
+      'Writer and tech historian exploring decentralized networks and sovereign digital tools.',
     ],
     MODERATOR: [
-      'Rate-Limiting Nullifier (RLN) sentinel. Neutralizing spam vectors and Byzantine relay traffic spikes.',
-      'Mesh channel mediator. Preserving sovereign technical discourse and network-wide signal hygiene.',
-      'Sybil defense operator. Analyzing Web of Trust Edmonds-Karp capacities to prevent collusion loops.',
+      'Community lead and organizer. Dedicated to constructive discussions and spam-free social spaces.',
+      'Community manager keeping conversations respectful, informative, and engaging for everyone.',
+      'Fostering healthy discussions across technology, privacy, open source, and creative arts.',
     ],
     MEMBER: [
-      'Peer-to-peer mesh node explorer. Experimenting with WebRTC audio pipelines and sovereign client runtime.',
-      'Zero-knowledge cryptography enthusiast. Compiling Groth16 arithmetic circuits for sovereign identity.',
-      'Distributed systems developer. Profiling binary hygiene Shannon entropy and local search indices.',
-      'Sovereign communications advocate. Routing private packets through decentralized omni-sphere relays.',
+      'Software creator, open-source enthusiast, and tech explorer. Excited about sovereign social.',
+      'Designer & developer building products for the decentralized web. Coffee and code.',
+      'Curious builder exploring AI, web tech, and privacy-respecting platforms.',
+      'Digital creator exploring decentralized publishing and privacy-first communities.',
     ],
   };
 

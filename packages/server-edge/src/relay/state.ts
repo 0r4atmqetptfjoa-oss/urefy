@@ -51,12 +51,15 @@ export class RelayStateManager {
   private readonly presenceTtlMs: number;
   private readonly shareTtlMs: number;
   private readonly challengeTtlMs: number;
+  private readonly maxActiveShares: number;
+  private lastSharesCleanupTime: number = 0;
 
   constructor(config: StateManagerConfig = {}) {
     this.maxPresenceCount = config.maxPresenceCount ?? 10000;
     this.presenceTtlMs = config.presenceTtlMs ?? 15 * 60 * 1000; // 15 minutes
     this.shareTtlMs = config.shareTtlMs ?? 5 * 60 * 1000; // 5 minutes
     this.challengeTtlMs = config.challengeTtlMs ?? 60 * 1000; // 60 seconds
+    this.maxActiveShares = 50000;
 
     // Seed default channels
     for (const ch of DEFAULT_RELAY_CHANNELS) {
@@ -152,8 +155,16 @@ export class RelayStateManager {
       return { violated: true, breachedNullifier: nullifier, error: 'Identity already revoked on nullifier tree' };
     }
 
-    // Sliding-window memory hygiene: clean expired shares before recording
-    this.cleanExpiredShares();
+    // Sliding-window memory hygiene: clean expired shares periodically or on capacity threshold
+    const now = Date.now();
+    if (now - this.lastSharesCleanupTime > 5000 || this.activeShares.size >= this.maxActiveShares) {
+      this.cleanExpiredShares();
+      this.lastSharesCleanupTime = now;
+      if (this.activeShares.size >= this.maxActiveShares) {
+        const oldestKey = this.activeShares.keys().next().value;
+        if (oldestKey) this.activeShares.delete(oldestKey);
+      }
+    }
 
     const shareKey = `${epoch}:${nullifier}`;
     const existingEntry = this.activeShares.get(shareKey);
@@ -181,7 +192,7 @@ export class RelayStateManager {
     // Record share with timestamp for automatic epoch pruning
     this.activeShares.set(shareKey, {
       share,
-      createdAt: Date.now(),
+      createdAt: now,
     });
 
     return { violated: false };

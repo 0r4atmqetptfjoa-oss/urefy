@@ -1,4 +1,4 @@
-﻿import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import './helpers/disable-demo.js';
 import { NetworkObservatory } from '../src/network-observatory.js';
 import { setSimulationMode } from '../src/simulation-mode.js';

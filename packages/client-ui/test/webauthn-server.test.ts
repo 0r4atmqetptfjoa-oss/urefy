@@ -15,7 +15,7 @@ function bufferToBase64Url(buffer: ArrayBuffer | Uint8Array): string {
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-async function makeRpIdHash(rpId = 'aetheris.pages.dev'): Promise<Uint8Array> {
+async function makeRpIdHash(rpId = 'urefy.com'): Promise<Uint8Array> {
   return new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(rpId)));
 }
 
@@ -100,30 +100,30 @@ describe('WebAuthn FIDO2 Level 3 Server-Side Engine Suite', () => {
 
   describe('3. Challenge Issuance & Replay Defense (GET)', () => {
     it('issues a high-entropy base64url challenge with timeout and hostname', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/webauthn?action=challenge&fingerprint=user-alice');
+      const req = new Request('https://urefy.com/api/webauthn?action=challenge&fingerprint=user-alice');
       const res = await handleWebAuthn({ request: req, env: {} });
       expect(res.status).toBe(200);
       const body = await res.json();
       expect(body.success).toBe(true);
       expect(typeof body.challenge).toBe('string');
       expect(body.challenge.length).toBeGreaterThan(20);
-      expect(body.rpId).toBe('aetheris.pages.dev');
+      expect(body.rpId).toBe('urefy.com');
     });
   });
 
   describe('4. Passkey Registration (POST action: register)', () => {
     it('rejects registration if public key is missing or dummy string', async () => {
-      const reqGet = new Request('https://aetheris.pages.dev/api/webauthn?action=challenge&fingerprint=user-dummy');
+      const reqGet = new Request('https://urefy.com/api/webauthn?action=challenge&fingerprint=user-dummy');
       const resGet = await handleWebAuthn({ request: reqGet, env: {} });
       const { challenge } = await resGet.json();
 
       const clientData = JSON.stringify({
         type: 'webauthn.create',
         challenge,
-        origin: 'https://aetheris.pages.dev',
+        origin: 'https://urefy.com',
       });
 
-      const reqPost = new Request('https://aetheris.pages.dev/api/webauthn', {
+      const reqPost = new Request('https://urefy.com/api/webauthn', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -143,7 +143,7 @@ describe('WebAuthn FIDO2 Level 3 Server-Side Engine Suite', () => {
     });
 
     it('rejects registration if challenge does not match', async () => {
-      const reqGet = new Request('https://aetheris.pages.dev/api/webauthn?action=challenge&fingerprint=user-bob');
+      const reqGet = new Request('https://urefy.com/api/webauthn?action=challenge&fingerprint=user-bob');
       await handleWebAuthn({ request: reqGet, env: {} });
 
       const kp = await crypto.subtle.generateKey(
@@ -156,10 +156,10 @@ describe('WebAuthn FIDO2 Level 3 Server-Side Engine Suite', () => {
       const fakeClientData = JSON.stringify({
         type: 'webauthn.create',
         challenge: 'wrong-challenge-value',
-        origin: 'https://aetheris.pages.dev',
+        origin: 'https://urefy.com',
       });
 
-      const reqPost = new Request('https://aetheris.pages.dev/api/webauthn', {
+      const reqPost = new Request('https://urefy.com/api/webauthn', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -179,7 +179,7 @@ describe('WebAuthn FIDO2 Level 3 Server-Side Engine Suite', () => {
     });
 
     it('successfully registers passkey when challenge matches', async () => {
-      const reqGet = new Request('https://aetheris.pages.dev/api/webauthn?action=challenge&fingerprint=user-carol');
+      const reqGet = new Request('https://urefy.com/api/webauthn?action=challenge&fingerprint=user-carol');
       const resGet = await handleWebAuthn({ request: reqGet, env: {} });
       const { challenge } = await resGet.json();
 
@@ -193,10 +193,10 @@ describe('WebAuthn FIDO2 Level 3 Server-Side Engine Suite', () => {
       const clientData = JSON.stringify({
         type: 'webauthn.create',
         challenge,
-        origin: 'https://aetheris.pages.dev',
+        origin: 'https://urefy.com',
       });
 
-      const reqPost = new Request('https://aetheris.pages.dev/api/webauthn', {
+      const reqPost = new Request('https://urefy.com/api/webauthn', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -232,16 +232,16 @@ describe('WebAuthn FIDO2 Level 3 Server-Side Engine Suite', () => {
       davePubJwk = await crypto.subtle.exportKey('jwk', daveKeypair.publicKey);
 
       // Register Dave
-      const reqGetReg = new Request('https://aetheris.pages.dev/api/webauthn?action=challenge&fingerprint=user-dave');
+      const reqGetReg = new Request('https://urefy.com/api/webauthn?action=challenge&fingerprint=user-dave');
       const resGetReg = await handleWebAuthn({ request: reqGetReg, env: {} });
       const { challenge: regChallenge } = await resGetReg.json();
 
       const regClientData = JSON.stringify({
         type: 'webauthn.create',
         challenge: regChallenge,
-        origin: 'https://aetheris.pages.dev',
+        origin: 'https://urefy.com',
       });
-      const reqReg = new Request('https://aetheris.pages.dev/api/webauthn', {
+      const reqReg = new Request('https://urefy.com/api/webauthn', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -260,14 +260,14 @@ describe('WebAuthn FIDO2 Level 3 Server-Side Engine Suite', () => {
     });
 
     it('verifies valid FIDO2 Level 3 assertion with authentic ECDSA P-256 signature', async () => {
-      const reqGetAuth = new Request('https://aetheris.pages.dev/api/webauthn?action=challenge&fingerprint=user-dave');
+      const reqGetAuth = new Request('https://urefy.com/api/webauthn?action=challenge&fingerprint=user-dave');
       const resGetAuth = await handleWebAuthn({ request: reqGetAuth, env: {} });
       const { challenge: authChallenge } = await resGetAuth.json();
 
       const authClientData = JSON.stringify({
         type: 'webauthn.get',
         challenge: authChallenge,
-        origin: 'https://aetheris.pages.dev',
+        origin: 'https://urefy.com',
       });
       const rawClientDataBytes = new TextEncoder().encode(authClientData);
       const clientDataHash = await crypto.subtle.digest('SHA-256', rawClientDataBytes);
@@ -291,7 +291,7 @@ describe('WebAuthn FIDO2 Level 3 Server-Side Engine Suite', () => {
         signedData
       );
 
-      const reqVerify = new Request('https://aetheris.pages.dev/api/webauthn', {
+      const reqVerify = new Request('https://urefy.com/api/webauthn', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -313,20 +313,20 @@ describe('WebAuthn FIDO2 Level 3 Server-Side Engine Suite', () => {
     });
 
     it('rejects assertion with HTTP 401 when signature is missing (No Bypass)', async () => {
-      const reqGet = new Request('https://aetheris.pages.dev/api/webauthn?action=challenge&fingerprint=user-dave');
+      const reqGet = new Request('https://urefy.com/api/webauthn?action=challenge&fingerprint=user-dave');
       const resGet = await handleWebAuthn({ request: reqGet, env: {} });
       const { challenge } = await resGet.json();
 
       const authClientData = JSON.stringify({
         type: 'webauthn.get',
         challenge,
-        origin: 'https://aetheris.pages.dev',
+        origin: 'https://urefy.com',
       });
 
       const authDataBytes = new Uint8Array(37);
       authDataBytes[32] = 0x01;
 
-      const reqVerify = new Request('https://aetheris.pages.dev/api/webauthn', {
+      const reqVerify = new Request('https://urefy.com/api/webauthn', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -347,14 +347,14 @@ describe('WebAuthn FIDO2 Level 3 Server-Side Engine Suite', () => {
     });
 
     it('rejects assertion with HTTP 401 when signature is invalid', async () => {
-      const reqGet = new Request('https://aetheris.pages.dev/api/webauthn?action=challenge&fingerprint=user-dave');
+      const reqGet = new Request('https://urefy.com/api/webauthn?action=challenge&fingerprint=user-dave');
       const resGet = await handleWebAuthn({ request: reqGet, env: {} });
       const { challenge } = await resGet.json();
 
       const authClientData = JSON.stringify({
         type: 'webauthn.get',
         challenge,
-        origin: 'https://aetheris.pages.dev',
+        origin: 'https://urefy.com',
       });
 
       const authDataBytes = new Uint8Array(37);
@@ -364,7 +364,7 @@ describe('WebAuthn FIDO2 Level 3 Server-Side Engine Suite', () => {
 
       const fakeSig = new Uint8Array(64).fill(0xee);
 
-      const reqVerify = new Request('https://aetheris.pages.dev/api/webauthn', {
+      const reqVerify = new Request('https://urefy.com/api/webauthn', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -385,14 +385,14 @@ describe('WebAuthn FIDO2 Level 3 Server-Side Engine Suite', () => {
     });
 
     it('rejects assertion when User Presence (UP) flag is missing', async () => {
-      const reqGet = new Request('https://aetheris.pages.dev/api/webauthn?action=challenge&fingerprint=user-dave');
+      const reqGet = new Request('https://urefy.com/api/webauthn?action=challenge&fingerprint=user-dave');
       const resGet = await handleWebAuthn({ request: reqGet, env: {} });
       const { challenge } = await resGet.json();
 
       const authClientData = JSON.stringify({
         type: 'webauthn.get',
         challenge,
-        origin: 'https://aetheris.pages.dev',
+        origin: 'https://urefy.com',
       });
 
       const authDataBytes = new Uint8Array(37);
@@ -412,7 +412,7 @@ describe('WebAuthn FIDO2 Level 3 Server-Side Engine Suite', () => {
         signedData
       );
 
-      const reqVerify = new Request('https://aetheris.pages.dev/api/webauthn', {
+      const reqVerify = new Request('https://urefy.com/api/webauthn', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -433,11 +433,11 @@ describe('WebAuthn FIDO2 Level 3 Server-Side Engine Suite', () => {
 
     it('rejects assertion when signCount fails to advance (replay protection)', async () => {
       // First, do a successful verify with counter = 10
-      const reqGet1 = new Request('https://aetheris.pages.dev/api/webauthn?action=challenge&fingerprint=user-dave');
+      const reqGet1 = new Request('https://urefy.com/api/webauthn?action=challenge&fingerprint=user-dave');
       const resGet1 = await handleWebAuthn({ request: reqGet1, env: {} });
       const { challenge: c1 } = await resGet1.json();
 
-      const cd1 = JSON.stringify({ type: 'webauthn.get', challenge: c1, origin: 'https://aetheris.pages.dev' });
+      const cd1 = JSON.stringify({ type: 'webauthn.get', challenge: c1, origin: 'https://urefy.com' });
       const h1 = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(cd1));
       const ad1 = new Uint8Array(37);
       ad1.set(await makeRpIdHash(), 0);
@@ -449,7 +449,7 @@ describe('WebAuthn FIDO2 Level 3 Server-Side Engine Suite', () => {
       const sig1 = await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, daveKeypair.privateKey, sd1);
 
       await handleWebAuthn({
-        request: new Request('https://aetheris.pages.dev/api/webauthn', {
+        request: new Request('https://urefy.com/api/webauthn', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -465,11 +465,11 @@ describe('WebAuthn FIDO2 Level 3 Server-Side Engine Suite', () => {
       });
 
       // Now attempt a second assertion with counter = 10 (did not advance past 10!)
-      const reqGet2 = new Request('https://aetheris.pages.dev/api/webauthn?action=challenge&fingerprint=user-dave');
+      const reqGet2 = new Request('https://urefy.com/api/webauthn?action=challenge&fingerprint=user-dave');
       const resGet2 = await handleWebAuthn({ request: reqGet2, env: {} });
       const { challenge: c2 } = await resGet2.json();
 
-      const cd2 = JSON.stringify({ type: 'webauthn.get', challenge: c2, origin: 'https://aetheris.pages.dev' });
+      const cd2 = JSON.stringify({ type: 'webauthn.get', challenge: c2, origin: 'https://urefy.com' });
       const h2 = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(cd2));
       const ad2 = new Uint8Array(37);
       ad2.set(await makeRpIdHash(), 0);
@@ -480,7 +480,7 @@ describe('WebAuthn FIDO2 Level 3 Server-Side Engine Suite', () => {
       sd2.set(new Uint8Array(h2), ad2.length);
       const sig2 = await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, daveKeypair.privateKey, sd2);
 
-      const reqVerify = new Request('https://aetheris.pages.dev/api/webauthn', {
+      const reqVerify = new Request('https://urefy.com/api/webauthn', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

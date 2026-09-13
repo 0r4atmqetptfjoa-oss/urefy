@@ -248,6 +248,7 @@ if (typeof window !== 'undefined') {
   };
   (window as any).__aetheris_save_profile = () => {
     const nameInput = document.getElementById('edit-profile-name') as HTMLInputElement;
+    const handleInput = document.getElementById('edit-profile-handle') as HTMLInputElement;
     const bioInput = document.getElementById('edit-profile-bio') as HTMLTextAreaElement;
     const locInput = document.getElementById('edit-profile-location') as HTMLInputElement;
     const webInput = document.getElementById('edit-profile-website') as HTMLInputElement;
@@ -255,8 +256,10 @@ if (typeof window !== 'undefined') {
     const banInput = document.getElementById('edit-profile-banner') as HTMLInputElement;
 
     const targetFp = profileView.targetFingerprint || (window as any).clientStore?.keypair?.fingerprint || 'genesis-core';
+    const cleanHandle = handleInput?.value ? handleInput.value.replace(/^@/, '').trim() : '';
     profileView.updateProfile(targetFp, {
       name: nameInput?.value || 'Sovereign Node',
+      handle: cleanHandle || profileView.getProfile(targetFp).handle,
       bio: bioInput?.value || '',
       location: locInput?.value || '',
       website: webInput?.value || '',

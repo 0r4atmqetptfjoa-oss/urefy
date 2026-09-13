@@ -1,5 +1,6 @@
 import { serviceRegistry, SERVICES } from './service-registry.js';
 import type { ClientPost } from './client-state.js';
+import { socialSafety } from './social-safety.js';
 
 export interface IndexedDocument {
   id: string;
@@ -7,7 +8,7 @@ export interface IndexedDocument {
   authorFingerprint: string;
   content: string;
   createdAt: number;
-  type: 'post' | 'message' | 'nanopublication' | 'channel' | 'thread';
+  type: 'post' | 'message' | 'nanopublication' | 'channel' | 'thread' | 'person' | 'community' | 'topic';
   title?: string;
   flairs?: string[];
   metadata?: any;
@@ -159,6 +160,45 @@ export class LocalSearchIndex {
     }
   }
 
+  public indexPerson(person: { id: string; handle: string; displayName: string; bio?: string }): void {
+    this.indexDocument({
+      id: `person-${person.id}`,
+      channelId: 'people',
+      authorFingerprint: person.id,
+      content: `${person.handle} ${person.displayName} ${person.bio || ''}`,
+      createdAt: Date.now(),
+      type: 'person',
+      title: person.displayName || `@${person.handle}`,
+      metadata: person,
+    });
+  }
+
+  public indexCommunity(community: { id: string; name: string; displayName: string; description?: string; category?: string }): void {
+    this.indexDocument({
+      id: `community-${community.id}`,
+      channelId: community.id,
+      authorFingerprint: 'system',
+      content: `${community.name} ${community.displayName} ${community.description || ''} ${community.category || ''}`,
+      createdAt: Date.now(),
+      type: 'community',
+      title: `c/${community.name}`,
+      metadata: community,
+    });
+  }
+
+  public indexTopic(topic: { tag: string; postCount: number; description?: string }): void {
+    this.indexDocument({
+      id: `topic-${topic.tag}`,
+      channelId: 'topics',
+      authorFingerprint: 'system',
+      content: `${topic.tag} ${topic.description || ''}`,
+      createdAt: Date.now(),
+      type: 'topic',
+      title: topic.tag.startsWith('#') ? topic.tag : `#${topic.tag}`,
+      metadata: topic,
+    });
+  }
+
   public removeDocument(docId: string): void {
     const doc = this.documents.get(docId);
     if (!doc) return;
@@ -190,7 +230,7 @@ export class LocalSearchIndex {
   /**
    * Performs BM25 ranking across all indexed documents with fuzzy typo-tolerance.
    */
-  public search(query: string, limit: number = 20): SearchResult[] {
+  public search(query: string, limit: number = 20, category?: 'all' | 'posts' | 'people' | 'communities' | 'topics'): SearchResult[] {
     const rawQueryTokens = this.tokenize(query);
     const queryTokens = rawQueryTokens.filter(t => !STOPWORDS.has(t));
     if (queryTokens.length === 0 || this.documents.size === 0) return [];
@@ -243,10 +283,10 @@ export class LocalSearchIndex {
         if (!posting) continue;
 
         const n_qi = posting.size;
-        const idf = Math.log((N - n_qi + 0.5) / (n_qi + 0.5) + 1);
+        const idf = Math.log(1 + (N - n_qi + 0.5) / (n_qi + 0.5));
 
         for (const [docId, freq] of posting.entries()) {
-          const d_len = this.docLengths.get(docId) || 1;
+          const d_len = this.docLengths.get(docId) || avgdl;
           const numerator = freq * (this.k1 + 1);
           const denominator = freq + this.k1 * (1 - this.b + this.b * (d_len / avgdl));
           const termScore = idf * (numerator / denominator) * weightMultiplier;
@@ -264,6 +304,15 @@ export class LocalSearchIndex {
     const results: SearchResult[] = [];
     for (const [docId, score] of scores.entries()) {
       const doc = this.documents.get(docId)!;
+      if (doc.authorFingerprint && socialSafety.isBlocked(doc.authorFingerprint)) continue;
+
+      if (category && category !== 'all') {
+        if (category === 'posts' && doc.type !== 'post' && doc.type !== 'thread') continue;
+        if (category === 'people' && doc.type !== 'person') continue;
+        if (category === 'communities' && doc.type !== 'community') continue;
+        if (category === 'topics' && doc.type !== 'topic') continue;
+      }
+
       const matched = Array.from(docMatchedTokens.get(docId) || []);
       const snippet = this.generateSnippet(doc.content, queryTokens, matched);
       results.push({ doc, score, snippet, matchedTokens: matched });

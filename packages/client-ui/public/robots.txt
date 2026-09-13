@@ -1,4 +1,6 @@
-﻿User-agent: *
+User-agent: *
 Disallow: /api/
 Disallow: /vault/
 Allow: /
+
+Sitemap: https://urefy.com/sitemap.xml

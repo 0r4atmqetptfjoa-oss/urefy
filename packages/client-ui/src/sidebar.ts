@@ -1,319 +1,134 @@
-/**
- * @file sidebar.ts
- * @package @aetheris/client-ui
- * @description Contextual Right Sidebar Engine.
- * Dynamically renders contextual content based on active mode (Feed, Messages, Vault, Explore, Profile)
- * conforming to Section 25 of the Master UX Specification.
- */
+/** Consumer contextual rail. Everything shown here supports the active social task. */
 
 import { clientStore } from './client-state.js';
-import { trendingEngine } from './trending.js';
 import { sovereignCircleEngine } from './sovereign-circle.js';
 import { renderIcon } from './ui/icons.js';
-import { TYPOGRAPHY } from './ui/tokens.js';
+
+function escapeHtml(value: string): string {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function getRealTopics(): Array<{ tag: string; count: number }> {
+  const counts = new Map<string, number>();
+  for (const post of clientStore.posts) {
+    for (const tag of post.content.match(/#[A-Za-z0-9_]+/g) || []) {
+      counts.set(tag, (counts.get(tag) || 0) + 1);
+    }
+    if (post.flair) counts.set(post.flair, (counts.get(post.flair) || 0) + 1);
+  }
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([tag, count]) => ({ tag, count }));
+}
 
 export class ContextualSidebar {
   public renderSidebarContent(activeMode: string): string {
-    switch (activeMode) {
-      case 'vault':
-        return this.renderVaultSidebar();
-      case 'relays':
-      case 'messages':
-        return this.renderMessagesSidebar();
-      case 'explore':
-        return this.renderExploreSidebar();
-      case 'profile':
-        return this.renderProfileSidebar();
-      case 'pulse':
-      case 'feed':
-      default:
-        return this.renderFeedSidebar();
-    }
+    if (activeMode.startsWith('relay') || activeMode.startsWith('dm-') || activeMode === 'messages') return this.renderMessagesSidebar();
+    if (activeMode.startsWith('profile')) return this.renderProfileSidebar();
+    if (activeMode === 'explore') return this.renderExploreSidebar();
+    if (activeMode === 'communities' || activeMode.startsWith('c/')) return this.renderCommunitiesSidebar();
+    if (activeMode.startsWith('vault')) return this.renderVaultSidebar();
+    return this.renderFeedSidebar();
   }
 
-  /**
-   * Feed Contextual Sidebar: Trending Topics & Community Suggestions
-   */
   private renderFeedSidebar(): string {
-    const trending = trendingEngine.getTrendingTopics();
-
+    const topics = getRealTopics();
+    const communities = sovereignCircleEngine.getAllCircles().slice(0, 4);
     return `
-      <div class="space-y-5 select-none" data-sidebar-context="feed">
-        <!-- TRENDING TOPICS -->
-        <div class="p-4 rounded-2xl bg-surface-base/80 border border-white/5 space-y-3">
-          <div class="flex items-center justify-between">
-            <h3 class="${TYPOGRAPHY.sectionTitle} text-sm flex items-center gap-1.5">
-              ${renderIcon('sparkles', { size: 15, class: 'text-amber-400' })}
-              <span>Trending</span>
-            </h3>
-            <span class="text-[10px] font-mono text-slate-500">Live Network</span>
-          </div>
-          <div class="space-y-2">
-            ${trending.slice(0, 5).map((t, idx) => `
-              <div class="flex items-center justify-between p-2 rounded-xl hover:bg-white/5 transition-colors cursor-pointer group">
-                <div>
-                  <div class="text-xs font-semibold text-slate-200 group-hover:text-cyan-400 transition-colors">${t.tag}</div>
-                  <div class="text-[11px] text-slate-500">${t.count || 12} pulses · ${t.category}</div>
-                </div>
-                <span class="text-xs text-slate-500 font-mono">#${idx + 1}</span>
-              </div>
-            `).join('')}
-          </div>
-        </div>
+      <div class="context-stack" data-sidebar-context="feed">
+        <section class="context-card">
+          <div class="context-card__header"><h2>Trending now</h2><button type="button" data-nav-mode="explore">See all</button></div>
+          ${topics.length ? `<div class="context-list">${topics.map((topic, index) => `
+            <button type="button" class="context-topic" data-nav-mode="explore" title="Explore ${escapeHtml(topic.tag)}">
+              <span class="context-topic__rank">${index + 1}</span><span><strong>${escapeHtml(topic.tag)}</strong><small>${topic.count} ${topic.count === 1 ? 'post' : 'posts'}</small></span>
+            </button>`).join('')}</div>` : `
+            <div class="context-empty"><strong>Nothing is trending yet</strong><span>Topics will appear as conversations grow.</span></div>`}
+        </section>
 
-        <!-- RELEVANT COMMUNITIES -->
-        <div class="p-4 rounded-2xl bg-surface-base/80 border border-white/5 space-y-3">
-          <!-- SOVEREIGN COMMUNITIES / CIRCLES -->
-          <div class="flex items-center justify-between pb-1.5 border-b border-white/5">
-            <div class="flex items-center gap-1.5">
-              ${renderIcon('users', { size: 14, class: 'text-cyan-400' })}
-              <h3 class="font-mono text-xs font-bold uppercase tracking-wider text-slate-200">
-                Sovereign Communities
-              </h3>
-            </div>
-            <div class="flex items-center space-x-1.5">
-              <button 
-                type="button" 
-                data-action="open-explore-communities"
-                class="text-[10px] font-bold text-slate-400 hover:text-white transition-colors cursor-pointer px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/10"
-                title="Browse All Communities in Directory"
-              >
-                Directory
+        <section class="context-card">
+          <div class="context-card__header"><h2>Communities for you</h2><button type="button" data-nav-mode="communities">Browse</button></div>
+          <div class="context-list">${communities.map(circle => `
+            <div class="community-suggestion">
+              <button type="button" class="community-suggestion__identity" data-action="open-community" data-channel="${circle.channelId}">
+                <span class="community-avatar">${circle.icon || renderIcon('users', { size: 16 })}</span>
+                <span><strong>c/${escapeHtml(circle.name)}</strong><small>${circle.membersCount || 0} members</small></span>
               </button>
-              <button 
-                type="button" 
-                data-action="open-create-circle" 
-                class="text-[10px] font-bold text-cyan-400 hover:text-cyan-300 flex items-center gap-0.5 cursor-pointer transition-colors px-1.5 py-0.5 rounded bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30"
-                title="Create a new Sovereign Community"
-              >
-                <span>+ Create</span>
-              </button>
-            </div>
-          </div>
+              <button type="button" class="compact-join-button ${circle.isJoined ? 'is-joined' : ''}" data-action="toggle-join-circle" data-circle-id="${circle.id}">${circle.isJoined ? 'Joined' : 'Join'}</button>
+            </div>`).join('')}</div>
+        </section>
 
-          <div class="space-y-3 text-xs">
-            ${(() => {
-              const all = sovereignCircleEngine.getAllCircles();
-              const myCircles = all.filter(c => sovereignCircleEngine.isUserModerator(c.id, clientStore.keypair.fingerprint));
-              const otherCircles = all.filter(c => !myCircles.includes(c));
-
-              const renderCircleItem = (c: import('./sovereign-circle.js').SovereignCircle, isMod: boolean) => `
-                <div class="flex items-center justify-between p-1.5 rounded-xl hover:bg-white/5 transition-colors group">
-                  <div class="flex items-center gap-2 truncate cursor-pointer flex-1 mr-2" data-action="open-community" data-channel="${c.channelId}">
-                    <div class="w-7 h-7 rounded-lg bg-surface-raised flex items-center justify-center font-bold text-xs shrink-0 border border-white/10" style="color: ${c.primaryColor};">
-                      ${c.icon || '🏛️'}
-                    </div>
-                    <div class="truncate">
-                      <div class="flex items-center gap-1.5">
-                        <span class="font-semibold text-slate-200 group-hover:text-cyan-400 transition-colors truncate">c/${c.name}</span>
-                        ${isMod ? '<span class="text-[9px] font-mono px-1 py-0.2 rounded bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30 shrink-0">MOD</span>' : ''}
-                      </div>
-                      <div class="text-[10px] text-slate-500 truncate">${c.membersCount} members · ${c.category}</div>
-                    </div>
-                  </div>
-                  <button 
-                    type="button" 
-                    data-action="toggle-join-circle" 
-                    data-circle-id="${c.id}" 
-                    class="text-xs font-semibold px-2.5 py-1 rounded-lg transition-all cursor-pointer shrink-0 ${
-                      c.isJoined 
-                        ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/25' 
-                        : 'bg-white/5 text-cyan-400 hover:text-cyan-300 hover:bg-white/10'
-                    }"
-                  >
-                    ${c.isJoined ? '✓ Joined' : '+ Join'}
-                  </button>
-                </div>
-              `;
-
-              return `
-                ${myCircles.length > 0 ? `
-                  <div class="space-y-1.5">
-                    <div class="text-[9px] font-mono font-bold uppercase tracking-wider text-amber-400/80 px-1">⭐ My Communities</div>
-                    ${myCircles.map(c => renderCircleItem(c, true)).join('')}
-                  </div>
-                ` : ''}
-
-                <div class="space-y-1.5">
-                  ${myCircles.length > 0 ? '<div class="text-[9px] font-mono font-bold uppercase tracking-wider text-slate-500 px-1">Network Circles</div>' : ''}
-                  ${otherCircles.slice(0, 5).map(c => renderCircleItem(c, false)).join('')}
-                </div>
-              `;
-            })()}
-          </div>
-
-          <!-- PROMINENT CREATE COMMUNITY CTA -->
-          <div class="pt-2 border-t border-white/5 space-y-1.5">
-            <button 
-              type="button" 
-              data-action="open-create-circle" 
-              class="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-indigo-600/20 via-purple-600/20 to-cyan-600/20 hover:from-indigo-600/30 hover:to-cyan-600/30 text-indigo-200 border border-indigo-500/30 text-xs font-bold transition-all flex items-center justify-center space-x-1.5 cursor-pointer shadow-xs"
-            >
-              <span>✨</span>
-              <span>Create Sovereign Community</span>
-            </button>
-            <button
-              type="button"
-              data-action="open-explore-communities"
-              class="w-full py-1.5 px-3 rounded-xl hover:bg-white/5 text-slate-400 hover:text-white text-[11px] font-mono transition-colors flex items-center justify-center space-x-1 cursor-pointer"
-            >
-              <span>🏛️ View All in Directory (${sovereignCircleEngine.getAllCircles().length})</span>
-            </button>
-          </div>
-        </div>
-      </div>
-    `;
+        <p class="context-privacy-note">${renderIcon('shield', { size: 14 })}<span>No ads. No tracking. Your feed stays yours.</span></p>
+      </div>`;
   }
 
-  /**
-   * Messages Contextual Sidebar: Active Conversation Info & Security
-   */
   private renderMessagesSidebar(): string {
-    const channel = clientStore.activeChannelId || 'relays-general';
-
     return `
-      <div class="space-y-5 select-none" data-sidebar-context="messages">
-        <!-- CONVERSATION SECURITY CARD -->
-        <div class="p-4 rounded-2xl bg-surface-base/80 border border-white/5 space-y-3">
-          <div class="flex items-center gap-2 text-emerald-400">
-            ${renderIcon('shield', { size: 16 })}
-            <span class="text-xs font-bold font-sans">End-to-End Encrypted</span>
-          </div>
-          <p class="text-xs text-slate-400 leading-relaxed">
-            Messages are sealed with ML-KEM-768 quantum ratchets. No relay server or third party can decrypt contents.
-          </p>
-          <div class="pt-2 border-t border-white/5 text-[11px] font-mono text-slate-500 flex justify-between">
-            <span>Channel ID</span>
-            <span class="text-slate-300 truncate max-w-[120px]">${channel}</span>
-          </div>
-        </div>
-
-        <!-- VOICE MODULE CONTEXTUAL LAUNCHER (SECTION 84) -->
-        <div class="p-4 rounded-2xl bg-surface-base/80 border border-white/5 space-y-2.5">
-          <div class="flex items-center justify-between">
-            <span class="text-xs font-semibold text-slate-200 flex items-center gap-1.5">
-              ${renderIcon('volume', { size: 15 })}
-              <span>Voice Channel</span>
-            </span>
-            <span class="text-[10px] font-mono text-emerald-400">P2P SFrame</span>
-          </div>
-          <p class="text-[11px] text-slate-400">Join real-time spatial voice communication with peer participants.</p>
-          <button
-            type="button"
-            id="btn-sidebar-join-voice"
-            data-action="toggle-voice"
-            class="w-full py-2 rounded-xl bg-surface-raised hover:bg-surface-overlay text-slate-200 text-xs font-semibold transition-all border border-white/10 cursor-pointer flex items-center justify-center gap-1.5"
-          >
-            ${renderIcon('radio', { size: 14 })}
-            <span>Open Voice</span>
-          </button>
-        </div>
-      </div>
-    `;
+      <div class="context-stack" data-sidebar-context="messages">
+        <section class="context-card context-card--secure">
+          <span class="security-mark">${renderIcon('lock', { size: 18 })}</span>
+          <div><h2>End-to-end encrypted</h2><p>Only people in this conversation can read its messages.</p></div>
+        </section>
+        <section class="context-card">
+          <div class="context-card__header"><h2>Conversation</h2></div>
+          <button type="button" id="btn-sidebar-join-voice" data-action="toggle-voice" class="context-action">${renderIcon('volume', { size: 17 })}<span>Start a voice chat</span></button>
+          <button type="button" data-action="open-settings" data-subtab="privacy" class="context-action">${renderIcon('shield', { size: 17 })}<span>Privacy & safety</span></button>
+        </section>
+      </div>`;
   }
 
-  /**
-   * Vault Contextual Sidebar: Categories & Storage Overview
-   */
-  private renderVaultSidebar(): string {
-    return `
-      <div class="space-y-5 select-none" data-sidebar-context="vault">
-        <!-- STORAGE METER -->
-        <div class="p-4 rounded-2xl bg-surface-base/80 border border-white/5 space-y-3">
-          <div class="flex items-center justify-between text-xs font-mono">
-            <span class="text-slate-400">Storage Usage</span>
-            <span class="text-cyan-300 font-bold">128 MB / 8.0 GB</span>
-          </div>
-          <div class="w-full h-2 bg-white/5 rounded-full overflow-hidden">
-            <div class="h-full bg-gradient-to-r from-cyan-500 to-emerald-400 rounded-full" style="width: 2%"></div>
-          </div>
-          <div class="flex items-center justify-between text-[11px] text-slate-500 font-mono">
-            <span>Free Tier Protected</span>
-            <span class="text-emerald-400">100% Free</span>
-          </div>
-        </div>
-
-        <!-- VAULT CATEGORIES -->
-        <div class="p-4 rounded-2xl bg-surface-base/80 border border-white/5 space-y-2">
-          <h3 class="${TYPOGRAPHY.sectionTitle} text-sm flex items-center gap-1.5 mb-2">
-            ${renderIcon('vault', { size: 15, class: 'text-cyan-400' })}
-            <span>Categories</span>
-          </h3>
-          <button type="button" data-action="join-channel" data-channel="vault-releases" class="w-full text-left px-3 py-2 rounded-xl text-xs flex items-center justify-between bg-white/5 hover:bg-white/10 text-slate-200 transition-colors cursor-pointer">
-            <span class="flex items-center gap-2">${renderIcon('checkCircle', { size: 14, class: 'text-emerald-400' })}<span>Verified Releases</span></span>
-            <span class="text-[10px] font-mono text-slate-400">14 files</span>
-          </button>
-          <button type="button" data-action="join-channel" data-channel="vault-guides" class="w-full text-left px-3 py-2 rounded-xl text-xs flex items-center justify-between hover:bg-white/5 text-slate-300 transition-colors cursor-pointer">
-            <span class="flex items-center gap-2">${renderIcon('fileText', { size: 14, class: 'text-indigo-400' })}<span>Security Guides</span></span>
-            <span class="text-[10px] font-mono text-slate-400">8 docs</span>
-          </button>
-        </div>
-      </div>
-    `;
-  }
-
-  /**
-   * Explore Contextual Sidebar: Network Discovery
-   */
   private renderExploreSidebar(): string {
+    const joined = sovereignCircleEngine.getAllCircles().filter(circle => circle.isJoined).length;
     return `
-      <div class="space-y-5 select-none" data-sidebar-context="explore">
-        <div class="p-4 rounded-2xl bg-surface-base/80 border border-white/5 space-y-3">
-          <h3 class="${TYPOGRAPHY.sectionTitle} text-sm flex items-center gap-1.5">
-            ${renderIcon('network', { size: 15, class: 'text-cyan-400' })}
-            <span>Network Health</span>
-          </h3>
-          <div class="space-y-2 text-xs">
-            <div class="flex justify-between py-1 border-b border-white/5">
-              <span class="text-slate-400">Mesh Topology</span>
-              <span class="text-emerald-400 font-mono font-bold">Stable (P2P)</span>
-            </div>
-            <div class="flex justify-between py-1 border-b border-white/5">
-              <span class="text-slate-400">Active Relays</span>
-              <span class="text-slate-200 font-mono">14 nodes</span>
-            </div>
-            <div class="flex justify-between py-1">
-              <span class="text-slate-400">Average RTT</span>
-              <span class="text-cyan-300 font-mono">18ms</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    `;
+      <div class="context-stack" data-sidebar-context="explore">
+        <section class="context-card">
+          <div class="context-card__header"><h2>Your spaces</h2><button type="button" data-nav-mode="communities">Manage</button></div>
+          <div class="context-stat"><strong>${joined}</strong><span>communities joined</span></div>
+          <p class="context-copy">Follow people and join communities to make discovery more personal.</p>
+        </section>
+      </div>`;
   }
 
-  /**
-   * Profile Contextual Sidebar: Identity Summary & Trust Connections
-   */
+  private renderCommunitiesSidebar(): string {
+    return `
+      <div class="context-stack" data-sidebar-context="communities">
+        <section class="context-card">
+          <div class="context-card__header"><h2>Build your space</h2></div>
+          <p class="context-copy">Create a focused place for people who care about the same things.</p>
+          <button type="button" data-action="open-create-circle" class="context-primary-action">${renderIcon('plus', { size: 16 })}<span>Create a community</span></button>
+        </section>
+      </div>`;
+  }
+
   private renderProfileSidebar(): string {
     return `
-      <div class="space-y-5 select-none" data-sidebar-context="profile">
-        <div class="p-4 rounded-2xl bg-surface-base/80 border border-white/5 space-y-3">
-          <h3 class="${TYPOGRAPHY.sectionTitle} text-sm flex items-center gap-1.5">
-            ${renderIcon('shield', { size: 15, class: 'text-emerald-400' })}
-            <span>Sovereign Security</span>
-          </h3>
-          <p class="text-xs text-slate-400 leading-relaxed">
-            Your cryptographic keys never leave your device. All identity updates are signed locally.
-          </p>
-          <div class="pt-2 border-t border-white/5">
-            <button
-              type="button"
-              data-action="open-settings" data-subtab="security"
-              class="w-full py-2 rounded-xl bg-surface-raised hover:bg-surface-overlay text-slate-200 text-xs font-semibold transition-all border border-white/10 cursor-pointer flex items-center justify-center gap-1.5"
-            >
-              ${renderIcon('settings', { size: 14 })}
-              <span>Manage Security</span>
-            </button>
-          </div>
-        </div>
-      </div>
-    `;
+      <div class="context-stack" data-sidebar-context="profile">
+        <section class="context-card">
+          <div class="context-card__header"><h2>Your account</h2></div>
+          <button type="button" data-action="open-settings" data-subtab="account" class="context-action">${renderIcon('settings', { size: 17 })}<span>Settings</span></button>
+          <button type="button" data-action="open-settings" data-subtab="security" class="context-action">${renderIcon('shield', { size: 17 })}<span>Identity & security</span></button>
+        </section>
+      </div>`;
+  }
+
+  private renderVaultSidebar(): string {
+    return `
+      <div class="context-stack" data-sidebar-context="vault">
+        <section class="context-card">
+          <div class="context-card__header"><h2>Private storage</h2></div>
+          <p class="context-copy">Files are encrypted before they leave this device.</p>
+        </section>
+      </div>`;
   }
 }
 
 export const contextualSidebar = new ContextualSidebar();
 
-export function renderSidebar(mode: string = 'feed'): string {
+export function renderSidebar(mode = 'feed'): string {
   return contextualSidebar.renderSidebarContent(mode);
 }

@@ -350,7 +350,8 @@ function classifySeedOccurrence(relPath: string, line: string): Category {
     relPath === 'secure-storage.ts' ||
     relPath === 'mnemonic-modal.ts' ||
     relPath === 'paper-wallet.ts' ||
-    relPath === 'code-splitting.ts'
+    relPath === 'code-splitting.ts' ||
+    relPath === 'ui/avatar-generator.ts'
   ) {
     return 'PRODUCTION_BOOTSTRAP';
   }
@@ -420,8 +421,10 @@ function classifySeedOccurrence(relPath: string, line: string): Category {
     line.includes('Live Demo') ||
     line.includes('demo') ||
     line.includes('Demo') ||
+    line.includes('DEMO') ||
     relPath === 'onboarding.ts' ||
-    relPath === 'stories.ts'
+    relPath === 'stories.ts' ||
+    relPath === 'demo-mode.ts'
   ) {
     return 'DEMO_ONLY';
   }

@@ -20,7 +20,7 @@ describe('Admin Security Hardening - No URL Credentials (Finding 12)', () => {
 
   describe('Strict Query Parameter Prohibition', () => {
     it('strictly rejects GET /api/admin?pin=... with HTTP 401 even with correct PIN', async () => {
-      const req = new Request(`https://aetheris.pages.dev/api/admin?pin=${encodeURIComponent(PIN)}`, {
+      const req = new Request(`https://urefy.com/api/admin?pin=${encodeURIComponent(PIN)}`, {
         method: 'GET',
         headers: {
           Origin: 'https://aetheris.pages.dev',
@@ -36,7 +36,7 @@ describe('Admin Security Hardening - No URL Credentials (Finding 12)', () => {
 
     it('strictly rejects GET /api/admin?token=... with HTTP 401 even with valid session token', async () => {
       const validToken = await createAdminSessionToken(PIN);
-      const req = new Request(`https://aetheris.pages.dev/api/admin?token=${encodeURIComponent(validToken)}`, {
+      const req = new Request(`https://urefy.com/api/admin?token=${encodeURIComponent(validToken)}`, {
         method: 'GET',
         headers: {
           Origin: 'https://aetheris.pages.dev',
@@ -51,7 +51,7 @@ describe('Admin Security Hardening - No URL Credentials (Finding 12)', () => {
     });
 
     it('strictly rejects POST /api/admin?pin=... with HTTP 401', async () => {
-      const req = new Request(`https://aetheris.pages.dev/api/admin?action=status&pin=${encodeURIComponent(PIN)}`, {
+      const req = new Request(`https://urefy.com/api/admin?action=status&pin=${encodeURIComponent(PIN)}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -69,7 +69,7 @@ describe('Admin Security Hardening - No URL Credentials (Finding 12)', () => {
 
     it('strictly rejects POST /api/admin?token=... with HTTP 401', async () => {
       const validToken = await createAdminSessionToken(PIN);
-      const req = new Request(`https://aetheris.pages.dev/api/admin?action=status&token=${encodeURIComponent(validToken)}`, {
+      const req = new Request(`https://urefy.com/api/admin?action=status&token=${encodeURIComponent(validToken)}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -88,7 +88,7 @@ describe('Admin Security Hardening - No URL Credentials (Finding 12)', () => {
 
   describe('Legitimate Header-Based Authentication', () => {
     it('authenticates successfully via X-Admin-PIN header', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/admin', {
+      const req = new Request('https://urefy.com/api/admin', {
         method: 'GET',
         headers: {
           Origin: 'https://aetheris.pages.dev',
@@ -105,7 +105,7 @@ describe('Admin Security Hardening - No URL Credentials (Finding 12)', () => {
 
     it('authenticates successfully via Authorization: Bearer <token> header', async () => {
       const validToken = await createAdminSessionToken(PIN);
-      const req = new Request('https://aetheris.pages.dev/api/admin', {
+      const req = new Request('https://urefy.com/api/admin', {
         method: 'GET',
         headers: {
           Origin: 'https://aetheris.pages.dev',
@@ -121,7 +121,7 @@ describe('Admin Security Hardening - No URL Credentials (Finding 12)', () => {
     });
 
     it('authenticates successfully via POST verify-pin with PIN in body', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/admin', {
+      const req = new Request('https://urefy.com/api/admin', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -141,7 +141,7 @@ describe('Admin Security Hardening - No URL Credentials (Finding 12)', () => {
 
   describe('CORS Enforcement on Admin Route', () => {
     it('rejects CORS preflight from arbitrary *.pages.dev subdomain', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/admin', {
+      const req = new Request('https://urefy.com/api/admin', {
         method: 'OPTIONS',
         headers: {
           Origin: 'https://evil-admin.pages.dev',
@@ -154,7 +154,7 @@ describe('Admin Security Hardening - No URL Credentials (Finding 12)', () => {
     });
 
     it('allows CORS preflight from exact canonical production origin', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/admin', {
+      const req = new Request('https://urefy.com/api/admin', {
         method: 'OPTIONS',
         headers: {
           Origin: 'https://aetheris.pages.dev',

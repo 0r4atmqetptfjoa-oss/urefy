@@ -14,7 +14,6 @@ import { themeEngine } from '../themes.js';
 import { soundEffects } from '../sound-effects.js';
 import { i18n } from '../i18n.js';
 import { hybridComposer } from '../composer-hybrid.js';
-import { legalModal } from '../legal-modal.js';
 import { sovereignCircleEngine } from '../sovereign-circle.js';
 import { sovereignDM } from '../sovereign-dm.js';
 import {
@@ -32,7 +31,6 @@ import {
   insertMessageEmoji,
   restoreMessageSelection,
 } from '../messages-view.js';
-import { binaryHygienePortal } from '../binary-hygiene-portal.js';
 import { exploreView } from '../explore-view.js';
 import { setWorkspaceLayout } from '../workspace-layout.js';
 import { sovereignWebPush } from '../web-push.js';
@@ -41,6 +39,26 @@ function withWallet(action: (wallet: typeof import('../wallet-bridge.js').wallet
   void import('../wallet-bridge.js').then(({ walletBridge }) => action(walletBridge)).catch(error => {
     clientStore.showToast(error instanceof Error ? error.message : 'Wallet unavailable', 'warning');
   });
+}
+
+function withLegal(action: (lm: typeof import('../legal-modal.js').legalModal) => unknown): void {
+  if (typeof window !== 'undefined' && (window as any).legalModal) {
+    action((window as any).legalModal);
+    return;
+  }
+  void import('../legal-modal.js')
+    .then(({ legalModal }) => action(legalModal))
+    .catch(error => console.error('[ActionDispatcher] Legal action error:', error));
+}
+
+function withBinaryHygiene(action: (portal: typeof import('../binary-hygiene-portal.js').binaryHygienePortal) => unknown): void {
+  if (typeof window !== 'undefined' && (window as any).binaryHygienePortal) {
+    action((window as any).binaryHygienePortal);
+    return;
+  }
+  void import('../binary-hygiene-portal.js')
+    .then(({ binaryHygienePortal }) => action(binaryHygienePortal))
+    .catch(error => console.error('[ActionDispatcher] Binary hygiene action error:', error));
 }
 
 export function safeExecuteStatement(stmt: string, el: HTMLElement, event: Event): void {
@@ -469,11 +487,14 @@ export class ActionDispatcher {
             const bioInput = document.getElementById('edit-profile-bio') as HTMLTextAreaElement;
             const locInput = document.getElementById('edit-profile-location') as HTMLInputElement;
             const webInput = document.getElementById('edit-profile-website') as HTMLInputElement;
+            const handleInput = document.getElementById('edit-profile-handle') as HTMLInputElement;
             const avInput = document.getElementById('edit-profile-avatar') as HTMLInputElement;
             const banInput = document.getElementById('edit-profile-banner') as HTMLInputElement;
             const targetFp = (window as any).profileView.targetFingerprint || (window as any).clientStore?.keypair?.fingerprint || 'genesis-core';
+            const cleanHandle = handleInput?.value ? handleInput.value.replace(/^@/, '').trim() : '';
             (window as any).profileView.updateProfile(targetFp, {
               name: nameInput?.value || 'Sovereign Node',
+              handle: cleanHandle || (window as any).profileView.getProfile(targetFp).handle,
               bio: bioInput?.value || '',
               location: locInput?.value || '',
               website: webInput?.value || '',
@@ -509,14 +530,13 @@ export class ActionDispatcher {
 
       case 'submit-dsa-report': {
         event.preventDefault();
-        if (typeof window !== 'undefined') {
-          const lm = (window as any).legalModal || legalModal;
+        withLegal((lm) => {
           if (lm && typeof lm.submitDsaReport === 'function') {
             lm.submitDsaReport().then(() => {
               if ((window as any).clientStore) (window as any).clientStore.notifySync();
             }).catch(() => {});
           }
-        }
+        });
         break;
       }
 
@@ -1395,6 +1415,60 @@ export class ActionDispatcher {
         break;
       }
 
+      case 'mnemonic-set-tab': {
+        const tab = el.getAttribute('data-tab') as 'backup' | 'quiz' | 'restore';
+        if (tab) {
+          void import('../mnemonic-modal.js').then(({ sovereignMnemonicModal }) => {
+            sovereignMnemonicModal.activeTab = tab;
+            clientStore.notifySync();
+          });
+        }
+        break;
+      }
+
+      case 'mnemonic-toggle-reveal': {
+        void import('../mnemonic-modal.js').then(({ sovereignMnemonicModal }) => {
+          sovereignMnemonicModal.toggleReveal();
+        });
+        break;
+      }
+
+      case 'mnemonic-copy': {
+        void import('../mnemonic-modal.js').then(({ sovereignMnemonicModal }) => {
+          sovereignMnemonicModal.copyMnemonic();
+        });
+        break;
+      }
+
+      case 'mnemonic-download': {
+        void import('../mnemonic-modal.js').then(({ sovereignMnemonicModal }) => {
+          sovereignMnemonicModal.downloadMnemonic();
+        });
+        break;
+      }
+
+      case 'mnemonic-submit-quiz': {
+        void import('../mnemonic-modal.js').then(({ sovereignMnemonicModal }) => {
+          const answers: { [key: number]: string } = {};
+          for (const idx of sovereignMnemonicModal.quizIndices) {
+            const inp = document.getElementById(`quiz-word-${idx}`) as HTMLInputElement;
+            answers[idx] = inp ? inp.value : '';
+          }
+          sovereignMnemonicModal.submitQuiz(answers);
+        });
+        break;
+      }
+
+      case 'mnemonic-execute-restore': {
+        void import('../mnemonic-modal.js').then(({ sovereignMnemonicModal }) => {
+          const restoreInput = document.getElementById('input-restore-mnemonic') as HTMLTextAreaElement;
+          if (restoreInput) {
+            void sovereignMnemonicModal.restore(restoreInput.value);
+          }
+        });
+        break;
+      }
+
       case 'add-wallet-token': {
         const address = (document.getElementById('wallet-token-address') as HTMLInputElement | null)?.value ?? '';
         const threshold = (document.getElementById('wallet-token-threshold') as HTMLInputElement | null)?.value ?? '';
@@ -1498,48 +1572,43 @@ export class ActionDispatcher {
       }
 
       case 'close-binary-hygiene': {
-        const portal = (window as any).binaryHygienePortal || binaryHygienePortal;
-        portal?.close();
+        const portal = (window as any).binaryHygienePortal;
+        portal?.close?.();
         modalManager.closeFeature();
         break;
       }
 
       case 'close-binary-hygiene-backdrop': {
         if (event.target === el || (event.target as HTMLElement).id === 'binary-hygiene-backdrop') {
-          const portal = (window as any).binaryHygienePortal || binaryHygienePortal;
-          portal?.close();
+          const portal = (window as any).binaryHygienePortal;
+          portal?.close?.();
           modalManager.closeFeature();
         }
         break;
       }
 
       case 'clear-binary-report': {
-        const portal = (window as any).binaryHygienePortal || binaryHygienePortal;
-        portal?.clearReport();
+        withBinaryHygiene((portal) => portal.clearReport());
         break;
       }
 
       case 'download-binary-audit-cert': {
-        const portal = (window as any).binaryHygienePortal || binaryHygienePortal;
-        portal?.downloadAuditCertificate();
+        withBinaryHygiene((portal) => portal.downloadAuditCertificate());
         break;
       }
 
       case 'scan-sample-clean': {
-        const portal = (window as any).binaryHygienePortal || binaryHygienePortal;
-        portal?.scanSampleBinary('clean');
+        withBinaryHygiene((portal) => portal.scanSampleBinary('clean'));
         break;
       }
 
       case 'scan-sample-upx': {
-        const portal = (window as any).binaryHygienePortal || binaryHygienePortal;
-        portal?.scanSampleBinary('upx');
+        withBinaryHygiene((portal) => portal.scanSampleBinary('upx'));
         break;
       }
 
       case 'scan-sample-suspicious': {
-        const portal = (window as any).binaryHygienePortal || binaryHygienePortal;
-        portal?.scanSampleBinary('suspicious');
+        withBinaryHygiene((portal) => portal.scanSampleBinary('suspicious'));
         break;
       }
 
@@ -1636,10 +1705,11 @@ export class ActionDispatcher {
       const fileInput = el as HTMLInputElement;
       if (fileInput.files && fileInput.files[0]) {
         const file = fileInput.files[0];
-        const portal = (window as any).binaryHygienePortal || binaryHygienePortal;
-        if (portal && typeof portal.scanFile === 'function') {
-          portal.scanFile(file, file.name).catch((err: any) => console.error('Binary scan failed:', err));
-        }
+        withBinaryHygiene((portal) => {
+          if (portal && typeof portal.scanFile === 'function') {
+            portal.scanFile(file, file.name).catch((err: any) => console.error('Binary scan failed:', err));
+          }
+        });
       }
       return;
     }
@@ -1728,6 +1798,26 @@ export class ActionDispatcher {
       captureMessageSelection('dm', el as HTMLInputElement);
     } else if (action === 'update-relay-draft') {
       captureMessageSelection('relay', el as HTMLInputElement);
+    } else if (action === 'mnemonic-validate-restore') {
+      const statusSpan = document.getElementById('restore-validation-status');
+      if (statusSpan) {
+        const val = el.value.trim().toLowerCase();
+        const words = val.split(/\s+/).filter(Boolean);
+        if (words.length === 12 || words.length === 24) {
+          void import('@aetheris/core-crypto').then(({ validateMnemonic }) => {
+            if (validateMnemonic(val)) {
+              statusSpan.textContent = `✅ Valid ${words.length}-word BIP-39 mnemonic`;
+              statusSpan.className = 'text-[11px] font-mono text-emerald-400 font-bold';
+            } else {
+              statusSpan.textContent = '❌ Invalid checksum or non-BIP39 word';
+              statusSpan.className = 'text-[11px] font-mono text-rose-400 font-bold';
+            }
+          });
+        } else {
+          statusSpan.textContent = `Words: ${words.length} / 12 (or 24)`;
+          statusSpan.className = 'text-[11px] font-mono text-slate-400';
+        }
+      }
     } else if (typeof window !== 'undefined') {
       const customHandler = (window as any)[`__aetheris_input_${action}`];
       if (typeof customHandler === 'function') {
@@ -1757,14 +1847,13 @@ export class ActionDispatcher {
       }
     } else if (action === 'submit-dsa-report') {
       event.preventDefault();
-      if (typeof window !== 'undefined') {
-        const lm = (window as any).legalModal || legalModal;
+      withLegal((lm) => {
         if (lm && typeof lm.submitDsaReport === 'function') {
           lm.submitDsaReport().then(() => {
             if ((window as any).clientStore) (window as any).clientStore.notifySync();
           }).catch(() => {});
         }
-      }
+      });
     } else if (action === 'submit-dm-message') {
       event.preventDefault();
       const input = el.querySelector('#input-dm-message') as HTMLInputElement | null;

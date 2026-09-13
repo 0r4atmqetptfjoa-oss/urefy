@@ -22,7 +22,7 @@ describe('UREfy Mutating API Cryptographic Authorization & Hardening Suite', () 
 
   describe('1. Channels Endpoint Protection (channels.ts)', () => {
     it('rejects DELETE /api/channels without admin authorization with 401', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/channels?id=chan-random', {
+      const req = new Request('https://urefy.com/api/channels?id=chan-random', {
         method: 'DELETE',
       });
       const res = await handleChannelDelete({ request: req, env: {} });
@@ -32,7 +32,7 @@ describe('UREfy Mutating API Cryptographic Authorization & Hardening Suite', () 
     });
 
     it('allows DELETE /api/channels with valid Admin PIN', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/channels?id=chan-target', {
+      const req = new Request('https://urefy.com/api/channels?id=chan-target', {
         method: 'DELETE',
         headers: { 'X-Admin-PIN': DEFAULT_ADMIN_PIN },
       });
@@ -43,7 +43,7 @@ describe('UREfy Mutating API Cryptographic Authorization & Hardening Suite', () 
     });
 
     it('rejects POST /api/channels when unauthenticated', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/channels', {
+      const req = new Request('https://urefy.com/api/channels', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: 'Unauth Channel', id: 'chan-unauth' }),
@@ -59,7 +59,7 @@ describe('UREfy Mutating API Cryptographic Authorization & Hardening Suite', () 
         name: 'Alice Sovereign Channel',
       }, alice);
 
-      const req = new Request('https://aetheris.pages.dev/api/channels', {
+      const req = new Request('https://urefy.com/api/channels', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(envelope),
@@ -80,7 +80,7 @@ describe('UREfy Mutating API Cryptographic Authorization & Hardening Suite', () 
         authorFingerprint: alice.identity.fingerprint,
       }, alice);
 
-      const req = new Request('https://aetheris.pages.dev/api/messages', {
+      const req = new Request('https://urefy.com/api/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(envelope),
@@ -94,7 +94,7 @@ describe('UREfy Mutating API Cryptographic Authorization & Hardening Suite', () 
 
     it('rejects POST /api/messages when signature or identity is missing with 401', async () => {
       const alice = generateKeyPair();
-      const req = new Request('https://aetheris.pages.dev/api/messages', {
+      const req = new Request('https://urefy.com/api/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -116,7 +116,7 @@ describe('UREfy Mutating API Cryptographic Authorization & Hardening Suite', () 
       }, alice);
       envelope.identity.fingerprint = bob.identity.fingerprint;
 
-      const req = new Request('https://aetheris.pages.dev/api/messages', {
+      const req = new Request('https://urefy.com/api/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(envelope),
@@ -136,7 +136,7 @@ describe('UREfy Mutating API Cryptographic Authorization & Hardening Suite', () 
         channelId: 'relays-general',
       }, alice);
 
-      const req = new Request('https://aetheris.pages.dev/api/messages', {
+      const req = new Request('https://urefy.com/api/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(envelope),
@@ -152,7 +152,7 @@ describe('UREfy Mutating API Cryptographic Authorization & Hardening Suite', () 
 
   describe('3. Posts Endpoint Authentication (posts.ts)', () => {
     it('rejects unauthenticated post creation with 401', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/posts', {
+      const req = new Request('https://urefy.com/api/posts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -172,7 +172,7 @@ describe('UREfy Mutating API Cryptographic Authorization & Hardening Suite', () 
         content,
       }, alice);
 
-      const req = new Request('https://aetheris.pages.dev/api/posts', {
+      const req = new Request('https://urefy.com/api/posts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(envelope),
@@ -185,7 +185,7 @@ describe('UREfy Mutating API Cryptographic Authorization & Hardening Suite', () 
     });
 
     it('rejects unauthenticated non-anonymous vote with 401', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/posts', {
+      const req = new Request('https://urefy.com/api/posts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -203,7 +203,7 @@ describe('UREfy Mutating API Cryptographic Authorization & Hardening Suite', () 
       const bob = createSovereignIdentity();
 
       // Step 1: Create a post by Alice
-      const createReq = new Request('https://aetheris.pages.dev/api/posts', {
+      const createReq = new Request('https://urefy.com/api/posts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(createSignedEnvelope({
@@ -216,7 +216,7 @@ describe('UREfy Mutating API Cryptographic Authorization & Hardening Suite', () 
 
       // Step 2: Bob votes on Alice\'s post
       const targetId = 'post-vote-target-01';
-      const voteReq = new Request('https://aetheris.pages.dev/api/posts', {
+      const voteReq = new Request('https://urefy.com/api/posts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(createSignedEnvelope({
@@ -235,7 +235,7 @@ describe('UREfy Mutating API Cryptographic Authorization & Hardening Suite', () 
       const alice = createSovereignIdentity();
 
       // Step 1: Create a post
-      const createReq = new Request('https://aetheris.pages.dev/api/posts', {
+      const createReq = new Request('https://urefy.com/api/posts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(createSignedEnvelope({
@@ -247,7 +247,7 @@ describe('UREfy Mutating API Cryptographic Authorization & Hardening Suite', () 
       await handlePostPost({ request: createReq, env: {} });
 
       // Step 2: Cast anonymous ballot
-      const req = new Request('https://aetheris.pages.dev/api/posts', {
+      const req = new Request('https://urefy.com/api/posts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -266,7 +266,7 @@ describe('UREfy Mutating API Cryptographic Authorization & Hardening Suite', () 
 
   describe('4. Storage Object Protection & Ownership (storage.ts)', () => {
     it('rejects unauthenticated storage upload with 401', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/storage', {
+      const req = new Request('https://urefy.com/api/storage', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -286,7 +286,7 @@ describe('UREfy Mutating API Cryptographic Authorization & Hardening Suite', () 
         key: 'vault-asset-alice',
       }, alice);
 
-      const req = new Request('https://aetheris.pages.dev/api/storage', {
+      const req = new Request('https://urefy.com/api/storage', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -303,7 +303,7 @@ describe('UREfy Mutating API Cryptographic Authorization & Hardening Suite', () 
     });
 
     it('rejects DELETE /api/storage without authorization with 401', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/storage?key=vault-asset-alice', {
+      const req = new Request('https://urefy.com/api/storage?key=vault-asset-alice', {
         method: 'DELETE',
       });
       const res = await handleStorageDelete({ request: req, env: {} });
@@ -315,7 +315,7 @@ describe('UREfy Mutating API Cryptographic Authorization & Hardening Suite', () 
       const bob = createSovereignIdentity();
 
       // Step 1: Alice uploads her file
-      const uploadReq = new Request('https://aetheris.pages.dev/api/storage', {
+      const uploadReq = new Request('https://urefy.com/api/storage', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(createSignedEnvelope({
@@ -328,10 +328,11 @@ describe('UREfy Mutating API Cryptographic Authorization & Hardening Suite', () 
 
       // Step 2: Bob attempts to delete Alice\'s file
       const deleteEnvelope = createSignedEnvelope({
+        action: 'delete',
         key: 'alice-protected-vault',
       }, bob);
 
-      const deleteReq = new Request('https://aetheris.pages.dev/api/storage?key=alice-protected-vault', {
+      const deleteReq = new Request('https://urefy.com/api/storage?key=alice-protected-vault', {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -350,7 +351,7 @@ describe('UREfy Mutating API Cryptographic Authorization & Hardening Suite', () 
       const alice = createSovereignIdentity();
 
       // Step 1: Alice uploads her file
-      const uploadReq = new Request('https://aetheris.pages.dev/api/storage', {
+      const uploadReq = new Request('https://urefy.com/api/storage', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(createSignedEnvelope({
@@ -363,10 +364,11 @@ describe('UREfy Mutating API Cryptographic Authorization & Hardening Suite', () 
 
       // Step 2: Alice deletes her own file
       const deleteEnvelope = createSignedEnvelope({
+        action: 'delete',
         key: 'alice-disposable-vault',
       }, alice);
 
-      const deleteReq = new Request('https://aetheris.pages.dev/api/storage?key=alice-disposable-vault', {
+      const deleteReq = new Request('https://urefy.com/api/storage?key=alice-disposable-vault', {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -384,7 +386,7 @@ describe('UREfy Mutating API Cryptographic Authorization & Hardening Suite', () 
 
   describe('5. Mutating Interactions & Nanopublications Protection', () => {
     it('rejects mutating interaction lacking cryptographic identity with 401', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/interactions', {
+      const req = new Request('https://urefy.com/api/interactions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -403,7 +405,7 @@ describe('UREfy Mutating API Cryptographic Authorization & Hardening Suite', () 
         action: 'like',
       }, alice);
 
-      const req = new Request('https://aetheris.pages.dev/api/interactions', {
+      const req = new Request('https://urefy.com/api/interactions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(envelope),
@@ -413,7 +415,7 @@ describe('UREfy Mutating API Cryptographic Authorization & Hardening Suite', () 
     });
 
     it('rejects nanopublication upload lacking signature with 401', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/nanopublications', {
+      const req = new Request('https://urefy.com/api/nanopublications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -434,7 +436,7 @@ describe('UREfy Mutating API Cryptographic Authorization & Hardening Suite', () 
         sha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
       }, alice);
 
-      const req = new Request('https://aetheris.pages.dev/api/nanopublications', {
+      const req = new Request('https://urefy.com/api/nanopublications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(envelope),
@@ -454,7 +456,7 @@ describe('UREfy Mutating API Cryptographic Authorization & Hardening Suite', () 
         fingerprint: 'spoofed-victim-fp',
       }, alice);
 
-      const req = new Request('https://aetheris.pages.dev/api/push', {
+      const req = new Request('https://urefy.com/api/push', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(envelope),
@@ -476,7 +478,7 @@ describe('UREfy Mutating API Cryptographic Authorization & Hardening Suite', () 
         fingerprint: alice.identity.fingerprint,
       }, alice);
 
-      const req = new Request('https://aetheris.pages.dev/api/push', {
+      const req = new Request('https://urefy.com/api/push', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(envelope),
@@ -496,7 +498,7 @@ describe('UREfy Mutating API Cryptographic Authorization & Hardening Suite', () 
         fingerprint: 'spoofed-victim-fp',
       }, alice);
 
-      const req = new Request('https://aetheris.pages.dev/api/push', {
+      const req = new Request('https://urefy.com/api/push', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(envelope),
@@ -514,7 +516,7 @@ describe('UREfy Mutating API Cryptographic Authorization & Hardening Suite', () 
         fingerprint: alice.identity.fingerprint,
       }, alice);
 
-      const req = new Request('https://aetheris.pages.dev/api/push', {
+      const req = new Request('https://urefy.com/api/push', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(envelope),

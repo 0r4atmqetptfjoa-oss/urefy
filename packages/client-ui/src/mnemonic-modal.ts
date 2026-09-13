@@ -102,6 +102,22 @@ export class SovereignMnemonicModal {
     return success;
   }
 
+  public downloadMnemonic(): void {
+    const phrase = clientStore.mnemonic;
+    if (!phrase) {
+      toastManager.warning('No active mnemonic seed phrase found', '⚠️');
+      return;
+    }
+    const blob = new Blob([phrase], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `urefy-seed-${new Date().toISOString().split('T')[0]}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toastManager.success('Seed phrase downloaded successfully', '💾');
+  }
+
   public renderModalHTML(): string {
     if (!this.isOpen) return '';
 
@@ -142,6 +158,7 @@ export class SovereignMnemonicModal {
             <button
               type="button"
               id="tab-mnemonic-backup"
+              data-action="mnemonic-set-tab" data-tab="backup"
               class="flex-1 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${this.activeTab === 'backup' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'}"
             >
               📜 Backup Phrase
@@ -149,6 +166,7 @@ export class SovereignMnemonicModal {
             <button
               type="button"
               id="tab-mnemonic-quiz"
+              data-action="mnemonic-set-tab" data-tab="quiz"
               class="flex-1 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${this.activeTab === 'quiz' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'}"
             >
               🛡️ Verify Backup ${this.quizPassed ? '✅' : ''}
@@ -156,6 +174,7 @@ export class SovereignMnemonicModal {
             <button
               type="button"
               id="tab-mnemonic-restore"
+              data-action="mnemonic-set-tab" data-tab="restore"
               class="flex-1 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${this.activeTab === 'restore' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'}"
             >
               🔄 Restore Account
@@ -188,6 +207,7 @@ export class SovereignMnemonicModal {
                     <button
                       type="button"
                       id="btn-reveal-seed"
+                      data-action="mnemonic-toggle-reveal"
                       class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-lg transition-all cursor-pointer"
                     >
                       Click to Reveal Seed Phrase
@@ -201,6 +221,7 @@ export class SovereignMnemonicModal {
                 <button
                   type="button"
                   id="btn-toggle-mask-seed"
+                  data-action="mnemonic-toggle-reveal"
                   class="px-3.5 py-2 rounded-xl bg-surface-raised hover:bg-surface-overlay text-slate-300 hover:text-white text-xs font-medium border border-white/10 transition-colors cursor-pointer flex items-center space-x-1.5"
                 >
                   <span>${this.isRevealed ? '🙈 Hide Words' : '👁️ Reveal Words'}</span>
@@ -210,16 +231,26 @@ export class SovereignMnemonicModal {
                   <button
                     type="button"
                     id="btn-copy-seed-phrase"
+                    data-action="mnemonic-copy"
                     class="px-4 py-2 rounded-xl bg-surface-raised hover:bg-surface-overlay text-slate-200 hover:text-white text-xs font-bold border border-white/10 transition-colors cursor-pointer flex items-center space-x-1.5"
                   >
-                    <span>📋 Copy Phrase</span>
+                    <span>📋 Copy</span>
+                  </button>
+                  <button
+                    type="button"
+                    id="btn-download-seed-phrase"
+                    data-action="mnemonic-download"
+                    class="px-4 py-2 rounded-xl bg-surface-raised hover:bg-surface-overlay text-slate-200 hover:text-white text-xs font-bold border border-white/10 transition-colors cursor-pointer flex items-center space-x-1.5"
+                  >
+                    <span>💾 Download</span>
                   </button>
                   <button
                     type="button"
                     id="btn-goto-quiz"
+                    data-action="mnemonic-set-tab" data-tab="quiz"
                     class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md transition-colors cursor-pointer flex items-center space-x-1.5"
                   >
-                    <span>🛡️ Verify Backup →</span>
+                    <span>🛡️ Verify</span>
                   </button>
                 </div>
               </div>
@@ -255,6 +286,7 @@ export class SovereignMnemonicModal {
                 <button
                   type="button"
                   id="btn-cancel-quiz"
+                  data-action="mnemonic-set-tab" data-tab="backup"
                   class="px-4 py-2 rounded-xl bg-surface-raised hover:bg-surface-overlay text-slate-300 text-xs font-medium border border-white/10 cursor-pointer"
                 >
                   Back
@@ -262,6 +294,7 @@ export class SovereignMnemonicModal {
                 <button
                   type="button"
                   id="btn-submit-quiz"
+                  data-action="mnemonic-submit-quiz"
                   class="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-lg transition-all cursor-pointer"
                 >
                   Verify & Lock Backup
@@ -279,6 +312,7 @@ export class SovereignMnemonicModal {
 
               <textarea
                 id="input-restore-mnemonic"
+                data-input="mnemonic-validate-restore"
                 rows="4"
                 placeholder="abandon ability able about above absent absorb abstract absurd abuse access accident..."
                 autocomplete="off"
@@ -295,6 +329,7 @@ export class SovereignMnemonicModal {
                 <button
                   type="button"
                   id="btn-execute-restore"
+                  data-action="mnemonic-execute-restore"
                   class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-lg transition-all cursor-pointer"
                 >
                   Restore Identity
@@ -307,84 +342,11 @@ export class SovereignMnemonicModal {
       </div>
     `;
   }
-
   public bindEvents(): void {
-    if (!this.isOpen) return;
-
-    // Close buttons
-    document.getElementById('btn-close-mnemonic-modal')?.addEventListener('click', () => this.closeModal());
-    document.getElementById('mnemonic-vault-backdrop')?.addEventListener('click', (e) => {
-      if (e.target === document.getElementById('mnemonic-vault-backdrop')) {
-        this.closeModal();
-      }
-    });
-
-    // Tab buttons
-    document.getElementById('tab-mnemonic-backup')?.addEventListener('click', () => {
-      this.activeTab = 'backup';
-      clientStore.notify();
-    });
-    document.getElementById('tab-mnemonic-quiz')?.addEventListener('click', () => {
-      this.activeTab = 'quiz';
-      clientStore.notify();
-    });
-    document.getElementById('tab-mnemonic-restore')?.addEventListener('click', () => {
-      this.activeTab = 'restore';
-      clientStore.notify();
-    });
-
-    // Backup actions
-    document.getElementById('btn-reveal-seed')?.addEventListener('click', () => this.toggleReveal());
-    document.getElementById('btn-toggle-mask-seed')?.addEventListener('click', () => this.toggleReveal());
-    document.getElementById('btn-copy-seed-phrase')?.addEventListener('click', () => this.copyMnemonic());
-    document.getElementById('btn-goto-quiz')?.addEventListener('click', () => {
-      this.activeTab = 'quiz';
-      clientStore.notify();
-    });
-
-    // Quiz actions
-    document.getElementById('btn-cancel-quiz')?.addEventListener('click', () => {
-      this.activeTab = 'backup';
-      clientStore.notify();
-    });
-    document.getElementById('btn-submit-quiz')?.addEventListener('click', () => {
-      const answers: { [key: number]: string } = {};
-      for (const idx of this.quizIndices) {
-        const inp = document.getElementById(`quiz-word-${idx}`) as HTMLInputElement;
-        answers[idx] = inp ? inp.value : '';
-      }
-      this.submitQuiz(answers);
-    });
-
-    // Restore actions
-    const restoreInput = document.getElementById('input-restore-mnemonic') as HTMLTextAreaElement;
-    const statusSpan = document.getElementById('restore-validation-status');
-    if (restoreInput && statusSpan) {
-      restoreInput.addEventListener('input', () => {
-        const val = restoreInput.value.trim().toLowerCase();
-        const words = val.split(/\s+/).filter(Boolean);
-        if (words.length === 12 || words.length === 24) {
-          if (validateMnemonic(val)) {
-            statusSpan.textContent = `✅ Valid ${words.length}-word BIP-39 mnemonic`;
-            statusSpan.className = 'text-[11px] font-mono text-emerald-400 font-bold';
-          } else {
-            statusSpan.textContent = '❌ Invalid checksum or non-BIP39 word';
-            statusSpan.className = 'text-[11px] font-mono text-rose-400 font-bold';
-          }
-        } else {
-          statusSpan.textContent = `Words: ${words.length} / 12 (or 24)`;
-          statusSpan.className = 'text-[11px] font-mono text-slate-400';
-        }
-      });
-    }
-
-    document.getElementById('btn-execute-restore')?.addEventListener('click', () => {
-      if (restoreInput) {
-        void this.restore(restoreInput.value);
-      }
-    });
+    // Events are handled by action-dispatcher.ts
   }
 }
 
 export const sovereignMnemonicModal = new SovereignMnemonicModal();
 serviceRegistry.registerInstance(SERVICES.MnemonicModal, sovereignMnemonicModal);
+

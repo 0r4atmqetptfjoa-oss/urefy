@@ -32,7 +32,7 @@ describe('UREfy Admin Security Hardening & Zero-Trust Authentication Suite', () 
 
     for (const token of magicTokens) {
       it(`should reject Authorization: Bearer "${token}" with 401 Unauthorized`, async () => {
-        const req = new Request('https://aetheris.pages.dev/api/admin', {
+        const req = new Request('https://urefy.com/api/admin', {
           headers: { Authorization: `Bearer ${token}` },
         });
         const res = await handleAdminGet({ request: req });
@@ -43,7 +43,7 @@ describe('UREfy Admin Security Hardening & Zero-Trust Authentication Suite', () 
       });
 
       it(`should reject ?token=${token} in query parameters with 401 Unauthorized`, async () => {
-        const req = new Request(`https://aetheris.pages.dev/api/admin?token=${token}`);
+        const req = new Request(`https://urefy.com/api/admin?token=${token}`);
         const res = await handleAdminGet({ request: req });
         expect(res.status).toBe(401);
         const json = await res.json();
@@ -51,7 +51,7 @@ describe('UREfy Admin Security Hardening & Zero-Trust Authentication Suite', () 
       });
 
       it(`should reject X-Admin-PIN: "${token}" with 401 Unauthorized`, async () => {
-        const req = new Request('https://aetheris.pages.dev/api/admin', {
+        const req = new Request('https://urefy.com/api/admin', {
           headers: { 'X-Admin-PIN': token },
         });
         const res = await handleAdminGet({ request: req });
@@ -60,7 +60,7 @@ describe('UREfy Admin Security Hardening & Zero-Trust Authentication Suite', () 
     }
 
     it('should reject X-Admin-Fingerprint header as an authorization bypass', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/admin', {
+      const req = new Request('https://urefy.com/api/admin', {
         headers: { 'X-Admin-Fingerprint': 'genesis-core' },
       });
       const res = await handleAdminGet({ request: req });
@@ -124,7 +124,7 @@ describe('UREfy Admin Security Hardening & Zero-Trust Authentication Suite', () 
 
     it('authorizes requests with valid HMAC session token in Authorization Bearer', async () => {
       const sessionToken = await createAdminSessionToken(DEFAULT_ADMIN_PIN);
-      const req = new Request('https://aetheris.pages.dev/api/admin', {
+      const req = new Request('https://urefy.com/api/admin', {
         headers: { Authorization: `Bearer ${sessionToken}` },
       });
       const res = await handleAdminGet({ request: req });
@@ -136,7 +136,7 @@ describe('UREfy Admin Security Hardening & Zero-Trust Authentication Suite', () 
 
     it('rejects requests with HMAC session token in ?token= query parameter (Finding 12)', async () => {
       const sessionToken = await createAdminSessionToken(DEFAULT_ADMIN_PIN);
-      const req = new Request(`https://aetheris.pages.dev/api/admin?token=${sessionToken}`);
+      const req = new Request(`https://urefy.com/api/admin?token=${sessionToken}`);
       const res = await handleAdminGet({ request: req });
       expect(res.status).toBe(401);
       const json = await res.json();
@@ -150,7 +150,7 @@ describe('UREfy Admin Security Hardening & Zero-Trust Authentication Suite', () 
 
       // First 5 failed attempts return 401 Unauthorized
       for (let i = 0; i < 5; i++) {
-        const req = new Request('https://aetheris.pages.dev/api/admin', {
+        const req = new Request('https://urefy.com/api/admin', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -170,7 +170,7 @@ describe('UREfy Admin Security Hardening & Zero-Trust Authentication Suite', () 
       expect(lockoutState.retryAfter).toBeGreaterThan(0);
 
       // 6th attempt must return HTTP 429 Too Many Requests with required error message
-      const req6 = new Request('https://aetheris.pages.dev/api/admin', {
+      const req6 = new Request('https://urefy.com/api/admin', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -186,7 +186,7 @@ describe('UREfy Admin Security Hardening & Zero-Trust Authentication Suite', () 
       expect(res6.headers.get('Retry-After')).toBeDefined();
 
       // Subsequent GET requests from the locked IP are also rejected with 429
-      const getReq = new Request('https://aetheris.pages.dev/api/admin', {
+      const getReq = new Request('https://urefy.com/api/admin', {
         headers: {
           'CF-Connecting-IP': testIp,
           Authorization: `Bearer ${DEFAULT_ADMIN_PIN}`,
@@ -204,7 +204,7 @@ describe('UREfy Admin Security Hardening & Zero-Trust Authentication Suite', () 
       // 2 failed attempts
       for (let i = 0; i < 2; i++) {
         await handleAdminPost({
-          request: new Request('https://aetheris.pages.dev/api/admin', {
+          request: new Request('https://urefy.com/api/admin', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'CF-Connecting-IP': testIp },
             body: JSON.stringify({ action: 'verify-pin', pin: 'wrong' }),
@@ -214,7 +214,7 @@ describe('UREfy Admin Security Hardening & Zero-Trust Authentication Suite', () 
 
       // Successful attempt
       const successRes = await handleAdminPost({
-        request: new Request('https://aetheris.pages.dev/api/admin', {
+        request: new Request('https://urefy.com/api/admin', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'CF-Connecting-IP': testIp },
           body: JSON.stringify({ action: 'verify-pin', pin: DEFAULT_ADMIN_PIN }),
@@ -281,14 +281,14 @@ describe('UREfy Admin Security Hardening & Zero-Trust Authentication Suite', () 
     });
 
     it('does NOT emit Access-Control-Allow-Origin: * on sensitive routes', () => {
-      const req = new Request('https://aetheris.pages.dev/api/admin');
+      const req = new Request('https://urefy.com/api/admin');
       const cors = getCorsHeaders(req);
       expect(cors['Access-Control-Allow-Origin']).toBeUndefined();
     });
 
     it('emits exact matched origin with Allow-Credentials: true for permitted origins', () => {
       const permittedOrigin = 'https://urefy.com';
-      const req = new Request('https://aetheris.pages.dev/api/admin', {
+      const req = new Request('https://urefy.com/api/admin', {
         headers: { Origin: permittedOrigin },
       });
       const cors = getCorsHeaders(req);
@@ -298,16 +298,17 @@ describe('UREfy Admin Security Hardening & Zero-Trust Authentication Suite', () 
     });
 
     it('validates permitted origins correctly (localhost, .pages.dev, sovereign domain)', () => {
-      const publicUrl = new URL('https://aetheris.pages.dev/api/channels');
+      const publicUrl = new URL('https://urefy.com/api/channels');
       expect(isPermittedOrigin('http://localhost:3000', publicUrl)).toBe(true);
       expect(isPermittedOrigin('http://127.0.0.1:5173', publicUrl)).toBe(true);
       expect(isPermittedOrigin('https://preview.pages.dev', publicUrl)).toBe(true);
       expect(isPermittedOrigin('https://urefy.com', publicUrl)).toBe(true);
-      expect(isPermittedOrigin('https://urefy.com', publicUrl, { ENVIRONMENT: 'production' })).toBe(true);
       expect(isPermittedOrigin('https://malicious-attacker.com', publicUrl)).toBe(false);
+      expect(isPermittedOrigin('https://attacker.pages.dev', publicUrl, { ENVIRONMENT: 'production' })).toBe(false);
+      expect(isPermittedOrigin('https://aetheris-omni-sphere.pages.dev', publicUrl, { ENVIRONMENT: 'production' })).toBe(true);
 
       // On sensitive routes, arbitrary .pages.dev is strictly rejected
-      const sensitiveUrl = new URL('https://aetheris.pages.dev/api/admin');
+      const sensitiveUrl = new URL('https://urefy.com/api/admin');
       expect(isPermittedOrigin('https://urefy.com', sensitiveUrl, { ENVIRONMENT: 'production' })).toBe(true);
       expect(isPermittedOrigin('https://www.urefy.com', sensitiveUrl, { ENVIRONMENT: 'production' })).toBe(true);
       expect(isPermittedOrigin('https://preview.pages.dev', sensitiveUrl)).toBe(false);
@@ -317,7 +318,7 @@ describe('UREfy Admin Security Hardening & Zero-Trust Authentication Suite', () 
 
   describe('6. Dynamic VAPID Key Configuration & 503 Guard', () => {
     it('returns HTTP 503 on GET /api/push?action=vapid-public-key when missing VAPID keys', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/push?action=vapid-public-key');
+      const req = new Request('https://urefy.com/api/push?action=vapid-public-key');
       const res = await handlePushGet({ request: req, env: {} });
       expect(res.status).toBe(503);
       const json = await res.json();
@@ -326,7 +327,7 @@ describe('UREfy Admin Security Hardening & Zero-Trust Authentication Suite', () 
     });
 
     it('returns HTTP 503 on POST /api/push action=broadcast when missing VAPID keys', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/push', {
+      const req = new Request('https://urefy.com/api/push', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'broadcast', title: 'System Alert' }),

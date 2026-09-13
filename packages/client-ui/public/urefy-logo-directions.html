@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>UREfy — Brand Identity & 6 Logo Directions (Production Suite)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #07090e;
+      --card-bg: #0e131f;
+      --card-border: #1e293b;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent: #38bdf8;
+      --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    [data-theme="light"] {
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --card-border: #e2e8f0;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --accent: #0284c7;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--font-sans);
+      background: var(--bg);
+      color: var(--text-main);
+      line-height: 1.6;
+      padding: 40px 24px;
+      transition: background 0.25s ease, color 0.25s ease;
+    }
+
+    .container { max-width: 1400px; margin: 0 auto; }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 48px;
+      padding-bottom: 24px;
+      border-bottom: 1px solid var(--card-border);
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--accent);
+      margin-bottom: 12px;
+    }
+
+    h1 { font-size: 32px; font-weight: 800; letter-spacing: -0.02em; }
+    .subtitle { color: var(--text-muted); font-size: 15px; margin-top: 6px; }
+
+    .theme-toggle-btn {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      color: var(--text-main);
+      padding: 10px 18px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+    }
+    .theme-toggle-btn:hover { border-color: var(--accent); }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(620px, 1fr));
+      gap: 32px;
+    }
+
+    @media (max-width: 768px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      padding: 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+      position: relative;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      border-bottom: 1px solid var(--card-border);
+      padding-bottom: 14px;
+    }
+
+    .concept-letter {
+      font-family: var(--font-mono);
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--accent);
+      background: rgba(56,189,248,0.1);
+      padding: 2px 8px;
+      border-radius: 6px;
+    }
+
+    .concept-title { font-size: 20px; font-weight: 700; }
+    .concept-tagline { font-size: 13px; color: var(--text-muted); font-weight: 500; }
+
+    .preview-canvas {
+      background: radial-gradient(circle at 50% 50%, rgba(255,255,255,0.03) 0%, rgba(0,0,0,0.2) 100%);
+      border-radius: 14px;
+      padding: 30px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      border: 1px dashed var(--card-border);
+    }
+
+    .logo-hero-container {
+      width: 140px;
+      height: 140px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.2s ease;
+    }
+    .logo-hero-container:hover { transform: scale(1.05); }
+
+    .wordmark-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 12px 24px;
+      background: rgba(0,0,0,0.15);
+      border-radius: 12px;
+      border: 1px solid var(--card-border);
+    }
+
+    .wordmark-icon-mini { width: 36px; height: 36px; }
+    .wordmark-text {
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      display: flex;
+      align-items: baseline;
+    }
+    .wordmark-ure { color: var(--text-main); font-weight: 800; }
+    .wordmark-fy { color: var(--accent); font-weight: 600; font-style: italic; }
+
+    .micro-sizes-strip {
+      display: flex;
+      align-items: flex-end;
+      gap: 18px;
+      background: rgba(0,0,0,0.1);
+      padding: 12px 18px;
+      border-radius: 10px;
+      border: 1px solid var(--card-border);
+    }
+
+    .micro-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+    .micro-item span { font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); }
+
+    .info-section {
+      font-size: 13.5px;
+      color: var(--text-muted);
+    }
+    .info-section strong { color: var(--text-main); }
+    .info-section p { margin-bottom: 8px; }
+
+    .palette-pills {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
+    .pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(0,0,0,0.2);
+      border: 1px solid var(--card-border);
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-family: var(--font-mono);
+    }
+    .dot { width: 10px; height: 10px; border-radius: 50%; }
+
+    .code-accordion {
+      margin-top: auto;
+      border-top: 1px solid var(--card-border);
+      padding-top: 14px;
+    }
+    details summary {
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--accent);
+      user-select: none;
+    }
+    pre {
+      margin-top: 10px;
+      background: #05070a;
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 12px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: #93c5fd;
+      overflow-x: auto;
+      max-height: 220px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <div>
+      <span class="badge">UREfy Identity Architecture</span>
+      <h1>6 Production-Grade Logo Concepts</h1>
+      <p class="subtitle">"The social network you actually own." — Connection • Sovereignty • Community • Trust • Freedom</p>
+    </div>
+    <button class="theme-toggle-btn" id="themeToggle" onclick="toggleTheme()">
+      <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3a9 9 0 109 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 01-4.4 2.26 5.403 5.403 0 01-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/></svg>
+      <span>Toggle Light/Dark</span>
+    </button>
+  </header>
+
+  <div class="grid">
+
+    <!-- CONCEPT A -->
+    <div class="card" id="card-a">
+      <div class="card-header">
+        <div>
+          <span class="concept-letter">CONCEPT A</span>
+          <div class="concept-title">The Sovereign Beacon</div>
+        </div>
+        <div class="concept-tagline">Continuous Loop & Focal Aperture</div>
+      </div>
+
+      <div class="preview-canvas">
+        <div class="logo-hero-container">
+          <svg viewBox="0 0 100 100" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="gradA_loop" x1="20" y1="18" x2="80" y2="86" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#38BDF8" />
+                <stop offset="60%" stop-color="#2563EB" />
+                <stop offset="100%" stop-color="#1D4ED8" />
+              </linearGradient>
+              <linearGradient id="gradA_core" x1="42" y1="36" x2="58" y2="52" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#FCD34D" />
+                <stop offset="100%" stop-color="#F59E0B" />
+              </linearGradient>
+              <filter id="glowA" x="-20%" y="-20%" width="140%" height="140%">
+                <feGaussianBlur stdDeviation="2" result="b"/>
+                <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+              </filter>
+            </defs>
+            <!-- Continuous Beacon Aperture Manifold -->
+            <path d="M 28 20 C 28 38, 22 58, 26 70 C 31 82, 40 86, 50 86 C 60 86, 69 82, 74 70 C 78 58, 72 38, 72 20 C 66 20, 63 27, 63 38 C 63 56, 58 73, 50 73 C 42 73, 37 56, 37 38 C 37 27, 34 20, 28 20 Z" fill="url(#gradA_loop)" />
+            <!-- Interior Aperture Horizon Ring -->
+            <ellipse cx="50" cy="44" rx="20" ry="7" transform="rotate(-14 50 44)" fill="none" stroke="#38BDF8" stroke-width="3.5" stroke-linecap="round" stroke-dasharray="28 14" opacity="0.9" />
+            <!-- Sovereign Focal Core -->
+            <circle cx="50" cy="44" r="7" fill="url(#gradA_core)" filter="url(#glowA)" />
+          </svg>
+        </div>
+
+        <div class="wordmark-row">
+          <div class="wordmark-icon-mini">
+            <svg viewBox="0 0 100 100" width="100%" height="100%">
+              <path d="M 28 20 C 28 38, 22 58, 26 70 C 31 82, 40 86, 50 86 C 60 86, 69 82, 74 70 C 78 58, 72 38, 72 20 C 66 20, 63 27, 63 38 C 63 56, 58 73, 50 73 C 42 73, 37 56, 37 38 C 37 27, 34 20, 28 20 Z" fill="url(#gradA_loop)" />
+              <circle cx="50" cy="44" r="7" fill="url(#gradA_core)" />
+            </svg>
+          </div>
+          <div class="wordmark-text">
+            <span class="wordmark-ure">URE</span><span class="wordmark-fy">fy</span>
+          </div>
+        </div>
+
+        <div class="micro-sizes-strip">
+          <div class="micro-item">
+            <div style="width:16px;height:16px;">
+              <svg viewBox="0 0 100 100" width="16" height="16">
+                <path d="M 28 20 C 28 38, 22 58, 26 70 C 31 82, 40 86, 50 86 C 60 86, 69 82, 74 70 C 78 58, 72 38, 72 20 C 66 20, 63 27, 63 38 C 63 56, 58 73, 50 73 C 42 73, 37 56, 37 38 C 37 27, 34 20, 28 20 Z" fill="#38BDF8" />
+                <circle cx="50" cy="44" r="9" fill="#F59E0B" />
+              </svg>
+            </div>
+            <span>16px</span>
+          </div>
+          <div class="micro-item">
+            <div style="width:24px;height:24px;">
+              <svg viewBox="0 0 100 100" width="24" height="24">
+                <path d="M 28 20 C 28 38, 22 58, 26 70 C 31 82, 40 86, 50 86 C 60 86, 69 82, 74 70 C 78 58, 72 38, 72 20 C 66 20, 63 27, 63 38 C 63 56, 58 73, 50 73 C 42 73, 37 56, 37 38 C 37 27, 34 20, 28 20 Z" fill="url(#gradA_loop)" />
+                <circle cx="50" cy="44" r="8" fill="#F59E0B" />
+              </svg>
+            </div>
+            <span>24px</span>
+          </div>
+          <div class="micro-item">
+            <div style="width:32px;height:32px;">
+              <svg viewBox="0 0 100 100" width="32" height="32">
+                <path d="M 28 20 C 28 38, 22 58, 26 70 C 31 82, 40 86, 50 86 C 60 86, 69 82, 74 70 C 78 58, 72 38, 72 20 C 66 20, 63 27, 63 38 C 63 56, 58 73, 50 73 C 42 73, 37 56, 37 38 C 37 27, 34 20, 28 20 Z" fill="url(#gradA_loop)" />
+                <ellipse cx="50" cy="44" rx="20" ry="7" transform="rotate(-14 50 44)" fill="none" stroke="#38BDF8" stroke-width="4" />
+                <circle cx="50" cy="44" r="7" fill="#F59E0B" />
+              </svg>
+            </div>
+            <span>32px</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="info-section">
+        <p><strong>Rationale:</strong> The sovereign individual sits at the exact optical focal point (Golden Core), shielded by an aerodynamic continuous aperture manifold. Emanates light outward without surveillance leakage.</p>
+        <div class="palette-pills">
+          <div class="pill"><span class="dot" style="background:#38BDF8"></span>#38BDF8 Sky</div>
+          <div class="pill"><span class="dot" style="background:#2563EB"></span>#2563EB Cobalt</div>
+          <div class="pill"><span class="dot" style="background:#F59E0B"></span>#F59E0B Amber Sun</div>
+        </div>
+      </div>
+
+      <div class="code-accordion">
+        <details>
+          <summary>View SVG Definition</summary>
+          <pre>&lt;svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"&gt;
+  &lt;path d="M 28 20 C 28 38, 22 58, 26 70 C 31 82, 40 86, 50 86 C 60 86, 69 82, 74 70 C 78 58, 72 38, 72 20 C 66 20, 63 27, 63 38 C 63 56, 58 73, 50 73 C 42 73, 37 56, 37 38 C 37 27, 34 20, 28 20 Z" fill="url(#gradA)" /&gt;
+  &lt;ellipse cx="50" cy="44" rx="20" ry="7" transform="rotate(-14 50 44)" fill="none" stroke="#38BDF8" stroke-width="3.5" /&gt;
+  &lt;circle cx="50" cy="44" r="7" fill="#F59E0B" /&gt;
+&lt;/svg&gt;</pre>
+        </details>
+      </div>
+    </div>
+
+    <!-- CONCEPT B -->
+    <div class="card" id="card-b">
+      <div class="card-header">
+        <div>
+          <span class="concept-letter">CONCEPT B</span>
+          <div class="concept-title">The Social Nexus</div>
+        </div>
+        <div class="concept-tagline">Interlocking Conversational Arcs</div>
+      </div>
+
+      <div class="preview-canvas">
+        <div class="logo-hero-container">
+          <svg viewBox="0 0 100 100" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="gradB_left" x1="20" y1="20" x2="55" y2="85" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#818CF8" />
+                <stop offset="100%" stop-color="#6366F1" />
+              </linearGradient>
+              <linearGradient id="gradB_right" x1="80" y1="20" x2="45" y2="85" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#2DD4BF" />
+                <stop offset="100%" stop-color="#0D9488" />
+              </linearGradient>
+            </defs>
+            <!-- Left Peer Arc -->
+            <path d="M 28 18 L 28 54 C 28 72, 38 82, 52 82 C 58 82, 63 79, 66 74" fill="none" stroke="url(#gradB_left)" stroke-width="11" stroke-linecap="round" />
+            <!-- Right Peer Arc -->
+            <path d="M 72 18 L 72 54 C 72 72, 62 82, 48 82 C 42 82, 37 79, 34 74" fill="none" stroke="url(#gradB_right)" stroke-width="11" stroke-linecap="round" opacity="0.95" />
+            <!-- Micro-anchor nodes -->
+            <circle cx="28" cy="18" r="5.5" fill="#C7D2FE" />
+            <circle cx="72" cy="18" r="5.5" fill="#99F6E4" />
+          </svg>
+        </div>
+
+        <div class="wordmark-row">
+          <div class="wordmark-icon-mini">
+            <svg viewBox="0 0 100 100" width="100%" height="100%">
+              <path d="M 28 18 L 28 54 C 28 72, 38 82, 52 82 C 58 82, 63 79, 66 74" fill="none" stroke="url(#gradB_left)" stroke-width="11" stroke-linecap="round" />
+              <path d="M 72 18 L 72 54 C 72 72, 62 82, 48 82 C 42 82, 37 79, 34 74" fill="none" stroke="url(#gradB_right)" stroke-width="11" stroke-linecap="round" />
+            </svg>
+          </div>
+          <div class="wordmark-text">
+            <span class="wordmark-ure">URE</span><span class="wordmark-fy" style="color:#2DD4BF">fy</span>
+          </div>
+        </div>
+
+        <div class="micro-sizes-strip">
+          <div class="micro-item">
+            <div style="width:16px;height:16px;">
+              <svg viewBox="0 0 100 100" width="16" height="16">
+                <path d="M 28 18 L 28 54 C 28 72, 38 82, 52 82" fill="none" stroke="#818CF8" stroke-width="14" stroke-linecap="round" />
+                <path d="M 72 18 L 72 54 C 72 72, 62 82, 48 82" fill="none" stroke="#2DD4BF" stroke-width="14" stroke-linecap="round" />
+              </svg>
+            </div>
+            <span>16px</span>
+          </div>
+          <div class="micro-item">
+            <div style="width:24px;height:24px;">
+              <svg viewBox="0 0 100 100" width="24" height="24">
+                <path d="M 28 18 L 28 54 C 28 72, 38 82, 52 82 C 58 82, 63 79, 66 74" fill="none" stroke="#818CF8" stroke-width="12" stroke-linecap="round" />
+                <path d="M 72 18 L 72 54 C 72 72, 62 82, 48 82 C 42 82, 37 79, 34 74" fill="none" stroke="#2DD4BF" stroke-width="12" stroke-linecap="round" />
+              </svg>
+            </div>
+            <span>24px</span>
+          </div>
+          <div class="micro-item">
+            <div style="width:32px;height:32px;">
+              <svg viewBox="0 0 100 100" width="32" height="32">
+                <path d="M 28 18 L 28 54 C 28 72, 38 82, 52 82 C 58 82, 63 79, 66 74" fill="none" stroke="url(#gradB_left)" stroke-width="11" stroke-linecap="round" />
+                <path d="M 72 18 L 72 54 C 72 72, 62 82, 48 82 C 42 82, 37 79, 34 74" fill="none" stroke="url(#gradB_right)" stroke-width="11" stroke-linecap="round" />
+              </svg>
+            </div>
+            <span>32px</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="info-section">
+        <p><strong>Rationale:</strong> Two equal human peers exchange encrypted trust without an intermediary. The reciprocal interlocking sweep carves an indelible negative-space 'U' (for UREfy and "YOU").</p>
+        <div class="palette-pills">
+          <div class="pill"><span class="dot" style="background:#818CF8"></span>#818CF8 Iris</div>
+          <div class="pill"><span class="dot" style="background:#6366F1"></span>#6366F1 Indigo</div>
+          <div class="pill"><span class="dot" style="background:#2DD4BF"></span>#2DD4BF Teal</div>
+        </div>
+      </div>
+
+      <div class="code-accordion">
+        <details>
+          <summary>View SVG Definition</summary>
+          <pre>&lt;svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"&gt;
+  &lt;path d="M 28 18 L 28 54 C 28 72, 38 82, 52 82 C 58 82, 63 79, 66 74" fill="none" stroke="url(#left)" stroke-width="11" stroke-linecap="round" /&gt;
+  &lt;path d="M 72 18 L 72 54 C 72 72, 62 82, 48 82 C 42 82, 37 79, 34 74" fill="none" stroke="url(#right)" stroke-width="11" stroke-linecap="round" /&gt;
+&lt;/svg&gt;</pre>
+        </details>
+      </div>
+    </div>
+
+    <!-- CONCEPT C -->
+    <div class="card" id="card-c">
+      <div class="card-header">
+        <div>
+          <span class="concept-letter">CONCEPT C</span>
+          <div class="concept-title">The Open Portal</div>
+        </div>
+        <div class="concept-tagline">Concentric Architectural Arcs</div>
+      </div>
+
+      <div class="preview-canvas">
+        <div class="logo-hero-container">
+          <svg viewBox="0 0 100 100" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="gradC_outer" x1="16" y1="20" x2="84" y2="88" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#38BDF8" />
+                <stop offset="100%" stop-color="#0284C7" />
+              </linearGradient>
+              <linearGradient id="gradC_mid" x1="28" y1="30" x2="72" y2="74" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#60A5FA" />
+                <stop offset="100%" stop-color="#2563EB" />
+              </linearGradient>
+              <linearGradient id="gradC_inner" x1="40" y1="40" x2="60" y2="60" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#818CF8" />
+                <stop offset="100%" stop-color="#4F46E5" />
+              </linearGradient>
+            </defs>
+            <!-- Tier 3: Global Commons -->
+            <path d="M 18 22 L 18 52 C 18 72, 32 86, 50 86 C 68 86, 82 72, 82 52 L 82 22" fill="none" stroke="url(#gradC_outer)" stroke-width="8" stroke-linecap="round" />
+            <!-- Tier 2: Encrypted Peer Circle -->
+            <path d="M 30 32 L 30 52 C 30 64, 39 72, 50 72 C 61 72, 70 64, 70 52 L 70 32" fill="none" stroke="url(#gradC_mid)" stroke-width="7" stroke-linecap="round" />
+            <!-- Tier 1: Sovereign Vault Core -->
+            <path d="M 42 42 L 42 52 C 42 57, 45 60, 50 60 C 55 60, 58 57, 58 52 L 58 42" fill="none" stroke="url(#gradC_inner)" stroke-width="6" stroke-linecap="round" />
+          </svg>
+        </div>
+
+        <div class="wordmark-row">
+          <div class="wordmark-icon-mini">
+            <svg viewBox="0 0 100 100" width="100%" height="100%">
+              <path d="M 18 22 L 18 52 C 18 72, 32 86, 50 86 C 68 86, 82 72, 82 52 L 82 22" fill="none" stroke="url(#gradC_outer)" stroke-width="8" stroke-linecap="round" />
+              <path d="M 30 32 L 30 52 C 30 64, 39 72, 50 72 C 61 72, 70 64, 70 52 L 70 32" fill="none" stroke="url(#gradC_mid)" stroke-width="7" stroke-linecap="round" />
+              <path d="M 42 42 L 42 52 C 42 57, 45 60, 50 60 C 55 60, 58 57, 58 52 L 58 42" fill="none" stroke="url(#gradC_inner)" stroke-width="6" stroke-linecap="round" />
+            </svg>
+          </div>
+          <div class="wordmark-text">
+            <span class="wordmark-ure">URE</span><span class="wordmark-fy" style="color:#38BDF8">fy</span>
+          </div>
+        </div>
+
+        <div class="micro-sizes-strip">
+          <div class="micro-item">
+            <div style="width:16px;height:16px;">
+              <svg viewBox="0 0 100 100" width="16" height="16">
+                <path d="M 20 24 L 20 52 C 20 72, 33 86, 50 86 C 67 86, 80 72, 80 52 L 80 24" fill="none" stroke="#38BDF8" stroke-width="12" stroke-linecap="round" />
+                <path d="M 38 42 L 38 52 C 38 59, 43 64, 50 64 C 57 64, 62 59, 62 52 L 62 42" fill="none" stroke="#818CF8" stroke-width="10" stroke-linecap="round" />
+              </svg>
+            </div>
+            <span>16px</span>
+          </div>
+          <div class="micro-item">
+            <div style="width:24px;height:24px;">
+              <svg viewBox="0 0 100 100" width="24" height="24">
+                <path d="M 18 22 L 18 52 C 18 72, 32 86, 50 86 C 68 86, 82 72, 82 52 L 82 22" fill="none" stroke="#38BDF8" stroke-width="9" stroke-linecap="round" />
+                <path d="M 30 32 L 30 52 C 30 64, 39 72, 50 72 C 61 72, 70 64, 70 52 L 70 32" fill="none" stroke="#60A5FA" stroke-width="8" stroke-linecap="round" />
+                <path d="M 42 42 L 42 52 C 42 57, 45 60, 50 60 C 55 60, 58 57, 58 52 L 58 42" fill="none" stroke="#818CF8" stroke-width="7" stroke-linecap="round" />
+              </svg>
+            </div>
+            <span>24px</span>
+          </div>
+          <div class="micro-item">
+            <div style="width:32px;height:32px;">
+              <svg viewBox="0 0 100 100" width="32" height="32">
+                <path d="M 18 22 L 18 52 C 18 72, 32 86, 50 86 C 68 86, 82 72, 82 52 L 82 22" fill="none" stroke="url(#gradC_outer)" stroke-width="8" stroke-linecap="round" />
+                <path d="M 30 32 L 30 52 C 30 64, 39 72, 50 72 C 61 72, 70 64, 70 52 L 70 32" fill="none" stroke="url(#gradC_mid)" stroke-width="7" stroke-linecap="round" />
+                <path d="M 42 42 L 42 52 C 42 57, 45 60, 50 60 C 55 60, 58 57, 58 52 L 58 42" fill="none" stroke="url(#gradC_inner)" stroke-width="6" stroke-linecap="round" />
+              </svg>
+            </div>
+            <span>32px</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="info-section">
+        <p><strong>Rationale:</strong> Three concentric architectural tiers open skyward. No algorithmic ceiling; total transparency without walled gardens. Represents Sovereignty, Community, and Global Commons in harmonic alignment.</p>
+        <div class="palette-pills">
+          <div class="pill"><span class="dot" style="background:#38BDF8"></span>#38BDF8 Horizon</div>
+          <div class="pill"><span class="dot" style="background:#2563EB"></span>#2563EB Royal</div>
+          <div class="pill"><span class="dot" style="background:#6366F1"></span>#6366F1 Ultramarine</div>
+        </div>
+      </div>
+
+      <div class="code-accordion">
+        <details>
+          <summary>View SVG Definition</summary>
+          <pre>&lt;svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"&gt;
+  &lt;path d="M 18 22 L 18 52 C 18 72, 32 86, 50 86 C 68 86, 82 72, 82 52 L 82 22" fill="none" stroke="#38BDF8" stroke-width="8" stroke-linecap="round" /&gt;
+  &lt;path d="M 30 32 L 30 52 C 30 64, 39 72, 50 72 C 61 72, 70 64, 70 52 L 70 32" fill="none" stroke="#2563EB" stroke-width="7" stroke-linecap="round" /&gt;
+  &lt;path d="M 42 42 L 42 52 C 42 57, 45 60, 50 60 C 55 60, 58 57, 58 52 L 58 42" fill="none" stroke="#6366F1" stroke-width="6" stroke-linecap="round" /&gt;
+&lt;/svg&gt;</pre>
+        </details>
+      </div>
+    </div>
+
+    <!-- CONCEPT D -->
+    <div class="card" id="card-d">
+      <div class="card-header">
+        <div>
+          <span class="concept-letter">CONCEPT D</span>
+          <div class="concept-title">The Peer Bloom</div>
+        </div>
+        <div class="concept-tagline">Dynamic Asymmetric Harmonic Crest</div>
+      </div>
+
+      <div class="preview-canvas">
+        <div class="logo-hero-container">
+          <svg viewBox="0 0 100 100" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="gradD_crest" x1="20" y1="80" x2="85" y2="20" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#10B981" />
+                <stop offset="50%" stop-color="#06B6D4" />
+                <stop offset="100%" stop-color="#3B82F6" />
+              </linearGradient>
+              <linearGradient id="gradD_accent" x1="75" y1="15" x2="88" y2="28" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#34D399" />
+                <stop offset="100%" stop-color="#10B981" />
+              </linearGradient>
+            </defs>
+            <!-- Primary Sovereign Cradle -->
+            <path d="M 22 28 C 22 56, 24 78, 44 82 C 58 84, 68 76, 74 64 C 68 68, 56 72, 46 68 C 34 64, 32 48, 32 28 Z" fill="url(#gradD_crest)" />
+            <!-- Inner Harmonic Blooming Wing -->
+            <path d="M 38 46 C 42 64, 52 72, 66 68 C 76 64, 82 48, 82 32 C 78 44, 70 54, 60 56 C 50 58, 44 52, 42 42 Z" fill="#22D3EE" opacity="0.9" />
+            <!-- Soaring Apex Feather / Sovereign Node -->
+            <path d="M 64 24 C 68 34, 76 40, 86 38 C 84 28, 76 22, 64 24 Z" fill="url(#gradD_accent)" />
+            <circle cx="82" cy="18" r="4.5" fill="#34D399" />
+          </svg>
+        </div>
+
+        <div class="wordmark-row">
+          <div class="wordmark-icon-mini">
+            <svg viewBox="0 0 100 100" width="100%" height="100%">
+              <path d="M 22 28 C 22 56, 24 78, 44 82 C 58 84, 68 76, 74 64 C 68 68, 56 72, 46 68 C 34 64, 32 48, 32 28 Z" fill="url(#gradD_crest)" />
+              <path d="M 38 46 C 42 64, 52 72, 66 68 C 76 64, 82 48, 82 32 C 78 44, 70 54, 60 56 C 50 58, 44 52, 42 42 Z" fill="#22D3EE" />
+              <circle cx="82" cy="18" r="4.5" fill="#34D399" />
+            </svg>
+          </div>
+          <div class="wordmark-text">
+            <span class="wordmark-ure">URE</span><span class="wordmark-fy" style="color:#10B981">fy</span>
+          </div>
+        </div>
+
+        <div class="micro-sizes-strip">
+          <div class="micro-item">
+            <div style="width:16px;height:16px;">
+              <svg viewBox="0 0 100 100" width="16" height="16">
+                <path d="M 22 28 C 22 62, 30 84, 52 84 C 74 84, 82 58, 82 32 C 76 46, 66 56, 52 56 C 36 56, 34 40, 34 28 Z" fill="#10B981" />
+                <circle cx="80" cy="20" r="7" fill="#34D399" />
+              </svg>
+            </div>
+            <span>16px</span>
+          </div>
+          <div class="micro-item">
+            <div style="width:24px;height:24px;">
+              <svg viewBox="0 0 100 100" width="24" height="24">
+                <path d="M 22 28 C 22 56, 24 78, 44 82 C 58 84, 68 76, 74 64 C 68 68, 56 72, 46 68 C 34 64, 32 48, 32 28 Z" fill="#10B981" />
+                <path d="M 38 46 C 42 64, 52 72, 66 68 C 76 64, 82 48, 82 32 C 78 44, 70 54, 60 56 C 50 58, 44 52, 42 42 Z" fill="#22D3EE" />
+                <circle cx="82" cy="18" r="5" fill="#34D399" />
+              </svg>
+            </div>
+            <span>24px</span>
+          </div>
+          <div class="micro-item">
+            <div style="width:32px;height:32px;">
+              <svg viewBox="0 0 100 100" width="32" height="32">
+                <path d="M 22 28 C 22 56, 24 78, 44 82 C 58 84, 68 76, 74 64 C 68 68, 56 72, 46 68 C 34 64, 32 48, 32 28 Z" fill="url(#gradD_crest)" />
+                <path d="M 38 46 C 42 64, 52 72, 66 68 C 76 64, 82 48, 82 32 C 78 44, 70 54, 60 56 C 50 58, 44 52, 42 42 Z" fill="#22D3EE" />
+                <circle cx="82" cy="18" r="4.5" fill="#34D399" />
+              </svg>
+            </div>
+            <span>32px</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="info-section">
+        <p><strong>Rationale:</strong> Human communication is living and organic, not a sterile machine loop. Nodes unfurl in a Fibonacci crest, expressing vitality, self-organization, and emergent freedom.</p>
+        <div class="palette-pills">
+          <div class="pill"><span class="dot" style="background:#10B981"></span>#10B981 Emerald</div>
+          <div class="pill"><span class="dot" style="background:#06B6D4"></span>#06B6D4 Cyan</div>
+          <div class="pill"><span class="dot" style="background:#34D399"></span>#34D399 Mint Light</div>
+        </div>
+      </div>
+
+      <div class="code-accordion">
+        <details>
+          <summary>View SVG Definition</summary>
+          <pre>&lt;svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"&gt;
+  &lt;path d="M 22 28 C 22 56, 24 78, 44 82 C 58 84, 68 76, 74 64 C 68 68, 56 72, 46 68 C 34 64, 32 48, 32 28 Z" fill="url(#crest)" /&gt;
+  &lt;path d="M 38 46 C 42 64, 52 72, 66 68 C 76 64, 82 48, 82 32 C 78 44, 70 54, 60 56 C 50 58, 44 52, 42 42 Z" fill="#22D3EE" /&gt;
+  &lt;circle cx="82" cy="18" r="4.5" fill="#34D399" /&gt;
+&lt;/svg&gt;</pre>
+        </details>
+      </div>
+    </div>
+
+    <!-- CONCEPT E -->
+    <div class="card" id="card-e">
+      <div class="card-header">
+        <div>
+          <span class="concept-letter">CONCEPT E</span>
+          <div class="concept-title">The Free Resonance</div>
+        </div>
+        <div class="concept-tagline">Vocal Frequency & Sovereign Pulse</div>
+      </div>
+
+      <div class="preview-canvas">
+        <div class="logo-hero-container">
+          <svg viewBox="0 0 100 100" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="gradE_cradle" x1="18" y1="20" x2="82" y2="86" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#F43F5E" />
+                <stop offset="50%" stop-color="#D946EF" />
+                <stop offset="100%" stop-color="#8B5CF6" />
+              </linearGradient>
+              <linearGradient id="gradE_pulse" x1="46" y1="20" x2="54" y2="60" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#FDA4AF" />
+                <stop offset="100%" stop-color="#F43F5E" />
+              </linearGradient>
+            </defs>
+            <!-- Resonant Acoustic Cradle -->
+            <path d="M 22 22 L 22 52 C 22 72, 34 86, 50 86 C 66 86, 78 72, 78 52 L 78 22" fill="none" stroke="url(#gradE_cradle)" stroke-width="8" stroke-linecap="round" />
+            <!-- Harmonic Wave Brackets -->
+            <path d="M 33 34 C 33 46, 38 56, 44 60" fill="none" stroke="#D946EF" stroke-width="4.5" stroke-linecap="round" opacity="0.85" />
+            <path d="M 67 34 C 67 46, 62 56, 56 60" fill="none" stroke="#D946EF" stroke-width="4.5" stroke-linecap="round" opacity="0.85" />
+            <!-- Sovereign Vocal Pulse -->
+            <rect x="46.5" y="20" width="7" height="36" rx="3.5" fill="url(#gradE_pulse)" />
+            <!-- Resonance Anchor Base -->
+            <circle cx="50" cy="69" r="4.5" fill="#FDA4AF" />
+          </svg>
+        </div>
+
+        <div class="wordmark-row">
+          <div class="wordmark-icon-mini">
+            <svg viewBox="0 0 100 100" width="100%" height="100%">
+              <path d="M 22 22 L 22 52 C 22 72, 34 86, 50 86 C 66 86, 78 72, 78 52 L 78 22" fill="none" stroke="url(#gradE_cradle)" stroke-width="8" stroke-linecap="round" />
+              <rect x="46.5" y="20" width="7" height="36" rx="3.5" fill="#F43F5E" />
+              <circle cx="50" cy="69" r="4.5" fill="#FDA4AF" />
+            </svg>
+          </div>
+          <div class="wordmark-text">
+            <span class="wordmark-ure">URE</span><span class="wordmark-fy" style="color:#F43F5E">fy</span>
+          </div>
+        </div>
+
+        <div class="micro-sizes-strip">
+          <div class="micro-item">
+            <div style="width:16px;height:16px;">
+              <svg viewBox="0 0 100 100" width="16" height="16">
+                <path d="M 22 22 L 22 52 C 22 72, 34 86, 50 86 C 66 86, 78 72, 78 52 L 78 22" fill="none" stroke="#F43F5E" stroke-width="12" stroke-linecap="round" />
+                <rect x="45" y="22" width="10" height="36" rx="5" fill="#FDA4AF" />
+              </svg>
+            </div>
+            <span>16px</span>
+          </div>
+          <div class="micro-item">
+            <div style="width:24px;height:24px;">
+              <svg viewBox="0 0 100 100" width="24" height="24">
+                <path d="M 22 22 L 22 52 C 22 72, 34 86, 50 86 C 66 86, 78 72, 78 52 L 78 22" fill="none" stroke="url(#gradE_cradle)" stroke-width="9" stroke-linecap="round" />
+                <rect x="46" y="20" width="8" height="36" rx="4" fill="#F43F5E" />
+                <circle cx="50" cy="69" r="5" fill="#FDA4AF" />
+              </svg>
+            </div>
+            <span>24px</span>
+          </div>
+          <div class="micro-item">
+            <div style="width:32px;height:32px;">
+              <svg viewBox="0 0 100 100" width="32" height="32">
+                <path d="M 22 22 L 22 52 C 22 72, 34 86, 50 86 C 66 86, 78 72, 78 52 L 78 22" fill="none" stroke="url(#gradE_cradle)" stroke-width="8" stroke-linecap="round" />
+                <path d="M 33 34 C 33 46, 38 56, 44 60" fill="none" stroke="#D946EF" stroke-width="4.5" stroke-linecap="round" />
+                <path d="M 67 34 C 67 46, 62 56, 56 60" fill="none" stroke="#D946EF" stroke-width="4.5" stroke-linecap="round" />
+                <rect x="46.5" y="20" width="7" height="36" rx="3.5" fill="url(#gradE_pulse)" />
+              </svg>
+            </div>
+            <span>32px</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="info-section">
+        <p><strong>Rationale:</strong> Authentic human voice oscillating freely. When cryptographic privacy is guaranteed, speech resonates without suppression, fear, or algorithmic interference.</p>
+        <div class="palette-pills">
+          <div class="pill"><span class="dot" style="background:#F43F5E"></span>#F43F5E Rose</div>
+          <div class="pill"><span class="dot" style="background:#D946EF"></span>#D946EF Fuchsia</div>
+          <div class="pill"><span class="dot" style="background:#8B5CF6"></span>#8B5CF6 Violet</div>
+        </div>
+      </div>
+
+      <div class="code-accordion">
+        <details>
+          <summary>View SVG Definition</summary>
+          <pre>&lt;svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"&gt;
+  &lt;path d="M 22 22 L 22 52 C 22 72, 34 86, 50 86 C 66 86, 78 72, 78 52 L 78 22" fill="none" stroke="url(#cradle)" stroke-width="8" stroke-linecap="round" /&gt;
+  &lt;rect x="46.5" y="20" width="7" height="36" rx="3.5" fill="#F43F5E" /&gt;
+  &lt;circle cx="50" cy="69" r="4.5" fill="#FDA4AF" /&gt;
+&lt;/svg&gt;</pre>
+        </details>
+      </div>
+    </div>
+
+    <!-- CONCEPT F -->
+    <div class="card" id="card-f">
+      <div class="card-header">
+        <div>
+          <span class="concept-letter">CONCEPT F</span>
+          <div class="concept-title">The Geometric Keystone</div>
+        </div>
+        <div class="concept-tagline">Three Precision Facets in Sovereign Balance</div>
+      </div>
+
+      <div class="preview-canvas">
+        <div class="logo-hero-container">
+          <svg viewBox="0 0 100 100" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="gradF_left" x1="20" y1="20" x2="42" y2="60" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#F8FAFC" />
+                <stop offset="100%" stop-color="#94A3B8" />
+              </linearGradient>
+              <linearGradient id="gradF_right" x1="80" y1="20" x2="58" y2="60" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#CBD5E1" />
+                <stop offset="100%" stop-color="#64748B" />
+              </linearGradient>
+              <linearGradient id="gradF_base" x1="20" y1="65" x2="80" y2="88" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#F59E0B" />
+                <stop offset="100%" stop-color="#D97706" />
+              </linearGradient>
+            </defs>
+            <!-- Left Pillar Facet (Rounded Precision Polygon) -->
+            <path d="M 22 20 C 22 17.8, 23.8 16, 26 16 L 38 16 C 40.2 16, 42 17.8, 42 20 L 42 56 C 42 58.2, 40.2 60, 38 60 L 26 60 C 23.8 60, 22 58.2, 22 56 Z" fill="url(#gradF_left)" />
+            <!-- Right Pillar Facet -->
+            <path d="M 58 20 C 58 17.8, 59.8 16, 62 16 L 74 16 C 76.2 16, 78 17.8, 78 20 L 78 56 C 78 58.2, 76.2 60, 74 60 L 62 60 C 59.8 60, 58 58.2, 58 56 Z" fill="url(#gradF_right)" />
+            <!-- Keystone Foundation Arc Facet (Carved with 4px Airgap) -->
+            <path d="M 22 66 C 22 64.2, 23.6 63, 25.4 63.4 C 33.2 65, 41.5 66, 50 66 C 58.5 66, 66.8 65, 74.6 63.4 C 76.4 63, 78 64.2, 78 66 C 78 77, 66 86, 50 86 C 34 86, 22 77, 22 66 Z" fill="url(#gradF_base)" />
+          </svg>
+        </div>
+
+        <div class="wordmark-row">
+          <div class="wordmark-icon-mini">
+            <svg viewBox="0 0 100 100" width="100%" height="100%">
+              <path d="M 22 20 C 22 17.8, 23.8 16, 26 16 L 38 16 C 40.2 16, 42 17.8, 42 20 L 42 56 C 42 58.2, 40.2 60, 38 60 L 26 60 C 23.8 60, 22 58.2, 22 56 Z" fill="url(#gradF_left)" />
+              <path d="M 58 20 C 58 17.8, 59.8 16, 62 16 L 74 16 C 76.2 16, 78 17.8, 78 20 L 78 56 C 78 58.2, 76.2 60, 74 60 L 62 60 C 59.8 60, 58 58.2, 58 56 Z" fill="url(#gradF_right)" />
+              <path d="M 22 66 C 22 64.2, 23.6 63, 25.4 63.4 C 33.2 65, 41.5 66, 50 66 C 58.5 66, 66.8 65, 74.6 63.4 C 76.4 63, 78 64.2, 78 66 C 78 77, 66 86, 50 86 C 34 86, 22 77, 22 66 Z" fill="url(#gradF_base)" />
+            </svg>
+          </div>
+          <div class="wordmark-text">
+            <span class="wordmark-ure">URE</span><span class="wordmark-fy" style="color:#F59E0B">fy</span>
+          </div>
+        </div>
+
+        <div class="micro-sizes-strip">
+          <div class="micro-item">
+            <div style="width:16px;height:16px;">
+              <svg viewBox="0 0 100 100" width="16" height="16">
+                <rect x="22" y="16" width="20" height="44" rx="4" fill="#E2E8F0" />
+                <rect x="58" y="16" width="20" height="44" rx="4" fill="#94A3B8" />
+                <path d="M 22 66 C 22 64, 24 63, 26 63.5 C 34 65, 42 66, 50 66 C 58 66, 66 65, 74 63.5 C 76 63, 78 64, 78 66 C 78 78, 65 86, 50 86 C 35 86, 22 78, 22 66 Z" fill="#F59E0B" />
+              </svg>
+            </div>
+            <span>16px</span>
+          </div>
+          <div class="micro-item">
+            <div style="width:24px;height:24px;">
+              <svg viewBox="0 0 100 100" width="24" height="24">
+                <rect x="22" y="16" width="20" height="44" rx="4" fill="#E2E8F0" />
+                <rect x="58" y="16" width="20" height="44" rx="4" fill="#94A3B8" />
+                <path d="M 22 66 C 22 64.2, 23.6 63, 25.4 63.4 C 33.2 65, 41.5 66, 50 66 C 58.5 66, 66.8 65, 74.6 63.4 C 76.4 63, 78 64.2, 78 66 C 78 77, 66 86, 50 86 C 34 86, 22 77, 22 66 Z" fill="#F59E0B" />
+              </svg>
+            </div>
+            <span>24px</span>
+          </div>
+          <div class="micro-item">
+            <div style="width:32px;height:32px;">
+              <svg viewBox="0 0 100 100" width="32" height="32">
+                <rect x="22" y="16" width="20" height="44" rx="4" fill="url(#gradF_left)" />
+                <rect x="58" y="16" width="20" height="44" rx="4" fill="url(#gradF_right)" />
+                <path d="M 22 66 C 22 64.2, 23.6 63, 25.4 63.4 C 33.2 65, 41.5 66, 50 66 C 58.5 66, 66.8 65, 74.6 63.4 C 76.4 63, 78 64.2, 78 66 C 78 77, 66 86, 50 86 C 34 86, 22 77, 22 66 Z" fill="url(#gradF_base)" />
+              </svg>
+            </div>
+            <span>32px</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="info-section">
+        <p><strong>Rationale:</strong> In classical architecture, the keystone holds the entire structure without cement or external scaffolding. The user is the keystone of their own data vault: mathematically balanced, unbreakable.</p>
+        <div class="palette-pills">
+          <div class="pill"><span class="dot" style="background:#F8FAFC"></span>#F8FAFC Platinum</div>
+          <div class="pill"><span class="dot" style="background:#64748B"></span>#64748B Slate</div>
+          <div class="pill"><span class="dot" style="background:#F59E0B"></span>#F59E0B Keystone Amber</div>
+        </div>
+      </div>
+
+      <div class="code-accordion">
+        <details>
+          <summary>View SVG Definition</summary>
+          <pre>&lt;svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"&gt;
+  &lt;rect x="22" y="16" width="20" height="44" rx="4" fill="#E2E8F0" /&gt;
+  &lt;rect x="58" y="16" width="20" height="44" rx="4" fill="#94A3B8" /&gt;
+  &lt;path d="M 22 66 C 22 64.2, 23.6 63, 25.4 63.4 C 33.2 65, 41.5 66, 50 66 C 58.5 66, 66.8 65, 74.6 63.4 C 76.4 63, 78 64.2, 78 66 C 78 77, 66 86, 50 86 C 34 86, 22 77, 22 66 Z" fill="#F59E0B" /&gt;
+&lt;/svg&gt;</pre>
+        </details>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  function toggleTheme() {
+    const current = document.documentElement.getAttribute('data-theme');
+    const target = current === 'light' ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', target);
+  }
+</script>
+
+</body>
+</html>

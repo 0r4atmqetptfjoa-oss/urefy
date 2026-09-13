@@ -4,33 +4,73 @@
     <meta charset="UTF-8" />
     <script type="module" src="/src/theme-boot.ts"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
-    <!-- ─── SEO & Social ──────────────────────────────────────────────────── -->
-    <title>UREfy — Unified Relay Enclave Framework for You</title>
-    <meta name="description" content="Private communication, encrypted relays, sovereign identity and verified knowledge in one unified framework built for you." />
-    <meta name="keywords" content="sovereign, encrypted, p2p, decentralized, privacy, communication, knowledge vault" />
-    <meta name="author" content="URE Network" />
+    <!-- --- SEO & Social --- -->
+    <title>UREfy — The Social Network You Actually Own</title>
+    <meta name="description" content="UREfy is the global consumer social network you actually own. Free expression, sovereign identity, zero surveillance, and communities with decentralized governance." />
+    <meta name="keywords" content="UREfy, social network, sovereign social, private communication, decentralized social, sovereign identity, encrypted messages, censorship resistant" />
+    <meta name="author" content="UREfy" />
     <meta name="robots" content="index, follow, max-image-preview:large" />
     <link rel="canonical" href="https://urefy.com/" />
+    
+    <!-- JSON-LD Schema Markup -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "WebSite",
+          "@id": "https://urefy.com/#website",
+          "url": "https://urefy.com/",
+          "name": "UREfy",
+          "description": "The social network you actually own. Free expression, sovereign cryptographic identity, zero surveillance, and private peer-to-peer communities."
+        },
+        {
+          "@type": "SoftwareApplication",
+          "@id": "https://urefy.com/#application",
+          "name": "UREfy",
+          "operatingSystem": "All",
+          "applicationCategory": "SocialNetworkingApplication",
+          "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "USD"
+          }
+        },
+        {
+          "@type": "Organization",
+          "@id": "https://urefy.com/#organization",
+          "name": "UREfy",
+          "url": "https://urefy.com/",
+          "logo": "https://urefy.com/logo.svg",
+          "sameAs": []
+        }
+      ]
+    }
+    </script>
+    
     <!-- Open Graph -->
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="UREfy — Your Unified Relay Enclave" />
-    <meta property="og:description" content="Private messaging, sovereign identity and verified knowledge—unified for you." />
+    <meta property="og:title" content="UREfy — The Social Network You Actually Own" />
+    <meta property="og:description" content="The social network you actually own. Free expression, sovereign identity, zero surveillance, and private peer-to-peer communities." />
     <meta property="og:image" content="https://urefy.com/icon-512.png" />
     <meta property="og:image:width" content="512" />
     <meta property="og:image:height" content="512" />
-    <meta property="og:image:alt" content="UREfy" />
+    <meta property="og:image:alt" content="UREfy — The Social Network You Actually Own" />
     <meta property="og:url" content="https://urefy.com/" />
     <meta property="og:site_name" content="UREfy" />
+    
     <!-- Micro-Card & Social Metadata -->
-    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="UREfy — The Social Network You Actually Own" />
+    <meta name="twitter:description" content="The social network you actually own. Free expression, sovereign identity, zero surveillance, and private peer-to-peer communities." />
     <meta name="twitter:image" content="https://urefy.com/icon-512.png" />
-    <meta name="twitter:image:alt" content="UREfy" />
-    <meta name="twitter:title" content="UREfy — Unified Relay Enclave Framework for You" />
-    <meta name="twitter:description" content="Private communication and verified knowledge, unified for you." />
+    <meta name="twitter:image:alt" content="UREfy — The Social Network You Actually Own" />
+    
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; manifest-src 'self' blob:; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://images.unsplash.com https://*.ytimg.com https://*.youtube.com https://avatars.githubusercontent.com https:; media-src 'self' blob: data: https: https://commondatastorage.googleapis.com; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com blob:; child-src 'self' blob: https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com; connect-src 'self' wss: ws: https:; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self';" />
     <meta http-equiv="X-Content-Type-Options" content="nosniff" />
     <meta name="referrer" content="strict-origin-when-cross-origin" />
-    <!-- ─── Theme & PWA ────────────────────────────────────────────────────── -->
+    
+    <!-- --- Theme & PWA --- -->
     <meta name="theme-color" content="#090a0f" media="(prefers-color-scheme: dark)" />
     <meta name="theme-color" content="#f8fafc" media="(prefers-color-scheme: light)" />
     <meta name="mobile-web-app-capable" content="yes" />
@@ -40,12 +80,14 @@
     <meta name="application-name" content="UREfy" />
     <meta name="msapplication-TileColor" content="#090a0f" />
     <meta name="format-detection" content="telephone=no" />
-    <!-- ─── Icons & Manifest ──────────────────────────────────────────────── -->
+    
+    <!-- --- Icons & Manifest --- -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="alternate icon" href="/favicon.ico" sizes="48x48" />
     <link rel="apple-touch-icon" sizes="192x192" href="/icon-192.png" />
     <link rel="manifest" href="/manifest.json" />
-    <!-- ─── ANTI-FOUC: Critical inline CSS before ANY external resource ─────── -->
+    
+    <!-- --- ANTI-FOUC: Critical inline CSS before ANY external resource --- -->
     <style>
       html{background-color:#090a0f;color-scheme:dark;font-size:16px}
       body{background-color:#090a0f;margin:0;padding:0;overflow:hidden;-webkit-font-smoothing:antialiased}

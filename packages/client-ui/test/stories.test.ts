@@ -1,7 +1,7 @@
-﻿import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { StoriesEngine } from '../src/stories';
 
-describe('StoriesEngine — Ephemeral Pulse Stories & Visual Creator', () => {
+describe('StoriesEngine � Ephemeral Pulse Stories & Visual Creator', () => {
   let engine: StoriesEngine;
 
   beforeEach(() => {

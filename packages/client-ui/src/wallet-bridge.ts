@@ -810,6 +810,48 @@ export class WalletBridge {
   }
 
   /**
+   * Cryptographically verifies an UREfy cross-chain identity attestation proof.
+   * Ensures that the Ethereum address signed the binding payload containing the specific Ed25519 public key.
+   */
+  public verifyIdentityProof(identity?: BlockchainIdentity | null, options?: { expectedChainId?: string }): { valid: boolean; error?: string } {
+    const target = identity || this.identity;
+    if (!target) {
+      return { valid: false, error: 'No identity provided for verification' };
+    }
+    if (!target.ethAddress || !target.aetherisKey || !target.verificationProof) {
+      return { valid: false, error: 'Identity proof is incomplete (missing address, key, or proof)' };
+    }
+    if (!/^0x[a-fA-F0-9]{40}$/.test(target.ethAddress)) {
+      return { valid: false, error: 'Invalid Ethereum address format' };
+    }
+    const message = target.verificationMessage;
+    if (!message || typeof message !== 'string') {
+      return { valid: false, error: 'Missing verification message payload' };
+    }
+    if (!message.startsWith('UREFY_IDENTITY_BINDING_V1\n')) {
+      return { valid: false, error: 'Proof message lacks the required UREFY_IDENTITY_BINDING_V1 domain separator' };
+    }
+    if (!message.includes(`AetherisKey: ${target.aetherisKey}`)) {
+      return { valid: false, error: 'Proof message does not bind the specified sovereign Ed25519 key' };
+    }
+    if (!message.toLowerCase().includes(`ethaddress: ${target.ethAddress.toLowerCase()}`)) {
+      return { valid: false, error: 'Proof message does not bind the specified Ethereum address' };
+    }
+    if (options?.expectedChainId && !message.toLowerCase().includes(`chainid: ${options.expectedChainId.toLowerCase()}`)) {
+      return { valid: false, error: `Proof message does not bind the expected chain ID (${options.expectedChainId})` };
+    }
+    try {
+      const recovered = verifyMessage(message, target.verificationProof);
+      if (recovered.toLowerCase() !== target.ethAddress.toLowerCase()) {
+        return { valid: false, error: 'Recovered signer address does not match identity Ethereum address' };
+      }
+      return { valid: true };
+    } catch (err: any) {
+      return { valid: false, error: `Signature verification failed: ${err?.message || 'invalid signature'}` };
+    }
+  }
+
+  /**
    * Triggers verification check for a single token gate.
    */
   public async checkSingleGate(gateId: string): Promise<void> {

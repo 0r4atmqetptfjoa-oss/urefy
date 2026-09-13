@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 76" width="100%" height="100%" role="img" aria-label="UREfy Master Wordmark">
+  <defs>
+    <linearGradient id="urefy-wm-left" x1="16" y1="12" x2="38" y2="58" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#818CF8" />
+      <stop offset="100%" stop-color="#4F46E5" />
+    </linearGradient>
+    <linearGradient id="urefy-wm-right" x1="56" y1="12" x2="34" y2="58" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#22D3EE" />
+      <stop offset="100%" stop-color="#0891B2" />
+    </linearGradient>
+  </defs>
+
+  <!-- Left Sovereign Peer Arc -->
+  <path d="M 21 14 L 21 40 C 21 53, 28 60, 38 60 C 42 60, 46 58, 48 54" fill="none" stroke="url(#urefy-wm-left)" stroke-width="8" stroke-linecap="round" />
+  <!-- Right Sovereign Peer Arc -->
+  <path d="M 53 14 L 53 40 C 53 53, 46 60, 36 60 C 32 60, 28 58, 26 54" fill="none" stroke="url(#urefy-wm-right)" stroke-width="8" stroke-linecap="round" opacity="0.96" />
+  <!-- Peer Vertex Terminals -->
+  <circle cx="21" cy="14" r="4" fill="#C7D2FE" />
+  <circle cx="53" cy="14" r="4" fill="#A5F3FC" />
+
+  <!-- Typography: UREfy -->
+  <text x="76" y="47" font-family="'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="36" font-weight="800" fill="#FFFFFF" letter-spacing="0.03em">URE<tspan fill="#22D3EE" font-weight="600">fy</tspan></text>
+  <!-- Tagline -->
+  <text x="78" y="64" font-family="'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="8.5" font-weight="700" fill="#94A3B8" letter-spacing="0.16em" text-transform="uppercase">THE SOCIAL NETWORK YOU ACTUALLY OWN</text>
+</svg>

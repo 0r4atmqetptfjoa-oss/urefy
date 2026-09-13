@@ -295,6 +295,25 @@ export function createAbortableSignal(
   return { controller, signal: controller.signal, cleanup };
 }
 
+export interface SocialShareUrls {
+  x: string;
+  whatsapp: string;
+  telegram: string;
+  reddit: string;
+}
+
+export function getSocialShareUrls(url: string, title?: string, summary?: string): SocialShareUrls {
+  const encUrl = encodeURIComponent(url);
+  const text = title ? `${title} — on UREfy` : (summary || 'Explore this on UREfy');
+  const encText = encodeURIComponent(text);
+  return {
+    x: `https://twitter.com/intent/tweet?text=${encText}&url=${encUrl}`,
+    whatsapp: `https://api.whatsapp.com/send?text=${encText}%20${encUrl}`,
+    telegram: `https://t.me/share/url?url=${encUrl}&text=${encText}`,
+    reddit: `https://reddit.com/submit?url=${encUrl}&title=${encodeURIComponent(title || 'UREfy Publication')}`,
+  };
+}
+
 /**
  * Shares a post via native Web Share API with robust multi-layer fallback to clipboard copy.
  */
@@ -308,7 +327,7 @@ export async function sharePostOrCopyLink(
   const url = `${origin}/#post-${postId}`;
   const shareData = {
     title: title || 'UREfy verified publication',
-    text: content ? (content.slice(0, 140) + '...') : 'View this verified publication on UREfy:',
+    text: content ? (content.slice(0, 140) + '...') : 'View this publication on UREfy:',
     url,
   };
 

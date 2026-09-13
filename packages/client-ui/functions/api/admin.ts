@@ -240,7 +240,7 @@ export function isNonLocalEnvironment(req: Request, env?: Env): boolean {
     if (host.endsWith('.local')) {
       return false;
     }
-    if (host.endsWith('.pages.dev') || host.endsWith('.network') || host.endsWith('.internal')) {
+    if (host.endsWith('.pages.dev') || host.endsWith('.network') || host.endsWith('.internal') || host === 'urefy.com' || host === 'www.urefy.com') {
       return env?.ENVIRONMENT === 'production';
     }
     return true;
@@ -305,6 +305,8 @@ export async function verifyAdminAuthorization(
 // ─── OPTIONS PREFLIGHT ───────────────────────────────────────────────────────
 
 const CANONICAL_ADMIN_HOSTS = new Set([
+  'urefy.com',
+  'www.urefy.com',
   'aetheris-omni-sphere.pages.dev',
   'aetheris.pages.dev',
   'aetheris.network',

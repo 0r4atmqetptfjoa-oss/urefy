@@ -10,6 +10,7 @@
 import { isDemoModeEnabled } from './demo-mode.js';
 import { safeLocalStorage } from './dry-utils.js';
 import { t } from './i18n.js';
+import { renderIcon, renderMeritIcon } from './ui/icons.js';
 
 export interface PulseInteractionState {
   liked: boolean;
@@ -350,14 +351,12 @@ export class PulseActionsEngine {
           type="button"
           data-pulse-action="reply"
           data-post-id="${postId}"
-          class="btn-pulse-reply flex items-center space-x-1.5 group hover:text-cyan-400 transition-colors cursor-pointer"
+          class="btn-pulse-reply min-w-[44px] min-h-[44px] flex items-center justify-center space-x-1.5 group hover:text-cyan-400 transition-colors cursor-pointer"
           title="${t('actions.reply', undefined, 'Reply to pulse')}"
           aria-label="${t('actions.reply', undefined, 'Reply to pulse')}"
         >
           <div class="p-2 rounded-full group-hover:bg-cyan-500/10 transition-colors">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
-            </svg>
+            ${renderIcon('messageSquare', { size: 16, strokeWidth: 1.75 })}
           </div>
           <span class="text-xs group-hover:text-cyan-400">${this.formatMetric(replies)}</span>
         </button>
@@ -368,14 +367,12 @@ export class PulseActionsEngine {
             type="button"
             data-pulse-action="repost-menu"
             data-post-id="${postId}"
-            class="btn-pulse-repost-menu flex items-center space-x-1.5 group transition-colors cursor-pointer ${state.reposted ? 'text-emerald-400 font-bold' : 'hover:text-emerald-400'}"
+            class="btn-pulse-repost-menu min-w-[44px] min-h-[44px] flex items-center justify-center space-x-1.5 group transition-colors cursor-pointer ${state.reposted ? 'text-emerald-400 font-bold' : 'hover:text-emerald-400'}"
             title="${t('actions.repost', undefined, 'Repost or Quote Pulse')}"
             aria-label="${t('actions.repost', undefined, 'Repost or Quote pulse')}"
           >
             <div class="p-2 rounded-full group-hover:bg-emerald-500/10 transition-colors">
-              <svg class="w-4 h-4 ${state.reposted ? 'rotate-180 transition-transform duration-300' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-              </svg>
+              ${renderIcon('repost', { size: 16, className: state.reposted ? 'rotate-180 transition-transform duration-300' : '' })}
             </div>
             <span class="text-xs">${this.formatMetric(state.repostsCount)}</span>
           </button>
@@ -389,7 +386,7 @@ export class PulseActionsEngine {
                 class="w-full flex items-center space-x-2.5 px-4 py-2.5 hover:bg-white/10 text-xs font-bold ${state.reposted ? 'text-emerald-400' : 'text-slate-200'} transition-colors cursor-pointer"
                 aria-label="${state.reposted ? t('actions.unrepost', undefined, 'Undo Repost') : t('actions.repost', undefined, 'Re-broadcast')}"
               >
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                ${renderIcon('repost', { size: 15 })}
                 <span>${state.reposted ? t('actions.unrepost', undefined, 'Undo Repost') : t('actions.repost', undefined, 'Re-broadcast')}</span>
               </button>
 
@@ -400,38 +397,34 @@ export class PulseActionsEngine {
                 class="w-full flex items-center space-x-2.5 px-4 py-2.5 hover:bg-white/10 text-xs font-bold text-slate-200 transition-colors cursor-pointer border-t border-white/5"
                 aria-label="${t('actions.quotePost', undefined, 'Quote Pulse')}"
               >
-                <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"></path></svg>
+                ${renderIcon('messageSquare', { size: 15, class: 'text-indigo-400' })}
                 <span>${t('actions.quotePost', undefined, 'Quote Pulse')}</span>
               </button>
             </div>
           ` : ''}
         </div>
 
-        <!-- 3. LIKE BUTTON WITH PARTICLE BURST -->
+        <!-- 3. SOVEREIGN MERIT INTERACTION (ASCENDANT PRISM) -->
         <button
           type="button"
           data-pulse-action="like"
           data-post-id="${postId}"
-          class="btn-pulse-like relative flex items-center space-x-1.5 group transition-colors cursor-pointer ${state.liked ? 'text-[#f91880]' : 'hover:text-[#f91880]'}"
-          title="${state.liked ? t('actions.unlike', undefined, 'Unlike pulse') : t('actions.like', undefined, 'Like pulse')}"
-          aria-label="${state.liked ? t('actions.unlike', undefined, 'Unlike pulse') : t('actions.like', undefined, 'Like pulse')}"
+          class="btn-pulse-like relative min-w-[44px] min-h-[44px] flex items-center justify-center space-x-1.5 group transition-colors cursor-pointer ${state.liked ? 'text-cyan-400 is-endorsed' : 'hover:text-cyan-400'}"
+          title="${state.liked ? 'Remove Sovereign Merit' : 'Grant Sovereign Merit'}"
+          aria-label="${state.liked ? 'Remove Sovereign Merit' : 'Grant Sovereign Merit'}"
         >
-          <div class="relative p-2 rounded-full group-hover:bg-[#f91880]/10 transition-colors">
-            <svg class="w-4 h-4 ${state.liked ? 'fill-[#f91880] animate-heart-pop scale-110' : ''} transition-transform duration-150" viewBox="0 0 24 24" fill="${state.liked ? '#f91880' : 'none'}" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
-            </svg>
+          <div class="relative p-2 rounded-full group-hover:bg-cyan-500/10 transition-colors">
+            ${renderMeritIcon(state.liked, { size: 18 })}
             <!-- PARTICLE BURST CONTAINER -->
             <div id="particle-burst-${postId}" class="absolute inset-0 pointer-events-none flex items-center justify-center overflow-visible"></div>
           </div>
-          <span class="text-xs ${state.liked ? 'text-[#f91880] font-bold' : ''}">${this.formatMetric(state.likesCount)}</span>
+          <span class="text-xs ${state.liked ? 'text-cyan-400 font-bold' : ''}">${this.formatMetric(state.likesCount)}</span>
         </button>
 
         <!-- 4. VIEWS / IMPRESSIONS COUNTER -->
-        <div class="flex items-center space-x-1.5 group hover:text-indigo-400 transition-colors cursor-default" title="Total Views & Ledger Impressions">
+        <div class="min-w-[44px] min-h-[44px] flex items-center justify-center space-x-1.5 group hover:text-indigo-400 transition-colors cursor-default" title="Total Views & Ledger Impressions">
           <div class="p-2 rounded-full group-hover:bg-indigo-500/10 transition-colors">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-            </svg>
+            ${renderIcon('activity', { size: 16, strokeWidth: 1.75 })}
           </div>
           <span class="text-xs">${this.formatMetric(state.viewsCount)}</span>
         </div>
@@ -442,26 +435,22 @@ export class PulseActionsEngine {
             type="button"
             data-pulse-action="bookmark"
             data-post-id="${postId}"
-            class="btn-pulse-bookmark p-2 rounded-full transition-colors cursor-pointer ${state.bookmarked ? 'text-amber-400' : 'hover:text-amber-400 hover:bg-amber-400/10'}"
+            class="btn-pulse-bookmark min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full transition-colors cursor-pointer ${state.bookmarked ? 'text-amber-400' : 'hover:text-amber-400 hover:bg-amber-400/10'}"
             title="${t('actions.bookmark', undefined, 'Bookmark')}"
             aria-label="${state.bookmarked ? t('actions.unbookmark', undefined, 'Remove bookmark') : t('actions.bookmark', undefined, 'Bookmark pulse')}"
           >
-            <svg class="w-4 h-4 ${state.bookmarked ? 'fill-amber-400' : ''}" fill="${state.bookmarked ? 'currentColor' : 'none'}" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path>
-            </svg>
+            ${renderIcon('bookmark', { size: 16, variant: state.bookmarked ? 'solid' : 'outline' })}
           </button>
 
           <button
             type="button"
             data-pulse-action="share"
             data-post-id="${postId}"
-            class="btn-pulse-share p-2 rounded-full hover:text-cyan-400 hover:bg-cyan-500/10 transition-colors cursor-pointer"
+            class="btn-pulse-share min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full hover:text-cyan-400 hover:bg-cyan-500/10 transition-colors cursor-pointer"
             title="${t('actions.share', undefined, 'Share sovereign permalink')}"
             aria-label="${t('actions.share', undefined, 'Share sovereign permalink')}"
           >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path>
-            </svg>
+            ${renderIcon('share', { size: 16, strokeWidth: 1.75 })}
           </button>
 
           <button
@@ -469,13 +458,11 @@ export class PulseActionsEngine {
             data-action="report-post"
             data-pulse-action="report"
             data-post-id="${postId}"
-            class="btn-pulse-report p-2 rounded-full hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
+            class="btn-pulse-report min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
             title="${t('actions.report', undefined, 'Report')} (${'DSA Notice & Takedown'})"
             aria-label="${t('actions.report', undefined, 'Report')} (${'DSA Notice & Takedown'})"
           >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"></path>
-            </svg>
+            ${renderIcon('flag', { size: 16, strokeWidth: 1.75 })}
           </button>
         </div>
 
@@ -491,8 +478,8 @@ export class PulseActionsEngine {
     const container = document.getElementById(`particle-burst-${postId}`);
     if (!container) return;
 
-    // 8 radial particle sparks
-    const colors = ['#f91880', '#e0245e', '#ff69b4', '#ffd700', '#a855f7', '#38bdf8'];
+    // 8 radial particle sparks in sovereign cyan/indigo/amber
+    const colors = ['#00E5FF', '#38BDF8', '#6366F1', '#F59E0B', '#22D3EE', '#818CF8'];
     const particles = Array.from({ length: 8 }).map((_, i) => {
       const angle = (i * 45) * (Math.PI / 180);
       const distance = 24 + Math.random() * 10;

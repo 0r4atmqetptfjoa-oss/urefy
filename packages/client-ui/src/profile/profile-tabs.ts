@@ -16,15 +16,13 @@ export interface ProfileTabItem {
 export const PROFILE_TABS: ProfileTabItem[] = [
   { id: 'pulses', label: 'Posts', iconName: 'feed' },
   { id: 'replies', label: 'Replies', iconName: 'messages' },
-  { id: 'highlights', label: 'Highlights', iconName: 'sparkles' },
   { id: 'media', label: 'Media', iconName: 'paperclip' },
   { id: 'likes', label: 'Likes', iconName: 'heart' },
-  { id: 'settings', label: 'Settings', iconName: 'settings' },
+  { id: 'communities', label: 'Communities', iconName: 'shield' },
 ];
 
 export function renderProfileTabsHTML(activeTab: ProfileTab, isOwnProfile: boolean): string {
-  // Show settings tab prominently if own profile
-  const tabsToShow = isOwnProfile ? PROFILE_TABS : PROFILE_TABS.filter(t => t.id !== 'settings');
+  const tabsToShow = PROFILE_TABS;
 
   return `
     <div class="flex items-center space-x-2 border-b border-white/10 pb-2 overflow-x-auto scrollbar-none">

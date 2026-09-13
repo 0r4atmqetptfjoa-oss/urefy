@@ -227,6 +227,32 @@ describe('Sovereign Wallet & Dual-Curve Cryptographic Bridge', () => {
       expect(bridge.recentSignatures.length).toBe(1);
       expect(bridge.recentSignatures[0].message).toBe('Sovereign Channel Message #99');
     });
+
+    it('should cryptographically verify valid and tampered dual-curve identity proofs', async () => {
+      await connectSigningProvider();
+      await bridge.signIdentityProof();
+
+      // Valid proof check
+      const validResult = bridge.verifyIdentityProof();
+      expect(validResult.valid).toBe(true);
+
+      // Tampered address check
+      const tamperedAddress = {
+        ...bridge.identity!,
+        ethAddress: '0x000000000000000000000000000000000000dead',
+      };
+      const badAddressResult = bridge.verifyIdentityProof(tamperedAddress);
+      expect(badAddressResult.valid).toBe(false);
+
+      // Tampered public key check
+      const tamperedKey = {
+        ...bridge.identity!,
+        aetherisKey: 'tampered-attacker-ed25519-pubkey',
+      };
+      const badKeyResult = bridge.verifyIdentityProof(tamperedKey);
+      expect(badKeyResult.valid).toBe(false);
+      expect(badKeyResult.error).toContain('does not bind the specified sovereign Ed25519 key');
+    });
   });
 
   // ─── 5. ENS NAME RESOLUTION & TOKEN GATING ──────────────────────────────────

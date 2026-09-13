@@ -212,6 +212,7 @@ export function invalidateActorKey(actorUrl: string): void {
   actorKeyCache.delete(actorUrl);
 }
 
+
 export function clearActorKeyCache(): void {
   actorKeyCache.clear();
 }
@@ -219,6 +220,39 @@ export function clearActorKeyCache(): void {
 export function clearTrustedActorKeys(): void {
   trustedActorKeyRegistry.clear();
   actorKeyCache.clear();
+}
+
+export const INBOX_IDEMPOTENCY_TTL_MS = 10 * 60 * 1000; // 10 minutes
+export const INBOX_IDEMPOTENCY_MAX_SIZE = 5000;
+export const inboxProcessedActivities = new Map<string, number>();
+
+export function checkAndRecordInboxActivity(activityId: string): boolean {
+  const now = Date.now();
+  if (inboxProcessedActivities.size >= INBOX_IDEMPOTENCY_MAX_SIZE) {
+    for (const [id, ts] of inboxProcessedActivities.entries()) {
+      if (now - ts > INBOX_IDEMPOTENCY_TTL_MS) {
+        inboxProcessedActivities.delete(id);
+      }
+    }
+    if (inboxProcessedActivities.size >= INBOX_IDEMPOTENCY_MAX_SIZE) {
+      const oldestKey = inboxProcessedActivities.keys().next().value;
+      if (oldestKey) inboxProcessedActivities.delete(oldestKey);
+    }
+  }
+
+  if (inboxProcessedActivities.has(activityId)) {
+    const ts = inboxProcessedActivities.get(activityId)!;
+    if (now - ts < INBOX_IDEMPOTENCY_TTL_MS) {
+      return false; // Already processed!
+    }
+  }
+
+  inboxProcessedActivities.set(activityId, now);
+  return true; // Newly recorded
+}
+
+export function clearInboxProcessedActivities(): void {
+  inboxProcessedActivities.clear();
 }
 
 /**
@@ -283,7 +317,8 @@ export async function fetchActorPublicKey(actorUrl: string, allowLocalDev: boole
       if (typeof data?.id !== 'string' || data.id !== actorUrl || data?.publicKey?.owner !== actorUrl) {
         return null;
       }
-      if (typeof data?.publicKey?.id === 'string' && !data.publicKey.id.startsWith(`${actorUrl}#`)) {
+      const rawKeyId = typeof data?.publicKey?.id === 'string' ? data.publicKey.id : '';
+      if (rawKeyId && !(rawKeyId === actorUrl || rawKeyId.startsWith(`${actorUrl}#`) || rawKeyId.startsWith(`${actorUrl}/`))) {
         return null;
       }
       const pubKey =
@@ -673,9 +708,23 @@ export async function handleInboxPost(request: Request, env?: Env): Promise<Resp
         reqUrl.pathname + reqUrl.search,
         request.headers,
         rawBody,
-        async (keyId: string) => fetchActorHttpVerificationKey(keyId.split('#')[0], !isProd)
+        async (keyId: string) => {
+          let actorUrl = keyId.split('#')[0];
+          let res = await fetchActorHttpVerificationKey(actorUrl, !isProd);
+          if (!res && actorUrl.includes('/')) {
+            const parentUrl = actorUrl.substring(0, actorUrl.lastIndexOf('/'));
+            res = await fetchActorHttpVerificationKey(parentUrl, !isProd);
+          }
+          return res;
+        }
       );
-      authenticatedByHttp = Boolean(httpSigResult.valid && httpSigResult.keyId?.split('#')[0] === envelope.actor);
+      const parsedKeyId = httpSigResult.keyId || '';
+      const keyMatchesActor = Boolean(
+        parsedKeyId === envelope.actor ||
+        parsedKeyId.startsWith(`${envelope.actor}#`) ||
+        parsedKeyId.startsWith(`${envelope.actor}/`)
+      );
+      authenticatedByHttp = Boolean(httpSigResult.valid && keyMatchesActor);
       if (!authenticatedByHttp) {
         return new Response(JSON.stringify({ success: false, error: `HTTP Signature verification failed: ${httpSigResult.error || 'actor/keyId mismatch'}` }), {
           status: 401, headers: { 'Content-Type': 'application/activity+json' },
@@ -699,6 +748,104 @@ export async function handleInboxPost(request: Request, env?: Env): Promise<Resp
       return new Response(JSON.stringify({ success: false, error: `Unsupported ActivityPub activity type: ${envelope.type}` }), {
         status: 422, headers: { 'Content-Type': 'application/activity+json' },
       });
+    }
+
+    // ─── IDEMPOTENT DELIVERY & CONCURRENCY REPLAY SHIELD ───────────────────────
+    const activityId = envelope.id || (typeof object === 'object' && object?.id ? `${envelope.type}:${object.id}` : null);
+    if (activityId) {
+      if (!checkAndRecordInboxActivity(activityId)) {
+        if (envelope.type === 'Create' || envelope.type === 'Update') {
+          const rawId = `${envelope.actor}:${object?.id || activityId}`;
+          const hash = (await sha256Hex(rawId)).substring(0, 16);
+          const postId = `fed-${hash}`;
+          return new Response(
+            JSON.stringify({
+              success: true,
+              ingested: true,
+              duplicate: true,
+              postId,
+              message: 'External federated pulse already ingested (idempotent)',
+              actor: envelope.actor,
+            }),
+            {
+              status: 201,
+              headers: {
+                'Content-Type': 'application/activity+json; charset=utf-8',
+                'Access-Control-Allow-Origin': '*',
+              },
+            }
+          );
+        }
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            duplicate: true,
+            status: 'already_processed',
+            activityId,
+            message: 'Activity already processed; duplicate delivery suppressed idempotently',
+          }),
+          {
+            status: 202,
+            headers: {
+              'Content-Type': 'application/activity+json; charset=utf-8',
+              'Access-Control-Allow-Origin': '*',
+            },
+          }
+        );
+      }
+
+      const db = getD1Database(env);
+      if (db) {
+        try {
+          await db.prepare(
+            `INSERT INTO activitypub_inbox (id, activity_type, actor, received_at) VALUES (?, ?, ?, ?)`
+          ).bind(activityId, envelope.type, envelope.actor || '', Date.now()).run();
+        } catch (dbErr: any) {
+          const errMsg = dbErr?.message || '';
+          if (errMsg.includes('UNIQUE') || errMsg.includes('PRIMARY KEY') || errMsg.includes('SQLITE_CONSTRAINT')) {
+            if (envelope.type === 'Create' || envelope.type === 'Update') {
+              const rawId = `${envelope.actor}:${object?.id || activityId}`;
+              const hash = (await sha256Hex(rawId)).substring(0, 16);
+              const postId = `fed-${hash}`;
+              return new Response(
+                JSON.stringify({
+                  success: true,
+                  ingested: true,
+                  duplicate: true,
+                  postId,
+                  message: 'External federated pulse already recorded in D1 (idempotent)',
+                  actor: envelope.actor,
+                }),
+                {
+                  status: 201,
+                  headers: {
+                    'Content-Type': 'application/activity+json; charset=utf-8',
+                    'Access-Control-Allow-Origin': '*',
+                  },
+                }
+              );
+            }
+
+            return new Response(
+              JSON.stringify({
+                success: true,
+                duplicate: true,
+                status: 'already_processed',
+                activityId,
+                message: 'Activity already recorded in D1 ledger; duplicate delivery suppressed',
+              }),
+              {
+                status: 202,
+                headers: {
+                  'Content-Type': 'application/activity+json; charset=utf-8',
+                  'Access-Control-Allow-Origin': '*',
+                },
+              }
+            );
+          }
+        }
+      }
     }
 
     // ─── STANDARD ACTIVITYPUB ACTIVITY ROUTING ─────────────────────────────────

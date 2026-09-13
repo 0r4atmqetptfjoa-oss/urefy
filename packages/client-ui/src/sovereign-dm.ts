@@ -10,7 +10,6 @@ import './window-augmentation.js';
 import { serviceRegistry, SERVICES } from './service-registry.js';
 import { sovereignWebPush } from './web-push.js';
 import { zkDeliveryManager, renderZKDeliveryBadge } from './delivery-proof.js';
-import { transparencyMode } from './transparency-mode.js';
 import { t } from './i18n.js';
 import {
   generateHybridKemKeyPair,
@@ -26,6 +25,8 @@ import { isLocalDev } from './admin-auth.js';
 import { secureStorage } from './secure-storage.js';
 import { DirectMessagingClient, type PrivateMessageTransport, type PrivateMessageDelivery } from './direct-messaging-client.js';
 import type { DirectMessageAttachment } from './client-state.js';
+import { socialSafety } from './social-safety.js';
+import { profileView } from './profile-view.js';
 
 export type { DirectMessageAttachment };
 
@@ -47,6 +48,7 @@ export interface DMConversation {
   messages: DirectMessage[];
   unreadCount: number;
   lastMessageAt: number;
+  isRequest?: boolean;
 }
 
 export interface TreeKEMState {
@@ -248,6 +250,50 @@ export class SovereignDMManager {
   public ephemeralExpirySec: number = 0; // 0 = disabled
   public pendingAttachment: DirectMessageAttachment | null = null;
   public isEmojiPickerOpen: boolean = false;
+  public activeDrawerTab: 'inbox' | 'requests' = 'inbox';
+  public acceptedRequests: Set<string> = new Set();
+
+  public isMessageRequest(peerFP: string): boolean {
+    return Boolean(this.conversations.get(peerFP)?.isRequest);
+  }
+
+  public getInboxConversations(): DMConversation[] {
+    return this.getAllConversations().filter(c => !c.isRequest);
+  }
+
+  public getRequestConversations(): DMConversation[] {
+    return this.getAllConversations().filter(c => Boolean(c.isRequest));
+  }
+
+  public acceptRequest(peerFP: string): void {
+    const conv = this.conversations.get(peerFP);
+    if (conv) {
+      conv.isRequest = false;
+    }
+    this.acceptedRequests.add(peerFP);
+    this._saveToStorage();
+    this.syncDOM();
+  }
+
+  public declineRequest(peerFP: string): void {
+    this.conversations.delete(peerFP);
+    if (this.activePeerFP === peerFP) {
+      this.activePeerFP = null;
+    }
+    this._saveToStorage();
+    this.syncDOM();
+  }
+
+  public blockAndReportRequest(peerFP: string): void {
+    socialSafety.blockUser(peerFP);
+    socialSafety.reportContent({
+      targetType: 'user',
+      targetId: peerFP,
+      reasonCategory: 'spam',
+      details: 'Blocked and reported from message requests inbox',
+    });
+    this.declineRequest(peerFP);
+  }
 
   public setPendingAttachment(att: DirectMessageAttachment | null): void {
     this.pendingAttachment = att;
@@ -403,7 +449,10 @@ export class SovereignDMManager {
     const peer = isMine ? delivery.recipient : delivery.sender;
     let conversation = this.conversations.get(peer);
     if (!conversation) {
-      conversation = { peerFingerprint: peer, peerRole: 'MEMBER', messages: [], unreadCount: 0, lastMessageAt: 0 };
+      const isFollowed = profileView?.isFollowing ? profileView.isFollowing(peer) : false;
+      const isAccepted = this.acceptedRequests.has(peer);
+      const isRequest = !isMine && !isFollowed && !isAccepted;
+      conversation = { peerFingerprint: peer, peerRole: 'MEMBER', messages: [], unreadCount: 0, lastMessageAt: 0, isRequest };
       this.conversations.set(peer, conversation);
     }
     if (conversation.messages.some(message => message.id === delivery.id)) return;
@@ -533,6 +582,7 @@ export class SovereignDMManager {
         messages: [],
         unreadCount: 0,
         lastMessageAt: Date.now(),
+        isRequest: false,
       });
     }
 
@@ -765,6 +815,11 @@ export class SovereignDMManager {
     try {
       const delivery = await this.transport.send(peer, { text: finalPlaintext, ...(attachment ? { attachment } : {}) });
       this.ingestDelivery(delivery);
+      const conv = this.conversations.get(peer);
+      if (conv && conv.isRequest) {
+        conv.isRequest = false;
+        this.acceptedRequests.add(peer);
+      }
       this._saveToStorage();
       await this.persistence;
       this.syncError = null;
@@ -785,12 +840,16 @@ export class SovereignDMManager {
     if (!isLocalDev()) throw new Error('Incoming messages must arrive through the authenticated encrypted transport');
     let conv = this.conversations.get(senderFP);
     if (!conv) {
+      const isFollowed = profileView?.isFollowing ? profileView.isFollowing(senderFP) : false;
+      const isAccepted = this.acceptedRequests.has(senderFP);
+      const isRequest = !isFollowed && !isAccepted;
       conv = {
         peerFingerprint: senderFP,
         peerRole: 'MEMBER',
         messages: [],
         unreadCount: 0,
         lastMessageAt: Date.now(),
+        isRequest,
       };
       this.conversations.set(senderFP, conv);
     }
@@ -823,7 +882,7 @@ export class SovereignDMManager {
     } else {
       try {
         zkDeliveryManager.emitDeliveryProof(message.id);
-        transparencyMode.recordMessageJourney(message.id, plaintext, senderFP, myFP, 'inbound');
+        (window as any).transparencyMode?.recordMessageJourney(message.id, plaintext, senderFP, myFP, 'inbound');
       } catch (_) {}
     }
 
@@ -850,7 +909,10 @@ export class SovereignDMManager {
       'Acknowledged. Epoch ratcheted to next generation key successfully.',
       'Web of Trust trust vector recomputed: score is optimal.'
     ];
-    const text = customText || defaultReplies[Math.floor(Math.random() * defaultReplies.length)];
+    const randByte = (typeof crypto !== 'undefined' && crypto.getRandomValues)
+      ? crypto.getRandomValues(new Uint8Array(1))[0]
+      : 0;
+    const text = customText || defaultReplies[randByte % defaultReplies.length];
     return this.receiveMessage(peerFP, text, myFP);
   }
 
@@ -909,7 +971,7 @@ export class SovereignDMManager {
         hasChanges = true;
         try {
           zkDeliveryManager.emitDeliveryProof(msg.id);
-          transparencyMode.recordMessageJourney(msg.id, msg.plaintext, msg.senderFP, peerFP, 'inbound');
+          (window as any).transparencyMode?.recordMessageJourney(msg.id, msg.plaintext, msg.senderFP, peerFP, 'inbound');
         } catch (_) {}
       }
     }
@@ -1290,6 +1352,45 @@ export class SovereignDMManager {
         <!-- EMOJI QUICK PICKER BAR -->
         ${this.renderEmojiPickerBar()}
 
+        <!-- MESSAGE REQUEST ACTION BANNER -->
+        ${conv.isRequest ? `
+          <div class="m-3 p-3 bg-surface-raised border border-amber-500/30 rounded-xl space-y-2 text-xs font-mono">
+            <div class="text-amber-300 font-bold flex items-center gap-1.5">
+              <span>⚠️</span>
+              <span>Message Request from @id:${escapeHtml(activeFP.slice(0, 8))}</span>
+            </div>
+            <div class="text-slate-400 text-[11px] font-sans leading-relaxed">
+              This peer is not in your contacts or mutual follows. Accept to reply, or decline / block safely without notifying them.
+            </div>
+            <div class="flex items-center gap-2 pt-1 flex-wrap">
+              <button 
+                type="button" 
+                data-action-request="accept" 
+                data-peer="${escapeHtml(activeFP)}" 
+                class="btn-dm-accept px-3 py-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg cursor-pointer transition-colors shadow-sm text-xs"
+              >
+                ✓ Accept
+              </button>
+              <button 
+                type="button" 
+                data-action-request="decline" 
+                data-peer="${escapeHtml(activeFP)}" 
+                class="btn-dm-decline px-3 py-1 bg-surface-overlay hover:bg-surface-base text-slate-300 rounded-lg cursor-pointer transition-colors text-xs border border-white/5"
+              >
+                ✕ Decline
+              </button>
+              <button 
+                type="button" 
+                data-action-request="block-report" 
+                data-peer="${escapeHtml(activeFP)}" 
+                class="btn-dm-block-report px-3 py-1 bg-rose-950/40 hover:bg-rose-900/60 text-rose-400 border border-rose-500/30 rounded-lg cursor-pointer transition-colors text-xs"
+              >
+                🚫 Block & Report
+              </button>
+            </div>
+          </div>
+        ` : ''}
+
         <!-- DRAFTING / COMPOSER INPUT BAR -->
         <div class="p-3 bg-surface-raised border-t border-white/5 shrink-0">
           <form
@@ -1501,23 +1602,43 @@ export class SovereignDMManager {
    * Render slide-down conversation switcher drawer inside modal.
    */
   public renderConversationListDrawer(): string {
-    const conversations = this.getAllConversations();
+    const inbox = this.getInboxConversations();
+    const requests = this.getRequestConversations();
+    const currentList = this.activeDrawerTab === 'inbox' ? inbox : requests;
+
     return `
       <div class="absolute inset-x-0 top-16 bottom-0 z-40 bg-surface-base/98 backdrop-blur-md p-4 flex flex-col overflow-y-auto animate-in slide-in-from-top-2 duration-150 border-b border-white/10">
-        <div class="flex items-center justify-between mb-3">
-          <span class="text-xs font-bold uppercase tracking-wider text-slate-300 font-mono">
-            Sovereign Peer Channels (${conversations.length})
-          </span>
+        <div class="flex items-center justify-between mb-3 gap-2">
+          <div class="flex items-center space-x-1.5">
+            <button
+              type="button"
+              data-dm-tab="inbox"
+              class="px-2.5 py-1 rounded-lg text-xs font-mono font-bold cursor-pointer transition-colors ${this.activeDrawerTab === 'inbox' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-slate-200 bg-surface-raised'}"
+            >
+              Inbox (${inbox.length})
+            </button>
+            <button
+              type="button"
+              data-dm-tab="requests"
+              class="px-2.5 py-1 rounded-lg text-xs font-mono font-bold cursor-pointer transition-colors ${this.activeDrawerTab === 'requests' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-slate-200 bg-surface-raised'}"
+            >
+              Requests (${requests.length})
+            </button>
+          </div>
           <button
             type="button" data-action="call-global" data-raw-click="window.__aetherisDM && window.__aetherisDM.toggleConversationsDrawer()"
-            class="text-xs text-slate-400 hover:text-slate-200"
+            class="text-xs text-slate-400 hover:text-slate-200 cursor-pointer"
           >
             ✕ Close
           </button>
         </div>
 
         <div class="flex flex-col gap-2">
-          ${conversations.map((conv) => this.renderConversationListItem(conv)).join('')}
+          ${currentList.length === 0 ? `
+            <div class="py-10 text-center text-xs text-slate-500 font-mono">
+              ${this.activeDrawerTab === 'inbox' ? 'No conversations yet' : 'No message requests'}
+            </div>
+          ` : currentList.map((conv) => this.renderConversationListItem(conv)).join('')}
         </div>
       </div>
     `;
@@ -1553,6 +1674,11 @@ export class SovereignDMManager {
               <span class="text-[9px] px-1 rounded bg-surface-base text-slate-400 font-mono">
                 ${escapeHtml(conv.peerRole)}
               </span>
+              ${conv.isRequest ? `
+                <span class="text-[8px] px-1 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 font-mono font-bold">
+                  REQUEST
+                </span>
+              ` : ''}
             </div>
             <span class="text-[11px] text-slate-400 truncate mt-0.5">
               ${escapeHtml(snippet)}
@@ -1834,21 +1960,50 @@ export class SovereignDMManager {
     if (typeof document === 'undefined' || this.isInitialized) return;
     this.isInitialized = true;
 
-    // Global click listener for DM triggers
+    // Global click listener for DM triggers and requests
     document.addEventListener('click', (e: MouseEvent) => {
       const target = (e.target as HTMLElement)?.closest('[data-sovereign-dm-trigger]') as HTMLElement | null;
-      if (!target) return;
-
-      const peerFP = target.getAttribute('data-sovereign-dm-trigger');
-      const peerRole = target.getAttribute('data-peer-role') || 'MEMBER';
-      if (peerFP) {
-        this.openDM(peerFP, peerRole);
-        if (this.inlineMode) {
-          void import('./messages-view.js').then(({ setActiveMessagesTab }) => {
-            setActiveMessagesTab('dm');
-            return import('./router.js');
-          }).then(({ sovereignRouter }) => sovereignRouter.navigateTo('messages'));
+      if (target) {
+        const peerFP = target.getAttribute('data-sovereign-dm-trigger');
+        const peerRole = target.getAttribute('data-peer-role') || 'MEMBER';
+        if (peerFP) {
+          this.openDM(peerFP, peerRole);
+          if (this.inlineMode) {
+            void import('./messages-view.js').then(({ setActiveMessagesTab }) => {
+              setActiveMessagesTab('dm');
+              return import('./router.js');
+            }).then(({ sovereignRouter }) => sovereignRouter.navigateTo('messages'));
+          }
         }
+        return;
+      }
+
+      // DM drawer tab switcher (Inbox vs Requests)
+      const dmTabBtn = (e.target as HTMLElement)?.closest('[data-dm-tab]') as HTMLElement | null;
+      if (dmTabBtn) {
+        e.preventDefault();
+        const tab = dmTabBtn.getAttribute('data-dm-tab') as 'inbox' | 'requests';
+        if (tab) {
+          this.activeDrawerTab = tab;
+          this.syncDOM();
+        }
+        return;
+      }
+
+      // DM request actions (Accept, Decline, Block & Report)
+      const reqActionBtn = (e.target as HTMLElement)?.closest('[data-action-request]') as HTMLElement | null;
+      if (reqActionBtn) {
+        e.preventDefault();
+        const action = reqActionBtn.getAttribute('data-action-request');
+        const peer = reqActionBtn.getAttribute('data-peer');
+        if (peer && action === 'accept') {
+          this.acceptRequest(peer);
+        } else if (peer && action === 'decline') {
+          this.declineRequest(peer);
+        } else if (peer && action === 'block-report') {
+          this.blockAndReportRequest(peer);
+        }
+        return;
       }
     });
 

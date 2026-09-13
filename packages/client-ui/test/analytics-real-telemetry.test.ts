@@ -1,4 +1,4 @@
-﻿import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { onRequestGet, onRequestPost } from '../functions/api/analytics.js';
 
 describe('Analytics Real Telemetry & Synthetic Defaults Removal (Findings 16 & 17)', () => {
@@ -14,7 +14,7 @@ describe('Analytics Real Telemetry & Synthetic Defaults Removal (Findings 16 & 1
 
   describe('1. Removal of Fabricated Bucharest/OTP Cloudflare Defaults', () => {
     it('returns null for all edge fields when cf object is empty (does NOT fabricate OTP/Bucharest/13335)', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/analytics');
+      const req = new Request('https://urefy.com/api/analytics');
       // No cf object on request
       const res = await onRequestGet({
         request: req,
@@ -44,7 +44,7 @@ describe('Analytics Real Telemetry & Synthetic Defaults Removal (Findings 16 & 1
     });
 
     it('preserves genuine Cloudflare cf properties when present', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/analytics');
+      const req = new Request('https://urefy.com/api/analytics');
       (req as any).cf = {
         colo: 'FRA',
         country: 'DE',
@@ -75,7 +75,7 @@ describe('Analytics Real Telemetry & Synthetic Defaults Removal (Findings 16 & 1
     it('does NOT return fake 99.98% uptime in production or development without durable monitoring', async () => {
       // In production
       const prodRes = await onRequestGet({
-        request: new Request('https://aetheris.pages.dev/api/analytics'),
+        request: new Request('https://urefy.com/api/analytics'),
         env: { ENVIRONMENT: 'production', DB: emptyDb } as any,
       });
       const prodData = await prodRes.json();
@@ -84,7 +84,7 @@ describe('Analytics Real Telemetry & Synthetic Defaults Removal (Findings 16 & 1
 
       // In development
       const devRes = await onRequestGet({
-        request: new Request('https://aetheris.pages.dev/api/analytics'),
+        request: new Request('https://urefy.com/api/analytics'),
         env: { ENVIRONMENT: 'development' } as any,
       });
       const devData = await devRes.json();
@@ -94,7 +94,7 @@ describe('Analytics Real Telemetry & Synthetic Defaults Removal (Findings 16 & 1
 
     it('does not present isolate runtime EDGE_START_TIME as measured service uptime', async () => {
       const res = await onRequestGet({
-        request: new Request('https://aetheris.pages.dev/api/analytics'),
+        request: new Request('https://urefy.com/api/analytics'),
         env: { ENVIRONMENT: 'production', DB: emptyDb } as any,
       });
       const data = await res.json();
@@ -109,7 +109,7 @@ describe('Analytics Real Telemetry & Synthetic Defaults Removal (Findings 16 & 1
     it('uses dynamic current minute epoch instead of hardcoded 412', async () => {
       const beforeMinute = Math.floor((Date.now() - 1000) / 60000);
       const res = await onRequestGet({
-        request: new Request('https://aetheris.pages.dev/api/analytics'),
+        request: new Request('https://urefy.com/api/analytics'),
         env: { ENVIRONMENT: 'production', DB: emptyDb } as any,
       });
       const data = await res.json();
@@ -152,7 +152,7 @@ describe('Analytics Real Telemetry & Synthetic Defaults Removal (Findings 16 & 1
       };
 
       const res = await onRequestGet({
-        request: new Request('https://aetheris.pages.dev/api/analytics'),
+        request: new Request('https://urefy.com/api/analytics'),
         env: { ENVIRONMENT: 'production', DB: unmeasuredDb } as any,
       });
       const data = await res.json();
@@ -189,7 +189,7 @@ describe('Analytics Real Telemetry & Synthetic Defaults Removal (Findings 16 & 1
         }),
       };
 
-      const req = new Request('https://aetheris.pages.dev/api/analytics', {
+      const req = new Request('https://urefy.com/api/analytics', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

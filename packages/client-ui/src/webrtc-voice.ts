@@ -5,6 +5,7 @@ export class VoiceVisualizer {
   private ctx: CanvasRenderingContext2D | null = null;
   private analyser: AnalyserNode | null = null;
   private audioCtx: AudioContext | null = null;
+  private mediaStream: MediaStream | null = null;
   private animId: number | null = null;
   public isConnected: boolean = false;
   public isGhostSpaceActive: boolean = false;
@@ -23,6 +24,7 @@ export class VoiceVisualizer {
       this.audioCtx = createSafeAudioContext();
       if (!this.audioCtx) throw new Error('AudioContext unavailable');
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      this.mediaStream = stream;
       const source = this.audioCtx.createMediaStreamSource(stream);
 
       this.analyser = this.audioCtx.createAnalyser();
@@ -111,7 +113,13 @@ export class VoiceVisualizer {
   }
 
   public zeroizeRam(): void {
-    // Overwrite ephemeral memory buffers with zeros
+    // Overwrite ephemeral memory buffers with zeros and release hardware tracks
+    if (this.mediaStream) {
+      try {
+        this.mediaStream.getTracks().forEach((track) => track.stop());
+      } catch (_) {}
+      this.mediaStream = null;
+    }
     if (this.audioCtx) {
       this.audioCtx.close();
       this.audioCtx = null;

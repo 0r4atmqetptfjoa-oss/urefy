@@ -65,7 +65,26 @@ import { feedControlsEngine } from './feed-controls.js';
 import { zkReputation } from './zk-reputation.js';
 import { sovereignCircleEngine } from './sovereign-circle.js';
 import { sovereignWebPush } from './web-push.js';
-import { transparencyMode } from './transparency-mode.js';
+
+function renderTransparencyHeaderToggle(): string {
+  const isEnabled = Boolean(typeof window !== 'undefined' && (window as any).transparencyMode?.isEnabled);
+  return `
+    <button
+      type="button"
+      id="btn-toggle-transparency-mode" data-action="call-global" data-raw-click="if(window.__aetherisTransparency) { window.__aetherisTransparency.toggle(); if(window.clientStore) window.clientStore.notify(); } else { import('./transparency-mode.js').then(m => { m.transparencyMode.toggle(); if(window.clientStore) window.clientStore.notify(); }); }"
+      class="flex items-center space-x-1.5 px-2.5 py-1.5 text-xs rounded-xl border transition-all shadow-sm cursor-pointer ${
+        isEnabled
+          ? 'border-sky-500/40 bg-sky-500/15 text-sky-300 hover:bg-sky-500/25'
+          : 'border-white/5 bg-surface-raised/80 hover:bg-surface-overlay text-slate-300'
+      }"
+      title="Unified Transparency Mode — Live Cryptographic Pipeline Inspector (Ctrl+Shift+T)"
+    >
+      <span class="text-xs">👁️</span>
+      <span class="hidden xl:inline font-sans font-medium">Transparency</span>
+      <span class="w-1.5 h-1.5 rounded-full ${isEnabled ? 'bg-sky-400 animate-ping' : 'bg-slate-500'}"></span>
+    </button>
+  `;
+}
 import { renderRelaysWorkspace, renderMessageItem } from './messages-view.js';
 import { renderVaultWorkspace, renderVaultReleaseCard } from './vault-view.js';
 import { renderPulseWorkspace, renderPulsePostCard, renderInlineQuickComposer, renderPostCard } from './feed-view.js';
@@ -76,6 +95,8 @@ import { captureMessageSelection, restoreMessageSelection, getMessageDraft } fro
 import { contextualSidebar } from './sidebar.js';
 import { modalManager, buildModalRootHTML as orchestrateModalRootHTML } from './modal-manager.js';
 import { settingsView } from './settings-view.js';
+import { communityView } from './community-view.js';
+import { rapidOnboarding } from './rapid-onboarding.js';
 import { actionDispatcher } from './ui/action-dispatcher.js';
 import { renderHeaderPrimaryNav, renderHeaderTools, renderBroadcastBanner as renderHeaderBroadcastBanner } from './header.js';
 
@@ -169,13 +190,14 @@ if (typeof window !== 'undefined') {
   window.__aetheris_close_edit_profile = () => { profileView.isEditProfileModalOpen = false; clientStore.notifySync(); };
   window.__aetheris_save_profile = () => {
     const name = (document.getElementById('edit-profile-name') as HTMLInputElement)?.value.trim() || 'Sovereign Node';
+    const handle = (document.getElementById('edit-profile-handle') as HTMLInputElement)?.value.replace(/^@/, '').trim() || profileView.getProfile(clientStore.keypair.fingerprint).handle;
     const bio = (document.getElementById('edit-profile-bio') as HTMLTextAreaElement)?.value.trim() || '';
     const location = (document.getElementById('edit-profile-location') as HTMLInputElement)?.value.trim() || 'Cyberspace';
     const website = (document.getElementById('edit-profile-website') as HTMLInputElement)?.value.trim() || 'urefy.com';
     const avatar = (document.getElementById('edit-profile-avatar') as HTMLInputElement)?.value.trim() || profileView.getProfile(clientStore.keypair.fingerprint).avatar;
     const banner = (document.getElementById('edit-profile-banner') as HTMLInputElement)?.value.trim() || profileView.getProfile(clientStore.keypair.fingerprint).banner;
 
-    profileView.saveProfile(clientStore.keypair.fingerprint, { name, bio, location, website, avatar, banner });
+    profileView.saveProfile(clientStore.keypair.fingerprint, { name, handle, bio, location, website, avatar, banner });
     profileView.isEditProfileModalOpen = false;
     clientStore.showToast(t('toast.profileUpdated', undefined, '👤 Sovereign Profile & Photo Updated!'), 'success');
     clientStore.notifySync();
@@ -225,6 +247,8 @@ if (typeof window !== 'undefined') {
   window.__aetheris_close_binary_hygiene = () => { modalManager.closeFeature(); };
   window.__aetheris_open_microsaas_docs = () => { modalManager.openFeature('microsaas-docs'); };
   window.__aetheris_close_microsaas_docs = () => { modalManager.closeFeature(); };
+  (window as any).__aetheris_open_rapid_onboarding = (intent?: any) => { rapidOnboarding.openModal(intent); };
+  (window as any).__aetheris_close_rapid_onboarding = () => { rapidOnboarding.closeModal(); };
   window.__aetheris_open_legal = (tab = 'terms') => { modalManager.openFeature('legal', tab); clientStore.notifySync(); };
   window.__aetheris_close_legal = () => { modalManager.closeFeature(); };
   window.__aetheris_set_legal_tab = (tab) => { modalManager.openFeature('legal', tab); clientStore.notifySync(); };
@@ -263,9 +287,18 @@ if (typeof window !== 'undefined') {
   window.keyboardNavigator = keyboardNavigator;
   window.pwaService = pwaService;
   window.markdownRenderer = markdownRenderer;
-  // diagramRenderer is loaded on-demand
-  window.transparencyMode = transparencyMode;
-  window.__aetherisTransparency = transparencyMode;
+  // diagramRenderer and transparencyMode are loaded on-demand
+  window.__aetheris_open_transparency = () => {
+    if (window.transparencyMode) {
+      window.transparencyMode.open();
+    } else {
+      import('./transparency-mode.js').then((m) => {
+        window.transparencyMode = m.transparencyMode;
+        window.__aetherisTransparency = m.transparencyMode;
+        m.transparencyMode.open();
+      });
+    }
+  };
   window.sovereignCircleEngine = sovereignCircleEngine;
   window.relaysManager = relaysManager;
                 window.postDetailView = postDetailView;
@@ -274,7 +307,6 @@ if (typeof window !== 'undefined') {
   
 }
 
-let activeAwardPostId: string | null = null;
 let activeCrossPostId: string | null = null;
 let isNotificationPanelOpen = false;
 let isBookmarkModalOpen = false;
@@ -522,7 +554,7 @@ export function initApp(): void {
 
         <!-- TRANSPARENCY MODE -->
         <div class="col-span-1 sm:col-span-2">
-          ${transparencyMode.renderHeaderToggle()}
+          ${renderTransparencyHeaderToggle()}
         </div>
 
         <!-- KEYBOARD SHORTCUTS -->
@@ -567,7 +599,7 @@ export function initApp(): void {
         <span class="text-slate-300 font-sans text-[11px]">Anycast Edge</span>
       </button>
 
-      ${transparencyMode.renderHeaderToggle()}
+      ${renderTransparencyHeaderToggle()}
 
       <button type="button" id="btn-open-lang-picker" class="hidden sm:flex px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-raised/80 hover:bg-surface-overlay text-slate-300 font-mono items-center space-x-1.5 transition-all shadow-sm cursor-pointer" title="Switch Language & RTL Mode (${i18n.getCurrentLanguageMeta().name})">
         <span>${i18n.getCurrentLanguageMeta().flag}</span>
@@ -628,6 +660,7 @@ export function initApp(): void {
     let activeMode = 'pulse';
     if (currentChannel.startsWith('pulse-')) activeMode = 'pulse';
     else if (currentChannel === 'explore') activeMode = 'explore';
+    else if (currentChannel === 'communities' || currentChannel.startsWith('c/')) activeMode = 'communities';
     else if (currentChannel.startsWith('profile')) activeMode = 'profile';
     else if (currentChannel.startsWith('vault-')) activeMode = 'vault';
     else if (currentChannel.startsWith('relays-') || currentChannel.startsWith('relay-') || currentChannel.startsWith('dm-')) activeMode = 'relays';
@@ -758,22 +791,10 @@ export function initApp(): void {
             <button type="button" id="btn-toggle-mobile-drawer" data-action="toggle-mobile-drawer" class="lg:hidden min-w-[44px] min-h-[44px] flex items-center justify-center p-2.5 rounded-xl bg-surface-raised border border-white/5 text-slate-300 hover:text-white cursor-pointer" title="Deschide meniu navigare" aria-label="Toggle Navigation Menu">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
             </button>
-            <div class="flex items-center space-x-3 cursor-pointer group" data-action="join-channel" data-channel="pulse-global">
-              <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 via-indigo-600 to-slate-800 flex items-center justify-center font-bold text-sm text-white tracking-widest shadow-md group-hover:scale-105 transition-transform">
-                U
-              </div>
-              <div class="flex flex-col">
-                <div class="flex items-center space-x-2">
-                  <span class="font-bold tracking-wider text-sm text-white font-sans">
-                    UREfy
-                  </span>
-                  <span class="text-[9px] uppercase font-mono px-1.5 py-0.5 rounded-full bg-indigo-950/80 text-indigo-300 border border-indigo-500/30 font-semibold">
-                    U.R.E.
-                  </span>
-                </div>
-                <span class="text-[10px] text-slate-400 font-mono -mt-0.5">Unified Relay Enclave</span>
-              </div>
-            </div>
+            <button type="button" class="urefy-brand" data-action="join-channel" data-channel="pulse-global" aria-label="UREfy home">
+              <span class="urefy-brand__mark"><img src="/logo-mark.svg" alt="" /></span>
+              <span class="urefy-brand__word">URE<span>fy</span></span>
+            </button>
 
             <!-- PRIMARY WORKSPACE NAVIGATION DOCK (visible on wide screens) -->
             <nav id="header-primary-nav" class="hidden xl:flex items-center space-x-1 bg-surface-raised/80 p-1 rounded-2xl border border-white/5 text-xs shadow-inner" aria-label="Desktop primary navigation">
@@ -786,7 +807,7 @@ export function initApp(): void {
             <button type="button" id="btn-open-command-rail" class="w-full flex items-center justify-between px-3.5 py-1.5 bg-surface-raised/80 hover:bg-surface-overlay text-slate-400 hover:text-slate-200 text-xs rounded-xl border border-white/5 transition-all shadow-sm hover:border-indigo-500/30 group cursor-pointer overflow-hidden">
               <div class="flex items-center space-x-2.5 min-w-0">
                 <svg class="w-4 h-4 shrink-0 text-indigo-400 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                <span class="text-slate-300 font-medium truncate whitespace-nowrap">Search ledger, circles, or commands...</span>
+                <span class="text-slate-300 font-medium truncate whitespace-nowrap">Search UREfy</span>
               </div>
               <span class="kbd-badge shrink-0 ml-2">Ctrl+K</span>
             </button>
@@ -811,9 +832,10 @@ export function initApp(): void {
                 <button type="button" id="btn-wallet-connect" data-action="open-feature" data-feature="wallet" class="px-2.5 py-1 text-xs rounded-xl bg-surface-raised border border-white/5 hover:bg-surface-overlay text-slate-300 font-mono cursor-pointer transition-all">🔗 Wallet</button>
               </div>
 
-              <button type="button" id="btn-identity-info" class="flex items-center space-x-1.5 sm:space-x-2 px-2 sm:px-2.5 py-1.5 rounded-xl bg-surface-raised/80 hover:bg-surface-overlay border border-white/5 transition-all cursor-pointer group" title="Sovereign Identity Passport & ZK Reputation">
-                <div class="w-2 h-2 rounded-full ${clientStore.isConnected ? 'bg-emerald-400' : 'bg-rose-500'}"></div>
-                <span class="font-mono text-xs text-slate-200 group-hover:text-indigo-300 truncate max-w-[70px] sm:max-w-none">id:${clientStore.keypair.fingerprint.substring(0, 6)}...</span>
+              <button type="button" id="btn-identity-info" data-action="nav-mode" data-mode="profile" class="header-profile-button" title="Open your profile" aria-label="Open your profile">
+                <span class="header-profile-button__avatar">${(profileView.getProfile(clientStore.keypair.fingerprint)?.handle || clientStore.keypair.fingerprint).substring(0, 2).toUpperCase()}</span>
+                <span class="hidden xl:inline">Profile</span>
+                <span class="presence-dot ${clientStore.isConnected ? 'is-online' : 'is-offline'}" aria-hidden="true"></span>
               </button>
             </div>
 
@@ -829,47 +851,47 @@ export function initApp(): void {
               
               <!-- PRIMARY NAVIGATION DOCK (LEVEL 1: 6 ITEMS) -->
               <div class="space-y-1" aria-label="Primary navigation">
-                <button type="button" data-nav-mode="pulse" data-testid="nav-item-feed" class="btn-nav-mode w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center space-x-3 cursor-pointer ${clientStore.activeChannelId.startsWith('pulse-') ? 'is-active nav-item-active shadow-sm' : 'text-slate-300 hover:text-white hover:bg-surface-raised'}" title="Feed & sovereign pulse stream">
+                <button type="button" data-nav-mode="pulse" data-testid="nav-item-feed" class="btn-nav-mode w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center space-x-3 cursor-pointer ${clientStore.activeChannelId.startsWith('pulse-') ? 'is-active nav-item-active shadow-sm' : 'text-slate-300 hover:text-white hover:bg-surface-raised'}" title="Home">
                   <span class="shrink-0 ${clientStore.activeChannelId.startsWith('pulse-') ? 'text-cyan-400' : 'text-slate-400'}">${renderIcon('feed', { size: 18 })}</span>
                   <div class="flex flex-col text-left flex-1 min-w-0">
-                    <span class="font-bold leading-tight">Feed</span>
-                    <span class="text-[10px] text-slate-400 font-normal">Decentralized stream & news</span>
+                    <span class="font-bold leading-tight">Home</span>
+                    <span class="text-[10px] text-slate-400 font-normal">Your feed</span>
                   </div>
                   ${clientStore.activeChannelId.startsWith('pulse-') ? '<span class="w-2 h-2 rounded-full nav-indicator-active shrink-0"></span>' : ''}
                 </button>
 
-                <button type="button" data-nav-mode="explore" data-testid="nav-item-explore" class="btn-nav-mode w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center space-x-3 cursor-pointer ${clientStore.activeChannelId === 'explore' ? 'is-active nav-item-active shadow-sm' : 'text-slate-300 hover:text-white hover:bg-surface-raised'}" title="Explore network and trending nodes">
+                <button type="button" data-nav-mode="explore" data-testid="nav-item-explore" class="btn-nav-mode w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center space-x-3 cursor-pointer ${clientStore.activeChannelId === 'explore' ? 'is-active nav-item-active shadow-sm' : 'text-slate-300 hover:text-white hover:bg-surface-raised'}" title="Explore">
                   <span class="shrink-0 ${clientStore.activeChannelId === 'explore' ? 'text-indigo-400' : 'text-slate-400'}">${renderIcon('explore', { size: 18 })}</span>
                   <div class="flex flex-col text-left flex-1 min-w-0">
                     <span class="font-bold leading-tight">Explore</span>
-                    <span class="text-[10px] text-slate-400 font-normal">Trends & nodes</span>
+                    <span class="text-[10px] text-slate-400 font-normal">Discover what's new</span>
                   </div>
                   ${clientStore.activeChannelId === 'explore' ? '<span class="w-2 h-2 rounded-full nav-indicator-active shrink-0"></span>' : ''}
                 </button>
 
-                <button type="button" data-nav-mode="relays" data-testid="nav-item-messages" class="btn-nav-mode w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center space-x-3 cursor-pointer ${clientStore.activeChannelId.startsWith('relays-') || clientStore.activeChannelId.startsWith('relay-') || clientStore.activeChannelId.startsWith('dm-') ? 'is-active nav-item-active shadow-sm' : 'text-slate-300 hover:text-white hover:bg-surface-raised'}" title="Communication servers and E2EE chat">
+                <button type="button" data-nav-mode="relays" data-testid="nav-item-messages" class="btn-nav-mode w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center space-x-3 cursor-pointer ${clientStore.activeChannelId.startsWith('relays-') || clientStore.activeChannelId.startsWith('relay-') || clientStore.activeChannelId.startsWith('dm-') ? 'is-active nav-item-active shadow-sm' : 'text-slate-300 hover:text-white hover:bg-surface-raised'}" title="Messages">
                   <span class="shrink-0 ${clientStore.activeChannelId.startsWith('relays-') || clientStore.activeChannelId.startsWith('relay-') || clientStore.activeChannelId.startsWith('dm-') ? 'text-emerald-400' : 'text-slate-400'}">${renderIcon('messages', { size: 18 })}</span>
                   <div class="flex flex-col text-left flex-1 min-w-0">
                     <span class="font-bold leading-tight">Messages</span>
-                    <span class="text-[10px] text-slate-400 font-normal">Channels & E2EE chat</span>
+                    <span class="text-[10px] text-slate-400 font-normal">Private & community chat</span>
                   </div>
                   ${clientStore.activeChannelId.startsWith('relays-') || clientStore.activeChannelId.startsWith('relay-') || clientStore.activeChannelId.startsWith('dm-') ? '<span class="w-2 h-2 rounded-full nav-indicator-active shrink-0"></span>' : ''}
                 </button>
 
-                <button type="button" data-nav-mode="vault" data-testid="nav-item-vault" class="btn-nav-mode w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center space-x-3 cursor-pointer ${clientStore.activeChannelId.startsWith('vault-') ? 'is-active nav-item-active shadow-sm' : 'text-slate-300 hover:text-white hover:bg-surface-raised'}" title="Encrypted files vault & audited releases">
-                  <span class="shrink-0 ${clientStore.activeChannelId.startsWith('vault-') ? 'text-amber-400' : 'text-slate-400'}">${renderIcon('vault', { size: 18 })}</span>
+                <button type="button" data-nav-mode="communities" data-testid="nav-item-communities" class="btn-nav-mode w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center space-x-3 cursor-pointer ${clientStore.activeChannelId === 'communities' || clientStore.activeChannelId.startsWith('c/') ? 'is-active nav-item-active shadow-sm' : 'text-slate-300 hover:text-white hover:bg-surface-raised'}" title="Communities">
+                  <span class="shrink-0 ${clientStore.activeChannelId === 'communities' || clientStore.activeChannelId.startsWith('c/') ? 'text-indigo-400' : 'text-slate-400'}">${renderIcon('users', { size: 18 })}</span>
                   <div class="flex flex-col text-left flex-1 min-w-0">
-                    <span class="font-bold leading-tight">Vault</span>
-                    <span class="text-[10px] text-slate-400 font-normal">Files & releases</span>
+                    <span class="font-bold leading-tight">Communities</span>
+                    <span class="text-[10px] text-slate-400 font-normal">Find your people</span>
                   </div>
-                  ${clientStore.activeChannelId.startsWith('vault-') ? '<span class="w-2 h-2 rounded-full nav-indicator-active shrink-0"></span>' : ''}
+                  ${clientStore.activeChannelId === 'communities' || clientStore.activeChannelId.startsWith('c/') ? '<span class="w-2 h-2 rounded-full nav-indicator-active shrink-0"></span>' : ''}
                 </button>
 
                 <button type="button" data-nav-mode="profile" data-testid="nav-item-profile" class="btn-nav-mode w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center space-x-3 cursor-pointer ${clientStore.activeChannelId.startsWith('profile') ? 'is-active nav-item-active shadow-sm' : 'text-slate-300 hover:text-white hover:bg-surface-raised'}" title="Your sovereign cryptographic identity & settings">
                   <span class="shrink-0 ${clientStore.activeChannelId.startsWith('profile') ? 'text-purple-400' : 'text-slate-400'}">${renderIcon('profile', { size: 18 })}</span>
                   <div class="flex flex-col text-left flex-1 min-w-0">
                     <span class="font-bold leading-tight">Profile</span>
-                    <span class="text-[10px] text-slate-400 font-normal">Identity & settings</span>
+                    <span class="text-[10px] text-slate-400 font-normal">Your profile</span>
                   </div>
                   ${clientStore.activeChannelId.startsWith('profile') ? '<span class="w-2 h-2 rounded-full nav-indicator-active shrink-0"></span>' : ''}
                 </button>
@@ -878,7 +900,7 @@ export function initApp(): void {
                   <span class="shrink-0 ${isAdvancedOverflowOpen ? 'text-cyan-400' : 'text-slate-400'}">${renderIcon('more', { size: 18 })}</span>
                   <div class="flex flex-col text-left flex-1 min-w-0">
                     <span class="font-bold leading-tight">More</span>
-                    <span class="text-[10px] text-slate-400 font-normal">Tools & extensions</span>
+                    <span class="text-[10px] text-slate-400 font-normal">Settings & more</span>
                   </div>
                 </button>
               </div>
@@ -1070,12 +1092,12 @@ export function initApp(): void {
                 </div>
                 <div class="flex-1 min-w-0">
                   <div class="flex items-center space-x-1">
-                    <span class="text-xs font-bold text-white truncate">@${profileView.getProfile(clientStore.keypair.fingerprint)?.handle || clientStore.keypair.fingerprint.substring(0, 8)}</span>
-                    <span class="text-[8px] font-mono px-1 rounded bg-emerald-950 text-emerald-400 border border-emerald-500/30">ZK</span>
+                    <span class="text-xs font-bold text-white truncate">Your profile</span>
+                    <span class="text-[8px] px-1 rounded bg-emerald-950 text-emerald-400 border border-emerald-500/30">Private</span>
                   </div>
                   <div class="text-[10px] text-emerald-400 font-medium truncate flex items-center gap-1">
                     <span>🛡️</span>
-                    <span>Identity Protected</span>
+                    <span>Private by design</span>
                   </div>
                 </div>
                 <button type="button" id="btn-open-paper-wallet" data-action="stop-propagation" class="p-1.5 rounded-xl bg-surface-raised hover:bg-surface-overlay text-slate-400 hover:text-white border border-white/5 cursor-pointer transition-all" title="Cold Storage Paper Wallet Certificate">
@@ -1275,6 +1297,7 @@ export function initApp(): void {
       patchEl('header-primary-nav', renderHeaderPrimaryNav());
       patchEl('header-tools-root', renderHeaderToolsRoot());
       patchEl('main-stage', renderMainStage());
+      patchEl('right-rail-scroll', renderRightRailContent());
       restoreMessageSelection('relay', false);
       restoreMessageSelection('dm', false);
       document.getElementById('sovereign-profile-container')?.scrollTo({ top: savedProfileScroll, behavior: 'instant' });
@@ -1507,6 +1530,11 @@ function renderMainStage(): string {
     contentHTML = renderVaultWorkspace();
   } else if (currentRoute === 'explore' || isExplore) {
     contentHTML = exploreView.renderExploreView(clientStore.posts);
+  } else if (currentRoute === 'communities' || clientStore.activeChannelId.startsWith('c/')) {
+    const activeCircle = sovereignCircleEngine.findCircle(clientStore.activeChannelId);
+    contentHTML = activeCircle 
+      ? communityView.renderCommunityWorkspace(activeCircle) 
+      : communityView.renderCommunitiesHub();
   } else if (currentRoute === 'profile' || isProfile) {
     contentHTML = profileView.renderProfileView(clientStore.posts, clientStore.keypair.fingerprint);
   } else {
@@ -1600,7 +1628,20 @@ function renderMobileBottomNavButtons(): string {
 }
 
 function renderMobileBottomNav(): string {
-  return mobileTabBar.renderTabBarHTML();
+  return `
+    <!-- MOBILE COMPOSER FLOATING ACTION BUTTON -->
+    <button
+      type="button"
+      id="btn-mobile-fab-composer"
+      data-action="open-composer"
+      class="fixed bottom-20 right-4 z-40 lg:hidden w-13 h-13 rounded-full bg-gradient-to-tr from-cyan-500 via-indigo-600 to-indigo-700 hover:from-cyan-400 hover:to-indigo-500 text-white flex items-center justify-center text-xl font-bold shadow-2xl shadow-cyan-500/30 border border-white/20 active:scale-95 transition-all cursor-pointer"
+      title="Create Publication"
+      aria-label="Create Publication"
+    >
+      <span>✏️</span>
+    </button>
+    ${mobileTabBar.renderTabBarHTML()}
+  `;
 }
 
 function renderMobileDrawer(): string {
@@ -1615,19 +1656,19 @@ function renderMobileDrawer(): string {
         <!-- DRAWER HEADER -->
         <div class="p-4 border-b border-white/10 flex items-center justify-between bg-surface-raised/60">
           <div class="flex items-center space-x-3">
-            <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 via-indigo-600 to-slate-800 flex items-center justify-center font-bold text-sm text-white tracking-widest shadow-md">
-              U
+            <div class="w-8 h-8 rounded-xl bg-surface-raised border border-white/10 flex items-center justify-center p-1 shadow-md overflow-hidden">
+              <img src="/logo-mark.svg" alt="UREfy" class="w-6 h-6 object-contain" />
             </div>
             <div>
               <div class="font-bold text-sm text-white font-sans flex items-center space-x-1.5">
-                <span>UREfy</span>
-                <span class="text-[8px] font-mono uppercase px-1.5 py-0.2 rounded bg-cyan-950 text-cyan-300 border border-cyan-500/30">ZK</span>
+                <span>URE<span class="text-cyan-400 font-semibold">fy</span></span>
+                <span class="text-[8px] font-mono uppercase px-1.5 py-0.2 rounded bg-cyan-950 text-cyan-300 border border-cyan-500/30">SOVEREIGN</span>
               </div>
-              <div class="text-[10px] text-slate-400 font-mono">Unified Relay Enclave Framework</div>
+              <div class="text-[10px] text-slate-400 font-mono">The social network you actually own</div>
             </div>
           </div>
           <button type="button" id="btn-close-mobile-drawer" data-action="close-mobile-drawer" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-surface-raised cursor-pointer transition-colors" title="Close Drawer">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            ${renderIcon('close', { size: 18 })}
           </button>
         </div>
 
@@ -1636,11 +1677,11 @@ function renderMobileDrawer(): string {
           <!-- WORKSPACES -->
           <div class="space-y-1">
             <div class="text-[10px] uppercase font-bold text-slate-500 tracking-wider mb-2 px-2 flex items-center justify-between">
-              <span>🧭 Workspaces</span>
+              <span class="flex items-center gap-1.5">${renderIcon('layers', { size: 12 })} Workspaces</span>
               <span class="text-cyan-400 text-[9px] font-mono">V4 Engine</span>
             </div>
             <button type="button" data-nav-mode="pulse" class="btn-drawer-item w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center space-x-3 cursor-pointer ${clientStore.activeChannelId.startsWith('pulse-') ? 'is-active nav-item-active shadow-sm' : 'text-slate-300 hover:text-white hover:bg-surface-raised'}" title="Feed & sovereign pulse stream">
-              <span class="text-base shrink-0">⚡</span>
+              <span class="shrink-0 text-cyan-400">${renderIcon('feed', { size: 18, variant: clientStore.activeChannelId.startsWith('pulse-') ? 'solid' : 'outline' })}</span>
               <div class="flex flex-col text-left flex-1 min-w-0">
                 <span class="font-bold leading-tight">Feed (Pulse)</span>
                 <span class="text-[10px] text-slate-400 font-normal">Decentralized stream & news</span>
@@ -1648,7 +1689,7 @@ function renderMobileDrawer(): string {
               ${clientStore.activeChannelId.startsWith('pulse-') ? '<span class="w-2 h-2 rounded-full nav-indicator-active shrink-0"></span>' : ''}
             </button>
             <button type="button" data-nav-mode="explore" class="btn-drawer-item w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center space-x-3 cursor-pointer ${clientStore.activeChannelId === 'explore' ? 'is-active nav-item-active shadow-sm' : 'text-slate-300 hover:text-white hover:bg-surface-raised'}" title="Explore network and trending nodes">
-              <span class="text-base shrink-0">🔍</span>
+              <span class="shrink-0 text-indigo-400">${renderIcon('explore', { size: 18, variant: clientStore.activeChannelId === 'explore' ? 'solid' : 'outline' })}</span>
               <div class="flex flex-col text-left flex-1 min-w-0">
                 <span class="font-bold leading-tight">Explore</span>
                 <span class="text-[10px] text-slate-400 font-normal">Trends & nodes</span>
@@ -1656,7 +1697,7 @@ function renderMobileDrawer(): string {
               ${clientStore.activeChannelId === 'explore' ? '<span class="w-2 h-2 rounded-full nav-indicator-active shrink-0"></span>' : ''}
             </button>
             <button type="button" data-nav-mode="vault" class="btn-drawer-item w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center space-x-3 cursor-pointer ${clientStore.activeChannelId.startsWith('vault-') ? 'is-active nav-item-active shadow-sm' : 'text-slate-300 hover:text-white hover:bg-surface-raised'}" title="Encrypted files vault & audited releases">
-              <span class="text-base shrink-0">📚</span>
+              <span class="shrink-0 text-amber-400">${renderIcon('vault', { size: 18, variant: clientStore.activeChannelId.startsWith('vault-') ? 'solid' : 'outline' })}</span>
               <div class="flex flex-col text-left flex-1 min-w-0">
                 <span class="font-bold leading-tight">Vault</span>
                 <span class="text-[10px] text-slate-400 font-normal">Files & releases</span>
@@ -1664,7 +1705,7 @@ function renderMobileDrawer(): string {
               ${clientStore.activeChannelId.startsWith('vault-') ? '<span class="w-2 h-2 rounded-full nav-indicator-active shrink-0"></span>' : ''}
             </button>
             <button type="button" data-nav-mode="relays" class="btn-drawer-item w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center space-x-3 cursor-pointer ${clientStore.activeChannelId.startsWith('relays-') ? 'is-active nav-item-active shadow-sm' : 'text-slate-300 hover:text-white hover:bg-surface-raised'}" title="Communication servers and E2EE chat">
-              <span class="text-base shrink-0">📡</span>
+              <span class="shrink-0 text-emerald-400">${renderIcon('messages', { size: 18, variant: clientStore.activeChannelId.startsWith('relays-') ? 'solid' : 'outline' })}</span>
               <div class="flex flex-col text-left flex-1 min-w-0">
                 <span class="font-bold leading-tight">Relays</span>
                 <span class="text-[10px] text-slate-400 font-normal">Channels & E2EE chat</span>
@@ -1672,7 +1713,7 @@ function renderMobileDrawer(): string {
               ${clientStore.activeChannelId.startsWith('relays-') ? '<span class="w-2 h-2 rounded-full nav-indicator-active shrink-0"></span>' : ''}
             </button>
             <button type="button" data-nav-mode="profile" class="btn-drawer-item w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center space-x-3 cursor-pointer ${clientStore.activeChannelId.startsWith('profile') ? 'is-active nav-item-active shadow-sm' : 'text-slate-300 hover:text-white hover:bg-surface-raised'}" title="Your sovereign cryptographic identity">
-              <span class="text-base shrink-0">👤</span>
+              <span class="shrink-0 text-purple-400">${renderIcon('profile', { size: 18, variant: clientStore.activeChannelId.startsWith('profile') ? 'solid' : 'outline' })}</span>
               <div class="flex flex-col text-left flex-1 min-w-0">
                 <span class="font-bold leading-tight">Profile</span>
                 <span class="text-[10px] text-slate-400 font-normal">Your sovereign identity</span>
@@ -1681,99 +1722,99 @@ function renderMobileDrawer(): string {
             </button>
           </div>
 
-          <!-- SOVEREIGN CIRCLES -->
+          <!-- SOVEREIGN COMMUNITIES -->
           <div class="pt-2 border-t border-white/5 space-y-1">
             <div class="text-[10px] uppercase font-bold text-slate-500 tracking-wider mb-2 px-2 flex items-center justify-between">
-              <span>🏛️ Sovereign Circles</span>
+              <span class="flex items-center gap-1.5">${renderIcon('users', { size: 12 })} Communities</span>
               <span class="text-emerald-400 text-[9px] font-mono">P2P Mesh</span>
             </div>
             <button type="button" data-channel-id="pulse-global" class="btn-channel btn-drawer-channel w-full text-left px-3 py-2 rounded-xl text-xs flex items-center justify-between transition-all cursor-pointer ${clientStore.activeChannelId === 'pulse-global' ? 'bg-indigo-950/60 text-indigo-300 font-bold border border-indigo-500/30' : 'text-slate-300 hover:text-white hover:bg-surface-raised'}">
               <div class="flex items-center space-x-2 truncate">
-                <span class="text-xs">⚡</span>
+                <span class="text-indigo-400 shrink-0">${renderIcon('shield', { size: 14 })}</span>
                 <span class="truncate font-semibold">c/zeroknowledge</span>
               </div>
               <span class="text-[9px] font-mono text-indigo-400">RLN</span>
             </button>
             <button type="button" data-channel-id="vault-releases" class="btn-channel btn-drawer-channel w-full text-left px-3 py-2 rounded-xl text-xs flex items-center justify-between transition-all cursor-pointer ${clientStore.activeChannelId === 'vault-releases' ? 'bg-emerald-950/60 text-emerald-300 font-bold border border-emerald-500/30' : 'text-slate-300 hover:text-white hover:bg-surface-raised'}">
               <div class="flex items-center space-x-2 truncate">
-                <span class="text-xs">📦</span>
+                <span class="text-emerald-400 shrink-0">${renderIcon('upload', { size: 14 })}</span>
                 <span class="truncate font-semibold">c/clean-releases</span>
               </div>
             </button>
             <button type="button" data-channel-id="vault-guides" class="btn-channel btn-drawer-channel w-full text-left px-3 py-2 rounded-xl text-xs flex items-center justify-between transition-all cursor-pointer ${clientStore.activeChannelId === 'vault-guides' ? 'bg-emerald-950/60 text-emerald-300 font-bold border border-emerald-500/30' : 'text-slate-300 hover:text-white hover:bg-surface-raised'}">
               <div class="flex items-center space-x-2 truncate">
-                <span class="text-xs">🛡️</span>
+                <span class="text-emerald-400 shrink-0">${renderIcon('fileText', { size: 14 })}</span>
                 <span class="truncate font-semibold">c/security-guides</span>
               </div>
               <span class="text-[9px] font-mono text-slate-500">Docs</span>
             </button>
             <button type="button" data-channel-id="relays-general" class="btn-channel btn-drawer-channel w-full text-left px-3 py-2 rounded-xl text-xs flex items-center justify-between transition-all cursor-pointer ${clientStore.activeChannelId === 'relays-general' ? 'bg-indigo-950/60 text-indigo-300 font-bold border border-indigo-500/30' : 'text-slate-300 hover:text-white hover:bg-surface-raised'}">
               <div class="flex items-center space-x-2 truncate">
-                <span class="text-xs">🌐</span>
+                <span class="text-cyan-400 shrink-0">${renderIcon('globe', { size: 14 })}</span>
                 <span class="truncate font-semibold">c/p2p-mesh</span>
               </div>
               <span class="text-[9px] font-mono text-slate-400">Mesh</span>
             </button>
           </div>
 
-          <!-- SOVEREIGN TOOLS & PROTOCOLS -->
+          <!-- TOOLS & PROTOCOLS -->
           <div class="pt-2 border-t border-white/5 space-y-1">
-            <div class="text-[10px] uppercase font-bold text-slate-500 tracking-wider mb-2 px-2">
-              🛠️ Sovereign Hubs & Utilities
+            <div class="text-[10px] uppercase font-bold text-slate-500 tracking-wider mb-2 px-2 flex items-center gap-1.5">
+              ${renderIcon('slidersHorizontal', { size: 12 })} Advanced Tools
             </div>
             <button type="button" id="drawer-btn-settings" data-action="open-settings" class="w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold text-cyan-300 hover:text-white bg-cyan-950/30 hover:bg-surface-raised border border-cyan-500/30 transition-all flex items-center space-x-3 cursor-pointer">
-              <span class="text-base">⚙️</span>
+              <span class="shrink-0 text-cyan-400">${renderIcon('settings', { size: 16 })}</span>
               <span class="flex-1">Sovereign Settings</span>
               <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">CONFIG</span>
             </button>
             <button type="button" id="drawer-btn-theme" data-action="open-theme" class="w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold text-amber-300 hover:text-white bg-amber-950/30 hover:bg-surface-raised border border-amber-500/30 transition-all flex items-center space-x-3 cursor-pointer">
-              <span class="text-base">🎨</span>
+              <span class="shrink-0 text-amber-400">${renderIcon('sliders', { size: 16 })}</span>
               <span class="flex-1">Display & Theme Matrix</span>
               <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">THEME</span>
             </button>
             <button type="button" id="drawer-btn-lang" class="w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
-              <span class="text-base">${i18n.getCurrentLanguageMeta().flag}</span>
+              <span class="shrink-0 text-slate-400">${renderIcon('globe', { size: 16 })}</span>
               <span class="flex-1">Language (${i18n.getCurrentLanguageMeta().name})</span>
               <span class="text-[9px] font-mono text-slate-400 uppercase">${i18n.getLanguage()}</span>
             </button>
             <button type="button" id="drawer-btn-dao" class="w-full text-left px-3.5 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
-              <span class="text-base">🏛️</span>
+              <span class="shrink-0 text-slate-400">${renderIcon('vote', { size: 16 })}</span>
               <span class="flex-1">DAO Governance</span>
             </button>
             <button type="button" id="drawer-btn-cve" class="w-full text-left px-3.5 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
-              <span class="text-base">🛡️</span>
+              <span class="shrink-0 text-slate-400">${renderIcon('shield', { size: 16 })}</span>
               <span class="flex-1">CVE Security Monitor</span>
             </button>
             <button type="button" id="drawer-btn-observatory" class="w-full text-left px-3.5 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
-              <span class="text-base">🔭</span>
+              <span class="shrink-0 text-slate-400">${renderIcon('activity', { size: 16 })}</span>
               <span class="flex-1">Network Observatory</span>
             </button>
             <button type="button" id="drawer-btn-backup" class="w-full text-left px-3.5 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
-              <span class="text-base">💾</span>
+              <span class="shrink-0 text-slate-400">${renderIcon('download', { size: 16 })}</span>
               <span class="flex-1">Export & Backup</span>
             </button>
             <button type="button" id="drawer-btn-wot" class="w-full text-left px-3.5 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
-              <span class="text-base">🕸️</span>
+              <span class="shrink-0 text-slate-400">${renderIcon('network', { size: 16 })}</span>
               <span class="flex-1">Web of Trust Graph</span>
             </button>
             <button type="button" id="drawer-btn-gossip" class="w-full text-left px-3.5 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
-              <span class="text-base">📡</span>
+              <span class="shrink-0 text-slate-400">${renderIcon('radio', { size: 16 })}</span>
               <span class="flex-1">Gossip Visualizer</span>
             </button>
             <button type="button" id="drawer-btn-rss" class="w-full text-left px-3.5 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
-              <span class="text-base">📡</span>
+              <span class="shrink-0 text-slate-400">${renderIcon('rss', { size: 16 })}</span>
               <span class="flex-1">RSS Importer</span>
             </button>
             <button type="button" id="drawer-btn-paper-wallet" class="w-full text-left px-3.5 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
-              <span class="text-base">📜</span>
+              <span class="shrink-0 text-slate-400">${renderIcon('fileKey', { size: 16 })}</span>
               <span class="flex-1">Paper Wallet Certificate</span>
             </button>
             <button type="button" id="drawer-btn-steganography" data-action="open-feature" data-feature="steganography" class="w-full text-left px-3.5 py-2 rounded-xl text-xs font-bold text-cyan-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
-              <span class="text-base">🖼️</span>
+              <span class="shrink-0 text-cyan-400">${renderIcon('image', { size: 16 })}</span>
               <span class="flex-1">Pixel Canvas Steganography</span>
             </button>
             <button type="button" id="drawer-btn-binary-hygiene" data-action="open-feature" data-feature="binary_hygiene" class="w-full text-left px-3.5 py-2 rounded-xl text-xs font-bold text-cyan-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
-              <span class="text-base">🛡️</span>
+              <span class="shrink-0 text-cyan-400">${renderIcon('shield', { size: 16 })}</span>
               <span class="flex-1">Binary Hygiene Portal</span>
               <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-cyan-950 text-cyan-300 border border-cyan-500/30">FREE</span>
             </button>
@@ -2001,8 +2042,7 @@ function renderPostDetailModal(): string {
 }
 
 function renderAwardModal(): string {
-  if (!activeAwardPostId) return '';
-  return awardsSystem.renderAwardModal(activeAwardPostId, 'GUARDIAN');
+  return '';
 }
 
 function renderCrossPostModal(): string {
@@ -2251,32 +2291,7 @@ function bindEvents(): void {
 
   // 4. Reactions Toggle & Emoji Picker (Handled centrally in bindReactionBarEvents)
 
-  // 5. Awards Modal
-  document.querySelectorAll('.btn-open-award-modal').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const postId = btn.getAttribute('data-post-id');
-      if (postId) {
-        activeAwardPostId = postId;
-        clientStore.notify();
-      }
-    }, { signal });
-  });
-  document.getElementById('btn-close-award-modal')?.addEventListener('click', () => {
-    activeAwardPostId = null;
-    clientStore.notify();
-  }, { signal });
-  document.querySelectorAll('.btn-select-award').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const awardType = btn.getAttribute('data-award-type') as any;
-      if (activeAwardPostId && awardType) {
-        awardsSystem.giveAward(activeAwardPostId, awardType, clientStore.keypair.fingerprint, 'GUARDIAN');
-        clientStore.showToast(`🏅 Award ${awardType} granted!`, 'success');
-        activeAwardPostId = null;
-        clientStore.notify();
-      }
-    }, { signal });
-  });
+  // 5. Awards Modal (Handled globally by awardsSystem in awards.ts)
 
   // 6. CrossPost Modal
   document.querySelectorAll('.btn-open-crosspost').forEach(btn => {
@@ -2585,6 +2600,10 @@ function bindEvents(): void {
         clientStore.activeChannelId = 'explore';
         sovereignRouter.navigateTo('explore');
         clientStore.notify();
+      } else if (mode === 'communities') {
+        clientStore.activeChannelId = 'communities';
+        sovereignRouter.navigateTo('communities');
+        clientStore.notify();
       } else if (mode === 'profile') {
         clientStore.activeChannelId = 'profile';
         profileView.setTargetFingerprint(clientStore.keypair.fingerprint);
@@ -2759,6 +2778,19 @@ function bindEvents(): void {
     exploreView.clearSearch();
     clientStore.notify();
   }, { signal });
+  document.getElementById('btn-clear-recent-searches')?.addEventListener('click', () => {
+    exploreView.clearRecentSearches();
+    clientStore.notify();
+  }, { signal });
+  document.querySelectorAll('[data-search-result-tab]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tab = btn.getAttribute('data-search-result-tab') as 'posts' | 'people' | 'communities' | 'topics' | null;
+      if (tab) {
+        exploreView.setActiveSearchTab(tab);
+        clientStore.notify();
+      }
+    }, { signal });
+  });
   document.querySelectorAll('.btn-select-trend').forEach(btn => {
     btn.addEventListener('click', () => {
       const trend = btn.getAttribute('data-search-trend');
@@ -2825,13 +2857,16 @@ function bindEvents(): void {
     formEditProf.addEventListener('submit', (e) => {
       e.preventDefault();
       const name = (document.getElementById('edit-profile-name') as HTMLInputElement)?.value;
+      const handle = (document.getElementById('edit-profile-handle') as HTMLInputElement)?.value;
       const bio = (document.getElementById('edit-profile-bio') as HTMLTextAreaElement)?.value;
       const location = (document.getElementById('edit-profile-location') as HTMLInputElement)?.value;
       const website = (document.getElementById('edit-profile-website') as HTMLInputElement)?.value;
       const avatar = (document.getElementById('edit-profile-avatar') as HTMLInputElement)?.value;
       const banner = (document.getElementById('edit-profile-banner') as HTMLInputElement)?.value;
+      const cleanHandle = handle ? handle.replace(/^@/, '').trim() : undefined;
       profileView.updateProfile(profileView.targetFingerprint, {
         name: name || undefined,
+        handle: cleanHandle || undefined,
         bio: bio || undefined,
         location: location || undefined,
         website: website || undefined,
@@ -3398,6 +3433,7 @@ function bindEvents(): void {
   document.getElementById('form-edit-profile')?.addEventListener('submit', (e) => {
     e.preventDefault();
     const name = (document.getElementById('edit-profile-name') as HTMLInputElement)?.value.trim() || 'Sovereign Node';
+    const handle = (document.getElementById('edit-profile-handle') as HTMLInputElement)?.value.replace(/^@/, '').trim() || profileView.getProfile(clientStore.keypair.fingerprint).handle;
     const bio = (document.getElementById('edit-profile-bio') as HTMLTextAreaElement)?.value.trim() || '';
     const location = (document.getElementById('edit-profile-location') as HTMLInputElement)?.value.trim() || 'Cyberspace';
     const website = (document.getElementById('edit-profile-website') as HTMLInputElement)?.value.trim() || 'urefy.com';
@@ -3406,6 +3442,7 @@ function bindEvents(): void {
 
     profileView.saveProfile(clientStore.keypair.fingerprint, {
       name,
+      handle,
       bio,
       location,
       website,
@@ -3961,7 +3998,7 @@ function bindEvents(): void {
         pulseActionsEngine.closeRepostMenu();
         if (clientStore.isCommandRailOpen) { clientStore.toggleCommandRail(); changed = true; }
         if (clientStore.isComposerOpen) { clientStore.toggleComposer(); changed = true; }
-        if (activeAwardPostId) { activeAwardPostId = null; changed = true; }
+        awardsSystem.closeModal();
         if (activeCrossPostId) { activeCrossPostId = null; changed = true; }
         if (postDetailView.isOpen()) { postDetailView.closePost(); changed = true; }
         if (isMobileDrawerOpen) { isMobileDrawerOpen = false; changed = true; }
@@ -3981,7 +4018,3 @@ function escapeHtml(text: string): string {
   div.textContent = text;
   return div.innerHTML;
 }
-
-
-
-

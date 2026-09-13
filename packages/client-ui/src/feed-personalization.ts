@@ -108,13 +108,14 @@ const HALF_LIFE_FRESHNESS_MS = 48 * 60 * 60 * 1000;       // 48 hours decay for 
 
 // Default baseline topics for cold-start bootstrapping
 const SEED_TOPICS: Record<string, { score: number; category: string }> = {
-  '#ZeroKnowledge': { score: 85, category: 'Cryptography' },
-  '#TreeKEM_MLS': { score: 78, category: 'Protocol' },
-  '#ReverseEngineering': { score: 72, category: 'Security' },
-  '#BinaryHygiene': { score: 65, category: 'Vault' },
-  '#AirGapGhost': { score: 60, category: 'Privacy' },
-  '#Decentralized': { score: 55, category: 'Network' },
-  '#Cryptography': { score: 80, category: 'Cryptography' },
+  '#Technology': { score: 90, category: 'Technology' },
+  '#ArtificialIntelligence': { score: 88, category: 'Artificial Intelligence' },
+  '#OpenSource': { score: 85, category: 'Software & Dev' },
+  '#Privacy': { score: 82, category: 'Security' },
+  '#Gaming': { score: 78, category: 'Gaming' },
+  '#Creative': { score: 75, category: 'Creative Arts' },
+  '#DigitalFreedom': { score: 80, category: 'Society & Rights' },
+  '#ZeroKnowledge': { score: 70, category: 'Security' },
   '#Security': { score: 75, category: 'Security' },
 };
 
@@ -688,7 +689,54 @@ export class FeedPersonalizationEngine {
     // Sort descending by relevance score
     scoredList.sort((a, b) => b.relevanceScore - a.relevanceScore);
 
-    return scoredList;
+    // Apply diversity constraint (max 2 consecutive posts from same author or channel)
+    return this.applyDiversityConstraint(scoredList);
+  }
+
+  public applyDiversityConstraint(scoredList: PersonalizationScore[]): PersonalizationScore[] {
+    if (scoredList.length <= 2) return scoredList;
+
+    const result: PersonalizationScore[] = [];
+    const remaining = [...scoredList];
+
+    while (remaining.length > 0) {
+      let chosenIndex = -1;
+
+      for (let i = 0; i < remaining.length; i++) {
+        const candidate = remaining[i];
+        const candidateSignal = this.contentSignals.get(candidate.postId);
+        const candidateAuthor = candidateSignal?.authorFP;
+        const candidateChannel = candidateSignal?.channelId;
+
+        // Check diversity constraint against last 2 selected posts
+        if (result.length >= 2) {
+          const last1 = result[result.length - 1];
+          const last2 = result[result.length - 2];
+          const sig1 = this.contentSignals.get(last1.postId);
+          const sig2 = this.contentSignals.get(last2.postId);
+
+          const sameAuthor = candidateAuthor && sig1?.authorFP === candidateAuthor && sig2?.authorFP === candidateAuthor;
+          const sameChannel = candidateChannel && sig1?.channelId === candidateChannel && sig2?.channelId === candidateChannel;
+
+          if (sameAuthor || sameChannel) {
+            // Exceeds max 2 consecutive posts from same author or community, keep looking
+            continue;
+          }
+        }
+
+        chosenIndex = i;
+        break;
+      }
+
+      // If no diverse candidate remains, fallback to next available
+      if (chosenIndex === -1) {
+        chosenIndex = 0;
+      }
+
+      result.push(remaining.splice(chosenIndex, 1)[0]);
+    }
+
+    return result;
   }
 
   // ─── Explanation API ───────────────────────────────────────────────────────

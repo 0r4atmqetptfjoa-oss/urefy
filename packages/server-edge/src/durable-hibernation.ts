@@ -42,6 +42,8 @@ export interface SovereignSessionMetadata {
   connectedAt: number;
   lastPing: number;
   tags: Set<string>;
+  webrtcSignalCount?: number;
+  webrtcSignalWindow?: number;
 }
 
 /**
@@ -65,6 +67,9 @@ export class SovereignRelayDurableObject {
 
   // ZK-RLN Rate Limiting & Slashed Nullifiers
   private activeShares: Map<string, RLNShare> = new Map(); // Key: `${epoch}:${nullifier}`
+  private activeShareTimestamps: Map<string, number> = new Map();
+  private readonly maxActiveShares: number = 50000;
+  private readonly shareTtlMs: number = 10 * 60 * 1000; // 10 minutes
   private revokedNullifiers: Set<string> = new Set();
 
   private initialized: boolean = false;
@@ -210,7 +215,7 @@ export class SovereignRelayDurableObject {
     // Extract initial tags from query params
     const channelParam = url.searchParams.get('channelId') || 'relays-general';
     const circleParam = url.searchParams.get('circleId') || '';
-    const initialTags: string[] = [`channel:${channelParam}`];
+    const initialTags: string[] = [`channel:${channelParam}`, 'auth:0'];
     if (circleParam) {
       initialTags.push(`circle:${circleParam}`);
     }
@@ -271,22 +276,26 @@ export class SovereignRelayDurableObject {
       const channelTag = tags.find((t) => t.startsWith('channel:'));
       const circleTag = tags.find((t) => t.startsWith('circle:'));
       const userTag = tags.find((t) => t.startsWith('user:'));
+      const roleTag = tags.find((t) => t.startsWith('role:'));
+      const authTag = tags.find((t) => t === 'auth:1');
 
       const initialChannel = channelTag ? channelTag.replace('channel:', '') : 'relays-general';
       const initialCircle = circleTag ? circleTag.replace('circle:', '') : undefined;
       const initialFp = userTag ? userTag.replace('user:', '') : undefined;
+      const initialRole = roleTag ? roleTag.replace('role:', '') : 'MEMBER';
 
       session = {
         ws,
         currentChannelId: initialChannel,
         currentCircleId: initialCircle,
         fingerprint: initialFp,
+        role: initialRole,
         subscribedChannels: new Set([initialChannel]),
         subscribedCircles: initialCircle ? new Set([initialCircle]) : new Set(),
-        authenticated: Boolean(initialFp),
+        authenticated: Boolean(authTag),
         connectedAt: Date.now(),
         lastPing: Date.now(),
-        tags: new Set(tags.length > 0 ? tags : [`channel:${initialChannel}`]),
+        tags: new Set(tags.length > 0 ? tags : [`channel:${initialChannel}`, 'auth:0']),
       };
       this.sessions.set(ws, session);
     }
@@ -365,7 +374,18 @@ export class SovereignRelayDurableObject {
             }
           }
         } else {
+          if (this.activeShares.size >= this.maxActiveShares) {
+            this.cleanExpiredShares();
+            if (this.activeShares.size >= this.maxActiveShares) {
+              const oldestKey = this.activeShares.keys().next().value;
+              if (oldestKey) {
+                this.activeShares.delete(oldestKey);
+                this.activeShareTimestamps.delete(oldestKey);
+              }
+            }
+          }
           this.activeShares.set(shareKey, currentShare);
+          this.activeShareTimestamps.set(shareKey, Date.now());
         }
       }
 
@@ -421,6 +441,11 @@ export class SovereignRelayDurableObject {
           break;
         }
 
+        case 'WEBRTC_SIGNAL': {
+          this.handleWebRTCSignal(ws, session, packet);
+          break;
+        }
+
         case 'PING': {
           session.lastPing = Date.now();
           this.send(ws, { type: 'PONG', timestamp: Date.now() });
@@ -438,22 +463,32 @@ export class SovereignRelayDurableObject {
   }
 
   /**
-   * WebSocket Hibernation API: Removes connection.
+   * WebSocket Hibernation API: Removes connection and cleans up presence.
    */
-  async webSocketClose(ws: WebSocket, code: number, reason: string): Promise<void> {
+  async webSocketClose(ws: WebSocket, code: number, reason: string, wasClean?: boolean): Promise<void> {
     const session = this.sessions.get(ws);
-    if (session) {
-      if (session.fingerprint) {
-        this.presence.delete(session.fingerprint);
-        this.multicast(`channel:${session.currentChannelId}`, {
-          type: 'PRESENCE_LEAVE',
-          fingerprint: session.fingerprint,
-          channelId: session.currentChannelId,
-          timestamp: Date.now(),
-        });
-      }
-      this.sessions.delete(ws);
+    let fingerprint = session?.fingerprint;
+    let channelId = session?.currentChannelId;
+
+    if (!session) {
+      const tags = this.getTags(ws);
+      const userTag = tags.find((t) => t.startsWith('user:'));
+      const channelTag = tags.find((t) => t.startsWith('channel:'));
+      fingerprint = userTag ? userTag.replace('user:', '') : undefined;
+      channelId = channelTag ? channelTag.replace('channel:', '') : 'relays-general';
     }
+
+    if (fingerprint) {
+      this.presence.delete(fingerprint);
+      this.multicast(`channel:${channelId || 'relays-general'}`, {
+        type: 'PRESENCE_LEAVE',
+        fingerprint,
+        channelId: channelId || 'relays-general',
+        timestamp: Date.now(),
+      });
+    }
+
+    this.sessions.delete(ws);
   }
 
   /**
@@ -710,6 +745,7 @@ export class SovereignRelayDurableObject {
     if (session.currentCircleId) tags.add(`circle:${session.currentCircleId}`);
     tags.add(`user:${activeFingerprint}`);
     tags.add(`role:${session.role}`);
+    tags.add(session.authenticated ? 'auth:1' : 'auth:0');
     this.setWebSocketTags(ws, Array.from(tags));
 
     const presenceUser: PresenceUser = {
@@ -1046,7 +1082,34 @@ export class SovereignRelayDurableObject {
     session: SovereignSessionMetadata,
     packet: any
   ): Promise<void> {
+    if (!session.authenticated) {
+      this.send(ws, {
+        type: 'ERROR',
+        message: 'Unauthorized: Authenticated session required to publish nanopublications',
+      });
+      return;
+    }
+
     const channelId = packet.channelId || 'vault-releases';
+    if (!PayloadSanitizer.isValidIdentifier(channelId)) {
+      this.send(ws, { type: 'ERROR', message: 'Invalid channel ID for nanopublication' });
+      return;
+    }
+
+    if (!packet.sha256 || typeof packet.sha256 !== 'string' || !/^[0-9a-fA-F]{64}$/.test(packet.sha256)) {
+      this.send(ws, {
+        type: 'ERROR',
+        message: 'Invalid nanopublication: valid 64-character hex sha256 checksum is mandatory',
+      });
+      return;
+    }
+
+    const byteSize = Number(packet.byteSize) || 0;
+    if (byteSize < 0 || !Number.isSafeInteger(byteSize)) {
+      this.send(ws, { type: 'ERROR', message: 'Invalid byteSize for nanopublication' });
+      return;
+    }
+
     const randSuffix = typeof crypto !== 'undefined' && crypto.randomUUID
       ? crypto.randomUUID().replace(/-/g, '').substring(0, 8)
       : Date.now().toString(36);
@@ -1055,8 +1118,8 @@ export class SovereignRelayDurableObject {
       channelId,
       title: PayloadSanitizer.sanitizeString(packet.title || 'Verified Release'),
       fileName: PayloadSanitizer.sanitizeString(packet.fileName || 'file.bin'),
-      byteSize: Number(packet.byteSize) || 0,
-      sha256: packet.sha256,
+      byteSize,
+      sha256: packet.sha256.toLowerCase(),
       crc32: packet.crc32 || '',
       entropy: Number(packet.entropy) || 0,
       verdict: packet.verdict || 'CLEAN',
@@ -1071,6 +1134,143 @@ export class SovereignRelayDurableObject {
     this.channelNanopublications.get(channelId)!.push(np);
 
     this.multicastToChannel(channelId, { type: 'NEW_NANOPUBLICATION', nanopublication: np });
+  }
+
+  private handleWebRTCSignal(ws: WebSocket, session: SovereignSessionMetadata, packet: any): void {
+    if (!session.fingerprint) {
+      this.send(ws, {
+        type: 'ERROR',
+        message: 'Unauthorized: Authenticated identity required for WebRTC signaling',
+      });
+      return;
+    }
+
+    const { targetFingerprint, signal, channelId } = packet;
+    if (!targetFingerprint || !PayloadSanitizer.isValidIdentifier(targetFingerprint)) {
+      this.send(ws, { type: 'ERROR', message: 'Invalid target fingerprint for WebRTC signal' });
+      return;
+    }
+
+    if (!signal || typeof signal !== 'object') {
+      this.send(ws, { type: 'ERROR', message: 'Invalid WebRTC signal: signal must be an object' });
+      return;
+    }
+
+    const hasSdp = typeof signal.sdp === 'string';
+    const hasCandidate = 'candidate' in signal;
+    const hasType = typeof signal.type === 'string' && ['offer', 'answer', 'pranswer', 'rollback'].includes(signal.type);
+
+    if (!hasSdp && !hasCandidate && !hasType) {
+      this.send(ws, {
+        type: 'ERROR',
+        message: 'Malformed WebRTC signal: must contain valid sdp, candidate, or standard type',
+      });
+      return;
+    }
+
+    const rawSignal = JSON.stringify(signal);
+    if (rawSignal.length > 65536) {
+      this.send(ws, {
+        type: 'ERROR',
+        message: 'WebRTC signal payload exceeds 64KB limit',
+      });
+      return;
+    }
+
+    const now = Date.now();
+    if (!session.webrtcSignalWindow || now - session.webrtcSignalWindow > 60000) {
+      session.webrtcSignalWindow = now;
+      session.webrtcSignalCount = 0;
+    }
+    session.webrtcSignalCount = (session.webrtcSignalCount || 0) + 1;
+    if (session.webrtcSignalCount > 60) {
+      this.send(ws, {
+        type: 'ERROR',
+        message: 'Rate limit exceeded: WebRTC signaling frequency too high',
+      });
+      return;
+    }
+
+    const fromFingerprint = session.fingerprint || 'anon-peer';
+    const payload = {
+      type: 'WEBRTC_SIGNAL',
+      fromFingerprint,
+      targetFingerprint,
+      signal,
+      channelId: channelId || session.currentChannelId,
+      timestamp: Date.now(),
+    };
+
+    let sent = false;
+    // 1. Deliver to any hibernated socket tagged with the target user fingerprint
+    if (this.state && typeof this.state.getWebSockets === 'function') {
+      const tagged = this.state.getWebSockets(`user:${targetFingerprint}`);
+      if (tagged && tagged.length > 0) {
+        for (const targetWs of tagged) {
+          try {
+            this.send(targetWs, payload);
+            sent = true;
+          } catch (_) {}
+        }
+      }
+    }
+
+    // 2. Fallback to in-memory session traversal for mock/test environments
+    if (!sent) {
+      for (const [otherWs, otherSession] of this.sessions.entries()) {
+        if (otherSession.fingerprint === targetFingerprint) {
+          try {
+            this.send(otherWs, payload);
+            sent = true;
+          } catch (_) {}
+        }
+      }
+    }
+
+    if (!sent) {
+      this.send(ws, {
+        type: 'SIGNAL_UNDELIVERABLE',
+        targetFingerprint,
+        message: 'Target peer is currently offline or unreachable on this relay',
+      });
+    }
+  }
+
+  public cleanExpiredShares(): number {
+    const now = Date.now();
+    let pruned = 0;
+    for (const [key, ts] of this.activeShareTimestamps.entries()) {
+      if (now - ts > this.shareTtlMs) {
+        this.activeShares.delete(key);
+        this.activeShareTimestamps.delete(key);
+        pruned++;
+      }
+    }
+    return pruned;
+  }
+
+  public cleanExpiredPresence(): number {
+    const now = Date.now();
+    let pruned = 0;
+    for (const [fp, user] of this.presence.entries()) {
+      if (now - user.lastSeen > 15 * 60 * 1000) {
+        this.presence.delete(fp);
+        pruned++;
+      }
+    }
+    return pruned;
+  }
+
+  async alarm(): Promise<void> {
+    this.cleanExpiredShares();
+    this.cleanExpiredPresence();
+    if (this.state?.storage) {
+      try {
+        await this.state.storage.setAlarm(Date.now() + 10 * 60 * 1000);
+      } catch (err) {
+        console.warn('[SovereignRelayDurableObject] Failed to reschedule alarm:', err);
+      }
+    }
   }
 
   // Getters for inspection and testing

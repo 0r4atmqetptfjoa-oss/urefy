@@ -1,7 +1,7 @@
-﻿import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { MerkleSwarmVisualizer } from '../src/merkle-viz';
 
-describe('MerkleSwarmVisualizer — Interactive Merkle Grid & Swarm Validation', () => {
+describe('MerkleSwarmVisualizer � Interactive Merkle Grid & Swarm Validation', () => {
   let viz: MerkleSwarmVisualizer;
 
   beforeEach(() => {

@@ -229,7 +229,7 @@ export function renderEmojiPopover(targetType: 'dm' | 'relay'): string {
   return `
     <div class="absolute bottom-full mb-2 left-2 z-30 p-2.5 rounded-2xl bg-surface-base border border-white/10 shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in-95 duration-100 max-w-xs select-none">
       <div class="flex items-center justify-between pb-1.5 mb-1.5 border-b border-white/5 text-[10px] font-mono text-slate-400">
-        <span class="font-bold text-white">Sovereign Emojis</span>
+        <span class="font-bold text-white">Emoji</span>
         <button type="button" data-action="${targetType === 'dm' ? 'toggle-dm-emoji' : 'toggle-relay-emoji'}" class="hover:text-white p-0.5 cursor-pointer">✕</button>
       </div>
       <div class="grid grid-cols-6 gap-1 text-lg">
@@ -404,7 +404,7 @@ export function renderMessagesTabHeader(): string {
           }"
         >
           ${renderIcon('radio', { size: 17 })}
-          <span>Sovereign Relays</span>
+          <span>Communities</span>
         </button>
         <button 
           type="button" 
@@ -417,7 +417,7 @@ export function renderMessagesTabHeader(): string {
           }"
         >
           ${renderIcon('messages', { size: 17 })}
-          <span>Direct Messages (E2EE)</span>
+          <span>Direct</span>
           ${
             totalUnread > 0
               ? `<span class="px-1.5 py-0.2 bg-crimson text-white rounded-full text-[10px] font-bold animate-pulse">${totalUnread}</span>`
@@ -428,10 +428,10 @@ export function renderMessagesTabHeader(): string {
       <div class="hidden sm:flex items-center space-x-3 text-[11px] font-mono text-slate-400">
         <span class="flex items-center space-x-1.5">
           <span class="w-1.5 h-1.5 rounded-full bg-signal animate-pulse"></span>
-          <span>${activeMessagesTab === 'dm' ? 'Signed hybrid encryption' : 'Relay channels'}</span>
+          <span>${activeMessagesTab === 'dm' ? 'Private conversation' : 'Community chat'}</span>
         </span>
         <span class="text-slate-600">•</span>
-        <span class="text-cyphr">ML-KEM-768 Hybrid</span>
+        <span class="text-cyphr">End-to-end encrypted</span>
       </div>
     </div>
   `;
@@ -452,19 +452,19 @@ export function renderNewDMModal(): string {
         <div class="p-4 border-b border-white/5 flex items-center justify-between bg-surface-raised/50">
           <div class="flex items-center space-x-2">
             <span class="text-lg">💬</span>
-            <h3 class="text-sm font-bold text-white">Start Direct Message (E2EE)</h3>
+            <h3 class="text-sm font-bold text-white">Start a conversation</h3>
           </div>
           <button type="button" data-action="close-new-dm" class="text-slate-400 hover:text-white p-1 rounded-lg text-xs cursor-pointer">✕</button>
         </div>
 
         <div class="p-4 space-y-4">
           <div>
-            <label class="block text-[11px] font-mono text-slate-400 uppercase tracking-wider mb-1.5">Enter Peer Node Fingerprint</label>
+            <label class="block text-[11px] text-slate-400 font-semibold mb-1.5">Handle or UREfy ID</label>
             <div class="flex space-x-2">
               <input 
                 type="text" 
                 id="input-new-dm-peer" 
-                placeholder="e.g. c3dc28cb705e or 0x..." 
+                placeholder="@username" 
                 class="flex-1 bg-surface-raised border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 font-mono"
               />
               <button 
@@ -478,7 +478,7 @@ export function renderNewDMModal(): string {
           </div>
 
           <div>
-            <label class="block text-[11px] font-mono text-slate-400 uppercase tracking-wider mb-2">Or Choose Verified Mesh Contact</label>
+            <label class="block text-[11px] text-slate-400 font-semibold mb-2">Suggested people</label>
             <div class="space-y-1.5 max-h-48 overflow-y-auto pr-1">
               ${knownPeers.map(p => `
                 <div 
@@ -536,9 +536,9 @@ export function renderDirectMessagesWorkspace(): string {
   });
 
   return `
-    <div class="flex-1 flex overflow-hidden bg-canvas">
+    <div class="direct-messages-workspace ${activeConv ? 'has-active-conversation' : ''} flex-1 flex overflow-hidden bg-canvas">
       <!-- 1. LEFT SIDEBAR: PEER CONVERSATIONS LIST -->
-      <aside class="w-80 border-subtle-r bg-surface-base/80 flex flex-col shrink-0 overflow-hidden">
+      <aside class="conversation-list w-80 border-subtle-r bg-surface-base/80 flex flex-col shrink-0 overflow-hidden">
         <!-- SEARCH & NEW CHAT BAR -->
         <div class="p-3 border-b border-white/5 space-y-2.5">
           <div class="flex items-center justify-between">
@@ -572,7 +572,7 @@ export function renderDirectMessagesWorkspace(): string {
         <div class="flex-1 overflow-y-auto p-2 space-y-1">
           ${filteredConversations.length === 0 ? `
             <div class="p-6 text-center text-slate-500 text-xs space-y-2">
-              <p>No active peer conversations found.</p>
+              <p>No conversations yet.</p>
               <button 
                 type="button" 
                 data-action="new-dm-conversation"
@@ -608,7 +608,7 @@ export function renderDirectMessagesWorkspace(): string {
                 <!-- Text details -->
                 <div class="flex-1 min-w-0">
                   <div class="flex items-center justify-between">
-                    <span class="font-mono text-xs font-bold text-slate-200 truncate">node_${escapeHtml(conv.peerFingerprint.substring(0, 8))}</span>
+                    <span class="text-xs font-bold text-slate-200 truncate">${escapeHtml(conv.peerFingerprint.substring(0, 10))}</span>
                     <span class="text-[10px] font-mono text-slate-500 shrink-0">${formatRelative(conv.lastMessageAt)}</span>
                   </div>
                   <div class="flex items-center justify-between mt-0.5">
@@ -627,16 +627,16 @@ export function renderDirectMessagesWorkspace(): string {
       </aside>
 
       <!-- 2. RIGHT CHAT THREAD AREA -->
-      <main class="flex-1 flex flex-col overflow-hidden bg-canvas">
+      <main class="conversation-pane flex-1 flex flex-col overflow-hidden bg-canvas">
         ${!activeConv ? `
           <div class="flex-1 flex items-center justify-center p-8 text-center">
             <div class="max-w-md space-y-3">
               <div class="w-16 h-16 mx-auto rounded-2xl bg-indigo-600/15 border border-indigo-500/30 flex items-center justify-center text-3xl">
                 💬
               </div>
-              <h3 class="text-base font-bold text-white">Sovereign Direct Messaging</h3>
+              <h3 class="text-base font-bold text-white">Private messages</h3>
               <p class="text-xs text-slate-400 leading-relaxed">
-                Select a conversation from the sidebar or start a new encrypted E2EE session with any peer on the network.
+                Select a conversation or start a private chat with someone on UREfy.
               </p>
               <button 
                 type="button" 
@@ -656,7 +656,7 @@ export function renderDirectMessagesWorkspace(): string {
               </div>
               <div class="min-w-0">
                 <div class="flex items-center space-x-2">
-                  <span class="font-mono text-sm font-bold text-white truncate">node_${escapeHtml(activeConv.peerFingerprint.substring(0, 10))}</span>
+                  <span class="text-sm font-bold text-white truncate">${escapeHtml(activeConv.peerFingerprint.substring(0, 10))}</span>
                   <span class="text-[9px] font-mono px-1.5 py-0.5 rounded border ${
                     activeConv.peerRole === 'GUARDIAN' ? 'bg-amber/15 text-amber border-amber/30' :
                     activeConv.peerRole === 'ARCHIVIST' ? 'bg-cyphr/15 text-cyphr border-cyphr/30' :
@@ -671,7 +671,7 @@ export function renderDirectMessagesWorkspace(): string {
                     <span class="text-signal">Online</span>
                   </span>
                   <span>•</span>
-                  <span>E2EE Active</span>
+                  <span>Private conversation</span>
                 </div>
               </div>
             </div>
@@ -685,7 +685,7 @@ export function renderDirectMessagesWorkspace(): string {
                 title="Verify cryptographic safety numbers"
               >
                 <span>🛡️</span>
-                <span class="hidden sm:inline">Safety Code</span>
+                <span class="hidden sm:inline">Verify</span>
               </button>
 
               <button 
@@ -718,8 +718,8 @@ export function renderDirectMessagesWorkspace(): string {
           <div id="dm-thread-messages" class="flex-1 p-4 md:p-6 overflow-y-auto space-y-4 max-w-4xl mx-auto w-full">
             ${messages.length === 0 ? `
               <div class="p-8 text-center space-y-2 text-slate-500 text-xs">
-                <p>🔒 End-to-end encrypted session established with node_${escapeHtml(activeConv.peerFingerprint.substring(0, 10))}.</p>
-                <p class="text-[11px] text-slate-600">Messages are encrypted using TreeKEM SFrame before leaving your browser.</p>
+                <p>This is the beginning of your private conversation.</p>
+                <p class="text-[11px] text-slate-600">Only you and the other person can read messages here.</p>
               </div>
             ` : messages.map(msg => {
               const isMine = msg.senderFP === myFP;
@@ -796,7 +796,7 @@ export function renderDirectMessagesWorkspace(): string {
                   id="input-dm-message"
                   data-input="update-dm-draft"
                   value="${escapeHtml(dmMessageDraft)}"
-                  placeholder="Private message to id:${escapeHtml(activeConv.peerFingerprint.substring(0, 8))}..."
+                  placeholder="Write a private message..."
                   class="w-full bg-surface-raised border border-white/10 rounded-2xl px-4 py-3 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-all font-sans"
                   autocomplete="off"
                 />
@@ -840,7 +840,7 @@ export function renderRelaysWorkspace(): string {
       ${renderMessagesTabHeader()}
 
       <!-- SOVEREIGN RELAYS SPLIT WORKSPACE -->
-      <div class="flex-1 flex overflow-hidden">
+      <div class="relay-messages-workspace flex-1 flex overflow-hidden">
         <!-- 1. SOVEREIGN RELAY SERVER RAIL (LEFT-MOST ICON STRIP) -->
         ${relaysManager.renderRelayServerRail()}
 
@@ -853,8 +853,8 @@ export function renderRelaysWorkspace(): string {
           <div id="messages-container" class="flex-1 p-3 sm:p-4 md:p-6 overflow-y-auto space-y-${clientStore.density === 'compact' ? '1' : clientStore.density === 'balanced' ? '3' : '5'} max-w-4xl mx-auto w-full pb-20 md:pb-6">
             ${messages.length === 0 ? renderRelaysEmptyState({
               title: `Channel #${channelName} has no messages yet`,
-              description: `This is the beginning of #${channelName} on server ${escapeHtml(activeRelay.name)}. All messages are encrypted client-side using TreeKEM MLS.`,
-              actionText: '💬 Send the first message',
+              description: `This is the beginning of #${channelName}. Messages in this space are protected in transit.`,
+              actionText: 'Send the first message',
             }) : messages.map(m => renderMessageItem(m)).join('')}
           </div>
 
@@ -899,7 +899,7 @@ export function renderRelaysWorkspace(): string {
                   id="input-message"
                   data-input="update-relay-draft"
                   value="${escapeHtml(relayMessageDraft)}"
-                  placeholder="Message #${channelName} (E2EE encrypted & ZK-RLN verified)..."
+                  placeholder="Message #${channelName}"
                   class="w-full bg-surface-raised border border-white/10 rounded-2xl px-4 py-3 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500/50 transition-all font-sans"
                   autocomplete="off"
                 />

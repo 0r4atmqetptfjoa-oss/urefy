@@ -86,11 +86,16 @@ export function parseD1PostRow(row: any): EdgePost {
 export async function onRequestGet(context: { request: Request; env?: Env }): Promise<Response> {
   try {
     const url = new URL(context.request.url);
-    const sort = (url.searchParams.get('sort') || 'hot').toLowerCase();
-    const channelId = url.searchParams.get('channelId');
-    const flair = url.searchParams.get('flair');
-    const limit = Math.min(parseInt(url.searchParams.get('limit') || '50', 10), 100);
-    const offset = parseInt(url.searchParams.get('offset') || '0', 10);
+    const rawSort = (url.searchParams.get('sort') || 'hot').toLowerCase().trim();
+    const sort = ['hot', 'new', 'chrono', 'top'].includes(rawSort) ? rawSort : 'hot';
+    let channelId = url.searchParams.get('channelId')?.trim() || null;
+    if (channelId && channelId.length > 128) channelId = channelId.slice(0, 128);
+    let flair = url.searchParams.get('flair')?.trim() || null;
+    if (flair && flair.length > 64) flair = flair.slice(0, 64);
+    const rawLimit = parseInt(url.searchParams.get('limit') || '50', 10);
+    const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, 100) : 50;
+    const rawOffset = parseInt(url.searchParams.get('offset') || '0', 10);
+    const offset = Number.isFinite(rawOffset) && rawOffset >= 0 ? rawOffset : 0;
 
     const db = getD1Database(context.env);
     const kv = getKVStore(context.env);
@@ -269,6 +274,12 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
         userFingerprint = auth.fingerprint || userFingerprint;
       }
       const { postId, direction } = body;
+      if (!postId || typeof postId !== 'string' || postId.length > 256) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Valid postId is required' }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
       const voteDir = Number(direction) || 0;
 
       // Update in D1 if available
@@ -352,18 +363,26 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
     // ─── ACTION: ANONYMOUS VOTE (CHAUMIAN BLIND SIGNATURE BALLOT) ────────────
     if (body.action === 'anonymous-vote') {
       const { postId, direction, nullifier } = body;
+      if (!postId || typeof postId !== 'string' || postId.length > 256) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Valid postId is required' }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+      if (!nullifier || typeof nullifier !== 'string' || nullifier.length < 8) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Valid ballot nullifier is mandatory for anonymous votes' }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
       const voteDir = Number(direction) || (body.voteType === 'down' ? -1 : 1);
 
-      // Check spent nullifiers in-memory or ledger to prevent double voting
-      if (nullifier && globalSpentNullifiers.has(nullifier)) {
+      // Fast-path check: in-memory spent nullifier tracking
+      if (globalSpentNullifiers.has(nullifier)) {
         return new Response(
           JSON.stringify({ success: false, error: 'Ballot nullifier has already been spent' }),
           { status: 409, headers: { 'Content-Type': 'application/json' } }
         );
-      }
-
-      if (nullifier) {
-        globalSpentNullifiers.add(nullifier);
       }
 
       if (db) {
@@ -373,19 +392,27 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
             const currentVotes = Number(existing.merit_votes ?? existing.meritVotes) || 0;
             const newVotes = currentVotes + voteDir;
 
+            // ATOMIC D1 TRANSACTION BATCH:
+            // 1. Insert nullifier into used_nonces (PRIMARY KEY constraint enforces unicity)
+            // 2. Increment post vote count
+            // 3. Insert vote record with nullifier
+            const nonceStmt = db
+              .prepare('INSERT INTO used_nonces (fingerprint, nonce, expires_at, created_at) VALUES (?, ?, ?, ?)')
+              .bind('chaumian-ballot', nullifier, Date.now() + 86400000 * 365, Date.now());
+
             const updateStmt = db
               .prepare('UPDATE posts SET merit_votes = merit_votes + ? WHERE id = ?')
               .bind(voteDir, postId);
 
-            // Record anonymous ballot by nullifier (zero author/user linkage)
-            const ballotId = `ballot-${nullifier || Date.now()}`;
+            const ballotId = `ballot-${nullifier}`;
+            const ballotVoterId = `chaumian:${nullifier}`;
             const ballotStmt = db
               .prepare(
                 'INSERT OR REPLACE INTO votes (id, target_type, target_id, user_fingerprint, direction, created_at) VALUES (?, ?, ?, ?, ?, ?)'
               )
-              .bind(ballotId, 'post', postId, 'chaumian-blind-voter', voteDir, Date.now());
+              .bind(ballotId, 'post', postId, ballotVoterId, voteDir, Date.now());
 
-            const batchResults = await db.batch([updateStmt, ballotStmt]);
+            const batchResults = await db.batch([nonceStmt, updateStmt, ballotStmt]);
 
             if (isProd && batchResults.some((r: any) => r && r.success === false)) {
               return new Response(
@@ -394,6 +421,7 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
               );
             }
 
+            globalSpentNullifiers.add(nullifier);
             existing.merit_votes = newVotes;
             existing.meritVotes = newVotes;
             const updatedPost = parseD1PostRow(existing);
@@ -414,6 +442,13 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
             );
           }
         } catch (dbErr: any) {
+          const msg = String(dbErr?.message || '');
+          if (msg.includes('UNIQUE') || msg.includes('constraint') || msg.includes('PRIMARY KEY')) {
+            return new Response(
+              JSON.stringify({ success: false, error: 'Ballot nullifier has already been spent' }),
+              { status: 409, headers: { 'Content-Type': 'application/json' } }
+            );
+          }
           if (isProd) {
             return new Response(
               JSON.stringify({ success: false, error: `Database ballot transaction failed: ${dbErr?.message || 'D1 error'}` }),
@@ -425,6 +460,8 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
       } else if (isProd) {
         return createD1UnavailableResponse();
       }
+
+      globalSpentNullifiers.add(nullifier);
 
       // In-memory fallback (Dev/Test only)
       const post = globalPostsStore.find((p) => p.id === postId);
@@ -461,6 +498,12 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
         }
       }
       const { postId } = body;
+      if (!postId || typeof postId !== 'string' || postId.length > 256) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Valid postId is required' }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
 
       if (db) {
         try {
@@ -586,28 +629,68 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
       } catch (_) {}
     }
 
+    // Verify ownership and fetch existing post if body.id is supplied
+    let existingPost: EdgePost | null = null;
+    let isUpdate = false;
+    if (body.id) {
+      if (db) {
+        try {
+          const row = await db.prepare('SELECT * FROM posts WHERE id = ?').bind(body.id).first<any>();
+          if (row) {
+            existingPost = parseD1PostRow(row);
+            isUpdate = true;
+          }
+        } catch (dbErr: any) {
+          if (isProd) {
+            return new Response(
+              JSON.stringify({ success: false, error: `Database error verifying post existence: ${dbErr?.message || 'D1 error'}` }),
+              { status: 500, headers: { 'Content-Type': 'application/json' } }
+            );
+          }
+        }
+      }
+      if (!existingPost) {
+        const memMatch = globalPostsStore.find((p) => p.id === body.id);
+        if (memMatch) {
+          existingPost = memMatch;
+          isUpdate = true;
+        }
+      }
+
+      if (existingPost && !adminCheck.authorized && existingPost.authorFingerprint !== authorFingerprint) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Unauthorized: You cannot modify a post created by another identity' }),
+          { status: 403, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
     const randSuffix = typeof crypto !== 'undefined' && crypto.randomUUID
       ? crypto.randomUUID().replace(/-/g, '').substring(0, 8)
       : Date.now().toString(36);
+    const targetPostId = body.id || `post-${Date.now()}-${randSuffix}`;
+
     const newPost: EdgePost = {
-      id: body.id || `post-${Date.now()}-${randSuffix}`,
-      channelId: body.channelId || 'pulse-global',
-      authorFingerprint,
+      id: targetPostId,
+      channelId: body.channelId || existingPost?.channelId || 'pulse-global',
+      authorFingerprint: existingPost ? existingPost.authorFingerprint : authorFingerprint,
       authorRole,
-      title: body.title || 'Sovereign Pulse',
-      content: body.content || '',
-      flair: body.flair || (body.title ? 'TECH DISCUSSION' : 'MICRO-PULSE'),
+      title: body.title !== undefined ? body.title : (existingPost?.title || 'Sovereign Pulse'),
+      content: body.content !== undefined ? body.content : (existingPost?.content || ''),
+      flair: body.flair || existingPost?.flair || (body.title ? 'TECH DISCUSSION' : 'MICRO-PULSE'),
       status: postStatus,
-      meritVotes: typeof body.meritVotes === 'number' ? body.meritVotes : (typeof body.merit_votes === 'number' ? body.merit_votes : 1),
-      userVoted: body.userVoted || 0,
-      replyCount: body.replyCount || body.reply_count || 0,
-      boostCount: body.boostCount || body.boost_count || 0,
-      attachment: body.attachment,
-      video: body.video,
-      images: body.images,
-      pollId: body.pollId || body.poll_id,
-      quotedPost: body.quotedPost,
-      createdAt: body.createdAt || body.created_at || Date.now(),
+      meritVotes: adminCheck.authorized
+        ? (typeof body.meritVotes === 'number' ? body.meritVotes : (typeof body.merit_votes === 'number' ? body.merit_votes : (existingPost?.meritVotes ?? 1)))
+        : (existingPost ? existingPost.meritVotes : 1),
+      userVoted: existingPost ? existingPost.userVoted : 0,
+      replyCount: existingPost ? existingPost.replyCount : 0,
+      boostCount: existingPost ? existingPost.boostCount : 0,
+      attachment: body.attachment !== undefined ? body.attachment : existingPost?.attachment,
+      video: body.video !== undefined ? body.video : existingPost?.video,
+      images: body.images !== undefined ? body.images : existingPost?.images,
+      pollId: body.pollId || body.poll_id || existingPost?.pollId,
+      quotedPost: body.quotedPost !== undefined ? body.quotedPost : existingPost?.quotedPost,
+      createdAt: existingPost ? existingPost.createdAt : (body.createdAt || body.created_at || Date.now()),
       isExpanded: false,
     };
 
@@ -619,46 +702,82 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
       );
     }
 
-    // Store in Cloudflare D1 if available
+    // Store in Cloudflare D1 if available (Explicit UPDATE vs explicit INSERT)
     if (db) {
       try {
-        const stmt = db
-          .prepare(
-            `INSERT OR REPLACE INTO posts (
-              id, channel_id, author_id, author_role, title, content, flair,
-              merit_votes, user_voted, reply_count, boost_count,
-              attachment_json, video_json, images_json, poll_id,
-              quoted_post_json, status, created_at, is_expanded
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-          )
-          .bind(
-            newPost.id,
-            newPost.channelId,
-            newPost.authorFingerprint,
-            newPost.authorRole,
-            newPost.title,
-            newPost.content,
-            newPost.flair,
-            newPost.meritVotes,
-            newPost.userVoted,
-            newPost.replyCount,
-            newPost.boostCount,
-            newPost.attachment ? JSON.stringify(newPost.attachment) : null,
-            newPost.video ? JSON.stringify(newPost.video) : null,
-            newPost.images ? JSON.stringify(newPost.images) : null,
-            newPost.pollId || null,
-            newPost.quotedPost ? JSON.stringify(newPost.quotedPost) : null,
-            newPost.status || 'published',
-            newPost.createdAt,
-            newPost.isExpanded ? 1 : 0
-          );
+        if (isUpdate) {
+          const updateStmt = db
+            .prepare(
+              `UPDATE posts SET
+                channel_id = ?, author_role = ?, title = ?, content = ?, flair = ?,
+                attachment_json = ?, video_json = ?, images_json = ?, poll_id = ?,
+                quoted_post_json = ?, status = ?
+              WHERE id = ? AND (author_id = ? OR ? = 1)`
+            )
+            .bind(
+              newPost.channelId,
+              newPost.authorRole,
+              newPost.title,
+              newPost.content,
+              newPost.flair,
+              newPost.attachment ? JSON.stringify(newPost.attachment) : null,
+              newPost.video ? JSON.stringify(newPost.video) : null,
+              newPost.images ? JSON.stringify(newPost.images) : null,
+              newPost.pollId || null,
+              newPost.quotedPost ? JSON.stringify(newPost.quotedPost) : null,
+              newPost.status || 'published',
+              newPost.id,
+              authorFingerprint,
+              adminCheck.authorized ? 1 : 0
+            );
 
-        const runResult = await stmt.run();
-        if (isProd && runResult && runResult.success === false) {
-          return new Response(
-            JSON.stringify({ success: false, error: `Database post insert rejected: ${runResult.error || 'D1 error'}` }),
-            { status: 500, headers: { 'Content-Type': 'application/json' } }
-          );
+          const updateResult = await updateStmt.run();
+          if (isProd && updateResult && updateResult.success === false) {
+            return new Response(
+              JSON.stringify({ success: false, error: `Database post update rejected: ${updateResult.error || 'D1 error'}` }),
+              { status: 500, headers: { 'Content-Type': 'application/json' } }
+            );
+          }
+        } else {
+          // Explicit INSERT: prevents accidental overwrite or ownership theft on ID collisions
+          const insertStmt = db
+            .prepare(
+              `INSERT INTO posts (
+                id, channel_id, author_id, author_role, title, content, flair,
+                merit_votes, user_voted, reply_count, boost_count,
+                attachment_json, video_json, images_json, poll_id,
+                quoted_post_json, status, created_at, is_expanded
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+            )
+            .bind(
+              newPost.id,
+              newPost.channelId,
+              newPost.authorFingerprint,
+              newPost.authorRole,
+              newPost.title,
+              newPost.content,
+              newPost.flair,
+              newPost.meritVotes,
+              newPost.userVoted,
+              newPost.replyCount,
+              newPost.boostCount,
+              newPost.attachment ? JSON.stringify(newPost.attachment) : null,
+              newPost.video ? JSON.stringify(newPost.video) : null,
+              newPost.images ? JSON.stringify(newPost.images) : null,
+              newPost.pollId || null,
+              newPost.quotedPost ? JSON.stringify(newPost.quotedPost) : null,
+              newPost.status || 'published',
+              newPost.createdAt,
+              newPost.isExpanded ? 1 : 0
+            );
+
+          const runResult = await insertStmt.run();
+          if (isProd && runResult && runResult.success === false) {
+            return new Response(
+              JSON.stringify({ success: false, error: `Database post insert rejected: ${runResult.error || 'D1 error'}` }),
+              { status: 500, headers: { 'Content-Type': 'application/json' } }
+            );
+          }
         }
 
         // Invalidate KV cache
@@ -669,6 +788,13 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
           } catch (_) {}
         }
       } catch (dbErr: any) {
+        const msg = String(dbErr?.message || '');
+        if (msg.includes('UNIQUE') || msg.includes('constraint') || msg.includes('PRIMARY KEY')) {
+          return new Response(
+            JSON.stringify({ success: false, error: 'A post with this ID already exists and cannot be overwritten.' }),
+            { status: 409, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
         if (isProd) {
           return new Response(
             JSON.stringify({ success: false, error: `Database transaction failed: ${dbErr?.message || 'D1 post insert error'}` }),

@@ -11,7 +11,7 @@ import { t } from './i18n.js';
 
 export interface NavItemConfig {
   id: string;
-  mode?: 'pulse' | 'explore' | 'vault' | 'relays' | 'profile' | 'feed' | 'messages';
+  mode?: 'pulse' | 'explore' | 'vault' | 'relays' | 'profile' | 'feed' | 'messages' | 'communities';
   action?: string;
   label: string;
   sublabel?: string;
@@ -27,20 +27,20 @@ export const PRIMARY_NAV_ITEMS: NavItemConfig[] = [
     id: 'feed',
     mode: 'pulse',
     label: 'Feed',
-    sublabel: 'Decentralized stream & news',
+    sublabel: 'Decentralized feed & updates',
     iconName: 'feed',
     icon: '⚡',
-    description: 'Decentralized feed, sovereign publications, and real-time updates',
+    description: 'Personalized feed, following updates, and trending publications',
     testId: 'nav-item-feed',
   },
   {
     id: 'explore',
     mode: 'explore',
     label: 'Explore',
-    sublabel: 'Trends & discovery',
+    sublabel: 'Trends & creators',
     iconName: 'explore',
     icon: '🔍',
-    description: 'Discover active nodes, trending topics, and curated network content',
+    description: 'Discover trending topics, suggested creators, and hot discussions',
     testId: 'nav-item-explore',
   },
   {
@@ -67,10 +67,10 @@ export const PRIMARY_NAV_ITEMS: NavItemConfig[] = [
     id: 'profile',
     mode: 'profile',
     label: 'Profile',
-    sublabel: 'Identity & settings',
+    sublabel: 'Account & settings',
     iconName: 'profile',
     icon: '👤',
-    description: 'Cryptographic key management, Web-of-Trust reputation, and settings',
+    description: 'Your profile, posts, communities, and account settings',
     testId: 'nav-item-profile',
   },
   {
@@ -92,7 +92,7 @@ export const MORE_MENU_ITEMS: NavItemConfig[] = [
     label: 'Bookmarks',
     iconName: 'bookmark',
     icon: '🔖',
-    description: 'Saved articles, publications, and offline resources',
+    description: 'Saved sovereign posts, documents, and reference hashes',
     testId: 'rail-btn-bookmarks',
   },
   {
@@ -107,10 +107,11 @@ export const MORE_MENU_ITEMS: NavItemConfig[] = [
   {
     id: 'communities',
     action: 'communities',
-    label: 'Communities & Circles',
+    mode: 'communities',
+    label: 'Communities',
     iconName: 'users',
     icon: '👥',
-    description: 'Decentralized interest circles and sovereign groups',
+    description: 'Join interest communities, discuss topics, and build audiences',
     testId: 'rail-btn-communities',
   },
   {

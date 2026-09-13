@@ -666,9 +666,14 @@ describe('Cloudflare Durable Objects — RelayDurableObject & WebSocket Hibernat
       const ws = new MockWebSocket();
       mockState.acceptWebSocket(ws);
 
+      const token = await createRelaySessionToken(
+        { sub: 'archivist-1', role: 'MEMBER', aud: 'aetheris-relay', exp: Date.now() + 60000, iat: Date.now() },
+        'aetheris-sovereign-relay-secret'
+      );
+
       await relayDO.webSocketMessage(
         ws as unknown as WebSocket,
-        JSON.stringify({ type: 'AUTH', fingerprint: 'archivist-1' })
+        JSON.stringify({ type: 'AUTH', token })
       );
 
       await relayDO.webSocketMessage(
@@ -684,7 +689,7 @@ describe('Cloudflare Durable Objects — RelayDurableObject & WebSocket Hibernat
           title: 'Quantum Ratchet Test Build',
           fileName: 'ratchet-v1.bin',
           byteSize: 102400,
-          sha256: 'deadbeef1234567890abcdef',
+          sha256: 'a11fe18f963518803fbebdaebf4d408609e3a323c70194b3b507d47a392a2496',
           crc32: '8FA49B01',
           entropy: 7.82,
           verdict: 'CLEAN',

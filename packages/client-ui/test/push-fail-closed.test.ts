@@ -1,4 +1,4 @@
-﻿import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import {
   onRequestGet as handlePushGet,
   onRequestPost as handlePushPost,
@@ -71,7 +71,7 @@ describe('Push Notifications API Fail-Closed Enforcement (Finding 6)', () => {
 
   describe('1. Missing D1 Database in Production (HTTP 503)', () => {
     it('returns 503 when subscribing without D1 in production', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/push', {
+      const req = new Request('https://urefy.com/api/push', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -93,7 +93,7 @@ describe('Push Notifications API Fail-Closed Enforcement (Finding 6)', () => {
     });
 
     it('returns 503 when unsubscribing without D1 in production', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/push', {
+      const req = new Request('https://urefy.com/api/push', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -110,7 +110,7 @@ describe('Push Notifications API Fail-Closed Enforcement (Finding 6)', () => {
     });
 
     it('returns 503 for stats action without D1 in production', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/push?action=stats');
+      const req = new Request('https://urefy.com/api/push?action=stats');
       const res = await handlePushGet({ request: req, env: prodEnvWithoutDb as any });
       expect(res.status).toBe(503);
       const json = await res.json();
@@ -119,7 +119,7 @@ describe('Push Notifications API Fail-Closed Enforcement (Finding 6)', () => {
     });
 
     it('returns 503 for broadcast action without D1 in production', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/push', {
+      const req = new Request('https://urefy.com/api/push', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -139,7 +139,7 @@ describe('Push Notifications API Fail-Closed Enforcement (Finding 6)', () => {
 
   describe('2. D1 Write Failure in Production (HTTP 500 Fail-Closed)', () => {
     it('returns 500 when D1 INSERT throws error and does NOT store subscription in memory', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/push', {
+      const req = new Request('https://urefy.com/api/push', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -167,7 +167,7 @@ describe('Push Notifications API Fail-Closed Enforcement (Finding 6)', () => {
     });
 
     it('returns 500 when D1 INSERT returns !res.success', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/push', {
+      const req = new Request('https://urefy.com/api/push', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -193,7 +193,7 @@ describe('Push Notifications API Fail-Closed Enforcement (Finding 6)', () => {
     });
 
     it('returns 500 when D1 DELETE throws error on unsubscribe', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/push', {
+      const req = new Request('https://urefy.com/api/push', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -214,7 +214,7 @@ describe('Push Notifications API Fail-Closed Enforcement (Finding 6)', () => {
     });
 
     it('returns 500 when D1 DELETE returns !res.success on unsubscribe', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/push', {
+      const req = new Request('https://urefy.com/api/push', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -238,7 +238,7 @@ describe('Push Notifications API Fail-Closed Enforcement (Finding 6)', () => {
   describe('3. Successful Production Persistence with D1', () => {
     it('persists subscription to D1 and returns 201 without updating in-memory store in production', async () => {
       const mockD1 = workingDb();
-      const req = new Request('https://aetheris.pages.dev/api/push', {
+      const req = new Request('https://urefy.com/api/push', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -277,7 +277,7 @@ describe('Push Notifications API Fail-Closed Enforcement (Finding 6)', () => {
         },
       ]);
 
-      const req = new Request('https://aetheris.pages.dev/api/push', {
+      const req = new Request('https://urefy.com/api/push', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -300,7 +300,7 @@ describe('Push Notifications API Fail-Closed Enforcement (Finding 6)', () => {
 
   describe('4. Development Mode In-Memory Fallback', () => {
     it('allows in-memory fallback when DB is absent in development', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/push', {
+      const req = new Request('https://urefy.com/api/push', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

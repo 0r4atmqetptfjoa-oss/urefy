@@ -11,7 +11,7 @@ describe('UREfy — Zero-Trust Security & OWASP Top 10 Hardening Suite', () => {
   // ─── 1. OWASP A05: SECURITY MISCONFIGURATION & ENTERPRISE HEADERS ─────────
   describe('1. Enterprise Security Headers & CSP Enforcement', () => {
     it('attaches comprehensive enterprise security headers to downstream HTTP responses', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/health', {
+      const req = new Request('https://urefy.com/api/health', {
         method: 'GET',
         headers: { 'CF-Connecting-IP': '192.168.1.1' },
       });
@@ -66,7 +66,7 @@ describe('UREfy — Zero-Trust Security & OWASP Top 10 Hardening Suite', () => {
     });
 
     it('handles CORS preflight OPTIONS requests immediately with 204 status', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/posts', { method: 'OPTIONS' });
+      const req = new Request('https://urefy.com/api/posts', { method: 'OPTIONS' });
       const res = await handleMiddleware({
         request: req,
         functionPath: '/api/posts',
@@ -88,7 +88,7 @@ describe('UREfy — Zero-Trust Security & OWASP Top 10 Hardening Suite', () => {
   // ─── 2. OWASP A01 & A07: RATE LIMITING & ACCESS CONTROL ────────────────────
   describe('2. Edge IP & Identity Rate Limiter', () => {
     it('returns rate limit telemetry headers on all requests', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/posts', {
+      const req = new Request('https://urefy.com/api/posts', {
         method: 'GET',
         headers: { 'CF-Connecting-IP': '10.0.0.5' },
       });
@@ -113,18 +113,18 @@ describe('UREfy — Zero-Trust Security & OWASP Top 10 Hardening Suite', () => {
 
       // Exhaust burst tokens
       for (let i = 0; i < 40; i++) {
-        const check = evaluateRateLimit(ip, 'GET');
+        const check = evaluateRateLimit(ip, 'GET', false);
         expect(check.allowed).toBe(true);
       }
 
       // Next request in immediate burst should be rejected
-      const rateLimitedCheck = evaluateRateLimit(ip, 'GET');
+      const rateLimitedCheck = evaluateRateLimit(ip, 'GET', false);
       expect(rateLimitedCheck.allowed).toBe(false);
       expect(rateLimitedCheck.remaining).toBe(0);
       expect(rateLimitedCheck.retryAfter).toBeGreaterThanOrEqual(1);
 
-      // Middleware should return 429 response
-      const floodReq = new Request('https://aetheris.pages.dev/api/posts', {
+      // Middleware should return 429 response — use canonical urefy.com domain to avoid 301 redirect
+      const floodReq = new Request('https://urefy.com/api/posts', {
         method: 'GET',
         headers: { 'CF-Connecting-IP': ip },
       });
@@ -148,7 +148,7 @@ describe('UREfy — Zero-Trust Security & OWASP Top 10 Hardening Suite', () => {
 
     it('enforces tighter rate limits on mutating POST/PUT/DELETE endpoints', () => {
       const ip = '198.51.100.88';
-      const result = evaluateRateLimit(ip, 'POST');
+      const result = evaluateRateLimit(ip, 'POST', false);
       expect(result.limit).toBe(40);
     });
   });
@@ -156,7 +156,8 @@ describe('UREfy — Zero-Trust Security & OWASP Top 10 Hardening Suite', () => {
   // ─── 3. CSRF PROTECTION & ORIGIN VALIDATION ────────────────────────────────
   describe('3. Cross-Site Request Forgery (CSRF) Protection', () => {
     it('blocks cross-site state-changing requests lacking anti-CSRF token', async () => {
-      const maliciousReq = new Request('https://aetheris.pages.dev/api/posts', {
+      // Use canonical urefy.com domain to avoid pages.dev → urefy.com 301 redirect
+      const maliciousReq = new Request('https://urefy.com/api/posts', {
         method: 'POST',
         headers: {
           'Origin': 'https://malicious-attacker.com',
@@ -183,7 +184,7 @@ describe('UREfy — Zero-Trust Security & OWASP Top 10 Hardening Suite', () => {
     });
 
     it('allows cross-site state-changing requests when valid X-CSRF-Token is present', async () => {
-      const authorizedReq = new Request('https://aetheris.pages.dev/api/posts', {
+      const authorizedReq = new Request('https://urefy.com/api/posts', {
         method: 'POST',
         headers: {
           'Origin': 'https://malicious-attacker.com',
@@ -207,10 +208,10 @@ describe('UREfy — Zero-Trust Security & OWASP Top 10 Hardening Suite', () => {
     });
 
     it('allows same-origin requests naturally', async () => {
-      const sameOriginReq = new Request('https://aetheris.pages.dev/api/posts', {
+      const sameOriginReq = new Request('https://urefy.com/api/posts', {
         method: 'POST',
         headers: {
-          'Origin': 'https://aetheris.pages.dev',
+          'Origin': 'https://urefy.com',
           'CF-Connecting-IP': '203.0.113.3',
         },
         body: JSON.stringify({ action: 'create', title: 'Same Origin Post' }),
@@ -290,11 +291,10 @@ describe('UREfy — Zero-Trust Security & OWASP Top 10 Hardening Suite', () => {
 
   // ─── 5. PATH TRAVERSAL & STORAGE SANITIZATION ──────────────────────────────
   describe('5. Directory Traversal & Storage Key Sanitization', () => {
-    it('strips directory traversal sequences (../, ..\\) and null bytes from keys', () => {
-      expect(sanitizeStorageKey('../../../etc/passwd')).toBe('etc/passwd');
-      expect(sanitizeStorageKey('releases/../../../secret.key')).toBe('releases/secret.key');
-      expect(sanitizeStorageKey('payload\x00.exe')).toBe('payload.exe');
-      expect(sanitizeStorageKey('/leading/slash.bin')).toBe('leading/slash.bin');
+    it('rejects directory traversal sequences (../, ..\\) and null bytes from keys', () => {
+      expect(sanitizeStorageKey('../../../etc/passwd')).toBe('');
+      expect(sanitizeStorageKey('releases/../../../secret.key')).toBe('');
+      expect(sanitizeStorageKey('payload\x00.exe')).toBe('');
       expect(sanitizeStorageKey('normal-file_v1.0.bin')).toBe('normal-file_v1.0.bin');
     });
   });

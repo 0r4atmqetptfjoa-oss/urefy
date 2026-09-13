@@ -21,6 +21,7 @@ import { omniComposer } from './composer.js';
 import { keyboardNavigator } from './keyboard-nav.js';
 import { sovereignWebPush } from './web-push.js';
 import { onboardingWizard } from './onboarding.js';
+import { rapidOnboarding } from './rapid-onboarding.js';
 import { commandRailV2 } from './command-rail-v2.js';
 import { i18n } from './i18n.js';
 import { zkReputation } from './zk-reputation.js';
@@ -560,6 +561,7 @@ export function buildModalRootHTML(ctx: ModalStateContext): string {
     ${clientStore.isComposerOpen ? hybridComposer.renderComposerModal() : (omniComposer.isModalOpen ? omniComposer.renderComposerModal() : '')}
     ${keyboardNavigator.isHelpModalOpen ? keyboardNavigator.renderModal() : ''}
     ${onboardingWizard.isOpen ? '' : sovereignWebPush.renderPushOptInBanner()}
+    ${rapidOnboarding.isOpen ? rapidOnboarding.renderModalHTML() : ''}
     ${onboardingWizard.renderWizardModal(fp)}
     ${commandRailV2.isOpen ? commandRailV2.renderModal() : ''}
     ${modalManager.getActiveFeatureHTML()}

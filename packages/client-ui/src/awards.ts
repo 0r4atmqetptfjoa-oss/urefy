@@ -7,6 +7,7 @@
 import './window-augmentation.js';
 import { serviceRegistry, SERVICES } from './service-registry.js';
 import { isDemoModeEnabled } from './demo-mode.js';
+import { isLocalDev } from './admin-auth.js';
 import { networkActivityFeed } from './activity-feed.js';
 import { t } from './i18n.js';
 
@@ -178,7 +179,7 @@ export class AwardsSystem {
           this.postAwards.set(k, v as PostAward[]);
         }
       } catch {}
-    } else if (isDemoModeEnabled()) {
+    } else if (isDemoModeEnabled() && isLocalDev()) {
       this._seedDemoAwards();
     }
     this._initGlobalDomListeners();
@@ -221,6 +222,7 @@ export class AwardsSystem {
   // ─── Seed Initial State ───────────────────────────────────────────────────
 
   private _seedDemoAwards(): void {
+    if (!isLocalDev()) return;
     const now = Date.now();
 
     // Seed post-1 (Main ZK-RLN Release Post)
@@ -542,6 +544,21 @@ export class AwardsSystem {
           },
         })
       );
+      
+      // Asynchronously persist to Cloudflare D1
+      if (typeof fetch !== 'undefined') {
+        fetch('/api/interactions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            targetId: postId,
+            targetType: 'post',
+            userFingerprint: giverFP,
+            action: 'award',
+            value: award.type
+          }),
+        }).catch(err => console.warn('[AwardsSystem] Award sync error:', err));
+      }
     }
 
     return true;
@@ -612,6 +629,20 @@ export class AwardsSystem {
           },
         })
       );
+      
+      if (typeof fetch !== 'undefined') {
+        fetch('/api/interactions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            targetId: commentId,
+            targetType: 'comment',
+            userFingerprint: giverFP,
+            action: 'award',
+            value: award.type
+          }),
+        }).catch(err => console.warn('[AwardsSystem] Comment Award sync error:', err));
+      }
     }
 
     return true;

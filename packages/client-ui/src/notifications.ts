@@ -6,18 +6,19 @@
 import './window-augmentation.js';
 import { serviceRegistry, SERVICES } from './service-registry.js';
 import { sovereignWebPush } from './web-push.js';
-import { isDemoModeEnabled } from './demo-mode.js';
 import { t } from './i18n.js';
+import { socialSafety } from './social-safety.js';
 
 export interface NotificationItem {
   id: string;
-  type: 'reply' | 'upvote' | 'mention' | 'award' | 'slashing' | 'download_complete';
+  type: 'reply' | 'upvote' | 'mention' | 'award' | 'slashing' | 'download_complete' | 'follow' | 'reply_post' | 'reply_comment' | 'reaction' | 'mod_action' | 'message_request' | 'community_activity';
   title: string;
   body: string;
   postId?: string;
   fromFingerprint?: string;
   createdAt: number; // Unix ms
   isRead: boolean;
+  count?: number;
 }
 
 // ─── Helpers ────────────────────────────────────────────────
@@ -37,21 +38,35 @@ function relativeTime(ts: number): string {
 type NotificationIconMap = Record<NotificationItem['type'], string>;
 
 const ICONS: NotificationIconMap = {
-  reply:             '🔔',
-  upvote:            '▲',
-  mention:           '@',
-  award:             '🏅',
-  slashing:          '🚨',
-  download_complete: '✅',
+  reply:              '🔔',
+  reply_post:         '💬',
+  reply_comment:      '↩️',
+  upvote:             '▲',
+  reaction:           '❤️',
+  mention:            '@',
+  follow:             '👤',
+  award:              '🏅',
+  slashing:           '🚨',
+  download_complete:  '✅',
+  mod_action:         '🛡️',
+  message_request:    '✉️',
+  community_activity: '🏛️',
 };
 
 const ICON_COLOR: Record<NotificationItem['type'], string> = {
-  reply:             'text-cyphr',
-  upvote:            'text-signal',
-  mention:           'text-aether',
-  award:             'text-amber',
-  slashing:          'text-crimson',
-  download_complete: 'text-signal',
+  reply:              'text-cyphr',
+  reply_post:         'text-cyphr',
+  reply_comment:      'text-cyphr',
+  upvote:             'text-signal',
+  reaction:           'text-rose-400',
+  mention:            'text-aether',
+  follow:             'text-sky-400',
+  award:              'text-amber',
+  slashing:           'text-crimson',
+  download_complete:  'text-signal',
+  mod_action:         'text-indigo-400',
+  message_request:    'text-emerald-400',
+  community_activity: 'text-purple-400',
 };
 
 // ─── NotificationCenter Class ────────────────────────────────
@@ -61,25 +76,31 @@ class NotificationCenter {
   private static readonly MAX_ITEMS = 50;
 
   constructor() {
-    if (isDemoModeEnabled()) {
-      this._seedDemoNotifications();
-    }
     this._attachGlobalHandlers();
   }
 
   // ── Computed ──────────────────────────────────────────────
 
   get unreadCount(): number {
-    return this._notifications.filter(n => !n.isRead).length;
+    return this._notifications.filter(n => !n.isRead && (!n.fromFingerprint || !socialSafety.isBlocked(n.fromFingerprint))).length;
   }
 
   get notifications(): NotificationItem[] {
-    return [...this._notifications];
+    return this._notifications.filter(n => !n.fromFingerprint || !socialSafety.isBlocked(n.fromFingerprint));
   }
 
   // ── Public API ────────────────────────────────────────────
 
   addNotification(item: Omit<NotificationItem, 'id' | 'isRead'>): NotificationItem {
+    if (item.fromFingerprint && socialSafety.isBlocked(item.fromFingerprint)) {
+      // Silently suppress notifications from blocked users
+      return {
+        ...item,
+        id: generateId(),
+        isRead: true,
+      };
+    }
+
     const newItem: NotificationItem = {
       ...item,
       id: generateId(),
@@ -98,6 +119,45 @@ class NotificationCenter {
     this._refreshUI();
 
     return newItem;
+  }
+
+  async syncFromApi(userId: string): Promise<void> {
+    if (!userId) return;
+    try {
+      const resp = await fetch(`/api/notifications?userId=${encodeURIComponent(userId)}`);
+      if (resp.ok) {
+        const data = await resp.json() as { notifications?: Array<{
+          id: string;
+          type: string;
+          actor_name?: string;
+          preview_text?: string;
+          target_id?: string;
+          actor_id?: string;
+          created_at?: number;
+          is_read?: number | boolean;
+        }> };
+        if (Array.isArray(data.notifications)) {
+          for (const item of data.notifications) {
+            if (this._notifications.some(n => n.id === item.id)) continue;
+            if (item.actor_id && socialSafety.isBlocked(item.actor_id)) continue;
+            this._notifications.unshift({
+              id: item.id,
+              type: item.type as NotificationItem['type'],
+              title: item.actor_name || 'Notification',
+              body: item.preview_text || item.type,
+              postId: item.target_id,
+              fromFingerprint: item.actor_id,
+              createdAt: item.created_at || Date.now(),
+              isRead: Boolean(item.is_read),
+            });
+          }
+          this._notifications = this._notifications.slice(0, NotificationCenter.MAX_ITEMS);
+          this._refreshUI();
+        }
+      }
+    } catch {
+      // Offline fallback: keep memory notifications
+    }
   }
 
   markRead(id: string): void {
@@ -137,11 +197,11 @@ class NotificationCenter {
   }
 
   getFiltered(): NotificationItem[] {
-    let list = this._notifications;
+    let list = this._notifications.filter(n => !n.fromFingerprint || !socialSafety.isBlocked(n.fromFingerprint));
     if (this.activeFilter === 'unread') {
       list = list.filter(n => !n.isRead);
     } else if (this.activeFilter === 'mentions') {
-      list = list.filter(n => n.type === 'mention' || n.type === 'reply');
+      list = list.filter(n => n.type === 'mention' || n.type === 'reply' || n.type === 'reply_post' || n.type === 'reply_comment');
     } else if (this.activeFilter === 'awards') {
       list = list.filter(n => n.type === 'award');
     }

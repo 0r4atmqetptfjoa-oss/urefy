@@ -148,7 +148,9 @@ export class AetherisClientStore {
   public messagesPersistence: Promise<void> = Promise.resolve();
 
   public activeSpace: SpaceType = 'relays';
-  public activeChannelId: string = 'relays-general';
+  // The consumer experience opens on content. Messaging, vault and protocol
+  // tooling remain available without taking over the first-run surface.
+  public activeChannelId: string = 'pulse-global';
   public activeHub: string = 'all';
   public sortMode: 'hot' | 'new' | 'top' | 'chrono' = 'hot';
   public density: DensityMode = 'balanced';
@@ -370,7 +372,7 @@ export class AetherisClientStore {
   }
 
   private seedInitialPostsAndMembers(): void {
-    if (!isDemoModeEnabled()) {
+    if (!isDemoModeEnabled() || !isLocalDev()) {
       this.members = [
         { fingerprint: this.keypair.fingerprint, role: 'MEMBER', status: 'online', isZKVerified: true, avatarSeed: 'me' }
       ];

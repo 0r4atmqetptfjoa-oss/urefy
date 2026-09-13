@@ -1,4 +1,4 @@
-﻿import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { onRequestGet as handlePostsGet, onRequestPost as handlePostsPost } from '../functions/api/posts.js';
 import { onRequestGet as handleMessagesGet, onRequestPost as handleMessagesPost } from '../functions/api/messages.js';
 import { onRequestGet as handleChannelsGet, onRequestPost as handleChannelsPost } from '../functions/api/channels.js';
@@ -57,11 +57,11 @@ describe('Production Database & Storage Enforcement Suite', () => {
     globalMessagesStore.length = 0;
   });
 
-  // ═════════════════════════════════════════════════════════════════════════════
+  // =============================================================================
   // SECTION 1: MISSING DEPENDENCY (HTTP 503) TESTS ACROSS ALL 10 ENDPOINTS
-  // ═════════════════════════════════════════════════════════════════════════════
+  // =============================================================================
   describe('Missing Dependency Enforcement (503 Service Unavailable)', () => {
-    it('1. /api/posts — returns 503 on GET & POST in production when D1 is absent', async () => {
+    it('1. /api/posts � returns 503 on GET & POST in production when D1 is absent', async () => {
       const getRes = await handlePostsGet({
         request: new Request('http://localhost/api/posts?channelId=general'),
         env: prodEnvWithoutDb,
@@ -79,7 +79,7 @@ describe('Production Database & Storage Enforcement Suite', () => {
       expect(postRes.status).toBe(503);
     });
 
-    it('2. /api/messages — returns 503 on GET & POST in production when D1 is absent', async () => {
+    it('2. /api/messages � returns 503 on GET & POST in production when D1 is absent', async () => {
       const getRes = await handleMessagesGet({
         request: new Request('http://localhost/api/messages?channelId=relays-general'),
         env: prodEnvWithoutDb,
@@ -97,7 +97,7 @@ describe('Production Database & Storage Enforcement Suite', () => {
       expect(postRes.status).toBe(503);
     });
 
-    it('3. /api/channels — returns 503 on GET & POST in production when D1 is absent', async () => {
+    it('3. /api/channels � returns 503 on GET & POST in production when D1 is absent', async () => {
       const getRes = await handleChannelsGet({
         request: new Request('http://localhost/api/channels?space=relays'),
         env: prodEnvWithoutDb,
@@ -115,7 +115,7 @@ describe('Production Database & Storage Enforcement Suite', () => {
       expect(postRes.status).toBe(503);
     });
 
-    it('4. /api/interactions — returns 503 on GET & POST in production when D1 is absent', async () => {
+    it('4. /api/interactions � returns 503 on GET & POST in production when D1 is absent', async () => {
       const getRes = await handleInteractionsGet({
         request: new Request('http://localhost/api/interactions?targetId=post-1'),
         env: prodEnvWithoutDb,
@@ -133,7 +133,7 @@ describe('Production Database & Storage Enforcement Suite', () => {
       expect(postRes.status).toBe(503);
     });
 
-    it('5. /api/report — returns 503 on GET, POST & PATCH in production when D1 is absent', async () => {
+    it('5. /api/report � returns 503 on GET, POST & PATCH in production when D1 is absent', async () => {
       const getRes = await handleReportGet({
         request: new Request('http://localhost/api/report', { headers: { 'X-Admin-PIN': 'test-admin-secret-pin' } }),
         env: prodEnvWithoutDb,
@@ -161,7 +161,7 @@ describe('Production Database & Storage Enforcement Suite', () => {
       expect(patchRes.status).toBe(503);
     });
 
-    it('6. /api/analytics — returns 503 on GET & POST in production when D1 is absent', async () => {
+    it('6. /api/analytics � returns 503 on GET & POST in production when D1 is absent', async () => {
       const getRes = await handleAnalyticsGet({
         request: new Request('http://localhost/api/analytics'),
         env: prodEnvWithoutDb,
@@ -179,7 +179,7 @@ describe('Production Database & Storage Enforcement Suite', () => {
       expect(postRes.status).toBe(503);
     });
 
-    it('7. /api/webauthn — returns 503 on GET & POST in production when D1 is absent', async () => {
+    it('7. /api/webauthn � returns 503 on GET & POST in production when D1 is absent', async () => {
       const getRes = await handleWebAuthn({
         request: new Request('http://localhost/api/webauthn?action=challenge'),
         env: prodEnvWithoutDb,
@@ -197,7 +197,7 @@ describe('Production Database & Storage Enforcement Suite', () => {
       expect(postRes.status).toBe(503);
     });
 
-    it('8. /api/storage — returns 503 on GET, POST & DELETE in production when R2 is absent', async () => {
+    it('8. /api/storage � returns 503 on GET, POST & DELETE in production when R2 is absent', async () => {
       const getRes = await handleStorageGet({
         request: new Request('http://localhost/api/storage?key=vault/test.bin'),
         env: prodEnvWithoutDb,
@@ -224,7 +224,7 @@ describe('Production Database & Storage Enforcement Suite', () => {
       expect(delRes.status).toBe(503);
     });
 
-    it('9. /api/cron-backup — returns 503 on GET & POST in production when storage is absent', async () => {
+    it('9. /api/cron-backup � returns 503 on GET & POST in production when storage is absent', async () => {
       const getRes = await handleCronBackupGet({
         request: new Request('http://localhost/api/cron-backup'),
         env: prodEnvWithoutDb,
@@ -241,7 +241,7 @@ describe('Production Database & Storage Enforcement Suite', () => {
       expect(postRes.status).toBe(500); // executeBackup rejects due to missing R2/D1 in prod
     });
 
-    it('10. /api/federation — returns 503 on GET & POST in production when D1 is absent', async () => {
+    it('10. /api/federation � returns 503 on GET & POST in production when D1 is absent', async () => {
       const getRes = await handleFederationGet({
         request: new Request('http://localhost/api/federation/outbox'),
         env: prodEnvWithoutDb,
@@ -250,9 +250,9 @@ describe('Production Database & Storage Enforcement Suite', () => {
     });
   });
 
-  // ═════════════════════════════════════════════════════════════════════════════
-  // SECTION 2: TEST A — "FAKE SUCCESS" WRITE REJECTION & NON-PERSISTENCE VERIFICATION
-  // ═════════════════════════════════════════════════════════════════════════════
+  // =============================================================================
+  // SECTION 2: TEST A � "FAKE SUCCESS" WRITE REJECTION & NON-PERSISTENCE VERIFICATION
+  // =============================================================================
   describe('Mandatory Test A: Fake Success Defense (Failed Write != 200/201 & No Persistence)', () => {
     it('A.1 POST /api/posts: rejects on D1 failure and post is NOT stored', async () => {
       const postReq = new Request('http://localhost/api/posts', {

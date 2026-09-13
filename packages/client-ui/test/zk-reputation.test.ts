@@ -1,7 +1,7 @@
-﻿import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { ZKReputationAggregator, REPUTATION_TIERS } from '../src/zk-reputation';
 
-describe('ZKReputationAggregator — Anonymous Merit Proofs & Credentials', () => {
+describe('ZKReputationAggregator � Anonymous Merit Proofs & Credentials', () => {
   let rep: ZKReputationAggregator;
 
   beforeEach(() => {

@@ -52,6 +52,7 @@ describe('Phase 2: Unified Identity Architecture & Signed Request Envelope Proto
         'post:vote',
         'channel:create',
         'storage:upload',
+        'storage:delete',
         'relay:publish',
         'dm:send',
         'node:telemetry',
@@ -81,7 +82,7 @@ describe('Phase 2: Unified Identity Architecture & Signed Request Envelope Proto
       };
 
       const envelope = createSignedEnvelope(payload, aliceKeySet);
-      const req = new Request('https://aetheris.pages.dev/api/messages', {
+      const req = new Request('https://urefy.com/api/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(envelope),
@@ -107,7 +108,7 @@ describe('Phase 2: Unified Identity Architecture & Signed Request Envelope Proto
       };
 
       const envelope = createSignedEnvelope(payload, aliceKeySet);
-      const req = new Request('https://aetheris.pages.dev/api/posts', {
+      const req = new Request('https://urefy.com/api/posts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(envelope),
@@ -132,7 +133,7 @@ describe('Phase 2: Unified Identity Architecture & Signed Request Envelope Proto
         authorFingerprint: aliceKeySet.identity.fingerprint,
       };
       await handlePostPost({
-        request: new Request('https://aetheris.pages.dev/api/posts', {
+        request: new Request('https://urefy.com/api/posts', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(createSignedEnvelope(createPayload, aliceKeySet)),
@@ -147,7 +148,7 @@ describe('Phase 2: Unified Identity Architecture & Signed Request Envelope Proto
       };
 
       const envelope = createSignedEnvelope(votePayload, aliceKeySet);
-      const req = new Request('https://aetheris.pages.dev/api/posts', {
+      const req = new Request('https://urefy.com/api/posts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(envelope),
@@ -168,7 +169,7 @@ describe('Phase 2: Unified Identity Architecture & Signed Request Envelope Proto
       };
 
       const envelope = createSignedEnvelope(payload, aliceKeySet);
-      const req = new Request('https://aetheris.pages.dev/api/channels', {
+      const req = new Request('https://urefy.com/api/channels', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(envelope),
@@ -189,7 +190,7 @@ describe('Phase 2: Unified Identity Architecture & Signed Request Envelope Proto
       };
 
       const envelope = createSignedEnvelope(payload, aliceKeySet);
-      const req = new Request('https://aetheris.pages.dev/api/storage', {
+      const req = new Request('https://urefy.com/api/storage', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(envelope),
@@ -208,7 +209,7 @@ describe('Phase 2: Unified Identity Architecture & Signed Request Envelope Proto
       };
 
       const envelope = createSignedEnvelope(payload, aliceKeySet);
-      const req = new Request('https://aetheris.pages.dev/api/interactions', {
+      const req = new Request('https://urefy.com/api/interactions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(envelope),
@@ -230,7 +231,7 @@ describe('Phase 2: Unified Identity Architecture & Signed Request Envelope Proto
       };
 
       const envelope = createSignedEnvelope(payload, aliceKeySet);
-      const req = new Request('https://aetheris.pages.dev/api/nanopublications', {
+      const req = new Request('https://urefy.com/api/nanopublications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(envelope),
@@ -250,7 +251,7 @@ describe('Phase 2: Unified Identity Architecture & Signed Request Envelope Proto
       };
 
       const envelope = createSignedEnvelope(payload, aliceKeySet);
-      const req = new Request('https://aetheris.pages.dev/api/analytics', {
+      const req = new Request('https://urefy.com/api/analytics', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(envelope),
@@ -273,7 +274,7 @@ describe('Phase 2: Unified Identity Architecture & Signed Request Envelope Proto
 
       (envelope.payload as any).name = 'Malicious Injected Channel Name';
 
-      const req = new Request('https://aetheris.pages.dev/api/channels', {
+      const req = new Request('https://urefy.com/api/channels', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(envelope),
@@ -294,7 +295,7 @@ describe('Phase 2: Unified Identity Architecture & Signed Request Envelope Proto
       const envelope = createSignedEnvelope(payload, aliceKeySet);
       envelope.signature = envelope.signature.slice(0, -2) + (envelope.signature.endsWith('00') ? '11' : '00');
 
-      const req = new Request('https://aetheris.pages.dev/api/channels', {
+      const req = new Request('https://urefy.com/api/channels', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(envelope),
@@ -324,7 +325,7 @@ describe('Phase 2: Unified Identity Architecture & Signed Request Envelope Proto
       );
       envelope.signature = bytesToHex(signMessage(digest, aliceKeySet.signingPrivateKey));
 
-      const req = new Request('https://aetheris.pages.dev/api/channels', {
+      const req = new Request('https://urefy.com/api/channels', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(envelope),
@@ -349,7 +350,7 @@ describe('Phase 2: Unified Identity Architecture & Signed Request Envelope Proto
       };
       const envelope = createSignedEnvelope(payload, restrictedKeySet);
 
-      const req = new Request('https://aetheris.pages.dev/api/channels', {
+      const req = new Request('https://urefy.com/api/channels', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(envelope),
@@ -371,7 +372,7 @@ describe('Phase 2: Unified Identity Architecture & Signed Request Envelope Proto
       };
       const envelope = createSignedEnvelope(payload, aliceKeySet);
 
-      const req1 = new Request('https://aetheris.pages.dev/api/posts', {
+      const req1 = new Request('https://urefy.com/api/posts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(envelope),
@@ -379,7 +380,7 @@ describe('Phase 2: Unified Identity Architecture & Signed Request Envelope Proto
       const res1 = await handlePostPost({ request: req1, env: {} });
       expect(res1.status).toBe(201);
 
-      const req2 = new Request('https://aetheris.pages.dev/api/posts', {
+      const req2 = new Request('https://urefy.com/api/posts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(envelope),
@@ -401,7 +402,7 @@ describe('Phase 2: Unified Identity Architecture & Signed Request Envelope Proto
         timestamp: oldTimestamp,
       });
 
-      const req = new Request('https://aetheris.pages.dev/api/posts', {
+      const req = new Request('https://urefy.com/api/posts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(envelope),
@@ -422,7 +423,7 @@ describe('Phase 2: Unified Identity Architecture & Signed Request Envelope Proto
       const payloadToSign = `${legacyUser.fingerprint}:${timestamp}`;
       const signatureHex = bytesToHex(signMessage(payloadToSign, legacyUser.privateKey));
 
-      const req = new Request('https://aetheris.pages.dev/api/channels', {
+      const req = new Request('https://urefy.com/api/channels', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

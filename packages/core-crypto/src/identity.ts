@@ -82,6 +82,7 @@ export const DEFAULT_SOVEREIGN_CAPABILITIES: IdentityCapability[] = [
   'post:vote',
   'channel:create',
   'storage:upload',
+  'storage:delete',
   'relay:publish',
   'dm:send',
   'node:telemetry',

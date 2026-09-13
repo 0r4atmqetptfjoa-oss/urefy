@@ -13,7 +13,8 @@ try {
   let t = '';
   if (raw) {
     try {
-      t = (JSON.parse(raw) || {}).activeThemeId || '';
+      const parsed = JSON.parse(raw) || {};
+      t = parsed.themeId || parsed.activeThemeId || '';
     } catch (e) {
       t = raw;
     }

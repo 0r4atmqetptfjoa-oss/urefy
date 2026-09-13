@@ -1,4 +1,4 @@
-﻿import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { ToastManager } from '../src/toast.js';
 
 class MockElement {
@@ -67,13 +67,13 @@ describe('UREfy Sovereign HUD Toast Notification System', () => {
     const toast = toastManager.show({
       message: 'Post link copied to clipboard',
       type: 'success',
-      icon: '🔗',
+      icon: '??',
     });
 
     expect(toast).toBeDefined();
     expect(toast.message).toBe('Post link copied to clipboard');
     expect(toast.type).toBe('success');
-    expect(toast.icon).toBe('🔗');
+    expect(toast.icon).toBe('??');
   });
 
   it('supports success, info, warning, and error helpers', () => {

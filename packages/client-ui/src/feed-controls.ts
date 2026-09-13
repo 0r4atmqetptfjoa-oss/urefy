@@ -18,8 +18,13 @@ import { linkPreviewEngine } from './link-preview.js';
 import { collectionsEngine } from './collections.js';
 import { zkReputation } from './zk-reputation.js';
 import { threadManager } from './threads.js';
+import { sovereignCircleEngine } from './sovereign-circle.js';
+import { profileView } from './profile-view.js';
+import { feedPersonalization, type ContentSignal } from './feed-personalization.js';
+import { renderAvatar } from './ui/avatar-generator.js';
 import { t } from './i18n.js';
 
+export type StreamType = 'for-you' | 'following' | 'latest';
 export type ViewMode = 'card' | 'classic' | 'compact';
 export type SortType = 'hot' | 'new' | 'top' | 'rising' | 'chrono';
 export type TopTimeframe = 'today' | 'week' | 'month' | 'year' | 'all';
@@ -36,11 +41,24 @@ function escapeHtml(str: string): string {
 export class FeedControlsEngine {
   public viewMode: ViewMode = 'card';
   public sortType: SortType = 'hot';
+  public streamType: StreamType = 'for-you';
   public topTimeframe: TopTimeframe = 'all';
   public isTopDropdownOpen: boolean = false;
 
   constructor() {
     this._initGlobalDomListeners();
+  }
+
+  public getStreamType(): StreamType {
+    return this.streamType;
+  }
+
+  public setStreamType(stream: StreamType): void {
+    this.streamType = stream;
+    if (stream === 'latest') {
+      this.sortType = 'new';
+    }
+    clientStore.notify();
   }
 
   public getViewMode(): ViewMode {
@@ -85,14 +103,21 @@ export class FeedControlsEngine {
    * Applies sort algorithm and top timeframe filters to a list of posts.
    */
   public filterAndSortPosts(posts: ClientPost[]): ClientPost[] {
-    const list = [...posts];
+    let list = [...posts];
     const now = Date.now();
 
-    if (this.sortType === 'new' || this.sortType === 'chrono') {
-      return list.sort((a, b) => b.createdAt - a.createdAt);
+    // 1. If Following stream is active, restrict strictly to followed authors and self
+    if (this.streamType === 'following') {
+      const myFp = clientStore.keypair?.fingerprint || '';
+      list = list.filter(p => profileView.isFollowing(p.authorFingerprint) || p.authorFingerprint === myFp);
     }
 
-    if (this.sortType === 'top') {
+    let sorted: ClientPost[];
+
+    // 2. Explicit sort filters
+    if (this.sortType === 'new' || this.sortType === 'chrono' || this.streamType === 'latest') {
+      sorted = list.sort((a, b) => b.createdAt - a.createdAt);
+    } else if (this.sortType === 'top') {
       let filtered = list;
       if (this.topTimeframe === 'today') {
         filtered = list.filter(p => now - p.createdAt <= 24 * 3600 * 1000);
@@ -103,28 +128,46 @@ export class FeedControlsEngine {
       } else if (this.topTimeframe === 'year') {
         filtered = list.filter(p => now - p.createdAt <= 365 * 24 * 3600 * 1000);
       }
-      return filtered.sort((a, b) => (b.meritVotes || 0) - (a.meritVotes || 0));
-    }
-
-    if (this.sortType === 'rising') {
+      sorted = filtered.sort((a, b) => (b.meritVotes || 0) - (a.meritVotes || 0));
+    } else if (this.sortType === 'rising') {
       // High score velocity over recent time window
-      return list.sort((a, b) => {
+      sorted = list.sort((a, b) => {
         const ageHoursA = Math.max(0.5, (now - a.createdAt) / 3600000);
         const ageHoursB = Math.max(0.5, (now - b.createdAt) / 3600000);
         const velocityA = (a.meritVotes + (a.replyCount || 0) * 2) / Math.pow(ageHoursA + 1, 1.4);
         const velocityB = (b.meritVotes + (b.replyCount || 0) * 2) / Math.pow(ageHoursB + 1, 1.4);
         return velocityB - velocityA;
       });
+    } else if (this.streamType === 'for-you' && this.sortType === 'hot') {
+      // 3. For You algorithmic stream: local vector space TF-IDF topic affinity & freshness
+      try {
+        const signals: ContentSignal[] = list.map(p => ({
+          postId: p.id,
+          tags: (p as any).tags || [],
+          flair: p.flair || '',
+          channelId: p.channelId || '',
+          score: p.meritVotes || 0,
+          authorFP: p.authorFingerprint || '',
+          createdAt: p.createdAt,
+          title: p.title,
+        }));
+        const scored = feedPersonalization.sortFeed(signals);
+        const orderMap = new Map<string, number>();
+        scored.forEach((s, idx) => orderMap.set(s.postId, idx));
+        sorted = list.sort((a, b) => (orderMap.get(a.id) ?? 9999) - (orderMap.get(b.id) ?? 9999));
+      } catch (_) {
+        sorted = list;
+      }
+    } else {
+      // Default: 'hot' ranking algorithm
+      sorted = list.sort((a, b) => {
+        const ageHoursA = (now - a.createdAt) / 3600000;
+        const ageHoursB = (now - b.createdAt) / 3600000;
+        const scoreA = (a.meritVotes * 2) + ((a.replyCount || 0) * 3) + ((a.boostCount || 0) * 2) - (ageHoursA * 1.5);
+        const scoreB = (b.meritVotes * 2) + ((b.replyCount || 0) * 3) + ((b.boostCount || 0) * 2) - (ageHoursB * 1.5);
+        return scoreB - scoreA;
+      });
     }
-
-    // Default: 'hot' ranking algorithm
-    const sorted = list.sort((a, b) => {
-      const ageHoursA = (now - a.createdAt) / 3600000;
-      const ageHoursB = (now - b.createdAt) / 3600000;
-      const scoreA = (a.meritVotes * 2) + ((a.replyCount || 0) * 3) + ((a.boostCount || 0) * 2) - (ageHoursA * 1.5);
-      const scoreB = (b.meritVotes * 2) + ((b.replyCount || 0) * 3) + ((b.boostCount || 0) * 2) - (ageHoursB * 1.5);
-      return scoreB - scoreA;
-    });
 
     // Softly demote publications below trust threshold to the bottom if enabled
     try {
@@ -162,7 +205,50 @@ export class FeedControlsEngine {
     return `
       <div id="feed-controls-toolbar" class="p-2.5 rounded-2xl bg-surface-base/90 border border-white/10 shadow-sm flex items-center justify-between gap-2 flex-wrap mb-4 select-none">
         
-        <!-- LEFT: SORT TABS (HOT, NEW, TOP, RISING) -->
+        <!-- LEFT: STREAM TYPE SWITCHER (FOR YOU, FOLLOWING, LATEST) -->
+        <div class="flex items-center space-x-1 bg-surface-raised p-1 rounded-xl border border-white/10 text-xs font-semibold">
+          <button 
+            type="button" 
+            id="stream-btn-for-you" 
+            data-stream-type="for-you"
+            class="btn-stream-type px-3 py-1.5 rounded-lg transition-all flex items-center space-x-1.5 cursor-pointer ${
+              this.streamType === 'for-you'
+                ? 'bg-indigo-600 text-white font-bold shadow-xs'
+                : 'text-slate-400 hover:text-white hover:bg-surface-overlay'
+            }"
+          >
+            <span>✨</span>
+            <span>For You</span>
+          </button>
+          <button 
+            type="button" 
+            id="stream-btn-following" 
+            data-stream-type="following"
+            class="btn-stream-type px-3 py-1.5 rounded-lg transition-all flex items-center space-x-1.5 cursor-pointer ${
+              this.streamType === 'following'
+                ? 'bg-indigo-600 text-white font-bold shadow-xs'
+                : 'text-slate-400 hover:text-white hover:bg-surface-overlay'
+            }"
+          >
+            <span>👥</span>
+            <span>Following</span>
+          </button>
+          <button 
+            type="button" 
+            id="stream-btn-latest" 
+            data-stream-type="latest"
+            class="btn-stream-type px-3 py-1.5 rounded-lg transition-all flex items-center space-x-1.5 cursor-pointer ${
+              this.streamType === 'latest'
+                ? 'bg-indigo-600 text-white font-bold shadow-xs'
+                : 'text-slate-400 hover:text-white hover:bg-surface-overlay'
+            }"
+          >
+            <span>⚡</span>
+            <span>Latest</span>
+          </button>
+        </div>
+
+        <!-- MIDDLE: SORT TABS (HOT, NEW, TOP, RISING) -->
         <div class="flex items-center space-x-1.5 flex-wrap gap-y-1">
           <!-- HOT -->
           <button 
@@ -320,9 +406,12 @@ export class FeedControlsEngine {
    */
   public renderCompactPost(p: ClientPost): string {
     const time = new Date(p.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const circleName = p.channelId.startsWith('vault-') ? (p.channelId === 'vault-releases' ? 'c/clean-releases' : 'c/security-guides') :
-                       p.channelId.startsWith('relays-') ? 'c/p2p-mesh' : 'c/zeroknowledge';
+    const matchedCircle = sovereignCircleEngine.findCircle(p.channelId);
+    const circleName = matchedCircle ? `c/${matchedCircle.name}` : (p.channelId.startsWith('c/') ? p.channelId : 'c/technology');
     const store = (typeof window !== 'undefined' ? (window as any).clientStore : null) || clientStore;
+    const authorProfile = profileView.getProfile(p.authorFingerprint);
+    const authorName = authorProfile?.name || `Node ${p.authorFingerprint.substring(0, 6)}`;
+    const authorHandle = authorProfile?.handle ? `@${authorProfile.handle.replace(/^@/, '')}` : `@${p.authorFingerprint.substring(0, 8)}`;
     const authorScore = zkReputation.getScoreForFingerprint(p.authorFingerprint);
     const isDemoted = store?.demoteLowTrustPosts && (store?.minFeedTrustThreshold || 0) > 0 && authorScore < store.minFeedTrustThreshold;
     const demoteClass = isDemoted ? 'opacity-70' : '';
@@ -366,7 +455,11 @@ export class FeedControlsEngine {
           <div class="flex items-center space-x-2 flex-wrap">
             <span class="font-mono text-[10px] font-bold text-indigo-400">${circleName}</span>
             <span class="text-slate-600 text-[10px]">•</span>
-            <span class="font-mono text-[10px] text-slate-400">@id:${p.authorFingerprint.substring(0, 8)}</span>
+            <div data-author-profile="${p.authorFingerprint}" class="btn-open-author-profile inline-flex items-center space-x-1.5 cursor-pointer hover:opacity-80">
+              ${renderAvatar(authorProfile?.avatar, p.authorFingerprint, { size: 16, className: 'w-4 h-4 shrink-0' })}
+              <span class="text-xs font-bold text-white hover:text-indigo-300 transition-colors">${escapeHtml(authorName)}</span>
+              <span class="font-mono text-[10px] text-slate-400">${escapeHtml(authorHandle)}</span>
+            </div>
             ${store?.showTrustBadges !== false ? zkReputation.renderInlineTrustBadge(p.authorFingerprint) : ''}
             <span class="text-slate-600 text-[10px]">•</span>
             <span class="text-[10px] font-mono text-slate-500">${time}</span>
@@ -394,9 +487,12 @@ export class FeedControlsEngine {
    */
   public renderClassicPost(p: ClientPost): string {
     const time = new Date(p.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const circleName = p.channelId.startsWith('vault-') ? (p.channelId === 'vault-releases' ? 'c/clean-releases' : 'c/security-guides') :
-                       p.channelId.startsWith('relays-') ? 'c/p2p-mesh' : 'c/zeroknowledge';
+    const matchedCircle = sovereignCircleEngine.findCircle(p.channelId);
+    const circleName = matchedCircle ? `c/${matchedCircle.name}` : (p.channelId.startsWith('c/') ? p.channelId : 'c/technology');
     const store = (typeof window !== 'undefined' ? (window as any).clientStore : null) || clientStore;
+    const authorProfile = profileView.getProfile(p.authorFingerprint);
+    const authorName = authorProfile?.name || `Node ${p.authorFingerprint.substring(0, 6)}`;
+    const authorHandle = authorProfile?.handle ? `@${authorProfile.handle.replace(/^@/, '')}` : `@${p.authorFingerprint.substring(0, 8)}`;
     const authorScore = zkReputation.getScoreForFingerprint(p.authorFingerprint);
     const isDemoted = store?.demoteLowTrustPosts && (store?.minFeedTrustThreshold || 0) > 0 && authorScore < store.minFeedTrustThreshold;
     const demoteClass = isDemoted ? 'opacity-70' : '';
@@ -448,7 +544,11 @@ export class FeedControlsEngine {
             <div class="flex items-center space-x-2 flex-wrap text-xs gap-y-1 mb-1">
               <span class="font-mono text-[11px] font-bold text-indigo-400">${circleName}</span>
               <span class="text-slate-600 text-xs">•</span>
-              <span class="font-mono text-[11px] text-slate-400">by @id:${p.authorFingerprint.substring(0, 8)}</span>
+              <div data-author-profile="${p.authorFingerprint}" class="btn-open-author-profile inline-flex items-center space-x-1.5 cursor-pointer hover:opacity-80">
+                ${renderAvatar(authorProfile?.avatar, p.authorFingerprint, { size: 18, className: 'w-4.5 h-4.5 shrink-0' })}
+                <span class="text-xs font-bold text-white hover:text-indigo-300 transition-colors">${escapeHtml(authorName)}</span>
+                <span class="font-mono text-[11px] text-slate-400">${escapeHtml(authorHandle)}</span>
+              </div>
               ${store?.showTrustBadges !== false ? zkReputation.renderInlineTrustBadge(p.authorFingerprint) : ''}
               <span class="text-slate-600 text-xs">•</span>
               <span class="text-[10px] font-mono text-slate-500">${time}</span>
@@ -513,9 +613,12 @@ export class FeedControlsEngine {
                       'bg-surface-raised text-slate-300 border-white/10';
 
     const rootComments = threadManager.getRootComments();
-    const circleName = p.channelId.startsWith('vault-') ? (p.channelId === 'vault-releases' ? 'c/clean-releases' : 'c/security-guides') :
-                       p.channelId.startsWith('relays-') ? 'c/p2p-mesh' : 'c/zeroknowledge';
+    const matchedCircle = sovereignCircleEngine.findCircle(p.channelId);
+    const circleName = matchedCircle ? `c/${matchedCircle.name}` : (p.channelId.startsWith('c/') ? p.channelId : 'c/technology');
     const store = (typeof window !== 'undefined' ? (window as any).clientStore : null) || clientStore;
+    const authorProfile = profileView.getProfile(p.authorFingerprint);
+    const authorName = authorProfile?.name || `Node ${p.authorFingerprint.substring(0, 6)}`;
+    const authorHandle = authorProfile?.handle ? `@${authorProfile.handle.replace(/^@/, '')}` : `@${p.authorFingerprint.substring(0, 8)}`;
     const authorScore = zkReputation.getScoreForFingerprint(p.authorFingerprint);
     const isDemoted = store?.demoteLowTrustPosts && (store?.minFeedTrustThreshold || 0) > 0 && authorScore < store.minFeedTrustThreshold;
     const demoteClass = isDemoted ? 'opacity-70' : '';
@@ -546,12 +649,11 @@ export class FeedControlsEngine {
                 ${circleName}
               </button>
 
-              <!-- AUTHOR HANDLE -->
-              <div class="flex items-center space-x-1.5">
-                <div class="w-5 h-5 rounded-full bg-gradient-to-tr from-indigo-500 to-slate-700 flex items-center justify-center font-mono text-[9px] font-bold text-white shrink-0">
-                  ${p.authorFingerprint.substring(0, 2).toUpperCase()}
-                </div>
-                <span class="font-mono text-xs font-semibold text-slate-200">@id:${p.authorFingerprint.substring(0, 8)}</span>
+              <!-- AUTHOR HANDLE & PROFILE TRIGGER -->
+              <div data-author-profile="${p.authorFingerprint}" class="btn-open-author-profile flex items-center space-x-1.5 cursor-pointer hover:opacity-85 transition-opacity" title="View Profile">
+                ${renderAvatar(authorProfile?.avatar, p.authorFingerprint, { size: 24, className: 'w-6 h-6 shrink-0' })}
+                <span class="text-xs font-bold text-white hover:text-indigo-300 transition-colors">${escapeHtml(authorName)}</span>
+                <span class="font-mono text-[11px] text-slate-400">${escapeHtml(authorHandle)}</span>
                 ${store?.showTrustBadges !== false ? zkReputation.renderInlineTrustBadge(p.authorFingerprint) : ''}
                 <span class="text-[9px] font-mono px-2 py-0.5 rounded-md border ${flairStyle}">${p.flair}</span>
               </div>
@@ -657,6 +759,17 @@ export class FeedControlsEngine {
     document.addEventListener('click', (e: MouseEvent) => {
       const target = e.target as HTMLElement | null;
       if (!target) return;
+
+      // 0. Stream type buttons (For You, Following, Latest)
+      const streamBtn = target.closest('.btn-stream-type') as HTMLElement | null;
+      if (streamBtn) {
+        e.preventDefault();
+        const st = streamBtn.getAttribute('data-stream-type') as StreamType | null;
+        if (st) {
+          this.setStreamType(st);
+        }
+        return;
+      }
 
       // 1. View mode buttons
       const viewModeBtn = target.closest('.btn-viewmode') as HTMLElement | null;

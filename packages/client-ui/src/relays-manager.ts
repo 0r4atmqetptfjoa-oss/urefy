@@ -7,7 +7,6 @@
 
 import { serviceRegistry, SERVICES } from './service-registry.js';
 import { zkDeliveryManager, renderZKDeliveryBadge } from './delivery-proof.js';
-import { transparencyMode } from './transparency-mode.js';
 import { t } from './i18n.js';
 import './window-augmentation.js';
 
@@ -47,9 +46,9 @@ export class RelaysManager {
   private _loadRelays(): void {
     const defaultRelay: SovereignRelay = {
       id: 'relay-global-nexus',
-      name: 'Global Sovereign Nexus',
+      name: 'UREfy Community',
       icon: '⚡',
-      description: 'Primary sovereign mesh network for real-time E2EE encrypted transmissions.',
+      description: 'A welcoming place for everyone on UREfy.',
       ownerFingerprint: 'genesis-core',
       inviteCode: 'NEXUS-01',
       channels: [
@@ -130,7 +129,7 @@ export class RelaysManager {
 
     const newRelay: SovereignRelay = {
       id,
-      name: name.trim() || 'Sovereign Guild',
+      name: name.trim() || 'New community',
       icon: icon.trim() || '🔮',
       description: description.trim() || 'A private sovereign communication enclave.',
       ownerFingerprint,
@@ -405,7 +404,7 @@ export class RelaysManager {
           type="button"
           id="btn-open-create-relay"
           class="w-10 h-10 rounded-full bg-surface-raised hover:bg-emerald-500/20 hover:text-emerald-400 hover:rounded-xl text-slate-400 border border-white/5 hover:border-emerald-500/30 flex items-center justify-center text-lg transition-all cursor-pointer group"
-          title="Create a Sovereign Relay"
+          title="Create a community chat"
         >
           <span>➕</span>
         </button>
@@ -415,7 +414,7 @@ export class RelaysManager {
           type="button"
           id="btn-open-join-relay"
           class="w-10 h-10 rounded-full bg-surface-raised hover:bg-cyan-500/20 hover:text-cyan-400 hover:rounded-xl text-slate-400 border border-white/5 hover:border-cyan-500/30 flex items-center justify-center text-lg transition-all cursor-pointer group"
-          title="Join Relay with Invite Link"
+          title="Join with an invite"
         >
           <span>📥</span>
         </button>
@@ -426,6 +425,7 @@ export class RelaysManager {
   /** Relay Header Bar with Invite Friends, Leave & Delete Buttons */
   public renderRelayHeader(relay: SovereignRelay, activeChannelName: string, userFingerprint?: string): string {
     const isGlobal = relay.id === 'relay-global-nexus';
+    const displayName = isGlobal ? 'UREfy Community' : relay.name;
     const currentFp = userFingerprint || (typeof window !== 'undefined' && (window as any).clientStore?.keypair?.fingerprint) || '';
     const isOwner = !isGlobal && (
       !relay.ownerFingerprint ||
@@ -440,13 +440,13 @@ export class RelaysManager {
           <span class="text-xl">${relay.icon}</span>
           <div>
             <div class="flex items-center space-x-2">
-              <h2 class="text-sm font-bold text-white tracking-tight">${this._escapeHtml(relay.name)}</h2>
-              <span class="text-[10px] font-mono px-1.5 py-0.2 rounded bg-indigo-950 text-indigo-300 border border-indigo-500/30">E2EE</span>
+              <h2 class="text-sm font-bold text-white tracking-tight">${this._escapeHtml(displayName)}</h2>
+              <span class="text-[10px] px-1.5 py-0.2 rounded bg-indigo-950 text-indigo-300 border border-indigo-500/30">Private</span>
             </div>
             <div class="text-[11px] text-slate-400 font-mono flex items-center space-x-1.5">
               <span># ${activeChannelName}</span>
               <span>•</span>
-              <span>${relay.members.length} nodes online</span>
+              <span>${isGlobal ? 'Community chat' : `${relay.members.length} members`}</span>
             </div>
           </div>
         </div>
@@ -456,10 +456,10 @@ export class RelaysManager {
           <button
             type="button" data-action="call-global" data-raw-click="if(window.__aetherisTransparency) window.__aetherisTransparency.open('pipeline');"
             class="px-2.5 py-1.5 rounded-xl bg-cyan-950/40 hover:bg-cyan-900/40 border border-cyan-500/30 text-cyan-300 text-xs font-mono font-semibold flex items-center space-x-1.5 transition-all cursor-pointer"
-            title="Inspect Cryptographic Delivery & Pipeline"
+            title="How message privacy works"
           >
             <span>🛡️🛡️</span>
-            <span class="hidden lg:inline">ZK Verified Delivery</span>
+            <span class="hidden lg:inline">Privacy</span>
           </button>
 
           <!-- Invite Friends Button -->
@@ -467,7 +467,7 @@ export class RelaysManager {
             type="button"
             data-open-relay-invite="${relay.id}"
             class="px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-indigo-600/80 to-indigo-500/80 hover:from-indigo-600 hover:to-indigo-500 text-white text-xs font-semibold flex items-center space-x-1.5 shadow-sm transition-all cursor-pointer active:scale-95"
-            title="Invite peers to this Relay"
+            title="Invite people"
           >
             <span>🔗</span>
             <span class="hidden sm:inline">Invite</span>
@@ -479,7 +479,7 @@ export class RelaysManager {
               type="button"
               data-leave-relay="${relay.id}"
               class="btn-leave-relay px-2.5 py-1.5 rounded-xl bg-amber-950/40 hover:bg-amber-900/50 border border-amber-500/30 text-amber-300 hover:text-amber-200 text-xs font-semibold flex items-center space-x-1.5 transition-all cursor-pointer active:scale-95"
-              title="Leave this Sovereign Relay"
+              title="Leave this community chat"
             >
               <span>🚪</span>
               <span class="hidden sm:inline">Leave</span>
@@ -492,7 +492,7 @@ export class RelaysManager {
               type="button"
               data-delete-relay="${relay.id}"
               class="btn-delete-relay px-2.5 py-1.5 rounded-xl bg-rose-950/40 hover:bg-rose-900/50 border border-rose-500/30 text-rose-300 hover:text-rose-200 text-xs font-semibold flex items-center space-x-1.5 transition-all cursor-pointer active:scale-95"
-              title="Delete this Sovereign Relay permanently"
+              title="Delete this community chat permanently"
             >
               <span>🗑️</span>
               <span class="hidden sm:inline">Delete</span>
@@ -517,8 +517,8 @@ export class RelaysManager {
             <div class="flex items-center space-x-2.5">
               <div class="w-9 h-9 rounded-2xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-lg">⚡</div>
               <div>
-                <h3 class="text-base font-bold text-white tracking-tight">Create Sovereign Relay</h3>
-                <p class="text-xs text-slate-400 font-mono">Your private real-time communication guild</p>
+                <h3 class="text-base font-bold text-white tracking-tight">Create a community chat</h3>
+                <p class="text-xs text-slate-400">Bring a group together in one private space</p>
               </div>
             </div>
             <button type="button" id="btn-close-create-relay" data-action="call-global" data-raw-click="if(window.relaysManager){window.relaysManager.isCreateModalOpen=false;window.clientStore&&window.clientStore.notifySync();}" class="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-surface-raised transition-all cursor-pointer">✕</button>
@@ -527,7 +527,7 @@ export class RelaysManager {
           <form id="form-create-relay" class="space-y-4">
             <!-- Icon Picker -->
             <div class="space-y-1.5">
-              <label class="text-xs text-slate-300 font-medium">Relay Emblem / Icon</label>
+              <label class="text-xs text-slate-300 font-medium">Community icon</label>
               <div class="flex items-center space-x-2">
                 <input type="text" id="create-relay-icon" value="⚡" maxlength="4" class="w-14 text-center text-xl bg-surface-raised border border-white/15 rounded-xl p-2 focus:outline-none focus:border-indigo-400 font-mono" />
                 <div class="flex-1 flex items-center gap-1.5 flex-wrap">
@@ -540,11 +540,11 @@ export class RelaysManager {
 
             <!-- Name -->
             <div class="space-y-1.5">
-              <label class="text-xs text-slate-300 font-medium">Relay Name</label>
+              <label class="text-xs text-slate-300 font-medium">Community name</label>
               <input
                 type="text"
                 id="create-relay-name"
-                placeholder="e.g. Zero-Knowledge Research Lab"
+                placeholder="e.g. Weekend photographers"
                 required
                 class="w-full bg-surface-raised border border-white/15 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-400 transition-all font-sans"
               />
@@ -556,7 +556,7 @@ export class RelaysManager {
               <textarea
                 id="create-relay-desc"
                 rows="2"
-                placeholder="Brief purpose of this sovereign enclave..."
+                placeholder="What will people talk about here?"
                 class="w-full bg-surface-raised border border-white/15 rounded-xl px-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-400 transition-all font-sans"
               ></textarea>
             </div>
@@ -574,7 +574,7 @@ export class RelaysManager {
                 type="submit"
                 class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-cyan-500 hover:from-indigo-500 hover:to-cyan-400 text-white text-xs font-bold shadow-lg shadow-indigo-600/30 transition-all cursor-pointer active:scale-95"
               >
-                🚀 Launch Sovereign Relay
+                Create community
               </button>
             </div>
           </form>
@@ -599,7 +599,7 @@ export class RelaysManager {
               <div class="w-9 h-9 rounded-2xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-lg">${relay.icon}</div>
               <div>
                 <h3 class="text-base font-bold text-white tracking-tight">Invite Friends to ${this._escapeHtml(relay.name)}</h3>
-                <p class="text-xs text-slate-400 font-mono">Encrypted Sovereign P2P Invitation</p>
+                <p class="text-xs text-slate-400">Share this invitation with people you trust</p>
               </div>
             </div>
             <button type="button" id="btn-close-invite-modal" class="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-surface-raised transition-all cursor-pointer">✕</button>
@@ -634,13 +634,13 @@ export class RelaysManager {
               <div class="text-base font-bold font-mono text-emerald-400 mt-0.5">${relay.inviteCode}</div>
             </div>
             <div class="text-right">
-              <div class="text-[10px] text-slate-500 uppercase font-mono tracking-wider">Access Policy</div>
-              <div class="text-xs font-mono text-cyan-300 mt-0.5">End-to-End Ratchet</div>
+              <div class="text-[10px] text-slate-500 uppercase tracking-wider">Privacy</div>
+              <div class="text-xs text-cyan-300 mt-0.5">Protected conversation</div>
             </div>
           </div>
 
           <div class="text-[11px] text-slate-400 leading-relaxed font-sans">
-            🛡️ Peers who join using this link will connect directly via WebRTC Datachannels and receive quantum-ratcheted channel encryption keys.
+            People who join with this link can take part in the private conversation.
           </div>
 
           <div class="pt-2 flex justify-end">
@@ -669,8 +669,8 @@ export class RelaysManager {
             <div class="flex items-center space-x-2.5">
               <div class="w-9 h-9 rounded-2xl bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center text-lg">📥</div>
               <div>
-                <h3 class="text-base font-bold text-white tracking-tight">Join a Sovereign Relay</h3>
-                <p class="text-xs text-slate-400 font-mono">Enter an invite link or short code</p>
+                <h3 class="text-base font-bold text-white tracking-tight">Join a community chat</h3>
+                <p class="text-xs text-slate-400">Enter an invite link or code</p>
               </div>
             </div>
             <button type="button" id="btn-close-join-modal" data-action="call-global" data-raw-click="if(window.relaysManager){window.relaysManager.isJoinModalOpen=false;window.clientStore&&window.clientStore.notifySync();}" class="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-surface-raised transition-all cursor-pointer">✕</button>
@@ -682,7 +682,7 @@ export class RelaysManager {
               <input
                 type="text"
                 id="join-relay-input"
-                placeholder="e.g. RELAY-ZK-9821 or https://.../?invite=..."
+                placeholder="Paste an invite link or code"
                 required
                 class="w-full bg-surface-raised border border-white/15 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 transition-all font-mono"
               />

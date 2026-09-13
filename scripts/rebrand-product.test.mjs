@@ -21,5 +21,5 @@ test('is idempotent', () => {
 });
 
 test('uses the current public domain and existing published contact', () => {
-  assert.equal(rebrandProduct('https://aetheris.network/privacy legal@aetheris.network'), 'https://urefy.com/privacy love4jpx@gmail.com');
+  assert.equal(rebrandProduct('https://aetheris.network/privacy legal@aetheris.network'), 'https://urefy.com/privacy razvan@urefy.com');
 });

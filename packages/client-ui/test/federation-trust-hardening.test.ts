@@ -122,7 +122,7 @@ describe('Federation Key Trust, Idempotency & Telemetry Hygiene (P1)', () => {
       );
 
       // First ingestion
-      const req1 = new Request('https://aetheris.pages.dev/api/federation/inbox', {
+      const req1 = new Request('https://urefy.com/api/federation/inbox', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(envelope),
@@ -133,7 +133,7 @@ describe('Federation Key Trust, Idempotency & Telemetry Hygiene (P1)', () => {
       expect(json1.success).toBe(true);
 
       // Second ingestion with exact same actor + object ID
-      const req2 = new Request('https://aetheris.pages.dev/api/federation/inbox', {
+      const req2 = new Request('https://urefy.com/api/federation/inbox', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(envelope),

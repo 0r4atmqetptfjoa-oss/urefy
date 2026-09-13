@@ -20,7 +20,7 @@ describe('WebAuthn Challenge Replay, Atomicity & Fail-Closed Invariants (P0)', (
     const fingerprint = 'victim-node-1';
     // 1. Issue challenge
     const reqGet = new Request(
-      `https://aetheris.pages.dev/api/webauthn?action=challenge&fingerprint=${fingerprint}`
+      `https://urefy.com/api/webauthn?action=challenge&fingerprint=${fingerprint}`
     );
     const resGet = await handleWebAuthn({ request: reqGet, env: {} });
     const { challenge } = await resGet.json();
@@ -31,7 +31,7 @@ describe('WebAuthn Challenge Replay, Atomicity & Fail-Closed Invariants (P0)', (
       origin: 'https://evil-phishing-site.com',
     });
 
-    const reqPost = new Request('https://aetheris.pages.dev/api/webauthn', {
+    const reqPost = new Request('https://urefy.com/api/webauthn', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -56,7 +56,7 @@ describe('WebAuthn Challenge Replay, Atomicity & Fail-Closed Invariants (P0)', (
 
     // 1. Setup challenge & register credential
     const reqGet = new Request(
-      `https://aetheris.pages.dev/api/webauthn?action=challenge&fingerprint=${fingerprint}`
+      `https://urefy.com/api/webauthn?action=challenge&fingerprint=${fingerprint}`
     );
     const resGet = await handleWebAuthn({ request: reqGet, env: {} });
     const { challenge } = await resGet.json();
@@ -71,7 +71,7 @@ describe('WebAuthn Challenge Replay, Atomicity & Fail-Closed Invariants (P0)', (
     });
 
     const signature = bytesToHex(signMessage(challenge, userKeyPair.privateKey));
-    const reqReg = new Request('https://aetheris.pages.dev/api/webauthn', {
+    const reqReg = new Request('https://urefy.com/api/webauthn', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -88,7 +88,7 @@ describe('WebAuthn Challenge Replay, Atomicity & Fail-Closed Invariants (P0)', (
 
     // 2. Request new challenge for assertion
     const reqGet2 = new Request(
-      `https://aetheris.pages.dev/api/webauthn?action=challenge&fingerprint=${fingerprint}`
+      `https://urefy.com/api/webauthn?action=challenge&fingerprint=${fingerprint}`
     );
     const resGet2 = await handleWebAuthn({ request: reqGet2, env: {} });
     const { challenge: authChallenge } = await resGet2.json();
@@ -105,7 +105,7 @@ describe('WebAuthn Challenge Replay, Atomicity & Fail-Closed Invariants (P0)', (
       origin: 'https://aetheris.pages.dev',
     });
 
-    const reqVerify = new Request('https://aetheris.pages.dev/api/webauthn', {
+    const reqVerify = new Request('https://urefy.com/api/webauthn', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -131,7 +131,7 @@ describe('WebAuthn Challenge Replay, Atomicity & Fail-Closed Invariants (P0)', (
 
     // Seed challenge directly in memory
     const reqGet = new Request(
-      `https://aetheris.pages.dev/api/webauthn?action=challenge&fingerprint=${fingerprint}`
+      `https://urefy.com/api/webauthn?action=challenge&fingerprint=${fingerprint}`
     );
     const resGet = await handleWebAuthn({ request: reqGet, env: {} });
     const { challenge: issuedChallenge } = await resGet.json();
@@ -183,7 +183,7 @@ describe('WebAuthn Challenge Replay, Atomicity & Fail-Closed Invariants (P0)', (
   it('MUST prevent client fingerprint from overriding server identity without cryptographic proof', async () => {
     const victimFingerprint = 'victim-identity-safe';
     const reqGet = new Request(
-      `https://aetheris.pages.dev/api/webauthn?action=challenge&fingerprint=${victimFingerprint}`
+      `https://urefy.com/api/webauthn?action=challenge&fingerprint=${victimFingerprint}`
     );
     const resGet = await handleWebAuthn({ request: reqGet, env: {} });
     const { challenge } = await resGet.json();
@@ -198,7 +198,7 @@ describe('WebAuthn Challenge Replay, Atomicity & Fail-Closed Invariants (P0)', (
     const pubJwk = await crypto.subtle.exportKey('jwk', kp.publicKey);
 
     // Attacker sends unverified token attempting to claim victim's identity
-    const reqPost = new Request('https://aetheris.pages.dev/api/webauthn', {
+    const reqPost = new Request('https://urefy.com/api/webauthn', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

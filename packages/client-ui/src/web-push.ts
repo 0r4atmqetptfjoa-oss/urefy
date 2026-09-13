@@ -472,8 +472,8 @@ export class SovereignWebPush {
     return `
       <aside
         id="sovereign-push-opt-in-banner"
-        aria-label="Sovereign Push Notifications"
-        class="fixed bottom-4 right-4 z-[9990] w-[calc(100%-2rem)] max-w-md bg-surface-raised/95 border border-cyphr/40 rounded-2xl p-4 shadow-2xl backdrop-blur-2xl shadow-cyan-950/70 transition-all duration-300 animate-in fade-in slide-in-from-bottom-6"
+        aria-label="Notification setup"
+        class="web-push-banner fixed bottom-4 right-4 z-[9990] w-[calc(100%-2rem)] max-w-sm bg-surface-raised/95 border border-white/10 rounded-2xl p-4 shadow-2xl backdrop-blur-2xl transition-all duration-300 animate-in fade-in slide-in-from-bottom-6"
       >
         <div class="flex items-start gap-3.5">
           <!-- Shield Icon -->
@@ -487,13 +487,13 @@ export class SovereignWebPush {
 
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2">
-              <span class="text-xs font-mono font-bold uppercase tracking-wider text-cyphr">Sovereign Web Push</span>
+              <span class="text-sm font-bold text-white">Stay in the loop</span>
               <span class="inline-block w-1.5 h-1.5 rounded-full bg-signal shadow-[0_0_6px_#22c55e]"></span>
             </div>
             <p class="text-xs text-slate-200 font-medium leading-snug mt-1">
-              Enable background alerts for encrypted DMs, circle mentions, and emergency broadcasts.
+              Get notifications for messages, mentions, and community updates.
             </p>
-            <p class="text-[11px] text-cyphr/90 font-mono mt-1.5 leading-relaxed bg-cyphr/10 px-2 py-1 rounded-lg border border-cyphr/20">
+            <p class="push-technical-detail hidden">
               🛡️ 100% Zero-Tracking Sovereign Push: No Google Firebase, no third-party trackers, direct E2EE push payloads
             </p>
 
@@ -514,7 +514,7 @@ export class SovereignWebPush {
                   <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
                   <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
                 </svg>
-                <span>Enable Push</span>
+                <span>Turn on notifications</span>
               </button>
             </div>
           </div>
@@ -547,8 +547,8 @@ export class SovereignWebPush {
               </svg>
             </div>
             <div>
-              <h3 class="text-sm font-semibold text-white tracking-wide">Native Sovereign Push Engine</h3>
-              <p class="text-xs text-slate-400 font-mono">RFC 8292 VAPID ECDSA P-256 • Zero Tracking</p>
+              <h3 class="text-sm font-semibold text-white tracking-wide">Notifications</h3>
+              <p class="text-xs text-slate-400">Private alerts for messages, mentions, and updates</p>
             </div>
           </div>
           <span class="inline-block text-[10px] font-mono px-2 py-0.5 rounded border ${permBadgeColor}">
@@ -559,9 +559,9 @@ export class SovereignWebPush {
         <!-- Details Grid -->
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
           <div class="bg-surface-raised p-3 rounded-lg border border-white/5 flex flex-col justify-between">
-            <span class="text-slate-400">Push Status</span>
+            <span class="text-slate-400">Status</span>
             <div class="flex items-center justify-between mt-2">
-              <span class="font-medium text-slate-100">${this._isSubscribed ? 'Active & Subscribed' : 'Inactive / Opt-In Required'}</span>
+              <span class="font-medium text-slate-100">${this._isSubscribed ? 'Notifications are on' : 'Notifications are off'}</span>
               <span class="px-1.5 py-0.5 rounded text-[10px] font-mono border ${this._isSubscribed ? 'text-signal bg-signal/10 border-signal/30' : 'text-slate-400 bg-surface-overlay border-white/5'}">
                 ${this._isSubscribed ? 'LIVE' : 'IDLE'}
               </span>
@@ -569,11 +569,11 @@ export class SovereignWebPush {
           </div>
 
           <div class="bg-surface-raised p-3 rounded-lg border border-white/5 flex flex-col justify-between">
-            <span class="text-slate-400">Cryptographic Protocol</span>
+            <span class="text-slate-400">Privacy</span>
             <div class="flex items-center justify-between mt-2">
-              <span class="font-medium text-slate-100">ECDSA P-256 / SHA-256</span>
+              <span class="font-medium text-slate-100">No ads or tracking</span>
               <span class="px-1.5 py-0.5 rounded text-[10px] font-mono border text-cyphr bg-cyphr/10 border-cyphr/30">
-                SOVEREIGN
+                PRIVATE
               </span>
             </div>
           </div>
@@ -582,7 +582,7 @@ export class SovereignWebPush {
         <!-- Privacy Badge -->
         <div class="bg-surface-overlay/50 p-3 rounded-lg border border-white/5 text-xs text-slate-300 flex items-center gap-2">
           <span class="text-base">🛡️</span>
-          <span>100% Zero-Tracking Sovereign Push: No Google Firebase, no third-party trackers, direct E2EE push payloads</span>
+          <span>Notification details stay private and are never used for advertising.</span>
         </div>
 
         <!-- Actions -->

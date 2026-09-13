@@ -4,7 +4,7 @@
  * @description Type definitions and federated handle helpers for sovereign profiles.
  */
 
-export type ProfileTab = 'pulses' | 'replies' | 'highlights' | 'media' | 'likes' | 'settings';
+export type ProfileTab = 'pulses' | 'replies' | 'highlights' | 'media' | 'likes' | 'communities' | 'creator' | 'settings';
 export type SettingsCategory = 'account' | 'security' | 'privacy' | 'notifications' | 'appearance' | 'data' | 'advanced';
 
 export interface UserProfileData {
@@ -25,6 +25,7 @@ export interface UserProfileData {
   meritScore: number;
   trustScore: number; // 0-100 WoT Max Flow
   badges: string[];
+  pinnedPostId?: string;
 }
 
 /**

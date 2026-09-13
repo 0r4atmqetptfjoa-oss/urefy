@@ -143,45 +143,83 @@ export function isForbiddenIPv4(ip: string): boolean {
   return false;
 }
 
+export function parseIPv6Words(rawIp: string): number[] | null {
+  let ip = rawIp.toLowerCase().trim();
+  if (ip.startsWith('[') && ip.endsWith(']')) ip = ip.slice(1, -1);
+  if (ip.includes('.')) {
+    const lastColon = ip.lastIndexOf(':');
+    if (lastColon === -1) return null;
+    const ipv4Str = ip.slice(lastColon + 1);
+    const parts = ipv4Str.split('.').map((p) => parseInt(p, 10));
+    if (parts.length !== 4 || parts.some((p) => isNaN(p) || p < 0 || p > 255)) return null;
+    const w6 = (parts[0] << 8) | parts[1];
+    const w7 = (parts[2] << 8) | parts[3];
+    ip = `${ip.slice(0, lastColon)}:${w6.toString(16)}:${w7.toString(16)}`;
+  }
+  let parts = ip.split(':');
+  if (ip.includes('::')) {
+    const halves = ip.split('::');
+    if (halves.length > 2) return null;
+    const left = halves[0] ? halves[0].split(':') : [];
+    const right = halves[1] ? halves[1].split(':') : [];
+    const missing = 8 - (left.length + right.length);
+    if (missing < 0) return null;
+    parts = [...left, ...Array(missing).fill('0'), ...right];
+  }
+  if (parts.length !== 8) return null;
+  const words: number[] = [];
+  for (const part of parts) {
+    if (!/^[0-9a-f]{1,4}$/i.test(part)) return null;
+    words.push(parseInt(part, 16));
+  }
+  return words;
+}
+
 /**
  * Checks whether an IPv6 address string falls into any reserved, loopback, or private range.
  */
 export function isForbiddenIPv6(rawIp: string): boolean {
-  const ip = rawIp.toLowerCase().trim();
-
-  // Loopback ::1
-  if (ip === '::1' || ip === '0:0:0:0:0:0:0:1' || ip === '::01') return true;
+  const words = parseIPv6Words(rawIp);
+  if (!words) return true;
 
   // Unspecified ::
-  if (ip === '::' || ip === '0:0:0:0:0:0:0:0') return true;
+  if (words.every((w) => w === 0)) return true;
 
-  // IPv4-mapped IPv6 (::ffff:x.x.x.x or ::ffff:hex)
-  if (ip.startsWith('::ffff:') || ip.includes(':ffff:')) {
-    const lastColon = ip.lastIndexOf(':');
-    const embedded = ip.substring(lastColon + 1);
-    if (embedded.includes('.')) {
-      return isForbiddenIPv4(embedded);
-    }
-    const tail = ip.slice(ip.lastIndexOf('ffff:') + 5).split(':');
-    if (tail.length === 2 && tail.every((part) => /^[0-9a-f]{1,4}$/i.test(part))) {
-      const high = parseInt(tail[0], 16);
-      const low = parseInt(tail[1], 16);
-      return isForbiddenIPv4(`${high >>> 8}.${high & 255}.${low >>> 8}.${low & 255}`);
-    }
-    return true;
+  // Loopback ::1
+  if (words.slice(0, 7).every((w) => w === 0) && words[7] === 1) return true;
+
+  // IPv4-compatible (::/96)
+  if (words.slice(0, 6).every((w) => w === 0)) {
+    const ipv4 = `${(words[6] >> 8) & 255}.${words[6] & 255}.${(words[7] >> 8) & 255}.${words[7] & 255}`;
+    return isForbiddenIPv4(ipv4);
   }
 
-  // Link-Local (fe80::/10 -> fe8, fe9, fea, feb)
-  if (/^fe[89ab]/i.test(ip)) return true;
+  // IPv4-mapped (::ffff:0:0/96)
+  if (words.slice(0, 5).every((w) => w === 0) && words[5] === 0xffff) {
+    const ipv4 = `${(words[6] >> 8) & 255}.${words[6] & 255}.${(words[7] >> 8) & 255}.${words[7] & 255}`;
+    return isForbiddenIPv4(ipv4);
+  }
 
-  // Unique Local Address (fc00::/7 -> fc, fd)
-  if (/^f[cd]/i.test(ip)) return true;
+  // 6to4 (2002::/16)
+  if (words[0] === 0x2002) {
+    const ipv4 = `${(words[1] >> 8) & 255}.${words[1] & 255}.${(words[2] >> 8) & 255}.${words[2] & 255}`;
+    return isForbiddenIPv4(ipv4);
+  }
+
+  // Link-Local (fe80::/10)
+  if ((words[0] & 0xffc0) === 0xfe80) return true;
+
+  // Unique Local (fc00::/7)
+  if ((words[0] & 0xfe00) === 0xfc00) return true;
 
   // Multicast (ff00::/8)
-  if (/^ff/i.test(ip)) return true;
+  if ((words[0] & 0xff00) === 0xff00) return true;
 
-  // Documentation and discard-only ranges
-  if (/^2001:db8(?::|$)/i.test(ip) || /^100:(?::|$)/i.test(ip)) return true;
+  // Documentation (2001:db8::/32)
+  if (words[0] === 0x2001 && words[1] === 0x0db8) return true;
+
+  // Discard prefix (100::/64)
+  if (words[0] === 0x0100) return true;
 
   return false;
 }
@@ -190,9 +228,11 @@ export function isForbiddenIPv6(rawIp: string): boolean {
  * Detects whether a hostname string is an IP address in decimal, hex, octal, or dword format.
  */
 export function parseAndCheckHostIp(host: string, allowLocalDev: boolean = false): boolean {
-  const cleanHost = host.replace(/^\[|\]$/g, '').toLowerCase().trim();
+  // Strip IPv6 brackets, trim, lowercase, and strip trailing FQDN dots (e.g. "localhost." -> "localhost")
+  const cleanHost = host.replace(/^\[|\]$/g, '').toLowerCase().trim().replace(/\.+$/, '');
+  if (!cleanHost) return true;
 
-  // Direct localhost string
+  // Direct localhost string and private domains
   if (cleanHost === 'localhost' || cleanHost.endsWith('.localhost') || cleanHost.endsWith('.local') || cleanHost.endsWith('.internal')) {
     return !allowLocalDev;
   }
@@ -213,25 +253,9 @@ export function parseAndCheckHostIp(host: string, allowLocalDev: boolean = false
     return isForbiddenIPv6(cleanHost);
   }
 
-  // Hex representation (e.g. 0x7f000001 or 0x7f.1)
-  if (/^0x[0-9a-f]+(\.0x[0-9a-f]+)*$/i.test(cleanHost)) {
-    try {
-      const parts = cleanHost.split('.');
-      if (parts.length === 1) {
-        // Dword hex
-        const num = parseInt(parts[0], 16);
-        const ip = [
-          (num >>> 24) & 255,
-          (num >>> 16) & 255,
-          (num >>> 8) & 255,
-          num & 255,
-        ].join('.');
-        return isForbiddenIPv4(ip);
-      }
-    } catch {
-      return true;
-    }
-    return true; // Deny unusual multi-part hex by default
+  // Hexadecimal IPv4 representation (e.g. 0x7f000001 or 0x7f.0.0.1)
+  if (cleanHost.startsWith('0x') || cleanHost.includes('.0x') || cleanHost.includes('0x')) {
+    return true;
   }
 
   // Octal representation (e.g. 0177.0.0.1)
@@ -250,6 +274,9 @@ export function parseAndCheckHostIp(host: string, allowLocalDev: boolean = false
           (num >>> 8) & 255,
           num & 255,
         ].join('.');
+        if (allowLocalDev && (ip === '127.0.0.1' || ip.startsWith('127.'))) {
+          return false;
+        }
         return isForbiddenIPv4(ip);
       }
     } catch {

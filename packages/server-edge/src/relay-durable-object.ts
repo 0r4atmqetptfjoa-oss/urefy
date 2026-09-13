@@ -76,6 +76,8 @@ export interface SessionMetadata {
   connectedAt: number;
   lastPing: number;
   tags: Set<string>;
+  webrtcSignalCount?: number;
+  webrtcSignalWindow?: number;
 }
 
 export interface RelaySessionPayload {
@@ -1152,6 +1154,22 @@ export class RelayDurableObject {
   }
 
   private async handlePublishNanopublication(ws: WebSocket, session: SessionMetadata, packet: any): Promise<void> {
+    if (!session.authenticated) {
+      this.send(ws, {
+        type: 'ERROR',
+        message: 'Unauthorized: Authenticated session required to publish nanopublications',
+      });
+      return;
+    }
+
+    if (!packet.sha256 || typeof packet.sha256 !== 'string' || !/^[0-9a-fA-F]{64}$/.test(packet.sha256)) {
+      this.send(ws, {
+        type: 'ERROR',
+        message: 'Invalid nanopublication: valid 64-character hex sha256 checksum is mandatory',
+      });
+      return;
+    }
+
     const channelId = packet.channelId || 'vault-releases';
     const randSuffix = typeof crypto !== 'undefined' && crypto.randomUUID
       ? crypto.randomUUID().replace(/-/g, '').substring(0, 8)
@@ -1205,8 +1223,59 @@ export class RelayDurableObject {
   }
 
   private handleWebRTCSignal(ws: WebSocket, session: SessionMetadata, packet: any): void {
+    if (!session.fingerprint) {
+      this.send(ws, {
+        type: 'ERROR',
+        message: 'Unauthorized: Authenticated identity required for WebRTC signaling',
+      });
+      return;
+    }
+
     const { targetFingerprint, signal, channelId } = packet;
-    if (!targetFingerprint) return;
+    if (!targetFingerprint || !PayloadSanitizer.isValidIdentifier(targetFingerprint)) {
+      this.send(ws, { type: 'ERROR', message: 'Invalid target fingerprint for WebRTC signal' });
+      return;
+    }
+
+    if (!signal || typeof signal !== 'object') {
+      this.send(ws, { type: 'ERROR', message: 'Invalid WebRTC signal: signal must be an object' });
+      return;
+    }
+
+    const hasSdp = typeof signal.sdp === 'string';
+    const hasCandidate = 'candidate' in signal;
+    const hasType = typeof signal.type === 'string' && ['offer', 'answer', 'pranswer', 'rollback'].includes(signal.type);
+
+    if (!hasSdp && !hasCandidate && !hasType) {
+      this.send(ws, {
+        type: 'ERROR',
+        message: 'Malformed WebRTC signal: must contain valid sdp, candidate, or standard type',
+      });
+      return;
+    }
+
+    const rawSignal = JSON.stringify(signal);
+    if (rawSignal.length > 65536) {
+      this.send(ws, {
+        type: 'ERROR',
+        message: 'WebRTC signal payload exceeds 64KB limit',
+      });
+      return;
+    }
+
+    const now = Date.now();
+    if (!session.webrtcSignalWindow || now - session.webrtcSignalWindow > 60000) {
+      session.webrtcSignalWindow = now;
+      session.webrtcSignalCount = 0;
+    }
+    session.webrtcSignalCount = (session.webrtcSignalCount || 0) + 1;
+    if (session.webrtcSignalCount > 60) {
+      this.send(ws, {
+        type: 'ERROR',
+        message: 'Rate limit exceeded: WebRTC signaling frequency too high',
+      });
+      return;
+    }
 
     const fromFingerprint = session.fingerprint || 'anon-peer';
     const payload = JSON.stringify({
@@ -1215,6 +1284,7 @@ export class RelayDurableObject {
       targetFingerprint,
       signal,
       channelId: channelId || session.currentChannelId,
+      timestamp: Date.now(),
     });
 
     // Send directly to the target peer's WebSocket
@@ -1234,8 +1304,17 @@ export class RelayDurableObject {
       for (const s of taggedSockets) {
         try {
           s.send(payload);
+          sent = true;
         } catch (_) {}
       }
+    }
+
+    if (!sent) {
+      this.send(ws, {
+        type: 'SIGNAL_UNDELIVERABLE',
+        targetFingerprint,
+        message: 'Target peer is currently offline or unreachable on this relay',
+      });
     }
   }
 

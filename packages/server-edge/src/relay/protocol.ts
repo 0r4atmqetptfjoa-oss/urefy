@@ -195,17 +195,35 @@ export class RelayProtocolEngine {
 
       // ─── 7. P2P WEBRTC SIGNALING ──────────────────────────────────────────
       case 'WEBRTC_SIGNAL': {
-        const { targetFingerprint, signal } = packet;
-        if (targetFingerprint && signal) {
-          this.broadcaster.broadcast(
-            {
-              type: 'WEBRTC_SIGNAL',
-              fromFingerprint: session.fingerprint,
-              signal,
-            },
-            { tag: `peer:${targetFingerprint}` }
-          );
+        if (!session.fingerprint) {
+          this.broadcaster.send(session, {
+            type: 'ERROR',
+            message: 'Unauthorized: Authenticated identity required for WebRTC signaling',
+          });
+          break;
         }
+        const { targetFingerprint, signal } = packet;
+        if (!targetFingerprint || !PayloadSanitizer.isValidIdentifier(targetFingerprint)) {
+          this.broadcaster.send(session, { type: 'ERROR', message: 'Invalid target fingerprint for WebRTC signal' });
+          break;
+        }
+        if (!signal || typeof signal !== 'object') {
+          this.broadcaster.send(session, { type: 'ERROR', message: 'Invalid WebRTC signal: signal must be an object' });
+          break;
+        }
+        const rawSignal = JSON.stringify(signal);
+        if (rawSignal.length > 65536) {
+          this.broadcaster.send(session, { type: 'ERROR', message: 'WebRTC signal payload exceeds 64KB limit' });
+          break;
+        }
+        this.broadcaster.broadcast(
+          {
+            type: 'WEBRTC_SIGNAL',
+            fromFingerprint: session.fingerprint,
+            signal,
+          },
+          { tag: `peer:${targetFingerprint}` }
+        );
         break;
       }
 

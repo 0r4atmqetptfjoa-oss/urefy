@@ -1,4 +1,4 @@
-﻿// ════════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════════
 // _middleware.ts — UREfy Edge Intelligence Layer v2
 // Cloudflare Pages Functions Middleware
 // Features: CORS, CSRF, Rate Limiting, Bot Detection, Geo-Routing, ETag, Perf
@@ -96,9 +96,9 @@ export function isPermittedOrigin(origin: string, requestUrl: URL, env?: any): b
       h.endsWith('.aetheris.network') ||
       h === 'aetheris.io' ||
       h.endsWith('.aetheris.io') ||
-      h === 'pages.dev' ||
-      h.endsWith('.pages.dev') ||
-      h.endsWith('.local')
+      CANONICAL_PRODUCTION_HOSTS.has(h) ||
+      (!isProd && (h === 'pages.dev' || h.endsWith('.pages.dev'))) ||
+      (!isProd && h.endsWith('.local'))
     ) {
       return true;
     }

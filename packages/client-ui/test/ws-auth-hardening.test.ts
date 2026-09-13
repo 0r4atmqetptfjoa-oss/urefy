@@ -1,4 +1,4 @@
-ï»¿import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   onRequest as handleWebSocket,
   createWebSocketUpgradeResponse,
@@ -52,10 +52,10 @@ describe('Standalone WebSocket Authentication Hardening (Finding 2)', () => {
     };
   });
 
-  // â”€â”€â”€ 1. PRODUCTION ENFORCEMENT: CANONICAL DURABLE OBJECT TERMINATION â”€â”€â”€â”€â”€â”€â”€â”€
+  // ¦¦¦ 1. PRODUCTION ENFORCEMENT: CANONICAL DURABLE OBJECT TERMINATION ¦¦¦¦¦¦¦¦
   describe('1. Production Mode: Mandatory RelayDurableObject Termination', () => {
     it('MUST reject connection and return HTTP 503 in production when RELAY_DO is absent', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/ws', {
+      const req = new Request('https://urefy.com/api/ws', {
         headers: { Upgrade: 'websocket' },
       });
 
@@ -80,7 +80,7 @@ describe('Standalone WebSocket Authentication Hardening (Finding 2)', () => {
         get: mockGet,
       };
 
-      const req = new Request('https://aetheris.pages.dev/api/ws?roomId=secure-prod-room', {
+      const req = new Request('https://urefy.com/api/ws?roomId=secure-prod-room', {
         headers: { Upgrade: 'websocket' },
       });
 
@@ -99,7 +99,7 @@ describe('Standalone WebSocket Authentication Hardening (Finding 2)', () => {
     });
   });
 
-  // â”€â”€â”€ 2. STANDALONE FALLBACK: UNVERIFIED ROLE & FINGERPRINT PROTECTION â”€â”€â”€â”€â”€â”€â”€
+  // ¦¦¦ 2. STANDALONE FALLBACK: UNVERIFIED ROLE & FINGERPRINT PROTECTION ¦¦¦¦¦¦¦
   describe('2. Standalone Mode: Client-Supplied Role & Fingerprint Authentication', () => {
     it('MUST reject client-supplied ADMIN role from unverified message', async () => {
       const serverWs = new MockWebSocket();
@@ -109,7 +109,7 @@ describe('Standalone WebSocket Authentication Hardening (Finding 2)', () => {
         1 = serverWs;
       };
 
-      const req = new Request('https://aetheris.pages.dev/api/ws', { headers: { Upgrade: 'websocket' } });
+      const req = new Request('https://urefy.com/api/ws', { headers: { Upgrade: 'websocket' } });
       await handleWebSocket({ request: req, env: {} });
 
       // Attacker attempts to claim ADMIN without valid session token or cryptographic signature
@@ -140,7 +140,7 @@ describe('Standalone WebSocket Authentication Hardening (Finding 2)', () => {
         1 = serverWs;
       };
 
-      const req = new Request('https://aetheris.pages.dev/api/ws', { headers: { Upgrade: 'websocket' } });
+      const req = new Request('https://urefy.com/api/ws', { headers: { Upgrade: 'websocket' } });
       await handleWebSocket({ request: req, env: {} });
 
       // Attacker attempts to claim GUARDIAN role without valid token
@@ -166,7 +166,7 @@ describe('Standalone WebSocket Authentication Hardening (Finding 2)', () => {
         1 = serverWs;
       };
 
-      const req = new Request('https://aetheris.pages.dev/api/ws', { headers: { Upgrade: 'websocket' } });
+      const req = new Request('https://urefy.com/api/ws', { headers: { Upgrade: 'websocket' } });
       await handleWebSocket({ request: req, env: {} });
 
       // Client sends arbitrary unverified fingerprint with standard role
@@ -195,7 +195,7 @@ describe('Standalone WebSocket Authentication Hardening (Finding 2)', () => {
         1 = serverWs;
       };
 
-      const req = new Request('https://aetheris.pages.dev/api/ws', { headers: { Upgrade: 'websocket' } });
+      const req = new Request('https://urefy.com/api/ws', { headers: { Upgrade: 'websocket' } });
       await handleWebSocket({ request: req, env: {} });
 
       const validToken = createRelaySessionToken({
@@ -227,7 +227,7 @@ describe('Standalone WebSocket Authentication Hardening (Finding 2)', () => {
         1 = serverWs;
       };
 
-      const req = new Request('https://aetheris.pages.dev/api/ws', { headers: { Upgrade: 'websocket' } });
+      const req = new Request('https://urefy.com/api/ws', { headers: { Upgrade: 'websocket' } });
       await handleWebSocket({ request: req, env: {} });
 
       const adminToken = createRelaySessionToken({
@@ -259,7 +259,7 @@ describe('Standalone WebSocket Authentication Hardening (Finding 2)', () => {
         1 = serverWs;
       };
 
-      const req = new Request('https://aetheris.pages.dev/api/ws', { headers: { Upgrade: 'websocket' } });
+      const req = new Request('https://urefy.com/api/ws', { headers: { Upgrade: 'websocket' } });
       await handleWebSocket({ request: req, env: {} });
 
       const expiredToken = createRelaySessionToken({
@@ -291,7 +291,7 @@ describe('Standalone WebSocket Authentication Hardening (Finding 2)', () => {
         1 = serverWs;
       };
 
-      const req = new Request('https://aetheris.pages.dev/api/ws', { headers: { Upgrade: 'websocket' } });
+      const req = new Request('https://urefy.com/api/ws', { headers: { Upgrade: 'websocket' } });
       await handleWebSocket({ request: req, env: {} });
 
       const validToken = createRelaySessionToken({
@@ -325,7 +325,7 @@ describe('Standalone WebSocket Authentication Hardening (Finding 2)', () => {
         1 = serverWs;
       };
 
-      const req = new Request('https://aetheris.pages.dev/api/ws', { headers: { Upgrade: 'websocket' } });
+      const req = new Request('https://urefy.com/api/ws', { headers: { Upgrade: 'websocket' } });
       await handleWebSocket({ request: req, env: {} });
 
       const userKey = generateKeyPair();

@@ -137,6 +137,11 @@ export class AetherisDatabase {
         payloadJson TEXT NOT NULL,
         timestamp INTEGER NOT NULL
       );
+
+      CREATE INDEX IF NOT EXISTS idx_messages_channel_status_created ON messages(channelId, status, createdAt);
+      CREATE INDEX IF NOT EXISTS idx_nanopublications_channel_created ON nanopublications(channelId, createdAt);
+      CREATE INDEX IF NOT EXISTS idx_identities_nullifier ON identities(nullifier);
+      CREATE INDEX IF NOT EXISTS idx_audit_log_timestamp ON audit_log(timestamp);
     `);
 
     // Seed default channels if empty

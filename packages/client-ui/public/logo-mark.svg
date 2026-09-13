@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%" height="100%" role="img" aria-label="UREfy Sovereign Social Nexus Logo">
+  <defs>
+    <linearGradient id="urefy-nexus-left" x1="24" y1="16" x2="56" y2="84" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#818CF8" />
+      <stop offset="100%" stop-color="#4F46E5" />
+    </linearGradient>
+    <linearGradient id="urefy-nexus-right" x1="76" y1="16" x2="44" y2="84" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#22D3EE" />
+      <stop offset="100%" stop-color="#0891B2" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Left Sovereign Peer Arc (Alpha) -->
+  <path d="M 28 18 L 28 54 C 28 72, 38 82, 52 82 C 58 82, 63 79, 66 74" fill="none" stroke="url(#urefy-nexus-left)" stroke-width="11" stroke-linecap="round" />
+  
+  <!-- Right Sovereign Peer Arc (Beta) -->
+  <path d="M 72 18 L 72 54 C 72 72, 62 82, 48 82 C 42 82, 37 79, 34 74" fill="none" stroke="url(#urefy-nexus-right)" stroke-width="11" stroke-linecap="round" opacity="0.96" />
+  
+  <!-- Peer Vertex Terminals -->
+  <circle cx="28" cy="18" r="5.5" fill="#C7D2FE" />
+  <circle cx="72" cy="18" r="5.5" fill="#A5F3FC" />
+</svg>

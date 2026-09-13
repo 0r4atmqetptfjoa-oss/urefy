@@ -8,6 +8,7 @@ import './window-augmentation.js';
 import { serviceRegistry, SERVICES } from './service-registry.js';
 import { clientStore } from './client-state.js';
 import { t } from './i18n.js';
+import { renderIcon } from './ui/icons.js';
 
 export interface CircleRule {
   id: number;
@@ -90,18 +91,17 @@ export class SovereignCircleEngine {
         channelId: 'pulse-global',
         icon: '⚡',
         banner: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%)',
-        description: 'Decentralized cryptographic research, recursive SNARK verification, zero-leakage rate limiting, and private computing architectures.',
+        description: 'Zero-knowledge proofs, recursive SNARKs, verifiable computations, and cryptographic privacy primitives.',
         category: 'Cryptography & Security',
         membersCount: 0,
         onlineCount: 0,
         primaryColor: '#6366f1',
         rules: [
-          { id: 1, title: 'Cryptographic Citations Mandatory', description: 'Submissions must cite verifiable mathematical formulas, RFC specs, or audited circuit repositories.' },
-          { id: 2, title: 'Zero Plaintext Secrets', description: 'Never leak nullifiers, private seeds, or unblinded user identities in public discussion streams.' },
-          { id: 3, title: 'Rigorous Peer Review Decorum', description: 'Technical critiques should remain civil, evidence-backed, and reproducible.' },
-          { id: 4, title: 'No Unverified Heuristics', description: 'Empirical claims must be accompanied by benchmark telemetry or reproducible test harnesses.' }
+          { id: 1, title: 'Cryptographic Verification Mandatory', description: 'All protocol releases and code assertions must include zero-knowledge proofs or reproducible hashes.' },
+          { id: 2, title: 'Zero Plaintext Telemetry', description: 'Protect user autonomy; do not transmit sensitive identities, private keys, or unmasked IP logs.' },
+          { id: 3, title: 'Maintain Constructive Decorum', description: 'Critique architectures rigorously while fostering collaborative open-source peer review.' }
         ],
-        flairs: ['VERIFIED RELEASE', 'SECURITY ADVISORY', 'TECH DISCUSSION', 'MICRO-PULSE', 'ASK COMMUNITY'],
+        flairs: ['TECH DISCUSSION', 'VERIFIED RELEASE', 'SECURITY ADVISORY', 'MICRO-PULSE', 'ASK COMMUNITY'],
         isJoined: true,
         createdAt: '',
       },
@@ -111,8 +111,8 @@ export class SovereignCircleEngine {
         displayName: 'Reproducible Binary Knowledge Vault',
         channelId: 'vault-releases',
         icon: '📦',
-        banner: 'linear-gradient(135deg, #064e3b 0%, #065f46 50%, #047857 100%)',
-        description: 'Audited reproducible software distributions, deterministic builds, Merkle tree ledgers, and PE/ELF binary hygiene passports.',
+        banner: 'linear-gradient(135deg, #064e3b 0%, #047857 50%, #059669 100%)',
+        description: 'Verified clean software releases, reproducible compilation builds, and malware-free open-source packages.',
         category: 'Software & Vault',
         membersCount: 0,
         onlineCount: 0,
@@ -165,6 +165,127 @@ export class SovereignCircleEngine {
         flairs: ['MICRO-PULSE', 'TECH DISCUSSION', 'ASK COMMUNITY'],
         isJoined: true,
         createdAt: '',
+      },
+      {
+        id: 'c-technology',
+        name: 'technology',
+        displayName: 'Technology & Computing',
+        channelId: 'pulse-technology',
+        icon: '💻',
+        banner: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%)',
+        description: 'Discussions on consumer tech, computing, breakthroughs, hardware, and engineering.',
+        category: 'Technology',
+        membersCount: 0,
+        onlineCount: 0,
+        primaryColor: '#6366f1',
+        rules: [
+          { id: 1, title: 'Keep Discussions Tech-Focused', description: 'Submissions must relate directly to software, hardware, or tech developments.' },
+          { id: 2, title: 'Original Sources Required', description: 'Link to primary reporting, official documentation, or original creator channels.' },
+          { id: 3, title: 'No Unsolicited Promotion', description: 'Self-promotion must be declared with appropriate post flairs.' }
+        ],
+        flairs: ['TECH NEWS', 'HARDWARE', 'DISCUSSION', 'PROJECT SHOWCASE', 'ASK TECH'],
+        isJoined: true,
+        createdAt: '',
+      },
+      {
+        id: 'c-privacy-ai',
+        name: 'privacy-ai',
+        displayName: 'Privacy, AI & Autonomy',
+        channelId: 'pulse-privacy-ai',
+        icon: '🤖',
+        banner: 'linear-gradient(135deg, #064e3b 0%, #065f46 50%, #047857 100%)',
+        description: 'Local AI models, open weights, autonomous agents, personal privacy, and ethical machine intelligence.',
+        category: 'Artificial Intelligence',
+        membersCount: 0,
+        onlineCount: 0,
+        primaryColor: '#10b981',
+        rules: [
+          { id: 1, title: 'Benchmark Transparency', description: 'Share model specs, quantization parameters, and reproducible steps.' },
+          { id: 2, title: 'Respect Personal Privacy', description: 'Never share private datasets or personally identifiable user telemetry.' }
+        ],
+        flairs: ['LOCAL LLM', 'AI RESEARCH', 'PRIVACY TOOL', 'TUTORIAL', 'DEBATE'],
+        isJoined: true,
+        createdAt: '',
+      },
+      {
+        id: 'c-opensource',
+        name: 'opensource',
+        displayName: 'Open Source & Dev Hub',
+        channelId: 'pulse-opensource',
+        icon: '🌐',
+        banner: 'linear-gradient(135deg, #0c4a6e 0%, #0369a1 50%, #0284c7 100%)',
+        description: 'FOSS projects, Linux distributions, self-hosting setups, code repositories, and collaborative engineering.',
+        category: 'Software & Dev',
+        membersCount: 0,
+        onlineCount: 0,
+        primaryColor: '#06b6d4',
+        rules: [
+          { id: 1, title: 'Include Repository Link', description: 'Showcases must link to a valid public Git repository or release artifact.' },
+          { id: 2, title: 'Constructive Peer Review', description: 'Provide helpful, actionable code feedback and welcoming contributor guidance.' }
+        ],
+        flairs: ['RELEASE', 'SELF-HOSTED', 'LINUX', 'SHOWCASE', 'HELP WANTED'],
+        isJoined: true,
+        createdAt: '',
+      },
+      {
+        id: 'c-gaming',
+        name: 'gaming',
+        displayName: 'Gaming & Game Development',
+        channelId: 'pulse-gaming',
+        icon: '🎮',
+        banner: 'linear-gradient(135deg, #701a75 0%, #86198f 50%, #a21caf 100%)',
+        description: 'Indie game development, modding communities, PC gaming, gameplay clips, and retro emulation.',
+        category: 'Gaming',
+        membersCount: 0,
+        onlineCount: 0,
+        primaryColor: '#ec4899',
+        rules: [
+          { id: 1, title: 'No Spoilers in Titles', description: 'Tag all story spoilers and plot reveals with spoiler tags.' },
+          { id: 2, title: 'Good Sportsmanship', description: 'Foster an inclusive, welcoming space for players and game devs alike.' }
+        ],
+        flairs: ['CLIP', 'GAME DEV', 'MODS', 'DISCUSSION', 'SCREENSHOT'],
+        isJoined: true,
+        createdAt: '',
+      },
+      {
+        id: 'c-creative',
+        name: 'creative',
+        displayName: 'Creative Arts & Design',
+        channelId: 'pulse-creative',
+        icon: '🎨',
+        banner: 'linear-gradient(135deg, #7c2d12 0%, #9a3412 50%, #ea580c 100%)',
+        description: 'Digital illustrations, UI/UX interaction design, 3D modeling, photography, and motion graphics.',
+        category: 'Creative Arts',
+        membersCount: 0,
+        onlineCount: 0,
+        primaryColor: '#f97316',
+        rules: [
+          { id: 1, title: 'Credit Original Artists', description: 'Always credit collaborators, reference assets, and inspiration sources.' },
+          { id: 2, title: 'Tag Generative Media', description: 'Mark AI-assisted artwork with the appropriate post flair.' }
+        ],
+        flairs: ['UI/UX', '3D ART', 'ILLUSTRATION', 'FEEDBACK', 'SHOWCASE'],
+        isJoined: false,
+        createdAt: '',
+      },
+      {
+        id: 'c-digitalfreedom',
+        name: 'digitalfreedom',
+        displayName: 'Digital Freedom & Rights',
+        channelId: 'pulse-digitalfreedom',
+        icon: '🛡️',
+        banner: 'linear-gradient(135deg, #18181b 0%, #27272a 50%, #3f3f46 100%)',
+        description: 'Decentralized communications, anti-censorship tools, digital rights advocacy, and freedom of expression.',
+        category: 'Society & Rights',
+        membersCount: 0,
+        onlineCount: 0,
+        primaryColor: '#64748b',
+        rules: [
+          { id: 1, title: 'Civil Discourse', description: 'Critique policies and architectures while respecting diverse perspectives.' },
+          { id: 2, title: 'Verified Reporting', description: 'Back news claims with primary sources or verified bulletins.' }
+        ],
+        flairs: ['DIGITAL RIGHTS', 'CENSORSHIP WATCH', 'DECENTRALIZATION', 'DISCUSSION'],
+        isJoined: true,
+        createdAt: '',
       }
     ];
 
@@ -172,6 +293,7 @@ export class SovereignCircleEngine {
       this.circles.set(c.id, c);
       this.circles.set(c.channelId, c);
       this.circles.set(`c/${c.name}`, c);
+      this.circles.set(c.name, c);
     }
   }
 
@@ -576,7 +698,7 @@ export class SovereignCircleEngine {
             id="btn-open-create-circle-modal" 
             class="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-indigo-600/20 via-purple-600/20 to-cyan-600/20 hover:from-indigo-600/30 hover:to-cyan-600/30 text-indigo-200 border border-indigo-500/30 text-xs font-bold transition-all flex items-center justify-center space-x-1.5 cursor-pointer shadow-xs"
           >
-            <span>✨</span>
+            ${renderIcon('sparkles', { size: 14, className: 'text-indigo-300' })}
             <span>Charter New Sovereign Circle</span>
           </button>
 
@@ -584,7 +706,7 @@ export class SovereignCircleEngine {
           <div class="pt-2 border-t border-white/5 space-y-2">
             <div class="flex items-center justify-between text-xs">
               <span class="font-bold text-white uppercase tracking-wide text-[10px] flex items-center space-x-1.5">
-                <span>🛡️</span>
+                ${renderIcon('shield', { size: 13, className: 'text-cyan-400' })}
                 <span>Circle Governance Rules (${circle.rules.length})</span>
               </span>
             </div>
@@ -662,14 +784,14 @@ export class SovereignCircleEngine {
           <!-- MODAL HEADER -->
           <div class="px-6 py-4 border-b border-white/10 bg-surface-raised flex items-center justify-between shrink-0">
             <div class="flex items-center space-x-3">
-              <div class="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center text-2xl border border-amber-500/30">
-                ⚙️
+              <div class="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center border border-amber-500/30">
+                ${renderIcon('settings', { size: 20 })}
               </div>
               <div>
                 <div class="flex items-center space-x-2">
                   <h2 class="text-sm sm:text-base font-bold text-white font-mono">Mod Tools: c/${escapeHtml(circle.name)}</h2>
-                  <span class="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold ${isCreator ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30' : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'}">
-                    ${isCreator ? '👑 Creator' : '🛡️ Moderator'}
+                  <span class="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold flex items-center gap-1 ${isCreator ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30' : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'}">
+                    ${isCreator ? `${renderIcon('crown', { size: 12 })} Creator` : `${renderIcon('shield', { size: 12 })} Moderator`}
                   </span>
                 </div>
                 <p class="text-[11px] text-slate-400 font-mono">Decentralized governance, rules engine, and member access controls</p>
@@ -692,7 +814,7 @@ export class SovereignCircleEngine {
               data-tab="settings"
               class="px-3.5 py-3 border-b-2 transition-colors cursor-pointer flex items-center space-x-1.5 ${this.activeModTab === 'settings' ? 'border-cyan-400 text-cyan-300 font-bold' : 'border-transparent text-slate-400 hover:text-slate-200'}"
             >
-              <span>⚙️</span>
+              ${renderIcon('settings', { size: 14 })}
               <span>General Settings</span>
             </button>
             <button
@@ -701,7 +823,7 @@ export class SovereignCircleEngine {
               data-tab="rules"
               class="px-3.5 py-3 border-b-2 transition-colors cursor-pointer flex items-center space-x-1.5 ${this.activeModTab === 'rules' ? 'border-cyan-400 text-cyan-300 font-bold' : 'border-transparent text-slate-400 hover:text-slate-200'}"
             >
-              <span>📜</span>
+              ${renderIcon('scroll', { size: 14 })}
               <span>Rules Engine (${circle.rules.length})</span>
             </button>
             <button
@@ -710,7 +832,7 @@ export class SovereignCircleEngine {
               data-tab="flairs"
               class="px-3.5 py-3 border-b-2 transition-colors cursor-pointer flex items-center space-x-1.5 ${this.activeModTab === 'flairs' ? 'border-cyan-400 text-cyan-300 font-bold' : 'border-transparent text-slate-400 hover:text-slate-200'}"
             >
-              <span>🏷️</span>
+              ${renderIcon('tag', { size: 14 })}
               <span>Post Flairs (${circle.flairs.length})</span>
             </button>
             <button
@@ -719,7 +841,7 @@ export class SovereignCircleEngine {
               data-tab="moderation"
               class="px-3.5 py-3 border-b-2 transition-colors cursor-pointer flex items-center space-x-1.5 ${this.activeModTab === 'moderation' ? 'border-cyan-400 text-cyan-300 font-bold' : 'border-transparent text-slate-400 hover:text-slate-200'}"
             >
-              <span>🛡️</span>
+              ${renderIcon('shield', { size: 14 })}
               <span>Safety & Nodes (${circle.bannedFingerprints?.length || 0})</span>
             </button>
           </div>
@@ -819,7 +941,7 @@ export class SovereignCircleEngine {
                     data-circle-id="${circle.id}"
                     class="px-5 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs shadow-md transition-all cursor-pointer flex items-center space-x-1.5"
                   >
-                    <span>💾</span>
+                    ${renderIcon('save', { size: 14 })}
                     <span>Save Community Settings</span>
                   </button>
                 </div>
@@ -855,7 +977,7 @@ export class SovereignCircleEngine {
                         class="text-slate-500 hover:text-red-400 p-1.5 rounded-lg hover:bg-red-500/10 transition-colors cursor-pointer shrink-0"
                         title="Delete Rule"
                       >
-                        🗑️
+                        ${renderIcon('trash', { size: 14 })}
                       </button>
                     </div>
                   `).join('')}
@@ -864,7 +986,7 @@ export class SovereignCircleEngine {
                 <!-- ADD NEW RULE FORM -->
                 <div class="p-4 rounded-xl bg-surface-raised/70 border border-white/10 space-y-3 mt-4">
                   <div class="text-xs font-bold text-indigo-300 font-mono flex items-center space-x-1.5">
-                    <span>➕</span>
+                    ${renderIcon('plus', { size: 14 })}
                     <span>Charter New Rule</span>
                   </div>
                   <div>
@@ -930,7 +1052,7 @@ export class SovereignCircleEngine {
                 <!-- ADD NEW FLAIR -->
                 <div class="p-4 rounded-xl bg-surface-raised/70 border border-white/10 space-y-3 mt-4">
                   <div class="text-xs font-bold text-indigo-300 font-mono flex items-center space-x-1.5">
-                    <span>🏷️</span>
+                    ${renderIcon('tag', { size: 14 })}
                     <span>Add Custom Post Flair</span>
                   </div>
                   <div class="flex items-center space-x-2">
@@ -946,7 +1068,7 @@ export class SovereignCircleEngine {
                       data-circle-id="${circle.id}"
                       class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-sm transition-all cursor-pointer flex items-center space-x-1.5 shrink-0"
                     >
-                      <span>+</span>
+                      ${renderIcon('plus', { size: 13 })}
                       <span>Add Flair</span>
                     </button>
                   </div>
@@ -962,7 +1084,7 @@ export class SovereignCircleEngine {
                 <div class="space-y-3">
                   <div class="flex items-center justify-between pb-1 border-b border-white/5">
                     <div class="flex items-center space-x-1.5">
-                      <span class="text-red-400">⛔</span>
+                      ${renderIcon('ban', { size: 14, className: 'text-red-400' })}
                       <h3 class="text-xs font-mono font-bold uppercase tracking-wider text-slate-300">
                         Banned / Restricted Peer Nodes (${circle.bannedFingerprints?.length || 0})
                       </h3>
@@ -1006,9 +1128,10 @@ export class SovereignCircleEngine {
                       type="button"
                       data-action="ban-circle-node"
                       data-circle-id="${circle.id}"
-                      class="px-4 py-2 rounded-xl bg-red-600/80 hover:bg-red-600 text-white font-bold text-xs shadow-sm transition-all cursor-pointer shrink-0"
+                      class="px-4 py-2 rounded-xl bg-red-600/80 hover:bg-red-600 text-white font-bold text-xs shadow-sm transition-all cursor-pointer shrink-0 flex items-center gap-1.5"
                     >
-                      <span>⛔ Ban Node</span>
+                      ${renderIcon('ban', { size: 14 })}
+                      <span>Ban Node</span>
                     </button>
                   </div>
                 </div>
@@ -1017,7 +1140,7 @@ export class SovereignCircleEngine {
                 <div class="space-y-3 pt-3 border-t border-white/10">
                   <div class="flex items-center justify-between pb-1 border-b border-white/5">
                     <div class="flex items-center space-x-1.5">
-                      <span class="text-amber-400">🛡️</span>
+                      ${renderIcon('shield', { size: 14, className: 'text-amber-400' })}
                       <h3 class="text-xs font-mono font-bold uppercase tracking-wider text-slate-300">
                         Community Moderators Roster (${(circle.moderators?.length || 1)})
                       </h3>
@@ -1028,7 +1151,7 @@ export class SovereignCircleEngine {
                     <!-- CREATOR NODE -->
                     <div class="p-2.5 rounded-xl bg-indigo-950/40 border border-indigo-500/30 flex items-center justify-between">
                       <div class="flex items-center space-x-2 text-indigo-300 font-bold">
-                        <span>👑</span>
+                        ${renderIcon('crown', { size: 14 })}
                         <span>&lt;${circle.creatorFingerprint || clientStore.keypair?.fingerprint || 'genesis-core'}&gt;</span>
                       </div>
                       <span class="text-[10px] px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-bold">CREATOR</span>
@@ -1038,7 +1161,7 @@ export class SovereignCircleEngine {
                     ${(circle.moderators || []).filter(m => m !== circle.creatorFingerprint).map(mFp => `
                       <div class="p-2.5 rounded-xl bg-surface-raised border border-white/5 flex items-center justify-between">
                         <div class="flex items-center space-x-2 text-slate-300">
-                          <span>🛡️</span>
+                          ${renderIcon('shield', { size: 14, className: 'text-amber-400' })}
                           <span>&lt;${escapeHtml(mFp)}&gt;</span>
                         </div>
                         <span class="text-[10px] px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold">MODERATOR</span>
@@ -1058,9 +1181,10 @@ export class SovereignCircleEngine {
                       type="button"
                       data-action="add-circle-mod"
                       data-circle-id="${circle.id}"
-                      class="px-4 py-2 rounded-xl bg-amber-600/80 hover:bg-amber-600 text-white font-bold text-xs shadow-sm transition-all cursor-pointer shrink-0"
+                      class="px-4 py-2 rounded-xl bg-amber-600/80 hover:bg-amber-600 text-white font-bold text-xs shadow-sm transition-all cursor-pointer shrink-0 flex items-center gap-1.5"
                     >
-                      <span>🛡️ Assign Mod</span>
+                      ${renderIcon('shield', { size: 14 })}
+                      <span>Assign Mod</span>
                     </button>
                   </div>
                 </div>
@@ -1089,8 +1213,8 @@ export class SovereignCircleEngine {
           <!-- MODAL HEADER -->
           <div class="px-6 py-4 border-b border-white/10 bg-surface-raised flex items-center justify-between">
             <div class="flex items-center space-x-2.5">
-              <div class="w-9 h-9 rounded-xl bg-indigo-600/20 text-indigo-400 flex items-center justify-center text-xl border border-indigo-500/30">
-                🏛️
+              <div class="w-9 h-9 rounded-xl bg-indigo-600/20 text-indigo-400 flex items-center justify-center border border-indigo-500/30">
+                ${renderIcon('landmark', { size: 18 })}
               </div>
               <div>
                 <h2 class="text-sm sm:text-base font-bold text-white">Charter Sovereign Circle</h2>
@@ -1169,7 +1293,7 @@ export class SovereignCircleEngine {
                   <input type="radio" name="input-circle-type" value="public" ${this.formCommunityType === 'public' ? 'checked' : ''} class="mt-0.5 text-indigo-500 focus:ring-0 cursor-pointer">
                   <div>
                     <div class="flex items-center gap-2 font-bold text-xs text-white">
-                      <span>🌐 Public</span>
+                      <span class="flex items-center gap-1.5">${renderIcon('globe', { size: 14, className: 'text-indigo-400' })} Public</span>
                       <span class="text-[10px] font-mono text-emerald-400 bg-emerald-500/15 px-1.5 py-0.2 rounded">Recommended</span>
                     </div>
                     <div class="text-[11px] text-slate-400 leading-snug mt-0.5">Anyone can view, post, and comment to this community.</div>
@@ -1180,7 +1304,7 @@ export class SovereignCircleEngine {
                   <input type="radio" name="input-circle-type" value="restricted" ${this.formCommunityType === 'restricted' ? 'checked' : ''} class="mt-0.5 text-indigo-500 focus:ring-0 cursor-pointer">
                   <div>
                     <div class="flex items-center gap-2 font-bold text-xs text-white">
-                      <span>👁️ Restricted</span>
+                      <span class="flex items-center gap-1.5">${renderIcon('eye', { size: 14, className: 'text-indigo-400' })} Restricted</span>
                     </div>
                     <div class="text-[11px] text-slate-400 leading-snug mt-0.5">Anyone can view this community, but only approved users can post.</div>
                   </div>
@@ -1190,7 +1314,7 @@ export class SovereignCircleEngine {
                   <input type="radio" name="input-circle-type" value="private" ${this.formCommunityType === 'private' ? 'checked' : ''} class="mt-0.5 text-indigo-500 focus:ring-0 cursor-pointer">
                   <div>
                     <div class="flex items-center gap-2 font-bold text-xs text-white">
-                      <span>🔒 Private</span>
+                      <span class="flex items-center gap-1.5">${renderIcon('lock', { size: 14, className: 'text-amber-400' })} Private</span>
                       <span class="text-[10px] font-mono text-amber-400 bg-amber-500/15 px-1.5 py-0.2 rounded">ZK-Gate</span>
                     </div>
                     <div class="text-[11px] text-slate-400 leading-snug mt-0.5">Only approved users can view and submit to this community.</div>

@@ -1,4 +1,4 @@
-﻿import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { onRequestGet as handleChannelsGet } from '../functions/api/channels.js';
 import { onRequestGet as handleMessagesGet } from '../functions/api/messages.js';
 import { onRequestGet as handlePostsGet } from '../functions/api/posts.js';
@@ -75,7 +75,7 @@ describe('Global D1 Initial Data Sets Isolation (Finding 5)', () => {
   describe('2. Production API Endpoints Never Return Demo Fixtures', () => {
     it('GET /api/channels returns clean empty array in production when D1 is empty (no bootstrap)', async () => {
       const res = await handleChannelsGet({
-        request: new Request('https://aetheris.pages.dev/api/channels'),
+        request: new Request('https://urefy.com/api/channels'),
         env: prodEnv as any,
       });
 
@@ -89,7 +89,7 @@ describe('Global D1 Initial Data Sets Isolation (Finding 5)', () => {
 
     it('GET /api/messages returns clean empty array in production when D1 is empty', async () => {
       const res = await handleMessagesGet({
-        request: new Request('https://aetheris.pages.dev/api/messages?channelId=all'),
+        request: new Request('https://urefy.com/api/messages?channelId=all'),
         env: prodEnv as any,
       });
 
@@ -103,7 +103,7 @@ describe('Global D1 Initial Data Sets Isolation (Finding 5)', () => {
 
     it('GET /api/posts returns clean empty array in production when D1 is empty', async () => {
       const res = await handlePostsGet({
-        request: new Request('https://aetheris.pages.dev/api/posts?channelId=all'),
+        request: new Request('https://urefy.com/api/posts?channelId=all'),
         env: prodEnv as any,
       });
 
@@ -117,7 +117,7 @@ describe('Global D1 Initial Data Sets Isolation (Finding 5)', () => {
 
     it('GET /api/nanopublications returns clean empty array in production when D1 is empty', async () => {
       const res = await handleNanopubsGet({
-        request: new Request('https://aetheris.pages.dev/api/nanopublications?channelId=all'),
+        request: new Request('https://urefy.com/api/nanopublications?channelId=all'),
         env: prodEnv as any,
       });
 
@@ -131,7 +131,7 @@ describe('Global D1 Initial Data Sets Isolation (Finding 5)', () => {
 
     it('GET /api/analytics returns zero telemetry nodes in production when D1 is empty', async () => {
       const res = await handleAnalyticsGet({
-        request: new Request('https://aetheris.pages.dev/api/analytics'),
+        request: new Request('https://urefy.com/api/analytics'),
         env: prodEnv as any,
       });
 
@@ -149,7 +149,7 @@ describe('Global D1 Initial Data Sets Isolation (Finding 5)', () => {
 
     it('GET /api/storage?list=true returns clean empty array in production with empty R2', async () => {
       const res = await handleStorageGet({
-        request: new Request('https://aetheris.pages.dev/api/storage?list=true'),
+        request: new Request('https://urefy.com/api/storage?list=true'),
         env: prodEnv as any,
       });
 
@@ -187,7 +187,7 @@ describe('Global D1 Initial Data Sets Isolation (Finding 5)', () => {
       };
 
       const res = await handlePostsGet({
-        request: new Request('https://aetheris.pages.dev/api/posts?channelId=all'),
+        request: new Request('https://urefy.com/api/posts?channelId=all'),
         env: { ENVIRONMENT: 'production', DB: populatedDb } as any,
       });
 

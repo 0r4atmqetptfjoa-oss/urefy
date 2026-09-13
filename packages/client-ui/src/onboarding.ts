@@ -267,7 +267,7 @@ export class OnboardingWizard {
     const body = i18n.t(
       'onboardingNarrative.step1Body',
       undefined,
-      'No central server owns your account. No email, no phone number, no passwords stored in vulnerable foreign databases. Your cryptographic keys exist exclusively on your device.'
+      'Create a private identity in seconds. No email, phone number, or password is required, and your account stays under your control.'
     );
 
     return `
@@ -280,7 +280,7 @@ export class OnboardingWizard {
           <div class="space-y-1">
             <div class="flex items-center space-x-2">
               <h3 class="text-xl font-bold text-white tracking-wide">${title}</h3>
-              <span class="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-mono font-bold">100% SOVEREIGN</span>
+              <span class="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-bold">PRIVATE BY DESIGN</span>
             </div>
             <p class="text-xs text-slate-400 font-sans">${subtitle}</p>
           </div>
@@ -295,27 +295,24 @@ export class OnboardingWizard {
         <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div class="p-3.5 rounded-xl bg-surface-base border border-white/5 space-y-1.5">
             <span class="text-lg">🛡️</span>
-            <div class="text-xs font-bold text-white">No Custodial Identity Server</div>
-            <p class="text-[11px] text-slate-400 leading-normal">Identity keys stay on-device while Cloudflare edge relays carry encrypted traffic.</p>
+            <div class="text-xs font-bold text-white">No password to remember</div>
+            <p class="text-[11px] text-slate-400 leading-normal">Your device protects your sign-in for you.</p>
           </div>
           <div class="p-3.5 rounded-xl bg-surface-base border border-white/5 space-y-1.5">
             <span class="text-lg">🔑</span>
-            <div class="text-xs font-bold text-white">Browser-Held Keys</div>
-            <p class="text-[11px] text-slate-400 leading-normal">Your cryptographic Ed25519 keypair lives strictly inside your browser.</p>
+            <div class="text-xs font-bold text-white">Protected on this device</div>
+            <p class="text-[11px] text-slate-400 leading-normal">Private account information stays in your control.</p>
           </div>
           <div class="p-3.5 rounded-xl bg-surface-base border border-white/5 space-y-1.5">
             <span class="text-lg">🌐</span>
-            <div class="text-xs font-bold text-white">Total Portability</div>
-            <p class="text-[11px] text-slate-400 leading-normal">Migrate your entire profile across machines with a single 12-word recovery key.</p>
+            <div class="text-xs font-bold text-white">Take it with you</div>
+            <p class="text-[11px] text-slate-400 leading-normal">A recovery phrase lets you move your profile to another device.</p>
           </div>
         </div>
 
-        <!-- Live Node Identity Fingerprint -->
-        <div class="p-3 rounded-xl bg-surface-base/40 border border-white/5 flex items-center justify-between text-xs font-mono">
-          <span class="text-slate-400">Your Local Protocol Fingerprint:</span>
-          <span class="text-cyan-300 font-bold bg-cyan-500/10 px-2.5 py-1 rounded-lg border border-cyan-500/20">
-            id:${myFingerprint.substring(0, 16)}...
-          </span>
+        <div class="p-3 rounded-xl bg-surface-base/40 border border-white/5 flex items-center justify-between text-xs">
+          <span class="text-slate-400">Your account</span>
+          <span class="text-slate-300 font-bold bg-white/5 px-2.5 py-1 rounded-lg border border-white/10">Stored on this device</span>
         </div>
       </div>
     `;
@@ -325,8 +322,8 @@ export class OnboardingWizard {
    * Step 2: 🔒 Conținutul tău e protejat
    */
   private renderStep2Privacy(): string {
-    const title = i18n.t('onboardingNarrative.step2Title', undefined, 'Your Content is Fully Protected');
-    const subtitle = i18n.t('onboardingNarrative.step2Subtitle', undefined, 'End-to-end zero-knowledge security');
+    const title = i18n.t('onboardingNarrative.step2Title', undefined, 'Private Conversations, Built In');
+    const subtitle = i18n.t('onboardingNarrative.step2Subtitle', undefined, 'Protection works automatically');
     const body = i18n.t(
       'onboardingNarrative.step2Body',
       undefined,
@@ -343,7 +340,7 @@ export class OnboardingWizard {
           <div class="space-y-1">
             <div class="flex items-center space-x-2">
               <h3 class="text-xl font-bold text-white tracking-wide">${title}</h3>
-              <span class="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 font-mono font-bold">E2EE ZERO-KNOWLEDGE</span>
+              <span class="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 font-bold">PRIVATE</span>
             </div>
             <p class="text-xs text-slate-400 font-sans">${subtitle}</p>
           </div>
@@ -356,22 +353,22 @@ export class OnboardingWizard {
 
         <!-- Visual Encryption Pipeline Flowchart -->
         <div class="p-4 rounded-xl bg-surface-base border border-white/10 space-y-3 font-mono text-xs">
-          <div class="text-[10px] uppercase text-slate-400 tracking-wider">Direct Cryptographic Pipeline:</div>
+          <div class="text-[10px] uppercase text-slate-400 tracking-wider">How privacy works</div>
           <div class="grid grid-cols-1 md:grid-cols-3 gap-2 text-center">
             <div class="p-3 rounded-lg bg-surface-raised border border-white/5">
               <span class="text-lg block mb-1">💻</span>
-              <span class="text-white font-bold block">1. Origin Browser</span>
-              <span class="text-[10px] text-slate-400">Plaintext encrypted in RAM</span>
+              <span class="text-white font-bold block">1. You write</span>
+              <span class="text-[10px] text-slate-400">Your message starts on your device</span>
             </div>
             <div class="p-3 rounded-lg bg-indigo-950/40 border border-indigo-500/30">
               <span class="text-lg block mb-1">🔐</span>
-              <span class="text-indigo-300 font-bold block">2. AES-GCM / ML-KEM</span>
-              <span class="text-[10px] text-slate-400">Quantum-resistant ciphertext</span>
+              <span class="text-indigo-300 font-bold block">2. UREfy protects it</span>
+              <span class="text-[10px] text-slate-400">Protection happens automatically</span>
             </div>
             <div class="p-3 rounded-lg bg-surface-raised border border-white/5">
               <span class="text-lg block mb-1">🎯</span>
-              <span class="text-white font-bold block">3. Trusted Recipient</span>
-              <span class="text-[10px] text-slate-400">Decrypted only with local key</span>
+              <span class="text-white font-bold block">3. They receive it</span>
+              <span class="text-[10px] text-slate-400">Only the intended person can read it</span>
             </div>
           </div>
         </div>
@@ -380,11 +377,11 @@ export class OnboardingWizard {
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
           <div class="p-3 rounded-xl bg-surface-base/60 border border-white/5 flex items-start space-x-2.5">
             <span class="text-emerald-400 font-bold">✓</span>
-            <span class="text-slate-300">Zero metadata retention: edge proxies never inspect payloads or map friendships.</span>
+            <span class="text-slate-300">Your conversations are not scanned for ads or recommendations.</span>
           </div>
           <div class="p-3 rounded-xl bg-surface-base/60 border border-white/5 flex items-start space-x-2.5">
             <span class="text-emerald-400 font-bold">✓</span>
-            <span class="text-slate-300">Post-quantum ready: hybrid key exchange shields your conversations against future supercomputers.</span>
+            <span class="text-slate-300">Strong protection stays out of the way while you chat.</span>
           </div>
         </div>
       </div>
@@ -395,8 +392,8 @@ export class OnboardingWizard {
    * Step 3: 🌐 Rețeaua e a tuturor
    */
   private renderStep3Mesh(): string {
-    const title = i18n.t('onboardingNarrative.step3Title', undefined, 'The Network Belongs to Everyone');
-    const subtitle = i18n.t('onboardingNarrative.step3Subtitle', undefined, 'Decentralized peer-to-peer distribution');
+    const title = i18n.t('onboardingNarrative.step3Title', undefined, 'People and Communities First');
+    const subtitle = i18n.t('onboardingNarrative.step3Subtitle', undefined, 'A social network shaped by its members');
     const body = i18n.t(
       'onboardingNarrative.step3Body',
       undefined,
@@ -413,7 +410,7 @@ export class OnboardingWizard {
           <div class="space-y-1">
             <div class="flex items-center space-x-2">
               <h3 class="text-xl font-bold text-white tracking-wide">${title}</h3>
-              <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-mono font-bold">PEER-TO-PEER</span>
+              <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold">PEOPLE FIRST</span>
             </div>
             <p class="text-xs text-slate-400 font-sans">${subtitle}</p>
           </div>
@@ -428,18 +425,18 @@ export class OnboardingWizard {
         <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div class="p-3.5 rounded-xl bg-surface-base border border-white/5 space-y-1.5">
             <span class="text-lg">⚡</span>
-            <div class="text-xs font-bold text-white">Direct WebRTC Mesh</div>
-            <p class="text-[11px] text-slate-400 leading-normal">Browser nodes transfer files and data chunks directly to each other without cloud storage costs.</p>
+            <div class="text-xs font-bold text-white">Share freely</div>
+            <p class="text-[11px] text-slate-400 leading-normal">Post thoughts, photos, and files with the people you choose.</p>
           </div>
           <div class="p-3.5 rounded-xl bg-surface-base border border-white/5 space-y-1.5">
             <span class="text-lg">⚖️</span>
-            <div class="text-xs font-bold text-white">Transparent Merit Feeds</div>
-            <p class="text-[11px] text-slate-400 leading-normal">You choose chronological or Web-of-Trust ranking — never corporate algorithm manipulation.</p>
+            <div class="text-xs font-bold text-white">Control your feed</div>
+            <p class="text-[11px] text-slate-400 leading-normal">Choose what you see, including a chronological view.</p>
           </div>
           <div class="p-3.5 rounded-xl bg-surface-base border border-white/5 space-y-1.5">
             <span class="text-lg">🏛️</span>
-            <div class="text-xs font-bold text-white">Censorship Resilient</div>
-            <p class="text-[11px] text-slate-400 leading-normal">Immutable Merkle trees guarantee tamper-evident repositories that cannot be arbitrarily silenced.</p>
+            <div class="text-xs font-bold text-white">Find your people</div>
+            <p class="text-[11px] text-slate-400 leading-normal">Join focused communities and build lasting conversations.</p>
           </div>
         </div>
 
@@ -447,9 +444,9 @@ export class OnboardingWizard {
         <div class="p-3 rounded-xl bg-surface-base/40 border border-white/5 flex items-center justify-between text-xs font-mono">
           <div class="flex items-center space-x-2">
             <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span class="text-slate-300">Decentralized P2P Mesh: Ready to Connect</span>
+            <span class="text-slate-300">UREfy is ready</span>
           </div>
-          <span class="text-emerald-400 font-semibold">WebRTC Swarm Active</span>
+          <span class="text-emerald-400 font-semibold">Connected</span>
         </div>
       </div>
     `;
@@ -604,7 +601,7 @@ export class OnboardingWizard {
               ? 'bg-emerald-400 text-black font-bold'
               : 'bg-surface-overlay text-slate-500 border border-white/10';
 
-          const textClass = isCurrent ? 'text-cyan-300 font-bold' : isPassed ? 'text-slate-300' : 'text-slate-600';
+          const textClass = isCurrent ? 'text-cyan-300 font-bold' : isPassed ? 'text-slate-300' : 'text-slate-400';
 
           return `
             <div class="flex flex-col items-center gap-1.5 relative group">
@@ -653,7 +650,7 @@ export class OnboardingWizard {
               <div class="w-7 h-7 rounded-lg bg-gradient-to-tr from-cyan-500 to-indigo-600 flex items-center justify-center text-white font-bold text-xs shadow-md">
                 U
               </div>
-              <span class="text-sm font-bold text-white tracking-wider font-mono">UREfy // SOVEREIGN WELCOME</span>
+              <span class="text-sm font-bold text-white tracking-wide">Welcome to UREfy</span>
             </div>
 
             <div class="flex items-center space-x-2">
@@ -690,7 +687,7 @@ export class OnboardingWizard {
                   <span>${backText}</span>
                 </button>
               ` : `
-                <span class="text-[11px] text-slate-500 font-mono">100% Free Tier Protected</span>
+                <span class="text-[11px] text-slate-400">Private by design</span>
               `}
             </div>
 

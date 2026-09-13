@@ -41,9 +41,12 @@ export function parseD1ChannelRow(row: any): EdgeChannel {
 export async function onRequestGet(context: { request: Request; env?: Env }): Promise<Response> {
   try {
     const url = new URL(context.request.url);
-    const space = url.searchParams.get('space') || 'all';
-    const limit = Math.min(parseInt(url.searchParams.get('limit') || '50', 10), 100);
-    const offset = parseInt(url.searchParams.get('offset') || '0', 10);
+    const rawSpace = (url.searchParams.get('space') || 'all').trim().toLowerCase();
+    const space = ['relays', 'vault', 'pulse', 'all'].includes(rawSpace) ? rawSpace : 'all';
+    const rawLimit = parseInt(url.searchParams.get('limit') || '50', 10);
+    const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, 100) : 50;
+    const rawOffset = parseInt(url.searchParams.get('offset') || '0', 10);
+    const offset = Number.isFinite(rawOffset) && rawOffset >= 0 ? rawOffset : 0;
 
     const db = getD1Database(context.env);
     const kv = getKVStore(context.env);
@@ -298,7 +301,7 @@ export async function onRequestDelete(context: { request: Request; env?: Env }):
       } catch (_) {}
     }
 
-    if (!channelId) {
+    if (!channelId || typeof channelId !== 'string' || channelId.length > 128) {
       return new Response(
         JSON.stringify({ success: false, error: 'Channel id is required for deletion' }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }

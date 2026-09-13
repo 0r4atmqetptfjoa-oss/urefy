@@ -31,8 +31,31 @@ class PersistentMockD1 {
       bind(...params: any[]) {
         return {
           async run() {
-            if (/INSERT OR REPLACE INTO posts/i.test(cleanQuery)) {
-              // params: id, channel_id, author_fingerprint, author_role, title, content, flair, media_urls, merit_votes, created_at, updated_at
+            if (/INSERT (?:OR REPLACE )?INTO posts/i.test(cleanQuery)) {
+              const colMatch = cleanQuery.match(/\(([^)]+)\)\s*VALUES/i);
+              if (colMatch) {
+                const cols = colMatch[1].split(',').map((c) => c.trim().toLowerCase());
+                const record: Record<string, any> = {};
+                cols.forEach((col, i) => {
+                  record[col] = params[i];
+                });
+                const id = record.id;
+                self.tables.get('posts')!.set(id, {
+                  id,
+                  channel_id: record.channel_id || record.channelid || 'pulse-global',
+                  author_id: record.author_id || record.author_fingerprint || record.authorfingerprint || 'genesis-core',
+                  author_fingerprint: record.author_fingerprint || record.author_id || 'genesis-core',
+                  author_role: record.author_role || record.authorrole || 'MEMBER',
+                  title: record.title,
+                  content: record.content,
+                  flair: record.flair || 'TECH DISCUSSION',
+                  merit_votes: record.merit_votes ?? record.meritvotes ?? 1,
+                  created_at: record.created_at ?? record.createdat ?? Date.now(),
+                  status: record.status || 'published',
+                  ...record,
+                });
+                return { success: true };
+              }
               const [id, channel_id, author_fingerprint, author_role, title, content, flair, media_urls, merit_votes, created_at, updated_at] = params;
               self.tables.get('posts')!.set(id, {
                 id, channel_id, author_fingerprint, author_role, title, content, flair, media_urls, merit_votes, created_at, updated_at,
@@ -86,7 +109,11 @@ class PersistentMockD1 {
 
           async all() {
             if (/FROM posts/i.test(cleanQuery)) {
-              const results = Array.from(self.tables.get('posts')!.values());
+              let results = Array.from(self.tables.get('posts')!.values());
+              if (/channel_id\s*=\s*\?/i.test(cleanQuery) && params.length > 0) {
+                const channelParam = params[0];
+                results = results.filter((p: any) => (p.channel_id ?? p.channelId) === channelParam);
+              }
               return { results };
             }
             if (/FROM messages/i.test(cleanQuery)) {
@@ -201,6 +228,7 @@ describe('Mandatory Test B: Restart Persistence Verification (Write -> Destroy R
       body: JSON.stringify({
         title: 'Post Before Crash',
         content: 'This post must survive isolate reset',
+        channelId: 'general',
         authorFingerprint: 'genesis-core',
       }),
     });

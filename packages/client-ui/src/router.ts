@@ -9,7 +9,7 @@ import { clientStore } from './client-state.js';
 import { profileView } from './profile-view.js';
 import { sovereignCircleEngine } from './sovereign-circle.js';
 
-export type SovereignRoute = 'feed' | 'explore' | 'messages' | 'vault' | 'profile' | 'more';
+export type SovereignRoute = 'feed' | 'explore' | 'communities' | 'messages' | 'vault' | 'profile' | 'more';
 
 export class SovereignRouter {
   private currentRoute: SovereignRoute = 'feed';
@@ -61,6 +61,11 @@ export class SovereignRouter {
       case 'explore':
         clientStore.activeChannelId = 'explore';
         break;
+      case 'communities':
+        if (!clientStore.activeChannelId.startsWith('c/') && !clientStore.activeChannelId.startsWith('pulse-')) {
+          clientStore.activeChannelId = 'c/technology';
+        }
+        break;
       case 'messages':
         if (!clientStore.activeChannelId.startsWith('relays-') && !clientStore.activeChannelId.startsWith('relay-') && !clientStore.activeChannelId.startsWith('dm-')) {
           clientStore.activeChannelId = 'relays-general';
@@ -105,15 +110,29 @@ export class SovereignRouter {
     if (typeof window === 'undefined' || !window.location) return;
 
     const rawHash = (window.location.hash || '').replace(/^#\/?/, '').toLowerCase();
+    
+    // Support deep link directly to post: #post-xxx or #p-xxx
+    if (rawHash.startsWith('post-') || rawHash.startsWith('p/')) {
+      const postId = rawHash.startsWith('post-') ? rawHash.replace(/^post-/, '') : rawHash.replace(/^p\//, '');
+      this.currentRoute = 'feed';
+      clientStore.notify('OPEN_POST_DETAIL', { postId });
+      return;
+    }
+
     const [mainRoute, subParam] = rawHash.split('/');
 
-    const validRoutes: SovereignRoute[] = ['feed', 'explore', 'messages', 'vault', 'profile', 'more'];
+    const validRoutes: SovereignRoute[] = ['feed', 'explore', 'communities', 'messages', 'vault', 'profile', 'more'];
 
     let resolvedRoute: SovereignRoute | null = null;
     if (mainRoute === 'relays' || mainRoute === 'chat' || mainRoute === 'messages') {
       resolvedRoute = 'messages';
     } else if (mainRoute === 'pulse' || mainRoute === 'home' || mainRoute === 'feed') {
       resolvedRoute = 'feed';
+    } else if (mainRoute === 'communities' || mainRoute === 'circles' || mainRoute === 'c') {
+      resolvedRoute = 'communities';
+      if (subParam) {
+        clientStore.activeChannelId = `c/${subParam}`;
+      }
     } else if (validRoutes.includes(mainRoute as SovereignRoute)) {
       resolvedRoute = mainRoute as SovereignRoute;
     }

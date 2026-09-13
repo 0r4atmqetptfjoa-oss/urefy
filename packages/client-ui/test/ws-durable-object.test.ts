@@ -56,7 +56,7 @@ describe('Cloudflare Pages Functions /api/ws — WebSocket & Durable Object Rout
         get: mockGet,
       };
 
-      const req = new Request('https://aetheris.pages.dev/api/ws?roomId=custom-secure-room', {
+      const req = new Request('https://urefy.com/api/ws?roomId=custom-secure-room', {
         headers: { Upgrade: 'websocket' },
       });
 
@@ -72,7 +72,7 @@ describe('Cloudflare Pages Functions /api/ws — WebSocket & Durable Object Rout
     });
 
     it('returns 426 Upgrade Required with metadata when HTTP non-websocket request is sent in standalone mode', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/ws', { method: 'GET' });
+      const req = new Request('https://urefy.com/api/ws', { method: 'GET' });
       const res = await handleWebSocket({ request: req, env: {} });
 
       expect(res.status).toBe(426);
@@ -82,7 +82,7 @@ describe('Cloudflare Pages Functions /api/ws — WebSocket & Durable Object Rout
     });
 
     it('upgrades and accepts connection in standalone WebSocketPair mode when env.RELAY_DO is absent', async () => {
-      const req = new Request('https://aetheris.pages.dev/api/ws', {
+      const req = new Request('https://urefy.com/api/ws', {
         headers: { Upgrade: 'websocket' },
       });
 
@@ -101,7 +101,7 @@ describe('Cloudflare Pages Functions /api/ws — WebSocket & Durable Object Rout
         1 = serverWs;
       };
 
-      const req = new Request('https://aetheris.pages.dev/api/ws', { headers: { Upgrade: 'websocket' } });
+      const req = new Request('https://urefy.com/api/ws', { headers: { Upgrade: 'websocket' } });
       await handleWebSocket({ request: req, env: {} });
 
       const userKey = generateKeyPair();
@@ -157,7 +157,7 @@ describe('Cloudflare Pages Functions /api/ws — WebSocket & Durable Object Rout
         1 = spammerServerWs;
       };
 
-      const req = new Request('https://aetheris.pages.dev/api/ws', { headers: { Upgrade: 'websocket' } });
+      const req = new Request('https://urefy.com/api/ws', { headers: { Upgrade: 'websocket' } });
       await handleWebSocket({ request: req, env: {} });
 
       const spammerSecret = Field.hashToField('spammer-secret-standalone-99');
@@ -218,7 +218,7 @@ describe('Cloudflare Pages Functions /api/ws — WebSocket & Durable Object Rout
         1 = serverWs;
       };
 
-      const req = new Request('https://aetheris.pages.dev/api/ws', { headers: { Upgrade: 'websocket' } });
+      const req = new Request('https://urefy.com/api/ws', { headers: { Upgrade: 'websocket' } });
       await handleWebSocket({ request: req, env: {} });
 
       serverWs.emit('message', {

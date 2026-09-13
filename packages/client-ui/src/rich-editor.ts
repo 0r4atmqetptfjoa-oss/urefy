@@ -121,8 +121,17 @@ function escapeHtml(unsafe: string): string {
 }
 
 function sanitizeUrl(url: string): string {
-  const trimmed = (url || '').trim();
-  if (/^(javascript:|data:|vbscript:)/i.test(trimmed)) {
+  if (!url || typeof url !== 'string') return '#';
+  const trimmed = url.trim().replace(/[\x00-\x1F\x7F]/g, '');
+  const decoded = trimmed
+    .replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(parseInt(dec, 10)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+    .replace(/&colon;/gi, ':');
+
+  const isSafeScheme = /^(https?:\/\/|mailto:|ipfs:\/\/|hyper:\/\/|magnet:\?|#|\/|\.\/)/i.test(decoded);
+  const isDangerousScheme = /^(javascript|vbscript|data|blob|file|about):/i.test(decoded);
+
+  if (!isSafeScheme || isDangerousScheme) {
     return '#';
   }
   return escapeHtml(trimmed);

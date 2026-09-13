@@ -1,7 +1,7 @@
 {
-  "name": "UREfy — Unified Relay Enclave Framework for You",
+  "name": "UREfy — The Social Network You Actually Own",
   "short_name": "UREfy",
-  "description": "Private communication, sovereign identity and verified knowledge unified for you",
+  "description": "UREfy is the global consumer social network you actually own. Free expression, sovereign cryptographic identity, zero surveillance, and peer-to-peer communities.",
   "id": "/",
   "start_url": "/#feed",
   "display": "standalone",
@@ -11,7 +11,8 @@
   "orientation": "any",
   "scope": "/",
   "lang": "en-US",
-  "categories": ["social", "productivity", "security"],
+  "categories": ["social", "communication", "productivity", "security"],
+  "iarc_rating_id": "e4f8d223-1c39-4d64-811c-1349a7c36a4b",
   "icons": [
     {
       "src": "/favicon.svg",
@@ -51,16 +52,20 @@
   ],
   "shortcuts": [
     {
-      "name": "Feed",
+      "name": "Home Feed",
       "url": "/#feed"
+    },
+    {
+      "name": "Explore",
+      "url": "/#explore"
+    },
+    {
+      "name": "Communities",
+      "url": "/#communities"
     },
     {
       "name": "Messages",
       "url": "/#messages"
-    },
-    {
-      "name": "Vault",
-      "url": "/#vault"
     }
   ],
   "screenshots": [
@@ -69,14 +74,14 @@
       "sizes": "1280x720",
       "type": "image/png",
       "form_factor": "wide",
-      "label": "UREfy desktop workspace"
+      "label": "UREfy desktop workspace — The social network you actually own"
     },
     {
       "src": "/screenshot-mobile.png",
       "sizes": "540x960",
       "type": "image/png",
       "form_factor": "narrow",
-      "label": "UREfy mobile interface"
+      "label": "UREfy mobile interface — Sovereign, private social connection on the go"
     }
   ],
   "prefer_related_applications": false,

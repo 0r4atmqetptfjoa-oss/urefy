@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%" height="100%" role="img" aria-label="UREfy Logo Monochrome White">
+  <!-- Left Sovereign Peer Arc -->
+  <path d="M 28 18 L 28 54 C 28 72, 38 82, 52 82 C 58 82, 63 79, 66 74" fill="none" stroke="#FFFFFF" stroke-width="11" stroke-linecap="round" />
+  <!-- Right Sovereign Peer Arc -->
+  <path d="M 72 18 L 72 54 C 72 72, 62 82, 48 82 C 42 82, 37 79, 34 74" fill="none" stroke="#FFFFFF" stroke-width="11" stroke-linecap="round" opacity="0.85" />
+  <!-- Peer Vertex Terminals -->
+  <circle cx="28" cy="18" r="5.5" fill="#FFFFFF" />
+  <circle cx="72" cy="18" r="5.5" fill="#FFFFFF" opacity="0.85" />
+</svg>
