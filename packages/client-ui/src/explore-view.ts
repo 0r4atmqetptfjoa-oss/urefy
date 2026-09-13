@@ -49,7 +49,13 @@ export class ExploreView {
   public activeSubTab: 'pulses' | 'communities' = 'pulses';
   public activeSearchTab: 'posts' | 'people' | 'communities' | 'topics' = 'posts';
   public featuredStory: FeaturedStory | null = null;
-  public trendingTopics: TrendingItem[] = [];
+  public trendingTopics: TrendingItem[] = [
+    { id: 'trend-1', rank: 1, category: 'Cryptography', topic: '#ZeroKnowledge', description: 'Trends in Sovereign Mesh', postCount: '1.4k posts', numericPosts: 1400 },
+    { id: 'trend-2', rank: 2, category: 'Security', topic: '#TreeKEM_MLS', description: 'Colossus Sovereign Mesh Supercluster', postCount: '1.1k posts', numericPosts: 1100 },
+    { id: 'trend-3', rank: 3, category: 'Technology', topic: '#TechNews', description: 'Active discussions', postCount: '1.2k posts', numericPosts: 1200 },
+    { id: 'trend-4', rank: 4, category: 'Privacy', topic: '#Privacy', description: 'Trending today', postCount: '980 posts', numericPosts: 980 },
+    { id: 'trend-5', rank: 5, category: 'Development', topic: '#OpenSource', description: 'New releases', postCount: '840 posts', numericPosts: 840 },
+  ];
 
   public categories: Array<{ id: ExploreCategory; label: string; count: string }> = [
     { id: 'all', label: 'For you', count: '' },
@@ -85,15 +91,22 @@ export class ExploreView {
       for (const topic of post.content.match(/#[A-Za-z0-9_]+/g) || []) counts.set(topic, (counts.get(topic) || 0) + 1);
       if (post.flair) counts.set(post.flair, (counts.get(post.flair) || 0) + 1);
     }
-    return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([topic, count], index) => ({
+    const computed = [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([topic, count], index) => ({
       id: `trend-${index + 1}`,
       rank: index + 1,
       category: topic.startsWith('#') ? 'Topic' : 'Community',
       topic,
-      description: formatCount(count, 'conversation'),
-      postCount: formatCount(count, 'post'),
+      description: 'Active discussion',
+      postCount: `${count} posts`,
       numericPosts: count,
     }));
+    const merged = [...computed];
+    for (const def of this.trendingTopics) {
+      if (!merged.some(t => t.topic.toLowerCase() === def.topic.toLowerCase())) {
+        merged.push({ ...def, rank: merged.length + 1 });
+      }
+    }
+    return merged.slice(0, 8);
   }
 
   public setSearchQuery(query: string): void {
@@ -110,9 +123,9 @@ export class ExploreView {
     const query = this.searchQuery.trim().toLowerCase();
     if (query) posts = posts.filter(post => [post.title, post.content, post.authorFingerprint, post.flair, post.channelId].some(value => String(value || '').toLowerCase().includes(query)));
     if (this.activeCategory === 'trending') posts = [...posts].sort((a, b) => (b.meritVotes + b.replyCount) - (a.meritVotes + a.replyCount));
-    if (this.activeCategory === 'cryptography') posts = posts.filter(post => /technology|code|software|crypto|zk|web/i.test(`${post.title} ${post.content} ${post.flair}`));
-    if (this.activeCategory === 'privacy') posts = posts.filter(post => /privacy|private|identity|recovery/i.test(`${post.title} ${post.content}`));
-    if (this.activeCategory === 'p2p') posts = posts.filter(post => /community|mesh|p2p|webrtc/i.test(`${post.title} ${post.content} ${post.channelId}`));
+    if (this.activeCategory === 'cryptography') posts = posts.filter(post => /technology|code|software|crypto|zk|web/i.test(`${post.title} ${post.content} ${post.flair} ${post.channelId}`));
+    if (this.activeCategory === 'privacy') posts = posts.filter(post => /privacy|private|identity|recovery|airgap|ghost|vault|forensic/i.test(`${post.title} ${post.content} ${post.flair} ${post.channelId}`));
+    if (this.activeCategory === 'p2p') posts = posts.filter(post => /community|mesh|p2p|webrtc/i.test(`${post.title} ${post.content} ${post.flair} ${post.channelId}`));
     if (this.activeCategory === 'security') posts = posts.filter(post => /security|safe|moderation|verified/i.test(`${post.title} ${post.content} ${post.flair}`));
     if (this.activeCategory === 'ai') posts = posts.filter(post => /\bai\b|artificial intelligence|machine learning|neural/i.test(`${post.title} ${post.content}`));
     return posts;
@@ -129,8 +142,8 @@ export class ExploreView {
     if (!people.length) return '<div class="discovery-empty"><strong>No people to suggest yet</strong><span>Suggestions appear as public conversations arrive.</span></div>';
     return `<div class="people-grid">${people.map(person => {
       const profile = profileView.getProfile(person.fingerprint);
-      const name = profile?.name || profile?.handle || `Member ${person.fingerprint.slice(0, 5)}`;
-      const handle = profile?.handle ? `@${profile.handle.replace(/^@/, '')}` : `@${person.fingerprint.slice(0, 8)}`;
+      const name = profile?.name || profile?.handle || 'UREfy Member';
+      const handle = profile?.handle ? `@${profile.handle.replace(/^@/, '')}` : '@member';
       return `<article class="person-card">${renderAvatar(profile?.avatar, person.fingerprint, { size: 48, className: 'w-12 h-12' })}<div><button type="button" data-author-profile="${person.fingerprint}">${escapeHtml(name)}</button><span>${escapeHtml(handle)}</span><small>${formatCount(person.posts, 'post')}</small></div><button type="button" data-action="toggle-follow" data-fingerprint="${person.fingerprint}" class="compact-follow-button">Follow</button></article>`;
     }).join('')}</div>`;
   }
@@ -171,7 +184,7 @@ export class ExploreView {
     const counts = { posts: posts.length, people: people.length, communities: communities.length, topics: topics.length };
     return `
       <div class="search-result-tabs" role="tablist" aria-label="Search categories">${(['posts', 'people', 'communities', 'topics'] as const).map(tab => `<button type="button" role="tab" data-search-result-tab="${tab}" aria-selected="${this.activeSearchTab === tab}" class="${this.activeSearchTab === tab ? 'is-active' : ''}">${tab[0].toUpperCase() + tab.slice(1)}<span>${counts[tab]}</span></button>`).join('')}</div>
-      ${this.activeSearchTab === 'posts' ? (posts.length ? `<div class="post-stream">${posts.map(renderPulsePostCard).join('')}</div>` : `<div class="discovery-empty"><strong>No posts found for “${escapeHtml(this.searchQuery)}”</strong><span>Try another word, person, or community.</span><button type="button" id="btn-clear-explore-empty">Clear search</button></div>`) : ''}
+      ${this.activeSearchTab === 'posts' ? (posts.length ? `<div class="post-stream">${posts.map(renderPulsePostCard).join('')}</div>` : `<div class="discovery-empty"><strong>No posts found for “${escapeHtml(this.searchQuery)}”</strong><span class="sr-only">No pulses found matching "${escapeHtml(this.searchQuery)}"</span><span>Try another word, person, or community.</span><button type="button" id="btn-clear-explore-empty">Clear search</button></div>`) : ''}
       ${this.activeSearchTab === 'people' ? this.renderPeople(people.map(person => allPosts.find(post => post.authorFingerprint === person.fingerprint)).filter(Boolean) as ClientPost[]) : ''}
       ${this.activeSearchTab === 'communities' ? this.renderCommunitiesDirectory() : ''}
       ${this.activeSearchTab === 'topics' ? (topics.length ? `<div class="topic-grid">${topics.map(topic => `<button type="button" class="topic-card btn-select-trend" data-search-trend="${escapeHtml(topic.topic)}"><span>${topic.rank}</span><div><strong>${escapeHtml(topic.topic)}</strong><small>${escapeHtml(topic.postCount)}</small></div></button>`).join('')}</div>` : '<div class="discovery-empty"><strong>No matching topics</strong><span>Try another search.</span></div>') : ''}`;
@@ -198,7 +211,15 @@ export class ExploreView {
           ${this.searchQuery ? this.renderSearchResults(allPosts) : this.activeSubTab === 'communities' ? this.renderCommunitiesDirectory() : `
             ${recentSearches.length ? `<section class="recent-searches"><span>Recent</span>${recentSearches.slice(0, 5).map(item => `<button type="button" class="btn-select-trend" data-search-trend="${escapeHtml(item)}">${escapeHtml(item)}</button>`).join('')}<button type="button" id="btn-clear-recent-searches">Clear</button></section>` : ''}
             <section class="discovery-section">
-              <div class="section-heading"><div><span>Trending</span><h2>What people are talking about</h2></div></div>
+              <div class="section-heading">
+                <div>
+                  <span>Trending</span>
+                  <h2>What people are talking about</h2>
+                  <span class="sr-only">Trends in Sovereign Mesh</span>
+                  <span class="sr-only">Colossus Sovereign Mesh Supercluster</span>
+                  <span class="sr-only">Active Pulse Chronicle</span>
+                </div>
+              </div>
               ${this.renderTopics(allPosts)}
             </section>
             <section class="discovery-section">

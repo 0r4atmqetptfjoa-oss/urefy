@@ -350,11 +350,22 @@ export function attachChatDropzoneListeners(): void {
 export function renderMessageItem(m: ClientMessage): string {
   const time = new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
+  // Helper: resolve a display name from fingerprint
+  const resolveAuthorName = (fp: string, isMine: boolean): string => {
+    if (isMine) return clientStore.profile?.name || clientStore.profile?.handle || 'You';
+    const member = clientStore.members?.find((mem: { fingerprint: string; alias?: string; name?: string; handle?: string }) => mem.fingerprint === fp);
+    return member?.alias || member?.name || member?.handle || (fp ? fp.substring(0, 12) : 'Anonymous');
+  };
+
+  const authorName = resolveAuthorName(m.authorFingerprint, m.isMine);
+  const fpSnippet = m.authorFingerprint ? m.authorFingerprint.substring(0, 12) : '';
+
   if (clientStore.density === 'compact') {
     return `
-      <div class="font-mono text-xs leading-tight py-1 hover:bg-surface-raised/40 px-2 rounded-lg flex items-baseline space-x-2 transition-colors msg-bubble-enter max-w-full overflow-hidden">
+      <div class="text-xs leading-tight py-1 hover:bg-surface-raised/40 px-2 rounded-lg flex items-baseline space-x-2 transition-colors msg-bubble-enter max-w-full overflow-hidden">
         <span class="text-slate-500 text-[10px] shrink-0">${time}</span>
-        <span class="text-cyphr font-bold shrink-0">&lt;id:${m.authorFingerprint.substring(0, 8)}&gt;</span>
+        <span class="${m.isMine ? 'text-cyphr' : 'text-slate-300'} font-semibold shrink-0">${escapeHtml(authorName)}</span>
+        <span class="text-slate-500 text-[10px] font-mono hidden">${escapeHtml(fpSnippet)}</span>
         <div class="text-slate-200 select-text break-words break-all [overflow-wrap:anywhere] min-w-0 flex-1">
           ${m.text ? `<div>${escapeHtml(m.text)}</div>` : ''}
           ${renderAttachmentCard(m.attachment)}
@@ -367,14 +378,15 @@ export function renderMessageItem(m: ClientMessage): string {
     <div class="relay-message p-3.5 rounded-lg bg-surface-raised/80 hover:bg-surface-raised border border-white/5 transition-colors space-y-1.5 msg-bubble-enter max-w-full overflow-hidden">
       <div class="flex items-center justify-between gap-2 mb-1 flex-wrap">
         <div class="flex items-center gap-2 flex-wrap min-w-0">
-          <div class="w-6 h-6 rounded-xl bg-gradient-to-br from-cyphr/30 to-aether/30 border border-cyphr/30 flex items-center justify-center font-mono text-[10px] font-bold text-white shadow-sm">
-            ${m.authorFingerprint.substring(0, 2).toUpperCase()}
+          <div class="w-6 h-6 rounded-xl bg-gradient-to-br from-cyphr/30 to-aether/30 border border-cyphr/30 flex items-center justify-center text-[10px] font-bold text-white shadow-sm">
+            ${authorName.substring(0, 2).toUpperCase()}
           </div>
-          <span class="font-mono text-xs font-semibold text-cyphr">id:${m.authorFingerprint.substring(0, 12)}...</span>
-          ${m.isMine ? '<span class="text-[9px] font-mono font-bold bg-cyphr/15 text-cyphr border border-cyphr/30 px-1.5 py-0.2 rounded-md">YOU</span>' : '<span class="text-[9px] font-mono bg-emerald-950 text-signal border border-signal/20 px-1.5 py-0.2 rounded-md">ZK-Verified</span>'}
+          <span class="text-xs font-semibold ${m.isMine ? 'text-cyphr' : 'text-slate-200'}">${escapeHtml(authorName)}</span>
+          ${authorName !== fpSnippet && fpSnippet ? `<span class="text-[10px] text-slate-500 font-mono">@${escapeHtml(fpSnippet)}</span>` : ''}
+          ${m.isMine ? '<span class="text-[9px] font-semibold bg-cyphr/15 text-cyphr border border-cyphr/30 px-1.5 py-0.5 rounded-md">You</span>' : ''}
           ${clientStore.showTrustBadges ? zkReputation.renderInlineTrustBadge(m.authorFingerprint) : ''}
         </div>
-        <span class="text-[10px] font-mono text-slate-500">${time}</span>
+        <span class="text-[10px] text-slate-500">${time}</span>
       </div>
       <div class="message-body text-sm text-slate-200 select-text leading-relaxed pl-8 break-words [overflow-wrap:anywhere] min-w-0">
         ${m.text ? `<div class="whitespace-pre-wrap">${escapeHtml(m.text)}</div>` : ''}
@@ -443,8 +455,23 @@ export function renderMessagesTabHeader(): string {
 export function renderNewDMModal(): string {
   if (!isNewDMPickerOpen) return '';
 
-  const knownPeers = clientStore.members.filter(member => member.fingerprint !== clientStore.keypair.fingerprint)
-    .map(member => ({ fp: member.fingerprint, role: member.role, alias: `id:${member.fingerprint.slice(0, 12)}` }));
+  const humanRole = (role: string): string => {
+    switch (role) {
+      case 'GUARDIAN': return 'Team';
+      case 'ARCHIVIST': return 'Contributor';
+      case 'MODERATOR': return 'Moderator';
+      case 'SENTINEL': return 'Moderator';
+      default: return 'Member';
+    }
+  };
+
+  const knownPeers = clientStore.members.filter((member: { fingerprint: string }) => member.fingerprint !== clientStore.keypair.fingerprint)
+    .map((member: { fingerprint: string; role: string; alias?: string; name?: string; handle?: string }) => ({
+      fp: member.fingerprint,
+      role: member.role,
+      displayName: member.alias || member.name || member.handle || 'Anonymous',
+      handle: member.handle || member.alias || '',
+    }));
 
   return `
     <div id="new-dm-modal-backdrop" class="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4" data-action="close-new-dm">
@@ -459,13 +486,13 @@ export function renderNewDMModal(): string {
 
         <div class="p-4 space-y-4">
           <div>
-            <label class="block text-[11px] text-slate-400 font-semibold mb-1.5">Handle or UREfy ID</label>
+            <label class="block text-[11px] text-slate-400 font-semibold mb-1.5">Search by name or @handle</label>
             <div class="flex space-x-2">
               <input 
                 type="text" 
                 id="input-new-dm-peer" 
                 placeholder="@username" 
-                class="flex-1 bg-surface-raised border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 font-mono"
+                class="flex-1 bg-surface-raised border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
               />
               <button 
                 type="button" 
@@ -480,7 +507,7 @@ export function renderNewDMModal(): string {
           <div>
             <label class="block text-[11px] text-slate-400 font-semibold mb-2">Suggested people</label>
             <div class="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-              ${knownPeers.map(p => `
+              ${knownPeers.map((p: { fp: string; role: string; displayName: string; handle: string }) => `
                 <div 
                   data-action="start-dm-with-peer" 
                   data-peer="${p.fp}" 
@@ -488,20 +515,20 @@ export function renderNewDMModal(): string {
                   class="p-2.5 rounded-xl bg-surface-raised/60 hover:bg-surface-raised border border-white/5 hover:border-indigo-500/30 flex items-center justify-between cursor-pointer transition-all group"
                 >
                   <div class="flex items-center space-x-2.5">
-                    <div class="w-7 h-7 rounded-lg bg-gradient-to-tr ${generateDeterministicGradient(p.fp)} flex items-center justify-center text-white font-mono font-bold text-[10px] shadow-sm">
-                      ${p.fp.substring(0, 2).toUpperCase()}
+                    <div class="w-7 h-7 rounded-lg bg-gradient-to-tr ${generateDeterministicGradient(p.fp)} flex items-center justify-center text-white font-bold text-[10px] shadow-sm">
+                      ${p.displayName.substring(0, 2).toUpperCase()}
                     </div>
                     <div>
-                      <div class="text-xs font-semibold text-white group-hover:text-cyphr transition-colors">${escapeHtml(p.alias)}</div>
-                      <div class="text-[10px] font-mono text-slate-500">node_${escapeHtml(p.fp.substring(0, 8))}</div>
+                      <div class="text-xs font-semibold text-white group-hover:text-cyphr transition-colors">${escapeHtml(p.displayName)}</div>
+                      ${p.handle ? `<div class="text-[10px] text-slate-500">@${escapeHtml(p.handle)}</div>` : ''}
                     </div>
                   </div>
-                  <span class="text-[9px] font-mono px-1.5 py-0.5 rounded border ${
+                  <span class="text-[9px] font-semibold px-1.5 py-0.5 rounded border ${
                     p.role === 'GUARDIAN' ? 'bg-amber/15 text-amber border-amber/30' :
                     p.role === 'ARCHIVIST' ? 'bg-cyphr/15 text-cyphr border-cyphr/30' :
                     'bg-slate-800 text-slate-300 border-white/10'
                   }">
-                    ${p.role}
+                    ${escapeHtml(humanRole(p.role))}
                   </span>
                 </div>
               `).join('')}
@@ -509,8 +536,8 @@ export function renderNewDMModal(): string {
           </div>
         </div>
 
-        <div class="p-3 bg-surface-raised/30 border-t border-white/5 flex items-center justify-between text-[11px] text-slate-400 font-mono">
-          <span>🔒 100% Zero-Knowledge forward secrecy</span>
+        <div class="p-3 bg-surface-raised/30 border-t border-white/5 flex items-center justify-between text-[11px] text-slate-400">
+          <span class="flex items-center space-x-1.5"><span>🔒</span><span>End-to-end encrypted</span></span>
           <button type="button" data-action="close-new-dm" class="hover:text-white transition-colors cursor-pointer">Cancel</button>
         </div>
       </div>
@@ -535,6 +562,21 @@ export function renderDirectMessagesWorkspace(): string {
     return c.peerFingerprint.toLowerCase().includes(q) || c.peerRole.toLowerCase().includes(q);
   });
 
+  const resolvePeerName = (fp: string): string => {
+    const member = clientStore.members?.find((m: { fingerprint: string; alias?: string; name?: string; handle?: string }) => m.fingerprint === fp);
+    return member?.alias || member?.name || member?.handle || 'Anonymous';
+  };
+
+  const humanPeerRole = (role: string): string => {
+    switch (role) {
+      case 'GUARDIAN': return 'Team';
+      case 'ARCHIVIST': return 'Contributor';
+      case 'MODERATOR': return 'Moderator';
+      case 'SENTINEL': return 'Moderator';
+      default: return 'Member';
+    }
+  };
+
   return `
     <div class="direct-messages-workspace ${activeConv ? 'has-active-conversation' : ''} flex-1 flex overflow-hidden bg-canvas">
       <!-- 1. LEFT SIDEBAR: PEER CONVERSATIONS LIST -->
@@ -542,7 +584,7 @@ export function renderDirectMessagesWorkspace(): string {
         <!-- SEARCH & NEW CHAT BAR -->
         <div class="p-3 border-b border-white/5 space-y-2.5">
           <div class="flex items-center justify-between">
-            <h2 class="text-xs font-mono font-bold uppercase tracking-wider text-slate-400 flex items-center space-x-1.5">
+            <h2 class="text-xs font-bold text-slate-300 flex items-center space-x-1.5">
               <span>💬</span>
               <span>Direct Messages</span>
             </h2>
@@ -550,7 +592,7 @@ export function renderDirectMessagesWorkspace(): string {
               type="button" 
               data-action="new-dm-conversation"
               class="px-2.5 py-1 bg-indigo-600/90 hover:bg-indigo-600 text-white rounded-lg text-xs font-semibold flex items-center space-x-1 shadow-sm transition-all cursor-pointer"
-              title="Start a new E2EE conversation"
+              title="Start a new private conversation"
             >
               <span>+</span>
               <span>New Chat</span>
@@ -586,6 +628,7 @@ export function renderDirectMessagesWorkspace(): string {
             const lastMsg = conv.messages.length > 0 ? conv.messages[conv.messages.length - 1] : null;
             const snippet = lastMsg ? lastMsg.plaintext : 'No messages yet';
             const gradient = generateDeterministicGradient(conv.peerFingerprint);
+            const peerName = resolvePeerName(conv.peerFingerprint);
 
             return `
               <div 
@@ -599,8 +642,8 @@ export function renderDirectMessagesWorkspace(): string {
               >
                 <!-- Avatar -->
                 <div class="relative shrink-0">
-                  <div class="w-9 h-9 rounded-xl bg-gradient-to-tr ${gradient} flex items-center justify-center text-white font-mono font-bold text-xs shadow-sm border border-white/10">
-                    ${conv.peerFingerprint.substring(0, 2).toUpperCase()}
+                  <div class="w-9 h-9 rounded-xl bg-gradient-to-tr ${gradient} flex items-center justify-center text-white font-bold text-xs shadow-sm border border-white/10">
+                    ${peerName.substring(0, 2).toUpperCase()}
                   </div>
                   <span class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-signal border-2 border-surface-base"></span>
                 </div>
@@ -608,8 +651,8 @@ export function renderDirectMessagesWorkspace(): string {
                 <!-- Text details -->
                 <div class="flex-1 min-w-0">
                   <div class="flex items-center justify-between">
-                    <span class="text-xs font-bold text-slate-200 truncate">${escapeHtml(conv.peerFingerprint.substring(0, 10))}</span>
-                    <span class="text-[10px] font-mono text-slate-500 shrink-0">${formatRelative(conv.lastMessageAt)}</span>
+                    <span class="text-xs font-bold text-slate-200 truncate">${escapeHtml(peerName)}</span>
+                    <span class="text-[10px] text-slate-500 shrink-0">${formatRelative(conv.lastMessageAt)}</span>
                   </div>
                   <div class="flex items-center justify-between mt-0.5">
                     <p class="text-[11px] text-slate-400 truncate pr-2">${escapeHtml(snippet)}</p>
@@ -625,6 +668,7 @@ export function renderDirectMessagesWorkspace(): string {
           }).join('')}
         </div>
       </aside>
+
 
       <!-- 2. RIGHT CHAT THREAD AREA -->
       <main class="conversation-pane flex-1 flex flex-col overflow-hidden bg-canvas">
@@ -651,21 +695,21 @@ export function renderDirectMessagesWorkspace(): string {
           <!-- ACTIVE THREAD HEADER -->
           <div class="h-16 px-4 md:px-6 border-b border-white/5 bg-surface-base/70 backdrop-blur-sm flex items-center justify-between gap-4 shrink-0">
             <div class="flex items-center space-x-3 min-w-0">
-              <div class="w-10 h-10 rounded-xl bg-gradient-to-tr ${generateDeterministicGradient(activeConv.peerFingerprint)} flex items-center justify-center text-white font-mono font-bold text-xs shadow-sm border border-white/10 shrink-0">
-                ${activeConv.peerFingerprint.substring(0, 2).toUpperCase()}
+              <div class="w-10 h-10 rounded-xl bg-gradient-to-tr ${generateDeterministicGradient(activeConv.peerFingerprint)} flex items-center justify-center text-white font-bold text-xs shadow-sm border border-white/10 shrink-0">
+                ${resolvePeerName(activeConv.peerFingerprint).substring(0, 2).toUpperCase()}
               </div>
               <div class="min-w-0">
                 <div class="flex items-center space-x-2">
-                  <span class="text-sm font-bold text-white truncate">${escapeHtml(activeConv.peerFingerprint.substring(0, 10))}</span>
-                  <span class="text-[9px] font-mono px-1.5 py-0.5 rounded border ${
+                  <span class="text-sm font-bold text-white truncate">${escapeHtml(resolvePeerName(activeConv.peerFingerprint))}</span>
+                  <span class="text-[9px] px-1.5 py-0.5 rounded border ${
                     activeConv.peerRole === 'GUARDIAN' ? 'bg-amber/15 text-amber border-amber/30' :
                     activeConv.peerRole === 'ARCHIVIST' ? 'bg-cyphr/15 text-cyphr border-cyphr/30' :
                     'bg-surface-raised text-slate-300 border-white/10'
                   }">
-                    ${escapeHtml(activeConv.peerRole)}
+                    ${escapeHtml(humanPeerRole(activeConv.peerRole))}
                   </span>
                 </div>
-                <div class="flex items-center space-x-2 mt-0.5 text-[10px] font-mono text-slate-400">
+                <div class="flex items-center space-x-2 mt-0.5 text-[10px] text-slate-400">
                   <span class="flex items-center space-x-1">
                     <span class="w-1.5 h-1.5 rounded-full bg-signal"></span>
                     <span class="text-signal">Online</span>
@@ -728,7 +772,7 @@ export function renderDirectMessagesWorkspace(): string {
               return `
                 <div class="flex flex-col ${isMine ? 'items-end' : 'items-start'} space-y-1">
                   <div class="flex items-center space-x-2 text-[10px] font-mono text-slate-500 px-1">
-                    <span>${isMine ? 'YOU' : `node_${msg.senderFP.substring(0, 6)}`}</span>
+                    <span>${isMine ? 'You' : 'Them'}</span>
                     <span>•</span>
                     <span>${timeStr}</span>
                     ${isMine ? '<span class="text-signal">✓ Encrypted</span>' : ''}

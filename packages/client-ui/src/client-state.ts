@@ -124,6 +124,10 @@ export interface CommunityMember {
   status: 'online' | 'idle' | 'dnd';
   isZKVerified: boolean;
   avatarSeed: string;
+  name?: string;
+  alias?: string;
+  handle?: string;
+  avatar?: string;
 }
 
 export interface ToastItem {
@@ -385,12 +389,12 @@ export class AetherisClientStore {
 
   private _populateDemoPostsAndMembers(): void {
     this.members = [
-      { fingerprint: 'genesis-core', role: 'GUARDIAN', status: 'online', isZKVerified: true, avatarSeed: 'gen' },
-      { fingerprint: 'c3dc28cb705e', role: 'ARCHIVIST', status: 'online', isZKVerified: true, avatarSeed: 'arc' },
-      { fingerprint: 'a89104fa2211', role: 'MODERATOR', status: 'online', isZKVerified: true, avatarSeed: 'mod' },
-      { fingerprint: this.keypair.fingerprint, role: 'MEMBER', status: 'online', isZKVerified: true, avatarSeed: 'me' },
-      { fingerprint: 'f40019bc88a2', role: 'MEMBER', status: 'idle', isZKVerified: true, avatarSeed: 'f4' },
-      { fingerprint: '9b22a011cd44', role: 'MEMBER', status: 'dnd', isZKVerified: true, avatarSeed: '9b' },
+      { fingerprint: 'genesis-core', role: 'GUARDIAN', status: 'online', isZKVerified: true, avatarSeed: 'gen', name: 'Alex Rivera', alias: 'Alex Rivera', handle: '@alex_r' },
+      { fingerprint: 'c3dc28cb705e', role: 'ARCHIVIST', status: 'online', isZKVerified: true, avatarSeed: 'arc', name: 'Elena Rostova', alias: 'Elena Rostova', handle: '@elena_r' },
+      { fingerprint: 'a89104fa2211', role: 'MODERATOR', status: 'online', isZKVerified: true, avatarSeed: 'mod', name: 'David Chen', alias: 'David Chen', handle: '@david_c' },
+      { fingerprint: this.keypair.fingerprint, role: 'MEMBER', status: 'online', isZKVerified: true, avatarSeed: 'me', name: 'You', alias: 'You', handle: '@you' },
+      { fingerprint: 'f40019bc88a2', role: 'MEMBER', status: 'idle', isZKVerified: true, avatarSeed: 'f4', name: 'Maya Patel', alias: 'Maya Patel', handle: '@maya_p' },
+      { fingerprint: '9b22a011cd44', role: 'MEMBER', status: 'dnd', isZKVerified: true, avatarSeed: '9b', name: 'Samira Khan', alias: 'Samira Khan', handle: '@samira' },
     ];
 
     this.posts = [
@@ -399,15 +403,15 @@ export class AetherisClientStore {
         channelId: 'vault-releases',
         authorFingerprint: 'c3dc28cb705e',
         authorRole: 'ARCHIVIST',
-        title: 'UREfy Cryptographic Micro-Kernel v1.0.0 (Verified x86_64 Release)',
-        content: 'Official microkernel distribution compiled with zero telemetry and verified reproducible build hashes. Tested against GCC 14 and Clang 19 with hardened stack canary protection. Zero dead links via BitTorrent mesh.',
+        title: 'UREfy v1.0 is live: The social network you actually own',
+        content: 'Welcome to UREfy! Today marks a big step forward for the independent web. A social network designed around community, real privacy, and zero ad surveillance. Everything you create stays under your control. Check out the communities and introduce yourself!',
         flair: 'VERIFIED RELEASE',
         meritVotes: 342,
         userVoted: 1,
         replyCount: 18,
         boostCount: 89,
         attachment: {
-          fileName: 'aetheris-microkernel-x86_64.bin',
+          fileName: 'urefy-desktop-v1.0.0.zip',
           sha256: 'a11fe18f963518803fbebdaebf4d408609e3a323c70194b3b507d47a392a2496',
           byteSize: 131072,
           entropy: 6.12,
@@ -422,8 +426,8 @@ export class AetherisClientStore {
         channelId: 'pulse-global',
         authorFingerprint: 'genesis-core',
         authorRole: 'GUARDIAN',
-        title: 'Live Demo: 120 FPS Zero-Copy PipeWire & Desktop Duplication Streaming on Ultrawide 32:9',
-        content: 'Testing hardware-accelerated video streaming with zero telemetry, hardware decoding, and real-time buffer analysis built directly for sovereign P2P networks.',
+        title: 'Testing our high-performance 4K video player on desktop & mobile',
+        content: 'Just deployed the new media engine for UREfy. Hardware-accelerated streaming, zero tracking, instant seek, and clean playback across all devices. Take a look and let us know your thoughts!',
         flair: 'TECH DISCUSSION',
         meritVotes: 489,
         userVoted: 1,
@@ -440,8 +444,8 @@ export class AetherisClientStore {
         channelId: 'vault-guides',
         authorFingerprint: 'a89104fa2211',
         authorRole: 'MODERATOR',
-        title: 'Community Governance: Prioritizing Q4 Sovereign Protocol Roadmap',
-        content: 'Every sovereign node holding an Ed25519 identity keypair has exactly 1 cryptographic vote. Vote below to influence the next engineering milestone.',
+        title: 'Community Poll: What feature should we focus on next?',
+        content: 'We are building UREfy transparently with the community. Vote below to help prioritize our upcoming releases!',
         flair: 'ASK COMMUNITY',
         meritVotes: 276,
         userVoted: 0,
@@ -456,8 +460,8 @@ export class AetherisClientStore {
         channelId: 'vault-guides',
         authorFingerprint: 'a89104fa2211',
         authorRole: 'MODERATOR',
-        title: 'Deep-Dive: How ZK-RLN Eradicates Bots without Selling Your Identity to Third-Party KYC',
-        content: 'Centralized platforms outsource identity verification to third-party brokers, which periodically leak passport scans. In UREfy, Shamir Secret Sharing polynomials are evaluated locally in WebAssembly. You only ever reveal your secret key if you deliberately violate the rate limit by double-posting in the same epoch.',
+        title: 'How UREfy stops bots and spam without collecting personal data',
+        content: 'Centralized platforms ask for your phone number, official ID, or scan your face just to prove you are human. On UREfy, advanced privacy mathematics prevent spam locally without ever collecting your personal identity. Your data stays on your device where it belongs.',
         flair: 'SECURITY ADVISORY',
         meritVotes: 218,
         userVoted: 0,
@@ -467,8 +471,8 @@ export class AetherisClientStore {
           id: 'post-1',
           authorFingerprint: 'c3dc28cb705e',
           authorRole: 'ARCHIVIST',
-          title: 'UREfy Cryptographic Micro-Kernel v1.0.0 (Verified x86_64 Release)',
-          content: 'Official microkernel distribution compiled with zero telemetry and verified reproducible build hashes.',
+          title: 'UREfy v1.0 is live: The social network you actually own',
+          content: 'Welcome to UREfy! A social network designed around community, real privacy, and zero ad surveillance.',
         },
         createdAt: Date.now() - 1000 * 60 * 360,
         isExpanded: true,
@@ -478,8 +482,8 @@ export class AetherisClientStore {
         channelId: 'pulse-global',
         authorFingerprint: 'f40019bc88a2',
         authorRole: 'MEMBER',
-        title: 'Reverse Engineering: Visual Section Analysis of Obfuscated Malware vs UREfy Clean Builds',
-        content: 'Notice how commercial packers (UPX0, Themida) spike entropy into the 7.8-7.9 bit red zone, while clean compilers distribute code entropy evenly across text and rodata sections.',
+        title: 'Refining the design system: Balanced contrast, typography & layout',
+        content: 'A sneak peek at our visual hierarchy updates: comfortable text sizes, restrained surface colors, and clean post cards. A great social platform should feel calm, focused, and easy to read.',
         flair: 'TECH DISCUSSION',
         meritVotes: 194,
         userVoted: 0,
@@ -500,7 +504,7 @@ export class AetherisClientStore {
         id: 'msg-1',
         channelId: 'relays-general',
         authorFingerprint: 'genesis-core',
-        text: 'Welcome to the Sovereign E2EE Live Relay. All communications in this matrix are quantum-ratcheted via MLS TreeKEM and authenticated with Zero-Knowledge RLN.',
+        text: 'Welcome to UREfy! This space is private, encrypted, and owned by its members. Feel free to introduce yourself or jump into any community.',
         epoch: '#412',
         status: 'verified',
         createdAt: Date.now() - 1000 * 60 * 45,
@@ -510,7 +514,7 @@ export class AetherisClientStore {
         id: 'msg-2',
         channelId: 'relays-general',
         authorFingerprint: 'c3dc28cb705e',
-        text: 'The BitTorrent Merkle pieces for Micro-Kernel v1.0.0 have fully propagated across all 14 seeder nodes. 100% byte-match verified.',
+        text: 'Really excited about the new media and photo sharing in today\'s release. Tested it on desktop and mobile — looks super clean.',
         epoch: '#412',
         status: 'verified',
         createdAt: Date.now() - 1000 * 60 * 20,
@@ -520,7 +524,7 @@ export class AetherisClientStore {
         id: 'msg-3',
         channelId: 'relays-general',
         authorFingerprint: 'a89104fa2211',
-        text: 'Confirmed. Zero packet loss over WebRTC DTLS direct tunnels. Latency stable at 14ms.',
+        text: 'Messages are streaming with zero delay and end-to-end encryption is active. Welcome everyone!',
         epoch: '#412',
         status: 'verified',
         createdAt: Date.now() - 1000 * 60 * 5,
@@ -713,8 +717,9 @@ export class AetherisClientStore {
       if (res.ok) {
         const data = await res.json();
         if (data.success && Array.isArray(data.messages)) {
-          const channelMsgs = this.messages.get(this.activeChannelId) || [];
           for (const em of data.messages) {
+            const targetChannel = em.channelId || this.activeChannelId;
+            const channelMsgs = this.messages.get(targetChannel) || [];
             const emText = em.text || em.ciphertext || '';
             const isDuplicate = channelMsgs.some(
               (x) => x.id === em.id || (x.text === emText && x.authorFingerprint === em.authorFingerprint && Math.abs(x.createdAt - (em.createdAt || 0)) < 15000)
@@ -722,7 +727,7 @@ export class AetherisClientStore {
             if (!isDuplicate) {
               channelMsgs.push({
                 id: em.id,
-                channelId: em.channelId,
+                channelId: targetChannel,
                 authorFingerprint: em.authorFingerprint,
                 text: emText,
                 epoch: em.epoch || '#1',
@@ -730,10 +735,10 @@ export class AetherisClientStore {
                 createdAt: em.createdAt || Date.now(),
                 isMine: em.authorFingerprint === this.keypair.fingerprint,
               });
+              this.messages.set(targetChannel, channelMsgs);
               hasChanged = true;
             }
           }
-          this.messages.set(this.activeChannelId, channelMsgs);
           if (hasChanged) {
             this.persistMessagesLocally();
           }

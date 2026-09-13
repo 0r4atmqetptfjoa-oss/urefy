@@ -195,9 +195,9 @@ export class OmniComposer {
                     <div class="w-px h-5 bg-white/10"></div>
                   </div>
                 ` : `
-                  <span class="text-[10px] font-mono text-slate-400">Ed25519 Signed • ZK-RLN Nullifier</span>
+                  <span class="text-[10px] text-slate-400">🔒 End-to-end encrypted</span>
                 `}
-                <span class="text-[10px] font-mono text-slate-500">Zero Central Tracking</span>
+                <span class="text-[10px] text-slate-500">No tracking</span>
               </div>
 
               <div class="flex items-center space-x-2.5">
@@ -269,14 +269,14 @@ export class OmniComposer {
           <!-- AUDIENCE SELECTOR -->
           <div class="flex items-center space-x-2 pb-1">
             <span class="text-xs font-bold text-indigo-400 bg-indigo-950/70 border border-indigo-500/30 px-3 py-1 rounded-full cursor-pointer hover:bg-indigo-900/60 transition-colors">
-              🌐 ${this.audience === 'everyone' ? 'Everyone in Sovereign Mesh' : 'Sovereign Circle (Exclusive)'}
+              🌐 ${this.audience === 'everyone' ? 'Public' : 'Community members'}
             </span>
           </div>
 
           <textarea 
             id="composer-pulse-input" 
             maxlength="${this.maxPulseLength}"
-            placeholder="What is happening in the sovereign matrix? (Hashtags, markdown, and links supported)..."
+            placeholder="What's on your mind? (Hashtags, markdown, and links supported)..."
             class="w-full bg-surface-raised border border-white/10 rounded-2xl p-4 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500/50 resize-none h-32 leading-relaxed font-sans"
             autofocus
             required

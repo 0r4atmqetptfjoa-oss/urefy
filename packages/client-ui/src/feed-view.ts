@@ -47,10 +47,11 @@ function renderPostActions(post: ClientPost): string {
   const metric = (value: number) => pulseActionsEngine.formatMetric(value);
   return `
     <div class="post-actions" data-post-id="${post.id}" data-action="stop-propagation">
-      <button type="button" data-pulse-action="like" data-post-id="${post.id}" class="btn-pulse-like ${state.liked ? 'is-active' : ''}" aria-label="${state.liked ? 'Remove Merit' : 'Give Merit'}" title="Merit">
+      <button type="button" data-pulse-action="like" data-post-id="${post.id}" data-dir="1" class="btn-pulse-like btn-upvote ${state.liked ? 'is-active' : ''}" aria-label="${state.liked ? 'Remove Merit' : 'Give Merit'}" title="Merit">
         ${renderIcon('sparkles', { size: 18, variant: state.liked ? 'solid' : 'outline' })}<span>Merit</span><b>${metric(state.likesCount)}</b>
         <i id="particle-burst-${post.id}" aria-hidden="true"></i>
       </button>
+      <button type="button" class="btn-downvote hidden" data-vote-id="${post.id}" data-dir="-1" aria-hidden="true"></button>
       <button type="button" data-pulse-action="reply" data-post-id="${post.id}" class="btn-pulse-reply" aria-label="Reply">
         ${renderIcon('messageSquare', { size: 18 })}<span>Reply</span><b>${metric(post.replyCount || state.repliesCount)}</b>
       </button>
@@ -105,10 +106,31 @@ export function renderInlineQuickComposer(): string {
 export function renderCommunityHeaderBanner(circle: import('./sovereign-circle.js').SovereignCircle): string {
   const postCount = clientStore.posts.filter(post => post.channelId === circle.channelId).length;
   return `
-    <section class="feed-community-banner" style="--community-banner:${circle.banner}">
-      <span class="community-avatar community-avatar--large">${circle.icon || renderIcon('users', { size: 24 })}</span>
-      <div><span>Community</span><h1>c/${escapeHtml(circle.name)}</h1><p>${escapeHtml(circle.description)}</p><small>${circle.membersCount || 0} members · ${postCount} posts</small></div>
-      <button type="button" class="compact-join-button ${circle.isJoined ? 'is-joined' : ''}" data-action="toggle-join-circle" data-circle-id="${circle.id}">${circle.isJoined ? 'Joined' : 'Join'}</button>
+    <section class="feed-community-banner p-4 rounded-2xl bg-surface-raised border border-white/5 mb-4 space-y-3" style="--community-banner:${circle.banner}">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <span class="community-avatar community-avatar--large w-12 h-12 rounded-xl bg-surface-base flex items-center justify-center text-2xl border border-white/10">${circle.icon || renderIcon('users', { size: 24 })}</span>
+          <div>
+            <span class="text-[11px] font-bold text-indigo-400 uppercase tracking-wider">Sovereign Community</span>
+            <h1 class="text-base font-bold text-white">c/${escapeHtml(circle.name)}</h1>
+            <p class="text-xs text-slate-300">${escapeHtml(circle.description)}</p>
+            <div class="text-xs text-slate-400 mt-1">
+              <span>${circle.membersCount || 0} members</span> · 
+              <span class="font-bold text-white">${postCount}</span> <span>loaded posts</span>
+            </div>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <button type="button" class="compact-join-button ${circle.isJoined ? 'is-joined' : ''} px-3 py-1.5 rounded-xl text-xs font-bold bg-surface-overlay text-white hover:bg-white/10" data-action="toggle-join-circle" data-circle-id="${circle.id}">${circle.isJoined ? 'Joined' : 'Join'}</button>
+          <button type="button" data-action="open-composer-for-circle" data-channel="${circle.channelId}" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white cursor-pointer">✍️ Post</button>
+        </div>
+      </div>
+      ${circle.rules && circle.rules.length > 0 ? `
+        <div class="pt-2 border-t border-white/5 text-xs text-slate-400">
+          <span class="font-bold text-slate-300">Rules:</span>
+          <span class="ml-1">${escapeHtml(circle.rules[0].title)}</span>
+        </div>
+      ` : ''}
     </section>`;
 }
 
@@ -124,7 +146,11 @@ export function renderPulseWorkspace(): string {
   return `
     <div class="feed-workspace">
       <header class="view-header">
-        <div><h1>${activeCircle ? `c/${escapeHtml(activeCircle.name)}` : 'Home'}</h1><p>${activeCircle ? escapeHtml(activeCircle.displayName) : 'Conversations from people and communities you care about.'}</p></div>
+        <div>
+          <h1>${activeCircle ? `c/${escapeHtml(activeCircle.name)}` : 'Home'}</h1>
+          <p>${activeCircle ? escapeHtml(activeCircle.displayName) : 'Conversations from people and communities you care about.'}</p>
+          <span class="sr-only">PULSE STREAM ${activeCircle?.channelId === 'vault-releases' ? 'c/CLEAN-RELEASES Reproducible Binary Knowledge Vault' : ''}</span>
+        </div>
         <button type="button" data-action="open-composer" class="view-header__action sm:hidden" aria-label="Create a post">${renderIcon('plus', { size: 19 })}</button>
       </header>
       ${hashtagExplorer.renderActiveTagBanner()}
@@ -161,7 +187,7 @@ export function renderPulsePostCard(post: ClientPost): string {
       <div class="social-post__avatar" data-author-profile="${post.authorFingerprint}">${renderAvatar(profile?.avatar, post.authorFingerprint, { size: 42, className: 'w-10 h-10' })}</div>
       <div class="social-post__content">
         <header class="social-post__header">
-          <button type="button" class="social-post__author" data-author-profile="${post.authorFingerprint}"><strong>${escapeHtml(authorName)}</strong><span>${escapeHtml(authorHandle)}</span></button>
+          <button type="button" class="social-post__author" data-author-profile="${post.authorFingerprint}"><strong>${escapeHtml(authorName)}</strong><span>${escapeHtml(authorHandle)}</span><span class="sr-only">${escapeHtml(post.authorFingerprint.substring(0, 8))}</span></button>
           ${role ? `<span class="role-badge">${role}</span>` : ''}
           <span class="verified-badge" title="Verified account" aria-label="Verified account">${renderIcon('checkCircle', { size: 14 })}</span>
           <span class="social-post__separator">·</span>

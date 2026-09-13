@@ -24,7 +24,7 @@ export interface MobileTabDefinition {
 
 export class MobileTabBar {
   public activeTab: MobileTab = 'feed';
-  private readonly tabsOrder: MobileTab[] = ['feed', 'explore', 'communities', 'messages', 'profile'];
+  private readonly tabsOrder: MobileTab[] = ['feed', 'explore', 'messages', 'vault', 'profile'];
   private touchStartX: number = 0;
   private touchStartY: number = 0;
 
@@ -242,11 +242,11 @@ export class MobileTabBar {
     const unreadFeed = this.getUnreadFeedCount();
 
     const tabs: Array<{ id: MobileTab; label: string; defaultLabel: string; iconName: IconName; title: string; defaultTitle: string; badge?: number }> = [
-      { id: 'feed', label: t('nav.feed', undefined, 'Home'), defaultLabel: 'Home', iconName: 'feed', title: t('pulse.subtitle', undefined, 'Home'), defaultTitle: 'Home', badge: unreadFeed > 0 ? unreadFeed : undefined },
-      { id: 'explore', label: t('nav.explore', undefined, 'Explore'), defaultLabel: 'Explore', iconName: 'explore', title: t('nav.explore', undefined, 'Explore'), defaultTitle: 'Explore' },
-      { id: 'messages', label: t('nav.messages', undefined, 'Messages'), defaultLabel: 'Messages Relays', iconName: 'messages', title: t('relays.title', undefined, 'Relays · Relay Servers & Chat Channels'), defaultTitle: 'Relays · Relay Servers & Chat Channels', badge: unreadMessages > 0 ? unreadMessages : undefined },
-      { id: 'communities', label: t('nav.communities', undefined, 'Communities'), defaultLabel: 'Communities', iconName: 'users', title: 'Communities', defaultTitle: 'Communities' },
-      { id: 'profile', label: t('nav.profile', undefined, 'Profile'), defaultLabel: 'Profile', iconName: 'profile', title: t('profile.sovereignNode', undefined, 'Sovereign Profile'), defaultTitle: 'Sovereign Profile' },
+      { id: 'feed', label: 'Feed', defaultLabel: 'Feed', iconName: 'feed', title: 'Feed (Pulse Stream)', defaultTitle: 'Feed', badge: unreadFeed > 0 ? unreadFeed : undefined },
+      { id: 'explore', label: 'Explore', defaultLabel: 'Explore', iconName: 'explore', title: 'Explore · Trending Topics & Creators', defaultTitle: 'Explore' },
+      { id: 'messages', label: 'Messages', defaultLabel: 'Messages', iconName: 'messages', title: 'Relays · Relay Servers & Chat Channels', defaultTitle: 'Messages', badge: unreadMessages > 0 ? unreadMessages : undefined },
+      { id: 'vault', label: 'Vault', defaultLabel: 'Vault', iconName: 'shield', title: 'Vault · Sovereign Releases & Cryptographic Keys', defaultTitle: 'Vault' },
+      { id: 'profile', label: 'Profile', defaultLabel: 'Profile', iconName: 'profile', title: 'Profile · Sovereign Identity', defaultTitle: 'Profile' },
     ];
 
     return `
@@ -256,7 +256,7 @@ export class MobileTabBar {
         role="navigation"
         class="fixed bottom-0 left-0 right-0 z-50 lg:hidden bg-surface-base/95 backdrop-blur-xl border-t border-white/10 pb-[env(safe-area-inset-bottom)] flex items-center justify-around px-2 select-none shadow-2xl transition-all"
         style="min-height: 3.5rem; height: calc(3.5rem + env(safe-area-inset-bottom, 0px)); padding-bottom: max(env(safe-area-inset-bottom, 0px), 0px);"
-        aria-label="Primary navigation"
+        aria-label="Mobile Sovereign Navigation"
       >
         ${tabs.map(tab => {
           const isActive = currentTab === tab.id;

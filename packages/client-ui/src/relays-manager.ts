@@ -46,7 +46,7 @@ export class RelaysManager {
   private _loadRelays(): void {
     const defaultRelay: SovereignRelay = {
       id: 'relay-global-nexus',
-      name: 'UREfy Community',
+      name: 'Global Sovereign Nexus',
       icon: '⚡',
       description: 'A welcoming place for everyone on UREfy.',
       ownerFingerprint: 'genesis-core',

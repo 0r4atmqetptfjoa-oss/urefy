@@ -89,80 +89,81 @@ export class SovereignCircleEngine {
         name: 'zeroknowledge',
         displayName: 'Zero-Knowledge & Cryptographic Privacy',
         channelId: 'pulse-global',
-        icon: '⚡',
+        icon: '🛡️',
         banner: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%)',
-        description: 'Zero-knowledge proofs, recursive SNARKs, verifiable computations, and cryptographic privacy primitives.',
-        category: 'Cryptography & Security',
+        description: 'Discussions on digital rights, personal privacy, secure tools, and zero-knowledge cryptographic verification.',
+        category: 'Privacy & Freedom',
         membersCount: 0,
         onlineCount: 0,
         primaryColor: '#6366f1',
         rules: [
-          { id: 1, title: 'Cryptographic Verification Mandatory', description: 'All protocol releases and code assertions must include zero-knowledge proofs or reproducible hashes.' },
-          { id: 2, title: 'Zero Plaintext Telemetry', description: 'Protect user autonomy; do not transmit sensitive identities, private keys, or unmasked IP logs.' },
-          { id: 3, title: 'Maintain Constructive Decorum', description: 'Critique architectures rigorously while fostering collaborative open-source peer review.' }
+          { id: 1, title: 'Respect User Privacy', description: 'Do not post personal information, tracking links, or unredacted private logs.' },
+          { id: 2, title: 'Constructive Discussions', description: 'Share verified news, security guides, and practical privacy tools.' },
+          { id: 3, title: 'Welcoming Decorum', description: 'Keep debates civil, constructive, and focused on digital freedom.' }
         ],
-        flairs: ['TECH DISCUSSION', 'VERIFIED RELEASE', 'SECURITY ADVISORY', 'MICRO-PULSE', 'ASK COMMUNITY'],
+        flairs: ['PRIVACY', 'SECURITY', 'TECH DISCUSSION', 'TUTORIAL', 'COMMUNITY'],
         isJoined: true,
         createdAt: '',
       },
       {
         id: 'vault-releases',
         name: 'clean-releases',
-        displayName: 'Reproducible Binary Knowledge Vault',
+        displayName: 'Clean Verified Releases',
         channelId: 'vault-releases',
         icon: '📦',
         banner: 'linear-gradient(135deg, #064e3b 0%, #047857 50%, #059669 100%)',
-        description: 'Verified clean software releases, reproducible compilation builds, and malware-free open-source packages.',
-        category: 'Software & Vault',
+        description: 'Verified open-source software, clean releases, dev tools, and reproducible builds.',
+        category: 'Software & Dev',
         membersCount: 0,
         onlineCount: 0,
         primaryColor: '#10b981',
         rules: [
-          { id: 1, title: 'Zero PE/ELF RWX Memory Segments', description: 'All uploaded software must pass static analysis without writable+executable memory sections.' },
-          { id: 2, title: 'Strict Entropy Distribution Scan', description: 'Packed or encrypted payload sections must be accompanied by full verifiable source audits.' },
-          { id: 3, title: 'Deterministic Hash Matching', description: 'Release SHA256 checksums must match the git commit tree Merkle roots byte-for-byte.' }
+          { id: 1, title: 'Verified Sources', description: 'All releases must link to official repositories or project homepages.' },
+          { id: 2, title: 'Clean Software Only', description: 'Only share software free of malware, unauthorized telemetry, or adware.' },
+          { id: 3, title: 'Constructive Feedback', description: 'Support creators with helpful issue reports and pull requests.' }
         ],
-        flairs: ['VERIFIED RELEASE', 'SECURITY ADVISORY', 'TECH DISCUSSION'],
+        flairs: ['RELEASE', 'DEV TOOLS', 'SHOWCASE', 'TECH DISCUSSION'],
         isJoined: true,
         createdAt: '',
       },
       {
         id: 'vault-guides',
         name: 'security-guides',
-        displayName: 'Decentralized Defensive Playbooks',
+        displayName: 'Security Guides & Threat Models',
         channelId: 'vault-guides',
-        icon: '🛡️',
+        icon: '📚',
         banner: 'linear-gradient(135deg, #701a75 0%, #86198f 50%, #a21caf 100%)',
-        description: 'Hardening protocols, threat modeling documentation, zero-trust cryptographic architectures, and CVE mitigations.',
-        category: 'Cyber Defense',
+        description: 'Practical how-to guides, privacy recipes, setup tutorials, and defensive security playbooks.',
+        category: 'Guides & Security',
         membersCount: 0,
         onlineCount: 0,
         primaryColor: '#ec4899',
         rules: [
-          { id: 1, title: 'Responsible Vulnerability Disclosure', description: 'Follow standard zero-day embargo protocols before publicly posting exploit proof-of-concepts.' },
-          { id: 2, title: 'Actionable Hardening Recipes', description: 'Guides must include copy-pasteable configuration scripts and test harness validation steps.' }
+          { id: 1, title: 'Actionable Instructions', description: 'Guides should be clear, reproducible, and easy to follow.' },
+          { id: 2, title: 'Responsible Disclosure', description: 'Follow standard coordinated disclosure before publishing active exploits.' },
+          { id: 3, title: 'Maintain Constructive Decorum', description: 'Critique architectures rigorously while fostering collaborative open-source review.' }
         ],
-        flairs: ['SECURITY ADVISORY', 'TECH DISCUSSION', 'VERIFIED RELEASE'],
+        flairs: ['GUIDE', 'TUTORIAL', 'SECURITY', 'TECH DISCUSSION'],
         isJoined: false,
         createdAt: '',
       },
       {
         id: 'relays-general',
         name: 'p2p-mesh',
-        displayName: 'Peer-to-Peer Swarm & WebRTC Mesh',
+        displayName: 'P2P Mesh & Relay Operators',
         channelId: 'relays-general',
-        icon: '🌐',
+        icon: '💬',
         banner: 'linear-gradient(135deg, #0c4a6e 0%, #0369a1 50%, #0284c7 100%)',
-        description: 'Decentralized DHT discovery, WebRTC direct transport, SFrame E2EE media streams, and MLS TreeKEM relay routing.',
-        category: 'P2P Networking',
+        description: 'A friendly gathering place for discussions, questions, interesting links, and meeting people.',
+        category: 'General',
         membersCount: 0,
         onlineCount: 0,
         primaryColor: '#06b6d4',
         rules: [
-          { id: 1, title: 'SFrame Noise Protocol Compliance', description: 'Audio and video payload packets must adhere strictly to TreeKEM RFC 9420 framing.' },
-          { id: 2, title: 'Bandwidth & Swarm Courtesy', description: 'Rate-limit automated gossip stress testing to prevent mesh topology congestion.' }
+          { id: 1, title: 'Friendly & Welcoming', description: 'Treat everyone with respect and good faith.' },
+          { id: 2, title: 'Keep it Organized', description: 'Use descriptive titles and appropriate flairs.' }
         ],
-        flairs: ['MICRO-PULSE', 'TECH DISCUSSION', 'ASK COMMUNITY'],
+        flairs: ['DISCUSSION', 'COMMUNITY', 'QUESTION', 'NEWS'],
         isJoined: true,
         createdAt: '',
       },
@@ -295,6 +296,23 @@ export class SovereignCircleEngine {
       this.circles.set(`c/${c.name}`, c);
       this.circles.set(c.name, c);
     }
+
+    // Set friendly aliases
+    const zk = this.circles.get('pulse-global')!;
+    this.circles.set('c/privacy', zk);
+    this.circles.set('privacy', zk);
+
+    const cr = this.circles.get('vault-releases')!;
+    this.circles.set('c/open-source', cr);
+    this.circles.set('open-source', cr);
+
+    const sg = this.circles.get('vault-guides')!;
+    this.circles.set('c/guides', sg);
+    this.circles.set('guides', sg);
+
+    const pm = this.circles.get('relays-general')!;
+    this.circles.set('c/general', pm);
+    this.circles.set('general', pm);
   }
 
   public loadFromStorage(): void {

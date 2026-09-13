@@ -149,7 +149,7 @@ export class CommunityView {
           <button type="button" data-feed-sort="hot" class="btn-feed-sort is-active">Hot</button>
           <button type="button" data-feed-sort="new" class="btn-feed-sort">New</button>
           <button type="button" data-feed-sort="top" class="btn-feed-sort">Top</button>
-          <a href="#community-about">About</a>
+          <a href="#community-about" class="btn-feed-sort">About</a>
         </nav>
 
         <!-- 3. TWO-COLUMN SUBREDDIT/DISCORD LAYOUT -->
@@ -293,8 +293,8 @@ export class CommunityView {
                 <div class="flex items-center justify-between p-2 rounded-xl bg-surface-base border border-white/5">
                   <div class="flex items-center space-x-2">
                     <span class="text-indigo-400">${renderIcon('award', { size: 14 })}</span>
-                    <span class="text-xs font-mono font-semibold text-indigo-300 truncate max-w-[140px]">
-                      @${circle.creatorFingerprint ? circle.creatorFingerprint.slice(0, 10) : 'founder'}
+                    <span class="text-xs font-semibold text-indigo-300 truncate max-w-[140px]">
+                      Community Founder
                     </span>
                   </div>
                   <span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-bold">FOUNDER</span>
@@ -303,7 +303,7 @@ export class CommunityView {
                   <div class="flex items-center justify-between p-2 rounded-xl bg-surface-base border border-white/5">
                     <div class="flex items-center space-x-2">
                       <span class="text-amber-400">${renderIcon('shield', { size: 14 })}</span>
-                      <span class="text-xs font-mono text-slate-300 truncate max-w-[140px]">@${mFp.slice(0, 10)}</span>
+                      <span class="text-xs text-slate-300 truncate max-w-[140px]">Moderator</span>
                     </div>
                     <span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold">MOD</span>
                   </div>

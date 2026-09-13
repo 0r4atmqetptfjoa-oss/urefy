@@ -150,7 +150,7 @@ export async function onRequestGet(context: {
   
   <!-- OpenGraph / Facebook / LinkedIn / Discord -->
   <meta property="og:type" content="article">
-  <meta property="og:site_name" content="UREfy — The Social Network You Actually Own">
+  <meta property="og:site_name" content="UREfy">
   <meta property="og:title" content="${escapeHtml(post.title)}">
   <meta property="og:description" content="${escapeHtml(snippet)}">
   <meta property="og:url" content="${escapeHtml(canonicalAppUrl)}">
@@ -213,7 +213,7 @@ export async function onRequestGet(context: {
     <h1>${escapeHtml(post.title)}</h1>
     <p>${escapeHtml(post.content)}</p>
     <p style="margin-top: 24px;">
-      <a href="${escapeHtml(canonicalAppUrl)}">Open discussion in UREfy &rarr;</a>
+      <a href="${escapeHtml(canonicalAppUrl)}">Open full thread in UREfy &rarr;</a>
     </p>
   </div>
 </body>

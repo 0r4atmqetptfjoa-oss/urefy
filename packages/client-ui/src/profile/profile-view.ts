@@ -35,22 +35,20 @@ export class ProfileView {
       this.followingSet = new Set();
     }
 
-    if (isDemoModeEnabled()) {
-      this.seedDevProfiles();
-    }
+    this.seedDevProfiles();
   }
 
   private seedDevProfiles(): void {
     this.profileData.set('genesis-core', {
-      fingerprint: 'genesis-core-ed25519-master-key-000000000001',
+      fingerprint: 'genesis-core',
       name: 'Genesis Protocol Archon',
-      handle: 'genesis',
+      handle: 'genesis-core',
       avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80',
       banner: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1200&auto=format&fit=crop&q=80',
-      bio: 'Sovereign root node for the UREfy Mesh. Decoupled from central state, running Post-Quantum Cryptography and Web-of-Trust validation.',
-      location: 'Global Anycast Mesh (Cloudflare)',
-      website: 'https://aetheris-omni-sphere.pages.dev',
-      joinedEpoch: 'Epoch 0 (Genesis)',
+      bio: 'Product engineer & privacy advocate. Building UREfy — the social network you actually own.',
+      location: 'San Francisco, CA',
+      website: 'https://urefy.com',
+      joinedEpoch: 'Early Member',
       role: 'GUARDIAN',
       status: 'online',
       isZKVerified: true,
@@ -58,19 +56,19 @@ export class ProfileView {
       followersCount: 1420,
       meritScore: 9940,
       trustScore: 98,
-      badges: ['🛡️ ZK-Human', '💎 Sovereign Archon', '🔑 Keymaster', '🔐 ML-KEM-768'],
+      badges: ['🛡️ ZK-Human', '💎 Sovereign Archon', '🔑 Keymaster'],
     });
 
     this.profileData.set('c3dc28cb705e', {
-      fingerprint: 'c3dc28cb705e8912aafe0192837465bd',
+      fingerprint: 'c3dc28cb705e',
       name: 'Elena Rostova',
-      handle: 'elena_zk',
+      handle: 'elena_r',
       avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=300&auto=format&fit=crop&q=80',
       banner: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1200&auto=format&fit=crop&q=80',
-      bio: 'Applied Cryptographer & Zero-Knowledge researcher. Building Chaumian blind voting protocols and privacy-preserving reputation proofs.',
+      bio: 'Open source developer & privacy researcher. Building decentralized tools for people and communities.',
       location: 'Bucharest, RO',
-      website: 'https://zk-research.eth',
-      joinedEpoch: 'Epoch 12',
+      website: 'https://urefy.com',
+      joinedEpoch: 'Early Member',
       role: 'ARCHIVIST',
       status: 'online',
       isZKVerified: true,
@@ -78,7 +76,27 @@ export class ProfileView {
       followersCount: 512,
       meritScore: 4320,
       trustScore: 92,
-      badges: ['🔬 ZK-Researcher', '🛡️ Key Custodian'],
+      badges: ['🔬 Contributor', '🛡️ Verified', '✨ Early Member'],
+    });
+
+    this.profileData.set('a89104fa2211', {
+      fingerprint: 'a89104fa2211',
+      name: 'David Chen',
+      handle: 'david_c',
+      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&auto=format&fit=crop&q=80',
+      banner: 'https://images.unsplash.com/photo-1519681393784-d120267933ba?w=1200&auto=format&fit=crop&q=80',
+      bio: 'Community moderator & systems engineer. Passionate about digital rights and open social graphs.',
+      location: 'Austin, TX',
+      website: 'https://urefy.com',
+      joinedEpoch: 'Early Member',
+      role: 'MODERATOR',
+      status: 'online',
+      isZKVerified: true,
+      followingCount: 42,
+      followersCount: 380,
+      meritScore: 3120,
+      trustScore: 90,
+      badges: ['🛡️ Moderator', '✨ Early Member'],
     });
   }
 
@@ -93,25 +111,27 @@ export class ProfileView {
           }
         } catch (_) {}
       }
-      const alias = fp.length > 12 ? fp.substring(0, 8) : fp;
+      const known = (typeof clientStore !== 'undefined' ? clientStore.members?.find(m => m.fingerprint === fp) : null) as any;
+      const name = known?.name || (fp === 'genesis-core' ? 'Genesis Protocol Archon' : fp === 'c3dc28cb705e' ? 'Elena Rostova' : fp === 'a89104fa2211' ? 'David Chen' : fp === 'f40019bc88a2' ? 'Maya Patel' : fp === '9b22a011cd44' ? 'Samira Khan' : `Member ${fp.length > 8 ? fp.substring(0, 6) : fp}`);
+      const handle = known?.handle?.replace(/^@/, '') || (fp === 'genesis-core' ? 'genesis-core' : fp === 'c3dc28cb705e' ? 'elena_r' : fp === 'a89104fa2211' ? 'david_c' : fp === 'f40019bc88a2' ? 'maya_p' : fp === '9b22a011cd44' ? 'samira' : (fp.length > 8 ? fp.substring(0, 8) : fp));
       this.profileData.set(fp, {
         fingerprint: fp,
-        name: `Sovereign Node (${alias})`,
-        handle: alias,
+        name,
+        handle,
         avatar: `https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&auto=format&fit=crop&q=80`,
         banner: '',
-        bio: 'Peer node participating in the decentralized sovereign mesh.',
-        location: 'Decentralized P2P',
+        bio: 'Sharing thoughts, projects, and good conversations on UREfy.',
+        location: 'Global',
         website: '',
-        joinedEpoch: 'Epoch 42',
-        role: 'MEMBER',
+        joinedEpoch: 'Member',
+        role: fp === 'genesis-core' ? 'GUARDIAN' : 'MEMBER',
         status: 'online',
         isZKVerified: true,
         followingCount: 0,
         followersCount: 0,
         meritScore: 100,
-        trustScore: 70,
-        badges: ['🛡️ Peer Node'],
+        trustScore: fp === 'genesis-core' ? 98 : 70,
+        badges: fp === 'genesis-core' ? ['🛡️ ZK-Human', '💎 Sovereign Archon', '🔑 Keymaster'] : ['✨ Member'],
       });
     }
     return this.profileData.get(fp)!;

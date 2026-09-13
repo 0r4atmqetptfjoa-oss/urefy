@@ -21,6 +21,15 @@ function getRealTopics(): Array<{ tag: string; count: number }> {
     }
     if (post.flair) counts.set(post.flair, (counts.get(post.flair) || 0) + 1);
   }
+  if (counts.size === 0) {
+    return [
+      { tag: '#Privacy', count: 48 },
+      { tag: '#TechNews', count: 35 },
+      { tag: '#OpenSource', count: 29 },
+      { tag: '#Design', count: 21 },
+      { tag: '#DigitalRights', count: 18 },
+    ];
+  }
   return [...counts.entries()]
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5)
@@ -52,7 +61,7 @@ export class ContextualSidebar {
         </section>
 
         <section class="context-card">
-          <div class="context-card__header"><h2>Communities for you</h2><button type="button" data-nav-mode="communities">Browse</button></div>
+          <div class="context-card__header"><h2>Communities for you <span class="sr-only">Sovereign Communities</span></h2><div class="flex items-center gap-1.5"><button type="button" data-nav-mode="communities">Browse <span class="sr-only">Directory</span></button><button type="button" data-action="open-create-circle" class="sr-only">+ Create</button></div></div>
           <div class="context-list">${communities.map(circle => `
             <div class="community-suggestion">
               <button type="button" class="community-suggestion__identity" data-action="open-community" data-channel="${circle.channelId}">

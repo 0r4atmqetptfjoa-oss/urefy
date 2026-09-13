@@ -1111,12 +1111,16 @@ button:active { transform: scale(0.98); }
 .edit-profile-form footer { display:flex; justify-content:flex-end; gap:8px; padding-top:5px; }
 
 /* Community pages */
+#main-layout:has(.community-workspace) #right-rail-container { display: none !important; }
 .community-workspace { background:var(--bg-canvas) !important; }
 .community-hero { border-bottom:1px solid var(--premium-line); }
 .community-tabs { position:sticky; top:0; z-index:15; display:flex; justify-content:center; gap:3px; margin-bottom:20px; padding:7px 14px; border-block:1px solid var(--premium-line); background:color-mix(in srgb,var(--bg-canvas) 94%,transparent); backdrop-filter:blur(16px); }
-.community-tabs button { min-height:37px; padding:0 15px; border-radius:9px; color:var(--text-muted); font-size:12px; font-weight:700; }
+.community-tabs button,
+.community-tabs a { min-height:37px; padding:0 15px; border-radius:9px; color:var(--text-muted); font-size:12px; font-weight:700; display:inline-flex; align-items:center; text-decoration:none; }
 .community-tabs button:hover,
-.community-tabs button.is-active { color:var(--text-primary); background:var(--bg-surface-overlay); }
+.community-tabs a:hover,
+.community-tabs button.is-active,
+.community-tabs a.is-active { color:var(--text-primary); background:var(--bg-surface-overlay); }
 .community-workspace .social-post { margin-bottom:12px; }
 
 /* Messaging: preserve the mature feature set with consumer-friendly hierarchy. */

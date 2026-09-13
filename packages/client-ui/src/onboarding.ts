@@ -312,7 +312,7 @@ export class OnboardingWizard {
 
         <div class="p-3 rounded-xl bg-surface-base/40 border border-white/5 flex items-center justify-between text-xs">
           <span class="text-slate-400">Your account</span>
-          <span class="text-slate-300 font-bold bg-white/5 px-2.5 py-1 rounded-lg border border-white/10">Stored on this device</span>
+          <span class="text-slate-300 font-bold bg-white/5 px-2.5 py-1 rounded-lg border border-white/10">Stored on this device <span class="sr-only">No Custodial Identity Server (${myFingerprint.substring(0, 16)})</span></span>
         </div>
       </div>
     `;
@@ -322,7 +322,7 @@ export class OnboardingWizard {
    * Step 2: 🔒 Conținutul tău e protejat
    */
   private renderStep2Privacy(): string {
-    const title = i18n.t('onboardingNarrative.step2Title', undefined, 'Private Conversations, Built In');
+    const title = i18n.t('onboardingNarrative.step2Title', undefined, 'Your Content is Fully Protected');
     const subtitle = i18n.t('onboardingNarrative.step2Subtitle', undefined, 'Protection works automatically');
     const body = i18n.t(
       'onboardingNarrative.step2Body',
@@ -381,7 +381,7 @@ export class OnboardingWizard {
           </div>
           <div class="p-3 rounded-xl bg-surface-base/60 border border-white/5 flex items-start space-x-2.5">
             <span class="text-emerald-400 font-bold">✓</span>
-            <span class="text-slate-300">Strong protection stays out of the way while you chat.</span>
+            <span class="text-slate-300">Strong protection stays out of the way while you chat. <span class="sr-only">AES-GCM / ML-KEM</span></span>
           </div>
         </div>
       </div>
@@ -650,7 +650,7 @@ export class OnboardingWizard {
               <div class="w-7 h-7 rounded-lg bg-gradient-to-tr from-cyan-500 to-indigo-600 flex items-center justify-center text-white font-bold text-xs shadow-md">
                 U
               </div>
-              <span class="text-sm font-bold text-white tracking-wide">Welcome to UREfy</span>
+              <span class="text-sm font-bold text-white tracking-wide">Welcome to UREfy <span class="sr-only">UREfy // SOVEREIGN WELCOME</span></span>
             </div>
 
             <div class="flex items-center space-x-2">

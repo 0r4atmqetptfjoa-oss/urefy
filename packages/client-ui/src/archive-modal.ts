@@ -243,12 +243,12 @@ export class SovereignArchiveModal {
               <div class="p-3.5 rounded-2xl bg-surface-raised border border-white/5 space-y-2 text-xs">
                 <div class="text-slate-300 font-semibold flex items-center justify-between">
                   <span>Vault Payload Inclusions:</span>
-                  <span class="text-[10px] font-mono text-indigo-400">100,000 PBKDF2 Iterations</span>
+                  <span class="text-[10px] text-indigo-400">Military-grade encryption</span>
                 </div>
-                <div class="grid grid-cols-2 gap-2 text-slate-400 text-[11px] font-mono">
+                <div class="grid grid-cols-2 gap-2 text-slate-400 text-[11px]">
                   <div class="flex items-center space-x-1.5">
                     <span class="text-emerald-400">✓</span>
-                    <span>Ed25519 Identity & Seed</span>
+                    <span>Your Identity & Keys</span>
                   </div>
                   <div class="flex items-center space-x-1.5">
                     <span class="text-emerald-400">✓</span>

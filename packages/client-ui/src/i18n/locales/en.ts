@@ -159,7 +159,7 @@ export const enDict: TranslationDictionary = {
   },
   uiMode: {
     simple: 'Simple',
-    sovereign: 'Advanced',
+    sovereign: 'Sovereign',
     advancedTools: 'Advanced Tools',
     switchMode: 'Switch Interface Mode',
   },
@@ -167,7 +167,7 @@ export const enDict: TranslationDictionary = {
     step1Title: 'Your Identity Belongs to You',
     step1Subtitle: 'Private from the moment you join',
     step1Body: 'Create a private identity in seconds. No email, phone number, or password is required, and your account stays under your control.',
-    step2Title: 'Private Conversations, Built In',
+    step2Title: 'Your Content is Fully Protected',
     step2Subtitle: 'Protection that works automatically',
     step2Body: 'Private messages are protected before they leave your device. The people you choose are the only ones who can read them.',
     step3Title: 'People and Communities First',

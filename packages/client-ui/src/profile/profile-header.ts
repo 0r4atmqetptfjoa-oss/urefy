@@ -1,6 +1,6 @@
 /** Social-first profile header with identity details progressively disclosed. */
 
-import { UserProfileData } from './types.js';
+import { UserProfileData, formatFederatedHandle } from './types.js';
 import { renderIcon } from '../ui/icons.js';
 import { renderAvatar } from '../ui/avatar-generator.js';
 import { markdownRenderer } from '../markdown-renderer.js';
@@ -29,6 +29,8 @@ export function renderProfileHeaderHTML(profile: UserProfileData, isOwnProfile: 
   const displayBio = isGeneratedProfile ? 'Here to share, connect, and join good conversations.' : profile.bio;
   const displayLocation = profile.location === 'Decentralized P2P' ? '' : profile.location;
   const role = humanRole(profile.role);
+  const fedIdentifier = profile.handle ? profile.handle.replace(/^@/, '') : (profile.fingerprint.length > 12 ? profile.fingerprint.substring(0, 12) : profile.fingerprint);
+  const federatedHandle = formatFederatedHandle(fedIdentifier);
 
   return `
     <section class="profile-hero">
@@ -61,10 +63,23 @@ export function renderProfileHeaderHTML(profile: UserProfileData, isOwnProfile: 
           <p class="profile-handle">${escapeAttr(displayHandle)}</p>
           ${displayBio ? `<div class="profile-bio">${markdownRenderer.renderMarkdown(displayBio)}</div>` : ''}
           ${(displayLocation || profile.website) ? `<div class="profile-details">${displayLocation ? `<span>${renderIcon('globe', { size: 15 })}${escapeAttr(displayLocation)}</span>` : ''}${profile.website ? `<a href="${escapeAttr(profile.website)}" target="_blank" rel="noopener noreferrer">${renderIcon('link', { size: 15 })}${escapeAttr(profile.website)}</a>` : ''}</div>` : ''}
-          <div class="profile-stats">
+          <div class="federated-handle-bar flex flex-wrap items-center gap-2 mt-2 pt-2 border-t border-white/5 text-xs">
+            <span class="federated-handle font-mono text-slate-400 bg-white/5 px-2 py-0.5 rounded border border-white/10" data-federated-handle="${escapeAttr(federatedHandle)}">${escapeAttr(federatedHandle)}</span>
+            <button type="button" class="btn-copy-federated-handle text-indigo-400 hover:text-indigo-300 text-xs px-2 py-0.5 rounded bg-indigo-500/10 hover:bg-indigo-500/20 transition-colors cursor-pointer" data-copy-handle="${escapeAttr(federatedHandle)}">Copy Federated Handle</button>
+            <a href="/.well-known/aetheris-node" class="activitypub-badge inline-flex items-center text-[11px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full hover:underline" data-activitypub-badge="true">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1.5"></span>
+              Federated via ActivityPub 2.0
+            </a>
+          </div>
+          ${profile.badges && profile.badges.length ? `
+            <div class="profile-badges flex flex-wrap gap-1.5 mt-2">
+              ${profile.badges.map(b => `<span class="badge px-2.5 py-0.5 text-xs rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 font-medium">${escapeAttr(b)}</span>`).join('')}
+            </div>
+          ` : ''}
+          <div class="profile-stats mt-3">
             <button type="button"><strong>${profile.followingCount.toLocaleString()}</strong><span>Following</span></button>
             <button type="button"><strong>${profile.followersCount.toLocaleString()}</strong><span>Followers</span></button>
-            <span class="trust-summary">${renderIcon('shield', { size: 15 })}<strong>${profile.trustScore}</strong><span>Trust</span></span>
+            <span class="trust-summary">${renderIcon('shield', { size: 15 })}<strong>${profile.trustScore}</strong><span>Trust <span class="sr-only">WoT Max-Flow: ${profile.trustScore}</span></span></span>
             ${isOwnProfile ? `<button type="button" data-action="open-settings" data-subtab="security" class="identity-security-link">Identity & security ${renderIcon('chevronRight', { size: 14 })}</button>` : ''}
           </div>
         </div>

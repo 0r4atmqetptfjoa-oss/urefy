@@ -28,7 +28,7 @@ export interface EmptyStateOptions {
  */
 export function renderPulseEmptyState(options?: EmptyStateOptions): string {
   const title = options?.title || t('emptyState.pulseTitle', undefined, 'The feed is quiet');
-  const desc = options?.description || t('emptyState.pulseDesc', undefined, 'No posts yet in this channel. Be the first to share a thought in the sovereign network.');
+  const desc = options?.description || t('emptyState.pulseDesc', undefined, 'No posts yet in this channel. Be the first to share a thought on UREfy.');
   const actionText = options?.actionText || t('emptyState.pulseAction', undefined, 'Write the first post');
   const actionId = options?.actionId || 'btn-empty-pulse-composer';
 

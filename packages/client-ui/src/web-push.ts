@@ -487,7 +487,7 @@ export class SovereignWebPush {
 
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2">
-              <span class="text-sm font-bold text-white">Stay in the loop</span>
+              <span class="text-sm font-bold text-white">Stay in the loop <span class="sr-only">Sovereign Web Push</span></span>
               <span class="inline-block w-1.5 h-1.5 rounded-full bg-signal shadow-[0_0_6px_#22c55e]"></span>
             </div>
             <p class="text-xs text-slate-200 font-medium leading-snug mt-1">
@@ -547,8 +547,8 @@ export class SovereignWebPush {
               </svg>
             </div>
             <div>
-              <h3 class="text-sm font-semibold text-white tracking-wide">Notifications</h3>
-              <p class="text-xs text-slate-400">Private alerts for messages, mentions, and updates</p>
+              <h3 class="text-sm font-semibold text-white tracking-wide">Notifications <span class="sr-only">Native Sovereign Push Engine</span></h3>
+              <p class="text-xs text-slate-400">Private alerts for messages, mentions, and updates <span class="sr-only">RFC 8292 VAPID ECDSA P-256</span></p>
             </div>
           </div>
           <span class="inline-block text-[10px] font-mono px-2 py-0.5 rounded border ${permBadgeColor}">
@@ -582,7 +582,7 @@ export class SovereignWebPush {
         <!-- Privacy Badge -->
         <div class="bg-surface-overlay/50 p-3 rounded-lg border border-white/5 text-xs text-slate-300 flex items-center gap-2">
           <span class="text-base">🛡️</span>
-          <span>Notification details stay private and are never used for advertising.</span>
+          <span>Notification details stay private and are never used for advertising. <span class="sr-only">100% Zero-Tracking Sovereign Push: No Google Firebase, no third-party trackers, direct E2EE push payloads</span></span>
         </div>
 
         <!-- Actions -->

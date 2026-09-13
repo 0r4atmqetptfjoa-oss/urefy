@@ -504,14 +504,14 @@ export class HybridComposer {
 
             <div class="flex items-center space-x-2">
               ${this.audience.startsWith('circle-') ? `
-                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                   <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse mr-1.5"></span>
-                  SFrame E2EE Active
+                  Encrypted Space <span class="sr-only">SFrame E2EE Active</span>
                 </span>
               ` : `
-                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono font-medium bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
                   <span class="w-1.5 h-1.5 rounded-full bg-indigo-400 mr-1.5"></span>
-                  ZK-RLN Gated Stream
+                  Protected Stream <span class="sr-only">ZK-RLN Gated Stream</span>
                 </span>
               `}
             </div>
@@ -531,11 +531,11 @@ export class HybridComposer {
             <div class="flex items-center justify-between flex-wrap gap-2">
               <!-- LEFT SIGNATURE SUMMARY & PROOF TOGGLE -->
               <div class="flex items-center space-x-3">
-                <button type="button" id="btn-toggle-proof-drawer" class="text-[11px] font-mono text-indigo-400 hover:text-indigo-300 flex items-center space-x-1 cursor-pointer transition-colors">
+                <button type="button" id="btn-toggle-proof-drawer" class="text-[11px] text-indigo-400 hover:text-indigo-300 flex items-center space-x-1 cursor-pointer transition-colors">
                   <span>🔐</span>
-                  <span>${this.isProofDrawerOpen ? 'Hide ZK Proof Inspector' : 'Inspect Ed25519 & ZK-RLN Signatures'}</span>
+                  <span>${this.isProofDrawerOpen ? 'Hide Security Details' : 'Security & Verification'}</span>
                 </button>
-                <span class="text-[10px] font-mono text-slate-500 hidden sm:inline">• 1 Vote/Post per Epoch • Anti-Sybil</span>
+                <span class="text-[10px] text-slate-500 hidden sm:inline">• Anti-Spam Protected</span>
               </div>
 
               <!-- RIGHT ACTIONS: DISCARD DRAFT & BROADCAST -->
@@ -567,15 +567,15 @@ export class HybridComposer {
    */
   private renderDraftStatusHtml(): string {
     if (this.draftStatus === 'saving') {
-      return `<span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping mr-1"></span><span>Saving to IndexedDB...</span>`;
+      return `<span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping mr-1"></span><span>Saving draft...</span>`;
     }
     if (this.draftStatus === 'saved') {
-      return `<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1"></span><span>Draft saved (${this.lastSavedAt ? new Date(this.lastSavedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : 'now'})</span>`;
+      return `<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1"></span><span>Draft saved (${this.lastSavedAt ? new Date(this.lastSavedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'now'})</span>`;
     }
     if (this.draftStatus === 'restored') {
       return `<span class="w-1.5 h-1.5 rounded-full bg-cyan-400 mr-1"></span><span>Draft restored</span>`;
     }
-    return `<span class="w-1.5 h-1.5 rounded-full bg-slate-500 mr-1"></span><span>IndexedDB Autosave Ready</span>`;
+    return `<span class="w-1.5 h-1.5 rounded-full bg-slate-500 mr-1"></span><span>Draft autosaved</span>`;
   }
 
   /**
@@ -583,9 +583,9 @@ export class HybridComposer {
    */
   public updateDraftStatusBadgeDom(): void {
     if (typeof document === 'undefined') return;
-    const badge = document.getElementById('composer-draft-badge');
-    if (badge) {
-      badge.innerHTML = this.renderDraftStatusHtml();
+    const el = document.getElementById('composer-draft-status-badge');
+    if (el) {
+      el.innerHTML = this.renderDraftStatusHtml();
     }
   }
 
@@ -595,7 +595,7 @@ export class HybridComposer {
   private renderActiveTabContent(): string {
     switch (this.activeTab) {
       case 'pulse':
-        return this.renderPulseAndThreadTab();
+        return this.renderPulseThreadEditor();
       case 'article':
         return this.renderArticleTab();
       case 'media':
@@ -606,7 +606,7 @@ export class HybridComposer {
       case 'vault':
         return this.renderVerifiedCodeTab();
       default:
-        return this.renderPulseAndThreadTab();
+        return this.renderPulseThreadEditor();
     }
   }
 
@@ -614,23 +614,25 @@ export class HybridComposer {
   // TAB 1: ⚡ Pulse & Thread Chain Builder
   // ---------------------------------------------------------------------------
 
-  private renderPulseAndThreadTab(): string {
+  /**
+   * Render Segment Chain Editor (PULSE & THREAD)
+   */
+  private renderPulseThreadEditor(): string {
     return `
       <div class="space-y-4">
         
-        <!-- THREAD SEGMENTS LIST -->
-        <div class="space-y-4 relative">
+        <!-- THREAD SEGMENTS CONTAINER -->
+        <div class="space-y-3" id="thread-segments-container">
           ${this.threadSegments.map((segment, index) => {
             const isLast = index === this.threadSegments.length - 1;
             const charCount = segment.content.length;
-            const isOverflow = charCount > this.maxPulseLength;
+            const isOverflow = charCount > 280;
 
             return `
-              <div class="relative flex items-start space-x-3 group" data-segment-index="${index}">
-                
-                <!-- THREAD CONNECTOR LINE -->
-                <div class="flex flex-col items-center flex-shrink-0 pt-2">
-                  <div class="w-7 h-7 rounded-full bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 font-mono text-[11px] font-bold flex items-center justify-center shadow-sm">
+              <div class="flex items-start space-x-3 group relative" data-segment-card="${index}">
+                <!-- THREAD CONNECTOR LINE & INDEX BADGE -->
+                <div class="flex flex-col items-center shrink-0 pt-2">
+                  <div class="w-6 h-6 rounded-full bg-indigo-600/30 border border-indigo-500/50 flex items-center justify-center text-[10px] font-bold text-indigo-300">
                     ${index + 1}
                   </div>
                   ${!isLast ? `<div class="w-0.5 bg-indigo-500/30 flex-1 my-1 min-h-[50px]"></div>` : ''}
@@ -639,12 +641,12 @@ export class HybridComposer {
                 <!-- SEGMENT CARD -->
                 <div class="flex-1 bg-surface-raised border ${isOverflow ? 'border-rose-500/50' : 'border-white/10 focus-within:border-indigo-500'} rounded-xl p-3 space-y-2 transition-all">
                   
-                  <div class="flex items-center justify-between text-[11px] font-mono text-slate-400">
-                    <span class="font-semibold text-slate-300">Pulse Segment ${index + 1} of ${this.threadSegments.length}</span>
+                  <div class="flex items-center justify-between text-[11px] text-slate-400">
+                    <span class="font-semibold text-slate-300">Post ${index + 1} of ${this.threadSegments.length}<span class="sr-only">Pulse Segment ${index + 1} of ${this.threadSegments.length}</span></span>
                     
                     <div class="flex items-center space-x-2">
                       ${this.threadSegments.length > 1 ? `
-                        <button type="button" data-action="remove-segment" data-index="${index}" class="text-slate-400 hover:text-rose-400 px-1.5 py-0.5 rounded hover:bg-white/5 cursor-pointer text-xs" title="Remove this pulse">
+                        <button type="button" data-action="remove-segment" data-index="${index}" class="text-slate-400 hover:text-rose-400 px-1.5 py-0.5 rounded hover:bg-white/5 cursor-pointer text-xs" title="Remove this post">
                           ✕ Remove
                         </button>
                       ` : ''}
@@ -653,7 +655,7 @@ export class HybridComposer {
 
                   <textarea 
                     data-segment-input="${index}"
-                    placeholder="${index === 0 ? "What's happening in the sovereign matrix? (Hashtags, #links, and markdown supported)..." : "Continue thread chain..."}"
+                    placeholder="${index === 0 ? "What's on your mind? Share an update, link, or thought..." : "Continue thread..."}"
                     class="w-full bg-transparent text-xs text-slate-100 placeholder-slate-500 focus:outline-none resize-none min-h-[90px] leading-relaxed"
                   >${escapeHtml(segment.content)}</textarea>
 
@@ -1759,7 +1761,7 @@ export class HybridComposer {
 
       // 5. Play Sound Effect & Toast
       soundEffects.playSend();
-      clientStore.showToast('🚀 Broadcasted to Sovereign Matrix with ZK-RLN Signatures!', 'success');
+      clientStore.showToast('Post published successfully!', 'success');
 
       // 6. Broadcast over WebSocket / API
       clientStore.sendMessage(`### ${flair}: ${title}\n\n${content}`);
