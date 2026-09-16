@@ -18,11 +18,29 @@ export class SovereignMnemonicModal {
     }
   }
 
+  public generateRandomQuizIndices(): number[] {
+    const indices: number[] = [];
+    while (indices.length < 3) {
+      const rand = Math.floor(Math.random() * 12);
+      if (!indices.includes(rand)) indices.push(rand);
+    }
+    return indices.sort((a, b) => a - b);
+  }
+
   public openModal(tab: 'backup' | 'restore' | 'quiz' = 'backup'): void {
     this.isOpen = true;
     this.activeTab = tab;
     this.isRevealed = false;
+    this.quizIndices = this.generateRandomQuizIndices();
     clientStore.notify();
+  }
+
+  public remindLater(): void {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('urefy_backup_remind_later', Date.now().toString());
+    }
+    toastManager.info('We will remind you to verify your backup phrase later.', '⏱️');
+    this.closeModal();
   }
 
   public closeModal(): void {
@@ -136,10 +154,10 @@ export class SovereignMnemonicModal {
               </div>
               <div>
                 <h3 class="text-base font-bold text-white tracking-wide font-sans flex items-center space-x-2">
-                  <span>Sovereign Identity Seed Vault</span>
+                  <span>Back up your recovery phrase <span class="sr-only">Sovereign Identity Seed Vault</span></span>
                   <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 uppercase font-semibold">BIP-39</span>
                 </h3>
-                <p class="text-xs text-slate-400 font-sans">Deterministic recovery for Ed25519 keys & Web of Trust identity</p>
+                <p class="text-xs text-slate-400 font-sans">Keep your account safe by writing down your 12 recovery words.</p>
               </div>
             </div>
             <button
@@ -243,6 +261,14 @@ export class SovereignMnemonicModal {
                     class="px-4 py-2 rounded-xl bg-surface-raised hover:bg-surface-overlay text-slate-200 hover:text-white text-xs font-bold border border-white/10 transition-colors cursor-pointer flex items-center space-x-1.5"
                   >
                     <span>💾 Download</span>
+                  </button>
+                  <button
+                    type="button"
+                    id="btn-mnemonic-remind-later"
+                    data-action="mnemonic-remind-later"
+                    class="px-3 py-2 rounded-xl bg-surface-raised hover:bg-surface-overlay text-slate-400 hover:text-slate-200 text-xs font-medium border border-white/5 transition-colors cursor-pointer"
+                  >
+                    Remind me later
                   </button>
                   <button
                     type="button"

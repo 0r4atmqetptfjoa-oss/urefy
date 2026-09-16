@@ -1,5 +1,8 @@
 import './style.css';
 import './premium.css';
+import './orbit.css';
+import './discovery.css';
+import './context.css';
 import { secureStorage } from './secure-storage.js';
 
 const start = async () => {
@@ -14,6 +17,7 @@ const start = async () => {
 };
 
 const begin = () => {
+  console.info('[UREfy] Booting Sovereign Client v1.0.1');
   void start().catch(() => {
     const root = document.getElementById('app');
     if (!root) return;
@@ -30,3 +34,5 @@ const begin = () => {
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', begin, { once: true });
 else begin();
+
+// UREfy Consumer Polish - Release v1.0.1

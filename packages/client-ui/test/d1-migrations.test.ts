@@ -10,7 +10,7 @@ describe('UREfy — D1 SQLite Migrations Verification', () => {
     const migrationsDir = path.resolve(__dirname, '../migrations');
     const files = fs.readdirSync(migrationsDir).filter((f) => f.endsWith('.sql')).sort();
 
-    expect(files.length).toBeGreaterThanOrEqual(8);
+    expect(files.length).toBeGreaterThanOrEqual(9);
     expect(files).toEqual(expect.arrayContaining([
       '0001_initial_schema.sql',
       '0002_dsa_reports.sql',
@@ -20,6 +20,7 @@ describe('UREfy — D1 SQLite Migrations Verification', () => {
       '0006_webauthn_challenges.sql',
       '0007_direct_messages.sql',
       '0008_governance.sql',
+      '0009_admin_rbac_and_retention.sql',
     ]));
 
     // Apply migrations in order
@@ -35,6 +36,8 @@ describe('UREfy — D1 SQLite Migrations Verification', () => {
     const tableNames = tablesQuery.map((r) => r.name);
 
     const expectedTables = [
+      'admin_passkey_credentials',
+      'admin_rbac_roles',
       'channels',
       'cve_cache',
       'dsa_reports',
@@ -49,6 +52,7 @@ describe('UREfy — D1 SQLite Migrations Verification', () => {
       'posts',
       'push_subscriptions',
       'used_nonces',
+      'user_activity_summaries',
       'votes',
       'webauthn_challenges',
       'webauthn_credentials',

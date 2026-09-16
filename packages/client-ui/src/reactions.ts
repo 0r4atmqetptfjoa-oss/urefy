@@ -217,9 +217,7 @@ export class ReactionsEngine {
     ><span class="text-[11px] font-medium">${userActiveEmoji ? 'Reacted' : 'React'}</span></button>
     <div
       id="${pickerId}"
-      class="reactions-picker absolute bottom-full left-0 mb-2 z-50
-             bg-surface-overlay/95 backdrop-blur-2xl border border-white/15 rounded-2xl shadow-2xl p-2.5
-             grid grid-cols-4 gap-1.5 w-60 hidden"
+      class="reactions-picker hidden"
       role="dialog"
       aria-label="Emoji reactions picker"
     >${pickerItems}<div class="col-span-4 border-t border-white/10 mt-1 pt-1.5 flex justify-end"
@@ -227,6 +225,209 @@ export class ReactionsEngine {
                data-picker-id="${pickerId}">Close ✕</button></div></div>
   </div>
 </div>`.trim();
+  }
+
+  // ─── Global Portal Overlay Architecture (P0 Stacking Context & Clipping Fix) ───
+
+  private activePortalTrigger: HTMLElement | null = null;
+  private activePortalPostId: string | null = null;
+  private portalOutsideClickListener: ((e: PointerEvent) => void) | null = null;
+  private portalKeydownListener: ((e: KeyboardEvent) => void) | null = null;
+  private portalScrollListener: (() => void) | null = null;
+
+  /**
+   * Opens the reaction picker in a top-level global portal mounted directly on document.body.
+   * Eliminates CSS transform stacking context trapping, overflow clipping, and z-index issues.
+   */
+  public openPortalPicker(
+    triggerEl: HTMLElement,
+    postId: string,
+    userFP: string,
+    onReactionSelect?: (emoji: string) => void
+  ): void {
+    if (typeof document === 'undefined') return;
+
+    // Toggle off if already open for this exact trigger
+    if (this.activePortalTrigger === triggerEl && this.activePortalPostId === postId) {
+      this.closePortalPicker();
+      return;
+    }
+
+    this.closePortalPicker();
+
+    this.activePortalTrigger = triggerEl;
+    this.activePortalPostId = postId;
+    triggerEl.setAttribute('aria-expanded', 'true');
+
+    // Create or locate portal container
+    let portal = document.getElementById('reactions-portal-overlay');
+    if (!portal) {
+      portal = document.createElement('div');
+      portal.id = 'reactions-portal-overlay';
+      document.body.appendChild(portal);
+    }
+
+    const userActiveEmoji = this.getUserReaction(postId, userFP);
+    let pickerButtonsHtml = '';
+    this.AVAILABLE_REACTIONS.forEach((avail) => {
+      const alreadyActive = avail.emoji === userActiveEmoji;
+      const activeStyle = alreadyActive
+        ? 'ring-2 ring-indigo-400 bg-indigo-500/20 text-white font-bold'
+        : 'hover:bg-surface-overlay text-slate-300 hover:text-white';
+
+      pickerButtonsHtml += `
+        <button
+          type="button"
+          class="btn-portal-reaction flex flex-col items-center gap-0.5 p-2 rounded-xl text-sm transition-all duration-150 cursor-pointer ${activeStyle} active:scale-95"
+          data-post-id="${postId}"
+          data-emoji="${this._escapeAttr(avail.emoji)}"
+          title="${this._escapeAttr(avail.label)}"
+          aria-label="${this._escapeAttr(avail.label)}"
+        >
+          <span class="text-xl leading-none transition-transform hover:scale-125">${avail.emoji}</span>
+          <span class="text-[10px] text-slate-400 font-sans mt-0.5">${this._escapeHtml(avail.label)}</span>
+        </button>
+      `;
+    });
+
+    portal.className = 'reactions-portal fixed z-[10000] animate-in fade-in zoom-in-95 duration-150';
+    portal.innerHTML = `
+      <div
+        class="reactions-picker-portal-card bg-surface-overlay/95 backdrop-blur-2xl border border-white/20 rounded-2xl shadow-2xl p-3 grid grid-cols-4 gap-1.5 w-64 max-w-[calc(100vw-1.5rem)] text-white"
+        role="dialog"
+        aria-label="Emoji reactions selector"
+      >
+        ${pickerButtonsHtml}
+        <div class="col-span-4 border-t border-white/10 mt-1 pt-1.5 flex items-center justify-between">
+          <span class="text-[10px] text-slate-400 font-mono">React to post</span>
+          <button type="button" class="btn-close-portal text-[11px] text-slate-400 hover:text-white px-2 py-0.5 font-sans transition-colors cursor-pointer rounded hover:bg-white/5">Close ✕</button>
+        </div>
+      </div>
+    `;
+
+    // Position dynamically relative to trigger with collision detection
+    this._repositionPortal(triggerEl, portal);
+
+    // Bind item click events inside portal
+    portal.querySelectorAll<HTMLButtonElement>('.btn-portal-reaction').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const em = btn.getAttribute('data-emoji');
+        if (em) {
+          this.toggleReaction(postId, em, userFP);
+          if (onReactionSelect) onReactionSelect(em);
+          this.closePortalPicker();
+        }
+      });
+    });
+
+    portal.querySelector('.btn-close-portal')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.closePortalPicker();
+    });
+
+    // Dismiss on outside pointerdown
+    this.portalOutsideClickListener = (e: PointerEvent) => {
+      if (portal && !portal.contains(e.target as Node) && !triggerEl.contains(e.target as Node)) {
+        this.closePortalPicker();
+      }
+    };
+    document.addEventListener('pointerdown', this.portalOutsideClickListener, { capture: true });
+
+    // Dismiss on Escape key
+    this.portalKeydownListener = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        this.closePortalPicker();
+        triggerEl.focus();
+      }
+    };
+    window.addEventListener('keydown', this.portalKeydownListener);
+
+    // Reposition or dismiss on scroll
+    this.portalScrollListener = () => {
+      if (this.activePortalTrigger && portal) {
+        this._repositionPortal(this.activePortalTrigger, portal);
+      }
+    };
+    window.addEventListener('scroll', this.portalScrollListener, { passive: true });
+    window.addEventListener('resize', this.portalScrollListener, { passive: true });
+  }
+
+  private _repositionPortal(triggerEl: HTMLElement, portal: HTMLElement): void {
+    const rect = triggerEl.getBoundingClientRect();
+    const isMobile = window.innerWidth < 480;
+    const popoverWidth = 256;
+    const popoverHeight = 150;
+    const margin = 8;
+
+    if (isMobile) {
+      // Anchored compact mobile sheet
+      portal.style.left = '50%';
+      portal.style.transform = 'translateX(-50%)';
+      if (rect.top > popoverHeight + margin) {
+        portal.style.top = `${Math.max(margin, rect.top - popoverHeight - margin)}px`;
+        portal.style.bottom = 'auto';
+      } else {
+        portal.style.top = `${Math.min(window.innerHeight - popoverHeight - margin, rect.bottom + margin)}px`;
+        portal.style.bottom = 'auto';
+      }
+      return;
+    }
+
+    portal.style.transform = 'none';
+
+    // Vertical positioning: check space above vs below
+    const spaceAbove = rect.top;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    let top = 0;
+
+    if (spaceAbove >= popoverHeight + margin) {
+      // Render above trigger
+      top = rect.top - popoverHeight - margin;
+    } else {
+      // Flip below trigger
+      top = rect.bottom + margin;
+    }
+
+    // Horizontal positioning: align with trigger left, clamp to viewport
+    let left = rect.left;
+    if (left + popoverWidth > window.innerWidth - margin) {
+      left = window.innerWidth - popoverWidth - margin;
+    }
+    left = Math.max(margin, left);
+
+    portal.style.top = `${Math.round(top)}px`;
+    portal.style.left = `${Math.round(left)}px`;
+  }
+
+  /**
+   * Closes the active global portal reaction picker.
+   */
+  public closePortalPicker(): void {
+    if (this.activePortalTrigger) {
+      this.activePortalTrigger.setAttribute('aria-expanded', 'false');
+      this.activePortalTrigger = null;
+    }
+    this.activePortalPostId = null;
+
+    const portal = document.getElementById('reactions-portal-overlay');
+    if (portal) {
+      portal.remove();
+    }
+
+    if (this.portalOutsideClickListener) {
+      document.removeEventListener('pointerdown', this.portalOutsideClickListener, { capture: true });
+      this.portalOutsideClickListener = null;
+    }
+    if (this.portalKeydownListener) {
+      window.removeEventListener('keydown', this.portalKeydownListener);
+      this.portalKeydownListener = null;
+    }
+    if (this.portalScrollListener) {
+      window.removeEventListener('scroll', this.portalScrollListener);
+      window.removeEventListener('resize', this.portalScrollListener);
+      this.portalScrollListener = null;
+    }
   }
 
   // ─── Private Helpers ────────────────────────────────────────────────────────

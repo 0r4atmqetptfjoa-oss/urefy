@@ -9,7 +9,7 @@ import { renderProfileHeaderHTML, renderEditProfileModalHTML } from './profile-h
 import { renderProfileTabsHTML } from './profile-tabs.js';
 import { filterProfilePosts, renderProfileTimelinePostsHTML } from './profile-posts.js';
 import { renderProfileSettingsHTML, renderSettingsCategoryContentHTML } from './profile-settings.js';
-import { ClientPost } from '../client-state.js';
+import { ClientPost, clientStore } from '../client-state.js';
 import { isDemoModeEnabled } from '../demo-mode.js';
 
 export class ProfileView {
@@ -111,7 +111,7 @@ export class ProfileView {
           }
         } catch (_) {}
       }
-      const known = (typeof clientStore !== 'undefined' ? clientStore.members?.find(m => m.fingerprint === fp) : null) as any;
+      const known = (typeof clientStore !== 'undefined' ? clientStore.members?.find((m: any) => m.fingerprint === fp) : null) as any;
       const name = known?.name || (fp === 'genesis-core' ? 'Genesis Protocol Archon' : fp === 'c3dc28cb705e' ? 'Elena Rostova' : fp === 'a89104fa2211' ? 'David Chen' : fp === 'f40019bc88a2' ? 'Maya Patel' : fp === '9b22a011cd44' ? 'Samira Khan' : `Member ${fp.length > 8 ? fp.substring(0, 6) : fp}`);
       const handle = known?.handle?.replace(/^@/, '') || (fp === 'genesis-core' ? 'genesis-core' : fp === 'c3dc28cb705e' ? 'elena_r' : fp === 'a89104fa2211' ? 'david_c' : fp === 'f40019bc88a2' ? 'maya_p' : fp === '9b22a011cd44' ? 'samira' : (fp.length > 8 ? fp.substring(0, 8) : fp));
       this.profileData.set(fp, {

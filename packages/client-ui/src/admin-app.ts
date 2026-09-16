@@ -12,10 +12,25 @@ import { secureStorage } from './secure-storage.js';
 
 import { adminAuth } from './admin-auth.js';
 import { adminPanel, AdminTab } from './admin-panel.js';
+import { signInWithAdminPasskey, bindAdminPasskeySettings } from './admin-passkeys.js';
 
 export function initAdminApp(): void {
   const root = document.getElementById('admin-root');
   if (!root) return;
+
+  adminPanel.onSyncComplete = () => {
+    if (!adminAuth.isAdmin || adminPanel.activeTab !== 'dashboard') return;
+    const content = document.getElementById('admin-tab-content');
+    const scrollTop = content?.scrollTop || 0;
+    const expanded = content?.querySelector('details')?.open;
+    initAdminApp();
+    const updated = document.getElementById('admin-tab-content');
+    if (updated) {
+      updated.scrollTop = scrollTop;
+      const details = updated.querySelector('details');
+      if (details && expanded) details.open = true;
+    }
+  };
 
   // Bind admin fingerprint — loads from localStorage
   // Admin is whoever owns this device's crypto identity
@@ -109,6 +124,8 @@ function renderLoginPage(): string {
               </button>
             </form>
 
+            <button type="button" id="btn-login-passkey" class="mt-3 w-full py-3 rounded-xl border border-amber/30 text-amber text-sm font-bold">Sign in with a passkey</button>
+
             <div class="mt-6 pt-4 border-t border-white/5 text-center">
               <a href="/" class="text-xs text-slate-600 hover:text-slate-400 transition-colors">
                 ← Back to UREfy
@@ -118,7 +135,7 @@ function renderLoginPage(): string {
         </div>
 
         <p class="text-center text-xs text-slate-600 mt-4 font-mono">
-          Enter sovereign instance PIN (Cloudflare Secret or Local Dev 11223)
+          Authorized administrators only. Passkeys can be added after signing in.
         </p>
       </div>
     </div>
@@ -130,6 +147,29 @@ function bindLoginEvents(): void {
   const input = document.getElementById('login-pin-input') as HTMLInputElement | null;
   const submitBtn = document.getElementById('btn-login-submit') as HTMLButtonElement | null;
   const errorEl = document.getElementById('login-error');
+  const passkeyButton = document.getElementById('btn-login-passkey') as HTMLButtonElement | null;
+  if (passkeyButton) {
+    passkeyButton.disabled = !window.PublicKeyCredential || !window.isSecureContext;
+    passkeyButton.addEventListener('click', async () => {
+      passkeyButton.disabled = true;
+      if (submitBtn) submitBtn.disabled = true;
+      passkeyButton.textContent = 'Waiting for your passkey…';
+      try {
+        await signInWithAdminPasskey();
+        adminPanel.open();
+        initAdminApp();
+      } catch (error) {
+        if (errorEl) {
+          errorEl.textContent = error instanceof Error ? error.message : 'Passkey sign-in failed. Use your PIN.';
+          errorEl.classList.remove('hidden');
+        }
+      } finally {
+        passkeyButton.disabled = false;
+        if (submitBtn) submitBtn.disabled = false;
+        passkeyButton.textContent = 'Sign in with a passkey';
+      }
+    });
+  }
 
   const tryLogin = async () => {
     const pin = input?.value ?? '';
@@ -202,6 +242,7 @@ function renderFullAdminApp(): string {
 
 function bindAdminEvents(): void {
   adminPanel.bindEvents(() => initAdminApp());
+  void bindAdminPasskeySettings();
 
   // Lock session button
   document.getElementById('btn-close-admin-panel')?.addEventListener('click', () => {

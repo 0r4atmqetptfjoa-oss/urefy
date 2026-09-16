@@ -612,7 +612,7 @@ export class FeedControlsEngine {
                       p.flair === 'MICRO-PULSE' ? 'bg-slate-800 text-indigo-300 border-indigo-500/30' :
                       'bg-surface-raised text-slate-300 border-white/10';
 
-    const rootComments = threadManager.getRootComments();
+    const rootComments = threadManager.getRootCommentsForPost(p.id);
     const matchedCircle = sovereignCircleEngine.findCircle(p.channelId);
     const circleName = matchedCircle ? `c/${matchedCircle.name}` : (p.channelId.startsWith('c/') ? p.channelId : 'c/technology');
     const store = (typeof window !== 'undefined' ? (window as any).clientStore : null) || clientStore;

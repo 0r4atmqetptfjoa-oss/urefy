@@ -45,6 +45,7 @@ import { sovereignDM } from './sovereign-dm.js';
 import { sharePostOrCopyLink } from './dry-utils.js';
 import { toastManager } from './toast.js';
 import { sovereignRouter } from './router.js';
+import { reportModalManager } from './report-modal.js';
 
 // V4 Imports
 import { virtualScroll } from './virtual-scroll.js';
@@ -99,6 +100,9 @@ import { communityView } from './community-view.js';
 import { rapidOnboarding } from './rapid-onboarding.js';
 import { actionDispatcher } from './ui/action-dispatcher.js';
 import { renderHeaderPrimaryNav, renderHeaderTools, renderBroadcastBanner as renderHeaderBroadcastBanner } from './header.js';
+import { railController } from './controllers/rail-controller.js';
+import { navigationController } from './controllers/navigation-controller.js';
+import { renderWorkspaceLayoutControls } from './workspace-layout.js';
 
 let isThemeModalOpen = false;
 let isExportBackupModalOpen = false;
@@ -110,6 +114,7 @@ let isLangModalOpen = false;
 let isGlobalScaleModalOpen = false;
 let isMobileDrawerOpen = false;
 let isAdvancedOverflowOpen = false;
+let isMoreExpanded = false;
 
 // Register Core Singletons into Inversion of Control Container
 serviceRegistry.registerInstance(SERVICES.ClientStore, clientStore);
@@ -270,6 +275,8 @@ if (typeof window !== 'undefined') {
   window.__aetheris_set_ui_mode = (mode: 'simple' | 'sovereign') => { clientStore.setUiMode(mode); };
   window.__aetheris_toggle_advanced_overflow = () => { isAdvancedOverflowOpen = !isAdvancedOverflowOpen; clientStore.notify(); };
   window.__aetheris_close_advanced_overflow = () => { isAdvancedOverflowOpen = false; clientStore.notify(); };
+  window.__aetheris_toggle_more_rail = () => { isMoreExpanded = !isMoreExpanded; clientStore.notifySync(); };
+  window.__aetheris_toggle_bookmarks = () => { isBookmarkModalOpen = !isBookmarkModalOpen; clientStore.notify(); };
       window.offlineSync = offlineSync;
             window.errorBoundary = errorBoundary;
   window.structuredLogger = structuredLogger;
@@ -321,6 +328,7 @@ let _dspInstance: any = null;
     return _dspInstance;
   };
 let currentFilter = '';
+let activeCommandIndex = 0;
 let activeDownloadName: string | null = null;
 let activeDownloadProgress: number = 0;
 
@@ -340,32 +348,28 @@ function updateReactionBarDOM(postId: string): void {
 }
 
 function bindReactionBarEvents(container: Document | HTMLElement = document): void {
-  // 1. Add Reaction (+ React button)
+  // 1. Add Reaction (+ React button) with Global Portal Stacking Overlay
   container.querySelectorAll<HTMLButtonElement>('.add-reaction-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
-      const pickerId = btn.getAttribute('data-picker-id');
-      if (pickerId) {
-        const pk = document.getElementById(pickerId);
-        if (pk) {
-          const isCurrentlyHidden = pk.classList.contains('hidden');
-          // Close all other open reaction pickers first
-          document.querySelectorAll('.reactions-picker').forEach(p => {
-            if (p.id !== pickerId) p.classList.add('hidden');
-          });
-          document.querySelectorAll('.add-reaction-btn').forEach(b => {
-            if (b !== btn) b.setAttribute('aria-expanded', 'false');
-          });
-
-          if (isCurrentlyHidden) {
-            pk.classList.remove('hidden');
-            btn.setAttribute('aria-expanded', 'true');
-            soundEffects.playClick();
-          } else {
-            pk.classList.add('hidden');
-            btn.setAttribute('aria-expanded', 'false');
+      const postId = btn.getAttribute('data-post-id');
+      if (postId) {
+        soundEffects.playClick();
+        reactionsEngine.openPortalPicker(
+          btn,
+          postId,
+          clientStore.keypair?.fingerprint || 'anon-peer',
+          (emoji) => {
+            soundEffects.playReaction();
+            void import('./analytics-widget.js').then(({ localAnalytics }) => localAnalytics.recordUpvote());
+            const rect = btn.getBoundingClientRect();
+            if (rect && rect.top > 0) {
+              reactionsEngine.triggerParticleBurst(rect.left + rect.width / 2, rect.top, emoji);
+            }
+            updateReactionBarDOM(postId);
+            clientStore.notify('REACTION', { postId, emoji });
           }
-        }
+        );
       }
     });
   });
@@ -498,6 +502,20 @@ export function initApp(): void {
   const renderAdvancedHeaderTools = (inDropdown: boolean = false): string => {
     if (inDropdown) {
       return `
+        <!-- MODE SWITCHER (SIMPLE vs ADVANCED) -->
+        <div class="col-span-1 sm:col-span-2 p-2.5 rounded-2xl bg-indigo-950/40 border border-indigo-500/20 flex items-center justify-between mb-1">
+          <div class="flex items-center space-x-2">
+            <span class="text-sm">⚡</span>
+            <div>
+              <div class="text-xs font-bold text-white">${clientStore.isSimpleMode() ? 'Simple Mode' : 'Advanced Mode'}</div>
+              <div class="text-[10px] text-slate-400">${clientStore.isSimpleMode() ? 'Clean, social-first UI' : 'Developer & diagnostic tools active'}</div>
+            </div>
+          </div>
+          <button type="button" id="btn-toggle-ui-mode-header" class="px-2.5 py-1 rounded-xl text-[11px] font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition-all cursor-pointer shadow-sm">
+            ${clientStore.isSimpleMode() ? 'Switch to Advanced' : 'Switch to Simple'}
+          </button>
+        </div>
+
         <!-- DUAL HORIZON -->
         <button type="button" id="btn-toggle-dual-horizon" title="Toggle Split Screen: Stream + Vault simultaneously (Ctrl+\\)" class="w-full flex items-center space-x-2 px-2.5 py-1.5 rounded-xl text-xs border border-white/5 bg-surface-base/60 hover:bg-surface-overlay text-slate-300 transition-all cursor-pointer ${clientStore.isDualHorizon ? 'border-indigo-500/40 text-indigo-300' : ''}">
           <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 4v16m6-16v16M4 4h16v16H4z"></path></svg>
@@ -508,6 +526,54 @@ export function initApp(): void {
         <button type="button" id="btn-open-global-scale" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-base/60 hover:bg-surface-overlay text-slate-300 font-mono transition-all cursor-pointer" title="Worldwide Anycast Edge Infrastructure">
           <span class="text-xs shrink-0">🌐</span>
           <span class="font-sans font-medium text-[11px] truncate">Anycast Edge</span>
+        </button>
+
+        <!-- MESH MATRIX -->
+        <button type="button" id="btn-open-mesh-matrix" data-action="open-feature" data-feature="mesh-matrix" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-base/60 hover:bg-surface-overlay text-slate-300 font-mono transition-all cursor-pointer" title="Mesh Matrix Topology">
+          <span class="text-xs shrink-0">🕸️</span>
+          <span class="font-sans font-medium text-[11px] truncate">Mesh Matrix</span>
+        </button>
+
+        <!-- DAO GOVERNANCE -->
+        <button type="button" id="nav-btn-dao" data-action="open-feature" data-feature="governance" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-base/60 hover:bg-surface-overlay text-slate-300 font-mono transition-all cursor-pointer" title="DAO Governance">
+          <span class="text-xs shrink-0">🗳️</span>
+          <span class="font-sans font-medium text-[11px] truncate">DAO Governance</span>
+        </button>
+
+        <!-- RSS IMPORTER -->
+        <button type="button" id="btn-open-rss-panel" data-action="open-feature" data-feature="rss" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-base/60 hover:bg-surface-overlay text-slate-300 font-mono transition-all cursor-pointer" title="RSS Importer">
+          <span class="text-xs shrink-0">📡</span>
+          <span class="font-sans font-medium text-[11px] truncate">RSS Importer</span>
+        </button>
+
+        <!-- CVE MONITOR -->
+        <button type="button" id="btn-open-cve-monitor" data-action="open-feature" data-feature="cve" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-base/60 hover:bg-surface-overlay text-slate-300 font-mono transition-all cursor-pointer" title="CVE Security Monitor">
+          <span class="text-xs shrink-0">🛡️</span>
+          <span class="font-sans font-medium text-[11px] truncate">CVE Monitor</span>
+        </button>
+
+        <!-- NETWORK OBSERVATORY -->
+        <button type="button" id="btn-open-network-observatory" data-action="open-feature" data-feature="observatory" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-base/60 hover:bg-surface-overlay text-slate-300 font-mono transition-all cursor-pointer" title="Network Observatory">
+          <span class="text-xs shrink-0">📊</span>
+          <span class="font-sans font-medium text-[11px] truncate">Observatory</span>
+        </button>
+
+        <!-- TRUST GRAPH -->
+        <button type="button" id="btn-open-wot-graph" data-action="open-feature" data-feature="wot-graph" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-base/60 hover:bg-surface-overlay text-slate-300 font-mono transition-all cursor-pointer" title="Web of Trust Graph">
+          <span class="text-xs shrink-0">🔗</span>
+          <span class="font-sans font-medium text-[11px] truncate">Trust Graph</span>
+        </button>
+
+        <!-- GOSSIP VISUALIZER -->
+        <button type="button" id="btn-open-gossip-viz" data-action="open-feature" data-feature="gossip" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-base/60 hover:bg-surface-overlay text-slate-300 font-mono transition-all cursor-pointer" title="Gossip Protocol Visualizer">
+          <span class="text-xs shrink-0">📻</span>
+          <span class="font-sans font-medium text-[11px] truncate">Gossip Viz</span>
+        </button>
+
+        <!-- EXPORT BACKUP -->
+        <button type="button" id="btn-open-backup-export" data-action="open-feature" data-feature="export-backup" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-base/60 hover:bg-surface-overlay text-slate-300 font-mono transition-all cursor-pointer" title="Export & Backup">
+          <span class="text-xs shrink-0">💾</span>
+          <span class="font-sans font-medium text-[11px] truncate">Export & Backup</span>
         </button>
 
         <!-- SEED VAULT -->
@@ -743,6 +809,8 @@ export function initApp(): void {
     }
   };
 
+  const renderLeftRailContent = (): string => railController.renderLeftRailContent({ isMoreExpanded });
+
   const render = () => {
     errorBoundary.wrapRender(() => {
       // Preserve scroll positions across re-renders
@@ -848,234 +916,7 @@ export function initApp(): void {
           <!-- LEFT COMMAND RAIL + SOVEREIGN CIRCLES -->
           <aside id="left-rail-container" class="w-64 bg-surface-base border-subtle-r flex flex-col justify-between shrink-0 select-none hidden lg:flex">
             <div id="left-rail-scroll" class="p-3 overflow-y-auto space-y-4">
-              
-              <!-- PRIMARY NAVIGATION DOCK (LEVEL 1: 6 ITEMS) -->
-              <div class="space-y-1" aria-label="Primary navigation">
-                <button type="button" data-nav-mode="pulse" data-testid="nav-item-feed" class="btn-nav-mode w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center space-x-3 cursor-pointer ${clientStore.activeChannelId.startsWith('pulse-') ? 'is-active nav-item-active shadow-sm' : 'text-slate-300 hover:text-white hover:bg-surface-raised'}" title="Home">
-                  <span class="shrink-0 ${clientStore.activeChannelId.startsWith('pulse-') ? 'text-cyan-400' : 'text-slate-400'}">${renderIcon('feed', { size: 18 })}</span>
-                  <div class="flex flex-col text-left flex-1 min-w-0">
-                    <span class="font-bold leading-tight">Home</span>
-                    <span class="text-[10px] text-slate-400 font-normal">Your feed</span>
-                  </div>
-                  ${clientStore.activeChannelId.startsWith('pulse-') ? '<span class="w-2 h-2 rounded-full nav-indicator-active shrink-0"></span>' : ''}
-                </button>
-
-                <button type="button" data-nav-mode="explore" data-testid="nav-item-explore" class="btn-nav-mode w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center space-x-3 cursor-pointer ${clientStore.activeChannelId === 'explore' ? 'is-active nav-item-active shadow-sm' : 'text-slate-300 hover:text-white hover:bg-surface-raised'}" title="Explore">
-                  <span class="shrink-0 ${clientStore.activeChannelId === 'explore' ? 'text-indigo-400' : 'text-slate-400'}">${renderIcon('explore', { size: 18 })}</span>
-                  <div class="flex flex-col text-left flex-1 min-w-0">
-                    <span class="font-bold leading-tight">Explore</span>
-                    <span class="text-[10px] text-slate-400 font-normal">Discover what's new</span>
-                  </div>
-                  ${clientStore.activeChannelId === 'explore' ? '<span class="w-2 h-2 rounded-full nav-indicator-active shrink-0"></span>' : ''}
-                </button>
-
-                <button type="button" data-nav-mode="relays" data-testid="nav-item-messages" class="btn-nav-mode w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center space-x-3 cursor-pointer ${clientStore.activeChannelId.startsWith('relays-') || clientStore.activeChannelId.startsWith('relay-') || clientStore.activeChannelId.startsWith('dm-') ? 'is-active nav-item-active shadow-sm' : 'text-slate-300 hover:text-white hover:bg-surface-raised'}" title="Messages">
-                  <span class="shrink-0 ${clientStore.activeChannelId.startsWith('relays-') || clientStore.activeChannelId.startsWith('relay-') || clientStore.activeChannelId.startsWith('dm-') ? 'text-emerald-400' : 'text-slate-400'}">${renderIcon('messages', { size: 18 })}</span>
-                  <div class="flex flex-col text-left flex-1 min-w-0">
-                    <span class="font-bold leading-tight">Messages</span>
-                    <span class="text-[10px] text-slate-400 font-normal">Private & community chat</span>
-                  </div>
-                  ${clientStore.activeChannelId.startsWith('relays-') || clientStore.activeChannelId.startsWith('relay-') || clientStore.activeChannelId.startsWith('dm-') ? '<span class="w-2 h-2 rounded-full nav-indicator-active shrink-0"></span>' : ''}
-                </button>
-
-                <button type="button" data-nav-mode="communities" data-testid="nav-item-communities" class="btn-nav-mode w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center space-x-3 cursor-pointer ${clientStore.activeChannelId === 'communities' || clientStore.activeChannelId.startsWith('c/') ? 'is-active nav-item-active shadow-sm' : 'text-slate-300 hover:text-white hover:bg-surface-raised'}" title="Communities">
-                  <span class="shrink-0 ${clientStore.activeChannelId === 'communities' || clientStore.activeChannelId.startsWith('c/') ? 'text-indigo-400' : 'text-slate-400'}">${renderIcon('users', { size: 18 })}</span>
-                  <div class="flex flex-col text-left flex-1 min-w-0">
-                    <span class="font-bold leading-tight">Communities</span>
-                    <span class="text-[10px] text-slate-400 font-normal">Find your people</span>
-                  </div>
-                  ${clientStore.activeChannelId === 'communities' || clientStore.activeChannelId.startsWith('c/') ? '<span class="w-2 h-2 rounded-full nav-indicator-active shrink-0"></span>' : ''}
-                </button>
-
-                <button type="button" data-nav-mode="profile" data-testid="nav-item-profile" class="btn-nav-mode w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center space-x-3 cursor-pointer ${clientStore.activeChannelId.startsWith('profile') ? 'is-active nav-item-active shadow-sm' : 'text-slate-300 hover:text-white hover:bg-surface-raised'}" title="Your sovereign cryptographic identity & settings">
-                  <span class="shrink-0 ${clientStore.activeChannelId.startsWith('profile') ? 'text-purple-400' : 'text-slate-400'}">${renderIcon('profile', { size: 18 })}</span>
-                  <div class="flex flex-col text-left flex-1 min-w-0">
-                    <span class="font-bold leading-tight">Profile</span>
-                    <span class="text-[10px] text-slate-400 font-normal">Your profile</span>
-                  </div>
-                  ${clientStore.activeChannelId.startsWith('profile') ? '<span class="w-2 h-2 rounded-full nav-indicator-active shrink-0"></span>' : ''}
-                </button>
-
-                <button type="button" id="btn-rail-more" data-testid="nav-item-more" class="btn-nav-more w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center space-x-3 cursor-pointer ${isAdvancedOverflowOpen ? 'is-active nav-item-active shadow-sm text-white' : 'text-slate-300 hover:text-white hover:bg-surface-raised'}" title="More tools, governance & diagnostics">
-                  <span class="shrink-0 ${isAdvancedOverflowOpen ? 'text-cyan-400' : 'text-slate-400'}">${renderIcon('more', { size: 18 })}</span>
-                  <div class="flex flex-col text-left flex-1 min-w-0">
-                    <span class="font-bold leading-tight">More</span>
-                    <span class="text-[10px] text-slate-400 font-normal">Settings & more</span>
-                  </div>
-                </button>
-              </div>
-
-              <!-- ADVANCED TOOLS PANEL -->
-              <div class="pt-2 border-t border-white/5 space-y-1" aria-label="Advanced tools">
-                <div class="text-[10px] uppercase font-bold text-slate-500 tracking-wider mb-2 px-2 flex items-center justify-between">
-                   <span>🛠️ Tools</span>
-                   <span class="text-[9px] px-1.5 py-0.2 rounded bg-surface-raised text-cyan-400 border border-white/5">10</span>
-                </div>
-
-                <button type="button" id="rail-btn-bookmarks" class="w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
-                  ${renderIcon('bookmark', { size: 18 })}
-                  <span class="flex-1">Saved Bookmarks</span>
-                </button>
-
-                <button type="button" id="rail-btn-theme" data-action="open-theme" class="w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
-                  ${renderIcon('sliders', { size: 18 })}
-                  <span class="flex-1">Display & Themes</span>
-                  <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 uppercase">${themeEngine.currentThemeId}</span>
-                </button>
-
-                <button type="button" id="btn-open-mesh-matrix" data-action="open-feature" data-feature="mesh-matrix" class="w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer"><span class="text-base">🕸️</span><span class="flex-1">Mesh Matrix</span></button>
-
-                <!-- DAO GOVERNANCE -->
-                <button type="button" id="nav-btn-dao" data-action="open-feature" data-feature="governance" class="w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
-                  ${renderIcon('vote', { size: 18 })}
-                  <span class="flex-1">DAO Governance</span>
-                </button>
-
-                <!-- RSS IMPORTER -->
-                <button type="button" id="btn-open-rss-panel" data-action="open-feature" data-feature="rss" class="w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
-                  ${renderIcon('rss', { size: 18 })}
-                  <span class="flex-1">RSS Importer</span>
-                </button>
-
-                <!-- CVE SECURITY MONITOR -->
-                <button type="button" id="btn-open-cve-monitor" data-action="open-feature" data-feature="cve" class="w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
-                  ${renderIcon('shield', { size: 18 })}
-                  <span class="flex-1">CVE Monitor</span>
-                </button>
-
-                <!-- NETWORK OBSERVATORY -->
-                <button type="button" id="btn-open-network-observatory" data-action="open-feature" data-feature="observatory" class="w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
-                  ${renderIcon('activity', { size: 18 })}
-                  <span class="flex-1">Network Observatory</span>
-                </button>
-
-                <!-- WOT GRAPH -->
-                <button type="button" id="btn-open-wot-graph" data-action="open-feature" data-feature="wot-graph" class="w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
-                  ${renderIcon('network', { size: 18 })}
-                  <span class="flex-1">Trust Graph</span>
-                </button>
-
-                <!-- GOSSIP VISUALIZER -->
-                <button type="button" id="btn-open-gossip-viz" data-action="open-feature" data-feature="gossip" class="w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
-                  ${renderIcon('radio', { size: 18 })}
-                  <span class="flex-1">Gossip Visualizer</span>
-                </button>
-
-                <!-- EXPORT BACKUP -->
-                <button type="button" id="btn-open-backup-export" data-action="open-feature" data-feature="export-backup" class="w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
-                  ${renderIcon('download', { size: 18 })}
-                  <span class="flex-1">Export & Backup</span>
-                </button>
-
-                <!-- PIXEL CANVAS STEGANOGRAPHY -->
-                <button type="button" id="btn-open-steganography" data-action="open-feature" data-feature="steganography" class="w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold text-cyan-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer" title="Pixel Canvas Steganography">
-                  ${renderIcon('image', { size: 18 })}
-                  <span class="flex-1">Pixel Canvas Steganography</span>
-                </button>
-
-                <!-- BINARY HYGIENE PORTAL -->
-                <button type="button" id="btn-open-binary-hygiene-menu" data-action="open-feature" data-feature="binary-hygiene" class="w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold text-cyan-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer" title="Binary Hygiene (Entropy & UPX Detection)">
-                  <span class="text-base">🛡️</span>
-                  <span class="flex-1">Binary Hygiene Portal</span>
-                  <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-cyan-950 text-cyan-300 border border-cyan-500/30">FREE</span>
-                </button>
-
-                <!-- PORTABLE ZK TRUST SCORE -->
-                <button type="button" id="btn-open-portable-trust-menu" data-action="open-feature" data-feature="portable-trust" class="w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold text-purple-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer" title="Portable ZK Trust Score (BN254 Range Proofs)">
-                  <span class="text-base">💎</span>
-                  <span class="flex-1">Portable ZK Trust Score</span>
-                  <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-purple-950 text-purple-300 border border-purple-500/30">ZK</span>
-                </button>
-
-                <!-- MICRO-SAAS & DEV APIS -->
-                <button type="button" id="btn-open-microsaas-docs-menu" data-action="open-feature" data-feature="microsaas-docs" class="w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold text-emerald-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer" title="Micro-SaaS & Developer APIs">
-                  <span class="text-base">⚡</span>
-                  <span class="flex-1">Micro-SaaS & Dev APIs</span>
-                  <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-300 border border-emerald-500/30">EDGE</span>
-                </button>
-              </div>
-
-              <!-- SOVEREIGN CIRCLES & COLLECTIVES -->
-              <div class="pt-2 border-t border-white/5 space-y-1">
-                <div class="text-[10px] uppercase font-bold text-slate-500 tracking-wider mb-2 px-2 flex items-center justify-between">
-                  <span>🏛️ Communities</span>
-                </div>
-                
-                <button type="button" data-channel-id="vault-releases" class="btn-channel w-full text-left px-3 py-2 rounded-xl text-xs flex items-center justify-between transition-all cursor-pointer ${clientStore.activeChannelId === 'vault-releases' ? 'bg-emerald-950/60 text-emerald-300 font-bold border border-emerald-500/30' : 'text-slate-300 hover:text-white hover:bg-surface-raised'}">
-                  <div class="flex items-center space-x-2 truncate">
-                    <span class="text-xs">📦</span>
-                    <span class="truncate font-semibold">c/open-source</span>
-                  </div>
-                </button>
-
-                <button type="button" data-channel-id="vault-guides" class="btn-channel w-full text-left px-3 py-2 rounded-xl text-xs flex items-center justify-between transition-all cursor-pointer ${clientStore.activeChannelId === 'vault-guides' ? 'bg-emerald-950/60 text-emerald-300 font-bold border border-emerald-500/30' : 'text-slate-300 hover:text-white hover:bg-surface-raised'}">
-                  <div class="flex items-center space-x-2 truncate">
-                    <span class="text-xs">🛡️</span>
-                    <span class="truncate font-semibold">c/guides</span>
-                  </div>
-                  <span class="text-[9px] font-mono text-slate-500">Docs</span>
-                </button>
-
-                <button type="button" data-channel-id="pulse-global" class="btn-channel w-full text-left px-3 py-2 rounded-xl text-xs flex items-center justify-between transition-all cursor-pointer ${clientStore.activeChannelId === 'pulse-global' ? 'bg-indigo-950/60 text-indigo-300 font-bold border border-indigo-500/30' : 'text-slate-300 hover:text-white hover:bg-surface-raised'}">
-                  <div class="flex items-center space-x-2 truncate">
-                    <span class="text-xs">⚡</span>
-                    <span class="truncate font-semibold">c/privacy</span>
-                  </div>
-                </button>
-
-                <button type="button" data-channel-id="relays-general" class="btn-channel w-full text-left px-3 py-2 rounded-xl text-xs flex items-center justify-between transition-all cursor-pointer ${clientStore.activeChannelId === 'relays-general' ? 'bg-indigo-950/60 text-indigo-300 font-bold border border-indigo-500/30' : 'text-slate-300 hover:text-white hover:bg-surface-raised'}">
-                  <div class="flex items-center space-x-2 truncate">
-                    <span class="text-xs">🌐</span>
-                    <span class="truncate font-semibold">c/general</span>
-                  </div>
-                </button>
-              </div>
-
-              <!-- PROMINENT BROADCAST BUTTON -->
-              <div class="pt-2">
-                <button type="button" id="btn-open-composer" class="w-full py-3 px-4 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition-all shadow-md flex items-center justify-center space-x-2 cursor-pointer group">
-                  <span class="text-base group-hover:scale-110 transition-transform">✍️</span>
-                  <span>Post</span>
-                </button>
-              </div>
-
-              <!-- ACOUSTIC VOICE LOUNGE -->
-              <div class="p-3 rounded-2xl bg-surface-raised/90 border border-white/5 space-y-2.5 shadow-sm">
-                <div class="flex items-center justify-between text-xs font-bold text-indigo-300">
-                  <span class="flex items-center space-x-1.5">
-                    <span class="text-sm">🔊</span>
-                    <span>Acoustic Lounge</span>
-                  </span>
-                </div>
-                
-                <canvas id="voice-oscilloscope" width="200" height="20" class="w-full bg-surface-base rounded-xl border border-white/5"></canvas>
-
-                <div class="flex items-center space-x-1.5">
-                  <button type="button" id="btn-toggle-voice" class="flex-1 py-1.5 text-[10px] font-semibold rounded-xl cursor-pointer ${voiceVisualizer.isConnected ? 'bg-rose-950 text-rose-300 border border-rose-500/30' : 'bg-surface-overlay text-slate-200 hover:text-white border border-white/5'}">
-                    ${voiceVisualizer.isConnected ? 'Disconnect' : 'Join Voice'}
-                  </button>
-                  <button type="button" id="btn-toggle-ghost" title="Private mode" class="py-1.5 px-2.5 text-[10px] rounded-xl border cursor-pointer ${voiceVisualizer.isGhostSpaceActive ? 'bg-indigo-900 text-indigo-200 border-indigo-500/50' : 'bg-surface-overlay text-slate-400 border-white/5'}">
-                    👻 Ghost
-                  </button>
-                </div>
-
-                <button type="button" id="btn-toggle-screen" class="w-full py-1.5 text-[10px] font-medium rounded-xl border ${screenShareEngine.isStreaming ? 'bg-rose-950 text-rose-300 border-rose-500/40' : 'bg-surface-overlay text-slate-200 hover:text-white border-white/5'} transition-all flex items-center justify-center space-x-1 cursor-pointer">
-                  <span>📺</span>
-                  <span>${screenShareEngine.isStreaming ? 'Stop Streaming' : 'Screen Share (Ultrawide)'}</span>
-                </button>
-              </div>
-
-              <!-- AUDIO NOISE GATE & DSP EQUALIZER -->
-              <div class="p-2.5 rounded-2xl bg-surface-raised/50 border border-white/5 flex items-center space-x-1.5">
-                <span id="dsp-gate-indicator" class="w-2 h-2 rounded-full bg-emerald-400"></span>
-                <button type="button" id="btn-toggle-dsp" class="flex-1 py-1 text-[10px] font-medium rounded-lg bg-surface-raised hover:bg-surface-overlay text-slate-300 border border-white/5 transition-all flex items-center justify-center space-x-1.5 cursor-pointer">
-                  <span>🎙️ Audio Noise Filter</span>
-                </button>
-                <button type="button" id="btn-open-dsp-modal" class="p-1 rounded-lg bg-surface-raised hover:bg-surface-overlay text-slate-300 border border-white/5 cursor-pointer" title="5-Band DSP Equalizer">
-                  🎛️
-                </button>
-              </div>
-
+              ${renderLeftRailContent()}
             </div>
 
             <!-- USER IDENTITY CAPSULE -->
@@ -1292,6 +1133,7 @@ export function initApp(): void {
       patchEl('broadcast-root', renderBroadcastBanner());
       patchEl('header-primary-nav', renderHeaderPrimaryNav());
       patchEl('header-tools-root', renderHeaderToolsRoot());
+      patchEl('left-rail-scroll', renderLeftRailContent());
       patchEl('main-stage', renderMainStage());
       patchEl('right-rail-scroll', renderRightRailContent());
       restoreMessageSelection('relay', false);
@@ -1382,6 +1224,7 @@ export function initApp(): void {
   };
 
   clientStore.subscribe(patchRender);
+  sovereignRouter.init();
 
   // Seed initial ephemeral stories so the carousel has content
   if (isDemoModeEnabled() && storiesEngine.stories.length === 0) {
@@ -1496,6 +1339,10 @@ function renderMainStage(): string {
   if (clientStore.isDualHorizon) {
     return `
       <div class="flex-1 flex flex-col overflow-hidden">
+        <header class="view-header orbit-split-header">
+          <div><h1>Split workspace</h1><p>Conversations and knowledge, side by side.</p></div>
+          <div class="orbit-layout-tools">${renderWorkspaceLayoutControls()}</div>
+        </header>
         ${onboardingHTML}
         <div class="flex-1 flex overflow-hidden">
           <section class="flex-1 border-subtle-r flex flex-col overflow-hidden bg-canvas">
@@ -1927,6 +1774,8 @@ function renderCommandRailModal(): string {
     c.category.toLowerCase().includes(filter)
   );
 
+  let itemIndex = 0;
+
   return `
     <div id="command-rail-overlay" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-start justify-center pt-20">
       <div class="w-[560px] max-w-[94vw] bg-surface-base border border-white/10 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
@@ -1935,6 +1784,11 @@ function renderCommandRailModal(): string {
           <input 
             type="text" 
             id="command-rail-input"
+            role="combobox"
+            aria-autocomplete="list"
+            aria-expanded="true"
+            aria-controls="command-rail-results-list"
+            aria-activedescendant="cmd-item-${activeCommandIndex}"
             value="${escapeHtml(currentFilter)}"
             placeholder="Search posts, circles, encrypted messages, or type / for commands..." 
             class="flex-1 bg-transparent text-xs text-slate-200 placeholder-slate-500 focus:outline-none font-mono"
@@ -1943,7 +1797,7 @@ function renderCommandRailModal(): string {
           <span class="kbd-badge">ESC</span>
         </div>
 
-        <div class="max-h-96 overflow-y-auto p-2.5 space-y-2">
+        <div id="command-rail-results-list" role="listbox" class="max-h-96 overflow-y-auto p-2.5 space-y-2">
           ${matchingPosts.length > 0 ? `
             <div class="px-2 py-1 text-[10px] font-mono text-amber-400 font-bold uppercase tracking-wider flex items-center justify-between">
               <span>📝 Sovereign Posts (BM25: ${matchingPosts.length})</span>
@@ -1953,8 +1807,10 @@ function renderCommandRailModal(): string {
               ${matchingPosts.map(p => {
                 const searchMatch = searchResults.find(r => r.doc.id === p.id);
                 const displaySnippet = searchMatch ? searchMatch.snippet : escapeHtml(p.content ? p.content.slice(0, 110) : '');
+                const curIdx = itemIndex++;
+                const isSelected = curIdx === activeCommandIndex;
                 return `
-                <button type="button" class="btn-open-post-detail w-full text-left p-2.5 rounded-xl bg-surface-overlay hover:bg-surface-highlight border border-white/5 text-xs space-y-1 transition-all cursor-pointer group" data-post-id="${p.id}">
+                <button type="button" id="cmd-item-${curIdx}" data-cmd-index="${curIdx}" role="option" aria-selected="${isSelected ? 'true' : 'false'}" class="btn-open-post-detail w-full text-left p-2.5 rounded-xl bg-surface-overlay hover:bg-surface-highlight border text-xs space-y-1 transition-all cursor-pointer group ${isSelected ? 'border-indigo-500 bg-surface-highlight ring-1 ring-indigo-500/40 shadow-sm' : 'border-white/5'}" data-post-id="${p.id}">
                   <div class="flex items-center justify-between text-[10px] font-mono text-slate-400">
                     <span class="text-amber-300 font-bold group-hover:text-amber-200">${escapeHtml(p.title || 'Untitled Post')}</span>
                     <div class="flex items-center space-x-2">
@@ -1976,12 +1832,16 @@ function renderCommandRailModal(): string {
               <span class="text-[9px] text-slate-500">Switch channel</span>
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-              ${matchingChannels.map(c => `
-                <button type="button" class="btn-channel text-left p-2 rounded-xl bg-surface-overlay hover:bg-surface-highlight border border-white/5 text-xs flex items-center justify-between transition-all cursor-pointer" data-channel-id="${c.id}">
+              ${matchingChannels.map(c => {
+                const curIdx = itemIndex++;
+                const isSelected = curIdx === activeCommandIndex;
+                return `
+                <button type="button" id="cmd-item-${curIdx}" data-cmd-index="${curIdx}" role="option" aria-selected="${isSelected ? 'true' : 'false'}" class="btn-channel text-left p-2 rounded-xl bg-surface-overlay hover:bg-surface-highlight border text-xs flex items-center justify-between transition-all cursor-pointer ${isSelected ? 'border-indigo-500 bg-surface-highlight ring-1 ring-indigo-500/40 shadow-sm' : 'border-white/5'}" data-channel-id="${c.id}">
                   <span class="font-medium text-slate-200 truncate">${escapeHtml(c.name)}</span>
                   <span class="text-[9px] uppercase px-1.5 py-0.5 rounded bg-surface-raised text-slate-400 font-mono">${c.space}</span>
                 </button>
-              `).join('')}
+              `;
+              }).join('')}
             </div>
             <div class="border-subtle-t my-1.5"></div>
           ` : ''}
@@ -2005,15 +1865,19 @@ function renderCommandRailModal(): string {
           <div class="px-2 py-1 text-[10px] font-mono text-slate-400 font-bold uppercase tracking-wider">
             ⚡ Quick System Commands
           </div>
-          ${commands.map(c => `
-            <button data-cmd-id="${c.id}" class="btn-exec-cmd w-full text-left px-3 py-2 rounded-xl text-xs flex items-center justify-between hover:bg-surface-overlay text-slate-300 hover:text-white transition-all cursor-pointer">
+          ${commands.map(c => {
+            const curIdx = itemIndex++;
+            const isSelected = curIdx === activeCommandIndex;
+            return `
+            <button type="button" id="cmd-item-${curIdx}" data-cmd-index="${curIdx}" role="option" aria-selected="${isSelected ? 'true' : 'false'}" data-cmd-id="${c.id}" class="btn-exec-cmd w-full text-left px-3 py-2 rounded-xl text-xs flex items-center justify-between hover:bg-surface-overlay text-slate-300 hover:text-white transition-all cursor-pointer border ${isSelected ? 'border-indigo-500 bg-surface-highlight ring-1 ring-indigo-500/40 shadow-sm text-white' : 'border-transparent'}">
               <div class="flex items-center space-x-2">
                 <span class="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-surface-raised text-slate-400">${c.category}</span>
                 <span>${c.title}</span>
               </div>
               ${c.shortcut ? `<span class="kbd-badge">${c.shortcut}</span>` : ''}
             </button>
-          `).join('')}
+          `;
+          }).join('')}
         </div>
       </div>
     </div>
@@ -2026,7 +1890,7 @@ function renderPostDetailModal(): string {
   if (!postDetailView.isOpen() || !postDetailView.activePostId) return '';
   const post = clientStore.posts.find(p => p.id === postDetailView.activePostId);
   if (!post) return '';
-  const comments = threadManager.getRootComments();
+  const comments = threadManager.getRootCommentsForPost(post.id);
   const related = postDetailView.findRelatedPosts(post, clientStore.posts);
   return postDetailView.renderFullPostModal(post, comments, related);
 }
@@ -2056,6 +1920,7 @@ function renderNotificationsDropdown(): string {
 let _bindEventsController: AbortController | null = null;
 
 function bindEvents(): void {
+  if (document.getElementById('memory-items')) void import('./knowledge-memory-view.js').then(module => module.hydrateKnowledgeMemory());
   // Abort all listeners from the previous bindEvents() call
   _bindEventsController?.abort();
   _bindEventsController = new AbortController();
@@ -2330,9 +2195,21 @@ function bindEvents(): void {
   document.getElementById('btn-back-to-feed')?.addEventListener('click', handleClosePostDetail, { signal });
   document.getElementById('btn-close-post-detail-fallback')?.addEventListener('click', handleClosePostDetail, { signal });
 
-  postDetailView.bindEvents((postId: string, commentText: string) => {
-    threadManager.addReply(postId, clientStore.keypair.fingerprint, commentText.trim());
+  postDetailView.bindEvents(async (postId: string, commentText: string) => {
+    const text = commentText.trim();
+    if (!text) return;
+
+    // 1. Optimistically add to ThreadManager
+    const newComment = threadManager.addReply(postId, clientStore.keypair.fingerprint, text, postId);
+
+    // 2. Synchronize reply counts across post in clientStore and pulseActionsEngine
     const post = clientStore.posts.find((p) => p.id === postId);
+    if (post) {
+      post.replyCount = (post.replyCount || 0) + 1;
+    }
+    const pulseState = pulseActionsEngine.getInteractions(postId);
+    pulseState.repliesCount = Math.max(pulseState.repliesCount + 1, post?.replyCount || 1);
+
     void import('./activity-feed.js').then(({ networkActivityFeed }) => networkActivityFeed.addEvent({
       type: 'reply',
       actorFP: clientStore.keypair.fingerprint,
@@ -2340,9 +2217,34 @@ function bindEvents(): void {
       targetTitle: post ? post.title : 'Pulse Thread',
       targetId: postId,
       timestamp: Date.now(),
-      meta: { length: commentText.trim().length },
+      meta: { length: text.length },
     }));
     clientStore.notify();
+
+    // 3. Persist to Cloudflare D1 /api/comments endpoint
+    try {
+      const res = await fetch('/api/comments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          postId,
+          authorId: clientStore.keypair.fingerprint,
+          authorRole: 'MEMBER',
+          content: text,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+
+      const data = await res.json() as any;
+      if (data?.success && data.comment?.id) {
+        newComment.id = data.comment.id;
+      }
+    } catch (err) {
+      console.warn('[Comments] Edge persistence warning (kept in sovereign local store):', err);
+    }
   });
 
   // 8. ZK Proof Visualizer
@@ -2456,6 +2358,14 @@ function bindEvents(): void {
 
   // Dual Horizon
   document.getElementById('btn-toggle-dual-horizon')?.addEventListener('click', () => clientStore.toggleDualHorizon(), { signal });
+  document.getElementById('btn-exit-dual-horizon')?.addEventListener('click', () => clientStore.toggleDualHorizon(), { signal });
+
+  // Simple vs Advanced Mode Toggles
+  document.getElementById('btn-toggle-advanced-sidebar')?.addEventListener('click', () => clientStore.setUiMode('sovereign'), { signal });
+  document.getElementById('btn-return-simple-sidebar')?.addEventListener('click', () => clientStore.setUiMode('simple'), { signal });
+  document.getElementById('btn-toggle-ui-mode-header')?.addEventListener('click', () => {
+    clientStore.setUiMode(clientStore.isSimpleMode() ? 'sovereign' : 'simple');
+  }, { signal });
 
   // Command rail (Omnibar Search)
   document.getElementById('btn-open-command-rail')?.addEventListener('click', () => clientStore.toggleCommandRail(), { signal });
@@ -2466,15 +2376,69 @@ function bindEvents(): void {
     }
   }, { signal });
 
+function updateCommandRailHighlight(index: number): void {
+  const items = document.querySelectorAll<HTMLElement>('#command-rail-overlay [data-cmd-index]');
+  items.forEach((item, idx) => {
+    if (idx === index) {
+      item.classList.add('border-indigo-500', 'bg-surface-highlight', 'ring-1', 'ring-indigo-500/40', 'shadow-sm');
+      item.classList.remove('border-white/5', 'border-transparent');
+      item.setAttribute('aria-selected', 'true');
+      item.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    } else {
+      item.classList.remove('border-indigo-500', 'bg-surface-highlight', 'ring-1', 'ring-indigo-500/40', 'shadow-sm');
+      item.classList.add(item.classList.contains('btn-exec-cmd') ? 'border-transparent' : 'border-white/5');
+      item.setAttribute('aria-selected', 'false');
+    }
+  });
+  const input = document.getElementById('command-rail-input') as HTMLInputElement | null;
+  if (input) {
+    input.setAttribute('aria-activedescendant', `cmd-item-${index}`);
+  }
+}
+
   const cmdInput = document.getElementById('command-rail-input') as HTMLInputElement;
   if (cmdInput) {
     cmdInput.focus();
+    cmdInput.addEventListener('keydown', (e) => {
+      const items = document.querySelectorAll<HTMLElement>('#command-rail-overlay [data-cmd-index]');
+      const total = items.length;
+      if (total === 0) return;
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        activeCommandIndex = (activeCommandIndex + 1) % total;
+        updateCommandRailHighlight(activeCommandIndex);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        activeCommandIndex = (activeCommandIndex - 1 + total) % total;
+        updateCommandRailHighlight(activeCommandIndex);
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        const activeBtn = document.getElementById(`cmd-item-${activeCommandIndex}`) as HTMLElement | null;
+        if (activeBtn) {
+          activeBtn.click();
+        }
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        clientStore.toggleCommandRail();
+      }
+    }, { signal });
+
     cmdInput.addEventListener('input', (e) => {
+      const cursor = (e.target as HTMLInputElement).selectionStart;
       currentFilter = (e.target as HTMLInputElement).value;
+      activeCommandIndex = 0;
       const railModal = document.getElementById('command-rail-overlay');
       if (railModal) {
         railModal.outerHTML = renderCommandRailModal();
         bindEvents();
+        const refreshedInput = document.getElementById('command-rail-input') as HTMLInputElement | null;
+        if (refreshedInput) {
+          refreshedInput.focus();
+          if (cursor !== null) {
+            refreshedInput.setSelectionRange(cursor, cursor);
+          }
+        }
       }
     }, { signal });
   }
@@ -2603,13 +2567,8 @@ function bindEvents(): void {
     }, { signal });
   });
 
-  // More Navigation Item Trigger (opens Advanced Tools)
-  document.querySelectorAll('.btn-nav-more, #btn-rail-more').forEach(btn => {
-    btn.addEventListener('click', () => {
-      isAdvancedOverflowOpen = !isAdvancedOverflowOpen;
-      clientStore.notify();
-    }, { signal });
-  });
+  // Note: More Navigation Item (data-action="toggle-more-rail") is delegated via actionDispatcher.
+
 
   // Author Profile trigger
   document.querySelectorAll('[data-author-profile]').forEach(btn => {
@@ -2729,11 +2688,20 @@ function bindEvents(): void {
       e.stopPropagation();
       const postId = btn.getAttribute('data-post-id');
       if (postId) {
-        pulseActionsEngine.reportPost(postId);
-        clientStore.showToast(t('toast.reportSent', undefined, '🚩 DSA report submitted. Content will be reviewed per Regulation (EU) 2022/2065.'), 'info');
-        if (typeof (window as any).__aetheris_open_legal === 'function') {
-          (window as any).__aetheris_open_legal('dsa', postId);
+        const post = clientStore.posts.find(p => p.id === postId);
+        const externalUrls: string[] = [];
+        if (post?.content) {
+          const matched = post.content.match(/https?:\/\/[^\s)]+/g);
+          if (matched) externalUrls.push(...matched);
         }
+        reportModalManager.open({
+          targetId: postId,
+          targetType: 'post',
+          authorFingerprint: post?.authorFingerprint,
+          title: post?.title,
+          contentSnippet: post?.content?.slice(0, 200),
+          detectedExternalUrls: externalUrls,
+        });
       }
     }, { signal });
   });
@@ -2751,13 +2719,11 @@ function bindEvents(): void {
   const exploreInput = document.getElementById('explore-search-input') as HTMLInputElement;
   if (exploreInput) {
     exploreInput.addEventListener('input', (e) => {
-      exploreView.setSearchQuery((e.target as HTMLInputElement).value);
+      exploreView.setSearchQuery((e.target as HTMLInputElement).value, false);
       clientStore.notify();
-      const next = document.getElementById('explore-search-input') as HTMLInputElement;
-      if (next) {
-        next.focus();
-        next.setSelectionRange(next.value.length, next.value.length);
-      }
+    }, { signal });
+    exploreInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.isComposing) exploreView.saveRecentSearch(exploreInput.value);
     }, { signal });
   }
   document.getElementById('btn-clear-explore-search')?.addEventListener('click', () => {
@@ -3128,11 +3094,13 @@ function bindEvents(): void {
     isNotificationPanelOpen = !isNotificationPanelOpen;
     clientStore.notify();
   }, { signal });
-  document.getElementById('rail-btn-bookmarks')?.addEventListener('click', (e) => {
-    e.preventDefault();
-    isBookmarkModalOpen = !isBookmarkModalOpen;
-    clientStore.notify();
-  }, { signal });
+  document.querySelectorAll('#rail-btn-bookmarks:not([data-action]), .rail-btn-bookmarks:not([data-action])').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      isBookmarkModalOpen = !isBookmarkModalOpen;
+      clientStore.notify();
+    }, { signal });
+  });
 
   // Inline Quick Composer Interactivity
   document.getElementById('btn-mode-quick-pulse')?.addEventListener('click', () => {

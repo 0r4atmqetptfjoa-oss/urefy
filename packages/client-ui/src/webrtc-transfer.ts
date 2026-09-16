@@ -410,8 +410,8 @@ export class WebRTCFileTransfer {
   public readonly MAX_CHUNK_SIZE = 131072; // 128 KB
   public readonly MAX_CHUNK_RETRIES = 5;
 
-  // WebRTC ICE Configuration with public high-availability STUN relays
-  private readonly rtcConfig: RTCConfiguration = {
+  // WebRTC ICE Configuration with public high-availability STUN relays and TURN support
+  private rtcConfig: RTCConfiguration = {
     iceServers: [
       { urls: 'stun:stun.l.google.com:19302' },
       { urls: 'stun:global.stun.twilio.com:3478' },
@@ -420,6 +420,29 @@ export class WebRTCFileTransfer {
     ],
     iceCandidatePoolSize: 10,
   };
+
+  /**
+   * Configure dynamic TURN relay credentials for symmetric NAT traversal
+   * (e.g. Cloudflare Calls TURN or self-hosted coturn fallback).
+   */
+  public setTurnCredentials(urls: string[], username?: string, credential?: string): void {
+    if (!urls || urls.length === 0) return;
+    const turnServer: RTCIceServer = {
+      urls,
+      ...(username ? { username } : {}),
+      ...(credential ? { credential } : {}),
+    };
+    const currentServers = Array.isArray(this.rtcConfig.iceServers) ? [...this.rtcConfig.iceServers] : [];
+    const filtered = currentServers.filter(s => {
+      const u = Array.isArray(s.urls) ? s.urls : [s.urls];
+      return !u.some(url => url.startsWith('turn:') || url.startsWith('turns:'));
+    });
+    this.rtcConfig.iceServers = [turnServer, ...filtered];
+  }
+
+  public getIceServers(): RTCIceServer[] {
+    return Array.isArray(this.rtcConfig.iceServers) ? [...this.rtcConfig.iceServers] : [];
+  }
 
   constructor() {
     if (isDemoModeEnabled()) {

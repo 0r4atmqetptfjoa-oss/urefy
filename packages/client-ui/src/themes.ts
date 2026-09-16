@@ -199,6 +199,106 @@ export class ThemeEngine {
     },
   ];
 
+  public readonly CURATED_THEMES: ThemeDefinition[] = [
+    ...this.THEMES,
+    {
+      id: 'sovereign-midnight',
+      name: 'Sovereign Midnight',
+      emoji: '🌌',
+      accentColor: '#6366f1',
+      bgCanvas: '#060810',
+      bgSurfaceBase: '#0c101c',
+      bgSurfaceRaised: '#141a2e',
+      bgSurfaceOverlay: '#1c243f',
+      textAccent: '#6366f1',
+      borderAccent: 'rgba(99, 102, 241, 0.4)',
+      secondaryAccent: '#38bdf8',
+      description: 'Deep midnight indigo with electric purple accents and starry depth.',
+      badgeText: 'INDIGO & SKY',
+      mode: 'dim',
+    },
+    {
+      id: 'aurora-glass',
+      name: 'Aurora Glass',
+      emoji: '🌿',
+      accentColor: '#10b981',
+      bgCanvas: '#050d0b',
+      bgSurfaceBase: '#0b1814',
+      bgSurfaceRaised: '#112620',
+      bgSurfaceOverlay: '#18372e',
+      textAccent: '#10b981',
+      borderAccent: 'rgba(16, 185, 129, 0.4)',
+      secondaryAccent: '#06b6d4',
+      description: 'Nordic boreal spruce with emerald glow and glacial teal reflections.',
+      badgeText: 'AURORA EMERALD',
+      mode: 'dim',
+    },
+    {
+      id: 'deep-ocean',
+      name: 'Deep Ocean',
+      emoji: '🌊',
+      accentColor: '#0284c7',
+      bgCanvas: '#060b14',
+      bgSurfaceBase: '#0c1424',
+      bgSurfaceRaised: '#131e34',
+      bgSurfaceOverlay: '#1c2b4a',
+      textAccent: '#0284c7',
+      borderAccent: 'rgba(2, 132, 199, 0.4)',
+      secondaryAccent: '#38bdf8',
+      description: 'Abyssal deep sea navy with calm azure reflections and crystal clarity.',
+      badgeText: 'OCEAN AZURE',
+      mode: 'dim',
+    },
+    {
+      id: 'neo-graphite',
+      name: 'Neo Graphite',
+      emoji: '⚡',
+      accentColor: '#e2e8f0',
+      bgCanvas: '#0a0a0c',
+      bgSurfaceBase: '#121216',
+      bgSurfaceRaised: '#1a1a20',
+      bgSurfaceOverlay: '#24242c',
+      textAccent: '#e2e8f0',
+      borderAccent: 'rgba(226, 232, 240, 0.4)',
+      secondaryAccent: '#94a3b8',
+      description: 'Industrial studio monochrome with platinum accents and pure clarity.',
+      badgeText: 'PLATINUM MONO',
+      mode: 'dim',
+    },
+    {
+      id: 'royal-indigo',
+      name: 'Royal Indigo',
+      emoji: '👑',
+      accentColor: '#8b5cf6',
+      bgCanvas: '#090714',
+      bgSurfaceBase: '#120e24',
+      bgSurfaceRaised: '#1d163a',
+      bgSurfaceOverlay: '#292050',
+      textAccent: '#8b5cf6',
+      borderAccent: 'rgba(139, 92, 246, 0.4)',
+      secondaryAccent: '#ec4899',
+      description: 'Regal sovereign violet with neon amethyst accents and velvet depth.',
+      badgeText: 'ROYAL VIOLET',
+      mode: 'dim',
+    },
+    {
+      id: 'velvet-carbon',
+      name: 'Velvet Carbon',
+      emoji: '🖤',
+      accentColor: '#f43f5e',
+      bgCanvas: '#08080a',
+      bgSurfaceBase: '#101014',
+      bgSurfaceRaised: '#18181f',
+      bgSurfaceOverlay: '#22222b',
+      textAccent: '#f43f5e',
+      borderAccent: 'rgba(244, 63, 94, 0.4)',
+      secondaryAccent: '#e11d48',
+      description: 'Ultra-dark carbon weave with crimson lasers and high-contrast focus.',
+      badgeText: 'CRIMSON CARBON',
+      mode: 'lights-out',
+    },
+  ];
+
   /** Currently active theme ID */
   public currentThemeId: string = 'obsidian-cyber';
 
@@ -231,17 +331,24 @@ export class ThemeEngine {
   // ─── GETTERS & ACCESSORS ───────────────────────────────────────────────────────
 
   /**
-   * Returns full list of available themes.
+   * Returns full list of core themes (preserves test contract).
    */
   public getThemes(): ThemeDefinition[] {
     return [...this.THEMES];
   }
 
   /**
+   * Returns full curated theme library (12 themes across dark, light, OLED, glass).
+   */
+  public getCuratedThemes(): ThemeDefinition[] {
+    return [...this.CURATED_THEMES];
+  }
+
+  /**
    * Returns currently active theme definition.
    */
   public getCurrentTheme(): ThemeDefinition {
-    const found = this.THEMES.find((t) => t.id === this.currentThemeId);
+    const found = this.CURATED_THEMES.find((t) => t.id === this.currentThemeId);
     return found || this.THEMES[0];
   }
 
@@ -249,7 +356,7 @@ export class ThemeEngine {
    * Finds a theme by its unique ID.
    */
   public getThemeById(themeId: string): ThemeDefinition | undefined {
-    return this.THEMES.find((t) => t.id === themeId);
+    return this.CURATED_THEMES.find((t) => t.id === themeId);
   }
 
   /**
@@ -275,7 +382,7 @@ export class ThemeEngine {
    * Sets active theme, updates DOM, injects CSS variables, and persists setting.
    */
   public setTheme(themeId: string): void {
-    const exists = this.THEMES.some((t) => t.id === themeId);
+    const exists = this.CURATED_THEMES.some((t) => t.id === themeId);
     if (!exists) {
       console.warn(`[ThemeEngine] Theme with id "${themeId}" was not found. Falling back to obsidian-cyber.`);
       this.currentThemeId = 'obsidian-cyber';
@@ -1679,5 +1786,6 @@ export class DisplaySettingsModal {
 export const themeEngine = new ThemeEngine();
 export const displaySettingsModal = themeEngine.displaySettingsModal;
 export const THEMES = themeEngine.THEMES;
+export const CURATED_THEMES = themeEngine.getCuratedThemes();
 
 serviceRegistry.registerInstance(SERVICES.ThemeEngine, themeEngine);

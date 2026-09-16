@@ -180,6 +180,8 @@ export interface WindowAugmentation {
   __aetheris_set_ui_mode?: (mode: 'simple' | 'sovereign') => void;
   __aetheris_toggle_advanced_overflow?: () => void;
   __aetheris_close_advanced_overflow?: () => void;
+  __aetheris_toggle_more_rail?: () => void;
+  __aetheris_toggle_bookmarks?: () => void;
   __aetherisToggleNotifs?: () => void;
   __aetherisCloseNotifs?: () => void;
   __aetheris_close_observatory?: () => void;

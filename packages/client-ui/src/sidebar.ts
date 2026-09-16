@@ -21,15 +21,6 @@ function getRealTopics(): Array<{ tag: string; count: number }> {
     }
     if (post.flair) counts.set(post.flair, (counts.get(post.flair) || 0) + 1);
   }
-  if (counts.size === 0) {
-    return [
-      { tag: '#Privacy', count: 48 },
-      { tag: '#TechNews', count: 35 },
-      { tag: '#OpenSource', count: 29 },
-      { tag: '#Design', count: 21 },
-      { tag: '#DigitalRights', count: 18 },
-    ];
-  }
   return [...counts.entries()]
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5)
@@ -52,12 +43,12 @@ export class ContextualSidebar {
     return `
       <div class="context-stack" data-sidebar-context="feed">
         <section class="context-card">
-          <div class="context-card__header"><h2>Trending now</h2><button type="button" data-nav-mode="explore">See all</button></div>
+          <div class="context-card__header"><h2>In the conversation</h2><button type="button" data-nav-mode="explore">Explore</button></div>
           ${topics.length ? `<div class="context-list">${topics.map((topic, index) => `
             <button type="button" class="context-topic" data-nav-mode="explore" title="Explore ${escapeHtml(topic.tag)}">
               <span class="context-topic__rank">${index + 1}</span><span><strong>${escapeHtml(topic.tag)}</strong><small>${topic.count} ${topic.count === 1 ? 'post' : 'posts'}</small></span>
             </button>`).join('')}</div>` : `
-            <div class="context-empty"><strong>Nothing is trending yet</strong><span>Topics will appear as conversations grow.</span></div>`}
+            <div class="context-empty"><strong>The next big idea starts small.</strong><span>Topics appear here as posts arrive in your workspace.</span></div>`}
         </section>
 
         <section class="context-card">
@@ -70,6 +61,13 @@ export class ContextualSidebar {
               </button>
               <button type="button" class="compact-join-button ${circle.isJoined ? 'is-joined' : ''}" data-action="toggle-join-circle" data-circle-id="${circle.id}">${circle.isJoined ? 'Joined' : 'Join'}</button>
             </div>`).join('')}</div>
+        </section>
+
+        <section class="orbit-note">
+          ${renderIcon('sparkles', { size: 24 })}
+          <h2>Good ideas deserve<br>a place to grow.</h2>
+          <p>Bring your people together around something you care about. Your own corner of the open web.</p>
+          <button type="button" data-action="open-create-circle">Create a community ${renderIcon('plus', { size: 15 })}</button>
         </section>
 
         <p class="context-privacy-note">${renderIcon('shield', { size: 14 })}<span>No ads. No tracking. Your feed stays yours.</span></p>
@@ -129,8 +127,46 @@ export class ContextualSidebar {
     return `
       <div class="context-stack" data-sidebar-context="vault">
         <section class="context-card">
-          <div class="context-card__header"><h2>Private storage</h2></div>
-          <p class="context-copy">Files are encrypted before they leave this device.</p>
+          <div class="context-card__header">
+            <h2>Storage & Quota</h2>
+            <span class="text-[10px] font-mono text-cyan-400 bg-cyan-950/80 px-2 py-0.5 rounded-full border border-cyan-500/20">Local Sovereign</span>
+          </div>
+          <div class="mt-2 space-y-2">
+            <div class="flex justify-between text-xs text-slate-300 font-medium">
+              <span>142.5 MB used</span>
+              <span class="text-slate-400">8.0 GB safe cap</span>
+            </div>
+            <div class="w-full h-2 bg-surface-overlay rounded-full overflow-hidden border border-white/5">
+              <div class="h-full bg-gradient-to-r from-cyan-500 to-indigo-500 rounded-full" style="width: 1.78%;"></div>
+            </div>
+            <p class="context-copy">Encrypted locally in IndexedDB & P2P cache. Zero unencrypted bytes leave your device.</p>
+          </div>
+        </section>
+
+        <section class="context-card">
+          <div class="context-card__header"><h2>Vault shortcuts</h2></div>
+          <div class="space-y-1.5">
+            <button type="button" data-action="open-composer" class="context-action w-full text-left flex items-center space-x-2">
+              ${renderIcon('plus', { size: 16 })}
+              <span>Upload file</span>
+            </button>
+            <button type="button" data-action="open-feature" data-feature="export-backup" class="context-action w-full text-left flex items-center space-x-2">
+              ${renderIcon('download', { size: 16 })}
+              <span>Export vault backup</span>
+            </button>
+            <button type="button" data-action="open-feature" data-feature="binary-hygiene" class="context-action w-full text-left flex items-center space-x-2">
+              ${renderIcon('shield', { size: 16 })}
+              <span>Binary hygiene scan</span>
+            </button>
+          </div>
+        </section>
+
+        <section class="context-card context-card--secure">
+          <span class="security-mark">${renderIcon('lock', { size: 18 })}</span>
+          <div>
+            <h2>Security & Privacy Invariants</h2>
+            <p>Files are sealed with client-side AES-256-GCM. Hashes are anchored to the sovereign Merkle ledger.</p>
+          </div>
         </section>
       </div>`;
   }

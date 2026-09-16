@@ -1,4 +1,4 @@
-﻿/**
+/**
  * UREfy Sovereign Legal & Compliance Modal Component
  * Displays Terms of Service, GDPR Privacy Policy, and EU Digital Services Act (DSA) Compliance.
  */
@@ -304,7 +304,7 @@ export class LegalModal {
             <div class="p-3.5 rounded-xl bg-cyan-950/30 border border-cyan-500/20 space-y-1.5">
               <h4 class="font-bold text-sm text-cyan-300">What is UREfy?</h4>
               <p class="text-slate-300">
-                UREfy is a sovereign decentralized communication and knowledge exchange platform, engineered on advanced cryptographic primitives (Zero-Knowledge proofs, hybrid post-quantum ML-KEM-768 cryptography, and peer-to-peer WebRTC mesh networks).
+                UREfy is a social network where people can post, join communities, message privately, and own their identity. It uses decentralized identity, end-to-end encryption and privacy-preserving technology underneath.
               </p>
             </div>
 

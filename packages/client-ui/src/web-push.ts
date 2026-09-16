@@ -472,8 +472,9 @@ export class SovereignWebPush {
     return `
       <aside
         id="sovereign-push-opt-in-banner"
+        role="region"
         aria-label="Notification setup"
-        class="web-push-banner fixed bottom-4 right-4 z-[9990] w-[calc(100%-2rem)] max-w-sm bg-surface-raised/95 border border-white/10 rounded-2xl p-4 shadow-2xl backdrop-blur-2xl transition-all duration-300 animate-in fade-in slide-in-from-bottom-6"
+        class="web-push-banner fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] sm:bottom-4 right-4 z-[9990] w-[calc(100%-2rem)] max-w-sm bg-surface-raised/95 border border-white/10 rounded-2xl p-4 shadow-2xl backdrop-blur-2xl transition-all duration-300 animate-in fade-in slide-in-from-bottom-6"
       >
         <div class="flex items-start gap-3.5">
           <!-- Shield Icon -->

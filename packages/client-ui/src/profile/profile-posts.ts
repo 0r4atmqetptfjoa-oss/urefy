@@ -14,7 +14,11 @@ import { profileView } from './profile-view.js';
 
 export function filterProfilePosts(allPosts: ClientPost[], activeTab: ProfileTab, targetFp: string): ClientPost[] {
   if (activeTab === 'pulses') {
-    const userPosts = allPosts.filter(p => p.authorFingerprint === targetFp);
+    const userPosts = allPosts.filter(p => 
+      p.authorFingerprint === targetFp || 
+      pulseActionsEngine.isPostRepostedBy(p.id, targetFp) ||
+      (targetFp === clientStore.keypair?.fingerprint && pulseActionsEngine.getInteractions(p.id).reposted)
+    );
     const profile = profileView.getProfile(targetFp);
     if (profile && profile.pinnedPostId) {
       const pinned = userPosts.find(p => p.id === profile.pinnedPostId);
@@ -170,9 +174,18 @@ export function renderProfileTimelinePostsHTML(
         const authorHandle = authorProfile?.handle ? `@${authorProfile.handle.replace(/^@/, '')}` : `@${authorAlias}`;
         const timeFormatted = new Date(p.createdAt || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         const isPinned = currentProfile?.pinnedPostId === p.id;
+        const isRepost = p.authorFingerprint !== targetFp;
+        const repProfile = profileView.getProfile(targetFp);
+        const repName = repProfile?.name || repProfile?.handle || `@${targetFp.substring(0, 8)}`;
 
         return `
           <article class="p-5 rounded-3xl bg-surface-base border ${isPinned ? 'border-amber-500/40 shadow-amber-500/5' : 'border-white/10'} hover:border-white/20 transition-all space-y-3 shadow-lg">
+            ${isRepost ? `
+              <div class="flex items-center space-x-1.5 text-xs text-slate-400 font-mono pb-1 border-b border-white/5">
+                <span class="text-emerald-400">🔁</span>
+                <span>Reposted by <strong class="text-slate-200 font-bold">${repName}</strong></span>
+              </div>
+            ` : ''}
             ${isPinned ? `
               <div class="flex items-center space-x-1.5 text-xs font-bold text-amber-400 pb-1 border-b border-amber-500/20">
                 <span>📌</span>

@@ -72,7 +72,7 @@ export function renderHeaderTools(options: HeaderToolsOptions): string {
       <span>Post</span>
     </button>
 
-    <div class="relative">
+    <div class="relative lg:hidden">
       <button type="button" id="btn-open-advanced-overflow" data-action="toggle-advanced-overflow" class="header-icon-button" title="More" aria-label="Open more options" aria-expanded="${options.isAdvancedOverflowOpen}">
         ${renderIcon('more', { size: 20 })}
       </button>

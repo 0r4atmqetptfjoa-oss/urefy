@@ -16,6 +16,10 @@ import { reactionsEngine } from './reactions.js';
 import { pulseActionsEngine } from './pulse-actions.js';
 import { renderAvatar } from './ui/avatar-generator.js';
 import { renderIcon } from './ui/icons.js';
+import { renderHomeHorizon } from './home-horizon.js';
+import { countPostsSince } from './home-signals.js';
+import { renderWorkspaceLayoutControls } from './workspace-layout.js';
+import { isDemoModeEnabled } from './demo-mode.js';
 
 function escapeHtml(text: string): string {
   return String(text || '')
@@ -45,6 +49,7 @@ function roleLabel(role: string): string {
 function renderPostActions(post: ClientPost): string {
   const state = pulseActionsEngine.getInteractions(post.id);
   const metric = (value: number) => pulseActionsEngine.formatMetric(value);
+  const replies = post.replyCount !== undefined && post.replyCount > state.repliesCount ? post.replyCount : (state.repliesCount || 0);
   return `
     <div class="post-actions" data-post-id="${post.id}" data-action="stop-propagation">
       <button type="button" data-pulse-action="like" data-post-id="${post.id}" data-dir="1" class="btn-pulse-like btn-upvote ${state.liked ? 'is-active' : ''}" aria-label="${state.liked ? 'Remove Merit' : 'Give Merit'}" title="Merit">
@@ -53,7 +58,7 @@ function renderPostActions(post: ClientPost): string {
       </button>
       <button type="button" class="btn-downvote hidden" data-vote-id="${post.id}" data-dir="-1" aria-hidden="true"></button>
       <button type="button" data-pulse-action="reply" data-post-id="${post.id}" class="btn-pulse-reply" aria-label="Reply">
-        ${renderIcon('messageSquare', { size: 18 })}<span>Reply</span><b>${metric(post.replyCount || state.repliesCount)}</b>
+        ${renderIcon('messageSquare', { size: 18 })}<span>Reply</span><b>${metric(replies)}</b>
       </button>
       <div class="post-actions__repost">
         <button type="button" data-pulse-action="repost-menu" data-post-id="${post.id}" class="btn-pulse-repost-menu ${state.reposted ? 'is-active' : ''}" aria-label="Repost">
@@ -67,6 +72,11 @@ function renderPostActions(post: ClientPost): string {
       <button type="button" data-pulse-action="bookmark" data-post-id="${post.id}" class="btn-pulse-bookmark ${state.bookmarked ? 'is-active' : ''}" aria-label="${state.bookmarked ? 'Remove bookmark' : 'Bookmark'}">
         ${renderIcon('bookmark', { size: 18, variant: state.bookmarked ? 'solid' : 'outline' })}<span class="sr-only">Bookmark</span>
       </button>
+      <div class="post-actions__more relative">
+        <button type="button" data-action="open-post-more-menu" data-post-id="${post.id}" class="btn-pulse-more" aria-label="More options" title="More options">
+          ${renderIcon('more', { size: 18 })}<span class="sr-only">More</span>
+        </button>
+      </div>
     </div>`;
 }
 
@@ -134,6 +144,24 @@ export function renderCommunityHeaderBanner(circle: import('./sovereign-circle.j
     </section>`;
 }
 
+let awayCardDismissed = false;
+
+export function renderSinceYouWereAwayCard(): string {
+  if (awayCardDismissed) return '';
+  let lastActive = 0;
+  try { lastActive = Number(localStorage.getItem('urefy_last_active')); } catch {}
+  const count = countPostsSince(clientStore.posts, lastActive);
+  if (!count) return '';
+  return `<div id="since-you-were-away-card" class="orbit-return" role="status">
+    <span>${renderIcon('activity', { size: 17 })} ${count} new ${count === 1 ? 'post' : 'posts'} available since your last visit</span>
+    <button type="button" data-action="dismiss-away-summary" aria-label="Dismiss summary">${renderIcon('close', { size: 17 })}</button>
+  </div>`;
+}
+export function dismissSinceYouWereAwayCard(): void {
+  awayCardDismissed = true;
+  try { localStorage.setItem('urefy_last_active', String(Date.now())); } catch {}
+}
+
 export function renderPulseWorkspace(): string {
   let posts = flairFilter.filterPosts(clientStore.posts);
   flairFilter.updateCounts(clientStore.posts);
@@ -148,14 +176,15 @@ export function renderPulseWorkspace(): string {
       <header class="view-header">
         <div>
           <h1>${activeCircle ? `c/${escapeHtml(activeCircle.name)}` : 'Home'}</h1>
-          <p>${activeCircle ? escapeHtml(activeCircle.displayName) : 'Conversations from people and communities you care about.'}</p>
+          <p>${activeCircle ? escapeHtml(activeCircle.displayName) : 'Your daily orbit'}</p>
           <span class="sr-only">PULSE STREAM ${activeCircle?.channelId === 'vault-releases' ? 'c/CLEAN-RELEASES Reproducible Binary Knowledge Vault' : ''}</span>
         </div>
-        <button type="button" data-action="open-composer" class="view-header__action sm:hidden" aria-label="Create a post">${renderIcon('plus', { size: 19 })}</button>
+        <div class="orbit-layout-tools">${renderWorkspaceLayoutControls()}</div>
       </header>
       ${hashtagExplorer.renderActiveTagBanner()}
       <div id="main-feed-scroll" class="feed-scroll">
-        ${activeCircle ? renderCommunityHeaderBanner(activeCircle) : ''}
+        ${!activeCircle ? renderSinceYouWereAwayCard() : ''}
+        ${activeCircle ? renderCommunityHeaderBanner(activeCircle) : renderHomeHorizon(posts, clientStore.isConnected, isDemoModeEnabled())}
         ${renderInlineQuickComposer()}
         <div class="feed-toolbar-wrap">${feedControlsEngine.renderFeedControlsToolbar()}</div>
         <div class="post-stream" aria-live="polite">
@@ -180,19 +209,39 @@ export function renderPulsePostCard(post: ClientPost): string {
   const authorName = profile?.name || profile?.handle || `Member ${post.authorFingerprint.substring(0, 5)}`;
   const authorHandle = profile?.handle ? `@${profile.handle.replace(/^@/, '')}` : `@${post.authorFingerprint.substring(0, 8)}`;
   const role = roleLabel(post.authorRole);
-  const comments = threadManager.getRootComments();
+  const comments = threadManager.getRootCommentsForPost(post.id);
+  const isHighActivity = (post.replyCount && post.replyCount >= 10) || (post.meritVotes && post.meritVotes >= 200) || post.flair === 'TECH DISCUSSION';
+
+  const reposters = pulseActionsEngine.getRepostersForPost(post.id);
+  const reposterFP = (post as any).repostedBy || (reposters.length > 0 ? reposters[0] : null);
+  let repostAttribution = '';
+  if (reposterFP && reposterFP !== post.authorFingerprint) {
+    const repProfile = profileView.getProfile(reposterFP);
+    const repName = repProfile?.name || repProfile?.handle || `@${reposterFP.substring(0, 8)}`;
+    repostAttribution = `
+      <div class="repost-attribution-pill flex items-center space-x-1.5 text-xs text-slate-400 font-mono mb-2 pl-0.5">
+        ${renderIcon('repost', { size: 14, className: 'text-emerald-400 shrink-0' })}
+        <span>Reposted by <strong class="text-slate-200 font-bold">${escapeHtml(repName)}</strong></span>
+      </div>
+    `;
+  }
 
   return `
     <article class="social-post" data-post-card-id="${post.id}">
       <div class="social-post__avatar" data-author-profile="${post.authorFingerprint}">${renderAvatar(profile?.avatar, post.authorFingerprint, { size: 42, className: 'w-10 h-10' })}</div>
       <div class="social-post__content">
+        ${repostAttribution}
         <header class="social-post__header">
           <button type="button" class="social-post__author" data-author-profile="${post.authorFingerprint}"><strong>${escapeHtml(authorName)}</strong><span>${escapeHtml(authorHandle)}</span><span class="sr-only">${escapeHtml(post.authorFingerprint.substring(0, 8))}</span></button>
           ${role ? `<span class="role-badge">${role}</span>` : ''}
-          <span class="verified-badge" title="Verified account" aria-label="Verified account">${renderIcon('checkCircle', { size: 14 })}</span>
           <span class="social-post__separator">·</span>
           <time datetime="${new Date(post.createdAt).toISOString()}">${relativeTime(post.createdAt)}</time>
           <button type="button" data-action="open-community" data-channel="${post.channelId}" class="social-post__community">${escapeHtml(circleName)}</button>
+          ${isHighActivity ? `
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30 flex items-center gap-1 font-mono" title="High discussion velocity">
+              <span class="animate-pulse">🔥</span> High Activity
+            </span>
+          ` : ''}
         </header>
 
         ${post.title && post.title !== post.content.substring(0, 50) ? `<h2 data-open-detail="${post.id}" class="social-post__title">${escapeHtml(post.title)}</h2>` : ''}

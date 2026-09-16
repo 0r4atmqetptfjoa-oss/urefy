@@ -72,6 +72,10 @@ export class ObsidianMediaPlayer {
    * Generates a sleek Obsidian video card with custom controls, YouTube iframe embed, or Vimeo player.
    */
   public renderVideoCard(videoId: string, videoSrc: string, posterSrc?: string): string {
+    if (!videoSrc || !videoSrc.trim() || videoSrc === 'null' || videoSrc === 'undefined') {
+      return '';
+    }
+
     const detected = this.extractVideo(videoSrc);
 
     if (detected?.type === 'youtube' || detected?.type === 'vimeo') {
@@ -111,6 +115,18 @@ export class ObsidianMediaPlayer {
           data-action="toggle-video-play"
           data-video-id="${videoId}"
         ></video>
+
+        <!-- POSTER / PLAY GLYPH OVERLAY -->
+        <div id="poster-overlay-${videoId}" class="video-poster-overlay" data-action="toggle-video-play" data-video-id="${videoId}" aria-label="Play video">
+          <div class="video-play-glyph">▶</div>
+        </div>
+
+        <!-- FALLBACK FOR BROKEN OR UNPLAYABLE VIDEO -->
+        <div class="media-fallback-card hidden absolute inset-0 bg-surface-base/95 p-6 flex flex-col items-center justify-center text-center space-y-2 z-20">
+          <span class="text-3xl">📹</span>
+          <span class="text-xs font-semibold text-slate-200">Media preview unavailable</span>
+          <span class="text-[11px] text-slate-400 max-w-xs">This media is offline or in an unsupported codec format.</span>
+        </div>
 
         <!-- OBSIDIAN CUSTOM CONTROLS OVERLAY -->
         <div id="controls-${videoId}" class="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-3.5 opacity-90 group-hover:opacity-100 transition-opacity duration-200">
@@ -460,6 +476,59 @@ export class ObsidianMediaPlayer {
       return `${m}:${s < 10 ? '0' : ''}${s}`;
     };
 
+    const rawSrc = video.getAttribute('src') || video.src || '';
+    if (rawSrc.includes('simulation')) {
+      let isSimPlaying = false;
+      let simTime = 0;
+      const simDuration = 105; // 1:45
+      let simTimer: any = null;
+
+      if (durTime) durTime.textContent = formatTime(simDuration);
+      if (currTime) currTime.textContent = '0:00';
+
+      const updateSim = () => {
+        if (currTime) currTime.textContent = formatTime(simTime);
+        if (progressBar) progressBar.style.width = `${(simTime / simDuration) * 100}%`;
+      };
+
+      const toggleSimPlay = () => {
+        isSimPlaying = !isSimPlaying;
+        if (isSimPlaying) {
+          const overlay = document.getElementById(`poster-overlay-${videoId}`);
+          if (overlay) overlay.style.display = 'none';
+          if (playBtn) playBtn.textContent = '❚❚';
+          simTimer = setInterval(() => {
+            simTime += 0.5;
+            if (simTime >= simDuration) {
+              simTime = 0;
+              isSimPlaying = false;
+              clearInterval(simTimer);
+              if (playBtn) playBtn.textContent = '▶';
+            }
+            updateSim();
+          }, 500);
+        } else {
+          if (simTimer) clearInterval(simTimer);
+          if (playBtn) playBtn.textContent = '▶';
+        }
+      };
+
+      const posterOverlay = document.getElementById(`poster-overlay-${videoId}`);
+      posterOverlay?.addEventListener('click', (e) => { e.stopPropagation(); toggleSimPlay(); });
+      playBtn?.addEventListener('click', (e) => { e.stopPropagation(); toggleSimPlay(); });
+      video.addEventListener('click', (e) => { e.stopPropagation(); toggleSimPlay(); });
+
+      const progressTrack = progressBar?.parentElement;
+      progressTrack?.addEventListener('click', (e: MouseEvent) => {
+        e.stopPropagation();
+        const rect = progressTrack.getBoundingClientRect();
+        const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+        simTime = pos * simDuration;
+        updateSim();
+      });
+      return;
+    }
+
     video.addEventListener('loadedmetadata', () => {
       if (durTime) durTime.textContent = formatTime(video.duration);
     });
@@ -482,7 +551,28 @@ export class ObsidianMediaPlayer {
       }
     });
 
+    const posterOverlay = document.getElementById(`poster-overlay-${videoId}`);
+    const hidePosterAndPlay = () => {
+      if (posterOverlay) posterOverlay.style.display = 'none';
+      if (video.paused) video.play().catch(() => {});
+      else video.pause();
+    };
+
+    posterOverlay?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      hidePosterAndPlay();
+    });
+
+    video.addEventListener('error', () => {
+      const fallback = video.parentElement?.querySelector('.media-fallback-card');
+      if (fallback) fallback.classList.remove('hidden');
+      if (posterOverlay) posterOverlay.style.display = 'none';
+      const controls = document.getElementById(`controls-${videoId}`);
+      if (controls) controls.style.display = 'none';
+    });
+
     video.addEventListener('play', () => {
+      if (posterOverlay) posterOverlay.style.display = 'none';
       if (playBtn) playBtn.textContent = '❚❚';
     });
 
@@ -492,13 +582,21 @@ export class ObsidianMediaPlayer {
 
     playBtn?.addEventListener('click', (e) => {
       e.stopPropagation();
-      if (video.paused) video.play();
-      else video.pause();
+      if (video.paused) {
+        if (posterOverlay) posterOverlay.style.display = 'none';
+        video.play().catch(() => {});
+      } else {
+        video.pause();
+      }
     });
 
     video.addEventListener('click', () => {
-      if (video.paused) video.play();
-      else video.pause();
+      if (video.paused) {
+        if (posterOverlay) posterOverlay.style.display = 'none';
+        video.play().catch(() => {});
+      } else {
+        video.pause();
+      }
     });
 
     muteBtn?.addEventListener('click', (e) => {

@@ -27,6 +27,7 @@ import { DirectMessagingClient, type PrivateMessageTransport, type PrivateMessag
 import type { DirectMessageAttachment } from './client-state.js';
 import { socialSafety } from './social-safety.js';
 import { profileView } from './profile-view.js';
+import { branchOf, validateMessageContext, type ConversationBranch, type MessageContext } from './conversation-context.js';
 
 export type { DirectMessageAttachment };
 
@@ -39,7 +40,8 @@ export interface DirectMessage {
   timestamp: number;
   isRead: boolean;
   attachment?: DirectMessageAttachment;
-  deliveryStatus?: 'sent' | 'received' | 'local-only';
+  deliveryStatus?: 'sending' | 'sent' | 'received' | 'failed' | 'local-only';
+  context?: MessageContext;
 }
 
 export interface DMConversation {
@@ -49,6 +51,8 @@ export interface DMConversation {
   unreadCount: number;
   lastMessageAt: number;
   isRequest?: boolean;
+  branches?: ConversationBranch[];
+  activeBranchId?: string;
 }
 
 export interface TreeKEMState {
@@ -252,6 +256,28 @@ export class SovereignDMManager {
   public isEmojiPickerOpen: boolean = false;
   public activeDrawerTab: 'inbox' | 'requests' = 'inbox';
   public acceptedRequests: Set<string> = new Set();
+  private peerTyping: Map<string, number> = new Map();
+
+  public setPeerTyping(peerFP: string): void {
+    this.peerTyping.set(peerFP, Date.now());
+    if (typeof window !== 'undefined' && (window as any).clientStore) {
+      (window as any).clientStore.notifySync();
+    }
+  }
+
+  public isPeerTyping(peerFP: string): boolean {
+    const last = this.peerTyping.get(peerFP);
+    if (!last) return false;
+    if (Date.now() - last > 3500) {
+      this.peerTyping.delete(peerFP);
+      return false;
+    }
+    return true;
+  }
+
+  public notifyTyping(peerFP: string): void {
+    this._dispatchEvent('aetheris:dm:typing', { peerFP });
+  }
 
   public isMessageRequest(peerFP: string): boolean {
     return Boolean(this.conversations.get(peerFP)?.isRequest);
@@ -312,6 +338,8 @@ export class SovereignDMManager {
   public persistence: Promise<void> = Promise.resolve();
   public syncError: string | null = null;
   private ownerFingerprint = '';
+  public replyToId: string | null = null;
+  public sending = false;
   private cursor = 0;
   private inlineMode = true;
   private syncPromise: Promise<void> | null = null;
@@ -456,14 +484,93 @@ export class SovereignDMManager {
       this.conversations.set(peer, conversation);
     }
     if (conversation.messages.some(message => message.id === delivery.id)) return;
-    const isRead = isMine || (this.isOpen && this.activePeerFP === peer);
+    const branch = delivery.content.context?.branch;
+    if (branch) {
+      conversation.branches ??= [];
+      // An existing branch's provenance cannot be replaced by subsequent messages.
+      if (!conversation.branches.some(item => item.id === branch.id)) conversation.branches.push(branch);
+    }
+    const isRead = isMine || !!delivery.content.context?.reaction || (this.isOpen && this.activePeerFP === peer &&
+      (conversation.activeBranchId || 'main') === branchOf(delivery.content));
     conversation.messages.push({ id: delivery.id, senderFP: delivery.sender, receiverFP: delivery.recipient,
       encryptedPayload: JSON.stringify(delivery.envelope), plaintext: delivery.content.text,
       attachment: delivery.content.attachment, timestamp: delivery.createdAt, isRead,
+      context: delivery.content.context,
       deliveryStatus: isMine ? 'sent' : 'received',
     });
     conversation.lastMessageAt = Math.max(conversation.lastMessageAt, delivery.createdAt);
     if (!isRead) conversation.unreadCount++;
+  }
+
+  public getActiveBranch(peer = this.activePeerFP): string {
+    return (peer && this.conversations.get(peer)?.activeBranchId) || 'main';
+  }
+
+  public getBranches(peer: string): ConversationBranch[] {
+    return this.conversations.get(peer)?.branches || [];
+  }
+
+  public selectBranch(id: string): void {
+    const conversation = this.activePeerFP && this.conversations.get(this.activePeerFP);
+    if (!conversation || (id !== 'main' && !conversation.branches?.some(branch => branch.id === id))) return;
+    conversation.activeBranchId = id;
+    this.replyToId = null;
+    for (const message of conversation.messages) if (branchOf(message) === id) message.isRead = true;
+    conversation.unreadCount = conversation.messages.filter(message => !message.isRead && !message.context?.reaction).length;
+    this._saveToStorage();
+  }
+
+  public async createBranch(peer: string, title: string, sourceMessageId: string): Promise<void> {
+    await this.ready;
+    const conversation = this.conversations.get(peer);
+    const source = conversation?.messages.find(message => message.id === sourceMessageId && !message.context?.reaction);
+    if (!conversation || !source || source.deliveryStatus === 'failed') throw new Error('Choose a delivered message to branch from');
+    const branch: ConversationBranch = { id: `branch_${crypto.randomUUID()}`, title: title.trim(), sourceMessageId,
+      parentBranchId: branchOf(source), createdBy: this.ownerFingerprint, createdAt: Date.now() };
+    validateMessageContext({ branch });
+    conversation.branches ??= [];
+    conversation.branches.push(branch);
+    this.activePeerFP = peer;
+    this.selectBranch(branch.id);
+    await this.persistence;
+  }
+
+  public getMessageContext(): MessageContext {
+    const branch = this.activePeerFP ? this.getBranches(this.activePeerFP).find(item => item.id === this.getActiveBranch()) : undefined;
+    return { ...(branch ? { branch } : {}), ...(this.replyToId ? { replyToId: this.replyToId } : {}) };
+  }
+
+  public getReactions(messageId: string): Array<{ emoji: string; count: number; mine: boolean }> {
+    const conversation = this.activePeerFP && this.conversations.get(this.activePeerFP);
+    const active = new Map<string, DirectMessage>();
+    for (const message of conversation ? conversation.messages : []) {
+      const reaction = message.context?.reaction;
+      if (!reaction || reaction.messageId !== messageId) continue;
+      const key = `${message.senderFP}:${reaction.emoji}`;
+      if (reaction.active) active.set(key, message); else active.delete(key);
+    }
+    const result = new Map<string, { emoji: string; count: number; mine: boolean }>();
+    for (const message of active.values()) {
+      const emoji = message.context!.reaction!.emoji;
+      const item = result.get(emoji) || { emoji, count: 0, mine: false };
+      item.count++; item.mine ||= message.senderFP === this.ownerFingerprint;
+      result.set(emoji, item);
+    }
+    return [...result.values()];
+  }
+
+  public async reactToMessage(messageId: string, emoji: string): Promise<void> {
+    await this.ready;
+    const peer = this.activePeerFP;
+    const message = peer && this.conversations.get(peer)?.messages.find(item => item.id === messageId && !item.context?.reaction);
+    if (!peer || !message) throw new Error('Message unavailable');
+    const context: MessageContext = { ...(message.context?.branch ? { branch: message.context.branch } : {}),
+      reaction: { messageId, emoji, active: !this.getReactions(messageId).some(item => item.emoji === emoji && item.mine) } };
+    validateMessageContext(context);
+    const delivery = await this.transport.send(peer, { text: '', context });
+    this.ingestDelivery(delivery);
+    this._saveToStorage();
+    await this.persistence;
   }
 
   public destroy(): void {
@@ -474,15 +581,15 @@ export class SovereignDMManager {
   private _seedDemoData(): void {
     const defaultMyFP = 'me_local_node_0x9f4e';
 
-    // Conversation 1: Guardian (Core Architect)
+    // Conversation 1: Elena (Product Lead)
     const guardianFP = 'c3dc28cb705e';
     const msg1: DirectMessage = {
       id: generateId('msg'),
       senderFP: guardianFP,
       receiverFP: defaultMyFP,
-      plaintext: 'TreeKEM ratchet parameters validated for epoch #14. Zero-knowledge membership proofs for relay subnetworks are now operating on O(1) verification latency.',
+      plaintext: 'Hey! Did you check out the new discussion in c/technology? The community guide on data privacy is getting great feedback.',
       encryptedPayload: simulateEncrypt(
-        'TreeKEM ratchet parameters validated for epoch #14. Zero-knowledge membership proofs for relay subnetworks are now operating on O(1) verification latency.',
+        'Hey! Did you check out the new discussion in c/technology? The community guide on data privacy is getting great feedback.',
         guardianFP,
         defaultMyFP,
         14,
@@ -495,9 +602,9 @@ export class SovereignDMManager {
       id: generateId('msg'),
       senderFP: defaultMyFP,
       receiverFP: guardianFP,
-      plaintext: 'Received. Tested local SFrame decryptor against synthetic Byzantine frames; MAC verification rejected all forged packet streams in 0.12ms.',
+      plaintext: 'Yes! Just read through it. I really liked the section on local data ownership. Let’s collaborate on a follow-up post.',
       encryptedPayload: simulateEncrypt(
-        'Received. Tested local SFrame decryptor against synthetic Byzantine frames; MAC verification rejected all forged packet streams in 0.12ms.',
+        'Yes! Just read through it. I really liked the section on local data ownership. Let’s collaborate on a follow-up post.',
         defaultMyFP,
         guardianFP,
         14,
@@ -510,9 +617,9 @@ export class SovereignDMManager {
       id: generateId('msg'),
       senderFP: guardianFP,
       receiverFP: defaultMyFP,
-      plaintext: 'Outstanding. Please verify our Safety Numbers when you switch to the high-bandwidth mesh relay.',
+      plaintext: 'Sounds great! Everything here is end-to-end encrypted so feel free to drop your draft notes whenever you have a moment.',
       encryptedPayload: simulateEncrypt(
-        'Outstanding. Please verify our Safety Numbers when you switch to the high-bandwidth mesh relay.',
+        'Sounds great! Everything here is end-to-end encrypted so feel free to drop your draft notes whenever you have a moment.',
         guardianFP,
         defaultMyFP,
         14,
@@ -530,15 +637,15 @@ export class SovereignDMManager {
       lastMessageAt: msg3.timestamp,
     });
 
-    // Conversation 2: Archivist (Vault Keeper)
+    // Conversation 2: Marcus (Community Contributor)
     const archivistFP = 'a89104fa2211';
     const aMsg1: DirectMessage = {
       id: generateId('msg'),
       senderFP: archivistFP,
       receiverFP: defaultMyFP,
-      plaintext: 'New nanopublication manifest indexed: SHA-256 entropy distribution 6.44 with zero PE RWX sections. Ready for decentralized Swarm distribution.',
+      plaintext: 'Welcome to UREfy! Your saved drafts, bookmarks, and account recovery details are safely stored on your device.',
       encryptedPayload: simulateEncrypt(
-        'New nanopublication manifest indexed: SHA-256 entropy distribution 6.44 with zero PE RWX sections. Ready for decentralized Swarm distribution.',
+        'Welcome to UREfy! Your saved drafts, bookmarks, and account recovery details are safely stored on your device.',
         archivistFP,
         defaultMyFP,
         4,
@@ -796,9 +903,11 @@ export class SovereignDMManager {
    */
   public async sendMessage(plaintext: string, myFP: string = 'me_local_node_0x9f4e', attachment?: DirectMessageAttachment): Promise<void> {
     const trimmed = plaintext ? plaintext.trim() : '';
+    if (this.sending) throw new Error('Your previous message is still sending');
     if ((!trimmed && !attachment) || !this.activePeerFP) return;
-    await this.ready;
     const peer = this.activePeerFP;
+    const context = this.getMessageContext();
+    await this.ready;
 
     let finalPlaintext = trimmed;
     if (this.isStegoModeActive) {
@@ -812,8 +921,11 @@ export class SovereignDMManager {
       }
     }
 
+    this.sending = true;
+    let delivered = false;
     try {
-      const delivery = await this.transport.send(peer, { text: finalPlaintext, ...(attachment ? { attachment } : {}) });
+      const delivery = await this.transport.send(peer, { text: finalPlaintext, context, ...(attachment ? { attachment } : {}) });
+      delivered = true;
       this.ingestDelivery(delivery);
       const conv = this.conversations.get(peer);
       if (conv && conv.isRequest) {
@@ -822,14 +934,85 @@ export class SovereignDMManager {
       }
       this._saveToStorage();
       await this.persistence;
+      this.replyToId = null;
       this.syncError = null;
       this._dispatchEvent('aetheris:dm:message_sent', { id: delivery.id, peer });
       this.syncDOM(delivery.sender);
       this._scrollToBottom();
     } catch (error) {
       this.syncError = error instanceof Error ? error.message : 'Message could not be sent';
+      // A receipt followed by a local disk failure must never create a resendable duplicate.
+      if (delivered) throw error;
+      const failMsg: DirectMessage = {
+        id: generateId('failed'),
+        senderFP: this.ownerFingerprint || myFP,
+        receiverFP: peer,
+        plaintext: finalPlaintext,
+        encryptedPayload: '',
+        timestamp: Date.now(),
+        isRead: true,
+        attachment,
+        context,
+        deliveryStatus: 'failed',
+      };
+      let conv = this.conversations.get(peer);
+      if (!conv) {
+        conv = { peerFingerprint: peer, peerRole: 'MEMBER', messages: [], unreadCount: 0, lastMessageAt: Date.now(), isRequest: false };
+        this.conversations.set(peer, conv);
+      }
+      conv.messages.push(failMsg);
+      conv.lastMessageAt = failMsg.timestamp;
+      this._saveToStorage();
       this.syncDOM(this.ownerFingerprint);
+      this._scrollToBottom();
       throw error;
+    } finally {
+      this.sending = false;
+    }
+  }
+
+  /**
+   * Retry sending a previously failed message.
+   */
+  public async retryFailedMessage(msgId: string): Promise<boolean> {
+    if (!this.activePeerFP) return false;
+    const conv = this.conversations.get(this.activePeerFP);
+    if (!conv) return false;
+    const msg = conv.messages.find(m => m.id === msgId);
+    if (!msg || msg.deliveryStatus !== 'failed') return false;
+
+    msg.deliveryStatus = 'sending';
+    this.syncDOM(this.ownerFingerprint);
+    if (typeof window !== 'undefined' && (window as any).clientStore) {
+      (window as any).clientStore.notifySync();
+    }
+
+    try {
+      const delivery = await this.transport.send(this.activePeerFP, {
+        text: msg.plaintext,
+        ...(msg.context ? { context: msg.context } : {}),
+        ...(msg.attachment ? { attachment: msg.attachment } : {}),
+      });
+      msg.deliveryStatus = 'sent';
+      msg.id = delivery.id;
+      msg.timestamp = delivery.createdAt;
+      msg.encryptedPayload = JSON.stringify(delivery.envelope);
+      this.syncError = null;
+      this._saveToStorage();
+      await this.persistence;
+      this.syncDOM(this.ownerFingerprint);
+      if (typeof window !== 'undefined' && (window as any).clientStore) {
+        (window as any).clientStore.notifySync();
+      }
+      return true;
+    } catch (err) {
+      msg.deliveryStatus = 'failed';
+      this.syncError = err instanceof Error ? err.message : 'Retry delivery failed';
+      this.syncDOM(this.ownerFingerprint);
+      if (typeof window !== 'undefined' && (window as any).clientStore) {
+        (window as any).clientStore.notifySync();
+      }
+      return false;
     }
   }
 
@@ -960,13 +1143,9 @@ export class SovereignDMManager {
     if (!conv) return;
 
     let hasChanges = false;
-    if (conv.unreadCount > 0) {
-      conv.unreadCount = 0;
-      hasChanges = true;
-    }
 
     for (const msg of conv.messages) {
-      if (!msg.isRead) {
+      if (!msg.isRead && branchOf(msg) === (conv.activeBranchId || 'main')) {
         msg.isRead = true;
         hasChanges = true;
         try {
@@ -975,6 +1154,8 @@ export class SovereignDMManager {
         } catch (_) {}
       }
     }
+
+    conv.unreadCount = conv.messages.filter(message => !message.isRead && !message.context?.reaction).length;
 
     if (hasChanges) {
       this._saveToStorage();

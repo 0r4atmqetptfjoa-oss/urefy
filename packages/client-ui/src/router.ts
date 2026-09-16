@@ -62,8 +62,8 @@ export class SovereignRouter {
         clientStore.activeChannelId = 'explore';
         break;
       case 'communities':
-        if (!clientStore.activeChannelId.startsWith('c/') && !clientStore.activeChannelId.startsWith('pulse-')) {
-          clientStore.activeChannelId = 'c/technology';
+        if (clientStore.activeChannelId === 'pulse-global' || (!clientStore.activeChannelId.startsWith('c/') && !clientStore.activeChannelId.startsWith('pulse-'))) {
+          clientStore.activeChannelId = 'communities';
         }
         break;
       case 'messages':

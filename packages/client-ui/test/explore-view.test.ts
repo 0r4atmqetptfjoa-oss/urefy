@@ -1,10 +1,12 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { ExploreView, exploreView } from '../src/explore-view.js';
 import type { ClientPost } from '../src/client-state.js';
+import { socialSafety } from '../src/social-safety.js';
 
 describe('ExploreView - Sovereign Explore & Trending Topics Hub', () => {
   let explore: ExploreView;
   let samplePosts: ClientPost[];
+  afterEach(() => vi.restoreAllMocks());
 
   beforeEach(() => {
     explore = new ExploreView();
@@ -58,7 +60,7 @@ describe('ExploreView - Sovereign Explore & Trending Topics Hub', () => {
     expect(explore.activeCategory).toBe('all');
     expect(explore.searchQuery).toBe('');
     expect(explore.categories.length).toBeGreaterThanOrEqual(6);
-    expect(explore.trendingTopics.length).toBeGreaterThanOrEqual(5);
+    expect(explore.getComputedTrendingTopics([])).toEqual([]);
   });
 
   it('should filter posts by search query across title, content, author, and flair', () => {
@@ -99,14 +101,14 @@ describe('ExploreView - Sovereign Explore & Trending Topics Hub', () => {
     expect(results.some(p => p.id === 'post-1')).toBe(true);
   });
 
-  it('should render the Explore Hub HTML with omnibar, categories, featured story, and trends', () => {
+  it('renders discovery from available conversations without invented trends', () => {
     const html = explore.renderExploreView(samplePosts);
     expect(html).toContain('explore-search-input');
-    expect(html).toContain('Trends in Sovereign Mesh');
-    expect(html).toContain('Colossus Sovereign Mesh Supercluster');
-    expect(html).toContain('#ZeroKnowledge');
-    expect(html).toContain('#TreeKEM_MLS');
-    expect(html).toContain('Active Pulse Chronicle');
+    expect(html).toContain('FOLLOW YOUR CURIOSITY');
+    expect(html).toContain('SECURITY ADVISORY');
+    expect(html).toContain('1 post');
+    expect(html).not.toContain('1.4k posts');
+    expect(html).not.toContain('#TreeKEM_MLS');
   });
 
   it('should render empty state when search returns no matching pulses', () => {
@@ -114,5 +116,23 @@ describe('ExploreView - Sovereign Explore & Trending Topics Hub', () => {
     const html = explore.renderExploreView(samplePosts);
     expect(html).toContain('No pulses found matching "NonExistentKeywordXYZ123"');
     expect(html).toContain('btn-clear-explore-empty');
+  });
+
+  it('finds people beyond the six suggested creators and retains their post count', () => {
+    const posts = Array.from({ length: 9 }, (_, i) => ({ ...samplePosts[0], id: `person-post-${i}`, authorFingerprint: `person-${i}` }));
+    posts.push({ ...posts[8], id: 'second-person-post-8' });
+    explore.setSearchQuery('person-8');
+    explore.setActiveSearchTab('people');
+    const html = explore.renderExploreView(posts);
+    expect(html).toContain('data-fingerprint="person-8"');
+    expect(html).toContain('2 posts');
+  });
+
+  it('excludes blocked authors from topic counts and people search', () => {
+    vi.spyOn(socialSafety, 'isBlocked').mockImplementation(id => id === 'genesis-core');
+    expect(explore.getComputedTrendingTopics([samplePosts[0]])).toEqual([]);
+    explore.setSearchQuery('genesis-core');
+    explore.setActiveSearchTab('people');
+    expect(explore.renderExploreView(samplePosts)).not.toContain('data-fingerprint="genesis-core"');
   });
 });

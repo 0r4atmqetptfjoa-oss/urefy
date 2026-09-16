@@ -8,6 +8,9 @@ export default {
     extend: {
       colors: {
         canvas: '#090a0c',
+        amber: {
+          DEFAULT: '#fbbf24',
+        },
         surface: {
           base: '#0d0f12',
           raised: '#13161b',

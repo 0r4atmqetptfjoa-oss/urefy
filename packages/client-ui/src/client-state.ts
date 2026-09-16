@@ -434,7 +434,8 @@ export class AetherisClientStore {
         replyCount: 31,
         boostCount: 142,
         video: {
-          src: 'https://vjs.zencdn.net/v/oceans.mp4',
+          src: 'simulation://media-engine-demo',
+          poster: `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450" width="100%" height="100%"><defs><linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="%230f172a"/><stop offset="50%" stop-color="%231e1b4b"/><stop offset="100%" stop-color="%23020617"/></linearGradient><linearGradient id="glow" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="%236366f1"/><stop offset="100%" stop-color="%2306b6d4"/></linearGradient></defs><rect width="800" height="450" fill="url(%23bg)"/><circle cx="400" cy="225" r="120" fill="%236366f1" opacity="0.1" filter="blur(40px)"/><rect x="250" y="160" width="300" height="130" rx="16" fill="%230f172a" stroke="url(%23glow)" stroke-width="2" opacity="0.85"/><text x="400" y="210" fill="%23ffffff" font-family="system-ui,sans-serif" font-size="18" font-weight="bold" text-anchor="middle">UREfy Media Engine</text><text x="400" y="240" fill="%2394a3b8" font-family="system-ui,sans-serif" font-size="12" text-anchor="middle">Hardware-Accelerated 120 FPS Stream</text><circle cx="400" cy="270" r="14" fill="%236366f1"/><polygon points="396,263 407,270 396,277" fill="%23ffffff"/></svg>`,
         },
         createdAt: Date.now() - 1000 * 60 * 80,
         isExpanded: false,
@@ -1423,8 +1424,8 @@ export class AetherisClientStore {
     try {
       toastManager.info(
         isSov
-          ? '⚡ Sovereign Mode active: Full cryptographic telemetry and developer tools unlocked'
-          : '🌱 Simple Mode active: Clean, distraction-free interface',
+          ? '⚡ Advanced Mode active: Security diagnostics and developer tools unlocked'
+          : '🌱 Simple Mode active: Clean, social-first interface',
         isSov ? '⚡' : '🌱'
       );
     } catch (_) {}

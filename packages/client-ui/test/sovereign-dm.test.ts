@@ -5,6 +5,7 @@ import { DirectMessagingClient } from '../src/direct-messaging-client.js';
 import { onRequestPost } from '../functions/api/direct-messages.js';
 import { resetReplayNonceCache } from '../functions/api/_auth.js';
 import { createDmDatabase } from './helpers/dm-database.js';
+import { branchOf } from '../src/conversation-context.js';
 
 describe('Sovereign E2EE Direct Messaging (SFrame / TreeKEM)', () => {
   let dmManager: SovereignDMManager;
@@ -198,5 +199,47 @@ describe('Sovereign E2EE Direct Messaging (SFrame / TreeKEM)', () => {
     expect(dmManager.showCiphertextToggle).toBe(true);
     const ciphertextModal = dmManager.renderDMModal(myFP);
     expect(ciphertextModal).toContain('senderCopy');
+  });
+
+  it('9. Ramificatiile pastreaza provenienta, izoleaza mesajele si reactioneaza', async () => {
+    const peerFP = peer.identity.fingerprint;
+    const myFP = owner.identity.fingerprint;
+
+    dmManager.openDM(peerFP, 'GUARDIAN');
+    await dmManager.sendMessage('Main thread message', myFP);
+    const conv = dmManager.getConversation(peerFP)!;
+    const source = conv.messages[0];
+    expect(branchOf(source)).toBe('main');
+
+    dmManager.replyToId = source.id;
+    await dmManager.sendMessage('A reply in the main thread', myFP);
+    expect(conv.messages[1].context?.replyToId).toBe(source.id);
+
+    await dmManager.createBranch(peerFP, 'Weekend plans', source.id);
+    const branch = dmManager.getBranches(peerFP)[0];
+    expect(branch.title).toBe('Weekend plans');
+    expect(branch.sourceMessageId).toBe(source.id);
+    expect(branch.parentBranchId).toBe('main');
+    expect(branch.createdBy).toBe(myFP);
+    expect(dmManager.getActiveBranch()).toBe(branch.id);
+    // Selecting a branch clears any reply target so context cannot leak across branches.
+    expect(dmManager.replyToId).toBeNull();
+
+    await dmManager.sendMessage('Only inside the branch', myFP);
+    const branchMessage = conv.messages[2];
+    expect(branchOf(branchMessage)).toBe(branch.id);
+    expect(branchMessage.context?.branch?.sourceMessageId).toBe(source.id);
+
+    await dmManager.reactToMessage(source.id, '👍');
+    expect(dmManager.getReactions(source.id)).toContainEqual({ emoji: '👍', count: 1, mine: true });
+    // A reaction is a context marker, never a duplicate visible message in the thread.
+    expect(conv.messages[3].plaintext).toBe('');
+    expect(conv.messages[3].context?.reaction?.messageId).toBe(source.id);
+  });
+
+  it('10. Ramificarea fara mesaj livrat este refuzata', async () => {
+    const peerFP = peer.identity.fingerprint;
+    dmManager.openDM(peerFP, 'GUARDIAN');
+    await expect(dmManager.createBranch(peerFP, 'No source', 'missing-message')).rejects.toThrow(/Choose a delivered message/);
   });
 });

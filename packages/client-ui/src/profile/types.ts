@@ -5,7 +5,7 @@
  */
 
 export type ProfileTab = 'pulses' | 'replies' | 'highlights' | 'media' | 'likes' | 'communities' | 'creator' | 'settings';
-export type SettingsCategory = 'account' | 'security' | 'privacy' | 'notifications' | 'appearance' | 'data' | 'advanced';
+export type SettingsCategory = 'account' | 'security' | 'privacy' | 'notifications' | 'appearance' | 'messaging' | 'data' | 'accessibility' | 'advanced';
 
 export interface UserProfileData {
   fingerprint: string;

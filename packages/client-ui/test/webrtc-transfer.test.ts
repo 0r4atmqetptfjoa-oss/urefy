@@ -730,5 +730,22 @@ describe('UREfy — WebRTC P2P File Transfer Engine', () => {
       expect(result.quota.storageCapBytes).toBe(8589934592);
       expect(result.quota.shieldActive).toBe(false);
     });
+
+    it('should configure dynamic TURN relay credentials for symmetric NAT traversal', () => {
+      const initialServers = transferEngine.getIceServers();
+      expect(initialServers.some(s => {
+        const u = Array.isArray(s.urls) ? s.urls : [s.urls];
+        return u.some(url => url.startsWith('stun:'));
+      })).toBe(true);
+
+      transferEngine.setTurnCredentials(['turn:turn.urefy.network:3478', 'turns:turn.urefy.network:5349'], 'sovereign-user', 'secret-auth-token');
+
+      const updatedServers = transferEngine.getIceServers();
+      expect(updatedServers.length).toBeGreaterThan(initialServers.length);
+      const turnEntry = updatedServers[0];
+      expect(turnEntry.urls).toEqual(['turn:turn.urefy.network:3478', 'turns:turn.urefy.network:5349']);
+      expect(turnEntry.username).toBe('sovereign-user');
+      expect(turnEntry.credential).toBe('secret-auth-token');
+    });
   });
 });

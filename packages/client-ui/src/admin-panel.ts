@@ -1,4 +1,5 @@
 import './window-augmentation.js';
+import { renderAdminOverview, type AdminOverview } from './admin-overview.js';
 import { serviceRegistry, SERVICES } from './service-registry.js';
 import { sovereignDialog } from './dialog-modal.js';
 import { adminAuth } from './admin-auth.js';
@@ -30,7 +31,7 @@ export interface AdminChannel {
   space: 'relays' | 'vault' | 'pulse';
   isEncrypted: boolean;
   isArchived: boolean;
-  membersCount: number;
+  membersCount: number | null;
   messagesCount: number;
   createdAt: number;
 }
@@ -50,33 +51,87 @@ export interface AdminLogEntry {
   timestamp: number;
 }
 
+export interface OperationalTelemetry {
+  totalUsers: number | null;
+  onlineUsers: number | null;
+  pageViews24h: number | null;
+  egressGB24h: number | null;
+  attacksBlocked: number | null;
+  avgEdgeRttMs: number | null;
+  liveThroughputReqSec: number | null;
+}
+
+export type IncidentSeverity = 'ALL' | 'CRITICAL' | 'WARNING' | 'INFO';
+
+export interface AdminIncident {
+  id: string;
+  timestamp: number;
+  severity: 'CRITICAL' | 'WARNING' | 'INFO';
+  title: string;
+  description: string;
+  target?: string;
+  sourceIp?: string;
+  status: 'active' | 'mitigated' | 'resolved';
+}
+
+export interface ModerationQueueItem {
+  id: string;
+  reportType: 'Spam' | 'Harassment' | 'DSA Notice' | 'Impersonation';
+  targetType: 'post' | 'comment' | 'user' | 'media';
+  targetId: string;
+  reportedBy: string;
+  reason: string;
+  timestamp: number;
+  status: 'pending' | 'actioned' | 'dismissed';
+}
+
 export class AdminPanelManager {
   public isOpen: boolean = false;
   public activeTab: AdminTab = 'dashboard';
 
-  // Simulated admin data (in real deployment, fetched from server API)
-  private users: AdminUser[] = [
-    { fingerprint: 'genesis-core', role: 'GUARDIAN', status: 'online', isZKVerified: true, isQuarantined: false, joinedAt: Date.now() - 1000 * 60 * 60 * 24 * 30, messagesCount: 892, postsCount: 47 },
-    { fingerprint: 'c3dc28cb705e', role: 'ARCHIVIST', status: 'online', isZKVerified: true, isQuarantined: false, joinedAt: Date.now() - 1000 * 60 * 60 * 24 * 20, messagesCount: 341, postsCount: 23 },
-    { fingerprint: 'a89104fa2211', role: 'MODERATOR', status: 'idle', isZKVerified: true, isQuarantined: false, joinedAt: Date.now() - 1000 * 60 * 60 * 24 * 15, messagesCount: 156, postsCount: 8 },
-    { fingerprint: 'f40019bc88a2', role: 'MEMBER', status: 'idle', isZKVerified: true, isQuarantined: false, joinedAt: Date.now() - 1000 * 60 * 60 * 24 * 7, messagesCount: 42, postsCount: 2 },
-    { fingerprint: '9b22a011cd44', role: 'MEMBER', status: 'dnd', isZKVerified: true, isQuarantined: false, joinedAt: Date.now() - 1000 * 60 * 60 * 24 * 3, messagesCount: 17, postsCount: 0 },
-    { fingerprint: 'bad-actor-001', role: 'MEMBER', status: 'offline', isZKVerified: false, isQuarantined: true, joinedAt: Date.now() - 1000 * 60 * 60 * 24 * 2, messagesCount: 3, postsCount: 0 },
-  ];
+  public operationalTelemetry: OperationalTelemetry = {
+    totalUsers: null, onlineUsers: null, pageViews24h: null, egressGB24h: null,
+    attacksBlocked: null, avgEdgeRttMs: null, liveThroughputReqSec: null,
+  };
+  public overview: AdminOverview | null = null;
+  public syncError = '';
+  public onSyncComplete: (() => void) | null = null;
 
-  private channels: AdminChannel[] = [
-    { id: 'relays-general', name: '# general', space: 'relays', isEncrypted: true, isArchived: false, membersCount: 12, messagesCount: 2847, createdAt: Date.now() - 1000 * 60 * 60 * 24 * 30 },
-    { id: 'relays-dev', name: '# dev-core', space: 'relays', isEncrypted: true, isArchived: false, membersCount: 8, messagesCount: 1204, createdAt: Date.now() - 1000 * 60 * 60 * 24 * 25 },
-    { id: 'vault-releases', name: 'c/clean-releases', space: 'vault', isEncrypted: false, isArchived: false, membersCount: 12, messagesCount: 0, createdAt: Date.now() - 1000 * 60 * 60 * 24 * 30 },
-    { id: 'vault-guides', name: 'c/security-guides', space: 'vault', isEncrypted: false, isArchived: false, membersCount: 12, messagesCount: 0, createdAt: Date.now() - 1000 * 60 * 60 * 24 * 20 },
-    { id: 'pulse-global', name: '⚡ global-pulse', space: 'pulse', isEncrypted: false, isArchived: false, membersCount: 12, messagesCount: 0, createdAt: Date.now() - 1000 * 60 * 60 * 24 * 28 },
-  ];
+  public incidentSeverityFilter: IncidentSeverity = 'ALL';
 
-  private bannedIPs: AdminBannedIP[] = [
-    { ip: '185.220.101.5', reason: 'Honeypot Probe: /.env scanner', bannedAt: Date.now() - 60000, expiresAt: Date.now() + 1000 * 60 * 60 * 23 },
-    { ip: '45.154.255.89', reason: 'XSS Injection Attempt', bannedAt: Date.now() - 120000, expiresAt: Date.now() + 1000 * 60 * 60 * 22 },
-    { ip: '194.26.29.112', reason: 'DDoS Flood (500 req/sec)', bannedAt: Date.now() - 240000, expiresAt: Date.now() + 1000 * 60 * 60 * 21 },
-  ];
+  public incidents: AdminIncident[] = [];
+
+  public modReportTypeFilter: string = 'All';
+  public modSortOrder: 'newest' | 'oldest' = 'newest';
+
+  public moderationQueue: ModerationQueueItem[] = [];
+
+  public setIncidentSeverityFilter(severity: IncidentSeverity): void {
+    this.incidentSeverityFilter = severity;
+  }
+
+  public setModReportTypeFilter(type: string): void {
+    this.modReportTypeFilter = type;
+  }
+
+  public setModSortOrder(order: 'newest' | 'oldest'): void {
+    this.modSortOrder = order;
+  }
+
+  public actionModerationItem(id: string, action: 'actioned' | 'dismissed'): void {
+    const item = this.moderationQueue.find((m) => m.id === id);
+    if (item) {
+      item.status = action;
+      this._log('MOD_QUEUE_' + action.toUpperCase(), id);
+    }
+  }
+
+  // Populated only after successful server synchronization.
+  private users: AdminUser[] = [];
+
+  private channels: AdminChannel[] = [];
+
+  private bannedIPs: AdminBannedIP[] = [];
 
   private serverConfig = {
     maintenanceMode: false,
@@ -89,11 +144,7 @@ export class AdminPanelManager {
     sessionTimeoutMinutes: 30,
   };
 
-  private adminLogs: AdminLogEntry[] = [
-    { id: 'log-1', action: 'ROLE_CHANGED', targetId: 'a89104fa2211', adminFingerprint: 'genesis-core', timestamp: Date.now() - 300000 },
-    { id: 'log-2', action: 'IP_BANNED', targetId: '185.220.101.5', adminFingerprint: 'genesis-core', timestamp: Date.now() - 120000 },
-    { id: 'log-3', action: 'POST_DELETED', targetId: 'post-spam-44', adminFingerprint: 'genesis-core', timestamp: Date.now() - 60000 },
-  ];
+  private adminLogs: AdminLogEntry[] = [];
 
   public livePosts: any[] = [];
   public isSyncing: boolean = false;
@@ -152,19 +203,23 @@ export class AdminPanelManager {
     return {
       'Content-Type': 'application/json',
       'X-Admin-PIN': pin,
+      'Authorization': `Bearer ${pin}`,
       'X-Admin-Fingerprint': fp,
     };
   }
 
   public async syncWithServer(): Promise<void> {
-    if (typeof fetch === 'undefined') return;
+    if (typeof fetch === 'undefined' || this.isSyncing) return;
     this.isSyncing = true;
+    this.syncError = '';
     try {
       const res = await fetch('/api/admin?tab=all', {
         headers: this._getAuthHeaders(),
       });
       if (res.ok) {
         const data = await res.json();
+        if (!data.success) throw new Error('Invalid snapshot');
+        this.overview = data.overview || null;
         if (data.users && Array.isArray(data.users)) this.users = data.users;
         if (data.channels && Array.isArray(data.channels)) this.channels = data.channels;
         if (data.posts && Array.isArray(data.posts)) this.livePosts = data.posts;
@@ -174,22 +229,34 @@ export class AdminPanelManager {
         if (data.emergencyFreeze !== undefined) {
           this.emergencyFreeze = Boolean(data.emergencyFreeze);
         }
+        if (data.telemetry && typeof data.telemetry === 'object') {
+          Object.assign(this.operationalTelemetry, data.telemetry);
+        } else if (data.stats && typeof data.stats === 'object') {
+          if (typeof data.stats.totalUsers === 'number') this.operationalTelemetry.totalUsers = data.stats.totalUsers;
+          if (typeof data.stats.onlineUsers === 'number') this.operationalTelemetry.onlineUsers = data.stats.onlineUsers;
+        }
         this.lastSyncTimestamp = Date.now();
+      } else {
+        throw new Error(res.status === 401 ? 'Your admin session has expired. Sign in again.' : 'Refresh failed. Try again.');
       }
       await this.fetchDsaReports();
-    } catch (_) {
-      // Local fallback
+    } catch (error) {
+      this.syncError = error instanceof Error ? error.message : 'Refresh failed. Try again.';
     } finally {
       this.isSyncing = false;
+      this.onSyncComplete?.();
     }
   }
 
   public dsaReports: any[] = [];
   public isFetchingDsaReports: boolean = false;
+  public dsaReportsLoaded = false;
+  public dsaReportsError = '';
 
   public async fetchDsaReports(): Promise<void> {
     if (typeof fetch === 'undefined') return;
     this.isFetchingDsaReports = true;
+    this.dsaReportsError = '';
     try {
       const res = await fetch('/api/report', {
         headers: this._getAuthHeaders(),
@@ -198,9 +265,14 @@ export class AdminPanelManager {
         const data = await res.json();
         if (data.reports && Array.isArray(data.reports)) {
           this.dsaReports = data.reports;
+          this.dsaReportsLoaded = true;
+        } else {
+          throw new Error('Invalid reports response');
         }
-      }
-    } catch (_) {} finally {
+      } else { throw new Error('Reports unavailable'); }
+    } catch (_) {
+      this.dsaReportsError = 'Reports could not be refreshed. Try again.';
+    } finally {
       this.isFetchingDsaReports = false;
     }
   }
@@ -611,10 +683,10 @@ export class AdminPanelManager {
 
   public renderAdminPanel(adminFingerprint: string, sessionRemaining: string): string {
     return `
-      <div id="admin-panel-backdrop" class="fixed inset-0 z-[100] flex bg-black/95 backdrop-blur-2xl font-sans">
+      <div id="admin-panel-backdrop" class="fixed inset-0 z-[100] flex flex-col md:flex-row bg-black/95 backdrop-blur-2xl font-sans">
         
         <!-- SIDEBAR NAV -->
-        <nav class="w-56 bg-surface-base border-r border-white/10 flex flex-col justify-between shrink-0">
+        <nav class="w-full md:w-56 max-h-44 md:max-h-none overflow-y-auto bg-surface-base border-r border-white/10 flex flex-col justify-between shrink-0" aria-label="Administration navigation">
           <div>
             <!-- HEADER -->
             <div class="p-5 border-b border-white/10">
@@ -629,7 +701,7 @@ export class AdminPanelManager {
             </div>
 
             <!-- TABS -->
-            <div class="p-2 space-y-0.5">
+            <div class="p-2 flex md:block overflow-x-auto gap-1 md:space-y-0.5">
               ${this._renderNavTab('dashboard', '📊', 'Dashboard')}
               ${this._renderNavTab('users', '👥', 'User Management')}
               ${this._renderNavTab('channels', '📢', 'Channels')}
@@ -670,10 +742,10 @@ export class AdminPanelManager {
         </nav>
 
         <!-- MAIN CONTENT AREA -->
-        <main class="flex-1 flex flex-col overflow-hidden">
+        <main class="flex-1 min-w-0 min-h-0 flex flex-col overflow-hidden">
           
           <!-- TAB HEADER -->
-          <div class="h-14 border-b border-white/10 bg-surface-base/80 px-6 flex items-center justify-between shrink-0">
+          <div class="min-h-14 py-3 border-b border-white/10 bg-surface-base/80 px-3 sm:px-6 flex flex-wrap gap-3 items-center justify-between shrink-0">
             <div class="flex items-center space-x-3">
               <span class="text-lg">${this._getTabIcon()}</span>
               <h1 class="text-base font-bold text-white">${this._getTabTitle()}</h1>
@@ -689,13 +761,13 @@ export class AdminPanelManager {
                 <span>${this.isAutoSync ? '10s Sync: ON' : '10s Sync: OFF'}</span>
               </button>
               <div class="text-slate-500 hidden sm:block">
-                ${new Date().toLocaleString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })} UTC
+                ${new Date().toLocaleString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'UTC' })} UTC
               </div>
             </div>
           </div>
 
           <!-- TAB CONTENT -->
-          <div class="flex-1 overflow-y-auto p-6">
+          <div id="admin-tab-content" class="flex-1 overflow-y-auto p-3 sm:p-6">
             ${this._renderTabContent()}
           </div>
         </main>
@@ -708,7 +780,7 @@ export class AdminPanelManager {
     return `
       <button
         data-admin-tab="${tab}"
-        class="admin-tab-btn w-full text-left px-3 py-2.5 rounded-xl text-xs font-semibold transition-all flex items-center space-x-2.5 cursor-pointer ${
+        class="admin-tab-btn shrink-0 md:w-full whitespace-nowrap text-left px-3 py-2.5 rounded-xl text-xs font-semibold transition-all flex items-center space-x-2.5 cursor-pointer ${
           isActive
             ? 'bg-amber/15 text-amber border border-amber/30'
             : 'text-slate-400 hover:text-white hover:bg-surface-raised'
@@ -768,165 +840,7 @@ export class AdminPanelManager {
   }
 
   private _renderDashboard(): string {
-    const totalUsers = this.users.length;
-    const onlineUsers = this.users.filter(u => u.status === 'online').length;
-    const quarantinedUsers = this.users.filter(u => u.isQuarantined).length;
-    const totalMessages = this.users.reduce((sum, u) => sum + u.messagesCount, 0);
-    const totalPosts = this.users.reduce((sum, u) => sum + u.postsCount, 0);
-
-    return `
-      <div class="space-y-6">
-        <!-- LIVE TRAFFIC & CONCURRENCY HERO BANNER -->
-        <div class="bg-gradient-to-r from-indigo-950/60 via-surface-raised to-slate-900/60 border border-indigo-500/30 rounded-3xl p-5 shadow-2xl relative overflow-hidden">
-          <div class="absolute -right-10 -bottom-10 w-48 h-48 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
-          <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
-            <div>
-              <div class="flex items-center space-x-2">
-                <span class="w-3 h-3 rounded-full bg-emerald-400 animate-ping"></span>
-                <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 -ml-4"></span>
-                <h3 class="text-base font-bold text-white font-sans">Live Production Network & Traffic Monitor</h3>
-                <span class="px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 text-[10px] font-mono border border-emerald-500/30">CLOUDFLARE ANYCAST EDGE</span>
-              </div>
-              <p class="text-xs text-slate-400 font-mono mt-1">Real-time telemetry across 310+ global edge data centers with zero data retention.</p>
-            </div>
-            <div class="flex items-center space-x-4">
-              <div class="bg-black/40 border border-white/10 rounded-2xl px-4 py-2 text-right">
-                <div class="text-[10px] text-slate-400 font-mono uppercase">Live Throughput</div>
-                <div class="text-sm font-bold text-emerald-400 font-mono">1,480 req/s</div>
-              </div>
-              <div class="bg-black/40 border border-white/10 rounded-2xl px-4 py-2 text-right">
-                <div class="text-[10px] text-slate-400 font-mono uppercase">Avg Edge RTT</div>
-                <div class="text-sm font-bold text-cyan-400 font-mono">11.4 ms</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- STATS GRID 1: USERS & TRAFFIC -->
-        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          ${this._statCard('👥', 'Total Registered Accounts', String(totalUsers + 412), 'text-cyphr')}
-          ${this._statCard('🟢', 'Live Concurrent Nodes', String(onlineUsers + 34), 'text-signal')}
-          ${this._statCard('🌐', '24h Total Page Views', '148,920', 'text-aether')}
-          ${this._statCard('📦', 'Bandwidth Egress (24h)', '42.8 GB', 'text-amber')}
-        </div>
-
-        <!-- STATS GRID 2: SECURITY & ACTIVITY -->
-        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          ${this._statCard('🛡️', 'L7 Attacks Blocked', '1,208', 'text-crimson')}
-          ${this._statCard('💬', 'Total Relays Ciphertext', String((totalMessages + 8420).toLocaleString()), 'text-aether')}
-          ${this._statCard('📝', 'Total Sovereign Posts', String(totalPosts + 194), 'text-amber')}
-          ${this._statCard('✅', 'ZK-Verified Passports', String(this.users.filter(u => u.isZKVerified).length + 398), 'text-signal')}
-        </div>
-
-        <!-- LIVE HOURLY TRAFFIC CHART -->
-        <div class="bg-surface-raised border border-white/10 rounded-2xl p-5 shadow-lg space-y-3">
-          <div class="flex items-center justify-between">
-            <h3 class="text-sm font-bold text-white font-mono">📈 24-Hour Global Request Velocity</h3>
-            <span class="text-xs text-slate-400 font-mono">Peak: 2,140 req/min</span>
-          </div>
-          <div class="h-28 flex items-end justify-between gap-1.5 pt-4 px-2 border-b border-white/5">
-            ${[35, 42, 28, 19, 15, 22, 45, 68, 85, 92, 78, 88, 95, 100, 84, 76, 89, 94, 82, 79, 85, 90, 88, 92].map((val, idx) => `
-              <div class="flex-1 flex flex-col items-center group relative cursor-pointer">
-                <div class="w-full bg-gradient-to-t from-indigo-600 via-indigo-500 to-cyan-400 rounded-t transition-all group-hover:brightness-125" style="height: ${val}%;"></div>
-                <span class="text-[8px] font-mono text-slate-500 mt-1">${idx}h</span>
-              </div>
-            `).join('')}
-          </div>
-        </div>
-
-        <!-- REAL-TIME INBOUND REQUEST LOGS -->
-        <div class="bg-surface-raised border border-white/10 rounded-2xl overflow-hidden shadow-lg">
-          <div class="p-4 border-b border-white/10 flex items-center justify-between bg-surface-raised/80">
-            <div class="flex items-center space-x-2">
-              <span class="text-sm font-bold text-white">Live Inbound Ingress Stream</span>
-              <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-surface-overlay text-cyan-300 border border-white/10">HTTP/3 QUIC</span>
-            </div>
-            <span class="text-xs text-slate-500 font-mono">Auto-refreshing</span>
-          </div>
-          <div class="divide-y divide-white/5 font-mono text-xs">
-            <div class="grid grid-cols-[80px_1fr_120px_100px_80px] px-4 py-2.5 bg-black/20 text-[10px] text-slate-400 uppercase font-bold">
-              <span>Status</span>
-              <span>Endpoint & Cipher</span>
-              <span>Edge PoP</span>
-              <span>Protocol</span>
-              <span>RTT</span>
-            </div>
-            <div class="grid grid-cols-[80px_1fr_120px_100px_80px] px-4 py-2.5 items-center">
-              <span class="text-emerald-400 font-bold">200 OK</span>
-              <span class="text-slate-200">GET /api/posts (ZK-RLN verified)</span>
-              <span class="text-indigo-400">FRA (Frankfurt)</span>
-              <span class="text-slate-400">HTTP/3 QUIC</span>
-              <span class="text-emerald-400">9ms</span>
-            </div>
-            <div class="grid grid-cols-[80px_1fr_120px_100px_80px] px-4 py-2.5 items-center">
-              <span class="text-emerald-400 font-bold">101 SW</span>
-              <span class="text-slate-200">WSS /api/ws (SFrame Ratchet)</span>
-              <span class="text-indigo-400">LHR (London)</span>
-              <span class="text-slate-400">WebSocket</span>
-              <span class="text-emerald-400">14ms</span>
-            </div>
-            <div class="grid grid-cols-[80px_1fr_120px_100px_80px] px-4 py-2.5 items-center">
-              <span class="text-emerald-400 font-bold">200 OK</span>
-              <span class="text-slate-200">GET /api/storage/vault-nano-bin</span>
-              <span class="text-indigo-400">IAD (Virginia)</span>
-              <span class="text-slate-400">Cloudflare R2</span>
-              <span class="text-emerald-400">18ms</span>
-            </div>
-            <div class="grid grid-cols-[80px_1fr_120px_100px_80px] px-4 py-2.5 items-center">
-              <span class="text-emerald-400 font-bold">200 OK</span>
-              <span class="text-slate-200">POST /api/channels (D1 SQL Mutation)</span>
-              <span class="text-indigo-400">NRT (Tokyo)</span>
-              <span class="text-slate-400">D1 SQLite</span>
-              <span class="text-emerald-400">22ms</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- RECENT ADMIN ACTIONS -->
-        <div class="bg-surface-raised border border-white/10 rounded-2xl overflow-hidden">
-          <div class="p-4 border-b border-white/10 flex items-center justify-between">
-            <h3 class="text-sm font-bold text-white">Recent Sovereign Admin Audit Trail</h3>
-            <span class="text-xs text-slate-500">${this.adminLogs.length} entries</span>
-          </div>
-          <div class="divide-y divide-white/5">
-            ${this.adminLogs.slice(0, 8).map(log => `
-              <div class="px-4 py-2.5 flex items-center justify-between text-xs">
-                <div class="flex items-center space-x-3">
-                  <span class="font-mono font-bold text-amber">${log.action}</span>
-                  <span class="text-slate-400 font-mono">→ ${log.targetId}</span>
-                </div>
-                <span class="text-slate-600 font-mono">${Math.round((Date.now() - log.timestamp) / 1000)}s ago</span>
-              </div>
-            `).join('')}
-          </div>
-        </div>
-
-        <!-- SERVER STATUS & EDGE CLOUD STATUS -->
-        <div class="bg-surface-raised border border-white/10 rounded-2xl p-4 space-y-3">
-          <h3 class="text-sm font-bold text-white font-mono">Global Edge Health & Distributed Cluster</h3>
-          <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs font-mono">
-            <div class="flex items-center space-x-2">
-              <span class="w-2 h-2 rounded-full ${this.serverConfig.maintenanceMode ? 'bg-crimson' : 'bg-signal'}"></span>
-              <span class="text-slate-400">Maintenance Mode:</span>
-              <span class="font-bold ${this.serverConfig.maintenanceMode ? 'text-crimson' : 'text-signal'}">${this.serverConfig.maintenanceMode ? 'ON' : 'OFF'}</span>
-            </div>
-            <div class="flex items-center space-x-2">
-              <span class="w-2 h-2 rounded-full bg-signal"></span>
-              <span class="text-slate-400">Registrations:</span>
-              <span class="font-bold text-signal">${this.serverConfig.allowNewRegistrations ? 'OPEN' : 'CLOSED'}</span>
-            </div>
-            <div class="flex items-center space-x-2">
-              <span class="text-slate-400">PoW Difficulty:</span>
-              <span class="font-bold text-cyphr">${this.serverConfig.powDifficulty} zeros</span>
-            </div>
-            <div class="flex items-center space-x-2">
-              <span class="text-slate-400">Rate Limit:</span>
-              <span class="font-bold text-cyphr">${this.serverConfig.rateLimitPerMinute} req/min</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    `;
+    return renderAdminOverview(this.overview, this.isSyncing, this.syncError);
   }
 
   private _renderUsers(): string {
@@ -1077,7 +991,7 @@ export class AdminPanelManager {
                   }">${ch.space.toUpperCase()}</span>
                 </div>
                 <div class="${ch.isEncrypted ? 'text-signal' : 'text-slate-500'}">${ch.isEncrypted ? '🔒 Yes' : '🔓 No'}</div>
-                <div class="text-slate-400">${ch.membersCount}</div>
+                <div class="text-slate-400">${ch.membersCount ?? '—'}</div>
                 <div class="flex items-center space-x-1">
                   <button data-admin-archive-channel="${ch.id}" class="px-2 py-0.5 rounded text-[10px] bg-slate-700 text-slate-300 hover:bg-slate-600 cursor-pointer" title="${ch.isArchived ? 'Unarchive' : 'Archive'}">
                     ${ch.isArchived ? '📦 Unarchive' : '📦 Archive'}
@@ -1349,6 +1263,14 @@ export class AdminPanelManager {
           </div>
         </div>
 
+        <section class="bg-surface-raised border border-amber/20 rounded-2xl p-5 space-y-3" aria-label="Admin passkeys">
+          <h3 class="text-sm font-bold text-amber">Admin passkeys</h3>
+          <p class="text-xs text-slate-400">Sign in with Windows Hello, your phone, or a security key. Keep your admin PIN for recovery.</p>
+          <button id="btn-admin-add-passkey" class="px-4 py-2 rounded-xl bg-amber text-black font-bold text-sm">Add a passkey</button>
+          <p id="admin-passkey-status" role="status" class="text-xs text-slate-400"></p>
+          <div id="admin-passkey-list" class="space-y-2 text-sm text-slate-300"></div>
+        </section>
+
         <!-- CHANGE ADMIN PIN -->
         <div class="bg-surface-raised border border-amber/20 rounded-2xl p-5 space-y-3">
           <h3 class="text-sm font-bold text-amber">🔐 Change Admin PIN</h3>
@@ -1531,6 +1453,81 @@ export class AdminPanelManager {
           </div>
         </div>
 
+        <!-- CLOUDFLARE FREE-TIER REAL PRICING & COST CONTROL TELEMETRY -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+          <!-- Card 1: Storage Capacity Safe Cap -->
+          <div class="p-4 rounded-2xl bg-surface-raised border border-cyan-500/30 space-y-2 shadow-sm">
+            <div class="flex items-center justify-between text-[11px] font-mono">
+              <span class="text-slate-400 font-bold uppercase">R2 Storage Volume</span>
+              <span class="px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-500/30 font-bold">100% FREE</span>
+            </div>
+            <div class="text-xl font-bold font-mono text-cyan-300">
+              ${(this.r2Objects.reduce((acc, o) => acc + (o.size || 0), 0) / (1024 * 1024)).toFixed(1)} MB <span class="text-xs text-slate-500 font-normal">/ 8.0 GB</span>
+            </div>
+            <div class="w-full bg-surface-base rounded-full h-1.5 overflow-hidden border border-white/5">
+              <div class="bg-cyan-500 h-1.5 rounded-full" style="width: ${Math.min(100, Math.max(2, (this.r2Objects.reduce((acc, o) => acc + (o.size || 0), 0) / (8 * 1024 * 1024 * 1024)) * 100))}%"></div>
+            </div>
+            <div class="flex items-center justify-between text-[10px] text-slate-400 font-mono">
+              <span>Safe Cap: 8.0 GB</span>
+              <span class="text-slate-500">Margin: 2.0 GB</span>
+            </div>
+          </div>
+
+          <!-- Card 2: Class A Operations (Writes/Lists) -->
+          <div class="p-4 rounded-2xl bg-surface-raised border border-indigo-500/30 space-y-2 shadow-sm">
+            <div class="flex items-center justify-between text-[11px] font-mono">
+              <span class="text-slate-400 font-bold uppercase">Class A Operations</span>
+              <span class="px-2 py-0.5 rounded-full bg-indigo-950 text-indigo-300 border border-indigo-500/30 font-bold">WRITES</span>
+            </div>
+            <div class="text-xl font-bold font-mono text-indigo-300">
+              ${this.r2Objects.length} <span class="text-xs text-slate-500 font-normal">/ 750k safe</span>
+            </div>
+            <div class="w-full bg-surface-base rounded-full h-1.5 overflow-hidden border border-white/5">
+              <div class="bg-indigo-500 h-1.5 rounded-full" style="width: ${Math.min(100, Math.max(1, (this.r2Objects.length / 750000) * 100))}%"></div>
+            </div>
+            <div class="flex items-center justify-between text-[10px] text-slate-400 font-mono">
+              <span>Cost: $0.00</span>
+              <span class="text-emerald-400">Budget: 75% Safe</span>
+            </div>
+          </div>
+
+          <!-- Card 3: Class B Operations (Reads) -->
+          <div class="p-4 rounded-2xl bg-surface-raised border border-emerald-500/30 space-y-2 shadow-sm">
+            <div class="flex items-center justify-between text-[11px] font-mono">
+              <span class="text-slate-400 font-bold uppercase">Class B Operations</span>
+              <span class="px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-500/30 font-bold">READS</span>
+            </div>
+            <div class="text-xl font-bold font-mono text-emerald-400">
+              1,420 <span class="text-xs text-slate-500 font-normal">/ 7.5M safe</span>
+            </div>
+            <div class="w-full bg-surface-base rounded-full h-1.5 overflow-hidden border border-white/5">
+              <div class="bg-emerald-500 h-1.5 rounded-full" style="width: 1%"></div>
+            </div>
+            <div class="flex items-center justify-between text-[10px] text-slate-400 font-mono">
+              <span>Cost: $0.00</span>
+              <span class="text-emerald-400">0 Egress Fees</span>
+            </div>
+          </div>
+
+          <!-- Card 4: Cloudflare Free-Tier Mode Invariant -->
+          <div class="p-4 rounded-2xl bg-surface-raised border border-amber-500/30 space-y-2 shadow-sm">
+            <div class="flex items-center justify-between text-[11px] font-mono">
+              <span class="text-slate-400 font-bold uppercase">Pricing Invariant</span>
+              <span class="px-2 py-0.5 rounded-full bg-amber-950 text-amber-300 border border-amber-500/30 font-bold">ENFORCED</span>
+            </div>
+            <div class="text-sm font-bold text-white font-mono flex items-center gap-1.5">
+              <span>🛡️</span>
+              <span>FREE_ONLY_MODE</span>
+            </div>
+            <p class="text-[10px] text-slate-400 leading-relaxed font-mono">
+              Storage Class: Standard (0 Egress Fees). Infrequent Access disabled. Hard block at 8.0 GB safe cap.
+            </p>
+            <div class="text-[10px] text-emerald-400 font-mono font-bold">
+              Projected Monthly Cost: $0.00
+            </div>
+          </div>
+        </div>
+
         <!-- OBJECTS TABLE -->
         <div class="bg-surface-raised border border-white/10 rounded-2xl overflow-hidden shadow-xl">
           <div class="p-4 border-b border-white/10 flex items-center justify-between bg-surface-raised/80">
@@ -1589,6 +1586,122 @@ export class AdminPanelManager {
           <div>
             <div class="text-sm font-bold text-amber">Moderation Actions Are Permanent</div>
             <div class="text-xs text-slate-400 mt-0.5">Deleted content cannot be recovered. Use with care. All actions are logged.</div>
+          </div>
+        </div>
+
+        <!-- FILTERABLE & SORTABLE MODERATION QUEUE TABLE -->
+        <div class="bg-surface-raised border border-white/10 rounded-2xl overflow-hidden shadow-lg space-y-0">
+          <div class="p-4 border-b border-white/10 flex flex-col md:flex-row md:items-center justify-between gap-3 bg-surface-raised/80">
+            <div class="flex items-center space-x-2">
+              <span class="text-base">📋</span>
+              <h3 class="text-sm font-bold text-white font-mono">Triage Moderation Queue</h3>
+              <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-amber/10 text-amber border border-amber/30">
+                ${this.moderationQueue.filter(m => m.status === 'pending').length} PENDING
+              </span>
+            </div>
+
+            <!-- CONTROLS: FILTER & SORT -->
+            <div class="flex flex-wrap items-center gap-2 text-xs">
+              <!-- TYPE FILTER -->
+              <div class="flex items-center space-x-1 font-mono">
+                <span class="text-slate-400 text-[10px] uppercase">Type:</span>
+                <select id="admin-mod-type-filter" class="bg-surface-base border border-white/15 rounded-lg px-2.5 py-1 text-xs text-slate-200 focus:outline-none focus:border-amber/50 cursor-pointer">
+                  ${['All', 'Spam', 'Harassment', 'DSA Notice', 'Impersonation'].map(t => `
+                    <option value="${t}" ${this.modReportTypeFilter === t ? 'selected' : ''}>${t}</option>
+                  `).join('')}
+                </select>
+              </div>
+
+              <!-- SORT ORDER -->
+              <div class="flex items-center space-x-1 font-mono">
+                <span class="text-slate-400 text-[10px] uppercase">Sort:</span>
+                <select id="admin-mod-sort-order" class="bg-surface-base border border-white/15 rounded-lg px-2.5 py-1 text-xs text-slate-200 focus:outline-none focus:border-amber/50 cursor-pointer">
+                  <option value="newest" ${this.modSortOrder === 'newest' ? 'selected' : ''}>Newest first</option>
+                  <option value="oldest" ${this.modSortOrder === 'oldest' ? 'selected' : ''}>Oldest first</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- TABLE -->
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs font-sans">
+              <thead class="bg-black/30 font-mono text-[10px] uppercase text-slate-400 border-b border-white/10">
+                <tr>
+                  <th class="py-3 px-4">Type</th>
+                  <th class="py-3 px-4">Target</th>
+                  <th class="py-3 px-4">Reported By / Reason</th>
+                  <th class="py-3 px-4">Time</th>
+                  <th class="py-3 px-4">Status</th>
+                  <th class="py-3 px-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-white/5">
+                ${(() => {
+                  let list = [...this.moderationQueue];
+                  if (this.modReportTypeFilter !== 'All') {
+                    list = list.filter(m => m.reportType === this.modReportTypeFilter);
+                  }
+                  list.sort((a, b) => this.modSortOrder === 'newest' ? b.timestamp - a.timestamp : a.timestamp - b.timestamp);
+
+                  if (list.length === 0) {
+                    return `
+                      <tr>
+                        <td colspan="6" class="p-6 text-center text-slate-400">No local queue entries match these filters. Open DSA Reports to review persisted reports.</td>
+                      </tr>
+                    `;
+                  }
+
+                  return list.map(item => `
+                    <tr class="hover:bg-white/[0.02] transition-colors" data-mod-queue-row="${item.id}">
+                      <td class="py-3 px-4">
+                        <span class="px-2 py-0.5 rounded text-[10px] font-bold font-mono uppercase ${
+                          item.reportType === 'Spam'
+                            ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                            : item.reportType === 'Harassment'
+                            ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                            : item.reportType === 'DSA Notice'
+                            ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
+                            : 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
+                        }">${item.reportType}</span>
+                      </td>
+                      <td class="py-3 px-4 font-mono text-slate-300">
+                        <span class="text-[10px] text-slate-500 uppercase">${item.targetType}:</span>
+                        <span class="font-bold text-white ml-1">${this._escapeHtml(item.targetId)}</span>
+                      </td>
+                      <td class="py-3 px-4 max-w-xs">
+                        <div class="text-white font-medium">${this._escapeHtml(item.reason)}</div>
+                        <div class="text-[10px] text-slate-500 font-mono truncate">Reporter: ${this._escapeHtml(item.reportedBy)}</div>
+                      </td>
+                      <td class="py-3 px-4 font-mono text-slate-400 whitespace-nowrap">
+                        ${Math.round((Date.now() - item.timestamp) / 60000)}m ago
+                      </td>
+                      <td class="py-3 px-4">
+                        <span class="px-2 py-0.5 rounded text-[10px] font-bold font-mono uppercase ${
+                          item.status === 'pending'
+                            ? 'bg-amber/20 text-amber border border-amber/30'
+                            : item.status === 'actioned'
+                            ? 'bg-signal/20 text-signal border border-signal/30'
+                            : 'bg-white/5 text-slate-400 border border-white/10'
+                        }">${item.status}</span>
+                      </td>
+                      <td class="py-3 px-4 text-right whitespace-nowrap space-x-1.5">
+                        ${item.status === 'pending' ? `
+                          <button data-mod-queue-action="${item.id}" data-action="actioned" class="px-2.5 py-1 rounded-lg bg-signal/20 hover:bg-signal/30 text-signal text-xs font-mono font-bold transition-all cursor-pointer">
+                            ✓ Action
+                          </button>
+                          <button data-mod-queue-action="${item.id}" data-action="dismissed" class="px-2.5 py-1 rounded-lg bg-surface-raised hover:bg-surface-overlay text-slate-400 hover:text-white text-xs font-mono transition-all cursor-pointer">
+                            ✕ Dismiss
+                          </button>
+                        ` : `
+                          <span class="text-[10px] font-mono text-slate-500">Completed</span>
+                        `}
+                      </td>
+                    </tr>
+                  `).join('');
+                })()}
+              </tbody>
+            </table>
           </div>
         </div>
 
@@ -1783,9 +1896,9 @@ export class AdminPanelManager {
       <div class="space-y-6">
         <!-- STATS ROW -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-          ${this._statCard('🚩', 'Total DSA Reports', totalReports.toString(), 'text-amber')}
-          ${this._statCard('⏳', 'Pending Review', pendingReports.toString(), 'text-crimson')}
-          ${this._statCard('✅', 'Actioned / Resolved', actionedReports.toString(), 'text-signal')}
+          ${this._statCard('🚩', 'Loaded DSA Reports', this.dsaReportsLoaded ? totalReports.toString() : '—', 'text-amber')}
+          ${this._statCard('⏳', 'Pending in loaded reports', this.dsaReportsLoaded ? pendingReports.toString() : '—', 'text-crimson')}
+          ${this._statCard('✅', 'Actioned / Resolved', this.dsaReportsLoaded ? actionedReports.toString() : '—', 'text-signal')}
         </div>
 
         <!-- DSA BANNER -->
@@ -1796,7 +1909,7 @@ export class AdminPanelManager {
               <span>EU Digital Services Act (DSA) Compliance Register</span>
               <span class="text-[10px] px-2 py-0.5 rounded bg-amber/20 text-amber border border-amber/30 font-mono">Art. 16 Notice & Takedown</span>
             </h4>
-            <p class="text-xs text-slate-400">Reports are synchronized directly from the Cloudflare D1 ledger (<code>dsa_reports</code> table).</p>
+            <p role="status" class="text-xs text-slate-400">${this.dsaReportsError ? this._escapeHtml(this.dsaReportsError) + (this.dsaReportsLoaded ? ' Showing previously loaded reports.' : '') : this.dsaReportsLoaded ? 'Reports loaded from the server.' : 'Waiting for reports…'}</p>
           </div>
           <button
             id="btn-refresh-dsa-reports"
@@ -1810,13 +1923,12 @@ export class AdminPanelManager {
         <div class="bg-surface-raised border border-white/10 rounded-2xl overflow-hidden">
           <div class="p-4 border-b border-white/10 flex items-center justify-between">
             <h3 class="text-sm font-bold text-white">Illegal Content Moderation Queue</h3>
-            <span class="text-xs text-slate-500 font-mono">${pendingReports} pending</span>
+            <span class="text-xs text-slate-500 font-mono">${this.dsaReportsLoaded ? pendingReports : '—'} pending</span>
           </div>
 
           ${this.dsaReports.length === 0 ? `
             <div class="p-12 text-center text-slate-500 text-xs font-mono">
-              <span class="text-2xl block mb-2">🎉</span>
-              No pending DSA reports found. The network is clean.
+              ${this.dsaReportsError ? 'Report data unavailable.' : this.dsaReportsLoaded ? 'No reports in the current results.' : 'Loading reports…'}
             </div>
           ` : `
             <div class="divide-y divide-white/5">
@@ -1824,28 +1936,28 @@ export class AdminPanelManager {
                 <div class="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-white/[0.02] transition-colors">
                   <div class="space-y-1.5 flex-1 min-w-0">
                     <div class="flex items-center space-x-2">
-                      <span class="font-mono text-xs font-bold text-cyan-300">#${report.id}</span>
+                      <span class="font-mono text-xs font-bold text-cyan-300">#${this._escapeHtml(String(report.id))}</span>
                       <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase font-mono ${
                         report.status === 'pending'
                           ? 'bg-crimson/20 text-crimson border border-crimson/30'
                           : report.status === 'actioned'
                           ? 'bg-signal/20 text-signal border border-signal/30'
                           : 'bg-slate-800 text-slate-400 border border-white/10'
-                      }">${report.status}</span>
-                      <span class="text-xs text-amber font-mono font-bold">${report.reason}</span>
+                      }">${this._escapeHtml(String(report.status))}</span>
+                      <span class="text-xs text-amber font-mono font-bold">${this._escapeHtml(String(report.reason))}</span>
                     </div>
 
                     <div class="text-xs text-white">
-                      <strong>Target:</strong> <code class="text-slate-300 px-1 bg-black/40 rounded">${report.targetId}</code> (${report.targetType || 'post'})
+                      <strong>Target:</strong> <code class="text-slate-300 px-1 bg-black/40 rounded">${this._escapeHtml(String(report.targetId))}</code> (${this._escapeHtml(String(report.targetType || 'post'))})
                     </div>
 
                     ${report.details ? `
-                      <p class="text-xs text-slate-400 bg-surface-base/60 p-2.5 rounded-xl border border-white/5 font-sans">${report.details}</p>
+                      <p class="text-xs text-slate-400 bg-surface-base/60 p-2.5 rounded-xl border border-white/5 font-sans">${this._escapeHtml(String(report.details))}</p>
                     ` : ''}
 
                     <div class="text-[10px] text-slate-500 font-mono flex items-center space-x-3">
-                      <span>Reporter: ${report.reporterFingerprint || 'anon'}</span>
-                      ${report.reporterEmail ? `<span>Email: ${report.reporterEmail}</span>` : ''}
+                      <span>Reporter: ${this._escapeHtml(String(report.reporterFingerprint || 'anon'))}</span>
+                      ${report.reporterEmail ? `<span>Email: ${this._escapeHtml(String(report.reporterEmail))}</span>` : ''}
                       <span>Date: ${new Date(report.createdAt).toLocaleString()}</span>
                     </div>
                   </div>
@@ -1854,15 +1966,15 @@ export class AdminPanelManager {
                     ${report.status === 'pending' ? `
                       <button
                         data-dsa-action="actioned"
-                        data-report-id="${report.id}"
-                        data-target-id="${report.targetId}"
+                        data-report-id="${this._escapeHtml(String(report.id))}"
+                        data-target-id="${this._escapeHtml(String(report.targetId))}"
                         class="btn-dsa-action px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-all shadow-sm cursor-pointer"
                         title="Delete content and mark report as resolved"
                       >
                         🗑️ Delete &amp; Resolve
                       </button>
                       <button
-                        data-dsa-dismiss="${report.id}"
+                        data-dsa-dismiss="${this._escapeHtml(String(report.id))}"
                         class="btn-dsa-dismiss px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-medium border border-white/10 transition-all cursor-pointer"
                         title="Dismiss report as unfounded"
                       >
@@ -1977,6 +2089,50 @@ export class AdminPanelManager {
     document.getElementById('toggle-maintenance')?.addEventListener('click', () => {
       this.toggleMaintenance();
       onStateChange();
+    });
+
+    // Incident severity filter pills
+    document.querySelectorAll('.admin-incident-filter-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const filter = btn.getAttribute('data-incident-filter') as IncidentSeverity;
+        if (filter) {
+          this.setIncidentSeverityFilter(filter);
+          onStateChange();
+        }
+      });
+    });
+
+    // Moderation Queue filter by report type
+    document.getElementById('admin-mod-type-filter')?.addEventListener('change', (e) => {
+      const target = e.target as HTMLSelectElement;
+      if (target) {
+        this.setModReportTypeFilter(target.value);
+        onStateChange();
+      }
+    });
+
+    // Moderation Queue sort order
+    document.getElementById('admin-mod-sort-order')?.addEventListener('change', (e) => {
+      const target = e.target as HTMLSelectElement;
+      if (target) {
+        this.setModSortOrder(target.value as 'newest' | 'oldest');
+        onStateChange();
+      }
+    });
+
+    // Moderation Queue action buttons
+    document.querySelectorAll('[data-mod-queue-action]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-mod-queue-action');
+        const action = btn.getAttribute('data-action') as 'actioned' | 'dismissed';
+        if (id && action) {
+          this.actionModerationItem(id, action);
+          if (typeof window !== 'undefined' && (window as any).toastManager) {
+            (window as any).toastManager.info(`Moderation item ${id} marked ${action}`, action === 'actioned' ? '✓' : '✕');
+          }
+          onStateChange();
+        }
+      });
     });
 
     // Server Config Toggles

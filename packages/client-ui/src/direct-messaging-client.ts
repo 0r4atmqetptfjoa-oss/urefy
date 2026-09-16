@@ -1,11 +1,13 @@
 import { canonicalizeJson, createSignedEnvelope, decryptDirectMessage, encryptDirectMessage, verifyDirectMessageRegistration, type DirectMessageKeyRegistration, type DirectMessageSendPayload, type SovereignIdentity, type SovereignKeyPairSet, type SovereignSignedEnvelope } from '@aetheris/core-crypto';
 import type { DirectMessageAttachment } from './client-state.js';
+import { validateMessageContext, type MessageContext } from './conversation-context.js';
 
 export const MAX_PRIVATE_ATTACHMENT_BYTES = 128 * 1024;
 
 export interface PrivateMessageContent {
   text: string;
   attachment?: DirectMessageAttachment;
+  context?: MessageContext;
 }
 
 export interface PrivateMessageDelivery {
@@ -34,6 +36,7 @@ export interface PrivateMessageTransport {
 
 function validateContent(content: PrivateMessageContent): void {
   if (!content || typeof content.text !== 'string') throw new Error('Invalid private message content');
+  if (content.context !== undefined) validateMessageContext(content.context);
   const attachment = content.attachment;
   if (attachment && (typeof attachment.name !== 'string' || attachment.name.length > 255 ||
       typeof attachment.dataUrl !== 'string' || !/^data:[a-z0-9.+/-]+;base64,[a-z0-9+/]*={0,2}$/i.test(attachment.dataUrl) ||

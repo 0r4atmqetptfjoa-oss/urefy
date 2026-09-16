@@ -135,6 +135,11 @@ export class AdminAuthManager {
 
   private _activePin: string = '';
 
+  public acceptPasskeySession(token: string): void {
+    if (!token.startsWith('aeth_adm_')) throw new Error('Invalid admin session');
+    this._activateSession(token);
+  }
+
   public get activePin(): string {
     return this._activePin || ADMIN_DEFAULT_PIN;
   }

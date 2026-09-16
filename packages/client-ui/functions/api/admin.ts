@@ -1,3 +1,4 @@
+import { readAdminOverview } from './_admin-overview.js';
 // ===========================================================================
 // UREfy — SOVEREIGN ADMIN & GOVERNANCE EDGE API
 // Route: /api/admin
@@ -20,9 +21,19 @@ import {
   EdgePost,
 } from './_db.js';
 
+export type SovereignAdminRole =
+  | 'OWNER'
+  | 'SECURITY_ADMIN'
+  | 'MODERATOR'
+  | 'STORAGE_ADMIN'
+  | 'AUDITOR'
+  | 'GUARDIAN'
+  | 'ARCHIVIST'
+  | 'MEMBER';
+
 export interface AdminUser {
   fingerprint: string;
-  role: 'GUARDIAN' | 'ARCHIVIST' | 'MODERATOR' | 'MEMBER';
+  role: SovereignAdminRole;
   status: 'online' | 'idle' | 'dnd' | 'offline';
   isZKVerified: boolean;
   isQuarantined: boolean;
@@ -64,20 +75,9 @@ export interface AdminLogEntry {
 
 export const DEFAULT_ADMIN_PIN = '11223';
 
-export const globalAdminUsersStore: AdminUser[] = [
-  { fingerprint: 'sovereign-root-guardian', role: 'GUARDIAN', status: 'online', isZKVerified: true, isQuarantined: false, joinedAt: Date.now() - 1000 * 60 * 60 * 24 * 30, messagesCount: 892, postsCount: 47 },
-  { fingerprint: 'c3dc28cb705e', role: 'ARCHIVIST', status: 'online', isZKVerified: true, isQuarantined: false, joinedAt: Date.now() - 1000 * 60 * 60 * 24 * 20, messagesCount: 341, postsCount: 23 },
-  { fingerprint: 'a89104fa2211', role: 'MODERATOR', status: 'idle', isZKVerified: true, isQuarantined: false, joinedAt: Date.now() - 1000 * 60 * 60 * 24 * 15, messagesCount: 156, postsCount: 8 },
-  { fingerprint: 'f40019bc88a2', role: 'MEMBER', status: 'idle', isZKVerified: true, isQuarantined: false, joinedAt: Date.now() - 1000 * 60 * 60 * 24 * 7, messagesCount: 42, postsCount: 2 },
-  { fingerprint: '9b22a011cd44', role: 'MEMBER', status: 'dnd', isZKVerified: true, isQuarantined: false, joinedAt: Date.now() - 1000 * 60 * 60 * 24 * 3, messagesCount: 17, postsCount: 0 },
-  { fingerprint: 'bad-actor-001', role: 'MEMBER', status: 'offline', isZKVerified: false, isQuarantined: true, joinedAt: Date.now() - 1000 * 60 * 60 * 24 * 2, messagesCount: 3, postsCount: 0 },
-];
+export const globalAdminUsersStore: AdminUser[] = [];
 
-export const globalBannedIPsStore: AdminBannedIP[] = [
-  { ip: '185.220.101.5', reason: 'Honeypot Probe: /.env scanner', bannedAt: Date.now() - 60000, expiresAt: Date.now() + 1000 * 60 * 60 * 23 },
-  { ip: '45.154.255.89', reason: 'XSS Injection Attempt', bannedAt: Date.now() - 120000, expiresAt: Date.now() + 1000 * 60 * 60 * 22 },
-  { ip: '194.26.29.112', reason: 'DDoS Flood (500 req/sec)', bannedAt: Date.now() - 240000, expiresAt: Date.now() + 1000 * 60 * 60 * 21 },
-];
+export const globalBannedIPsStore: AdminBannedIP[] = [];
 
 export const globalServerConfig: AdminServerConfig = {
   maintenanceMode: false,
@@ -90,11 +90,7 @@ export const globalServerConfig: AdminServerConfig = {
   sessionTimeoutMinutes: 30,
 };
 
-export const globalAdminLogsStore: AdminLogEntry[] = [
-  { id: 'log-1', action: 'ROLE_CHANGED', targetId: 'a89104fa2211', adminFingerprint: 'sovereign-root-guardian', timestamp: Date.now() - 300000 },
-  { id: 'log-2', action: 'IP_BANNED', targetId: '185.220.101.5', adminFingerprint: 'sovereign-root-guardian', timestamp: Date.now() - 120000 },
-  { id: 'log-3', action: 'POST_DELETED', targetId: 'post-spam-44', adminFingerprint: 'sovereign-root-guardian', timestamp: Date.now() - 60000 },
-];
+export const globalAdminLogsStore: AdminLogEntry[] = [];
 
 // Failed auth attempt tracking for 429 rate-limiting (max 5 failed attempts per 10 minutes per IP)
 const failedPinAttempts = new Map<string, { count: number; lastAttempt: number }>();
@@ -124,6 +120,7 @@ export function clearFailedPinAttempts(clientIp: string): void {
 }
 
 export function resetAdminStores(): void {
+  globalAdminUsersStore.length = 0;
   globalBannedIPsStore.length = 0;
   globalAdminLogsStore.length = 0;
   failedPinAttempts.clear();
@@ -496,12 +493,19 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
 
     const db = getD1Database(context.env);
 
-    let livePosts: any[] = globalPostsStore;
+    let livePosts: any[] = [];
     let liveMessagesCount: number = globalMessagesStore.length;
     let liveUserRoles: any[] = [];
+    let liveChannels: any[] = [];
     let isFrozen = false;
 
     if (db) {
+      try {
+        const result = await db.prepare('SELECT c.*, (SELECT COUNT(*) FROM messages m WHERE m.channel_id = c.id) AS message_count FROM channels c ORDER BY created_at ASC').all<any>();
+        liveChannels = result.results.map(c => ({ id: c.id, name: c.name, space: c.space,
+          description: c.description, isEncrypted: Boolean(c.is_encrypted), isArchived: false,
+          membersCount: null, messagesCount: c.message_count, createdAt: c.created_at }));
+      } catch { /* Leave unavailable channel details empty; overview count reports its own status. */ }
       try {
         await db
           .prepare(
@@ -549,7 +553,7 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
           const pRes = await db
             .prepare('SELECT * FROM posts ORDER BY created_at DESC LIMIT 100')
             .all<any>();
-          if (pRes && pRes.results && pRes.results.length > 0) {
+          if (pRes && pRes.results) {
             livePosts = pRes.results;
           }
         } catch (_) {}
@@ -578,7 +582,7 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
           fingerprint: r.fingerprint,
           role: r.role,
           status: 'offline',
-          isZKVerified: true,
+          isZKVerified: false,
           isQuarantined: Boolean(r.is_quarantined),
           isShadowbanned: Boolean(r.is_shadowbanned),
           notes: r.notes,
@@ -589,6 +593,8 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
       }
     }
 
+    const overview = await readAdminOverview(db);
+
     // Build comprehensive administrative dashboard payload
     const payload = {
       success: true,
@@ -596,18 +602,24 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
       emergencyFreeze: isFrozen,
       stats: {
         totalUsers: mergedUsers.length,
-        onlineUsers: mergedUsers.filter((u) => u.status === 'online').length,
+        onlineUsers: null,
         quarantinedUsers: mergedUsers.filter((u) => u.isQuarantined).length,
         shadowbannedUsers: mergedUsers.filter((u) => u.isShadowbanned).length,
-        totalChannels: globalChannelsStore.length,
-        totalPosts: livePosts.length,
-        totalMessages: liveMessagesCount,
-        totalNodes: globalNodesTelemetryStore.length,
+        totalChannels: overview.counts.channels,
+        totalPosts: overview.counts.posts,
+        totalMessages: overview.counts.messages,
+        totalNodes: null,
         bannedIPsCount: globalBannedIPsStore.length,
+      },
+      overview,
+      telemetry: {
+        totalUsers: overview.counts.identities, onlineUsers: null,
+        pageViews24h: null, egressGB24h: null, attacksBlocked: null,
+        avgEdgeRttMs: null, liveThroughputReqSec: null,
       },
       users: tab === 'all' || tab === 'users' ? mergedUsers : undefined,
       userRoles: tab === 'all' || tab === 'users' ? liveUserRoles : undefined,
-      channels: tab === 'all' || tab === 'channels' ? globalChannelsStore : undefined,
+      channels: tab === 'all' || tab === 'channels' ? liveChannels : undefined,
       posts: tab === 'all' || tab === 'moderation' || tab === 'posts' ? livePosts : undefined,
       bannedIPs: tab === 'all' || tab === 'waf' ? globalBannedIPsStore : undefined,
       config: tab === 'all' || tab === 'config' ? globalServerConfig : undefined,
@@ -758,6 +770,17 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
       }
     }
 
+    if (typeof body.action === 'string' && body.action.startsWith('passkey-')) {
+      const { handleAdminPasskey } = await import('./_admin-passkeys.js');
+      const response = await handleAdminPasskey(req, context.env, body,
+        async () => (await verifyAdminAuthorization(req, context.env)).authorized,
+        async () => createAdminSessionToken(configuredPin));
+      if (body.action === 'passkey-verify') {
+        if (response.ok) clearFailedPinAttempts(clientIp);
+        else if (response.status === 401) recordFailedPinAttempt(clientIp);
+      }
+      return response;
+    }
     // ── For all other actions, verify authorization ───────────────────────────
     const auth = await verifyAdminAuthorization(req, context.env);
     if (!auth.authorized) {
@@ -800,8 +823,18 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
         );
       }
 
-      const ladder: AdminUser['role'][] = ['MEMBER', 'MODERATOR', 'ARCHIVIST', 'GUARDIAN'];
-      let chosenRole: AdminUser['role'] = 'MODERATOR';
+      const ladder: SovereignAdminRole[] = ['MEMBER', 'MODERATOR', 'ARCHIVIST', 'GUARDIAN', 'OWNER'];
+      const VALID_ROLES: SovereignAdminRole[] = [
+        'OWNER',
+        'SECURITY_ADMIN',
+        'MODERATOR',
+        'STORAGE_ADMIN',
+        'AUDITOR',
+        'GUARDIAN',
+        'ARCHIVIST',
+        'MEMBER',
+      ];
+      let chosenRole: SovereignAdminRole = 'MODERATOR';
 
       const user = globalAdminUsersStore.find((u) => u.fingerprint === fingerprint);
       if (body.action === 'promote-user' && !user) {
@@ -811,11 +844,11 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
         );
       }
 
-      if (targetRole && ladder.includes(targetRole)) {
-        chosenRole = targetRole;
+      if (targetRole && VALID_ROLES.includes(targetRole as SovereignAdminRole)) {
+        chosenRole = targetRole as SovereignAdminRole;
       } else if (user) {
-        const currentIdx = ladder.indexOf(user.role);
-        if (currentIdx < ladder.length - 1) {
+        const currentIdx = ladder.indexOf(user.role as SovereignAdminRole);
+        if (currentIdx !== -1 && currentIdx < ladder.length - 1) {
           chosenRole = ladder[currentIdx + 1];
         } else {
           chosenRole = user.role;

@@ -1,0 +1,116 @@
+/* UREfy context layer: the "why is this here, and where did it come from" language.
+   Shared by Messages (branches, message actions) and Vault (kept knowledge). */
+
+.context-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--premium-line);
+  border-radius: 9px;
+  background: var(--bg-surface-base);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color .15s, color .15s, background .15s;
+}
+.context-button:hover { color: var(--text-primary); border-color: var(--premium-line-strong); }
+.context-button:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+.context-button[aria-pressed="true"] {
+  color: var(--text-primary);
+  border-color: var(--color-accent-border);
+  background: color-mix(in srgb, var(--color-accent) 10%, var(--bg-canvas));
+}
+.context-button[disabled] { opacity: .45; cursor: not-allowed; }
+.context-button.dm-back { display: none; min-width: 40px; justify-content: center; padding: 0; }
+
+.context-actions { display: flex; flex-wrap: wrap; gap: 5px; }
+.context-eyebrow {
+  display: block;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* Branch provenance: shows what a branch was cut from, in place. */
+.context-trail {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 10px 16px 0;
+  padding: 12px 14px;
+  border: 1px solid var(--premium-line);
+  border-left: 2px solid var(--color-accent-border);
+  border-radius: 12px;
+  background: var(--bg-surface-base);
+  font-size: 12px;
+}
+.context-trail > div:first-child { min-width: 0; flex: 1 1 220px; }
+.context-trail strong { display: block; margin-top: 3px; color: var(--text-primary); font-size: 13px; }
+.context-trail p { margin: 6px 0 4px; color: var(--text-secondary); font-size: 11px; line-height: 1.6; }
+.context-trail small { color: var(--text-muted); font-size: 10px; }
+.context-trail .context-actions { align-self: center; }
+
+.context-quote {
+  margin: 0 0 7px;
+  padding: 6px 9px;
+  border-left: 2px solid var(--color-accent-border);
+  background: color-mix(in srgb, var(--bg-canvas) 60%, transparent);
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 1.5;
+  border-radius: 0 6px 6px 0;
+}
+
+.dm-message .context-actions { margin-top: 4px; padding: 0 2px; opacity: .55; transition: opacity .15s; }
+.dm-message:hover .context-actions,
+.dm-message:focus-within .context-actions { opacity: 1; }
+.message-reactions { position: relative; }
+.message-reactions > summary { list-style: none; }
+.message-reactions > summary::-webkit-details-marker { display: none; }
+.message-reactions > div { position: absolute; z-index: 20; bottom: calc(100% + 4px); left: 0; padding: 5px; border: 1px solid var(--premium-line); border-radius: 10px; background: var(--bg-surface-overlay); box-shadow: var(--premium-shadow-soft); }
+
+/* Kept knowledge: encrypted, identity-scoped snapshots. */
+.knowledge-memory { display: flex; flex-direction: column; gap: 16px; }
+.memory-heading { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px; }
+.memory-heading h2 { margin: 5px 0 4px; color: var(--text-primary); font-size: 18px; font-weight: 600; letter-spacing: -.03em; }
+.memory-heading p { margin: 0; color: var(--text-secondary); font-size: 12px; line-height: 1.7; }
+.memory-search { display: flex; flex-direction: column; gap: 6px; max-width: 420px; color: var(--text-muted); font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+.memory-search input { min-height: 42px; padding: 0 13px; border: 1px solid var(--premium-line); border-radius: 11px; background: var(--bg-surface-base); color: var(--text-primary); font: inherit; font-size: 12px; letter-spacing: normal; text-transform: none; }
+.memory-search input:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+
+#memory-items { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 13px; }
+.memory-item { display: flex; flex-direction: column; gap: 11px; padding: 16px; border: 1px solid var(--premium-line); border-radius: 15px; background: var(--bg-surface-base); }
+.memory-item:hover { border-color: var(--premium-line-strong); }
+.memory-item header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.memory-item h3 { margin: 5px 0 0; color: var(--text-primary); font-size: 14px; font-weight: 600; line-height: 1.45; overflow-wrap: anywhere; }
+.memory-item time { flex-shrink: 0; color: var(--text-muted); font-size: 10px; }
+.memory-item details > summary { color: var(--color-accent); font-size: 11px; font-weight: 600; cursor: pointer; }
+.memory-text { margin: 9px 0 0; padding: 10px; border-radius: 9px; background: var(--bg-canvas); color: var(--text-secondary); font-size: 11px; line-height: 1.75; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 240px; overflow-y: auto; }
+.memory-provenance > summary { color: var(--text-muted); font-weight: 500; }
+.memory-provenance p { margin: 8px 0 0; color: var(--text-secondary); font-size: 10px; line-height: 1.7; }
+.memory-provenance code { display: block; margin-top: 7px; padding: 6px 8px; border-radius: 7px; background: var(--bg-canvas); color: var(--text-muted); font-size: 10px; overflow-wrap: anywhere; }
+.memory-item .context-actions { margin-top: auto; padding-top: 4px; }
+.memory-empty { grid-column: 1 / -1; padding: 30px 22px; border: 1px dashed var(--premium-line); border-radius: 15px; text-align: center; }
+.memory-empty h3 { margin: 0 0 6px; color: var(--text-primary); font-size: 14px; font-weight: 600; }
+.memory-empty p { margin: 0; color: var(--text-secondary); font-size: 12px; line-height: 1.7; }
+
+@media (max-width: 760px) {
+  .context-button.dm-back { display: inline-flex; }
+  .direct-messages-workspace:not(.has-active-conversation) .conversation-list { width: 100%; }
+  .direct-messages-workspace.has-active-conversation .conversation-list { display: none; }
+  .context-actions { gap: 4px; }
+  .context-button { min-height: 36px; }
+  .context-trail { margin: 8px 10px 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .context-button, .dm-message .context-actions { transition: none; }
+}

@@ -33,7 +33,9 @@ const rootDir = path.resolve(process.cwd());
 const clientSrc = path.join(rootDir, 'src');
 const headersPath = path.join(rootDir, 'public/_headers');
 const swPath = path.join(rootDir, 'public/sw.js');
-const distAssets = path.join(rootDir, 'dist/assets');
+const distAssets = fs.existsSync(path.join(rootDir, 'dist/assets-v1'))
+  ? path.join(rootDir, 'dist/assets-v1')
+  : path.join(rootDir, 'dist/assets');
 const functionsDir = path.join(rootDir, 'functions');
 
 const gates: AuditGate[] = [];

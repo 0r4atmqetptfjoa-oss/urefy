@@ -1,3 +1,4 @@
+import { seedAdminPanelFixtures } from './fixtures/admin-panel.js';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { adminAuth, AdminAuthManager, ADMIN_DEFAULT_PIN, clearAdminStorage } from '../src/admin-auth.js';
 import { adminPanel, AdminPanelManager } from '../src/admin-panel.js';
@@ -10,6 +11,7 @@ describe('Admin Authentication & Control Panel Architecture', () => {
     clearAdminStorage();
     auth = new AdminAuthManager();
     panel = new AdminPanelManager();
+    seedAdminPanelFixtures(panel);
   });
 
   describe('1. Admin Authentication & Cryptographic Fingerprint Binding', () => {
@@ -104,7 +106,7 @@ describe('Admin Authentication & Control Panel Architecture', () => {
       panel.toggleMaintenance();
       panel.setTab('dashboard');
       const html = panel.renderAdminPanel('genesis-core', '28m');
-      expect(html).toContain('Maintenance Mode:');
+      expect(html).toContain('Maintenance:');
     });
 
     it('should assign roles directly and reflect in user management HTML', async () => {
@@ -190,6 +192,43 @@ describe('Admin Authentication & Control Panel Architecture', () => {
       html = panel.renderAdminPanel('genesis-core', '28m');
       expect(html).not.toContain('vault/document.pdf');
       expect(html).toContain('backups/snapshot.enc');
+    });
+
+    it('shows an unavailable snapshot instead of sample traffic and incidents', () => {
+      const empty = new AdminPanelManager();
+      const html = empty.renderAdminPanel('admin', '28m');
+      expect(html).toContain('Waiting for the first snapshot');
+      expect(html).toContain('Not connected');
+      expect(html).not.toContain('148,920');
+      expect(html).not.toContain('Honeypot Trigger');
+      expect(empty.incidents).toEqual([]);
+      expect(empty.moderationQueue).toEqual([]);
+    });
+
+    it('should filter, sort, and action moderation queue items', () => {
+      panel.setTab('moderation');
+      panel.setModReportTypeFilter('All');
+      panel.setModSortOrder('newest');
+      let html = panel.renderAdminPanel('genesis-core', '28m');
+      expect(html).toContain('Triage Moderation Queue');
+      expect(html).toContain('post-spam-44');
+      expect(html).toContain('bad-actor-001');
+      expect(html).toContain('post-dsa-89');
+
+      // Filter by Spam
+      panel.setModReportTypeFilter('Spam');
+      html = panel.renderAdminPanel('genesis-core', '28m');
+      expect(html).toContain('post-spam-44');
+      expect(html).not.toContain('node-imposter-7');
+      expect(html).not.toContain('data-mod-queue-row="mod-102"');
+
+      // Action moderation item
+      panel.actionModerationItem('mod-101', 'actioned');
+      expect(panel.moderationQueue.find(m => m.id === 'mod-101')?.status).toBe('actioned');
+
+      // Dismiss item
+      panel.actionModerationItem('mod-102', 'dismissed');
+      expect(panel.moderationQueue.find(m => m.id === 'mod-102')?.status).toBe('dismissed');
     });
   });
 });

@@ -36,6 +36,7 @@ export class PulseActionsEngine {
   private postInteractions: Map<string, PulseInteractionState> = new Map();
   private repostMenuOpenId: string | null = null;
   private syncedPostIds: Set<string> = new Set();
+  private repostAttributions: Map<string, Set<string>> = new Map();
 
   constructor() {
     if (isDemoModeEnabled()) {
@@ -80,6 +81,8 @@ export class PulseActionsEngine {
       viewsCount: 11200,
       repliesCount: 8,
     });
+    this.repostAttributions.set('post-1', new Set(['genesis-core']));
+    this.repostAttributions.set('post-images', new Set(['c3dc28cb705e']));
   }
 
   private _getLocalKey(postId: string, flag: 'liked' | 'reposted' | 'bookmarked'): string {
@@ -211,16 +214,56 @@ export class PulseActionsEngine {
     return { isLiked: state.liked, newCount: state.likesCount, burst: state.liked };
   }
 
+  public getRepostersForPost(postId: string): string[] {
+    return Array.from(this.repostAttributions.get(postId) || []);
+  }
+
+  public isPostRepostedBy(postId: string, userFingerprint: string): boolean {
+    const set = this.repostAttributions.get(postId);
+    if (set && set.has(userFingerprint)) return true;
+    return false;
+  }
+
+  public recordRepost(postId: string, userFingerprint?: string, isPrivate: boolean = false): { success: boolean; isReposted: boolean; newCount: number; error?: string } {
+    if (isPrivate) {
+      return { success: false, isReposted: false, newCount: this.getInteractions(postId).repostsCount, error: 'Cannot repost restricted or private circles' };
+    }
+    const fp = userFingerprint || 'anon-peer';
+    let set = this.repostAttributions.get(postId);
+    if (!set) {
+      set = new Set();
+      this.repostAttributions.set(postId, set);
+    }
+    const state = this.getInteractions(postId);
+    if (!set.has(fp)) {
+      set.add(fp);
+      state.repostsCount += 1;
+    }
+    state.reposted = true;
+    this._setLocalFlag(postId, 'reposted', true);
+    return { success: true, isReposted: true, newCount: state.repostsCount };
+  }
+
   /**
    * Toggles Repost status and dispatches to Cloudflare D1.
    */
   public toggleRepost(postId: string, userFingerprint?: string): { isReposted: boolean; newCount: number } {
+    const fp = userFingerprint || 'anon-peer';
+    let set = this.repostAttributions.get(postId);
+    if (!set) {
+      set = new Set();
+      this.repostAttributions.set(postId, set);
+    }
     const state = this.getInteractions(postId);
-    state.reposted = !state.reposted;
-    if (state.reposted) {
+    const wasReposted = set.has(fp);
+    if (!wasReposted) {
+      set.add(fp);
       state.repostsCount += 1;
+      state.reposted = true;
     } else {
+      set.delete(fp);
       state.repostsCount = Math.max(0, state.repostsCount - 1);
+      state.reposted = false;
     }
     this._setLocalFlag(postId, 'reposted', state.reposted);
     this.repostMenuOpenId = null;
@@ -233,7 +276,7 @@ export class PulseActionsEngine {
         body: JSON.stringify({
           targetId: postId,
           targetType: 'post',
-          userFingerprint: userFingerprint || 'anon-peer',
+          userFingerprint: fp,
           action: 'repost',
         }),
       })
@@ -440,6 +483,17 @@ export class PulseActionsEngine {
             aria-label="${state.bookmarked ? t('actions.unbookmark', undefined, 'Remove bookmark') : t('actions.bookmark', undefined, 'Bookmark pulse')}"
           >
             ${renderIcon('bookmark', { size: 16, variant: state.bookmarked ? 'solid' : 'outline' })}
+          </button>
+
+          <button
+            type="button"
+            data-action="keep-post"
+            data-post-id="${postId}"
+            class="btn-pulse-keep min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full hover:text-cyan-400 hover:bg-cyan-500/10 transition-colors cursor-pointer"
+            title="Keep this post, with its source, in your private Vault"
+            aria-label="Keep this post in your private Vault"
+          >
+            ${renderIcon('save', { size: 16, strokeWidth: 1.75 })}
           </button>
 
           <button

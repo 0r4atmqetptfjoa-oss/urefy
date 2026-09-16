@@ -30,10 +30,34 @@ import {
   captureMessageSelection,
   insertMessageEmoji,
   restoreMessageSelection,
+  toggleCatchMeUp,
+  setActiveBranch,
+  createBranchForPeer,
+  toggleOutcomePicker,
+  insertOutcomeTemplate,
 } from '../messages-view.js';
 import { exploreView } from '../explore-view.js';
+import { communityView } from '../community-view.js';
 import { setWorkspaceLayout } from '../workspace-layout.js';
 import { sovereignWebPush } from '../web-push.js';
+import {
+  setActiveVaultCategory,
+  openNewCollectionModal,
+  closeNewCollectionModal,
+  createVaultCollection,
+  deleteVaultCollection,
+  setSelectedVaultCollection,
+  startUploadSimulation,
+  cancelUploadSimulation,
+  exportKnowledgePack,
+  importKnowledgePack,
+} from '../vault-view.js';
+import { sovereignMnemonicModal } from '../mnemonic-modal.js';
+import { dismissSinceYouWereAwayCard } from '../feed-view.js';
+import { reportModalManager } from '../report-modal.js';
+import { postDetailView } from '../post-detail.js';
+import { sharePostOrCopyLink } from '../dry-utils.js';
+import { sovereignDialog } from '../dialog-modal.js';
 
 function withWallet(action: (wallet: typeof import('../wallet-bridge.js').walletBridge) => unknown): void {
   void import('../wallet-bridge.js').then(({ walletBridge }) => action(walletBridge)).catch(error => {
@@ -515,15 +539,97 @@ export class ActionDispatcher {
       case 'report-vault': {
         event.stopPropagation();
         const postId = el.getAttribute('data-post-id') || el.getAttribute('data-id') || '';
-        if (typeof window !== 'undefined') {
-          if (typeof (window as any).__aetheris_open_legal === 'function') {
-            (window as any).__aetheris_open_legal('dsa', postId);
-          } else {
-            modalManager.openFeature('legal', { tab: 'dsa', targetId: postId });
+        const post = clientStore.posts.find(p => p.id === postId);
+        const externalUrls: string[] = [];
+        if (post?.content) {
+          const matched = post.content.match(/https?:\/\/[^\s)]+/g);
+          if (matched) externalUrls.push(...matched);
+        }
+        reportModalManager.open({
+          targetId: postId || 'unknown-target',
+          targetType: action === 'report-vault' ? 'vault_file' : 'post',
+          authorFingerprint: post?.authorFingerprint,
+          title: post?.title,
+          contentSnippet: post?.content?.slice(0, 200),
+          detectedExternalUrls: externalUrls,
+        });
+        el.closest('.post-more-menu')?.remove();
+        break;
+      }
+
+      case 'open-post-more-menu': {
+        event.stopPropagation();
+        const postId = el.getAttribute('data-post-id') || '';
+        if (!postId) break;
+        const existingMenu = document.getElementById(`post-more-menu-${postId}`);
+        if (existingMenu) {
+          existingMenu.remove();
+          break;
+        }
+        document.querySelectorAll('.post-more-menu').forEach(m => m.remove());
+
+        const parent = el.closest('.post-actions__more') || el.parentElement;
+        if (!parent) break;
+
+        const menu = document.createElement('div');
+        menu.id = `post-more-menu-${postId}`;
+        menu.className = 'post-more-menu';
+        menu.innerHTML = `
+          <button type="button" data-action="more-copy-link" data-post-id="${postId}">
+            <span>🔗</span><span>Copy Link</span>
+          </button>
+          <button type="button" data-action="more-open-detail" data-post-id="${postId}">
+            <span>💬</span><span>View Discussion</span>
+          </button>
+          <button type="button" data-action="more-view-json" data-post-id="${postId}">
+            <span>{ }</span><span>View Raw JSON</span>
+          </button>
+          <button type="button" data-action="report-post" data-post-id="${postId}" class="text-rose-400">
+            <span>🚩</span><span>Report (DSA Notice)</span>
+          </button>
+        `;
+        parent.appendChild(menu);
+
+        const dismissHandler = (ev: MouseEvent) => {
+          if (!menu.contains(ev.target as Node) && ev.target !== el) {
+            menu.remove();
+            document.removeEventListener('click', dismissHandler);
           }
-          if ((window as any).clientStore) {
-            (window as any).clientStore.notifySync();
-          }
+        };
+        setTimeout(() => document.addEventListener('click', dismissHandler), 10);
+        break;
+      }
+
+      case 'more-copy-link': {
+        event.stopPropagation();
+        const postId = el.getAttribute('data-post-id') || '';
+        const post = clientStore.posts.find(p => p.id === postId);
+        if (postId) {
+          void sharePostOrCopyLink(postId, post?.title, post?.content, el);
+          el.closest('.post-more-menu')?.remove();
+        }
+        break;
+      }
+
+      case 'more-open-detail': {
+        event.stopPropagation();
+        const postId = el.getAttribute('data-post-id') || '';
+        if (postId) {
+          postDetailView.openPost(postId);
+          clientStore.notify();
+          el.closest('.post-more-menu')?.remove();
+        }
+        break;
+      }
+
+      case 'more-view-json': {
+        event.stopPropagation();
+        const postId = el.getAttribute('data-post-id') || '';
+        if (postId) {
+          postDetailView.openPost(postId);
+          postDetailView.activeSubTab = 'raw_json';
+          clientStore.notify();
+          el.closest('.post-more-menu')?.remove();
         }
         break;
       }
@@ -574,8 +680,45 @@ export class ActionDispatcher {
 
       case 'open-community': {
         const channel = el.getAttribute('data-channel') || el.getAttribute('data-channel-id') || el.getAttribute('data-id') || 'pulse-global';
-        clientStore.activeChannelId = channel;
-        sovereignRouter.navigateTo('feed');
+        const circle = sovereignCircleEngine.findCircle(channel);
+        clientStore.activeChannelId = circle ? `c/${circle.name}` : channel;
+        if (circle) sovereignRouter.navigateTo('communities', { subtab: circle.name });
+        else sovereignRouter.navigateTo('feed');
+        clientStore.notifySync();
+        break;
+      }
+
+      case 'dismiss-away-summary': {
+        dismissSinceYouWereAwayCard();
+        const card = document.getElementById('since-you-were-away-card');
+        if (card) card.remove();
+        break;
+      }
+
+      case 'filter-community-category': {
+        const cat = el.getAttribute('data-category') || 'all';
+        communityView.setActiveCategory(cat);
+        clientStore.notifySync();
+        break;
+      }
+
+      case 'filter-community-membership': {
+        const membership = el.getAttribute('data-membership');
+        if (membership === 'all' || membership === 'joined') communityView.membershipFilter = membership;
+        clientStore.notifySync();
+        break;
+      }
+
+      case 'reset-community-filters': {
+        communityView.setSearchQuery('');
+        communityView.setActiveCategory('all');
+        communityView.membershipFilter = 'all';
+        clientStore.notifySync();
+        break;
+      }
+
+      case 'clear-community-search': {
+        communityView.setSearchQuery('');
         clientStore.notifySync();
         break;
       }
@@ -1210,6 +1353,13 @@ export class ActionDispatcher {
         break;
       }
 
+      case 'toggle-more-rail': {
+        if (typeof window !== 'undefined' && (window as any).__aetheris_toggle_more_rail) {
+          (window as any).__aetheris_toggle_more_rail();
+        }
+        break;
+      }
+
       case 'close-advanced-overflow': {
         if (typeof window !== 'undefined' && (window as any).__aetheris_close_advanced_overflow) {
           (window as any).__aetheris_close_advanced_overflow();
@@ -1284,6 +1434,143 @@ export class ActionDispatcher {
         break;
       }
 
+      case 'switch-vault-tab': {
+        const tab = el.getAttribute('data-vault-tab') || 'recent';
+        setActiveVaultCategory(tab);
+        clientStore.notifySync();
+        break;
+      }
+
+      case 'open-new-collection-modal': {
+        openNewCollectionModal();
+        break;
+      }
+
+      case 'close-new-collection-modal': {
+        if (el.id.includes('backdrop') && event.target !== el) break;
+        closeNewCollectionModal();
+        break;
+      }
+
+      case 'select-vault-collection': {
+        const colId = el.getAttribute('data-collection-id');
+        if (colId) {
+          setSelectedVaultCollection(colId);
+          clientStore.notifySync();
+        }
+        break;
+      }
+
+      case 'clear-vault-collection': {
+        setSelectedVaultCollection(null);
+        clientStore.notifySync();
+        break;
+      }
+
+      case 'delete-vault-collection': {
+        const colId = el.getAttribute('data-collection-id');
+        if (colId) {
+          deleteVaultCollection(colId);
+          clientStore.notifySync();
+        }
+        break;
+      }
+
+      case 'simulate-vault-upload': {
+        startUploadSimulation('urefy-reproducible-core-v3.bin', 33554432);
+        break;
+      }
+
+      case 'cancel-upload-sim': {
+        cancelUploadSimulation();
+        break;
+      }
+
+      case 'export-vaultpack': {
+        exportKnowledgePack();
+        break;
+      }
+
+      case 'import-vaultpack': {
+        importKnowledgePack();
+        break;
+      }
+
+      case 'retry-send-dm': {
+        const msgId = el.getAttribute('data-message-id');
+        if (msgId) {
+          void sovereignDM.retryFailedMessage(msgId);
+        }
+        break;
+      }
+
+      case 'dm-back':
+      case 'reply-dm-message':
+      case 'cancel-dm-reply':
+      case 'react-dm-message':
+      case 'keep-dm-message':
+      case 'keep-dm-branch':
+      case 'keep-post':
+      case 'keep-note':
+      case 'save-link': {
+        void import('../controllers/context-controller.js').then(module => module.handleContextAction(action, el))
+          .catch(error => clientStore.showToast(error instanceof Error ? error.message : 'This action could not be completed', 'warning'));
+        break;
+      }
+
+      case 'toggle-catch-me-up': {
+        toggleCatchMeUp();
+        clientStore.notifySync();
+        break;
+      }
+
+      case 'switch-dm-branch': {
+        const branch = el.getAttribute('data-branch') || 'main';
+        setActiveBranch(branch);
+        clientStore.notifySync();
+        break;
+      }
+
+      case 'create-dm-branch': {
+        const peerFP = el.getAttribute('data-peer') || '';
+        if (peerFP) {
+          sovereignDialog.prompt('Give this part of the conversation a name. It stays private with the same person.', { title: 'Branch with context', placeholder: 'e.g. Weekend plans' }).then(async (branchName) => {
+            if (branchName && branchName.trim()) {
+              await createBranchForPeer(peerFP, branchName.trim(), el.getAttribute('data-message-id') || undefined);
+              clientStore.notifySync();
+            }
+          }).catch(error => clientStore.showToast(error instanceof Error ? error.message : 'Branch could not be saved', 'warning'));
+        }
+        break;
+      }
+
+      case 'toggle-outcome-picker': {
+        toggleOutcomePicker();
+        clientStore.notifySync();
+        break;
+      }
+
+      case 'insert-outcome-template': {
+        const template = el.getAttribute('data-template');
+        if (template) {
+          insertOutcomeTemplate(template);
+          clientStore.notifySync();
+        }
+        break;
+      }
+
+      case 'mnemonic-remind-later': {
+        sovereignMnemonicModal.remindLater();
+        break;
+      }
+
+      case 'switch-community-pillar': {
+        const pillar = (el.getAttribute('data-pillar') || 'discuss') as any;
+        communityView.setActivePillar(pillar);
+        clientStore.notifySync();
+        break;
+      }
+
       case 'join-channel': {
         const channel = el.getAttribute('data-channel');
         if (channel) {
@@ -1311,6 +1598,9 @@ export class ActionDispatcher {
           } else if (mode === 'vault') {
             clientStore.joinChannel('vault-releases');
             sovereignRouter.navigateTo('vault');
+          } else if (mode === 'communities') {
+            clientStore.activeChannelId = 'communities';
+            sovereignRouter.navigateTo('communities');
           } else {
             sovereignRouter.navigateTo(mode);
           }
@@ -1319,6 +1609,8 @@ export class ActionDispatcher {
       }
 
       case 'open-composer': {
+        const channel = el.getAttribute('data-channel');
+        if (channel) clientStore.activeChannelId = channel;
         clientStore.isComposerOpen = true;
         clientStore.notify();
         break;
@@ -1791,11 +2083,22 @@ export class ActionDispatcher {
       } else if (method) {
         this.invokeMethodPath(method, [el.value, el]);
       }
+    } else if (action === 'search-communities' || el.id === 'input-community-search') {
+      communityView.setSearchQuery(el.value);
+      clientStore.notifySync();
+      const updatedInput = document.getElementById('input-community-search') as HTMLInputElement | null;
+      if (updatedInput) {
+        updatedInput.focus();
+        updatedInput.setSelectionRange(updatedInput.value.length, updatedInput.value.length);
+      }
     } else if (action === 'search-dm-peers') {
       setDMSearchQuery(el.value);
       clientStore.notifySync();
     } else if (action === 'update-dm-draft') {
       captureMessageSelection('dm', el as HTMLInputElement);
+      if (sovereignDM.activePeerFP) {
+        sovereignDM.notifyTyping(sovereignDM.activePeerFP);
+      }
     } else if (action === 'update-relay-draft') {
       captureMessageSelection('relay', el as HTMLInputElement);
     } else if (action === 'mnemonic-validate-restore') {
@@ -1896,6 +2199,26 @@ export class ActionDispatcher {
           const container = document.getElementById('messages-container');
           if (container) container.scrollTop = container.scrollHeight;
         }, 50);
+      }
+    } else if (action === 'submit-new-collection') {
+      event.preventDefault();
+      const nameInput = el.querySelector('#input-collection-name') as HTMLInputElement | null;
+      const descInput = el.querySelector('#input-collection-desc') as HTMLInputElement | null;
+      const name = nameInput?.value?.trim() || '';
+      const desc = descInput?.value?.trim() || '';
+      if (name) {
+        createVaultCollection(name, desc);
+        closeNewCollectionModal();
+      }
+    } else if (action === 'submit-community-live-chat') {
+      event.preventDefault();
+      const channel = el.getAttribute('data-channel') || clientStore.activeChannelId;
+      const input = el.querySelector('#input-community-live-msg') as HTMLInputElement | null;
+      const text = input ? input.value.trim() : '';
+      if (text) {
+        clientStore.sendMessage(text, channel);
+        if (input) input.value = '';
+        clientStore.notifySync();
       }
     } else if (typeof window !== 'undefined') {
       const customHandler = (window as any)[`__aetheris_submit_${action}`];

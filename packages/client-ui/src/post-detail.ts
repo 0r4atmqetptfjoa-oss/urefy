@@ -134,6 +134,19 @@ export class PostDetailView {
     this.isPreviewMode = false;
     this.replyingToCommentId = null;
     this.activeSubTab = 'discussion';
+    if (typeof window !== 'undefined') {
+      void import('./threads.js').then(({ threadManager }) => {
+        void threadManager.loadCommentsForPost(postId).then(() => {
+          const post = clientStore.posts.find(p => p.id === postId);
+          const comments = threadManager.getRootCommentsForPost(postId);
+          if (post && comments.length > (post.replyCount || 0)) {
+            post.replyCount = comments.length;
+          }
+          window.dispatchEvent(new CustomEvent('aetheris-detail-view-refresh'));
+          clientStore.notifySync();
+        });
+      });
+    }
   }
 
   public closePost(): void {
@@ -693,8 +706,17 @@ export class PostDetailView {
     const isOP = postAuthorFP && c.authorFingerprint === postAuthorFP;
     const isMe = typeof window !== 'undefined' && window.activeUserFP === c.authorFingerprint;
 
+    const indentClass = depth === 0 ? '' : depth <= 4 ? 'pl-2.5 sm:pl-3.5' : 'pl-1.5 sm:pl-2.5';
+    const continuationBadge = depth > 4 ? `
+      <div class="flex items-center space-x-1.5 text-[10px] text-slate-400 font-mono mb-1">
+        <span style="color: ${color}; font-weight: bold;">↳</span>
+        <span class="truncate">Thread continuation (level ${depth + 1})</span>
+      </div>
+    ` : '';
+
     return `
-      <div class="relative pl-3.5 transition-all" style="border-left: 2px solid ${color};">
+      <div class="relative ${indentClass} transition-all" style="border-left: 2px solid ${color};">
+        ${continuationBadge}
         <div class="p-3.5 rounded-xl bg-surface-base/90 hover:bg-surface-base border border-white/5 transition-all space-y-2">
           
           <!-- COMMENT HEADER -->

@@ -136,6 +136,8 @@ describe('Admin Edge API Endpoint (/api/admin) Specification & Status Code Confo
     });
 
     it('should promote user role with 200 OK (and 404 if user missing)', async () => {
+      globalAdminUsersStore.push({ fingerprint: 'f40019bc88a2', role: 'MEMBER', status: 'offline',
+        isZKVerified: false, isQuarantined: false, joinedAt: Date.now(), messagesCount: 0, postsCount: 0 });
       // 404 case
       const req404 = new Request('https://urefy.com/api/admin', {
         method: 'POST',

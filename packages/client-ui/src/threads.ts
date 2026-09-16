@@ -42,6 +42,7 @@ function escapeHtml(str: string): string {
 export class ThreadManager {
   private comments: Map<string, ThreadComment> = new Map();
   private rootCommentIds: string[] = [];
+  private postRootComments: Map<string, string[]> = new Map();
   public replyingCommentId: string | null = null;
   public sortMode: 'best' | 'top' | 'new' | 'old' = 'best';
 
@@ -155,6 +156,100 @@ export class ThreadManager {
     return this.sortComments(raw);
   }
 
+  public getRootCommentsForPost(postId?: string): ThreadComment[] {
+    if (!postId) return this.getRootComments();
+    const rootIds = this.postRootComments.get(postId);
+    if (rootIds && rootIds.length > 0) {
+      const raw = rootIds.map(id => this.comments.get(id)!).filter(Boolean);
+      return this.sortComments(raw);
+    }
+    // Search registered comments matching this post
+    const matched: ThreadComment[] = [];
+    for (const c of this.comments.values()) {
+      if (c.postId === postId && c.depth === 0) {
+        matched.push(c);
+      }
+    }
+    if (matched.length > 0) {
+      this.postRootComments.set(postId, matched.map(c => c.id));
+      return this.sortComments(matched);
+    }
+    // If post-1 and demo mode, fallback to initial demo thread
+    if (postId === 'post-1' && this.rootCommentIds.length > 0) {
+      return this.getRootComments();
+    }
+    return [];
+  }
+
+  /**
+   * Fetches real comments for a post from Cloudflare D1 / edge API (/api/comments?postId=...)
+   */
+  public async loadCommentsForPost(postId: string): Promise<ThreadComment[]> {
+    if (!postId || typeof window === 'undefined' || typeof fetch === 'undefined') {
+      return this.getRootCommentsForPost(postId);
+    }
+
+    try {
+      const res = await fetch(`/api/comments?postId=${encodeURIComponent(postId)}`);
+      if (!res.ok) {
+        return this.getRootCommentsForPost(postId);
+      }
+      const data = await res.json() as any;
+      if (!data?.success || !Array.isArray(data.comments)) {
+        return this.getRootCommentsForPost(postId);
+      }
+
+      const edgeComments: any[] = data.comments;
+      if (edgeComments.length === 0) {
+        // If post has no comments, clear postRootComments for this post
+        this.postRootComments.set(postId, []);
+        return [];
+      }
+
+      // Build comments node map
+      const nodeMap = new Map<string, ThreadComment>();
+      const rootList: ThreadComment[] = [];
+
+      for (const ec of edgeComments) {
+        const tc: ThreadComment = {
+          id: ec.id,
+          postId: ec.postId || postId,
+          authorFingerprint: ec.authorId || 'anon',
+          authorRole: ec.authorRole || 'MEMBER',
+          content: ec.content || '',
+          createdAt: Number(ec.createdAt) || Date.now(),
+          depth: 0,
+          meritScore: Number(ec.meritVotes) || 0,
+          userVote: 0,
+          isCollapsed: false,
+          replies: [],
+        };
+        nodeMap.set(tc.id, tc);
+        this.comments.set(tc.id, tc);
+      }
+
+      // Link parents and children
+      for (const ec of edgeComments) {
+        const tc = nodeMap.get(ec.id)!;
+        if (ec.parentId && nodeMap.has(ec.parentId)) {
+          const parent = nodeMap.get(ec.parentId)!;
+          tc.depth = parent.depth + 1;
+          parent.replies.push(tc);
+        } else {
+          tc.depth = 0;
+          rootList.push(tc);
+        }
+      }
+
+      const rootIds = rootList.map(r => r.id);
+      this.postRootComments.set(postId, rootIds);
+      return this.sortComments(rootList);
+    } catch (err) {
+      console.warn('[ThreadManager] Failed to load comments from edge API:', err);
+      return this.getRootCommentsForPost(postId);
+    }
+  }
+
   public toggleCollapse(commentId: string): void {
     const c = this.comments.get(commentId);
     if (c) {
@@ -172,9 +267,10 @@ export class ThreadManager {
 
   public addReply(parentId: string, authorFingerprint: string, content: string, postId: string = 'post-1'): ThreadComment {
     const parent = this.comments.get(parentId);
+    const targetPostId = parent?.postId || postId;
     const newComment: ThreadComment = {
       id: `c-${Date.now()}-${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID().slice(0, 8) : Date.now().toString(36)}`,
-      postId: parent?.postId || postId,
+      postId: targetPostId,
       authorFingerprint,
       authorRole: 'MEMBER',
       content,
@@ -188,10 +284,15 @@ export class ThreadManager {
 
     this.comments.set(newComment.id, newComment);
 
-    if (parent) {
+    if (parent && parent.id !== targetPostId) {
       parent.replies.push(newComment);
     } else {
-      this.rootCommentIds.unshift(newComment.id);
+      const roots = this.postRootComments.get(targetPostId) || [];
+      roots.unshift(newComment.id);
+      this.postRootComments.set(targetPostId, roots);
+      if (!this.rootCommentIds.includes(newComment.id)) {
+        this.rootCommentIds.unshift(newComment.id);
+      }
     }
 
     this.replyingCommentId = null;
@@ -256,7 +357,7 @@ export class ThreadManager {
     return `
       <div 
         id="comment-${c.id}" 
-        class="relative group/comment transition-all my-1.5 ${c.depth > 0 ? 'ml-3 sm:ml-5 pl-2.5 sm:pl-3.5' : ''}" 
+        class="relative group/comment transition-all my-1.5 ${c.depth > 0 ? (c.depth <= 4 ? 'ml-2 sm:ml-5 pl-2 sm:pl-3.5' : 'ml-1 sm:ml-2 pl-1.5 sm:pl-2.5') : ''}" 
         style="${c.depth > 0 ? `border-left: 2px solid ${color}40;` : ''}"
       >
         <div class="p-3 rounded-xl bg-surface-base/80 hover:bg-surface-base border border-white/5 hover:border-white/10 transition-all space-y-2 shadow-xs">

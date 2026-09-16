@@ -10,7 +10,7 @@
  *   - Right rail: About community card, governance rules accordion, moderators roster
  */
 
-import { clientStore, ClientPost } from './client-state.js';
+import { clientStore, ClientPost, ClientMessage } from './client-state.js';
 import { sovereignCircleEngine, SovereignCircle } from './sovereign-circle.js';
 import { feedControlsEngine } from './feed-controls.js';
 import { markdownRenderer } from './markdown-renderer.js';
@@ -18,6 +18,8 @@ import { renderPulseEmptyState } from './empty-states.js';
 import { renderIcon } from './ui/icons.js';
 import { t } from './i18n.js';
 import { renderPulsePostCard } from './feed-view.js';
+import { communityCategories, filterCommunities } from './discovery-data.js';
+import { renderDiscoveryCard } from './discovery-card.js';
 
 function escapeHtml(str: string): string {
   return (str || '')
@@ -29,6 +31,137 @@ function escapeHtml(str: string): string {
 }
 
 export class CommunityView {
+  public activePillar: 'discuss' | 'live' | 'knowledge' = 'discuss';
+
+  public setActivePillar(pillar: 'discuss' | 'live' | 'knowledge'): void {
+    this.activePillar = pillar;
+  }
+
+  private _renderLiveRoom(circle: SovereignCircle): string {
+    const direct = clientStore.messages.get(circle.channelId) || [];
+    const relayMsgs = clientStore.messages.get(`relays-${circle.name}`) || [];
+    const channelMsgs: ClientMessage[] = direct.length > 0 ? direct : relayMsgs;
+    return `
+      <div class="space-y-4">
+        <div class="p-4 rounded-2xl bg-gradient-to-r from-emerald-950/40 via-surface-raised to-surface-raised border border-emerald-500/30 shadow-md flex items-center justify-between">
+          <div class="flex items-center space-x-2.5">
+            <span class="w-3 h-3 rounded-full bg-emerald-400 animate-pulse"></span>
+            <div>
+              <h3 class="text-xs font-bold text-white uppercase tracking-wider font-mono">Real-Time Community Relay</h3>
+              <p class="text-[11px] text-slate-400">Ephemeral mesh broadcast with sovereign cryptographic delivery proofs.</p>
+            </div>
+          </div>
+          <span class="text-xs font-mono text-emerald-400 font-bold">${circle.onlineCount ?? 0} active nodes</span>
+        </div>
+
+        <div class="p-4 rounded-2xl bg-surface-raised border border-white/5 shadow-sm space-y-3 min-h-[360px] flex flex-col justify-between">
+          <div class="space-y-2.5 overflow-y-auto max-h-96 pr-1">
+            ${channelMsgs.length === 0 ? `
+              <div class="p-8 text-center text-slate-500 text-xs space-y-2">
+                <div class="text-2xl">⚡</div>
+                <p>No live messages in c/${escapeHtml(circle.name)} yet.</p>
+                <p class="text-[11px] text-slate-600">Say hello to other online members in this community!</p>
+              </div>
+            ` : channelMsgs.map(m => `
+              <div class="flex items-start space-x-2.5 text-xs">
+                <div class="w-6 h-6 rounded-lg bg-surface-base border border-white/10 flex items-center justify-center text-[10px] font-mono text-cyan-400 font-bold shrink-0">
+                  ${(m.authorFingerprint || 'AN').slice(0, 2).toUpperCase()}
+                </div>
+                <div class="min-w-0 flex-1">
+                  <div class="flex items-center space-x-2 text-[10px] text-slate-400">
+                    <span class="font-bold text-slate-200">@${(m.authorFingerprint || 'anon').slice(0, 8)}</span>
+                    <span>•</span>
+                    <time>${new Date(m.createdAt || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time>
+                  </div>
+                  <div class="text-slate-300 mt-0.5">${escapeHtml(m.text || '')}</div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+
+          <form id="form-community-live-chat" data-submit="submit-community-live-chat" data-channel="${circle.channelId}" class="flex items-center space-x-2 pt-2 border-t border-white/5">
+            <input
+              type="text"
+              id="input-community-live-msg"
+              placeholder="Send a live message in c/${escapeHtml(circle.name)}..."
+              class="flex-1 bg-surface-base border border-white/10 rounded-xl px-3.5 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+              autocomplete="off"
+            />
+            <button
+              type="submit"
+              class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl transition-all cursor-pointer shadow-sm flex items-center space-x-1"
+            >
+              <span>⚡</span>
+              <span>Send</span>
+            </button>
+          </form>
+        </div>
+      </div>
+    `;
+  }
+
+  private _renderKnowledgeBase(circle: SovereignCircle, posts: ClientPost[]): string {
+    const knowledgePosts = posts.filter(p => p.attachment || p.flair === 'VERIFIED RELEASE' || p.flair === 'SECURITY ADVISORY');
+    return `
+      <div class="space-y-4">
+        <div class="p-4 rounded-2xl bg-gradient-to-r from-cyan-950/40 via-surface-raised to-surface-raised border border-cyan-500/30 shadow-md flex items-center justify-between">
+          <div class="flex items-center space-x-2.5">
+            <span class="text-xl">📚</span>
+            <div>
+              <h3 class="text-xs font-bold text-white uppercase tracking-wider font-mono">Community Knowledge Base &amp; Files</h3>
+              <p class="text-[11px] text-slate-400">Curated resources, verified binaries, and reproducible guides for c/${escapeHtml(circle.name)}.</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            data-action="open-composer"
+            data-channel="${circle.channelId}"
+            class="px-3 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold transition-all shadow-sm flex items-center space-x-1 cursor-pointer"
+          >
+            <span>+</span>
+            <span>Add Resource</span>
+          </button>
+        </div>
+
+        ${knowledgePosts.length === 0 ? `
+          <div class="p-8 rounded-2xl bg-surface-raised/40 border border-dashed border-white/10 text-center space-y-3">
+            <div class="text-3xl">📦</div>
+            <h4 class="text-sm font-bold text-white">No knowledge resources published yet</h4>
+            <p class="text-xs text-slate-400 max-w-sm mx-auto">Upload guides, research notes, or verifiable files to build the permanent knowledge base for this community.</p>
+            <button
+              type="button"
+              data-action="open-composer"
+              data-channel="${circle.channelId}"
+              class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl transition-all shadow-sm cursor-pointer"
+            >
+              Publish First Resource
+            </button>
+          </div>
+        ` : `
+          <div class="space-y-3">
+            ${knowledgePosts.map(p => `
+              <div class="p-4 rounded-2xl bg-surface-raised border border-white/5 hover:border-cyan-500/30 transition-all shadow-sm space-y-2.5">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center space-x-2">
+                    <span class="text-base">${p.attachment ? '📁' : '📄'}</span>
+                    <h4 data-open-detail="${p.id}" class="text-xs sm:text-sm font-bold text-white hover:text-cyan-300 cursor-pointer transition-colors truncate max-w-md">${escapeHtml(p.title)}</h4>
+                  </div>
+                  <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-surface-base text-cyan-400 border border-cyan-500/20 font-bold">${p.flair || 'GUIDE'}</span>
+                </div>
+                <p class="text-xs text-slate-300 line-clamp-2">${escapeHtml(p.content.slice(0, 150))}</p>
+                ${p.attachment ? `
+                  <div class="flex items-center justify-between p-2 rounded-xl bg-surface-base border border-white/5 text-[11px] font-mono text-slate-400">
+                    <span class="truncate">📦 ${escapeHtml(p.attachment.fileName || 'document.bin')} (${((p.attachment.byteSize || 1024) / 1024).toFixed(1)} KB)</span>
+                    <span class="text-emerald-400 font-bold">SHA: ${escapeHtml(p.attachment.sha256?.slice(0, 8) || 'verified')}...</span>
+                  </div>
+                ` : ''}
+              </div>
+            `).join('')}
+          </div>
+        `}
+      </div>
+    `;
+  }
   /**
    * Renders the complete dedicated Community Workspace.
    */
@@ -65,6 +198,7 @@ export class CommunityView {
 
     return `
       <div id="community-view-workspace" class="community-workspace flex-1 flex flex-col overflow-y-auto bg-canvas">
+        <nav class="discovery-breadcrumb" aria-label="Community navigation"><button type="button" data-action="nav-mode" data-mode="communities">${renderIcon('users', { size: 16 })} All communities</button><span aria-hidden="true">/</span><span>c/${escapeHtml(circle.name)}</span></nav>
         
         <!-- 1. FULL-WIDTH COMMUNITY HERO BANNER -->
         <div class="community-hero relative w-full h-36 sm:h-52 overflow-hidden" style="background: ${circle.banner || 'linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%)'};">
@@ -145,68 +279,139 @@ export class CommunityView {
           </div>
         </div>
 
-        <nav class="community-tabs" aria-label="Community sections">
-          <button type="button" data-feed-sort="hot" class="btn-feed-sort is-active">Hot</button>
-          <button type="button" data-feed-sort="new" class="btn-feed-sort">New</button>
-          <button type="button" data-feed-sort="top" class="btn-feed-sort">Top</button>
-          <a href="#community-about" class="btn-feed-sort">About</a>
-        </nav>
+        <!-- 3-PILLAR COMMUNITY NAVIGATION -->
+        <div class="max-w-6xl mx-auto w-full px-4 sm:px-6 mb-4">
+          <div class="flex items-center space-x-1.5 p-1 bg-surface-raised/80 rounded-2xl border border-white/10 w-fit">
+            <button
+              type="button"
+              data-action="switch-community-pillar"
+              data-pillar="discuss"
+              class="px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center space-x-2 ${
+                this.activePillar === 'discuss'
+                  ? 'bg-indigo-600 text-white shadow-md'
+                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+              }"
+            >
+              <span>💬</span>
+              <span>Discuss</span>
+            </button>
+            <button
+              type="button"
+              data-action="switch-community-pillar"
+              data-pillar="live"
+              class="px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center space-x-2 ${
+                this.activePillar === 'live'
+                  ? 'bg-emerald-600 text-white shadow-md'
+                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+              }"
+            >
+              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span>Live Chat</span>
+              <span class="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-500/30">${circle.onlineCount ?? 3}</span>
+            </button>
+            <button
+              type="button"
+              data-action="switch-community-pillar"
+              data-pillar="knowledge"
+              class="px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center space-x-2 ${
+                this.activePillar === 'knowledge'
+                  ? 'bg-cyan-600 text-white shadow-md'
+                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+              }"
+            >
+              <span>📚</span>
+              <span>Knowledge</span>
+              <span class="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-cyan-950 text-cyan-300 border border-cyan-500/30">Wiki</span>
+            </button>
+          </div>
+        </div>
 
         <!-- 3. TWO-COLUMN SUBREDDIT/DISCORD LAYOUT -->
         <div class="max-w-6xl mx-auto w-full px-4 sm:px-6 grid grid-cols-1 lg:grid-cols-12 gap-6 pb-20">
           
           <!-- LEFT/CENTER STREAM (8 Cols) -->
           <div class="lg:col-span-8 space-y-4">
-            
-            <!-- PINNED POST (IF PRESENT) -->
-            ${pinnedPost ? `
-              <div class="p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-surface-raised to-surface-raised border border-amber-500/30 shadow-md space-y-2">
-                <div class="flex items-center justify-between text-xs">
-                  <span class="flex items-center space-x-1.5 text-amber-300 font-bold font-mono text-[11px] uppercase tracking-wider">
-                    ${renderIcon('pin', { size: 14, class: 'text-amber-400' })}
-                    <span>Pinned Announcement</span>
-                  </span>
-                  ${isMod ? `
-                    <button type="button" data-action="toggle-pin-post" data-circle-id="${circle.id}" data-post-id="${pinnedPost.id}" class="text-slate-400 hover:text-white text-[11px] cursor-pointer">
-                      Unpin
-                    </button>
-                  ` : ''}
-                </div>
-                <h3 data-open-detail="${pinnedPost.id}" class="text-sm font-bold text-white hover:text-indigo-300 cursor-pointer transition-colors">
-                  ${escapeHtml(pinnedPost.title || 'Community Announcement')}
-                </h3>
-                <div class="text-xs text-slate-300 leading-relaxed line-clamp-3">
-                  ${markdownRenderer.renderMarkdown(pinnedPost.content)}
-                </div>
-              </div>
-            ` : ''}
+            ${
+              this.activePillar === 'live'
+                ? this._renderLiveRoom(circle)
+                : this.activePillar === 'knowledge'
+                  ? this._renderKnowledgeBase(circle, channelPosts)
+                  : `
+                    <!-- PINNED POST (IF PRESENT) -->
+                    ${pinnedPost ? `
+                      <div class="p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-surface-raised to-surface-raised border border-amber-500/30 shadow-md space-y-2">
+                        <div class="flex items-center justify-between text-xs">
+                          <span class="flex items-center space-x-1.5 text-amber-300 font-bold font-mono text-[11px] uppercase tracking-wider">
+                            ${renderIcon('pin', { size: 14, class: 'text-amber-400' })}
+                            <span>Pinned Announcement</span>
+                          </span>
+                          ${isMod ? `
+                            <button type="button" data-action="toggle-pin-post" data-circle-id="${circle.id}" data-post-id="${pinnedPost.id}" class="text-slate-400 hover:text-white text-[11px] cursor-pointer">
+                              Unpin
+                            </button>
+                          ` : ''}
+                        </div>
+                        <h3 data-open-detail="${pinnedPost.id}" class="text-sm font-bold text-white hover:text-indigo-300 cursor-pointer transition-colors">
+                          ${escapeHtml(pinnedPost.title || 'Community Announcement')}
+                        </h3>
+                        <div class="text-xs text-slate-300 leading-relaxed line-clamp-3">
+                          ${markdownRenderer.renderMarkdown(pinnedPost.content)}
+                        </div>
+                      </div>
+                    ` : ''}
 
-            <!-- INLINE QUICK COMPOSER -->
-            <div class="p-3.5 rounded-2xl bg-surface-raised border border-white/5 shadow-sm">
-              <div class="flex items-center space-x-3">
-                <div class="w-8 h-8 rounded-full bg-indigo-600/30 text-indigo-400 flex items-center justify-center font-bold text-xs">
-                  ${renderIcon('plus', { size: 16, class: 'text-indigo-400' })}
-                </div>
-                <input
-                  type="text"
-                  placeholder="Share a thought, link, or discussion in c/${escapeHtml(circle.name)}..."
-                  data-action="open-composer"
-                  data-channel="${circle.channelId}"
-                  class="flex-1 bg-surface-base border border-white/10 rounded-xl px-4 py-2 text-xs text-slate-300 hover:border-white/20 cursor-pointer focus:outline-none"
-                  readonly
-                />
-              </div>
-            </div>
+                    <!-- INLINE QUICK COMPOSER -->
+                    <div class="p-3.5 rounded-2xl bg-surface-raised border border-white/5 shadow-sm">
+                      <div class="flex items-center space-x-3">
+                        <div class="w-8 h-8 rounded-full bg-indigo-600/30 text-indigo-400 flex items-center justify-center font-bold text-xs">
+                          ${renderIcon('plus', { size: 16, class: 'text-indigo-400' })}
+                        </div>
+                        <input
+                          type="text"
+                          placeholder="Share a thought, link, or discussion in c/${escapeHtml(circle.name)}..."
+                          data-action="open-composer"
+                          data-channel="${circle.channelId}"
+                          class="flex-1 bg-surface-base border border-white/10 rounded-xl px-4 py-2 text-xs text-slate-300 hover:border-white/20 cursor-pointer focus:outline-none"
+                          readonly
+                        />
+                      </div>
+                    </div>
 
-            <!-- FEED CONTROLS -->
-            ${feedControlsEngine.renderFeedControlsToolbar()}
+                    <!-- FEED CONTROLS -->
+                    ${feedControlsEngine.renderFeedControlsToolbar()}
 
-            <!-- POST STREAM -->
-            ${streamPosts.length === 0 ? renderPulseEmptyState({
-                title: `No posts in c/${escapeHtml(circle.name)} yet`,
-                description: `Be the first to share an article, discussion, or project with this community.`,
-                actionText: `✍️ Create First Post in c/${escapeHtml(circle.name)}`,
-              }) : streamPosts.map(renderPulsePostCard).join('')}
+                    <!-- POST STREAM -->
+                    ${streamPosts.length === 0 ? `
+                      <div class="p-8 rounded-2xl bg-surface-raised/40 border border-dashed border-white/10 text-center space-y-4 my-2">
+                        <div class="w-12 h-12 mx-auto rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-2xl text-indigo-400">
+                          💬
+                        </div>
+                        <div class="space-y-1">
+                          <h3 class="text-sm font-bold text-white">No posts in c/${escapeHtml(circle.name)} yet</h3>
+                          <p class="text-xs text-slate-400 max-w-sm mx-auto">Be the first to share an update, start a discussion, or share useful resources with this community.</p>
+                        </div>
+                        <div class="flex flex-wrap items-center justify-center gap-2 pt-2">
+                          <button type="button" data-action="open-composer" data-channel="${circle.channelId}" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all shadow-sm cursor-pointer flex items-center space-x-1.5">
+                            <span>✍️</span>
+                            <span>Create first post</span>
+                          </button>
+                          <button type="button" data-action="copy-community-url" data-community="${circle.name}" class="px-3.5 py-2 rounded-xl bg-surface-raised hover:bg-surface-overlay text-slate-300 hover:text-white border border-white/5 text-xs font-medium transition-all cursor-pointer flex items-center space-x-1.5">
+                            <span>🔗</span>
+                            <span>Invite people</span>
+                          </button>
+                          <button type="button" data-action="share-community-link" data-community="${circle.name}" class="px-3.5 py-2 rounded-xl bg-surface-raised hover:bg-surface-overlay text-slate-300 hover:text-white border border-white/5 text-xs font-medium transition-all cursor-pointer flex items-center space-x-1.5">
+                            <span>📢</span>
+                            <span>Share community</span>
+                          </button>
+                          <button type="button" data-nav-mode="communities" class="px-3.5 py-2 rounded-xl bg-surface-raised hover:bg-surface-overlay text-slate-300 hover:text-white border border-white/5 text-xs font-medium transition-all cursor-pointer flex items-center space-x-1.5">
+                            <span>🧭</span>
+                            <span>Browse spaces</span>
+                          </button>
+                        </div>
+                      </div>
+                    ` : streamPosts.map(renderPulsePostCard).join('')}
+                  `
+            }
           </div>
 
           <!-- RIGHT RAIL (4 Cols): ABOUT, RULES, MODERATORS -->
@@ -348,98 +553,44 @@ export class CommunityView {
     `;
   }
 
+  public searchQuery: string = '';
+  public activeCategory: string = 'all';
+  public membershipFilter: 'all' | 'joined' = 'all';
+
+  public setSearchQuery(q: string): void {
+    this.searchQuery = q;
+  }
+
+  public setActiveCategory(cat: string): void {
+    this.activeCategory = cat;
+  }
+
   public renderCommunitiesHub(): string {
     const allCircles = sovereignCircleEngine.getAllCircles();
-    const joinedCircles = allCircles.filter(c => c.isJoined);
-    const suggestedCircles = allCircles.filter(c => !c.isJoined);
-
-    return `
-      <div id="communities-hub-workspace" class="flex-1 flex flex-col overflow-y-auto bg-canvas p-4 sm:p-6 max-w-6xl mx-auto w-full pb-20">
-        
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-white/10">
-          <div>
-            <h1 class="text-2xl font-bold text-white tracking-tight flex items-center space-x-2.5">
-              <span class="text-indigo-400">${renderIcon('users', { size: 24, strokeWidth: 1.75 })}</span>
-              <span>Communities</span>
-            </h1>
-            <p class="text-xs sm:text-sm text-slate-400 mt-1">
-              Join topic-focused spaces, participate in sovereign discussions, or start your own community.
-            </p>
+    const categories = communityCategories(allCircles);
+    const filtered = filterCommunities(allCircles, this.searchQuery, this.activeCategory, this.membershipFilter);
+    const joinedCount = allCircles.filter(circle => circle.isJoined).length;
+    const isFiltering = this.searchQuery.trim() || this.activeCategory !== 'all' || this.membershipFilter !== 'all';
+    return `<div id="communities-hub-workspace" class="discovery-hub">
+      <header class="view-header"><div><h1>Communities</h1><p>Small worlds. Shared interests.</p></div><button type="button" class="discovery-create" data-action="open-create-circle">${renderIcon('plus', { size: 17 })}<span>Create community</span></button></header>
+      <div id="communities-directory-scroll" class="discovery-hub__scroll">
+        <section class="discovery-intro discovery-intro--communities" aria-labelledby="communities-intro-title">
+          <div><span class="discovery-eyebrow">FIND YOUR CORNER OF THE INTERNET</span><h2 id="communities-intro-title">Different interests.<br><em>Shared curiosity.</em></h2><p>From a first question to a shared obsession.<br>There is a place for your kind of conversation.</p></div>
+          <div class="discovery-constellation" aria-hidden="true"><span>${renderIcon('users', { size: 32 })}</span><span>${renderIcon('terminal', { size: 26 })}</span><span>${renderIcon('sparkles', { size: 28 })}</span></div>
+          <footer><span>${allCircles.length} spaces to explore</span><span>${joinedCount} in your circle</span></footer>
+        </section>
+        <div class="discovery-directory-tools">
+          <div class="discovery-segmented" role="group" aria-label="Community membership filter">
+            <button type="button" data-action="filter-community-membership" data-membership="all" aria-pressed="${this.membershipFilter === 'all'}">Discover <span>${allCircles.length}</span></button>
+            <button type="button" data-action="filter-community-membership" data-membership="joined" aria-pressed="${this.membershipFilter === 'joined'}">My communities <span>${joinedCount}</span></button>
           </div>
-          <button
-            type="button"
-            data-action="open-charter-modal"
-            class="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-cyan-500 hover:from-indigo-500 hover:to-cyan-400 text-white text-xs font-bold rounded-xl shadow-lg transition-all cursor-pointer flex items-center space-x-2 self-start sm:self-auto"
-          >
-            ${renderIcon('plus', { size: 14, strokeWidth: 2.5 })}
-            <span>Create Community</span>
-          </button>
+          <label class="discovery-search">${renderIcon('search', { size: 18 })}<input type="text" id="input-community-search" data-input="search-communities" aria-label="Search communities" placeholder="Find a community…" value="${escapeHtml(this.searchQuery)}" autocomplete="off" />${this.searchQuery ? `<button type="button" data-action="clear-community-search" aria-label="Clear community search">${renderIcon('close', { size: 17 })}</button>` : ''}</label>
         </div>
-
-        ${joinedCircles.length > 0 ? `
-          <div class="mt-8 space-y-4">
-            <h2 class="text-xs font-mono font-bold uppercase tracking-wider text-slate-400 flex items-center space-x-2">
-              <span class="text-amber-400">${renderIcon('sparkles', { size: 14 })}</span>
-              <span>Joined Communities (${joinedCircles.length})</span>
-            </h2>
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              ${joinedCircles.map(c => this.renderCircleCard(c)).join('')}
-            </div>
-          </div>
-        ` : ''}
-
-        <div class="mt-8 space-y-4">
-          <h2 class="text-xs font-mono font-bold uppercase tracking-wider text-slate-400 flex items-center space-x-2">
-            <span class="text-cyan-400">${renderIcon('globe', { size: 14 })}</span>
-            <span>Discover Communities</span>
-          </h2>
-          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            ${(suggestedCircles.length > 0 ? suggestedCircles : allCircles).map(c => this.renderCircleCard(c)).join('')}
-          </div>
-        </div>
-
+        <div class="discovery-category-list" role="group" aria-label="Community topics">${categories.map(category => `<button type="button" data-action="filter-community-category" data-category="${escapeHtml(category)}" aria-pressed="${this.activeCategory.toLowerCase() === category.toLowerCase()}">${category === 'all' ? 'All topics' : escapeHtml(category)}</button>`).join('')}</div>
+        <div class="discovery-results-heading"><h2>${this.membershipFilter === 'joined' ? 'Your communities' : 'Explore the possibilities'}</h2><span role="status">${filtered.length} ${filtered.length === 1 ? 'community' : 'communities'}</span></div>
+        ${filtered.length ? `<div class="discovery-space-grid">${filtered.map(renderDiscoveryCard).join('')}</div>` : `<div class="discovery-empty discovery-empty--roomy">${renderIcon('search', { size: 28 })}<strong>${this.membershipFilter === 'joined' && !joinedCount ? 'Your circle starts here' : 'No communities match these filters'}</strong><span>Try a different topic, broaden your search, or start a space of your own.</span>${isFiltering ? '<button type="button" data-action="reset-community-filters">Reset filters</button>' : ''}<button type="button" data-action="open-create-circle">Create a community</button></div>`}
       </div>
-    `;
-  }
-
-  private renderCircleCard(circle: SovereignCircle): string {
-    return `
-      <div class="p-4 rounded-2xl bg-surface-raised border border-white/5 hover:border-white/15 transition-all shadow-sm flex flex-col justify-between space-y-3">
-        <div class="flex items-start justify-between gap-2">
-          <div class="flex items-center space-x-3">
-            <div class="w-12 h-12 rounded-xl bg-surface-base border border-white/10 flex items-center justify-center shadow-inner shrink-0" style="color: ${circle.primaryColor || '#6366f1'};">
-              ${circle.icon && !circle.icon.includes('🏛️') ? circle.icon : renderIcon('users', { size: 24, strokeWidth: 1.75 })}
-            </div>
-            <div>
-              <button type="button" data-action="join-channel" data-channel="${circle.channelId}" class="text-sm font-bold text-white hover:text-indigo-400 transition-colors text-left block cursor-pointer">
-                c/${escapeHtml(circle.name)}
-              </button>
-              <p class="text-[11px] text-slate-400 font-medium truncate max-w-[180px]">${escapeHtml(circle.displayName)}</p>
-            </div>
-          </div>
-          <button
-            type="button"
-            data-action="toggle-join-circle"
-            data-circle-id="${circle.id}"
-            class="px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 flex items-center gap-1 ${
-              circle.isJoined
-                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30'
-                : 'bg-white/10 hover:bg-white/20 text-white'
-            }"
-          >
-            ${circle.isJoined ? `${renderIcon('check', { size: 12 })} Joined` : `${renderIcon('plus', { size: 12 })} Join`}
-          </button>
-        </div>
-
-        <p class="text-xs text-slate-300 leading-relaxed line-clamp-2">${escapeHtml(circle.description)}</p>
-
-        <div class="pt-2 border-t border-white/5 flex items-center justify-between text-[11px] font-mono text-slate-400">
-          <span>${(circle.membersCount || 0).toLocaleString()} members</span>
-          <span class="text-cyan-400">${escapeHtml(circle.category || 'General')}</span>
-        </div>
-      </div>
-    `;
+    </div>`;
   }
 }
-
 export const communityView = new CommunityView();

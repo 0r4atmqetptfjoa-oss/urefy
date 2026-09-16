@@ -81,6 +81,8 @@ export interface StorageUploadResult {
 
 export const MAX_STORAGE_CAP_BYTES = 8.0 * 1024 * 1024 * 1024; // 8.0 GB safe limit
 export const FREE_TIER_STORAGE_CAP_BYTES = 10.0 * 1024 * 1024 * 1024; // 10.0 GB hard free tier cap
+export const CLOUDFLARE_R2_SAFE_CAP_BYTES = MAX_STORAGE_CAP_BYTES;
+export const CLOUDFLARE_R2_STORAGE_LIMIT_BYTES = FREE_TIER_STORAGE_CAP_BYTES;
 export const MAX_SINGLE_UPLOAD_BYTES = 25 * 1024 * 1024; // 25 MB max per file
 export const MAX_CLASS_A_MONTHLY_OPS = 750_000; // 750k safe cap
 export const FREE_TIER_CLASS_A_OPS = 1_000_000; // 1M free cap
@@ -88,6 +90,75 @@ export const MAX_CLASS_B_MONTHLY_OPS = 7_500_000; // 7.5M safe cap
 export const FREE_TIER_CLASS_B_OPS = 10_000_000; // 10M free cap
 export const RAM_CACHE_MAX_BYTES = 2 * 1024 * 1024; // 2 MB RAM cache ceiling
 export const LISTING_CACHE_TTL_MS = 60 * 1000; // 60 seconds directory listing cache
+
+// Cloudflare Free-Only Real Pricing Invariants
+export const CLOUDFLARE_FREE_ONLY_MODE = true;
+export const CLOUDFLARE_PROXY_LIMIT_BYTES = 95 * 1024 * 1024; // 95 MiB (safely within Cloudflare free 100MB body ceiling)
+
+// Tiered User Storage Quotas (Fair-Use Free Allocation)
+export const USER_STORAGE_TIERS = {
+  NEW: 100 * 1024 * 1024,      // 100 MB for new / unverified accounts
+  STANDARD: 250 * 1024 * 1024, // 250 MB for active community members
+  TRUSTED: 500 * 1024 * 1024,  // 500 MB for established sovereign nodes
+  ADMIN: 1024 * 1024 * 1024,   // 1 GB for Guardians / system administrators
+  anonymous: { maxTotalBytes: 100 * 1024 * 1024, maxDailyBytes: 25 * 1024 * 1024 },
+  standard: { maxTotalBytes: 250 * 1024 * 1024, maxDailyBytes: 50 * 1024 * 1024 },
+  creator: { maxTotalBytes: 500 * 1024 * 1024, maxDailyBytes: 250 * 1024 * 1024 },
+  sovereign: { maxTotalBytes: 1024 * 1024 * 1024, maxDailyBytes: 1024 * 1024 * 1024 },
+};
+
+// Daily Upload Bandwidth Ceilings
+export const DAILY_UPLOAD_LIMITS = {
+  NEW: 25 * 1024 * 1024,       // 25 MB / day
+  STANDARD: 50 * 1024 * 1024,  // 50 MB / day
+  TRUSTED: 250 * 1024 * 1024,  // 250 MB / day
+  ADMIN: 1024 * 1024 * 1024,   // 1 GB / day
+};
+
+// Velocity & Concurrency Controls
+export const MAX_UPLOADS_PER_HOUR = 20;
+export const MAX_CONCURRENT_UPLOADS_PER_USER = 3;
+
+// Storage Reservations Registry (Atomic Two-Phase Upload Allocation)
+export interface StorageReservation {
+  id: string;
+  author: string;
+  byteSize: number;
+  fileName: string;
+  expiresAt: number;
+}
+
+export const activeStorageReservations = new Map<string, StorageReservation>();
+export const userUploadTimestamps = new Map<string, number[]>();
+
+export function cleanExpiredReservations(now: number = Date.now()): void {
+  for (const [id, resv] of activeStorageReservations.entries()) {
+    if (now > resv.expiresAt) {
+      activeStorageReservations.delete(id);
+    }
+  }
+}
+
+export function getActiveReservedBytes(): number {
+  cleanExpiredReservations();
+  let total = 0;
+  for (const resv of activeStorageReservations.values()) {
+    total += resv.byteSize;
+  }
+  return total;
+}
+
+export function getStoragePressureRatio(): number {
+  const current = getTotalStorageBytes() + getActiveReservedBytes();
+  return current / MAX_STORAGE_CAP_BYTES;
+}
+
+export function getMaxPermittedUploadBytes(pressureRatio: number): number {
+  if (pressureRatio >= 1.0) return 0;
+  if (pressureRatio >= 0.95) return 2 * 1024 * 1024; // 2 MB emergency cap
+  if (pressureRatio >= 0.90) return 10 * 1024 * 1024; // 10 MB pressure cap
+  return MAX_SINGLE_UPLOAD_BYTES; // 25 MB standard upload cap
+}
 
 // ─── CORS POLICY & SECURITY HEADERS ──────────────────────────────────────────
 
@@ -522,6 +593,99 @@ export async function onRequestPost(context: {
 }): Promise<Response> {
   try {
     const req = context.request;
+    const url = new URL(req.url);
+    const action = (url.searchParams.get('action') || '').trim().toLowerCase();
+
+    // ─── 0. ATOMIC TWO-PHASE UPLOAD RESERVATION (action=reserve) ───────────────
+    if (action === 'reserve') {
+      const body = await req.json().catch(() => null) as Record<string, any> | null;
+      if (!body || typeof body.byteSize !== 'number') {
+        return new Response(
+          JSON.stringify({ success: false, error: 'byteSize number is required for storage reservation' }),
+          { status: 400, headers: { 'Content-Type': 'application/json', ...STORAGE_CORS_HEADERS } }
+        );
+      }
+      const byteSize = Number(body.byteSize) || 0;
+      const author = typeof body.author === 'string' && body.author.trim() ? body.author.trim() : (req.headers.get('X-Author') || 'anon-peer');
+      const fileName = typeof body.fileName === 'string' && body.fileName.trim() ? body.fileName.trim() : (req.headers.get('X-File-Name') || 'file.bin');
+
+      // Velocity rate limiting (max 20 uploads / hr)
+      const now = Date.now();
+      cleanExpiredReservations(now);
+      const userTimestamps = (userUploadTimestamps.get(author) || []).filter(t => now - t < 3600000);
+      if (userTimestamps.length >= MAX_UPLOADS_PER_HOUR) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: `Upload velocity limit exceeded (max ${MAX_UPLOADS_PER_HOUR} uploads per hour). Please retry later.`,
+          }),
+          { status: 429, headers: { 'Content-Type': 'application/json', ...STORAGE_CORS_HEADERS } }
+        );
+      }
+
+      // Check dynamic storage pressure thresholds
+      const pressure = getStoragePressureRatio();
+      const maxAllowed = getMaxPermittedUploadBytes(pressure);
+      if (byteSize > maxAllowed) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: `Dynamic storage pressure limit: file size of ${(byteSize / (1024 * 1024)).toFixed(1)}MB exceeds current permitted ceiling of ${(maxAllowed / (1024 * 1024)).toFixed(1)}MB (pressure at ${(pressure * 100).toFixed(0)}%).`,
+          }),
+          { status: 413, headers: { 'Content-Type': 'application/json', ...STORAGE_CORS_HEADERS } }
+        );
+      }
+
+      // Check global storage capacity
+      const reservedBytes = getActiveReservedBytes();
+      if (getTotalStorageBytes() + reservedBytes + byteSize > MAX_STORAGE_CAP_BYTES) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'Vault storage capacity reached in Cloudflare Free Tier (8.0 GB safe cap). Existing data remains fully accessible. Failover to P2P WebRTC Direct Swarm.',
+          }),
+          { status: 507, headers: { 'Content-Type': 'application/json', ...STORAGE_CORS_HEADERS } }
+        );
+      }
+
+      const randHex = typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID().slice(0, 8)
+        : Array.from(crypto.getRandomValues(new Uint8Array(4)), b => b.toString(16).padStart(2, '0')).join('');
+      const reservationId = `resv_${now}_${randHex}`;
+      activeStorageReservations.set(reservationId, {
+        id: reservationId,
+        author,
+        byteSize,
+        fileName,
+        expiresAt: now + 15 * 60 * 1000, // 15-minute reservation TTL
+      });
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          reservationId,
+          expiresAt: now + 15 * 60 * 1000,
+          permitted: true,
+          storageTier: 'Cloudflare-Free-Tier-Standard',
+          maxStorageBytes: MAX_STORAGE_CAP_BYTES,
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json', ...STORAGE_CORS_HEADERS } }
+      );
+    }
+
+    // ─── 0.1 CANCEL STORAGE RESERVATION (action=release) ────────────────────────
+    if (action === 'release') {
+      const body = await req.json().catch(() => null) as Record<string, any> | null;
+      const reservationId = (body?.reservationId || url.searchParams.get('reservationId') || '').trim();
+      if (reservationId) {
+        activeStorageReservations.delete(reservationId);
+      }
+      return new Response(
+        JSON.stringify({ success: true, released: true, reservationId }),
+        { status: 200, headers: { 'Content-Type': 'application/json', ...STORAGE_CORS_HEADERS } }
+      );
+    }
+
     const rawContentType = req.headers.get('Content-Type') || '';
 
     // Validate Content-Type
@@ -981,15 +1145,25 @@ export async function onRequestPost(context: {
       uploadedAt: Date.now(),
     };
 
+    const pressureRatio = getStoragePressureRatio();
+    const pressurePercent = (pressureRatio * 100).toFixed(1);
+    const uploadHeaders: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'X-SHA256-Checksum': sha256,
+      'X-Merkle-Root': merkleRoot,
+      'X-Edge-Storage': storageType,
+      'X-Storage-Pressure': `${pressurePercent}%`,
+      'X-Storage-Class': 'Standard',
+      'X-Free-Tier-Only': 'true',
+      ...STORAGE_CORS_HEADERS,
+    };
+    if (pressureRatio >= 0.70) {
+      uploadHeaders['X-Storage-Pressure-Status'] = 'elevated';
+    }
+
     return new Response(JSON.stringify(responsePayload, null, 2), {
       status: 201,
-      headers: {
-        'Content-Type': 'application/json',
-        'X-SHA256-Checksum': sha256,
-        'X-Merkle-Root': merkleRoot,
-        'X-Edge-Storage': storageType,
-        ...STORAGE_CORS_HEADERS,
-      },
+      headers: uploadHeaders,
     });
   } catch (err: any) {
     return new Response(

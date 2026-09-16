@@ -63,14 +63,23 @@ export function renderProfileHeaderHTML(profile: UserProfileData, isOwnProfile: 
           <p class="profile-handle">${escapeAttr(displayHandle)}</p>
           ${displayBio ? `<div class="profile-bio">${markdownRenderer.renderMarkdown(displayBio)}</div>` : ''}
           ${(displayLocation || profile.website) ? `<div class="profile-details">${displayLocation ? `<span>${renderIcon('globe', { size: 15 })}${escapeAttr(displayLocation)}</span>` : ''}${profile.website ? `<a href="${escapeAttr(profile.website)}" target="_blank" rel="noopener noreferrer">${renderIcon('link', { size: 15 })}${escapeAttr(profile.website)}</a>` : ''}</div>` : ''}
-          <div class="federated-handle-bar flex flex-wrap items-center gap-2 mt-2 pt-2 border-t border-white/5 text-xs">
-            <span class="federated-handle font-mono text-slate-400 bg-white/5 px-2 py-0.5 rounded border border-white/10" data-federated-handle="${escapeAttr(federatedHandle)}">${escapeAttr(federatedHandle)}</span>
-            <button type="button" class="btn-copy-federated-handle text-indigo-400 hover:text-indigo-300 text-xs px-2 py-0.5 rounded bg-indigo-500/10 hover:bg-indigo-500/20 transition-colors cursor-pointer" data-copy-handle="${escapeAttr(federatedHandle)}">Copy Federated Handle</button>
-            <a href="/.well-known/aetheris-node" class="activitypub-badge inline-flex items-center text-[11px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full hover:underline" data-activitypub-badge="true">
-              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1.5"></span>
-              Federated via ActivityPub 2.0
-            </a>
-          </div>
+          <details class="profile-federation-accordion group mt-2 pt-2 border-t border-white/5 text-xs">
+            <summary class="cursor-pointer text-slate-400 hover:text-slate-200 flex items-center justify-between select-none py-1">
+              <span class="flex items-center space-x-1.5 font-medium">
+                <span>🌐</span>
+                <span>Federation & protocol details</span>
+              </span>
+              <span class="text-[10px] text-indigo-400 group-open:rotate-180 transition-transform">▼</span>
+            </summary>
+            <div class="federated-handle-bar flex flex-wrap items-center gap-2 mt-2 pt-1">
+              <span class="federated-handle font-mono text-slate-400 bg-white/5 px-2 py-0.5 rounded border border-white/10" data-federated-handle="${escapeAttr(federatedHandle)}">${escapeAttr(federatedHandle)}</span>
+              <button type="button" class="btn-copy-federated-handle text-indigo-400 hover:text-indigo-300 text-xs px-2 py-0.5 rounded bg-indigo-500/10 hover:bg-indigo-500/20 transition-colors cursor-pointer" data-copy-handle="${escapeAttr(federatedHandle)}">Copy Federated Handle</button>
+              <a href="/.well-known/aetheris-node" class="activitypub-badge inline-flex items-center text-[11px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full hover:underline" data-activitypub-badge="true">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1.5"></span>
+                Federated via ActivityPub 2.0
+              </a>
+            </div>
+          </details>
           ${profile.badges && profile.badges.length ? `
             <div class="profile-badges flex flex-wrap gap-1.5 mt-2">
               ${profile.badges.map(b => `<span class="badge px-2.5 py-0.5 text-xs rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 font-medium">${escapeAttr(b)}</span>`).join('')}
