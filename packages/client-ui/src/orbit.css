@@ -16,33 +16,25 @@
 .orbit-layout-tools .workspace-layout-button { width: 38px; height: 38px; border-radius: 9px; }
 #main-feed-scroll { padding-top: 24px; }
 
-.horizon { position: relative; isolation: isolate; overflow: hidden; border-radius: 22px; padding: 30px 30px 0; background: #e3f0df; color: #17392e; }
-.horizon__copy { position: relative; z-index: 2; width: 68%; padding-bottom: 24px; }
-.horizon__eyebrow { display: flex; align-items: center; gap: 7px; font-size: 8px; font-weight: 750; letter-spacing: .13em; line-height: 1.7; }
-.horizon__eyebrow > span { width: 5px; height: 5px; flex-shrink: 0; border-radius: 50%; background: #367a4c; }
-.horizon h2 { margin: 19px 0 15px; color: #17392e; font-size: clamp(36px, 3.4vw, 53px); font-weight: 600; line-height: 1.03; letter-spacing: -.065em; }
-.horizon h2 em { font-family: Georgia, 'Times New Roman', serif; font-weight: 400; letter-spacing: -.065em; }
-[data-theme="alabaster-light"] .horizon h2 { color: #17392e !important; }
+.horizon { position: relative; overflow: hidden; border-radius: 20px; padding: 26px 28px 20px; background: var(--bg-surface-raised); border: 1px solid var(--premium-line); color: var(--text-primary); }
+.horizon__copy { position: relative; z-index: 2; max-width: 620px; }
+.horizon__eyebrow { display: inline-flex; align-items: center; gap: 8px; font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--color-accent); margin-bottom: 12px; }
+.horizon__eyebrow > span { width: 6px; height: 6px; border-radius: 50%; background: var(--color-accent); }
+.horizon h2 { margin: 0 0 12px; color: var(--text-primary); font-size: clamp(24px, 3vw, 34px); font-weight: 700; line-height: 1.18; letter-spacing: -.035em; }
+.horizon h2 em { font-style: normal; color: var(--color-accent); }
 [data-theme="alabaster-light"] .urefy-brand__word,
 [data-theme="alabaster-light"] .urefy-brand__word span { color: #17202a !important; }
 [data-theme="alabaster-light"] #main-feed-scroll > .quick-composer { background: #fff !important; border-color: #dce2e9 !important; }
 [data-theme="alabaster-light"] .compact-join-button.is-joined { background: #edf2f6 !important; color: #45566a !important; }
-.horizon__copy p { font-size: 12px; line-height: 1.75; color: #49614f; margin: 0 0 21px; }
-.horizon__cta { display: inline-flex; align-items: center; gap: 15px; min-height: 43px; padding: 0 15px; border-radius: 10px; font-size: 12px; font-weight: 650; color: #f2f9e9; background: #193f31; }
-.horizon__cta:hover { background: #2e5940; }
-.horizon button:focus-visible { outline: 3px solid #17392e; outline-offset: 4px; }
-.horizon__art { position: absolute; z-index: 1; width: 300px; height: 300px; right: -65px; top: 39px; transform: rotate(-23deg); pointer-events: none; }
-.horizon__orbit { position: absolute; inset: 25px; border: 1px solid #74987666; border-radius: 50%; }
-.horizon__orbit--one { transform: scaleX(.50); }
-.horizon__orbit--two { transform: rotate(60deg) scaleX(.50); }
-.horizon__orbit--three { transform: rotate(-60deg) scaleX(.50); }
-.horizon__planet { position: absolute; display: grid; place-items: center; inset: 86px; border-radius: 50%; background: radial-gradient(circle at 32% 23%, #d2edb3, #719d67 55%, #2a5b47); box-shadow: inset -12px -10px 22px #1a473733, 14px 20px 35px #3e654128; }
-.horizon__planet img { width: 48px; height: 48px; opacity: .75; transform: rotate(23deg); filter: grayscale(1) brightness(.3); }
-.horizon__satellite { position: absolute; display: grid; place-items: center; width: 46px; height: 46px; border: 1px solid #78967080; border-radius: 14px; background: #f0f5dd; transform: rotate(23deg); box-shadow: 0 8px 16px #3b633e12; }
-.horizon__satellite--one { top: 23px; left: 71px; }
-.horizon__satellite--two { bottom: 44px; right: 39px; }
-.horizon__coordinate { position: absolute; bottom: 4px; left: 65px; font-size: 8px; letter-spacing: .15em; transform: rotate(23deg); color: #49614f; }
-.horizon__footer { position: relative; z-index: 2; display: flex; justify-content: space-between; gap: 10px; padding: 13px 0; border-top: 1px solid #264b352a; font-size: 8px; font-weight: 650; letter-spacing: .14em; color: #49614f; }
+.horizon__copy p { font-size: 13px; line-height: 1.6; color: var(--text-secondary); margin: 0 0 18px; max-width: 540px; }
+.horizon__actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+.horizon__cta { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 16px; border-radius: 10px; font-size: 12px; font-weight: 600; color: #fff; background: var(--color-accent); transition: opacity .15s ease, transform .15s ease; }
+.horizon__cta:hover { opacity: .92; transform: translateY(-1px); }
+.horizon__secondary-cta { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 14px; border-radius: 10px; font-size: 12px; font-weight: 600; color: var(--text-primary); background: var(--bg-surface-base); border: 1px solid var(--premium-line); transition: background .15s ease; }
+.horizon__secondary-cta:hover { background: var(--bg-surface-overlay); }
+.horizon__status-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--premium-line); font-size: 11px; color: var(--text-secondary); }
+.horizon__badges { display: flex; align-items: center; gap: 8px; }
+.horizon__badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 6px; background: color-mix(in srgb, var(--color-accent) 8%, var(--bg-surface-base)); color: var(--text-secondary); font-size: 10px; font-weight: 500; border: 1px solid var(--premium-line); }
 
 .orbit-shortcuts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 12px; margin-bottom: 27px; }
 .orbit-shortcuts button { display: flex; align-items: center; gap: 11px; min-width: 0; padding: 15px 13px; border: 1px solid var(--premium-line); border-radius: 14px; text-align: left; background: var(--bg-surface-base); }
@@ -99,16 +91,14 @@
   #main-feed-scroll { padding-top: 14px; }
   .view-header { min-height: 64px; }
   .orbit-layout-tools .workspace-layout-button { width: 38px; height: 38px; }
-  .horizon { border-radius: 17px; padding: 23px 20px 0; }
-  .horizon__copy { width: 83%; }
-  .horizon__eyebrow { max-width: 180px; font-size: 7px; }
-  .horizon h2 { font-size: 42px; }
-  .horizon__copy p { font-size: 11px; }
-  .horizon__art { width: 235px; height: 235px; right: -108px; top: 48px; opacity: .65; }
-  .horizon__planet { inset: 69px; }
-  .horizon__satellite { width: 35px; height: 35px; }
-  .horizon__coordinate { display: none; }
-  .horizon__footer { font-size: 7px; letter-spacing: .09em; }
+  .horizon { border-radius: 16px; padding: 20px 16px 16px; }
+  .horizon__copy { width: 100%; }
+  .horizon__eyebrow { font-size: 9px; margin-bottom: 8px; }
+  .horizon h2 { font-size: 22px; }
+  .horizon__copy p { font-size: 12px; margin-bottom: 14px; }
+  .horizon__actions { gap: 8px; }
+  .horizon__cta, .horizon__secondary-cta { min-height: 38px; padding: 0 12px; font-size: 11px; }
+  .horizon__status-bar { margin-top: 16px; padding-top: 10px; font-size: 10px; flex-wrap: wrap; }
   .orbit-shortcuts { gap: 8px; margin-bottom: 23px; }
   .orbit-shortcuts button { padding: 12px 9px; gap: 8px; }
   .orbit-shortcuts__icon { width: 28px; height: 32px; }

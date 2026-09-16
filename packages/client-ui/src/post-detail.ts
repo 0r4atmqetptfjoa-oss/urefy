@@ -513,6 +513,13 @@ export class PostDetailView {
           </div>
         </div>
 
+        ${post.content && (post.content.startsWith('> [ 🔗 Evolved from') || post.content.startsWith('> Evolved from Live Chat')) ? `
+          <div class="provenance-badge inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-indigo-950/80 border border-indigo-500/40 text-indigo-300 text-xs font-mono my-1">
+            <span>${post.content.startsWith('> [ 🔗') ? '🔗' : '⚡'}</span>
+            <span>${post.content.startsWith('> [ 🔗') ? 'Evolved from Private Branch' : 'Evolved from Live Chat'}</span>
+          </div>
+        ` : ''}
+
         <!-- POST TITLE -->
         <h1 class="text-xl md:text-2xl font-extrabold text-slate-100 leading-tight tracking-wide">
           ${meta.safeTitle}
@@ -578,6 +585,10 @@ export class PostDetailView {
           </div>
 
           <div class="flex items-center space-x-2">
+            <button type="button" data-action="keep-post" data-post-id="${postId}" class="btn-detail-keep flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-surface-raised hover:bg-surface-overlay text-amber-400 hover:text-amber-300 border border-white/5 transition-all cursor-pointer" title="Save to sovereign encrypted Vault">
+              <span>💎</span>
+              <span>Keep in Vault</span>
+            </button>
             <button data-share-id="${postId}" class="btn-detail-share flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-surface-raised hover:bg-surface-overlay text-slate-300 hover:text-white border border-white/5 transition-all cursor-pointer">
               <span>🔗</span>
               <span class="share-btn-label">${t('pulse.share', undefined, 'Share')}</span>
@@ -765,6 +776,11 @@ export class PostDetailView {
               <span>•</span>
               <button data-comment-reply-toggle="${c.id}" class="btn-comment-reply-toggle hover:text-cyphr transition-colors">
                 ${isReplying ? 'Cancel Reply' : 'Reply'}
+              </button>
+              <span>•</span>
+              <button data-action="keep-comment" data-comment-id="${c.id}" data-comment-author="${c.authorFingerprint || 'anon'}" data-post-id="${c.postId || this.activePostId || ''}" class="btn-comment-keep hover:text-amber-400 transition-colors flex items-center space-x-1" title="Preserve comment in your encrypted Vault">
+                <span>💎</span>
+                <span>Keep in Vault</span>
               </button>
               <span>•</span>
               ${awardsSystem.renderGiveCommentAwardButton(c.id, c.postId || this.activePostId || '', 'GUARDIAN')}

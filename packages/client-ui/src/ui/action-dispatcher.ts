@@ -581,6 +581,12 @@ export class ActionDispatcher {
           <button type="button" data-action="more-open-detail" data-post-id="${postId}">
             <span>💬</span><span>View Discussion</span>
           </button>
+          <button type="button" data-action="keep-post" data-post-id="${postId}">
+            <span>💎</span><span>Keep in Vault</span>
+          </button>
+          <button type="button" data-action="promote-post-knowledge" data-post-id="${postId}">
+            <span>📚</span><span>Promote to Knowledge</span>
+          </button>
           <button type="button" data-action="more-view-json" data-post-id="${postId}">
             <span>{ }</span><span>View Raw JSON</span>
           </button>
@@ -1511,8 +1517,14 @@ export class ActionDispatcher {
       case 'keep-dm-message':
       case 'keep-dm-branch':
       case 'keep-post':
+      case 'keep-post-vault':
+      case 'keep-comment':
+      case 'promote-post-knowledge':
+      case 'live-msg-branch-to-discussion':
+      case 'dm-branch-to-discussion':
       case 'keep-note':
       case 'save-link': {
+        el.closest('.post-more-menu')?.remove();
         void import('../controllers/context-controller.js').then(module => module.handleContextAction(action, el))
           .catch(error => clientStore.showToast(error instanceof Error ? error.message : 'This action could not be completed', 'warning'));
         break;

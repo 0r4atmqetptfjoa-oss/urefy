@@ -74,6 +74,12 @@ export class CommunityView {
                     <time>${new Date(m.createdAt || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time>
                   </div>
                   <div class="text-slate-300 mt-0.5">${escapeHtml(m.text || '')}</div>
+                  <div class="mt-1 flex items-center space-x-2 text-[10px]">
+                    <button type="button" data-action="live-msg-branch-to-discussion" data-channel="${circle.channelId}" data-text="${escapeHtml(m.text || '')}" class="text-slate-500 hover:text-cyan-400 font-mono transition-colors flex items-center space-x-1 cursor-pointer" title="Branch this live thought into a persistent community discussion">
+                      <span>↳</span>
+                      <span>Branch to Discussion</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             `).join('')}
@@ -155,6 +161,16 @@ export class CommunityView {
                     <span class="text-emerald-400 font-bold">SHA: ${escapeHtml(p.attachment.sha256?.slice(0, 8) || 'verified')}...</span>
                   </div>
                 ` : ''}
+                <div class="flex items-center justify-between pt-2 border-t border-white/5 text-xs">
+                  <button type="button" data-action="keep-post" data-post-id="${p.id}" class="inline-flex items-center space-x-1.5 px-3 py-1 rounded-lg bg-surface-base hover:bg-surface-overlay text-amber-400 text-xs font-semibold border border-amber-500/20 transition-all cursor-pointer" title="Keep in sovereign personal Vault">
+                    <span>💎</span>
+                    <span>Keep in Vault</span>
+                  </button>
+                  <button type="button" data-action="more-open-detail" data-post-id="${p.id}" class="inline-flex items-center space-x-1 text-slate-400 hover:text-white text-xs transition-colors cursor-pointer">
+                    <span>Open Discussion</span>
+                    <span>→</span>
+                  </button>
+                </div>
               </div>
             `).join('')}
           </div>

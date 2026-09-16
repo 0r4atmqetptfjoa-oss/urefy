@@ -1013,7 +1013,8 @@ export function renderDirectMessagesWorkspace(): string {
               ${source ? `<small>From ${source.senderFP === myFP ? 'you' : escapeHtml(resolvePeerName(source.senderFP))} · ${escapeHtml(new Date(source.timestamp).toLocaleString())}</small>` : ''}
             </div>
             <div class="context-actions"><button type="button" class="context-button" data-action="switch-dm-branch" data-branch="${escapeHtml(branch.parentBranchId)}">Parent conversation</button>
-            <button type="button" class="context-button" data-action="keep-dm-branch">Keep in Vault</button></div>
+            <button type="button" class="context-button" data-action="keep-dm-branch">Keep in Vault</button>
+            <button type="button" class="context-button text-cyan-400 font-semibold" data-action="dm-branch-to-discussion" title="Evolve this conversation branch into a public community discussion">Branch to Discussion</button></div>
           </section>` : ''}
 
           <!-- MESSAGES THREAD SCROLL -->

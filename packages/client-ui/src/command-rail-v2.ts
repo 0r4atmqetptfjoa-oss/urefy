@@ -11,9 +11,10 @@ import {
 import { isDemoModeEnabled } from './demo-mode.js';
 import { sovereignCircleEngine } from './sovereign-circle.js';
 import { sovereignRouter } from './router.js';
+import { knowledgeMemory, type KnowledgeMemory } from './knowledge-memory.js';
 
-export type CommandRailFilter = 'ALL' | 'POSTS' | 'MEMBERS' | 'BINARIES' | 'COMMANDS';
-export type SearchItemType = 'post' | 'member' | 'binary' | 'command';
+export type CommandRailFilter = 'ALL' | 'POSTS' | 'COMMUNITIES' | 'VAULT' | 'MESSAGES' | 'MEMBERS' | 'BINARIES' | 'COMMANDS';
+export type SearchItemType = 'post' | 'member' | 'binary' | 'command' | 'vault' | 'message';
 
 export interface CommandItem {
   id: string;
@@ -172,6 +173,7 @@ export class CommandRailV2Engine {
   private _cachedPosts: ClientPost[] = [];
   private _cachedMembers: CommunityMember[] = [];
   private _cachedBinaries: ClientNanopublication[] = [];
+  private _cachedVaultItems: KnowledgeMemory[] = [];
 
   constructor() {
     this._initCommands();
@@ -465,6 +467,12 @@ export class CommandRailV2Engine {
     this.selectedIndex = 0;
     this.searchResults = this.search(this.searchQuery, this.activeFilterTab);
     this.activePreviewItem = this.searchResults[0] || null;
+    void knowledgeMemory.list().then(items => {
+      this._cachedVaultItems = items;
+      this.searchResults = this.search(this.searchQuery, this.activeFilterTab);
+      this.activePreviewItem = this.searchResults[this.selectedIndex] || this.searchResults[0] || null;
+      this.renderUpdate();
+    }).catch(() => {});
   }
 
   /**
@@ -485,6 +493,7 @@ export class CommandRailV2Engine {
     this.selectedIndex = 0;
     this.searchResults = this.search(this.searchQuery, this.activeFilterTab);
     this.activePreviewItem = this.searchResults[0] || null;
+    this.renderUpdate();
   }
 
   /**
@@ -495,6 +504,7 @@ export class CommandRailV2Engine {
     this.selectedIndex = 0;
     this.searchResults = this.search(this.searchQuery, this.activeFilterTab);
     this.activePreviewItem = this.searchResults[0] || null;
+    this.renderUpdate();
   }
 
   /**
@@ -509,6 +519,46 @@ export class CommandRailV2Engine {
     const bounded = Math.max(0, Math.min(this.searchResults.length - 1, index));
     this.selectedIndex = bounded;
     this.activePreviewItem = this.searchResults[bounded] || null;
+    this.renderUpdate();
+  }
+
+  public renderUpdate(root?: HTMLElement): void {
+    if (typeof document === 'undefined') return;
+    const container = root || document.body;
+    if (!container) return;
+    const listEl = container.querySelector('#command-rail-v2-list');
+    if (listEl) {
+      listEl.innerHTML = this.searchResults.length === 0 
+        ? this._renderLeftEmptyState() 
+        : this.searchResults.map((item, idx) => this._renderSearchResultRow(item, idx)).join('');
+    }
+    const rightPreviewEl = container.querySelector('#command-rail-v2-overlay .w-1\\/2:last-child > div');
+    if (rightPreviewEl) {
+      rightPreviewEl.innerHTML = this._renderRightPreview(this.activePreviewItem);
+    }
+    container.querySelectorAll('.btn-rail-filter-tab').forEach(btn => {
+      const filter = btn.getAttribute('data-rail-filter');
+      const isActive = filter === this.activeFilterTab;
+      btn.className = `btn-rail-filter-tab px-2.5 py-1 rounded-lg transition-all flex items-center space-x-1.5 ${
+        isActive
+          ? 'bg-cyphr/20 border border-cyphr/40 text-cyphr font-bold shadow-[0_0_8px_rgba(0,229,255,0.2)]'
+          : 'bg-surface-raised/80 border border-white/5 text-slate-400 hover:text-slate-200 hover:bg-surface-overlay'
+      }`;
+    });
+    container.querySelectorAll('.btn-rail-item').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = parseInt(btn.getAttribute('data-rail-index') || '0', 10);
+        this.selectIndex(idx);
+      });
+      btn.addEventListener('dblclick', () => {
+        this.executeSelected();
+      });
+    });
+    container.querySelectorAll('[data-rail-action="execute-selected"]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.executeSelected();
+      });
+    });
   }
 
   /**
@@ -560,10 +610,19 @@ export class CommandRailV2Engine {
         clientStore.showToast(`Selected member: <${member.fingerprint}>`, 'info');
       }
       this.close();
-    } else if (item.type === 'binary') {
-      const binary = item.data as ClientNanopublication;
+    } else if (item.type === 'vault') {
+      const v = item.data as KnowledgeMemory;
       if (typeof clientStore !== 'undefined') {
-        clientStore.showToast(`Downloading binary via Swarm: ${binary.fileName}`, 'success');
+        clientStore.setSpace('vault');
+        clientStore.showToast(`Opened Vault item: "${v.title}"`, 'info');
+      }
+      this.close();
+    } else if (item.type === 'message') {
+      const msg = item.data;
+      if (typeof clientStore !== 'undefined') {
+        clientStore.activeChannelId = msg.channelId || 'messages';
+        clientStore.setSpace('relays');
+        clientStore.showToast(`Opened conversation in ${msg.channelId || 'messages'}`, 'info');
       }
       this.close();
     }
@@ -584,6 +643,27 @@ export class CommandRailV2Engine {
     const input = root.querySelector('#command-rail-v2-input') as HTMLInputElement | null;
     input?.addEventListener('input', (e) => {
       this.setQuery((e.target as HTMLInputElement).value);
+    });
+    const clearBtn = root.querySelector('#btn-rail-clear-query');
+    clearBtn?.addEventListener('click', () => {
+      this.setQuery('');
+      if (input) { input.value = ''; input.focus(); }
+    });
+    root.querySelectorAll('.btn-rail-filter-tab').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const filter = btn.getAttribute('data-rail-filter') as CommandRailFilter;
+        if (filter) this.setFilter(filter);
+      });
+    });
+    root.querySelectorAll('.btn-rail-item').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = parseInt(btn.getAttribute('data-rail-index') || '0', 10);
+        this.selectIndex(idx);
+      });
+      btn.addEventListener('dblclick', () => {
+        this.executeSelected();
+        if (onClose) onClose();
+      });
     });
   }
 
@@ -797,6 +877,84 @@ export class CommandRailV2Engine {
       } catch (_) {}
     }
 
+    // 6. Gather Vault Knowledge Items (100% Client-Side Local Memory)
+    if (filter === 'ALL' || filter === 'VAULT') {
+      for (const item of this._cachedVaultItems) {
+        let score = 0;
+        const titleLower = (item.title || '').toLowerCase();
+        const textLower = (item.text || '').toLowerCase();
+        const collLower = (item.collection || '').toLowerCase();
+        const authorLower = (item.source?.author || '').toLowerCase();
+
+        if (tokens.length === 0) {
+          score = 1;
+        } else {
+          for (const tok of tokens) {
+            if (titleLower.includes(tok)) score += 16;
+            if (textLower.includes(tok)) score += 6;
+            if (collLower.includes(tok)) score += 8;
+            if (authorLower.includes(tok)) score += 5;
+          }
+        }
+
+        if (score > 0) {
+          results.push({
+            id: `search-vault-${item.id}`,
+            type: 'vault',
+            title: item.title,
+            subtitle: `${item.collection ? `[${item.collection}] ` : ''}${item.text.slice(0, 110)}...`,
+            badge: item.collection || 'VAULT',
+            category: 'Personal Vault',
+            score,
+            data: item,
+            action: () => {
+              clientStore.setSpace('vault');
+              clientStore.showToast(`Opened Vault: "${item.title}"`, 'info');
+            },
+          });
+        }
+      }
+    }
+
+    // 7. Gather Private Messages (In-Memory RAM only, zero leak)
+    if (filter === 'ALL' || filter === 'MESSAGES') {
+      if (typeof clientStore !== 'undefined' && clientStore.messages) {
+        for (const [channelId, msgs] of clientStore.messages.entries()) {
+          for (const msg of msgs) {
+            const msgText = msg.text || (msg as any).plaintext || '';
+            if (!msgText) continue;
+            let score = 0;
+            const textLower = msgText.toLowerCase();
+            const senderLower = (msg.authorFingerprint || (msg as any).senderFP || '').toLowerCase();
+            if (tokens.length === 0) {
+              score = 1;
+            } else {
+              for (const tok of tokens) {
+                if (textLower.includes(tok)) score += 12;
+                if (senderLower.includes(tok)) score += 5;
+              }
+            }
+            if (score > 0) {
+              results.push({
+                id: `search-msg-${msg.id}`,
+                type: 'message',
+                title: msgText.slice(0, 60),
+                subtitle: `In ${channelId} from @${(msg.authorFingerprint || (msg as any).senderFP || 'peer').slice(0, 8)}`,
+                badge: 'MESSAGE',
+                category: channelId,
+                score,
+                data: msg,
+                action: () => {
+                  clientStore.activeChannelId = channelId;
+                  clientStore.setSpace('relays');
+                },
+              });
+            }
+          }
+        }
+      }
+    }
+
     // Sort descending by relevance score
     results.sort((a, b) => (b.score || 0) - (a.score || 0));
     return results;
@@ -815,6 +973,9 @@ export class CommandRailV2Engine {
     this.activePreviewItem = list[this.selectedIndex] || null;
 
     const postCount = this.search(this.searchQuery, 'POSTS').length;
+    const communityCount = this.search(this.searchQuery, 'COMMUNITIES').length;
+    const vaultCount = this.search(this.searchQuery, 'VAULT').length;
+    const msgCount = this.search(this.searchQuery, 'MESSAGES').length;
     const memberCount = this.search(this.searchQuery, 'MEMBERS').length;
     const binaryCount = this.search(this.searchQuery, 'BINARIES').length;
     const commandCount = this.search(this.searchQuery, 'COMMANDS').length;
@@ -843,7 +1004,7 @@ export class CommandRailV2Engine {
                     type="text" 
                     id="command-rail-v2-input"
                     value="${escapeHtml(this.searchQuery)}"
-                    placeholder="Search posts, members, binaries, or commands..." 
+                    placeholder="Search posts, communities, vault, or messages..." 
                     class="w-full bg-transparent text-sm text-slate-100 placeholder-slate-500 focus:outline-none font-mono py-1"
                     autofocus
                     autocomplete="off"
@@ -862,9 +1023,12 @@ export class CommandRailV2Engine {
               <div class="px-4 py-2 border-b border-white/5 bg-surface-base/80 flex items-center space-x-1.5 overflow-x-auto text-[11px] font-mono select-none">
                 ${this._renderFilterTab('ALL', 'All', totalCount)}
                 ${this._renderFilterTab('POSTS', 'Posts', postCount)}
-                ${this._renderFilterTab('MEMBERS', 'Members', memberCount)}
+                ${this._renderFilterTab('COMMUNITIES', 'Communities', communityCount)}
+                ${this._renderFilterTab('VAULT', 'Vault & Saved', vaultCount)}
+                ${this._renderFilterTab('MESSAGES', 'Messages', msgCount)}
+                ${this._renderFilterTab('MEMBERS', 'People', memberCount)}
                 ${this._renderFilterTab('BINARIES', 'Binaries', binaryCount)}
-                ${this._renderFilterTab('COMMANDS', 'Commands', commandCount)}
+                ${this._renderFilterTab('COMMANDS', 'Actions', commandCount)}
               </div>
 
               <!-- SCROLLABLE SEARCH RESULTS LIST -->
@@ -965,6 +1129,12 @@ export class CommandRailV2Engine {
     } else if (item.type === 'command') {
       typeIcon = '⚡';
       typeColor = 'text-amber bg-amber/10 border-amber/30';
+    } else if (item.type === 'vault') {
+      typeIcon = '💎';
+      typeColor = 'text-amber-400 bg-amber-500/10 border-amber-500/30';
+    } else if (item.type === 'message') {
+      typeIcon = '✉️';
+      typeColor = 'text-indigo-400 bg-indigo-500/10 border-indigo-500/30';
     }
 
     return `
@@ -1012,26 +1182,141 @@ export class CommandRailV2Engine {
   }
 
   /**
-   * Render empty state when search returns no matches.
+   * Render empty state when search returns zero results in the left pane.
    */
   private _renderLeftEmptyState(): string {
     return `
-      <div class="h-full flex flex-col items-center justify-center p-6 text-center text-slate-400 space-y-3">
-        <div class="w-12 h-12 rounded-2xl bg-surface-raised border border-white/10 flex items-center justify-center text-2xl">
+      <div class="p-8 text-center space-y-3 my-auto">
+        <div class="w-12 h-12 rounded-2xl bg-surface-overlay mx-auto flex items-center justify-center text-xl text-slate-500">
           🔍
         </div>
         <div>
-          <h4 class="text-sm font-bold text-slate-200">No matching items found</h4>
-          <p class="text-xs text-slate-500 mt-1 max-w-xs">
-            No entries matched "<span class="text-cyphr font-mono">${escapeHtml(this.searchQuery)}</span>" in the <span class="font-bold uppercase">${this.activeFilterTab}</span> index.
+          <h4 class="text-xs font-bold text-slate-300 uppercase tracking-wider font-mono">No matching records</h4>
+          <p class="text-[11px] text-slate-500 mt-1 max-w-xs mx-auto">
+            No items matched query &ldquo;<span class="text-cyphr font-mono">${escapeHtml(this.searchQuery)}</span>&rdquo; in filter [${this.activeFilterTab}].
           </p>
         </div>
-        <div class="pt-2 flex flex-wrap gap-1.5 justify-center">
-          <button data-rail-filter="ALL" class="btn-rail-filter-tab px-2.5 py-1 rounded bg-surface-overlay text-slate-300 text-xs hover:bg-surface-raised border border-white/10">
-            Show All
+        <div class="pt-2">
+          <button data-rail-filter="ALL" class="btn-rail-filter-tab px-3 py-1 rounded-lg bg-surface-raised hover:bg-surface-overlay border border-white/10 text-xs text-slate-300">
+            Reset to All Filters
           </button>
-          <button data-rail-filter="COMMANDS" class="btn-rail-filter-tab px-2.5 py-1 rounded bg-surface-overlay text-slate-300 text-xs hover:bg-surface-raised border border-white/10">
-            View Commands
+        </div>
+      </div>
+    `;
+  }
+
+  private _renderVaultPreview(item: any): string {
+    const title = item.title || 'Untitled Vault Item';
+    const text = item.text || '';
+    const sourceKind = item.source?.kind || 'snapshot';
+    const author = item.source?.author || 'Local Identity';
+    const savedAt = item.savedAt || Date.now();
+    const digest = item.digest || '';
+
+    return `
+      <div class="space-y-4 animate-in fade-in duration-200">
+        <div class="flex items-center justify-between border-b border-white/10 pb-3">
+          <div class="flex items-center space-x-2">
+            <span class="text-xs font-mono font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/30">
+              💎 VAULT MEMORY
+            </span>
+            <span class="text-[10px] font-mono px-2 py-0.5 rounded-full border border-white/10 uppercase text-slate-400">
+              ${escapeHtml(sourceKind)}
+            </span>
+          </div>
+          <span class="text-[10px] font-mono text-slate-500">
+            ${formatRelativeTime(savedAt)}
+          </span>
+        </div>
+
+        <h2 class="text-base font-bold text-slate-100 leading-snug">
+          ${escapeHtml(title)}
+        </h2>
+
+        <div class="p-2.5 rounded-xl bg-surface-base border border-white/10 flex items-center justify-between">
+          <div class="flex items-center space-x-2.5">
+            <div class="w-8 h-8 rounded-full bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-xs font-bold text-amber-300 shadow-inner">
+              💎
+            </div>
+            <div>
+              <div class="text-xs font-mono font-bold text-slate-200">Kept Privately on Device</div>
+              <span class="text-[10px] text-slate-400 font-mono">Source: @${escapeHtml(author.slice(0, 10))}</span>
+            </div>
+          </div>
+          <div class="text-right font-mono text-[10px] text-slate-500">
+            <span>Encrypted AES-GCM</span>
+          </div>
+        </div>
+
+        <div class="p-3.5 rounded-xl bg-surface-base/60 border border-white/5 text-xs text-slate-300 leading-relaxed max-h-48 overflow-y-auto whitespace-pre-wrap font-sans select-text">
+          ${escapeHtml(text.slice(0, 500))}${text.length > 500 ? '...' : ''}
+        </div>
+
+        ${digest ? `
+          <div class="p-2 rounded-lg bg-surface-overlay/50 border border-white/5 font-mono text-[10px] text-slate-400 flex items-center justify-between">
+            <span class="text-slate-500">Digest</span>
+            <span class="text-cyphr">${digest.slice(0, 16)}...</span>
+          </div>
+        ` : ''}
+
+        <div class="pt-2">
+          <button
+            type="button"
+            data-rail-action="execute-selected"
+            class="w-full py-2 px-3 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-bold text-xs border border-amber-500/40 transition-all flex items-center justify-center space-x-2 cursor-pointer shadow-lg"
+          >
+            <span>💎 Open in Knowledge Vault</span>
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  private _renderMessagePreview(msg: any): string {
+    const text = msg.text || msg.plaintext || '';
+    const sender = msg.authorFingerprint || msg.senderFP || 'Peer';
+    const channelId = msg.channelId || 'messages';
+    const createdAt = msg.createdAt || msg.timestamp || Date.now();
+
+    return `
+      <div class="space-y-4 animate-in fade-in duration-200">
+        <div class="flex items-center justify-between border-b border-white/10 pb-3">
+          <div class="flex items-center space-x-2">
+            <span class="text-xs font-mono font-bold text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/30">
+              ✉️ PRIVATE CHAT
+            </span>
+            <span class="text-[10px] font-mono px-2 py-0.5 rounded-full border border-white/10 uppercase text-slate-400">
+              ${escapeHtml(channelId)}
+            </span>
+          </div>
+          <span class="text-[10px] font-mono text-slate-500">
+            ${formatRelativeTime(createdAt)}
+          </span>
+        </div>
+
+        <div class="p-2.5 rounded-xl bg-surface-base border border-white/10 flex items-center justify-between">
+          <div class="flex items-center space-x-2.5">
+            <div class="w-8 h-8 rounded-full bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-xs font-bold text-indigo-300 shadow-inner">
+              ✉️
+            </div>
+            <div>
+              <div class="text-xs font-mono font-bold text-slate-200">@${escapeHtml(sender.slice(0, 12))}</div>
+              <span class="text-[10px] text-signal font-mono">In-Memory Decrypted</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="p-3.5 rounded-xl bg-surface-base/60 border border-white/5 text-xs text-slate-200 leading-relaxed max-h-48 overflow-y-auto whitespace-pre-wrap font-sans select-text">
+          ${escapeHtml(text)}
+        </div>
+
+        <div class="pt-2">
+          <button
+            type="button"
+            data-rail-action="execute-selected"
+            class="w-full py-2 px-3 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 font-bold text-xs border border-indigo-500/40 transition-all flex items-center justify-center space-x-2 cursor-pointer shadow-lg"
+          >
+            <span>💬 Jump to Conversation</span>
           </button>
         </div>
       </div>
@@ -1060,6 +1345,14 @@ export class CommandRailV2Engine {
 
     if (item.type === 'command') {
       return this._renderCommandPreview(item.data as CommandItem);
+    }
+
+    if (item.type === 'vault') {
+      return this._renderVaultPreview(item.data);
+    }
+
+    if (item.type === 'message') {
+      return this._renderMessagePreview(item.data);
     }
 
     return this._renderRightEmptyPreview();

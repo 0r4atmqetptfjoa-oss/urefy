@@ -244,6 +244,13 @@ export function renderPulsePostCard(post: ClientPost): string {
           ` : ''}
         </header>
 
+        ${post.content.startsWith('> [ 🔗 Evolved from') || post.content.startsWith('> Evolved from Live Chat') ? `
+          <div class="provenance-badge inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full bg-indigo-950/60 border border-indigo-500/30 text-indigo-300 text-[10px] font-mono my-1">
+            <span>${post.content.startsWith('> [ 🔗') ? '🔗' : '⚡'}</span>
+            <span>${post.content.startsWith('> [ 🔗') ? 'Evolved from Private Branch' : 'Evolved from Live Chat'}</span>
+          </div>
+        ` : ''}
+
         ${post.title && post.title !== post.content.substring(0, 50) ? `<h2 data-open-detail="${post.id}" class="social-post__title">${escapeHtml(post.title)}</h2>` : ''}
         <div class="social-post__body">${markdownRenderer.renderMarkdown(post.content)}</div>
         ${post.video ? obsidianMediaPlayer.renderVideoCard(post.id, post.video.src, post.video.poster) : (obsidianMediaPlayer.extractVideo(post.content) ? obsidianMediaPlayer.renderVideoCard(post.id, post.content) : '')}
