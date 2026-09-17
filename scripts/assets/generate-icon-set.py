@@ -238,6 +238,10 @@ def generate_icon_set(
             "apple-touch-icon-152x152.png": "icon-152x152.png",
             "android-chrome-192x192.png": "icon-192x192.png",
             "android-chrome-512x512.png": "icon-512x512.png",
+            "icon-192.png": "icon-192x192.png",
+            "icon-512.png": "icon-512x512.png",
+            "icon-maskable-192.png": "icon-maskable-192x192.png",
+            "icon-maskable-512.png": "icon-maskable-512x512.png",
             "maskable-icon-192x192.png": "icon-maskable-192x192.png",
             "maskable-icon-512x512.png": "icon-maskable-512x512.png",
         }

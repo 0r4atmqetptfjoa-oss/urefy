@@ -780,13 +780,13 @@ button:active { transform: scale(0.98); }
   color: #fff;
   font-weight: 800;
   font-size: 16px;
-  letter-spacing: -0.04em;
-  background: linear-gradient(145deg, #8a7cf6, #6556db);
-  box-shadow: 0 6px 18px rgba(75, 60, 180, 0.24);
+  background: rgba(56, 189, 248, 0.08);
+  border: 1px solid rgba(56, 189, 248, 0.16);
+  box-shadow: 0 2px 10px rgba(37, 99, 235, 0.15);
 }
 
 .urefy-brand__word { font-size: 17px; font-weight: 760; letter-spacing: -0.025em; }
-.urefy-brand__word span { color:#9d93f8; }
+.urefy-brand__word span { color:#f59e0b; }
 .urefy-brand__mark img { width:22px; height:22px; object-fit:contain; }
 
 #app-top-header > div:first-child > [data-action="join-channel"] > div:first-child {
