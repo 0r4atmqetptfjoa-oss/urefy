@@ -554,6 +554,8 @@ export class SovereignCircleEngine {
     this.circles.set(newCircle.id, newCircle);
     this.circles.set(newCircle.channelId, newCircle);
     this.circles.set(`c/${newCircle.name}`, newCircle);
+    this.circles.set(newCircle.name, newCircle);
+    this.circles.set(`c-${newCircle.name}`, newCircle);
 
     // Register channel in clientStore
     const exists = clientStore.channels.some(c => c.id === channelId);

@@ -820,4 +820,7 @@ export class FeedControlsEngine {
 
 // ─── Singleton Export ────────────────────────────────────────────────────────
 export const feedControlsEngine = new FeedControlsEngine();
+if (typeof window !== 'undefined') {
+  (window as any).feedControlsEngine = feedControlsEngine;
+}
 serviceRegistry.registerInstance(SERVICES.FeedPersonalization || 'FeedControls', feedControlsEngine);
