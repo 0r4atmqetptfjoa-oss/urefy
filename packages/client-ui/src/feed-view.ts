@@ -191,9 +191,22 @@ export function renderPulseWorkspace(): string {
             ? renderPulseFeedSkeleton(3)
             : posts.length === 0
               ? renderPulseEmptyState({
-                  title: activeCircle ? `Start the conversation in c/${activeCircle.name}` : 'Your feed is ready for people',
-                  description: activeCircle ? 'Share something useful, ask a question, or welcome the next member.' : 'Follow people and join communities to shape what appears here.',
-                  actionText: activeCircle ? 'Create the first post' : 'Explore UREfy',
+                  title: activeCircle 
+                    ? `Start the conversation in c/${activeCircle.name}` 
+                    : feedControlsEngine.getStreamType() === 'following'
+                      ? 'No posts from followed authors yet'
+                      : 'Your feed is ready for people',
+                  description: activeCircle 
+                    ? 'Share something useful, ask a question, or welcome the next member.' 
+                    : feedControlsEngine.getStreamType() === 'following'
+                      ? 'Follow authors from Explore or discussions to see their updates right here.'
+                      : 'Follow people and join communities to shape what appears here.',
+                  actionText: activeCircle 
+                    ? 'Create the first post' 
+                    : feedControlsEngine.getStreamType() === 'following'
+                      ? 'Find Creators to Follow'
+                      : 'Explore UREfy',
+                  actionType: !activeCircle && feedControlsEngine.getStreamType() === 'following' ? 'explore' : 'composer',
                 })
               : posts.map(renderPulsePostCard).join('')}
         </div>

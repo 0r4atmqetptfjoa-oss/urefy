@@ -79,6 +79,7 @@ export class SovereignCircleEngine {
   constructor() {
     this.seedDefaultCircles();
     this.loadFromStorage();
+    void this.syncCommunitiesFromApi();
     this._initGlobalDomListeners();
   }
 
@@ -353,6 +354,80 @@ export class SovereignCircleEngine {
     } catch (_) {}
   }
 
+  public async syncCommunitiesFromApi(): Promise<void> {
+    if (typeof fetch === 'undefined') return;
+    try {
+      const res = await fetch('/api/communities');
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!data.success || !Array.isArray(data.communities)) return;
+
+      let changed = false;
+      for (const comm of data.communities) {
+        const existing = this.circles.get(comm.id) || this.circles.get(comm.channelId) || this.circles.get(`c/${comm.name}`) || this.circles.get(comm.name);
+        if (existing) {
+          if (comm.membersCount !== undefined && comm.membersCount !== existing.membersCount) {
+            existing.membersCount = Math.max(existing.membersCount, comm.membersCount);
+            changed = true;
+          }
+          if (comm.description && comm.description !== existing.description) {
+            existing.description = comm.description;
+            changed = true;
+          }
+          if (comm.rules && Array.isArray(comm.rules) && comm.rules.length > 0) {
+            existing.rules = comm.rules;
+          }
+        } else {
+          // New community synced from Cloudflare D1
+          const newCircle: SovereignCircle = {
+            id: comm.id,
+            name: comm.name,
+            displayName: comm.displayName || `c/${comm.name}`,
+            channelId: comm.channelId || `c/${comm.name}`,
+            icon: comm.icon || '🏛️',
+            banner: comm.banner || 'linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%)',
+            description: comm.description || '',
+            category: comm.category || 'General Discussions',
+            communityType: comm.communityType || 'public',
+            membersCount: Number(comm.membersCount) || 1,
+            onlineCount: 1,
+            primaryColor: comm.primaryColor || '#6366f1',
+            rules: Array.isArray(comm.rules) ? comm.rules : [],
+            flairs: ['TECH DISCUSSION', 'VERIFIED RELEASE', 'MICRO-PULSE', 'SECURITY ADVISORY', 'ANNOUNCEMENT'],
+            isJoined: false,
+            createdAt: comm.createdAt ? new Date(comm.createdAt).toLocaleDateString() : 'Recently',
+            isCustom: true,
+          };
+          this.circles.set(newCircle.id, newCircle);
+          this.circles.set(newCircle.channelId, newCircle);
+          this.circles.set(`c/${newCircle.name}`, newCircle);
+          this.circles.set(newCircle.name, newCircle);
+
+          if (typeof window !== 'undefined' && (window as any).clientStore) {
+            const exists = (window as any).clientStore.channels.some((ch: any) => ch.id === newCircle.channelId);
+            if (!exists) {
+              (window as any).clientStore.channels.push({
+                id: newCircle.channelId,
+                space: 'pulse',
+                name: `c/${newCircle.name}`,
+                description: newCircle.description,
+                isEncrypted: false,
+              });
+            }
+          }
+          changed = true;
+        }
+      }
+
+      if (changed) {
+        this.saveToStorage();
+        if (typeof window !== 'undefined' && (window as any).clientStore) {
+          (window as any).clientStore.notifySync();
+        }
+      }
+    } catch (_) {}
+  }
+
   public saveToStorage(): void {
     if (typeof localStorage === 'undefined') return;
     try {
@@ -404,6 +479,20 @@ export class SovereignCircleEngine {
     c.membersCount += c.isJoined ? 1 : -1;
     if (c.membersCount < 0) c.membersCount = 0;
     this.saveToStorage();
+
+    // Persist join/leave to Cloudflare D1
+    if (typeof fetch !== 'undefined') {
+      fetch('/api/communities', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: c.isJoined ? 'join' : 'leave',
+          communityId: c.id,
+          userId: clientStore.keypair?.fingerprint || 'anon-member',
+        }),
+      }).catch(() => {});
+    }
+
     clientStore.showToast(c.isJoined ? `✓ Joined c/${c.name}` : `Left c/${c.name}`, 'info');
     clientStore.notifySync();
     return c.isJoined;
@@ -479,6 +568,33 @@ export class SovereignCircleEngine {
     }
 
     this.saveToStorage();
+
+    // Persist to Cloudflare D1 asynchronously
+    if (typeof fetch !== 'undefined') {
+      fetch('/api/communities', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'create',
+          name: cleanName,
+          displayName: newCircle.displayName,
+          description: newCircle.description,
+          category: newCircle.category,
+          icon: newCircle.icon,
+          banner: newCircle.banner,
+          primaryColor: newCircle.primaryColor,
+          rules: newCircle.rules,
+          userId: clientStore.keypair?.fingerprint || 'anon-creator',
+        }),
+      }).then(async (res) => {
+        if (res.ok) {
+          const resData = await res.json();
+          if (resData.success) {
+            console.log(`[Communities] Community c/${cleanName} persisted to Cloudflare D1.`);
+          }
+        }
+      }).catch(() => {});
+    }
 
     // Auto-join newly created channel and notify
     clientStore.activeChannelId = channelId;
@@ -1599,16 +1715,19 @@ export class SovereignCircleEngine {
       this.formName = '';
       this.formDisplayName = '';
       this.formDescription = '';
-      clientStore.notify();
+      clientStore.notifySync();
     });
   }
 
   private _refreshCircleViewsInDom(): void {
     if (typeof document === 'undefined') return;
-    clientStore.notify();
+    clientStore.notifySync();
   }
 }
 
 // ─── Singleton Export ────────────────────────────────────────────────────────
 export const sovereignCircleEngine = new SovereignCircleEngine();
+if (typeof window !== 'undefined') {
+  (window as any).sovereignCircleEngine = sovereignCircleEngine;
+}
 serviceRegistry.registerInstance(SERVICES.Governance || 'SovereignCircle', sovereignCircleEngine);

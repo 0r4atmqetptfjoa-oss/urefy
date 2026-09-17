@@ -59,6 +59,7 @@ import { postDetailView } from '../post-detail.js';
 import { sharePostOrCopyLink } from '../dry-utils.js';
 import { sovereignDialog } from '../dialog-modal.js';
 import { pulseActionsEngine } from '../pulse-actions.js';
+import { feedControlsEngine } from '../feed-controls.js';
 
 function withWallet(action: (wallet: typeof import('../wallet-bridge.js').walletBridge) => unknown): void {
   void import('../wallet-bridge.js').then(({ walletBridge }) => action(walletBridge)).catch(error => {
@@ -581,10 +582,21 @@ export class ActionDispatcher {
         const parent = el.closest('.post-actions__more') || el.parentElement;
         if (!parent) break;
 
+        const post = clientStore.posts.find(p => p.id === postId);
+        const authorFP = post?.authorFingerprint || '';
+        const myFP = clientStore.keypair?.fingerprint || '';
+        const isSelf = !authorFP || authorFP === myFP;
+        const isFollowing = authorFP && typeof window !== 'undefined' && (window as any).profileView ? (window as any).profileView.isFollowing(authorFP) : false;
+
         const menu = document.createElement('div');
         menu.id = `post-more-menu-${postId}`;
         menu.className = 'post-more-menu';
         menu.innerHTML = `
+          ${!isSelf ? `
+          <button type="button" data-action="toggle-follow-author" data-fingerprint="${authorFP}">
+            <span>${isFollowing ? '👤' : '➕'}</span><span>${isFollowing ? 'Unfollow Author' : 'Follow Author'}</span>
+          </button>
+          ` : ''}
           <button type="button" data-action="more-copy-link" data-post-id="${postId}">
             <span>🔗</span><span>Copy Link</span>
           </button>
@@ -613,6 +625,27 @@ export class ActionDispatcher {
           }
         };
         setTimeout(() => document.addEventListener('click', dismissHandler), 10);
+        break;
+      }
+
+      case 'toggle-follow-author': {
+        event.stopPropagation();
+        const fp = el.getAttribute('data-fingerprint') || '';
+        if (fp && typeof window !== 'undefined' && (window as any).profileView) {
+          const isNowFollowing = (window as any).profileView.toggleFollow(fp);
+          if (clientStore.showToast) {
+            clientStore.showToast(isNowFollowing ? `✓ Following @${fp.substring(0, 8)}` : `Unfollowed @${fp.substring(0, 8)}`, 'info');
+          }
+          clientStore.notifySync();
+          el.closest('.post-more-menu')?.remove();
+        }
+        break;
+      }
+
+      case 'set-stream-type': {
+        event.preventDefault();
+        const stream = (el.getAttribute('data-stream-type') || 'for-you') as any;
+        feedControlsEngine.setStreamType(stream);
         break;
       }
 

@@ -19,6 +19,7 @@ export interface EmptyStateOptions {
   description?: string;
   actionText?: string;
   actionId?: string;
+  actionType?: 'explore' | 'composer';
   onAction?: string;
   icon?: string;
 }
@@ -31,11 +32,12 @@ export function renderPulseEmptyState(options?: EmptyStateOptions): string {
   const desc = options?.description || t('emptyState.pulseDesc', undefined, 'No posts yet in this channel. Be the first to share a thought on UREfy.');
   const actionText = options?.actionText || t('emptyState.pulseAction', undefined, 'Write the first post');
   const actionId = options?.actionId || 'btn-empty-pulse-composer';
+  const isExplore = options?.actionType === 'explore';
 
   return `
     <div id="empty-state-pulse" class="empty-state-card flex flex-col items-center justify-center text-center p-8 sm:p-12 my-6 rounded-2xl border border-dashed border-white/10 bg-surface-base/60 backdrop-blur-none max-w-lg mx-auto select-none animate-in fade-in duration-300">
       <div class="w-16 h-16 rounded-2xl bg-cyan-950/40 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shadow-[0_0_20px_rgba(0,229,255,0.15)] mb-4">
-        ${renderIcon('feed', { size: 30, strokeWidth: 1.75, class: 'text-cyan-400' })}
+        ${renderIcon(isExplore ? 'explore' : 'feed', { size: 30, strokeWidth: 1.75, class: 'text-cyan-400' })}
       </div>
       <h3 class="text-base font-bold text-white mb-2 tracking-wide font-sans">
         ${title}
@@ -45,11 +47,13 @@ export function renderPulseEmptyState(options?: EmptyStateOptions): string {
       </p>
       <button
         type="button"
-        id="${actionId}" data-action="call-global" data-raw-click="if(window.__aetheris_open_composer){window.__aetheris_open_composer();}else{const btn=document.getElementById('btn-open-composer');if(btn)btn.click();}"
+        id="${actionId}" 
+        data-action="${isExplore ? 'nav-mode' : 'call-global'}" 
+        ${isExplore ? 'data-mode="explore"' : 'data-raw-click="if(window.__aetheris_open_composer){window.__aetheris_open_composer();}else{const btn=document.getElementById(\'btn-open-composer\');if(btn)btn.click();}"'}
         class="px-5 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black font-bold text-xs shadow-lg shadow-cyan-500/20 transition-all hover:scale-105 cursor-pointer flex items-center space-x-2"
-        data-empty-action="pulse"
+        data-empty-action="${isExplore ? 'explore' : 'pulse'}"
       >
-        ${renderIcon('plus', { size: 14, strokeWidth: 2.5 })}
+        ${renderIcon(isExplore ? 'explore' : 'plus', { size: 14, strokeWidth: 2.5 })}
         <span>${actionText}</span>
       </button>
     </div>

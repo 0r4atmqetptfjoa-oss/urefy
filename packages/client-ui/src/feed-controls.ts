@@ -58,7 +58,7 @@ export class FeedControlsEngine {
     if (stream === 'latest') {
       this.sortType = 'new';
     }
-    clientStore.notify();
+    clientStore.notifySync();
   }
 
   public getViewMode(): ViewMode {
@@ -67,7 +67,7 @@ export class FeedControlsEngine {
 
   public setViewMode(mode: ViewMode): void {
     this.viewMode = mode;
-    clientStore.notify();
+    clientStore.notifySync();
   }
 
   public getSortType(): SortType {
@@ -80,7 +80,7 @@ export class FeedControlsEngine {
     if (sort !== 'top') {
       this.isTopDropdownOpen = false;
     }
-    clientStore.notify();
+    clientStore.notifySync();
   }
 
   public getTopTimeframe(): TopTimeframe {
@@ -90,12 +90,12 @@ export class FeedControlsEngine {
   public setTopTimeframe(tf: TopTimeframe): void {
     this.topTimeframe = tf;
     this.isTopDropdownOpen = false;
-    clientStore.notify();
+    clientStore.notifySync();
   }
 
   public toggleTopDropdown(): boolean {
     this.isTopDropdownOpen = !this.isTopDropdownOpen;
-    clientStore.notify();
+    clientStore.notifySync();
     return this.isTopDropdownOpen;
   }
 
@@ -210,6 +210,7 @@ export class FeedControlsEngine {
           <button 
             type="button" 
             id="stream-btn-for-you" 
+            data-action="set-stream-type"
             data-stream-type="for-you"
             class="btn-stream-type px-3 py-1.5 rounded-lg transition-all flex items-center space-x-1.5 cursor-pointer ${
               this.streamType === 'for-you'
@@ -223,6 +224,7 @@ export class FeedControlsEngine {
           <button 
             type="button" 
             id="stream-btn-following" 
+            data-action="set-stream-type"
             data-stream-type="following"
             class="btn-stream-type px-3 py-1.5 rounded-lg transition-all flex items-center space-x-1.5 cursor-pointer ${
               this.streamType === 'following'
@@ -236,6 +238,7 @@ export class FeedControlsEngine {
           <button 
             type="button" 
             id="stream-btn-latest" 
+            data-action="set-stream-type"
             data-stream-type="latest"
             class="btn-stream-type px-3 py-1.5 rounded-lg transition-all flex items-center space-x-1.5 cursor-pointer ${
               this.streamType === 'latest'

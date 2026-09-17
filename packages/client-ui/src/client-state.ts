@@ -712,6 +712,13 @@ export class AetherisClientStore {
       // Offline / local mesh fallback
     }
 
+    // 4b. Sync Communities from /api/communities
+    try {
+      if (typeof window !== 'undefined' && (window as any).sovereignCircleEngine?.syncCommunitiesFromApi) {
+        await (window as any).sovereignCircleEngine.syncCommunitiesFromApi();
+      }
+    } catch (_) {}
+
     // 5. Sync Messages for current channel from /api/messages
     try {
       const res = await fetch(`/api/messages?channelId=${encodeURIComponent(this.activeChannelId)}`, { signal });
