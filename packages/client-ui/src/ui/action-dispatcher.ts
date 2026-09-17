@@ -1635,6 +1635,117 @@ export class ActionDispatcher {
         break;
       }
 
+      case 'stop-propagation': {
+        event.stopPropagation();
+        break;
+      }
+
+      case 'toggle-mobile-drawer': {
+        if (typeof window !== 'undefined' && (window as any).__aetheris_toggle_mobile_drawer) {
+          (window as any).__aetheris_toggle_mobile_drawer();
+        }
+        break;
+      }
+
+      case 'close-mobile-drawer': {
+        if (typeof window !== 'undefined' && (window as any).__aetheris_close_mobile_drawer) {
+          (window as any).__aetheris_close_mobile_drawer();
+        }
+        break;
+      }
+
+      case 'share-profile': {
+        const handle = el.getAttribute('data-handle') || '';
+        const shareUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/@${handle.replace(/^@/, '')}`;
+        if (typeof navigator !== 'undefined' && navigator.share) {
+          navigator.share({ title: `${handle} on UREfy`, url: shareUrl }).catch(() => {});
+        } else if (typeof navigator !== 'undefined' && navigator.clipboard) {
+          navigator.clipboard.writeText(shareUrl).then(() => {
+            clientStore.showToast('Profile link copied to clipboard!', 'success');
+          }).catch(() => {
+            clientStore.showToast(shareUrl, 'info');
+          });
+        }
+        break;
+      }
+
+      case 'toggle-profile-menu': {
+        const dropdown = el.parentElement?.querySelector('#profile-more-dropdown');
+        if (dropdown) dropdown.classList.toggle('hidden');
+        break;
+      }
+
+      case 'mute-user': {
+        const fp = el.getAttribute('data-fingerprint') || '';
+        const handle = el.getAttribute('data-handle') || fp.slice(0, 10);
+        void import('../social-safety.js').then(({ socialSafety }) => {
+          socialSafety.muteUser(fp);
+          clientStore.showToast(`Muted @${handle}`, 'info');
+          clientStore.notifySync();
+        });
+        break;
+      }
+
+      case 'block-user': {
+        const fp = el.getAttribute('data-fingerprint') || '';
+        const handle = el.getAttribute('data-handle') || fp.slice(0, 10);
+        void import('../social-safety.js').then(({ socialSafety }) => {
+          socialSafety.blockUser(fp);
+          clientStore.showToast(`Blocked @${handle}`, 'info');
+          clientStore.notifySync();
+        });
+        break;
+      }
+
+      case 'report-user': {
+        const fp = el.getAttribute('data-fingerprint') || '';
+        reportModalManager.open({
+          targetType: 'profile',
+          targetId: fp,
+          authorFingerprint: fp,
+          canonicalUrl: `${typeof window !== 'undefined' ? window.location.origin : ''}/@${fp}`,
+        });
+        break;
+      }
+
+      case 'copy-community-url': {
+        const community = el.getAttribute('data-community') || '';
+        const url = `${typeof window !== 'undefined' ? window.location.origin : ''}/c/${community}`;
+        if (typeof navigator !== 'undefined' && navigator.clipboard) {
+          navigator.clipboard.writeText(url).then(() => {
+            clientStore.showToast(`Invite link for c/${community} copied!`, 'success');
+          }).catch(() => {
+            clientStore.showToast(url, 'info');
+          });
+        }
+        break;
+      }
+
+      case 'share-community-link': {
+        const community = el.getAttribute('data-community') || '';
+        const url = `${typeof window !== 'undefined' ? window.location.origin : ''}/c/${community}`;
+        if (typeof navigator !== 'undefined' && navigator.share) {
+          navigator.share({ title: `c/${community} on UREfy`, url }).catch(() => {});
+        } else if (typeof navigator !== 'undefined' && navigator.clipboard) {
+          navigator.clipboard.writeText(url).then(() => {
+            clientStore.showToast(`Link for c/${community} copied!`, 'success');
+          }).catch(() => {
+            clientStore.showToast(url, 'info');
+          });
+        }
+        break;
+      }
+
+      case 'open-legal-modal': {
+        modalManager.openFeature('legal');
+        break;
+      }
+
+      case 'close-sheet': {
+        el.closest('.bottom-sheet, .modal, [role="dialog"]')?.remove();
+        break;
+      }
+
       case 'toggle-ui-mode': {
         clientStore.toggleUiMode();
         clientStore.notifySync();

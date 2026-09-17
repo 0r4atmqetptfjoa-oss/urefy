@@ -254,6 +254,8 @@ if (typeof window !== 'undefined') {
   window.__aetheris_close_microsaas_docs = () => { modalManager.closeFeature(); };
   (window as any).__aetheris_open_rapid_onboarding = (intent?: any) => { rapidOnboarding.openModal(intent); };
   (window as any).__aetheris_close_rapid_onboarding = () => { rapidOnboarding.closeModal(); };
+  (window as any).__aetheris_toggle_mobile_drawer = () => { isMobileDrawerOpen = !isMobileDrawerOpen; clientStore.notify(); };
+  (window as any).__aetheris_close_mobile_drawer = () => { isMobileDrawerOpen = false; clientStore.notify(); };
   window.__aetheris_open_legal = (tab = 'terms') => { modalManager.openFeature('legal', tab); clientStore.notifySync(); };
   window.__aetheris_close_legal = () => { modalManager.closeFeature(); };
   window.__aetheris_set_legal_tab = (tab) => { modalManager.openFeature('legal', tab); clientStore.notifySync(); };

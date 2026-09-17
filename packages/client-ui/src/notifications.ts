@@ -74,9 +74,63 @@ const ICON_COLOR: Record<NotificationItem['type'], string> = {
 class NotificationCenter {
   private _notifications: NotificationItem[] = [];
   private static readonly MAX_ITEMS = 50;
+  private readonly STORAGE_KEY = 'urefy_notifications_v1';
 
   constructor() {
+    this._loadFromStorage();
     this._attachGlobalHandlers();
+  }
+
+  private _loadFromStorage(): void {
+    if (typeof localStorage === 'undefined') {
+      this._seedInitialNotifications();
+      return;
+    }
+    try {
+      const raw = localStorage.getItem(this.STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          this._notifications = parsed;
+          return;
+        }
+      }
+    } catch {
+      // Fallback to initial
+    }
+    this._seedInitialNotifications();
+  }
+
+  private _saveToStorage(): void {
+    if (typeof localStorage === 'undefined') return;
+    try {
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this._notifications.slice(0, NotificationCenter.MAX_ITEMS)));
+    } catch {
+      // Storage quota guard
+    }
+  }
+
+  private _seedInitialNotifications(): void {
+    const now = Date.now();
+    this._notifications = [
+      {
+        id: generateId(),
+        type: 'reply',
+        title: 'Welcome to UREfy',
+        body: 'Your sovereign cryptographic identity is generated and securely held on this device.',
+        createdAt: now,
+        isRead: false,
+      },
+      {
+        id: generateId(),
+        type: 'download_complete',
+        title: 'Sovereign Knowledge Vault Ready',
+        body: 'Keep posts, discussion branches, and private notes directly in your encrypted device vault.',
+        createdAt: now - 60000,
+        isRead: false,
+      }
+    ];
+    this._saveToStorage();
   }
 
   // ── Computed ──────────────────────────────────────────────
@@ -108,6 +162,7 @@ class NotificationCenter {
     };
 
     this._notifications = [newItem, ...this._notifications].slice(0, NotificationCenter.MAX_ITEMS);
+    this._saveToStorage();
 
     if (item.type === 'mention') {
       sovereignWebPush.triggerMentionNotification(item.title, item.body, item.postId).catch(() => {});
@@ -164,6 +219,7 @@ class NotificationCenter {
     const notif = this._notifications.find(n => n.id === id);
     if (notif && !notif.isRead) {
       notif.isRead = true;
+      this._saveToStorage();
       this._dispatchEvent('aetheris:notification:read', { id });
       this._refreshUI();
     }
@@ -178,6 +234,7 @@ class NotificationCenter {
       }
     }
     if (changed) {
+      this._saveToStorage();
       this._dispatchEvent('aetheris:notification:all_read', {});
       this._refreshUI();
     }
@@ -185,6 +242,7 @@ class NotificationCenter {
 
   clearAll(): void {
     this._notifications = [];
+    this._saveToStorage();
     this._dispatchEvent('aetheris:notification:cleared', {});
     this._refreshUI();
   }
