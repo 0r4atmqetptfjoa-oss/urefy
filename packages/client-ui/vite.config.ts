@@ -56,9 +56,9 @@ export default defineConfig({
         admin: resolve(import.meta.dirname, 'admin.html'),
       },
       output: {
-        entryFileNames: 'assets-v3/[name]-[hash].js',
-        chunkFileNames: 'assets-v3/[name]-[hash].js',
-        assetFileNames: 'assets-v3/[name]-[hash][extname]',
+        entryFileNames: 'assets-v4/[name]-[hash].js',
+        chunkFileNames: 'assets-v4/[name]-[hash].js',
+        assetFileNames: 'assets-v4/[name]-[hash][extname]',
         strictExecutionOrder: true,
         codeSplitting: {
           includeDependenciesRecursively: false,
