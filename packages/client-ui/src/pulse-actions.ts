@@ -34,7 +34,7 @@ export interface QuotedPulseItem {
 
 export class PulseActionsEngine {
   private postInteractions: Map<string, PulseInteractionState> = new Map();
-  private repostMenuOpenId: string | null = null;
+  public repostMenuOpenId: string | null = null;
   private syncedPostIds: Set<string> = new Set();
   private repostAttributions: Map<string, Set<string>> = new Map();
 
@@ -408,6 +408,7 @@ export class PulseActionsEngine {
         <div class="relative">
           <button
             type="button"
+            data-action="toggle-repost-menu"
             data-pulse-action="repost-menu"
             data-post-id="${postId}"
             class="btn-pulse-repost-menu min-w-[44px] min-h-[44px] flex items-center justify-center space-x-1.5 group transition-colors cursor-pointer ${state.reposted ? 'text-emerald-400 font-bold' : 'hover:text-emerald-400'}"
@@ -424,6 +425,7 @@ export class PulseActionsEngine {
             <div class="absolute left-0 bottom-full mb-2 w-48 bg-surface-overlay border border-white/10 rounded-2xl shadow-2xl z-40 py-1.5 overflow-hidden animate-in fade-in zoom-in-95 backdrop-blur-xl">
               <button
                 type="button"
+                data-action="do-repost"
                 data-pulse-action="do-repost"
                 data-post-id="${postId}"
                 class="w-full flex items-center space-x-2.5 px-4 py-2.5 hover:bg-white/10 text-xs font-bold ${state.reposted ? 'text-emerald-400' : 'text-slate-200'} transition-colors cursor-pointer"
@@ -435,6 +437,7 @@ export class PulseActionsEngine {
 
               <button
                 type="button"
+                data-action="do-quote"
                 data-pulse-action="do-quote"
                 data-post-id="${postId}"
                 class="w-full flex items-center space-x-2.5 px-4 py-2.5 hover:bg-white/10 text-xs font-bold text-slate-200 transition-colors cursor-pointer border-t border-white/5"

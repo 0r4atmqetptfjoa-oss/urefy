@@ -150,8 +150,8 @@ export class OmniComposer {
     const metrics = this.getCharacterRingMetrics();
 
     return `
-      <div id="composer-modal-overlay" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4 select-none animate-in fade-in zoom-in-95 duration-150">
-        <div class="w-full max-w-[640px] bg-surface-base border border-white/10 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+      <div id="composer-modal-overlay" data-action="close-composer-backdrop" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4 select-none animate-in fade-in zoom-in-95 duration-150">
+        <div class="w-full max-w-[640px] bg-surface-base border border-white/10 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]" data-action="stop-propagation">
           
           <!-- TOP TABS (CHOOSE POST TYPE) -->
           <div class="p-3.5 border-subtle-b bg-surface-raised/40 flex items-center justify-between">
@@ -170,7 +170,7 @@ export class OmniComposer {
               </button>
             </div>
 
-            <button type="button" id="btn-close-composer" class="text-slate-400 hover:text-white font-mono w-8 h-8 rounded-full hover:bg-surface-overlay flex items-center justify-center cursor-pointer transition-colors" title="Close">
+            <button type="button" id="btn-close-composer" data-action="close-composer" class="text-slate-400 hover:text-white font-mono w-8 h-8 rounded-full hover:bg-surface-overlay flex items-center justify-center cursor-pointer transition-colors" title="Close">
               ✕
             </button>
           </div>

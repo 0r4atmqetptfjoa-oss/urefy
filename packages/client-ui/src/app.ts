@@ -10,8 +10,7 @@ import { screenShareEngine } from './screenshare.js';
 import { obsidianMediaPlayer } from './media-player.js';
 import { pollEngine } from './polls.js';
 import { trendingEngine } from './trending.js';
-import { omniComposer, OmniComposer } from './composer.js';
-import { hybridComposer, HybridComposer } from './composer-hybrid.js';
+import { omniComposer, OmniComposer, hybridComposer, HybridComposer } from './composer-hybrid.js';
 import { exploreView } from './explore-view.js';
 import { profileView } from './profile-view.js';
 import { pulseActionsEngine } from './pulse-actions.js';
@@ -2618,8 +2617,10 @@ function updateCommandRailHighlight(index: number): void {
       const postId = btn.getAttribute('data-post-id');
       if (postId) {
         pulseActionsEngine.closeRepostMenu();
-        pulseActionsEngine.toggleRepost(postId, clientStore.keypair?.fingerprint);
+        const res = pulseActionsEngine.toggleRepost(postId, clientStore.keypair?.fingerprint);
         clientStore.boostPost(postId);
+        clientStore.showToast(res.isReposted ? '🔁 Reposted!' : '↩️ Repost removed.', 'success');
+        clientStore.notifySync();
       }
     }, { signal });
   });
@@ -2629,19 +2630,10 @@ function updateCommandRailHighlight(index: number): void {
       e.stopPropagation();
       const postId = btn.getAttribute('data-post-id');
       if (postId) {
+        pulseActionsEngine.closeRepostMenu();
         const post = clientStore.posts.find(x => x.id === postId);
         if (post) {
-          omniComposer.clearComposer();
-          omniComposer.activeTab = 'pulse';
-          omniComposer.setQuotedPulse({
-            id: post.id,
-            authorFingerprint: post.authorFingerprint,
-            authorRole: post.authorRole,
-            title: post.title,
-            content: post.content,
-          });
-          omniComposer.isModalOpen = true;
-          clientStore.notify();
+          hybridComposer.openWithQuote(post);
         }
       }
     }, { signal });

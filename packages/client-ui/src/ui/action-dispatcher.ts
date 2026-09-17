@@ -58,6 +58,7 @@ import { reportModalManager } from '../report-modal.js';
 import { postDetailView } from '../post-detail.js';
 import { sharePostOrCopyLink } from '../dry-utils.js';
 import { sovereignDialog } from '../dialog-modal.js';
+import { pulseActionsEngine } from '../pulse-actions.js';
 
 function withWallet(action: (wallet: typeof import('../wallet-bridge.js').walletBridge) => unknown): void {
   void import('../wallet-bridge.js').then(({ walletBridge }) => action(walletBridge)).catch(error => {
@@ -348,6 +349,15 @@ export class ActionDispatcher {
     document.addEventListener('click', (event: MouseEvent) => {
       const target = event.target as HTMLElement | null;
       if (!target) return;
+
+      // Close repost menu if clicking outside
+      if (pulseActionsEngine.repostMenuOpenId) {
+        const insideRepost = target.closest('.post-actions__repost, .repost-menu, .btn-pulse-repost-menu');
+        if (!insideRepost) {
+          pulseActionsEngine.closeRepostMenu();
+          clientStore.notifySync();
+        }
+      }
 
       const actionEl = target.closest<HTMLElement>('[data-action]');
       if (!actionEl) return;
@@ -1625,6 +1635,58 @@ export class ActionDispatcher {
         if (channel) clientStore.activeChannelId = channel;
         clientStore.isComposerOpen = true;
         clientStore.notify();
+        break;
+      }
+
+      case 'close-composer':
+      case 'cancel-composer': {
+        hybridComposer.close();
+        break;
+      }
+
+      case 'close-composer-backdrop': {
+        if (event.target === el) {
+          hybridComposer.close();
+        }
+        break;
+      }
+
+      case 'remove-quoted-post': {
+        hybridComposer.removeQuotedPost();
+        clientStore.notifySync();
+        break;
+      }
+
+      case 'toggle-repost-menu': {
+        const postId = el.getAttribute('data-post-id');
+        if (postId) {
+          pulseActionsEngine.toggleRepostMenu(postId);
+          clientStore.notifySync();
+        }
+        break;
+      }
+
+      case 'do-repost': {
+        const postId = el.getAttribute('data-post-id');
+        if (postId) {
+          pulseActionsEngine.closeRepostMenu();
+          const res = pulseActionsEngine.toggleRepost(postId, clientStore.keypair?.fingerprint);
+          clientStore.boostPost(postId);
+          clientStore.showToast(res.isReposted ? '🔁 Reposted!' : '↩️ Repost removed.', 'success');
+          clientStore.notifySync();
+        }
+        break;
+      }
+
+      case 'do-quote': {
+        const postId = el.getAttribute('data-post-id');
+        if (postId) {
+          pulseActionsEngine.closeRepostMenu();
+          const post = clientStore.posts.find(x => x.id === postId);
+          if (post) {
+            hybridComposer.openWithQuote(post);
+          }
+        }
         break;
       }
 

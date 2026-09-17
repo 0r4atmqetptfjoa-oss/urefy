@@ -262,4 +262,85 @@ describe('Unified Hybrid Composer (composer-hybrid.ts) — Comprehensive Test Su
       expect(hash1.length).toBe(64);
     });
   });
+
+  describe('6. Quoted Post Lifecycle & Modal Close Actions', () => {
+    it('should open composer with quote and render preview card', () => {
+      const originalPost = {
+        id: 'quote-target-123',
+        authorFingerprint: 'a1b2c3d4e5f6',
+        authorRole: 'GUARDIAN',
+        title: 'Decentralized Identity Breakthrough',
+        content: 'Zero-knowledge proofs enable completely private reputation.',
+      };
+
+      composer.openWithQuote(originalPost);
+
+      expect(composer.quotedPost).toBeDefined();
+      expect(composer.quotedPost?.id).toBe('quote-target-123');
+      expect(composer.quotedPost?.authorFingerprint).toBe('a1b2c3d4e5f6');
+      expect(composer.activeTab).toBe('pulse');
+      expect(clientStore.isComposerOpen).toBe(true);
+
+      const html = composer.renderComposerModal();
+      expect(html).toContain('quoted-post-preview');
+      expect(html).toContain('Quoting <strong>@a1b2c3d4e5');
+      expect(html).toContain('Decentralized Identity Breakthrough');
+      expect(html).toContain('data-action="remove-quoted-post"');
+    });
+
+    it('should render close and cancel actions with data-action attributes', () => {
+      const html = composer.renderComposerModal();
+      expect(html).toContain('data-action="close-composer"');
+      expect(html).toContain('data-action="cancel-composer"');
+      expect(html).toContain('data-action="close-composer-backdrop"');
+    });
+
+    it('should close composer and clear quoted post on close()', () => {
+      composer.openWithQuote({
+        id: 'quote-456',
+        authorFingerprint: 'peer-99',
+        content: 'Some message',
+      });
+      expect(composer.quotedPost).not.toBeNull();
+      expect(clientStore.isComposerOpen).toBe(true);
+
+      composer.close();
+      expect(composer.quotedPost).toBeNull();
+      expect(clientStore.isComposerOpen).toBe(false);
+    });
+
+    it('should remove quoted post via removeQuotedPost()', () => {
+      composer.openWithQuote({
+        id: 'quote-789',
+        authorFingerprint: 'peer-77',
+        content: 'Removable quote',
+      });
+      expect(composer.quotedPost).not.toBeNull();
+
+      composer.removeQuotedPost();
+      expect(composer.quotedPost).toBeNull();
+    });
+
+    it('should include quotedPost in published post and clean up state', async () => {
+      composer.openWithQuote({
+        id: 'root-post-abc',
+        authorFingerprint: 'author-abc',
+        title: 'Original Great Post',
+        content: 'This is the original post content.',
+      });
+
+      composer.threadSegments[0].content = 'My insightful quote commentary!';
+      const success = await composer.broadcastPublication();
+
+      expect(success).toBe(true);
+      const published = clientStore.posts[0];
+      expect(published).toBeDefined();
+      expect(published.quotedPost).toBeDefined();
+      expect(published.quotedPost?.id).toBe('root-post-abc');
+      expect(published.quotedPost?.authorFingerprint).toBe('author-abc');
+      expect(published.quotedPost?.title).toBe('Original Great Post');
+      expect(composer.quotedPost).toBeNull();
+      expect(clientStore.isComposerOpen).toBe(false);
+    });
+  });
 });

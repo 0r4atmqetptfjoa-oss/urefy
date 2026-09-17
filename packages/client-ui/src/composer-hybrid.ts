@@ -223,6 +223,70 @@ export class HybridComposer {
   private autosaveDebounceTimer: any = null;
   private isInitialHydrated: boolean = false;
 
+  // Quoted Post State
+  public quotedPost: {
+    id: string;
+    authorFingerprint: string;
+    authorRole: string;
+    title: string;
+    content: string;
+  } | null = null;
+
+  public get isModalOpen(): boolean {
+    return clientStore.isComposerOpen;
+  }
+  public set isModalOpen(open: boolean) {
+    clientStore.isComposerOpen = open;
+  }
+
+  public openWithQuote(post: { id: string; authorFingerprint: string; authorRole?: string; title?: string; content?: string }): void {
+    this.quotedPost = {
+      id: post.id,
+      authorFingerprint: post.authorFingerprint,
+      authorRole: post.authorRole || 'MEMBER',
+      title: post.title || 'Quoted Post',
+      content: post.content || '',
+    };
+    this.activeTab = 'pulse';
+    clientStore.isComposerOpen = true;
+    clientStore.notifySync();
+  }
+
+  public setQuotedPulse(pulse: { id: string; authorFingerprint: string; authorRole?: string; title?: string; content?: string } | null): void {
+    if (!pulse) {
+      this.quotedPost = null;
+    } else {
+      this.quotedPost = {
+        id: pulse.id,
+        authorFingerprint: pulse.authorFingerprint,
+        authorRole: pulse.authorRole || 'MEMBER',
+        title: pulse.title || 'Quoted Post',
+        content: pulse.content || '',
+      };
+    }
+  }
+
+  public removeQuotedPost(): void {
+    this.quotedPost = null;
+  }
+
+  public close(force: boolean = false): void {
+    this.quotedPost = null;
+    clientStore.isComposerOpen = false;
+    clientStore.notifySync();
+  }
+
+  public clearComposer(): void {
+    this.articleTitle = '';
+    this.articleBody = '';
+    this.threadSegments = [{ id: 'seg-0', content: '' }];
+    this.mediaItems = [];
+    this.quotedPost = null;
+    this.targetCommunityId = '';
+    this.audience = 'public-stream';
+    this.isProofDrawerOpen = false;
+  }
+
   constructor() {
     this.updateCodeMetrics();
     this.hydrateFromDraftStorage();
@@ -429,8 +493,8 @@ export class HybridComposer {
    */
   public renderComposerModal(): string {
     return `
-      <div id="composer-modal-overlay" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-2 sm:p-4 select-none animate-in fade-in zoom-in-95 duration-150 overflow-y-auto">
-        <div class="w-full max-w-[760px] bg-surface-base border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col my-auto max-h-[92vh]">
+      <div id="composer-modal-overlay" data-action="close-composer-backdrop" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-2 sm:p-4 select-none animate-in fade-in zoom-in-95 duration-150 overflow-y-auto">
+        <div class="w-full max-w-[760px] bg-surface-base border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col my-auto max-h-[92vh]" data-action="stop-propagation">
           
           <!-- COMPOSER HEADER & TAB NAVIGATION -->
           <div class="p-3 border-subtle-b bg-surface-raised/60 flex flex-wrap items-center justify-between gap-2">
@@ -469,7 +533,7 @@ export class HybridComposer {
                 ${this.renderDraftStatusHtml()}
               </div>
 
-              <button type="button" id="btn-close-composer" class="text-slate-400 hover:text-white font-mono w-7 h-7 flex items-center justify-center rounded-lg hover:bg-surface-overlay cursor-pointer transition-colors" title="${t('modal.close', undefined, 'Close')}">
+              <button type="button" id="btn-close-composer" data-action="close-composer" class="text-slate-400 hover:text-white font-mono w-7 h-7 flex items-center justify-center rounded-lg hover:bg-surface-overlay cursor-pointer transition-colors" title="${t('modal.close', undefined, 'Close')}">
                 ✕
               </button>
             </div>
@@ -544,7 +608,7 @@ export class HybridComposer {
                   Discard Draft
                 </button>
                 
-                <button type="button" id="btn-cancel-composer" class="px-3.5 py-1.5 text-xs text-slate-300 hover:text-white cursor-pointer transition-colors">
+                <button type="button" id="btn-cancel-composer" data-action="cancel-composer" class="px-3.5 py-1.5 text-xs text-slate-300 hover:text-white cursor-pointer transition-colors">
                   ${t('common.cancel', undefined, 'Cancel')}
                 </button>
 
@@ -658,6 +722,22 @@ export class HybridComposer {
                     placeholder="${index === 0 ? "What's on your mind? Share an update, link, or thought..." : "Continue thread..."}"
                     class="w-full bg-transparent text-xs text-slate-100 placeholder-slate-500 focus:outline-none resize-none min-h-[90px] leading-relaxed"
                   >${escapeHtml(segment.content)}</textarea>
+
+                  ${index === 0 && this.quotedPost ? `
+                    <div class="quoted-post-preview p-3 rounded-xl border border-indigo-500/30 bg-indigo-950/20 relative space-y-1 my-2">
+                      <div class="flex items-center justify-between text-xs text-indigo-300 font-medium">
+                        <span class="flex items-center space-x-1.5">
+                          <span>💬</span>
+                          <span>Quoting <strong>@${escapeHtml(this.quotedPost.authorFingerprint.slice(0, 10))}</strong></span>
+                        </span>
+                        <button type="button" id="btn-remove-quoted-post" data-action="remove-quoted-post" class="text-slate-400 hover:text-rose-400 text-xs px-1.5 py-0.5 rounded cursor-pointer transition-colors" title="Remove quote">
+                          ✕
+                        </button>
+                      </div>
+                      ${this.quotedPost.title ? `<div class="text-xs font-bold text-slate-200">${escapeHtml(this.quotedPost.title)}</div>` : ''}
+                      <p class="text-xs text-slate-300 line-clamp-2">${escapeHtml(this.quotedPost.content)}</p>
+                    </div>
+                  ` : ''}
 
                   <!-- SEGMENT FOOTER: RADIAL COUNTER + MEDIA INDICATOR -->
                   <div class="flex items-center justify-between pt-2 border-t border-white/5">
@@ -1714,6 +1794,7 @@ export class HybridComposer {
         content,
         flair,
         pollId,
+        quotedPost: this.quotedPost ? { ...this.quotedPost } : undefined,
         attachment: codeAttachment,
         video: videoPayload,
         images: mediaUrls.length > 0 ? mediaUrls : undefined,
@@ -1767,6 +1848,7 @@ export class HybridComposer {
       clientStore.sendMessage(`### ${flair}: ${title}\n\n${content}`);
 
       // 7. Clear Draft and Close Composer Modal
+      this.quotedPost = null;
       await this.clearDraft();
       clientStore.toggleComposer();
 

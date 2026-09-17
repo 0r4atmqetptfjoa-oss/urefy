@@ -16,8 +16,7 @@ import { themeEngine } from './themes.js';
 import { zenModeManager } from './zen-mode.js';
 import { offlineSync } from './offline-sync.js';
 import { profileView } from './profile-view.js';
-import { hybridComposer } from './composer-hybrid.js';
-import { omniComposer } from './composer.js';
+import { hybridComposer, omniComposer } from './composer-hybrid.js';
 import { keyboardNavigator } from './keyboard-nav.js';
 import { sovereignWebPush } from './web-push.js';
 import { onboardingWizard } from './onboarding.js';
@@ -558,7 +557,7 @@ export function buildModalRootHTML(ctx: ModalStateContext): string {
     ${offlineSync.isOpen ? offlineSync.renderSyncManagerModal() : ''}
     ${ctx.isLangModalOpen ? `<div id="lang-modal-backdrop" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md" data-action="close-lang"><div data-action="stop-propagation">${i18n.renderLanguagePicker('dropdown')}</div></div>` : ''}
     ${profileView.isEditProfileModalOpen ? profileView.renderEditProfileModal(profileView.getProfile(profileView.targetFingerprint)) : ''}
-    ${clientStore.isComposerOpen ? hybridComposer.renderComposerModal() : (omniComposer.isModalOpen ? omniComposer.renderComposerModal() : '')}
+    ${clientStore.isComposerOpen ? hybridComposer.renderComposerModal() : ''}
     ${keyboardNavigator.isHelpModalOpen ? keyboardNavigator.renderModal() : ''}
     ${onboardingWizard.isOpen ? '' : sovereignWebPush.renderPushOptInBanner()}
     ${rapidOnboarding.isOpen ? rapidOnboarding.renderModalHTML() : ''}

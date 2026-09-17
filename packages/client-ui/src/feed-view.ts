@@ -7,7 +7,7 @@ import { profileView } from './profile-view.js';
 import { feedControlsEngine } from './feed-controls.js';
 import { hashtagExplorer } from './hashtag-explorer.js';
 import { renderPulseEmptyState, renderPulseFeedSkeleton } from './empty-states.js';
-import { omniComposer } from './composer.js';
+import { omniComposer } from './composer-hybrid.js';
 import { threadManager, ThreadComment } from './threads.js';
 import { markdownRenderer } from './markdown-renderer.js';
 import { obsidianMediaPlayer } from './media-player.js';
@@ -60,10 +60,10 @@ function renderPostActions(post: ClientPost): string {
         ${renderIcon('messageSquare', { size: 18 })}<span>Reply</span><b>${metric(replies)}</b>
       </button>
       <div class="post-actions__repost">
-        <button type="button" data-pulse-action="repost-menu" data-post-id="${post.id}" class="btn-pulse-repost-menu ${state.reposted ? 'is-active' : ''}" aria-label="Repost">
+        <button type="button" data-action="toggle-repost-menu" data-pulse-action="repost-menu" data-post-id="${post.id}" class="btn-pulse-repost-menu ${state.reposted ? 'is-active' : ''}" aria-label="Repost">
           ${renderIcon('repost', { size: 18 })}<span>Repost</span><b>${metric(state.repostsCount)}</b>
         </button>
-        ${pulseActionsEngine.isRepostMenuOpen(post.id) ? `<div class="repost-menu"><button type="button" data-pulse-action="do-repost" data-post-id="${post.id}">${renderIcon('repost', { size: 16 })}<span>${state.reposted ? 'Undo repost' : 'Repost'}</span></button><button type="button" data-pulse-action="do-quote" data-post-id="${post.id}">${renderIcon('messageSquare', { size: 16 })}<span>Quote post</span></button></div>` : ''}
+        ${pulseActionsEngine.isRepostMenuOpen(post.id) ? `<div class="repost-menu"><button type="button" data-action="do-repost" data-pulse-action="do-repost" data-post-id="${post.id}">${renderIcon('repost', { size: 16 })}<span>${state.reposted ? 'Undo repost' : 'Repost'}</span></button><button type="button" data-action="do-quote" data-pulse-action="do-quote" data-post-id="${post.id}">${renderIcon('messageSquare', { size: 16 })}<span>Quote post</span></button></div>` : ''}
       </div>
       <button type="button" data-pulse-action="share" data-post-id="${post.id}" class="btn-pulse-share" aria-label="Share">
         ${renderIcon('share', { size: 18 })}<span>Share</span>
