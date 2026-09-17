@@ -397,3 +397,36 @@ export function renderMeritIcon(isEndorsed: boolean, options: IconOptions = {}):
     className: `urefy-merit-icon ${options.className || options.class || ''}`.trim(),
   });
 }
+
+/**
+ * Renders the official UREfy Concept F ("The Geometric Keystone") SVG mark inline.
+ * Inlined SVG prevents browser image cache staleness and guarantees instant display.
+ */
+export function renderBrandLogoMark(options: { size?: number; className?: string } = {}): string {
+  const size = options.size ?? 24;
+  const cls = options.className || '';
+  return `
+    <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 100 100" class="urefy-keystone-mark ${escapeAttribute(cls)}" role="img" aria-label="UREfy Keystone Logo">
+      <defs>
+        <linearGradient id="inline_gradF_left" x1="20" y1="16" x2="42" y2="60" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stop-color="#F8FAFC" />
+          <stop offset="100%" stop-color="#94A3B8" />
+        </linearGradient>
+        <linearGradient id="inline_gradF_right" x1="80" y1="16" x2="58" y2="60" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stop-color="#CBD5E1" />
+          <stop offset="100%" stop-color="#64748B" />
+        </linearGradient>
+        <linearGradient id="inline_gradF_base" x1="20" y1="65" x2="80" y2="88" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stop-color="#F59E0B" />
+          <stop offset="100%" stop-color="#D97706" />
+        </linearGradient>
+      </defs>
+      <!-- Left Pillar Facet (Rounded Precision Monolith) -->
+      <path d="M 22 20 C 22 17.8, 23.8 16, 26 16 L 38 16 C 40.2 16, 42 17.8, 42 20 L 42 56 C 42 58.2, 40.2 60, 38 60 L 26 60 C 23.8 60, 22 58.2, 22 56 Z" fill="url(#inline_gradF_left)" />
+      <!-- Right Pillar Facet -->
+      <path d="M 58 20 C 58 17.8, 59.8 16, 62 16 L 74 16 C 76.2 16, 78 17.8, 78 20 L 78 56 C 78 58.2, 76.2 60, 74 60 L 62 60 C 59.8 60, 58 58.2, 58 56 Z" fill="url(#inline_gradF_right)" />
+      <!-- Keystone Foundation Base Facet (4px Airgap Calibration) -->
+      <path d="M 22 66 C 22 64.2, 23.6 63, 25.4 63.4 C 33.2 65, 41.5 66, 50 66 C 58.5 66, 66.8 65, 74.6 63.4 C 76.4 63, 78 64.2, 78 66 C 78 77, 66 86, 50 86 C 34 86, 22 77, 22 66 Z" fill="url(#inline_gradF_base)" />
+    </svg>
+  `.trim();
+}

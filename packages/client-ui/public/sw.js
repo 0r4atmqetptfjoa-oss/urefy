@@ -83,7 +83,7 @@ self.addEventListener('fetch', (e) => {
   if (NEVER_CACHE_PATTERNS.some((p) => p.test(url.pathname))) return;
 
   // ── 1. Immutable hashed assets → Cache-First (instant on repeat visit) ──
-  if (url.pathname.startsWith('/assets/') || url.pathname.startsWith('/assets-v1/')) {
+  if (url.pathname.startsWith('/assets/') || url.pathname.match(/^\/assets-v\d+\//)) {
     e.respondWith(cacheFirst(req, CACHE_ASSETS));
     return;
   }

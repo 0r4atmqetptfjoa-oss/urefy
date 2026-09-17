@@ -90,7 +90,7 @@ import { renderVaultWorkspace, renderVaultReleaseCard } from './vault-view.js';
 import { renderPulseWorkspace, renderPulsePostCard, renderInlineQuickComposer, renderPostCard } from './feed-view.js';
 import { adminAuth } from './admin-auth.js';
 import { PRIMARY_NAV_ITEMS, ADVANCED_TOOLS_ITEMS, renderNavIcon } from './nav-config.js';
-import { renderIcon } from './ui/icons.js';
+import { renderIcon, renderBrandLogoMark } from './ui/icons.js';
 import { captureMessageSelection, restoreMessageSelection, getMessageDraft } from './messages-view.js';
 import { contextualSidebar } from './sidebar.js';
 import { modalManager, buildModalRootHTML as orchestrateModalRootHTML } from './modal-manager.js';
@@ -861,7 +861,7 @@ export function initApp(): void {
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
             </button>
             <button type="button" class="urefy-brand" data-action="join-channel" data-channel="pulse-global" aria-label="UREfy home">
-              <span class="urefy-brand__mark"><img src="/logo-mark.svg" alt="" /></span>
+              <span class="urefy-brand__mark">${renderBrandLogoMark({ size: 24 })}</span>
               <span class="urefy-brand__word">URE<span>fy</span></span>
             </button>
 
@@ -1501,7 +1501,7 @@ function renderMobileDrawer(): string {
         <div class="p-4 border-b border-white/10 flex items-center justify-between bg-surface-raised/60">
           <div class="flex items-center space-x-3">
             <div class="w-8 h-8 rounded-xl bg-surface-raised border border-white/10 flex items-center justify-center p-1 shadow-md overflow-hidden">
-              <img src="/logo-mark.svg" alt="UREfy" class="w-6 h-6 object-contain" />
+              ${renderBrandLogoMark({ size: 24, className: 'w-6 h-6 object-contain' })}
             </div>
             <div>
               <div class="font-bold text-sm text-white font-sans flex items-center space-x-1.5">

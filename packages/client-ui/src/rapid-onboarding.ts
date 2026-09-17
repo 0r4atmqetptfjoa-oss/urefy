@@ -19,7 +19,7 @@ import { clientStore } from './client-state.js';
 import { profileView } from './profile-view.js';
 import { sovereignCircleEngine } from './sovereign-circle.js';
 import { feedPersonalization } from './feed-personalization.js';
-import { renderIcon } from './ui/icons.js';
+import { renderIcon, renderBrandLogoMark } from './ui/icons.js';
 import { t } from './i18n.js';
 
 export interface InterestTopic {
@@ -252,7 +252,7 @@ export class RapidOnboardingModal {
           <!-- MODAL TOP BAR -->
           <div class="px-6 pt-6 pb-4 border-b border-white/5 flex items-center justify-between shrink-0">
             <div class="flex items-center space-x-3">
-              <img src="/logo-mark.svg" alt="UREfy" class="w-8 h-8 shrink-0" />
+              ${renderBrandLogoMark({ size: 32, className: 'w-8 h-8 shrink-0' })}
               <div>
                 <h2 class="text-sm font-bold text-white tracking-tight flex items-center gap-1">
                   <span>Join URE<span class="text-cyan-400 font-semibold">fy</span></span>
