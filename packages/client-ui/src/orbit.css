@@ -3,9 +3,9 @@
 
 #app-top-header { box-shadow: none !important; }
 .urefy-brand__word { font-size: 20px; font-weight: 800; letter-spacing: -0.03em; }
-.urefy-brand__mark { border-radius: 11px; background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.16); box-shadow: 0 2px 10px rgba(37, 99, 235, 0.15); display: grid; place-items: center; width: 34px; height: 34px; }
-.urefy-brand__mark img { width: 24px; height: 24px; object-fit: contain; }
-.urefy-brand__word span { color: #f59e0b; font-weight: 600; }
+.urefy-brand__mark { border-radius: 11px; background: rgba(248, 250, 252, 0.06); border: 1px solid rgba(248, 250, 252, 0.12); box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25); display: grid; place-items: center; width: 34px; height: 34px; }
+.urefy-brand__mark img { width: 25px; height: 25px; object-fit: contain; }
+.urefy-brand__word span { color: #f59e0b; font-weight: 700; }
 #left-rail-scroll { padding-top: 26px !important; }
 .btn-nav-mode, .btn-nav-more { min-height: 48px; border-radius: 13px !important; }
 .btn-nav-mode.nav-item-active { background: color-mix(in srgb, var(--color-accent) 10%, var(--bg-surface-base)) !important; }

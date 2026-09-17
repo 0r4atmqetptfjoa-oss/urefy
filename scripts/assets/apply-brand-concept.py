@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 apply-brand-concept.py - Brand Concept Switcher & Asset Deployer for UREfy
 
@@ -252,6 +252,126 @@ CONCEPTS = {
   <circle cx="28" cy="18" r="5.5" fill="#FFFFFF" />
   <circle cx="72" cy="18" r="5.5" fill="#FFFFFF" opacity="0.85" />
 </svg>'''
+    },
+    'F': {
+        'name': 'The Geometric Keystone',
+        'accent_color': '#F59E0B',
+        'logo_mark': '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%" height="100%" role="img" aria-label="UREfy Geometric Keystone Logo">
+  <defs>
+    <linearGradient id="gradF_left" x1="20" y1="16" x2="42" y2="60" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#F8FAFC" />
+      <stop offset="100%" stop-color="#94A3B8" />
+    </linearGradient>
+    <linearGradient id="gradF_right" x1="80" y1="16" x2="58" y2="60" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#CBD5E1" />
+      <stop offset="100%" stop-color="#64748B" />
+    </linearGradient>
+    <linearGradient id="gradF_base" x1="20" y1="65" x2="80" y2="88" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#F59E0B" />
+      <stop offset="100%" stop-color="#D97706" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Left Pillar Facet (Rounded Precision Monolith) -->
+  <path d="M 22 20 C 22 17.8, 23.8 16, 26 16 L 38 16 C 40.2 16, 42 17.8, 42 20 L 42 56 C 42 58.2, 40.2 60, 38 60 L 26 60 C 23.8 60, 22 58.2, 22 56 Z" fill="url(#gradF_left)" />
+  
+  <!-- Right Pillar Facet -->
+  <path d="M 58 20 C 58 17.8, 59.8 16, 62 16 L 74 16 C 76.2 16, 78 17.8, 78 20 L 78 56 C 78 58.2, 76.2 60, 74 60 L 62 60 C 59.8 60, 58 58.2, 58 56 Z" fill="url(#gradF_right)" />
+  
+  <!-- Keystone Foundation Base Facet (4px Airgap Calibration) -->
+  <path d="M 22 66 C 22 64.2, 23.6 63, 25.4 63.4 C 33.2 65, 41.5 66, 50 66 C 58.5 66, 66.8 65, 74.6 63.4 C 76.4 63, 78 64.2, 78 66 C 78 77, 66 86, 50 86 C 34 86, 22 77, 22 66 Z" fill="url(#gradF_base)" />
+</svg>''',
+        'favicon': '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%" height="100%" role="img" aria-label="UREfy Favicon">
+  <defs>
+    <linearGradient id="favF_left" x1="20" y1="16" x2="42" y2="60" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#F8FAFC" />
+      <stop offset="100%" stop-color="#94A3B8" />
+    </linearGradient>
+    <linearGradient id="favF_right" x1="80" y1="16" x2="58" y2="60" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#CBD5E1" />
+      <stop offset="100%" stop-color="#64748B" />
+    </linearGradient>
+    <linearGradient id="favF_base" x1="20" y1="65" x2="80" y2="88" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#F59E0B" />
+      <stop offset="100%" stop-color="#D97706" />
+    </linearGradient>
+  </defs>
+  <path d="M 22 20 C 22 17.8, 23.8 16, 26 16 L 38 16 C 40.2 16, 42 17.8, 42 20 L 42 56 C 42 58.2, 40.2 60, 38 60 L 26 60 C 23.8 60, 22 58.2, 22 56 Z" fill="url(#favF_left)" />
+  <path d="M 58 20 C 58 17.8, 59.8 16, 62 16 L 74 16 C 76.2 16, 78 17.8, 78 20 L 78 56 C 78 58.2, 76.2 60, 74 60 L 62 60 C 59.8 60, 58 58.2, 58 56 Z" fill="url(#favF_right)" />
+  <path d="M 22 66 C 22 64.2, 23.6 63, 25.4 63.4 C 33.2 65, 41.5 66, 50 66 C 58.5 66, 66.8 65, 74.6 63.4 C 76.4 63, 78 64.2, 78 66 C 78 77, 66 86, 50 86 C 34 86, 22 77, 22 66 Z" fill="url(#favF_base)" />
+</svg>''',
+        'logo': '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="100%" height="100%" role="img" aria-label="UREfy Master Emblem">
+  <defs>
+    <linearGradient id="urefy-bg-grad" x1="0" y1="0" x2="120" y2="120" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0E131F" />
+      <stop offset="100%" stop-color="#07090E" />
+    </linearGradient>
+    <linearGradient id="urefy-stroke-grad" x1="0" y1="0" x2="120" y2="120" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#94A3B8" stop-opacity="0.3" />
+      <stop offset="100%" stop-color="#F59E0B" stop-opacity="0.2" />
+    </linearGradient>
+    <linearGradient id="gradF_left" x1="20" y1="16" x2="42" y2="60" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#F8FAFC" />
+      <stop offset="100%" stop-color="#94A3B8" />
+    </linearGradient>
+    <linearGradient id="gradF_right" x1="80" y1="16" x2="58" y2="60" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#CBD5E1" />
+      <stop offset="100%" stop-color="#64748B" />
+    </linearGradient>
+    <linearGradient id="gradF_base" x1="20" y1="65" x2="80" y2="88" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#F59E0B" />
+      <stop offset="100%" stop-color="#D97706" />
+    </linearGradient>
+  </defs>
+
+  <!-- Squircle Base Chassis -->
+  <rect x="2" y="2" width="116" height="116" rx="32" fill="url(#urefy-bg-grad)" stroke="url(#urefy-stroke-grad)" stroke-width="1.5" />
+
+  <!-- Keystone Facets Centered -->
+  <g transform="translate(10, 8)">
+    <path d="M 22 20 C 22 17.8, 23.8 16, 26 16 L 38 16 C 40.2 16, 42 17.8, 42 20 L 42 56 C 42 58.2, 40.2 60, 38 60 L 26 60 C 23.8 60, 22 58.2, 22 56 Z" fill="url(#gradF_left)" />
+    <path d="M 58 20 C 58 17.8, 59.8 16, 62 16 L 74 16 C 76.2 16, 78 17.8, 78 20 L 78 56 C 78 58.2, 76.2 60, 74 60 L 62 60 C 59.8 60, 58 58.2, 58 56 Z" fill="url(#gradF_right)" />
+    <path d="M 22 66 C 22 64.2, 23.6 63, 25.4 63.4 C 33.2 65, 41.5 66, 50 66 C 58.5 66, 66.8 65, 74.6 63.4 C 76.4 63, 78 64.2, 78 66 C 78 77, 66 86, 50 86 C 34 86, 22 77, 22 66 Z" fill="url(#gradF_base)" />
+  </g>
+</svg>''',
+        'wordmark': '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 76" width="100%" height="100%" role="img" aria-label="UREfy Master Wordmark">
+  <defs>
+    <linearGradient id="gradF_left_wm" x1="20" y1="16" x2="42" y2="60" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#F8FAFC" />
+      <stop offset="100%" stop-color="#94A3B8" />
+    </linearGradient>
+    <linearGradient id="gradF_right_wm" x1="80" y1="16" x2="58" y2="60" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#CBD5E1" />
+      <stop offset="100%" stop-color="#64748B" />
+    </linearGradient>
+    <linearGradient id="gradF_base_wm" x1="20" y1="65" x2="80" y2="88" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#F59E0B" />
+      <stop offset="100%" stop-color="#D97706" />
+    </linearGradient>
+  </defs>
+
+  <!-- Scaled Keystone Symbol (Left) -->
+  <g transform="translate(4, 1) scale(0.68)">
+    <path d="M 22 20 C 22 17.8, 23.8 16, 26 16 L 38 16 C 40.2 16, 42 17.8, 42 20 L 42 56 C 42 58.2, 40.2 60, 38 60 L 26 60 C 23.8 60, 22 58.2, 22 56 Z" fill="url(#gradF_left_wm)" />
+    <path d="M 58 20 C 58 17.8, 59.8 16, 62 16 L 74 16 C 76.2 16, 78 17.8, 78 20 L 78 56 C 78 58.2, 76.2 60, 74 60 L 62 60 C 59.8 60, 58 58.2, 58 56 Z" fill="url(#gradF_right_wm)" />
+    <path d="M 22 66 C 22 64.2, 23.6 63, 25.4 63.4 C 33.2 65, 41.5 66, 50 66 C 58.5 66, 66.8 65, 74.6 63.4 C 76.4 63, 78 64.2, 78 66 C 78 77, 66 86, 50 86 C 34 86, 22 77, 22 66 Z" fill="url(#gradF_base_wm)" />
+  </g>
+
+  <!-- Typography: UREfy -->
+  <text x="76" y="47" font-family="'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="36" font-weight="800" fill="#FFFFFF" letter-spacing="0.04em">URE<tspan fill="#F59E0B" font-weight="700">fy</tspan></text>
+  <!-- Tagline -->
+  <text x="78" y="64" font-family="'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="8.5" font-weight="700" fill="#94A3B8" letter-spacing="0.16em" text-transform="uppercase">THE SOCIAL NETWORK YOU ACTUALLY OWN</text>
+</svg>''',
+        'dark': '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%" height="100%" role="img" aria-label="UREfy Keystone Dark">
+  <path d="M 22 20 C 22 17.8, 23.8 16, 26 16 L 38 16 C 40.2 16, 42 17.8, 42 20 L 42 56 C 42 58.2, 40.2 60, 38 60 L 26 60 C 23.8 60, 22 58.2, 22 56 Z" fill="#0F172A" />
+  <path d="M 58 20 C 58 17.8, 59.8 16, 62 16 L 74 16 C 76.2 16, 78 17.8, 78 20 L 78 56 C 78 58.2, 76.2 60, 74 60 L 62 60 C 59.8 60, 58 58.2, 58 56 Z" fill="#0F172A" />
+  <path d="M 22 66 C 22 64.2, 23.6 63, 25.4 63.4 C 33.2 65, 41.5 66, 50 66 C 58.5 66, 66.8 65, 74.6 63.4 C 76.4 63, 78 64.2, 78 66 C 78 77, 66 86, 50 86 C 34 86, 22 77, 22 66 Z" fill="#0F172A" />
+</svg>''',
+        'white': '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%" height="100%" role="img" aria-label="UREfy Keystone White">
+  <path d="M 22 20 C 22 17.8, 23.8 16, 26 16 L 38 16 C 40.2 16, 42 17.8, 42 20 L 42 56 C 42 58.2, 40.2 60, 38 60 L 26 60 C 23.8 60, 22 58.2, 22 56 Z" fill="#FFFFFF" />
+  <path d="M 58 20 C 58 17.8, 59.8 16, 62 16 L 74 16 C 76.2 16, 78 17.8, 78 20 L 78 56 C 78 58.2, 76.2 60, 74 60 L 62 60 C 59.8 60, 58 58.2, 58 56 Z" fill="#FFFFFF" />
+  <path d="M 22 66 C 22 64.2, 23.6 63, 25.4 63.4 C 33.2 65, 41.5 66, 50 66 C 58.5 66, 66.8 65, 74.6 63.4 C 76.4 63, 78 64.2, 78 66 C 78 77, 66 86, 50 86 C 34 86, 22 77, 22 66 Z" fill="#FFFFFF" />
+</svg>'''
     }
 }
 
@@ -310,7 +430,7 @@ def apply_concept(concept_id: str):
 
 def main():
     parser = argparse.ArgumentParser(description="Apply a UREfy brand logo concept and rebuild all assets")
-    parser.add_argument('concept', choices=['A', 'B'], default='A', nargs='?', help="Concept ID (A or B)")
+    parser.add_argument('concept', choices=['A', 'B', 'F'], default='F', nargs='?', help="Concept ID (A, B, or F)")
     args = parser.parse_args()
     apply_concept(args.concept)
 
