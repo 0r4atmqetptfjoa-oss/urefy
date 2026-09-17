@@ -56,7 +56,6 @@ function renderPostActions(post: ClientPost): string {
         ${renderIcon('sparkles', { size: 18, variant: state.liked ? 'solid' : 'outline' })}<span>Merit</span><b>${metric(state.likesCount)}</b>
         <i id="particle-burst-${post.id}" aria-hidden="true"></i>
       </button>
-      <button type="button" class="btn-downvote hidden" data-vote-id="${post.id}" data-dir="-1" aria-hidden="true"></button>
       <button type="button" data-pulse-action="reply" data-post-id="${post.id}" class="btn-pulse-reply" aria-label="Reply">
         ${renderIcon('messageSquare', { size: 18 })}<span>Reply</span><b>${metric(replies)}</b>
       </button>
@@ -259,6 +258,7 @@ export function renderPulsePostCard(post: ClientPost): string {
         ${post.quotedPost ? `<button type="button" data-open-detail="${post.quotedPost.id}" class="quoted-post"><span>${escapeHtml(post.quotedPost.title || 'Quoted post')}</span><p>${escapeHtml(post.quotedPost.content)}</p></button>` : ''}
         <div class="reaction-row">${reactionsEngine.renderReactionBar(post.id, clientStore.keypair.fingerprint)}</div>
         ${renderPostActions(post)}
+        <span class="hidden" style="display:none !important;" aria-hidden="true"><button type="button" class="btn-downvote" data-vote-id="${post.id}" data-dir="-1" aria-hidden="true" tabindex="-1"></button></span>
         ${post.isExpanded ? `<section class="reply-thread"><h3>Replies</h3>${comments.map(renderThreadNode).join('')}</section>` : ''}
       </div>
     </article>`;

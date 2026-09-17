@@ -1095,18 +1095,30 @@ button:active { transform: scale(0.98); }
 .quoted-post p { margin:3px 0 0; font-size:12px; }
 .reaction-row:empty { display:none; }
 
-.post-actions { display:grid; grid-template-columns:repeat(4,minmax(54px,1fr)) 38px 38px; align-items:center; margin-top:10px; min-height:38px; border-top:1px solid var(--premium-line); gap:2px; }
+.post-actions { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)) 38px 38px; align-items:center; margin-top:10px; min-height:38px; border-top:1px solid var(--premium-line); gap:3px; padding-top:3px; }
 .post-actions > button,
 .post-actions__repost > button,
-.post-actions__more > button { display:flex; align-items:center; justify-content:center; gap:6px; width:100%; min-height:38px; border-radius:9px; color:var(--text-muted); font-size:12px; font-weight:650; }
+.post-actions__more > button { display:flex; align-items:center; justify-content:center; gap:6px; width:100%; min-height:36px; padding:0 6px; border-radius:9px; color:var(--text-muted); font-size:12px; font-weight:600; white-space:nowrap; user-select:none; cursor:pointer; background:transparent; border:none; transition:color 120ms ease, background-color 120ms ease; }
 .post-actions > button:hover,
 .post-actions__repost > button:hover,
 .post-actions__more > button:hover { color:var(--text-primary); background:var(--bg-surface-raised); }
-.btn-pulse-like.is-active { color:#e86b88 !important; }
-.btn-pulse-repost-menu.is-active { color:#45c59b !important; }
+.btn-pulse-like:hover { color:#f43f5e !important; background:rgba(244,63,94,0.08) !important; }
+.btn-pulse-reply:hover { color:#38bdf8 !important; background:rgba(56,189,248,0.08) !important; }
+.btn-pulse-repost-menu:hover { color:#34d399 !important; background:rgba(52,211,153,0.08) !important; }
+.btn-pulse-share:hover,
+.btn-pulse-bookmark:hover,
+.btn-pulse-more:hover { color:var(--color-accent) !important; background:var(--bg-surface-raised) !important; }
+.btn-pulse-like.is-active { color:#f43f5e !important; }
+.btn-pulse-repost-menu.is-active { color:#34d399 !important; }
 .btn-pulse-bookmark.is-active { color:var(--color-accent) !important; }
-.post-actions__repost, .post-actions__more { position:relative; }
-.post-actions__more > button { padding:0; }
+.post-actions b { font-weight:700; font-size:12px; letter-spacing:-0.01em; }
+.post-actions span { font-size:12px; }
+.post-actions__repost, .post-actions__more { position:relative; display:flex; align-items:center; justify-content:center; }
+.post-actions__more > button { padding:0; width:38px; height:36px; }
+.post-actions .btn-pulse-bookmark { padding:0; width:38px; height:36px; }
+.post-actions .btn-downvote,
+.post-actions > button.btn-downvote,
+.post-actions > .btn-downvote { display:none !important; }
 .post-more-menu { position:absolute; bottom:calc(100% + 6px); right:0; width:220px; background:var(--bg-surface-base); border:1px solid var(--premium-line); border-radius:14px; box-shadow:0 12px 30px rgba(0,0,0,0.5); z-index:50; overflow:hidden; padding:4px; }
 .post-more-menu button { display:flex; align-items:center; gap:8px; width:100%; padding:9px 12px; border-radius:8px; font-size:12px; font-weight:600; color:var(--text-primary); text-align:left; transition:background 120ms ease; cursor:pointer; }
 .post-more-menu button:hover { background:var(--bg-surface-raised); }
@@ -1349,9 +1361,10 @@ button:active { transform: scale(0.98); }
   .social-post__community { display:none; }
   .social-post__title { font-size:16px; }
   .social-post__body { font-size:14px; }
-  .post-stream { gap:8px; }
-  .post-actions { grid-template-columns:repeat(4,minmax(40px,1fr)) 36px 36px; }
+  .post-actions { grid-template-columns:repeat(4,minmax(0,1fr)) 36px 36px; gap:2px; }
   .post-actions button span:not(.sr-only) { display:none; }
+  .post-actions .btn-pulse-bookmark,
+  .post-actions__more > button { width:36px; height:34px; }
   .view-header--search { align-items:flex-start; flex-direction:column; gap:9px; padding-block:10px; }
   .view-header--search > div:first-child { display:none; }
   .explore-search { width:100%; min-height:40px; }
