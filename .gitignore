@@ -47,6 +47,7 @@ release-manifest.json
 .vscode/
 git-status-baseline.txt
 .nyc_output/
+artifacts/
 
 # OS Artifacts
 .DS_Store
