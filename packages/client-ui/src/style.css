@@ -59,9 +59,10 @@ html, body {
   margin: 0;
   padding: 0;
   width: 100%;
-  height: 100%;
+  min-height: 100%;
   overflow-x: hidden;
-  overflow-y: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
@@ -97,11 +98,11 @@ button, .btn, nav, .tab, .drag-handle, .icon-btn, .no-select, [role="button"], [
 
 /* Critical layout containment — prevents reflows from cascading outside */
 #app {
-  contain: layout style;
   isolation: isolate;
-  width: 100vw;
-  height: 100svh;
-  overflow: hidden;
+  width: 100%;
+  min-height: 100%;
+  overflow-x: hidden;
+  overflow-y: visible;
 }
 
 /* ─── TYPOGRAPHY & COMMUNITY-GRADE HEADINGS ─────────────────────────────────── */
@@ -502,9 +503,6 @@ article,
 #messages-container article {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
-  content-visibility: auto;
-  contain-intrinsic-size: 0 160px;
-  contain: layout style paint;
 }
 
 /* Feed Sort Toolbar */
@@ -979,10 +977,6 @@ article,
   will-change: transform, box-shadow;
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
-  contain: content;
-  contain: layout style paint;
-  content-visibility: auto;
-  contain-intrinsic-size: 0 280px;
   transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.18s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.18s ease;
 }
 
@@ -1010,17 +1004,13 @@ article.keyboard-selected::before {
 
 /* 5. Live Relays & Chat Drawer */
 #right-rail-scroll,
-#messages-container,
 .chat-drawer,
 .live-relays-drawer,
 .sovereign-dm-drawer,
 #drawer-chats,
-#relays-chat-feed,
-.msg-bubble,
-.msg-bubble-enter {
+#relays-chat-feed {
   transform: translateZ(0);
   -webkit-transform: translateZ(0);
-  will-change: transform, opacity;
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
 }
@@ -1294,24 +1284,11 @@ button:active,
   animation: boost-spin-pulse 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) forwards, boost-ripple 0.5s ease-out forwards;
 }
 
-/* 7. Live Relays Message Pop-In Micro-Interaction */
-@keyframes msg-pop-in {
-  0% {
-    opacity: 0;
-    transform: translateY(14px) scale(0.97);
-  }
-  60% {
-    opacity: 1;
-    transform: translateY(-2px) scale(1.01);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
+/* 7. Live Relays Message Pop-In (disabled completely to prevent flicker) */
 .msg-bubble-enter {
-  animation: msg-pop-in 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: none !important;
+  transform: none !important;
+  opacity: 1 !important;
 }
 
 /* 8. Live Relays Send Button Pulse */
@@ -1353,23 +1330,7 @@ button:active,
   animation: reaction-pop 0.32s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
 }
 
-/* 10. Feed Stagger Load */
-article:nth-child(1) { animation: article-slide 0.2s ease-out both; }
-article:nth-child(2) { animation: article-slide 0.25s ease-out 0.04s both; }
-article:nth-child(3) { animation: article-slide 0.3s ease-out 0.08s both; }
-article:nth-child(4) { animation: article-slide 0.35s ease-out 0.12s both; }
-article:nth-child(5) { animation: article-slide 0.4s ease-out 0.16s both; }
 
-@keyframes article-slide {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
 
 /* ─── HIGH-PERFORMANCE SKELETON LOADERS (GPU SHIMMER GRADIENTS) ─────────────── */
 
@@ -2052,30 +2013,7 @@ video,
   padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
 }
 
-/* ─── VIEW TRANSITIONS API (Chrome 111+/Safari 18+) ─────────────────────────── */
-@supports (view-transition-name: main-content) {
-  #main-stage {
-    view-transition-name: main-content;
-  }
 
-  ::view-transition-old(main-content) {
-    animation: view-out 0.15s ease-out forwards;
-  }
-
-  ::view-transition-new(main-content) {
-    animation: view-in 0.2s ease-out both;
-  }
-
-  @keyframes view-out {
-    from { opacity: 1; transform: translateY(0); }
-    to { opacity: 0; transform: translateY(-6px); }
-  }
-
-  @keyframes view-in {
-    from { opacity: 0; transform: translateY(8px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-}
 
 /* ─── SCROLL SNAP (Mobile Feed Snapping Option) ──────────────────────────────── */
 @media (max-width: 767px) {
@@ -2131,13 +2069,11 @@ html[data-theme="obsidian-cyber"] {
   background-color: #0f172a;
 }
 
-/* ─── CONTENT-VISIBILITY OPTIMIZATION FOR LONG FEEDS ────────────────────────── */
-/* Skip paint & layout for off-screen cards — massive performance gain on long feeds */
+/* ─── FEED PERFORMANCE ───────────────────────────────────────────────────────── */
 .feed-card,
 .pulse-card,
 article {
-  content-visibility: auto;
-  contain-intrinsic-size: 0 260px; /* Approximate card height hint */
+  contain: none;
 }
 
 /* ─── GLOBAL SELECTION & USER-SELECT POLICY ──────────────────────────────────── */
@@ -2176,27 +2112,6 @@ article {
   }
 }
 
-/* ─── CARD ENTRANCE ANIMATIONS ───────────────────────────────────────────────── */
-/* Staggered entrance using CSS @starting-style (Chrome 117+, Firefox 129+) */
-@supports (animation-timeline: scroll()) {
-  .feed-card,
-  .pulse-card,
-  article {
-    animation: card-enter 0.25s ease-out both;
-    animation-fill-mode: both;
-  }
-
-  @keyframes card-enter {
-    from {
-      opacity: 0;
-      transform: translateY(6px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-}
 
 /* ─── FEED CARD HOVER MICRO-INTERACTION ──────────────────────────────────────── */
 /* GPU-only properties (transform + opacity) — zero layout reflow */
@@ -2253,7 +2168,6 @@ input, textarea {
 /* ─── PERFORMANCE: IMAGE DECODE OPTIMIZATION ─────────────────────────────────── */
 img {
   decoding: async;
-  content-visibility: auto;
 }
 
 img[loading="lazy"] {
@@ -2620,4 +2534,17 @@ button,
 
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.28);
+}
+
+/* ─── SOVEREIGN AVATAR VIBRANCY ─── */
+.urefy-avatar {
+  border: 1.5px solid rgba(255, 255, 255, 0.12);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, border-color 0.2s ease;
+  background-color: #0f172a;
+}
+
+.urefy-avatar:hover {
+  transform: scale(1.06);
+  border-color: rgba(6, 182, 212, 0.5);
+  box-shadow: 0 0 14px rgba(6, 182, 212, 0.3);
 }

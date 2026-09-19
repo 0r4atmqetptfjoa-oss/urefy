@@ -92,7 +92,14 @@ export class MobileResponsivePerformanceManager {
     if (this._viewportAdaptationInitialized || typeof window === 'undefined' || typeof document === 'undefined') return;
     this._viewportAdaptationInitialized = true;
 
-    const updateViewport = () => {
+    let lastHeight = 0;
+    let lastWidth = 0;
+    let lastKeyboardOpen: boolean | undefined = undefined;
+    let lastStandalone: boolean | undefined = undefined;
+    let rafId: number | null = null;
+
+    const applyViewport = () => {
+      rafId = null;
       const viewport = window.visualViewport;
       const height = Math.round(viewport?.height || window.innerHeight);
       const width = Math.round(viewport?.width || window.innerWidth);
@@ -100,17 +107,38 @@ export class MobileResponsivePerformanceManager {
       const standalone = window.matchMedia('(display-mode: standalone)').matches ||
         (navigator as unknown as { standalone?: boolean }).standalone === true;
 
-      document.documentElement.style.setProperty('--app-viewport-height', `${height}px`);
-      document.documentElement.style.setProperty('--app-viewport-width', `${width}px`);
-      document.documentElement.dataset.keyboardOpen = String(keyboardOpen);
-      document.documentElement.dataset.displayMode = standalone ? 'standalone' : 'browser';
+      // Only mutate DOM if dimensions actually changed by more than 2px (prevents sub-pixel flutter)
+      if (Math.abs(height - lastHeight) >= 2) {
+        lastHeight = height;
+        document.documentElement.style.setProperty('--app-viewport-height', `${height}px`);
+      }
+      if (Math.abs(width - lastWidth) >= 2) {
+        lastWidth = width;
+        document.documentElement.style.setProperty('--app-viewport-width', `${width}px`);
+      }
+      if (lastKeyboardOpen !== keyboardOpen) {
+        lastKeyboardOpen = keyboardOpen;
+        document.documentElement.dataset.keyboardOpen = String(keyboardOpen);
+      }
+      if (lastStandalone !== standalone) {
+        lastStandalone = standalone;
+        document.documentElement.dataset.displayMode = standalone ? 'standalone' : 'browser';
+      }
     };
 
-    updateViewport();
+    const updateViewport = () => {
+      if (rafId !== null) return;
+      if (typeof requestAnimationFrame === 'function') {
+        rafId = requestAnimationFrame(applyViewport);
+      } else {
+        applyViewport();
+      }
+    };
+
+    applyViewport();
     window.addEventListener('resize', updateViewport, { passive: true });
     window.addEventListener('orientationchange', updateViewport, { passive: true });
     window.visualViewport?.addEventListener('resize', updateViewport, { passive: true });
-    window.visualViewport?.addEventListener('scroll', updateViewport, { passive: true });
   }
 
   /**

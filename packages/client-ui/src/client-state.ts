@@ -81,6 +81,8 @@ export interface ClientNanopublication {
 }
 
 export interface ClientPost {
+  deliveryStatus?: 'sending' | 'failed';
+  deliveryError?: string;
   id: string;
   channelId: string;
   authorFingerprint: string;
@@ -252,6 +254,11 @@ export class AetherisClientStore {
       const savedUiMode = localStorage.getItem('aetheris_ui_mode');
       if (savedUiMode === 'sovereign' || savedUiMode === 'simple' || savedUiMode === 'advanced' || savedUiMode === 'technical') {
         this.uiMode = savedUiMode as UiMode;
+      }
+
+      const savedDensity = localStorage.getItem('aetheris_density_mode');
+      if (savedDensity === 'compact' || savedDensity === 'balanced' || savedDensity === 'media') {
+        this.density = savedDensity as DensityMode;
       }
 
       const savedShowTrust = localStorage.getItem('aetheris_show_trust_badges');
@@ -676,7 +683,7 @@ export class AetherisClientStore {
 
     // 4. Sync Posts from /api/posts
     try {
-      const res = await fetch('/api/posts', { signal });
+      const res = await fetch('/api/posts?limit=100', { signal });
       if (res.ok) {
         const data = await res.json();
         if (data.success && Array.isArray(data.posts)) {
@@ -713,6 +720,8 @@ export class AetherisClientStore {
     }
 
     // 4b. Sync Communities from /api/communities
+    if (typeof window !== 'undefined') void (window as any).profileView?.syncFollowing?.();
+    void import('./notifications.js').then(({ notificationCenter }) => notificationCenter.syncFromApi(this.keypair.fingerprint));
     try {
       if (typeof window !== 'undefined' && (window as any).sovereignCircleEngine?.syncCommunitiesFromApi) {
         await (window as any).sovereignCircleEngine.syncCommunitiesFromApi();
@@ -894,8 +903,8 @@ export class AetherisClientStore {
       title: post.title || 'Sovereign Pulse',
       content: post.content || '',
       flair: post.flair || (post.title ? 'TECH DISCUSSION' : 'MICRO-PULSE'),
-      meritVotes: 1,
-      userVoted: 1,
+      meritVotes: 0,
+      userVoted: 0,
       replyCount: 0,
       boostCount: 0,
       attachment: post.attachment,
@@ -908,36 +917,59 @@ export class AetherisClientStore {
     };
     this.posts.unshift(newPost);
     localSearchIndex.indexPost(newPost);
-    crossTabSync.broadcast('POST_CREATED', newPost);
-    networkActivityFeed.addEvent({
-      type: 'post',
-      actorFP: this.keypair.fingerprint,
-      actorRole: 'member',
-      targetTitle: newPost.title,
-      targetId: newPost.id,
-      timestamp: newPost.createdAt,
-      meta: { flair: newPost.flair },
-    });
-    this.showToast('✨ Broadcasted to Sovereign Network!', 'success');
-    this.notify();
-
-    // Broadcast & persist to Edge API with automatic Offline Outbox fallback
-    const envelope = this.createSignedEnvelope({ action: 'create', ...newPost });
-    if (typeof fetch !== 'undefined') {
-      fetchWithRetry('/api/posts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(envelope),
-        maxRetries: 2,
-        baseDelayMs: 300,
-      }).catch(() => {
-        offlineSync.enqueue('CREATE_POST', envelope);
-      });
-    } else {
-      offlineSync.enqueue('CREATE_POST', envelope);
-    }
+    void this.retryPost(newPost.id);
 
     return newPost;
+  }
+
+  private draftWrite: Promise<void> = Promise.resolve();
+  private saveUnsentPosts(): Promise<void> {
+    const owner = this.keypair.fingerprint;
+    const drafts = this.posts.filter(post => post.deliveryStatus && post.authorFingerprint === owner).slice(0, 20).map(post => ({ ...post }));
+    this.draftWrite = this.draftWrite.catch(() => {}).then(() => secureStorage.savePrivateState(`post-outbox:${owner}`, drafts));
+    return this.draftWrite;
+  }
+
+  public async restoreUnsentPosts(): Promise<void> {
+    const owner = this.keypair.fingerprint;
+    try {
+      const drafts = await secureStorage.getPrivateState<ClientPost[]>(`post-outbox:${owner}`);
+      if (this.keypair.fingerprint !== owner || !Array.isArray(drafts)) return;
+      for (const post of drafts.slice(0, 20)) {
+        if (post.authorFingerprint !== owner || typeof post.id !== 'string' || typeof post.content !== 'string' || this.posts.some(item => item.id === post.id)) continue;
+        this.posts.unshift({ ...post, deliveryStatus: 'failed', deliveryError: 'Not yet confirmed. Retry to publish.' });
+      }
+      this.notify();
+    } catch { this.showToast('Unsent drafts could not be opened on this device', 'warning'); }
+  }
+
+  public async retryPost(postId: string): Promise<boolean> {
+    const post = this.posts.find(item => item.id === postId);
+    if (!post || post.deliveryStatus === 'sending' || post.authorFingerprint !== this.keypair.fingerprint) return false;
+    post.deliveryStatus = 'sending'; post.deliveryError = undefined;
+    this.notify();
+    try {
+      await this.saveUnsentPosts();
+      const { deliveryStatus, deliveryError, ...publication } = post;
+      const envelope = this.createSignedEnvelope({ action: 'create', ...publication });
+      const response = await fetch('/api/posts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(envelope) });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data?.success || !data.post) throw new Error(data?.error || 'Publication was not confirmed. Your draft is kept on this device.');
+      Object.assign(post, data.post);
+      delete post.deliveryStatus; delete post.deliveryError;
+      await this.saveUnsentPosts();
+      crossTabSync.broadcast('POST_CREATED', post);
+      this.showToast('Post published', 'success');
+      this.notify();
+      return true;
+    } catch (error) {
+      post.deliveryStatus = 'failed';
+      post.deliveryError = error instanceof Error ? error.message : 'Publication failed. Retry when connected.';
+      await this.saveUnsentPosts().catch(() => {});
+      this.showToast(post.deliveryError, 'warning');
+      this.notify();
+      return false;
+    }
   }
 
   public publishThread(segments: Array<Partial<ClientPost>>): ClientPost[] {
@@ -1050,12 +1082,17 @@ export class AetherisClientStore {
     const host = typeof window !== 'undefined' ? (window.location.host || window.location.hostname || 'localhost') : 'localhost';
     const isLocal = host.startsWith('localhost') || host.startsWith('127.0.0.1');
 
-    // Cloudflare Pages does not support raw WebSocket upgrades — skip WS init
-    // and operate in HTTP-only mesh mode to avoid noisy console errors.
-    const isCloudflarePages = host.endsWith('.pages.dev') || (typeof (globalThis as any).__CF_PAGES !== 'undefined');
+    // Cloudflare Pages edge deployments (urefy.com and *.pages.dev) do not support
+    // raw WebSocket upgrades — operate in HTTP-only mesh mode to avoid noisy console errors & retry loops.
+    const isCloudflarePages = host.endsWith('.pages.dev') ||
+      host === 'urefy.com' || host.endsWith('.urefy.com') ||
+      (typeof (globalThis as any).__CF_PAGES !== 'undefined');
     if (isCloudflarePages) {
+      const wasConnected = this.isConnected;
       this.isConnected = false;
-      this.notify();
+      if (wasConnected) {
+        this.notify();
+      }
       return;
     }
 
@@ -1098,8 +1135,11 @@ export class AetherisClientStore {
       };
 
       this.ws.onclose = () => {
+        const wasConnected = this.isConnected;
         this.isConnected = false;
-        this.notify();
+        if (wasConnected) {
+          this.notify();
+        }
         // Reconnect with exponential backoff & full jitter if in browser
         if (typeof window !== 'undefined') {
           if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
@@ -1114,15 +1154,21 @@ export class AetherisClientStore {
         if (this.reconnectAttempts === 0) {
           console.info('WebSocket relay offline, operating with Edge HTTP sync & local mesh');
         }
+        const wasConnected = this.isConnected;
         this.isConnected = false;
-        this.notify();
+        if (wasConnected) {
+          this.notify();
+        }
       };
     } catch (err) {
       if (this.reconnectAttempts === 0) {
         console.info('WebSocket initialization in local mesh mode');
       }
+      const wasConnected = this.isConnected;
       this.isConnected = false;
-      this.notify();
+      if (wasConnected) {
+        this.notify();
+      }
     }
   }
 
@@ -1398,7 +1444,13 @@ export class AetherisClientStore {
     } else if (density === 'compact') {
       this.viewMode = 'compact';
     }
-    this.notify();
+    if (typeof localStorage !== 'undefined') {
+      try { localStorage.setItem('aetheris_density_mode', density); } catch {}
+    }
+    if (typeof document !== 'undefined') {
+      document.documentElement.setAttribute('data-density', density);
+    }
+    this.notify('DENSITY_CHANGED', { density });
   }
 
   public setViewMode(mode: ViewMode): void {
@@ -1558,10 +1610,19 @@ export class AetherisClientStore {
     const formData = new FormData();
     formData.append('file', file);
     try {
+      if (file.size > 25 * 1024 * 1024) throw new Error('Maximum cloud file size is 25 MiB');
+      const hash = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
+      const sha256 = Array.from(new Uint8Array(hash), byte => byte.toString(16).padStart(2, '0')).join('');
+      const envelope = this.createSignedEnvelope({ action: 'storage:upload', sha256, fileName: file.name });
       const res = await fetch('/api/storage', {
         method: 'POST',
+        headers: { 'X-Sovereign-Envelope': JSON.stringify(envelope) },
         body: formData,
       });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error || `Upload rejected (${res.status})`);
+      }
       if (res.ok) {
         const data = await res.json();
         this.showToast(`Vault: Stored '${file.name}' in ${data.storage || 'Cloudflare R2'}`, 'success');
@@ -1569,7 +1630,7 @@ export class AetherisClientStore {
         return data;
       }
     } catch (err: any) {
-      this.showToast(`Vault upload error: ${err?.message || 'Fallback mode active'}`, 'warning');
+      this.showToast(`Vault upload error: ${err?.message || 'Check your connection and retry'}`, 'warning');
     }
     return null;
   }
