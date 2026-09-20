@@ -115,8 +115,15 @@ export function generateSvgAvatar(seed: string, options: AvatarOptions = {}): st
     `;
   }
 
-  // Micro Monogram / Initial (first 2 chars of seed uppercase)
-  const initial = safeSeed.replace(/^(c\/|@)/, '').substring(0, 2).toUpperCase();
+  // Micro Monogram / Initial (clean user/community initial)
+  let initial = 'U';
+  if (safeSeed.startsWith('c/')) {
+    initial = safeSeed.replace(/^c\//, '').substring(0, 2).toUpperCase();
+  } else if (safeSeed.startsWith('@')) {
+    initial = safeSeed.replace(/^@/, '').substring(0, 2).toUpperCase();
+  } else if (!/^[0-9a-fA-F]{8,}/.test(safeSeed) && !safeSeed.startsWith('aeth')) {
+    initial = safeSeed.substring(0, 2).toUpperCase();
+  }
 
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="${size}" height="${size}" class="urefy-avatar shrink-0 select-none ${roundedClass} ${className}" aria-label="Avatar for ${safeSeed}" role="img">
   <defs>

@@ -3,10 +3,8 @@ import { serviceRegistry, SERVICES } from './service-registry.js';
 import { clientStore, ClientMessage, ClientPost, ClientNanopublication, SpaceType } from './client-state.js';
 import { setupKeyboardShortcuts, getAvailableCommands } from './command-rail.js';
 import { threadManager, ThreadComment, DEPTH_COLORS } from './threads.js';
-import { voiceVisualizer } from './webrtc-voice.js';
 import { isDemoModeEnabled } from './demo-mode.js';
 import { localSearchIndex, SearchResult } from './search-index.js';
-import { screenShareEngine } from './screenshare.js';
 import { obsidianMediaPlayer } from './media-player.js';
 import { pollEngine } from './polls.js';
 import { trendingEngine } from './trending.js';
@@ -16,7 +14,7 @@ import { profileView } from './profile-view.js';
 import { pulseActionsEngine } from './pulse-actions.js';
 import { storiesEngine } from './stories.js';
 import { notificationCenter } from './notifications.js';
-import { reactionsEngine } from './reactions.js';
+import { reactionsEngine, updateReactionBarDOM, bindReactionBarEvents } from './reactions.js';
 import { bookmarksVault } from './bookmarks.js';
 import { relaysManager } from './relays-manager.js';
 import { sovereignDialog } from './dialog-modal.js';
@@ -52,7 +50,6 @@ import { aethDB } from './indexed-db.js';
 import { cryptoWorkerPool } from './web-workers.js';
 import { mobileTabBar } from './mobile-tab-bar.js';
 import { pwaService } from './pwa-service.js';
-import { webAuthnManager } from './webauthn.js';
 import { viewTransitions } from './view-transitions.js';
 import { moduleLoader } from './code-splitting.js';
 import { feedPersonalization } from './feed-personalization.js';
@@ -65,6 +62,13 @@ import { feedControlsEngine } from './feed-controls.js';
 import { zkReputation } from './zk-reputation.js';
 import { sovereignCircleEngine } from './sovereign-circle.js';
 import { sovereignWebPush } from './web-push.js';
+
+// Optional media tools load only when their view or control is used.
+function initVoiceCanvas(): void {
+  if (document.getElementById('voice-oscilloscope')) {
+    void import('./webrtc-voice.js').then(({ voiceVisualizer }) => voiceVisualizer.init('voice-oscilloscope'));
+  }
+}
 
 function renderTransparencyHeaderToggle(): string {
   const isEnabled = Boolean(typeof window !== 'undefined' && (window as any).transparencyMode?.isEnabled);
@@ -87,12 +91,11 @@ function renderTransparencyHeaderToggle(): string {
 }
 import { renderRelaysWorkspace, renderMessageItem } from './messages-view.js';
 import { renderVaultWorkspace, renderVaultReleaseCard } from './vault-view.js';
-import { renderPulseWorkspace, renderPulsePostCard, renderInlineQuickComposer, renderPostCard } from './feed-view.js';
-import { adminAuth } from './admin-auth.js';
+import { renderPulseWorkspace, renderPulsePostCard, renderInlineQuickComposer, renderPostCard, quickPostDraft } from './feed-view.js';
 import { PRIMARY_NAV_ITEMS, ADVANCED_TOOLS_ITEMS, renderNavIcon } from './nav-config.js';
 import { renderIcon, renderBrandLogoMark } from './ui/icons.js';
 import { captureMessageSelection, restoreMessageSelection, getMessageDraft } from './messages-view.js';
-import { contextualSidebar } from './sidebar.js';
+import { contextualSidebar, hasContextualSidebar } from './sidebar.js';
 import { modalManager, buildModalRootHTML as orchestrateModalRootHTML } from './modal-manager.js';
 import { settingsView } from './settings-view.js';
 import { communityView } from './community-view.js';
@@ -114,6 +117,7 @@ let isGlobalScaleModalOpen = false;
 let isMobileDrawerOpen = false;
 let isAdvancedOverflowOpen = false;
 let isMoreExpanded = false;
+let _initialSsrArticleHtml = '';
 
 // Register Core Singletons into Inversion of Control Container
 serviceRegistry.registerInstance(SERVICES.ClientStore, clientStore);
@@ -184,6 +188,9 @@ if (typeof window !== 'undefined') {
   (window as any).settingsView = settingsView;
   (window as any).__aetheris_open_settings = (tab?: any) => { settingsView.open(tab); };
   (window as any).__aetheris_close_settings = () => { settingsView.close(); };
+  if (window.location.pathname === '/settings' || window.location.hash.startsWith('#settings') || clientStore.activeChannelId === 'settings') {
+    settingsView.open();
+  }
   // webTorrentSwarm is loaded on-demand
   // window.spatialAudioMesh initialized on demand
   // window.soundPacks initialized on demand
@@ -192,18 +199,16 @@ if (typeof window !== 'undefined') {
   window.__aetheris_close_global_scale = () => { modalManager.closeFeature(); };
   window.__aetheris_open_edit_profile = () => { profileView.isEditProfileModalOpen = true; clientStore.notifySync(); };
   window.__aetheris_close_edit_profile = () => { profileView.isEditProfileModalOpen = false; clientStore.notifySync(); };
-  window.__aetheris_save_profile = () => {
+  window.__aetheris_save_profile = async () => {
     const name = (document.getElementById('edit-profile-name') as HTMLInputElement)?.value.trim() || 'Sovereign Node';
     const handle = (document.getElementById('edit-profile-handle') as HTMLInputElement)?.value.replace(/^@/, '').trim() || profileView.getProfile(clientStore.keypair.fingerprint).handle;
     const bio = (document.getElementById('edit-profile-bio') as HTMLTextAreaElement)?.value.trim() || '';
-    const location = (document.getElementById('edit-profile-location') as HTMLInputElement)?.value.trim() || 'Cyberspace';
-    const website = (document.getElementById('edit-profile-website') as HTMLInputElement)?.value.trim() || 'urefy.com';
+    const location = (document.getElementById('edit-profile-location') as HTMLInputElement)?.value.trim() || '';
+    const website = (document.getElementById('edit-profile-website') as HTMLInputElement)?.value.trim() || '';
     const avatar = (document.getElementById('edit-profile-avatar') as HTMLInputElement)?.value.trim() || profileView.getProfile(clientStore.keypair.fingerprint).avatar;
     const banner = (document.getElementById('edit-profile-banner') as HTMLInputElement)?.value.trim() || profileView.getProfile(clientStore.keypair.fingerprint).banner;
 
-    profileView.saveProfile(clientStore.keypair.fingerprint, { name, handle, bio, location, website, avatar, banner });
-    profileView.isEditProfileModalOpen = false;
-    clientStore.showToast(t('toast.profileUpdated', undefined, '👤 Sovereign Profile & Photo Updated!'), 'success');
+    await profileView.saveProfile(clientStore.keypair.fingerprint, { name, handle, bio, location, website, avatar, banner });
     clientStore.notifySync();
   };
   window.__aetheris_open_gossip = () => { modalManager.openFeature('gossip'); };
@@ -218,13 +223,13 @@ if (typeof window !== 'undefined') {
   window.__aetheris_close_governance = () => { modalManager.closeFeature(); };
   window.__aetheris_open_export = () => { modalManager.openFeature('export-backup'); };
   window.__aetheris_close_export = () => { modalManager.closeFeature(); };
-  window.__aetheris_open_lang = () => { isLangModalOpen = true; clientStore.notifySync(); };
-  window.__aetheris_open_theme = () => { isThemeModalOpen = true; themeEngine.openModal(); clientStore.notifySync(); };
-  window.__aetheris_close_theme = () => { isThemeModalOpen = false; themeEngine.closeModal(); clientStore.notifySync(); };
-  window.__aetheris_apply_theme = (id: string) => { themeEngine.setTheme(id); isThemeModalOpen = false; themeEngine.isModalOpen = false; clientStore.notifySync(); };
-  window.__aetherisToggleNotifs = () => { isNotificationPanelOpen = !isNotificationPanelOpen; clientStore.notifySync(); };
-  window.__aetherisCloseNotifs = () => { isNotificationPanelOpen = false; clientStore.notifySync(); };
-  window.__aetheris_close_lang = () => { isLangModalOpen = false; clientStore.notifySync(); };
+  window.__aetheris_open_lang = () => { isLangModalOpen = true; clientStore.notifySync('MODAL_CHANGE'); };
+  window.__aetheris_open_theme = () => { isThemeModalOpen = true; themeEngine.openModal(); clientStore.notifySync('MODAL_CHANGE'); };
+  window.__aetheris_close_theme = () => { isThemeModalOpen = false; themeEngine.closeModal(); clientStore.notifySync('MODAL_CHANGE'); };
+  window.__aetheris_apply_theme = (id: string) => { themeEngine.setTheme(id); isThemeModalOpen = false; themeEngine.isModalOpen = false; clientStore.notifySync('MODAL_CHANGE'); };
+  window.__aetherisToggleNotifs = () => { isNotificationPanelOpen = !isNotificationPanelOpen; clientStore.notifySync('MODAL_CHANGE'); };
+  window.__aetherisCloseNotifs = () => { isNotificationPanelOpen = false; clientStore.notifySync('MODAL_CHANGE'); };
+  window.__aetheris_close_lang = () => { isLangModalOpen = false; clientStore.notifySync('MODAL_CHANGE'); };
   window.__aetheris_close_observatory = () => { modalManager.closeFeature(); };
   window.__aetheris_close_wot_graph = () => { modalManager.closeFeature(); };
   window.__aetheris_close_custom_theme_builder = () => {
@@ -309,10 +314,25 @@ if (typeof window !== 'undefined') {
   };
   window.sovereignCircleEngine = sovereignCircleEngine;
   window.relaysManager = relaysManager;
-                window.postDetailView = postDetailView;
-  
-  
-  
+  window.postDetailView = postDetailView;
+  if (!('webAuthnManager' in window)) {
+    let _wam: any = null;
+    Object.defineProperty(window, 'webAuthnManager', {
+      configurable: true,
+      enumerable: true,
+      get() {
+        if (!_wam) {
+          void import('./webauthn.js').then((m) => {
+            _wam = m.webAuthnManager;
+          });
+        }
+        return _wam;
+      },
+      set(v) {
+        _wam = v;
+      },
+    });
+  }
 }
 
 let activeCrossPostId: string | null = null;
@@ -334,98 +354,13 @@ let activeDownloadName: string | null = null;
 let activeDownloadProgress: number = 0;
 
 
-function updateReactionBarDOM(postId: string): void {
-  const bar = document.querySelector(`.reactions-bar[data-post-id="${postId}"]`);
-  if (bar) {
-    const newHtml = reactionsEngine.renderReactionBar(postId, clientStore.keypair.fingerprint);
-    const temp = document.createElement('div');
-    temp.innerHTML = newHtml;
-    const newBar = temp.firstElementChild as HTMLElement;
-    if (newBar) {
-      bar.replaceWith(newBar);
-      bindReactionBarEvents(newBar);
-    }
-  }
-}
-
-function bindReactionBarEvents(container: Document | HTMLElement = document): void {
-  // 1. Add Reaction (+ React button) with Global Portal Stacking Overlay
-  container.querySelectorAll<HTMLButtonElement>('.add-reaction-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const postId = btn.getAttribute('data-post-id');
-      if (postId) {
-        soundEffects.playClick();
-        reactionsEngine.openPortalPicker(
-          btn,
-          postId,
-          clientStore.keypair?.fingerprint || 'anon-peer',
-          (emoji) => {
-            soundEffects.playReaction();
-            void import('./analytics-widget.js').then(({ localAnalytics }) => localAnalytics.recordUpvote());
-            const rect = btn.getBoundingClientRect();
-            if (rect && rect.top > 0) {
-              reactionsEngine.triggerParticleBurst(rect.left + rect.width / 2, rect.top, emoji);
-            }
-            updateReactionBarDOM(postId);
-            clientStore.notify('REACTION', { postId, emoji });
-          }
-        );
-      }
-    });
-  });
-
-  // 2. Close Picker Button (Close ✕)
-  container.querySelectorAll<HTMLButtonElement>('.close-picker-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const pickerId = btn.getAttribute('data-picker-id');
-      if (pickerId) {
-        const pk = document.getElementById(pickerId);
-        if (pk) pk.classList.add('hidden');
-        const addBtn = document.querySelector(`.add-reaction-btn[data-picker-id="${pickerId}"]`);
-        if (addBtn) addBtn.setAttribute('aria-expanded', 'false');
-      }
-    });
-  });
-
-  // 3. Emoji Reaction Buttons (both in pills and in picker)
-  container.querySelectorAll<HTMLButtonElement>('.btn-toggle-reaction').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const postId = btn.getAttribute('data-post-id');
-      const emoji = btn.getAttribute('data-emoji');
-      if (postId && emoji) {
-        reactionsEngine.toggleReaction(postId, emoji, clientStore.keypair.fingerprint);
-        soundEffects.playReaction();
-        void import('./analytics-widget.js').then(({ localAnalytics }) => localAnalytics.recordUpvote());
-
-        // Particle burst from button
-        const rect = btn.getBoundingClientRect();
-        if (rect && rect.top > 0) {
-          reactionsEngine.triggerParticleBurst(rect.left + rect.width / 2, rect.top, emoji);
-        }
-
-        // Close parent picker if clicked inside picker
-        const parentPicker = btn.closest('.reactions-picker');
-        if (parentPicker) {
-          parentPicker.classList.add('hidden');
-          const pickerId = parentPicker.id;
-          const addBtn = document.querySelector(`.add-reaction-btn[data-picker-id="${pickerId}"]`);
-          if (addBtn) addBtn.setAttribute('aria-expanded', 'false');
-        }
-
-        // Fast in-place DOM update of this post's reaction bar
-        updateReactionBarDOM(postId);
-
-        // Fast notify
-        clientStore.notify('REACTION', { postId, emoji });
-      }
-    });
-  });
-}
+export { updateReactionBarDOM, bindReactionBarEvents };
 
 export function initApp(): void {
+  if (typeof window !== 'undefined' && 'scrollRestoration' in history) {
+    history.scrollRestoration = 'manual';
+  }
+  void clientStore.restoreUnsentPosts();
   errorBoundary.init();
   awardPopoverManager.init();
   setupKeyboardShortcuts();
@@ -500,11 +435,17 @@ export function initApp(): void {
   const appEl = document.getElementById('app');
   if (!appEl) return;
 
+  // Capture pre-rendered SSR article before first paint to prevent layout jump or flash
+  const existingSsrArticle = appEl.querySelector('article.social-post');
+  if (existingSsrArticle) {
+    _initialSsrArticleHtml = existingSsrArticle.outerHTML;
+  }
+
   const renderAdvancedHeaderTools = (inDropdown: boolean = false): string => {
     if (inDropdown) {
       return `
         <!-- MODE SWITCHER (SIMPLE vs ADVANCED) -->
-        <div class="col-span-1 sm:col-span-2 p-2.5 rounded-2xl bg-indigo-950/40 border border-indigo-500/20 flex items-center justify-between mb-1">
+        <div class="col-span-1 sm:col-span-2 p-2.5 rounded-2xl bg-surface-raised border border-white/10 flex items-center justify-between mb-1">
           <div class="flex items-center space-x-2">
             <span class="text-sm">⚡</span>
             <div>
@@ -512,138 +453,147 @@ export function initApp(): void {
               <div class="text-[10px] text-slate-400">${clientStore.isSimpleMode() ? 'Clean, social-first UI' : 'Developer & diagnostic tools active'}</div>
             </div>
           </div>
-          <button type="button" id="btn-toggle-ui-mode-header" class="px-2.5 py-1 rounded-xl text-[11px] font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition-all cursor-pointer shadow-sm">
+          <button type="button" id="btn-toggle-ui-mode-header" class="px-2.5 py-1 rounded-xl text-[11px] font-bold bg-[var(--color-accent,#e59b3c)] hover:brightness-105 text-slate-950 transition-all cursor-pointer shadow-sm">
             ${clientStore.isSimpleMode() ? 'Switch to Advanced' : 'Switch to Simple'}
           </button>
         </div>
 
-        <!-- DUAL HORIZON -->
-        <button type="button" id="btn-toggle-dual-horizon" title="Toggle Split Screen: Stream + Vault simultaneously (Ctrl+\\)" class="w-full flex items-center space-x-2 px-2.5 py-1.5 rounded-xl text-xs border border-white/5 bg-surface-base/60 hover:bg-surface-overlay text-slate-300 transition-all cursor-pointer ${clientStore.isDualHorizon ? 'border-indigo-500/40 text-indigo-300' : ''}">
-          <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 4v16m6-16v16M4 4h16v16H4z"></path></svg>
-          <span class="font-sans font-medium text-[11px] truncate">Dual Horizon</span>
+        <!-- 1. SECURITY & PRIVACY -->
+        <div class="col-span-1 sm:col-span-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 px-1 pt-2 pb-0.5 border-t border-white/5">
+          Security &amp; Privacy
+        </div>
+        <!-- SEED VAULT -->
+        <button type="button" id="btn-open-seed-vault" data-action="open-feature" data-feature="mnemonic" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-base/60 hover:bg-surface-overlay text-slate-300 transition-all cursor-pointer" title="Sovereign Identity Seed Vault (BIP-39)">
+          <span class="shrink-0">🔐</span>
+          <span class="font-sans font-medium text-[11px] truncate">Seed Vault</span>
+        </button>
+        <!-- SOCIAL RECOVERY -->
+        <button type="button" id="btn-open-social-recovery" data-action="open-feature" data-feature="social-recovery" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-base/60 hover:bg-surface-overlay text-slate-300 transition-all cursor-pointer" title="Social Identity Recovery via WoT Guardians">
+          <span class="shrink-0">🛡️</span>
+          <span class="font-sans font-medium text-[11px] truncate">Social Recovery</span>
+        </button>
+        <!-- STEGANOGRAPHY -->
+        <button type="button" id="btn-open-steganography" data-action="open-feature" data-feature="steganography" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-base/60 hover:bg-surface-overlay text-slate-300 transition-all cursor-pointer" title="Pixel Canvas Steganography (LSB PNG E2EE)">
+          <span class="shrink-0">🖼️</span>
+          <span class="font-sans font-medium text-[11px] truncate">Stego Canvas</span>
+        </button>
+        <!-- BINARY HYGIENE -->
+        <button type="button" id="btn-open-binary-hygiene" data-action="open-feature" data-feature="binary-hygiene" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-base/60 hover:bg-surface-overlay text-slate-300 transition-all cursor-pointer" title="Binary Hygiene (Entropy & UPX Packer Detection)">
+          <span class="shrink-0">🔍</span>
+          <span class="font-sans font-medium text-[11px] truncate">Binary Hygiene</span>
         </button>
 
+        <!-- 2. NETWORK & MESH -->
+        <div class="col-span-1 sm:col-span-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 px-1 pt-2 pb-0.5 border-t border-white/5">
+          Network &amp; Mesh
+        </div>
         <!-- ANYCAST EDGE OBSERVATORY -->
-        <button type="button" id="btn-open-global-scale" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-base/60 hover:bg-surface-overlay text-slate-300 font-mono transition-all cursor-pointer" title="Worldwide Anycast Edge Infrastructure">
+        <button type="button" id="btn-open-global-scale" data-action="open-feature" data-feature="global-scale" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-base/60 hover:bg-surface-overlay text-slate-300 transition-all cursor-pointer" title="Worldwide Anycast Edge Infrastructure">
           <span class="text-xs shrink-0">🌐</span>
           <span class="font-sans font-medium text-[11px] truncate">Anycast Edge</span>
         </button>
-
         <!-- MESH MATRIX -->
-        <button type="button" id="btn-open-mesh-matrix" data-action="open-feature" data-feature="mesh-matrix" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-base/60 hover:bg-surface-overlay text-slate-300 font-mono transition-all cursor-pointer" title="Mesh Matrix Topology">
+        <button type="button" id="btn-open-mesh-matrix" data-action="open-feature" data-feature="mesh-matrix" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-base/60 hover:bg-surface-overlay text-slate-300 transition-all cursor-pointer" title="Mesh Matrix Topology">
           <span class="text-xs shrink-0">🕸️</span>
           <span class="font-sans font-medium text-[11px] truncate">Mesh Matrix</span>
         </button>
-
-        <!-- DAO GOVERNANCE -->
-        <button type="button" id="nav-btn-dao" data-action="open-feature" data-feature="governance" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-base/60 hover:bg-surface-overlay text-slate-300 font-mono transition-all cursor-pointer" title="DAO Governance">
-          <span class="text-xs shrink-0">🗳️</span>
-          <span class="font-sans font-medium text-[11px] truncate">DAO Governance</span>
-        </button>
-
-        <!-- RSS IMPORTER -->
-        <button type="button" id="btn-open-rss-panel" data-action="open-feature" data-feature="rss" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-base/60 hover:bg-surface-overlay text-slate-300 font-mono transition-all cursor-pointer" title="RSS Importer">
-          <span class="text-xs shrink-0">📡</span>
-          <span class="font-sans font-medium text-[11px] truncate">RSS Importer</span>
-        </button>
-
-        <!-- CVE MONITOR -->
-        <button type="button" id="btn-open-cve-monitor" data-action="open-feature" data-feature="cve" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-base/60 hover:bg-surface-overlay text-slate-300 font-mono transition-all cursor-pointer" title="CVE Security Monitor">
-          <span class="text-xs shrink-0">🛡️</span>
-          <span class="font-sans font-medium text-[11px] truncate">CVE Monitor</span>
-        </button>
-
         <!-- NETWORK OBSERVATORY -->
-        <button type="button" id="btn-open-network-observatory" data-action="open-feature" data-feature="observatory" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-base/60 hover:bg-surface-overlay text-slate-300 font-mono transition-all cursor-pointer" title="Network Observatory">
+        <button type="button" id="btn-open-network-observatory" data-action="open-feature" data-feature="observatory" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-base/60 hover:bg-surface-overlay text-slate-300 transition-all cursor-pointer" title="Network Observatory">
           <span class="text-xs shrink-0">📊</span>
           <span class="font-sans font-medium text-[11px] truncate">Observatory</span>
         </button>
-
-        <!-- TRUST GRAPH -->
-        <button type="button" id="btn-open-wot-graph" data-action="open-feature" data-feature="wot-graph" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-base/60 hover:bg-surface-overlay text-slate-300 font-mono transition-all cursor-pointer" title="Web of Trust Graph">
-          <span class="text-xs shrink-0">🔗</span>
-          <span class="font-sans font-medium text-[11px] truncate">Trust Graph</span>
-        </button>
-
         <!-- GOSSIP VISUALIZER -->
-        <button type="button" id="btn-open-gossip-viz" data-action="open-feature" data-feature="gossip" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-base/60 hover:bg-surface-overlay text-slate-300 font-mono transition-all cursor-pointer" title="Gossip Protocol Visualizer">
+        <button type="button" id="btn-open-gossip-viz" data-action="open-feature" data-feature="gossip" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-base/60 hover:bg-surface-overlay text-slate-300 transition-all cursor-pointer" title="Gossip Protocol Visualizer">
           <span class="text-xs shrink-0">📻</span>
           <span class="font-sans font-medium text-[11px] truncate">Gossip Viz</span>
         </button>
 
-        <!-- EXPORT BACKUP -->
-        <button type="button" id="btn-open-backup-export" data-action="open-feature" data-feature="export-backup" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-base/60 hover:bg-surface-overlay text-slate-300 font-mono transition-all cursor-pointer" title="Export & Backup">
-          <span class="text-xs shrink-0">💾</span>
-          <span class="font-sans font-medium text-[11px] truncate">Export & Backup</span>
+        <!-- 3. TRUST & GOVERNANCE -->
+        <div class="col-span-1 sm:col-span-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 px-1 pt-2 pb-0.5 border-t border-white/5">
+          Trust &amp; Governance
+        </div>
+        <!-- TRUST GRAPH -->
+        <button type="button" id="btn-open-wot-graph" data-action="open-feature" data-feature="wot-graph" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-base/60 hover:bg-surface-overlay text-slate-300 transition-all cursor-pointer" title="Web of Trust Graph">
+          <span class="text-xs shrink-0">🔗</span>
+          <span class="font-sans font-medium text-[11px] truncate">Trust Graph</span>
         </button>
-
-        <!-- SEED VAULT -->
-        <button type="button" id="btn-open-seed-vault" data-action="open-feature" data-feature="mnemonic" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 font-mono transition-all cursor-pointer" title="Sovereign Identity Seed Vault (BIP-39)">
-          <span class="shrink-0">🔐</span>
-          <span class="font-sans font-medium text-[11px] truncate">Seed Vault</span>
-        </button>
-
-        <!-- STEGANOGRAPHY -->
-        <button type="button" id="btn-open-steganography" data-action="open-feature" data-feature="steganography" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 font-mono transition-all cursor-pointer" title="Pixel Canvas Steganography (LSB PNG E2EE)">
-          <span class="shrink-0">🖼️</span>
-          <span class="font-sans font-medium text-[11px] truncate">Stego Canvas</span>
-        </button>
-
-        <!-- DATA ARCHIVE -->
-        <button type="button" id="btn-open-archive-vault" data-action="open-feature" data-feature="archive" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 font-mono transition-all cursor-pointer" title="Sovereign Data Archive (AES-256-GCM Export / Restore)">
-          <span class="shrink-0">📦</span>
-          <span class="font-sans font-medium text-[11px] truncate">Data Archive</span>
-        </button>
-
-        <!-- SOCIAL RECOVERY -->
-        <button type="button" id="btn-open-social-recovery" data-action="open-feature" data-feature="social-recovery" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 font-mono transition-all cursor-pointer" title="Social Identity Recovery via WoT Guardians">
-          <span class="shrink-0">🛡️</span>
-          <span class="font-sans font-medium text-[11px] truncate">Social Recovery</span>
-        </button>
-
-        <!-- BINARY HYGIENE -->
-        <button type="button" id="btn-open-binary-hygiene" data-action="open-feature" data-feature="binary-hygiene" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 font-mono transition-all cursor-pointer" title="Binary Hygiene (Entropy & UPX Packer Detection)">
-          <span class="shrink-0">🛡️</span>
-          <span class="font-sans font-medium text-[11px] truncate">Binary Hygiene</span>
-        </button>
-
         <!-- PORTABLE ZK TRUST -->
-        <button type="button" id="btn-open-portable-trust" data-action="open-feature" data-feature="portable-trust" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 font-mono transition-all cursor-pointer" title="Portable ZK Trust Score (BN254 Range Proofs)">
+        <button type="button" id="btn-open-portable-trust" data-action="open-feature" data-feature="portable-trust" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-base/60 hover:bg-surface-overlay text-slate-300 transition-all cursor-pointer" title="Portable ZK Trust Score (BN254 Range Proofs)">
           <span class="shrink-0">💎</span>
           <span class="font-sans font-medium text-[11px] truncate">ZK Trust</span>
         </button>
-
-        <!-- DEV APIS & MICRO-SAAS -->
-        <button type="button" id="btn-open-microsaas-docs" data-action="open-feature" data-feature="microsaas-docs" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 font-mono transition-all cursor-pointer" title="Developer APIs & Micro-SaaS Hub (Cloudflare Edge Free Tier)">
-          <span class="shrink-0">⚡</span>
-          <span class="font-sans font-medium text-[11px] truncate">Dev APIs & SaaS</span>
+        <!-- DAO GOVERNANCE -->
+        <button type="button" id="nav-btn-dao" data-action="open-feature" data-feature="governance" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-base/60 hover:bg-surface-overlay text-slate-300 transition-all cursor-pointer" title="DAO Governance">
+          <span class="text-xs shrink-0">🗳️</span>
+          <span class="font-sans font-medium text-[11px] truncate">DAO Governance</span>
         </button>
 
+        <!-- 4. DEVELOPER & API -->
+        <div class="col-span-1 sm:col-span-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 px-1 pt-2 pb-0.5 border-t border-white/5">
+          Developer &amp; API
+        </div>
+        <!-- DEV APIS & MICRO-SAAS -->
+        <button type="button" id="btn-open-microsaas-docs" data-action="open-feature" data-feature="microsaas-docs" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-base/60 hover:bg-surface-overlay text-slate-300 transition-all cursor-pointer" title="Developer APIs & Micro-SaaS Hub (Cloudflare Edge Free Tier)">
+          <span class="shrink-0">⚡</span>
+          <span class="font-sans font-medium text-[11px] truncate">Dev APIs &amp; SaaS</span>
+        </button>
+        <!-- CVE MONITOR -->
+        <button type="button" id="btn-open-cve-monitor" data-action="open-feature" data-feature="cve" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-base/60 hover:bg-surface-overlay text-slate-300 transition-all cursor-pointer" title="CVE Security Monitor">
+          <span class="text-xs shrink-0">🛡️</span>
+          <span class="font-sans font-medium text-[11px] truncate">CVE Monitor</span>
+        </button>
+        <!-- RSS IMPORTER -->
+        <button type="button" id="btn-open-rss-panel" data-action="open-feature" data-feature="rss" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-base/60 hover:bg-surface-overlay text-slate-300 transition-all cursor-pointer" title="RSS Importer">
+          <span class="text-xs shrink-0">📡</span>
+          <span class="font-sans font-medium text-[11px] truncate">RSS Importer</span>
+        </button>
+
+        <!-- 5. DATA & BACKUP -->
+        <div class="col-span-1 sm:col-span-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 px-1 pt-2 pb-0.5 border-t border-white/5">
+          Data &amp; Backup
+        </div>
+        <!-- DATA ARCHIVE -->
+        <button type="button" id="btn-open-archive-vault" data-action="open-feature" data-feature="archive" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-base/60 hover:bg-surface-overlay text-slate-300 transition-all cursor-pointer" title="Sovereign Data Archive (AES-256-GCM Export / Restore)">
+          <span class="shrink-0">📦</span>
+          <span class="font-sans font-medium text-[11px] truncate">Data Archive</span>
+        </button>
+        <!-- EXPORT BACKUP -->
+        <button type="button" id="btn-open-backup-export" data-action="open-feature" data-feature="export-backup" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-base/60 hover:bg-surface-overlay text-slate-300 transition-all cursor-pointer" title="Export & Backup">
+          <span class="text-xs shrink-0">💾</span>
+          <span class="font-sans font-medium text-[11px] truncate">Export &amp; Backup</span>
+        </button>
+        <!-- SAVED IN VAULT -->
+        <button type="button" id="btn-open-bookmarks-modal" data-action="toggle-bookmarks" class="w-full flex items-center space-x-2 px-2.5 py-1.5 rounded-xl border border-white/5 bg-surface-base/60 text-slate-300 hover:text-amber-400 hover:bg-surface-overlay transition-all cursor-pointer" title="Saved to Vault">
+          <span class="text-xs shrink-0">🔖</span>
+          <span class="font-sans font-medium text-[11px] truncate">Saved in Vault</span>
+        </button>
+
+        <!-- 6. WORKSPACE & ACCESSIBILITY -->
+        <div class="col-span-1 sm:col-span-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 px-1 pt-2 pb-0.5 border-t border-white/5">
+          Workspace &amp; Accessibility
+        </div>
+        <!-- DUAL HORIZON -->
+        <button type="button" id="btn-toggle-dual-horizon" title="Toggle Split Screen: Stream + Vault simultaneously (Ctrl+\\)" class="w-full flex items-center space-x-2 px-2.5 py-1.5 rounded-xl text-xs border border-white/5 bg-surface-base/60 hover:bg-surface-overlay text-slate-300 transition-all cursor-pointer ${clientStore.isDualHorizon ? 'border-amber-500/40 text-amber-300' : ''}">
+          <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 4v16m6-16v16M4 4h16v16H4z"></path></svg>
+          <span class="font-sans font-medium text-[11px] truncate">Dual Horizon</span>
+        </button>
+        <!-- KEYBOARD SHORTCUTS -->
+        <button type="button" id="btn-open-keyboard-help" data-action="open-keyboard-help" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-base/60 hover:bg-surface-overlay text-slate-300 transition-all cursor-pointer" title="Keyboard Shortcuts (?)">
+          <span class="shrink-0">⌨️</span>
+          <span class="font-sans font-medium text-[11px] truncate">Shortcuts (?)</span>
+        </button>
+        <!-- LANGUAGE SELECTOR -->
+        <button type="button" id="btn-open-lang-picker" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-base/60 hover:bg-surface-overlay text-slate-300 transition-all cursor-pointer" title="Switch Language & RTL Mode (${i18n.getCurrentLanguageMeta().name})">
+          <span class="shrink-0">${i18n.getCurrentLanguageMeta().flag}</span>
+          <span class="font-sans font-medium text-[11px] truncate">${i18n.getLanguage().toUpperCase()}</span>
+        </button>
         <!-- TRANSPARENCY MODE -->
         <div class="col-span-1 sm:col-span-2">
           ${renderTransparencyHeaderToggle()}
         </div>
 
-        <!-- KEYBOARD SHORTCUTS -->
-        <button type="button" id="btn-open-keyboard-help" data-action="open-keyboard-help" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-base/60 hover:bg-surface-overlay text-slate-300 font-mono transition-all cursor-pointer" title="Keyboard Shortcuts (?)">
-          <span class="shrink-0">⌨️</span>
-          <span class="font-sans font-medium text-[11px] truncate">Shortcuts (?)</span>
-        </button>
-
-        <!-- LANGUAGE SELECTOR -->
-        <button type="button" id="btn-open-lang-picker" class="w-full flex items-center space-x-2 px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-base/60 hover:bg-surface-overlay text-slate-300 font-mono transition-all cursor-pointer" title="Switch Language & RTL Mode (${i18n.getCurrentLanguageMeta().name})">
-          <span class="shrink-0">${i18n.getCurrentLanguageMeta().flag}</span>
-          <span class="font-sans font-medium text-[11px] truncate">${i18n.getLanguage().toUpperCase()}</span>
-        </button>
-
-        <!-- BOOKMARKS -->
-        <button type="button" id="btn-open-bookmarks-modal" class="w-full flex items-center space-x-2 px-2.5 py-1.5 rounded-xl border border-white/5 bg-surface-base/60 text-slate-300 hover:text-amber-400 hover:bg-surface-overlay transition-all cursor-pointer" title="Saved Bookmarks">
-          <span class="text-xs shrink-0">🔖</span>
-          <span class="font-sans font-medium text-[11px] truncate">Bookmarks</span>
-        </button>
-
         <!-- SOUND, ZEN & OFFLINE SYNC -->
-        <div class="col-span-1 sm:col-span-2 flex items-center justify-between p-2 rounded-xl bg-surface-base/40 border border-white/5">
+        <div class="col-span-1 sm:col-span-2 flex items-center justify-between p-2 rounded-xl bg-surface-base/40 border border-white/5 mt-1">
           <div class="flex items-center space-x-1.5">
             ${soundEffects.renderSoundToggle()}
             ${zenModeManager.renderZenButton()}
@@ -661,7 +611,7 @@ export function initApp(): void {
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 4v16m6-16v16M4 4h16v16H4z"></path></svg>
       </button>
 
-      <button type="button" id="btn-open-global-scale" class="hidden xl:flex px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-raised/80 hover:bg-surface-overlay text-slate-300 font-mono items-center space-x-1.5 transition-all shadow-sm cursor-pointer" title="Worldwide Anycast Edge Infrastructure">
+      <button type="button" id="btn-open-global-scale-header" data-action="open-feature" data-feature="global-scale" class="hidden xl:flex px-2.5 py-1.5 text-xs rounded-xl border border-white/5 bg-surface-raised/80 hover:bg-surface-overlay text-slate-300 font-mono items-center space-x-1.5 transition-all shadow-sm cursor-pointer" title="Worldwide Anycast Edge Infrastructure">
         <span class="text-xs">🌐</span>
         <span class="text-slate-300 font-sans text-[11px]">Anycast Edge</span>
       </button>
@@ -724,17 +674,20 @@ export function initApp(): void {
 
   const updateNavigationActiveClasses = (): void => {
     const currentChannel = clientStore.activeChannelId;
-    let activeMode = 'pulse';
-    if (currentChannel.startsWith('pulse-')) activeMode = 'pulse';
-    else if (currentChannel === 'explore') activeMode = 'explore';
-    else if (currentChannel === 'communities' || currentChannel.startsWith('c/')) activeMode = 'communities';
-    else if (currentChannel.startsWith('profile')) activeMode = 'profile';
-    else if (currentChannel.startsWith('vault-')) activeMode = 'vault';
-    else if (currentChannel.startsWith('relays-') || currentChannel.startsWith('relay-') || currentChannel.startsWith('dm-')) activeMode = 'relays';
+    const currentRoute = sovereignRouter.route;
+    let activeMode: string | null = null;
+    if (currentRoute === 'settings' || currentChannel === 'settings') activeMode = 'settings';
+    else if (currentChannel.startsWith('pulse-') || currentRoute === 'feed') activeMode = 'pulse';
+    else if (currentChannel === 'explore' || currentRoute === 'explore') activeMode = 'explore';
+    else if (currentChannel === 'communities' || currentChannel.startsWith('c/') || currentRoute === 'communities') activeMode = 'communities';
+    else if (currentChannel.startsWith('profile') || currentRoute === 'profile') activeMode = 'profile';
+    else if (currentChannel.startsWith('vault-') || currentChannel === 'vault' || currentRoute === 'vault') activeMode = 'vault';
+    else if (currentChannel.startsWith('relays-') || currentChannel.startsWith('relay-') || currentChannel.startsWith('dm-') || currentRoute === 'messages') activeMode = 'relays';
 
     document.querySelectorAll('[data-nav-mode]').forEach(btn => {
       const mode = btn.getAttribute('data-nav-mode');
       const isActive = mode === activeMode;
+      btn.setAttribute('aria-current', isActive ? 'page' : 'false');
       if (isActive) {
         btn.classList.add('is-active', 'nav-item-active', 'shadow-sm');
         btn.classList.remove('text-slate-300', 'text-slate-400');
@@ -750,6 +703,14 @@ export function initApp(): void {
       }
     });
 
+    document.querySelectorAll('[data-action="open-settings"]').forEach(btn => {
+      if (activeMode === 'settings') {
+        btn.classList.add('is-active', 'text-indigo-400', 'font-bold');
+      } else {
+        btn.classList.remove('is-active', 'text-indigo-400', 'font-bold');
+      }
+    });
+
     document.querySelectorAll('[data-channel-id]').forEach(btn => {
       const chId = btn.getAttribute('data-channel-id');
       const isActive = chId === currentChannel;
@@ -761,6 +722,10 @@ export function initApp(): void {
         btn.classList.add('text-slate-300');
       }
     });
+
+    if (typeof mobileTabBar !== 'undefined' && typeof mobileTabBar.syncActiveTabDOM === 'function') {
+      mobileTabBar.syncActiveTabDOM(currentChannel);
+    }
   };
 
   // Search indexing is incremental: UI-only updates no longer rebuild the full
@@ -812,6 +777,39 @@ export function initApp(): void {
 
   const renderLeftRailContent = (): string => railController.renderLeftRailContent({ isMoreExpanded });
 
+  /** Build modal root HTML (delegated to sovereign modal-manager orchestrator) */
+  const buildModalRootHTML = (): string => orchestrateModalRootHTML({
+    isThemeModalOpen,
+    isLangModalOpen,
+    isGlobalScaleModalOpen,
+    isGovernanceModalOpen,
+    isRSSModalOpen,
+    isCVEModalOpen,
+    isGossipModalOpen,
+    isExportBackupModalOpen,
+    renderCommandRailModal,
+    renderPostDetailModal,
+    renderAwardModal,
+    renderCrossPostModal,
+    renderBookmarksModal,
+    renderNotificationsDropdown,
+  });
+
+  let _scaffoldRendered = false;
+  const _lastHtmlCache = new Map<string, string>();
+
+  /** Patch an element's innerHTML only if it actually changed — avoids browser reflow & visual remounts */
+  const patchEl = (id: string, html: string): boolean => {
+    const el = document.getElementById(id);
+    if (!el) return false;
+    if (_lastHtmlCache.get(id) === html) {
+      return false;
+    }
+    _lastHtmlCache.set(id, html);
+    el.innerHTML = html;
+    return true;
+  };
+
   const render = () => {
     errorBoundary.wrapRender(() => {
       // Preserve scroll positions across re-renders
@@ -820,7 +818,17 @@ export function initApp(): void {
       const leftRail = document.getElementById('left-rail-scroll');
       const leftScroll = leftRail ? leftRail.scrollTop : 0;
       const mainFeed = document.getElementById('main-feed-scroll');
-      const mainScroll = mainFeed ? mainFeed.scrollTop : 0;
+      const mainScroll = mainFeed ? mainFeed.scrollTop : (postDetailView.savedFeedScrollTop || 0);
+      const msgContainerEl = document.getElementById('messages-container');
+      const savedMsgScroll = msgContainerEl ? msgContainerEl.scrollTop : 0;
+      const isMsgNearBottom = msgContainerEl
+        ? (msgContainerEl.scrollHeight - msgContainerEl.scrollTop - msgContainerEl.clientHeight < 120)
+        : true;
+      const dmContainerEl = document.getElementById('sovereign-dm-messages-container');
+      const savedDmScroll = dmContainerEl ? dmContainerEl.scrollTop : 0;
+      const isDmNearBottom = dmContainerEl
+        ? (dmContainerEl.scrollHeight - dmContainerEl.scrollTop - dmContainerEl.clientHeight < 120)
+        : true;
 
     syncSearchIndex();
 
@@ -837,20 +845,42 @@ export function initApp(): void {
       }
     }
 
+    const initToasts = renderToasts();
+    const initBroadcast = renderBroadcastBanner();
+    const initHeaderPrimaryNav = renderHeaderPrimaryNav();
+    const initHeaderTools = renderHeaderToolsRoot();
+    const initLeftRail = renderLeftRailContent();
+    const initMainStage = renderMainStage();
+    const initRightRail = renderRightRailContent();
+    const initMobileDrawer = renderMobileDrawer();
+    const initMobileBottomNav = renderMobileBottomNav();
+    const initModalRoot = buildModalRootHTML();
+
+    _lastHtmlCache.set('toast-root', initToasts);
+    _lastHtmlCache.set('broadcast-root', initBroadcast);
+    _lastHtmlCache.set('header-primary-nav', initHeaderPrimaryNav);
+    _lastHtmlCache.set('header-tools-root', initHeaderTools);
+    _lastHtmlCache.set('left-rail-scroll', initLeftRail);
+    _lastHtmlCache.set('main-stage', initMainStage);
+    _lastHtmlCache.set('right-rail-scroll', initRightRail);
+    _lastHtmlCache.set('app-mobile-bottom-nav', initMobileBottomNav);
+    _lastHtmlCache.set('app-modal-root', initModalRoot);
+
     appEl.innerHTML = `
       <div id="main-layout" data-ui-mode="${clientStore.uiMode}" class="flex flex-col h-full h-[100dvh] w-full w-screen bg-canvas text-slate-200 overflow-hidden font-sans select-none relative">
         
+        <button type="button" class="skip-to-content" data-action="focus-main-content">Skip to content</button>
         <!-- PULL TO REFRESH INDICATOR -->
         ${touchGestureEngine.renderIndicatorHTML()}
 
         <!-- TOAST CONTAINER -->
-        <div id="toast-root">${renderToasts()}</div>
+        <div id="toast-root">${initToasts}</div>
 
         <!-- QUARANTINE / SLASHING ALERT BANNER -->
         ${renderQuarantineAlert()}
 
         <!-- SYSTEM EMERGENCY BROADCAST BANNER -->
-        <div id="broadcast-root">${renderBroadcastBanner()}</div>
+        <div id="broadcast-root">${initBroadcast}</div>
 
         <!-- TOP BAR: SOVEREIGN HEADER & CONTROLS -->
         <header id="app-top-header" class="app-top-header h-14 border-subtle-b bg-surface-base/95 backdrop-blur-xl px-4 sm:px-6 flex items-center justify-between z-20 shrink-0 shadow-md">
@@ -867,7 +897,7 @@ export function initApp(): void {
 
             <!-- PRIMARY WORKSPACE NAVIGATION DOCK (visible on wide screens) -->
             <nav id="header-primary-nav" class="hidden xl:flex items-center space-x-1 bg-surface-raised/80 p-1 rounded-2xl border border-white/5 text-xs shadow-inner" aria-label="Desktop primary navigation">
-              ${renderHeaderPrimaryNav()}
+              ${initHeaderPrimaryNav}
             </nav>
           </div>
 
@@ -892,17 +922,17 @@ export function initApp(): void {
 
             <!-- DYNAMIC HEADER TOOLS ROOT -->
             <div id="header-tools-root" class="flex items-center space-x-1.5 sm:space-x-2">
-              ${renderHeaderToolsRoot()}
+              ${initHeaderTools}
             </div>
 
             <!-- WALLET & IDENTITY PILL -->
             <div class="flex items-center space-x-1.5 pl-1.5 sm:pl-2 border-l border-white/10">
-              <div id="aetheris-wallet-button-container" class="hidden sm:block">
+              <div id="aetheris-wallet-button-container" class="${clientStore.uiMode === 'advanced' ? 'hidden sm:block' : 'hidden'}">
                 <button type="button" id="btn-wallet-connect" data-action="open-feature" data-feature="wallet" class="px-2.5 py-1 text-xs rounded-xl bg-surface-raised border border-white/5 hover:bg-surface-overlay text-slate-300 font-mono cursor-pointer transition-all">🔗 Wallet</button>
               </div>
 
               <button type="button" id="btn-identity-info" data-action="nav-mode" data-mode="profile" class="header-profile-button" title="Open your profile" aria-label="Open your profile">
-                <span class="header-profile-button__avatar">${(profileView.getProfile(clientStore.keypair.fingerprint)?.handle || clientStore.keypair.fingerprint).substring(0, 2).toUpperCase()}</span>
+                <span class="header-profile-button__avatar">${(profileView.getProfile(clientStore.keypair.fingerprint)?.handle ? profileView.getProfile(clientStore.keypair.fingerprint)!.handle.replace(/^@/, '').substring(0, 1).toUpperCase() : 'U')}</span>
                 <span class="hidden xl:inline">Profile</span>
                 <span class="presence-dot ${clientStore.isConnected ? 'is-online' : 'is-offline'}" aria-hidden="true"></span>
               </button>
@@ -917,7 +947,7 @@ export function initApp(): void {
           <!-- LEFT COMMAND RAIL + SOVEREIGN CIRCLES -->
           <aside id="left-rail-container" class="w-64 bg-surface-base border-subtle-r flex flex-col justify-between shrink-0 select-none hidden lg:flex">
             <div id="left-rail-scroll" class="p-3 overflow-y-auto space-y-4">
-              ${renderLeftRailContent()}
+              ${initLeftRail}
             </div>
 
             <!-- USER IDENTITY CAPSULE -->
@@ -925,7 +955,7 @@ export function initApp(): void {
               <div class="flex items-center space-x-2.5">
                 <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-slate-700 p-0.5 shrink-0">
                   <div class="w-full h-full rounded-full bg-surface-base flex items-center justify-center font-mono text-[10px] font-bold text-white">
-                    ${(profileView.getProfile(clientStore.keypair.fingerprint)?.handle || clientStore.keypair.fingerprint).substring(0, 2).toUpperCase()}
+                    ${(profileView.getProfile(clientStore.keypair.fingerprint)?.handle ? profileView.getProfile(clientStore.keypair.fingerprint)!.handle.replace(/^@/, '').substring(0, 2).toUpperCase() : 'U')}
                   </div>
                 </div>
                 <div class="flex-1 min-w-0">
@@ -949,38 +979,37 @@ export function initApp(): void {
           </aside>
 
           <!-- CENTER STAGE (THE SOVEREIGN UNIFIED STAGE) -->
-          <main id="main-stage" class="flex-1 flex overflow-hidden bg-canvas">
-            ${renderMainStage()}
+          <main id="main-stage" tabindex="-1" class="flex-1 flex overflow-hidden bg-canvas">
+            ${initMainStage}
           </main>
 
           <!-- RIGHT SOVEREIGN DISCOVERY & NETWORK RAIL -->
-          <aside id="right-rail-container" class="w-80 bg-surface-base border-subtle-l flex flex-col justify-between shrink-0 select-none hidden xl:flex">
+          <aside id="right-rail-container" class="w-80 bg-surface-base border-subtle-l flex flex-col justify-between shrink-0 select-none hidden xl:flex" style="${hasContextualSidebar(sovereignRouter.route, clientStore.activeChannelId) ? '' : 'display: none !important;'}">
             <div id="right-rail-scroll" class="p-3.5 overflow-y-auto space-y-4">
-              ${renderRightRailContent()}
+              ${initRightRail}
             </div>
 
             <!-- SYSTEM INTEGRITY TICKER -->
             <div class="p-3 border-subtle-t bg-surface-base/50 text-[10px] font-mono text-slate-500 flex items-center justify-between">
-              <span class="text-slate-600">End-to-End Encrypted</span>
-              <span class="text-emerald-400">● 0.8ms</span>
+              <span class="text-slate-400">Private messages are end-to-end encrypted</span>
             </div>
 
           </aside>
 
         </div>
 
-        ${renderMobileDrawer()}
-        <div id="app-mobile-bottom-nav">${renderMobileBottomNav()}</div>
+        ${initMobileDrawer}
+        <div id="app-mobile-bottom-nav">${initMobileBottomNav}</div>
 
         <!-- DYNAMIC ISOLATED MODAL ROOT -->
         <div id="app-modal-root" class="fixed inset-0 z-[9999] pointer-events-none">
-          ${buildModalRootHTML()}
+          ${initModalRoot}
         </div>
 
       </div>
     `;
 
-    voiceVisualizer.init('voice-oscilloscope');
+    initVoiceCanvas();
     bindEvents();
     updateNavigationActiveClasses();
 
@@ -991,6 +1020,16 @@ export function initApp(): void {
       if (newLeft && leftScroll > 0) newLeft.scrollTop = leftScroll;
       const newMain = document.getElementById('main-feed-scroll');
       if (newMain && mainScroll > 0) newMain.scrollTop = mainScroll;
+      const newMsg = document.getElementById('messages-container');
+      if (newMsg) {
+        if (isMsgNearBottom) newMsg.scrollTop = newMsg.scrollHeight;
+        else newMsg.scrollTop = savedMsgScroll;
+      }
+      const newDm = document.getElementById('sovereign-dm-messages-container');
+      if (newDm) {
+        if (isDmNearBottom) newDm.scrollTop = newDm.scrollHeight;
+        else newDm.scrollTop = savedDmScroll;
+      }
     });
     }, appEl, {
       onRetry: () => render(),
@@ -1002,33 +1041,8 @@ export function initApp(): void {
   // (#main-stage, #app-modal-root, #toast-root, mobile nav) without touching the
   // stable chrome (header, sidebars, footer) to eliminate any white-flash flicker.
 
-  let _scaffoldRendered = false;
-
-  /** Patch an element's innerHTML only if it actually changed — avoids browser reflow */
-  const patchEl = (id: string, html: string): void => {
-    const el = document.getElementById(id);
-    if (el && el.innerHTML !== html) {
-      el.innerHTML = html;
-    }
-  };
-
-  /** Build modal root HTML (delegated to sovereign modal-manager orchestrator) */
-  const buildModalRootHTML = (): string => orchestrateModalRootHTML({
-    isThemeModalOpen,
-    isLangModalOpen,
-    isGlobalScaleModalOpen,
-    isGovernanceModalOpen,
-    isRSSModalOpen,
-    isCVEModalOpen,
-    isGossipModalOpen,
-    isExportBackupModalOpen,
-    renderCommandRailModal,
-    renderPostDetailModal,
-    renderAwardModal,
-    renderCrossPostModal,
-    renderBookmarksModal,
-    renderNotificationsDropdown,
-  });
+  let _lastPostDetailOpen = false;
+  let _lastPostDetailPostId: string | null = null;
 
   const patchRender = (event?: string, data?: any) => {
     if (!_scaffoldRendered) {
@@ -1060,17 +1074,34 @@ export function initApp(): void {
       if (post) {
         document.querySelectorAll(`[data-vote-id="${data.postId}"]`).forEach(btn => {
           const dir = parseInt(btn.getAttribute('data-dir') || '0', 10);
-          if (dir === 1) {
-            btn.className = `btn-upvote text-slate-400 hover:text-indigo-400 transition-colors p-1.5 rounded-xl hover:bg-surface-overlay cursor-pointer ${post.userVoted === 1 ? 'text-indigo-400 font-bold bg-indigo-950/60' : ''}`;
-          } else if (dir === -1) {
-            btn.className = `btn-downvote text-slate-400 hover:text-rose-500 transition-colors p-1.5 rounded-xl hover:bg-surface-overlay cursor-pointer ${post.userVoted === -1 ? 'text-rose-500 font-bold bg-rose-950/60' : ''}`;
-          }
-          const container = btn.parentElement;
-          if (container) {
-            const countSpan = container.querySelector('span');
-            if (countSpan) {
-              countSpan.textContent = String(post.meritVotes);
-              countSpan.className = `font-mono text-xs font-bold ${post.userVoted === 1 ? 'text-indigo-400' : post.userVoted === -1 ? 'text-rose-500' : 'text-slate-300'}`;
+          const isDetail = btn.classList.contains('btn-detail-vote') || Boolean(btn.closest('#post-detail-modal-overlay'));
+          if (isDetail) {
+            if (dir === 1) {
+              btn.className = `btn-detail-vote p-1.5 rounded-lg hover:bg-surface-overlay transition-colors cursor-pointer ${post.userVoted === 1 ? 'text-cyphr font-bold bg-cyphr/10' : 'text-slate-400 hover:text-cyphr'}`;
+            } else if (dir === -1) {
+              btn.className = `btn-detail-vote p-1.5 rounded-lg hover:bg-surface-overlay transition-colors cursor-pointer ${post.userVoted === -1 ? 'text-crimson font-bold bg-crimson/10' : 'text-slate-400 hover:text-crimson'}`;
+            }
+            const container = btn.parentElement;
+            if (container) {
+              const countSpan = container.querySelector('span');
+              if (countSpan) {
+                countSpan.textContent = String(post.meritVotes);
+                countSpan.className = `detail-vote-count font-mono text-sm font-bold px-2 ${post.userVoted === 1 ? 'text-cyphr' : post.userVoted === -1 ? 'text-crimson' : 'text-slate-200'}`;
+              }
+            }
+          } else {
+            if (dir === 1) {
+              btn.className = `btn-upvote text-slate-400 hover:text-indigo-400 transition-colors p-1.5 rounded-xl hover:bg-surface-overlay cursor-pointer ${post.userVoted === 1 ? 'text-indigo-400 font-bold bg-indigo-950/60' : ''}`;
+            } else if (dir === -1) {
+              btn.className = `btn-downvote text-slate-400 hover:text-rose-500 transition-colors p-1.5 rounded-xl hover:bg-surface-overlay cursor-pointer ${post.userVoted === -1 ? 'text-rose-500 font-bold bg-rose-950/60' : ''}`;
+            }
+            const container = btn.parentElement;
+            if (container) {
+              const countSpan = container.querySelector('span');
+              if (countSpan) {
+                countSpan.textContent = String(post.meritVotes);
+                countSpan.className = `font-mono text-xs font-bold ${post.userVoted === 1 ? 'text-indigo-400' : post.userVoted === -1 ? 'text-rose-500' : 'text-slate-300'}`;
+              }
             }
           }
         });
@@ -1104,6 +1135,22 @@ export function initApp(): void {
       return;
     }
 
+    const currentPostDetailOpen = postDetailView.isOpen();
+    const currentPostDetailPostId = postDetailView.getActivePostId();
+    const postDetailStateChanged = (currentPostDetailOpen !== _lastPostDetailOpen) || (currentPostDetailPostId !== _lastPostDetailPostId);
+    _lastPostDetailOpen = currentPostDetailOpen;
+    _lastPostDetailPostId = currentPostDetailPostId;
+
+    // ── Fast-path 5: MODAL / OVERLAY ONLY (for simple modal overlays when post detail state didn't change) ─
+    if (event === 'MODAL_CHANGE' && !postDetailStateChanged) {
+      patchEl('app-modal-root', buildModalRootHTML());
+      postDetailView.bindEvents(async (postId: string, commentText: string, parentId?: string) => {
+        const { publishComment } = await import('./controllers/comment-controller.js');
+        await publishComment(postId, commentText.trim(), parentId);
+      });
+      return;
+    }
+
     errorBoundary.wrapRender(() => {
       // Sync search index without rebuilding unchanged documents.
       syncSearchIndex();
@@ -1114,9 +1161,21 @@ export function initApp(): void {
       const leftRailEl = document.getElementById('left-rail-scroll');
       const savedLeftScroll = leftRailEl ? leftRailEl.scrollTop : 0;
       const mainFeedEl = document.getElementById('main-feed-scroll');
-      const savedMainScroll = mainFeedEl ? mainFeedEl.scrollTop : 0;
+      const savedMainScroll = mainFeedEl ? mainFeedEl.scrollTop : (postDetailView.savedFeedScrollTop || 0);
+      const postFocusEl = document.getElementById('post-focus-view');
+      const savedPostFocusScroll = postFocusEl ? postFocusEl.scrollTop : 0;
       const savedProfileScroll = document.getElementById('sovereign-profile-container')?.scrollTop ?? 0;
       const savedSettingsNavScroll = document.getElementById('profile-settings-nav')?.scrollLeft ?? 0;
+      const msgContainerEl = document.getElementById('messages-container');
+      const savedMsgScroll = msgContainerEl ? msgContainerEl.scrollTop : 0;
+      const isMsgNearBottom = msgContainerEl
+        ? (msgContainerEl.scrollHeight - msgContainerEl.scrollTop - msgContainerEl.clientHeight < 120)
+        : true;
+      const dmContainerEl = document.getElementById('sovereign-dm-messages-container');
+      const savedDmScroll = dmContainerEl ? dmContainerEl.scrollTop : 0;
+      const isDmNearBottom = dmContainerEl
+        ? (dmContainerEl.scrollHeight - dmContainerEl.scrollTop - dmContainerEl.clientHeight < 120)
+        : true;
 
       // Preserve focused input
       const focusedEl = document.activeElement as HTMLInputElement | null;
@@ -1137,6 +1196,14 @@ export function initApp(): void {
       patchEl('left-rail-scroll', renderLeftRailContent());
       patchEl('main-stage', renderMainStage());
       patchEl('right-rail-scroll', renderRightRailContent());
+      const rightRail = document.getElementById('right-rail-container');
+      if (rightRail) {
+        if (hasContextualSidebar(sovereignRouter.route, clientStore.activeChannelId)) {
+          rightRail.style.display = '';
+        } else {
+          rightRail.style.display = 'none';
+        }
+      }
       restoreMessageSelection('relay', false);
       restoreMessageSelection('dm', false);
       document.getElementById('sovereign-profile-container')?.scrollTo({ top: savedProfileScroll, behavior: 'instant' });
@@ -1146,12 +1213,26 @@ export function initApp(): void {
       updateNavigationActiveClasses();
 
       // Patch mobile drawer open/closed state reactively
-      const drawerEl = document.getElementById('mobile-drawer');
+      let drawerEl = document.getElementById('mobile-drawer');
+      if (drawerEl && drawerEl.dataset.uiMode !== clientStore.uiMode) {
+        drawerEl.outerHTML = renderMobileDrawer();
+        drawerEl = document.getElementById('mobile-drawer');
+      }
       if (drawerEl) {
+        const opening = drawerEl.getAttribute('aria-hidden') === 'true' && isMobileDrawerOpen;
+        drawerEl.inert = !isMobileDrawerOpen;
+        drawerEl.onkeydown = event => {
+          if (event.key === 'Escape') { isMobileDrawerOpen = false; clientStore.notifySync('MODAL_CHANGE'); }
+          if (event.key !== 'Tab') return;
+          const items = [...drawerEl!.querySelectorAll<HTMLElement>('button:not([disabled]), a[href]')].filter(el => el.getClientRects().length > 0);
+          if (event.shiftKey && document.activeElement === items[0]) { event.preventDefault(); items.at(-1)?.focus(); }
+          else if (!event.shiftKey && document.activeElement === items.at(-1)) { event.preventDefault(); items[0]?.focus(); }
+        };
         if (isMobileDrawerOpen) {
           drawerEl.classList.remove('pointer-events-none');
           drawerEl.classList.add('pointer-events-auto');
           drawerEl.setAttribute('aria-hidden', 'false');
+          if (opening) drawerEl.querySelector<HTMLButtonElement>('#btn-close-mobile-drawer')?.focus({ preventScroll: true });
           const backdrop = document.getElementById('mobile-drawer-backdrop');
           if (backdrop) {
             backdrop.classList.remove('opacity-0', 'pointer-events-none');
@@ -1163,6 +1244,7 @@ export function initApp(): void {
             panel.classList.add('translate-x-0');
           }
         } else {
+          if (drawerEl.contains(document.activeElement)) document.getElementById('btn-toggle-mobile-drawer')?.focus({ preventScroll: true });
           drawerEl.classList.remove('pointer-events-auto');
           drawerEl.classList.add('pointer-events-none');
           drawerEl.setAttribute('aria-hidden', 'true');
@@ -1217,14 +1299,33 @@ export function initApp(): void {
         const lr = document.getElementById('left-rail-scroll');
         if (lr && savedLeftScroll > 0) lr.scrollTop = savedLeftScroll;
         const mf = document.getElementById('main-feed-scroll');
-        if (mf && savedMainScroll > 0) mf.scrollTop = savedMainScroll;
+        if (mf && savedMainScroll > 0) {
+          mf.scrollTop = savedMainScroll;
+        }
+        if (!postDetailView.isOpen() && postDetailView.savedFeedScrollTop > 0) {
+          postDetailView.savedFeedScrollTop = 0;
+        }
+        const pf = document.getElementById('post-focus-view');
+        if (pf && savedPostFocusScroll > 0) {
+          pf.scrollTop = savedPostFocusScroll;
+        }
+        const newMsg = document.getElementById('messages-container');
+        if (newMsg) {
+          if (isMsgNearBottom) newMsg.scrollTop = newMsg.scrollHeight;
+          else newMsg.scrollTop = savedMsgScroll;
+        }
+        const newDm = document.getElementById('sovereign-dm-messages-container');
+        if (newDm) {
+          if (isDmNearBottom) newDm.scrollTop = newDm.scrollHeight;
+          else newDm.scrollTop = savedDmScroll;
+        }
       });
 
-      voiceVisualizer.init('voice-oscilloscope');
+      initVoiceCanvas();
     }, appEl, { onRetry: () => patchRender() });
   };
 
-  clientStore.subscribe(patchRender);
+  // 1. Establish sovereign route & active channels before first render pass
   sovereignRouter.init();
 
   // Seed initial ephemeral stories so the carousel has content
@@ -1236,7 +1337,13 @@ export function initApp(): void {
     storiesEngine.addStory('Network is healthy — messages delivered in under 14ms with zero loss.', 'text', '83cdf925...', 'MEMBER');
   }
 
-  patchRender();
+  // 2. Perform single synchronous initial render pass to construct scaffold
+  if (!_scaffoldRendered) {
+    patchRender();
+  }
+
+  // 3. Register reactive store subscriber only after initial scaffold is mounted
+  clientStore.subscribe(patchRender);
 }
 
 function renderToasts(): string {
@@ -1332,10 +1439,12 @@ function renderMemberItem(m: any): string {
 
 function renderMainStage(): string {
   const isChat = clientStore.activeChannelId.startsWith('relays-') || clientStore.activeChannelId.startsWith('relay-') || clientStore.activeChannelId.startsWith('dm-');
-  const isVault = clientStore.activeChannelId.startsWith('vault-');
+  const isVault = clientStore.activeChannelId.startsWith('vault-') || clientStore.activeChannelId === 'vault';
   const isExplore = clientStore.activeChannelId === 'explore';
   const isProfile = clientStore.activeChannelId.startsWith('profile');
-  const onboardingHTML = (onboardingWizard && (onboardingWizard.isOpen || onboardingWizard.isCompleted)) ? '' : sovereignOnboarding.renderWelcomeBanner();
+  const currentRoute = sovereignRouter.route;
+  const isHomeRoute = !currentRoute || currentRoute === 'feed' || clientStore.activeChannelId.startsWith('pulse-');
+  const onboardingHTML = (isHomeRoute && (!onboardingWizard || (!onboardingWizard.isOpen && !onboardingWizard.isCompleted))) ? sovereignOnboarding.renderWelcomeBanner() : '';
 
   if (clientStore.isDualHorizon) {
     return `
@@ -1367,11 +1476,27 @@ function renderMainStage(): string {
   }
 
   let contentHTML = '';
-  const currentRoute = sovereignRouter.route;
-  if (currentRoute === 'messages' || isChat) {
+  const isExplicitRoute = currentRoute === 'messages' || isChat || currentRoute === 'vault' || isVault ||
+                          currentRoute === 'settings' || clientStore.activeChannelId === 'settings' ||
+                          currentRoute === 'explore' || isExplore ||
+                          currentRoute === 'communities' || clientStore.activeChannelId.startsWith('c/') ||
+                          currentRoute === 'profile' || isProfile;
+
+  if (postDetailView.isOpen() && postDetailView.activePostId && !isExplicitRoute) {
+    const post = clientStore.posts.find(p => p.id === postDetailView.activePostId);
+    if (post) {
+      const comments = threadManager.getRootCommentsForPost(post.id);
+      const related = postDetailView.findRelatedPosts(post, clientStore.posts);
+      contentHTML = postDetailView.renderPostFocusView(post, comments, related);
+    } else {
+      contentHTML = postDetailView.renderPostNotFound();
+    }
+  } else if (currentRoute === 'messages' || isChat) {
     contentHTML = renderRelaysWorkspace();
   } else if (currentRoute === 'vault' || isVault) {
     contentHTML = renderVaultWorkspace();
+  } else if (currentRoute === 'settings' || clientStore.activeChannelId === 'settings') {
+    contentHTML = settingsView.renderDedicatedWorkspace();
   } else if (currentRoute === 'explore' || isExplore) {
     contentHTML = exploreView.renderExploreView(clientStore.posts);
   } else if (currentRoute === 'communities' || clientStore.activeChannelId.startsWith('c/')) {
@@ -1381,6 +1506,13 @@ function renderMainStage(): string {
       : communityView.renderCommunitiesHub();
   } else if (currentRoute === 'profile' || isProfile) {
     contentHTML = profileView.renderProfileView(clientStore.posts, clientStore.keypair.fingerprint);
+  } else if (_initialSsrArticleHtml && typeof window !== 'undefined' && (window.location.pathname.startsWith('/p/') || window.location.pathname.startsWith('/post/'))) {
+    contentHTML = `
+      <div class="flex-1 overflow-y-auto px-4 py-6 max-w-3xl mx-auto w-full">
+        ${_initialSsrArticleHtml}
+      </div>
+    `;
+    _initialSsrArticleHtml = '';
   } else {
     contentHTML = renderPulseWorkspace();
   }
@@ -1405,7 +1537,7 @@ function renderMobileBottomNavButtons(): string {
         data-nav-mode="pulse" 
         id="btn-mobile-pulse"
         data-action="join-channel" data-channel="pulse-global"
-        class="btn-nav-mode min-w-[44px] min-h-[44px] flex flex-col items-center justify-center rounded-xl p-1 transition-all cursor-pointer ${isPulse ? 'is-active text-cyan-400 font-bold' : 'text-slate-400 hover:text-white'}"
+        class="btn-nav-mode min-w-[44px] min-h-[44px] flex flex-col items-center justify-center rounded-xl p-1 transition-all cursor-pointer ${isPulse ? 'is-active text-[var(--color-accent,#e59b3c)] font-bold' : 'text-slate-400 hover:text-white'}"
         title="Feed (Flux Pulse)"
         aria-label="Feed Flux"
       >
@@ -1419,7 +1551,7 @@ function renderMobileBottomNavButtons(): string {
         data-nav-mode="relays" 
         id="btn-mobile-relays"
         data-action="join-channel" data-channel="relays-general"
-        class="btn-nav-mode min-w-[44px] min-h-[44px] flex flex-col items-center justify-center rounded-xl p-1 transition-all cursor-pointer ${isRelays ? 'is-active text-cyan-400 font-bold' : 'text-slate-400 hover:text-white'}"
+        class="btn-nav-mode min-w-[44px] min-h-[44px] flex flex-col items-center justify-center rounded-xl p-1 transition-all cursor-pointer ${isRelays ? 'is-active text-[var(--color-accent,#e59b3c)] font-bold' : 'text-slate-400 hover:text-white'}"
         title="Relays & Chat"
         aria-label="Relays and Chat"
       >
@@ -1432,7 +1564,7 @@ function renderMobileBottomNavButtons(): string {
         type="button" 
         id="btn-mobile-composer" 
         data-action="open-composer"
-        class="w-12 h-12 -mt-5 rounded-full bg-gradient-to-tr from-cyan-500 via-indigo-500 to-cyan-500 hover:from-cyan-400 hover:to-indigo-400 text-black flex items-center justify-center text-xl font-bold shadow-lg shadow-cyan-500/30 border-2 border-surface-base transform active:scale-90 transition-all cursor-pointer shrink-0" 
+        class="w-12 h-12 -mt-5 rounded-full bg-[var(--color-accent,#e59b3c)] hover:brightness-110 text-slate-950 flex items-center justify-center text-xl font-bold shadow-lg shadow-amber-500/20 border-2 border-surface-base transform active:scale-90 transition-all cursor-pointer shrink-0" 
         title="Publish a new pulse note or article"
         aria-label="Create new publication"
       >
@@ -1444,7 +1576,7 @@ function renderMobileBottomNavButtons(): string {
         type="button" 
         id="btn-mobile-notifs" 
         data-action="toggle-notifs"
-        class="relative min-w-[44px] min-h-[44px] flex flex-col items-center justify-center rounded-xl p-1 transition-all cursor-pointer ${isNotificationPanelOpen ? 'is-active text-cyan-400 font-bold' : 'text-slate-400 hover:text-white'}"
+        class="relative min-w-[44px] min-h-[44px] flex flex-col items-center justify-center rounded-xl p-1 transition-all cursor-pointer ${isNotificationPanelOpen ? 'is-active text-[var(--color-accent,#e59b3c)] font-bold' : 'text-slate-400 hover:text-white'}"
         title="Notifications & alerts"
         aria-label="Notifications"
       >
@@ -1459,11 +1591,11 @@ function renderMobileBottomNavButtons(): string {
         data-nav-mode="profile" 
         id="btn-mobile-profile"
         data-action="nav-mode" data-mode="profile"
-        class="btn-nav-mode min-w-[44px] min-h-[44px] flex flex-col items-center justify-center rounded-xl p-1 transition-all cursor-pointer ${isProfile ? 'is-active text-cyan-400 font-bold' : 'text-slate-400 hover:text-white'}"
+        class="btn-nav-mode min-w-[44px] min-h-[44px] flex flex-col items-center justify-center rounded-xl p-1 transition-all cursor-pointer ${isProfile ? 'is-active text-[var(--color-accent,#e59b3c)] font-bold' : 'text-slate-400 hover:text-white'}"
         title="Your sovereign cryptographic identity"
         aria-label="Profile"
       >
-        <div class="w-5 h-5 rounded-full bg-gradient-to-tr from-cyan-500 to-slate-700 flex items-center justify-center text-[9px] font-mono font-bold text-white shrink-0 border ${isProfile ? 'border-cyan-400' : 'border-transparent'}">
+        <div class="w-5 h-5 rounded-full bg-slate-700 flex items-center justify-center text-[9px] font-mono font-bold text-white shrink-0 border ${isProfile ? 'border-[var(--color-accent,#e59b3c)]' : 'border-transparent'}">
           ${clientStore.keypair.fingerprint.substring(0, 2).toUpperCase()}
         </div>
         <span class="text-[9px] mt-0.5 font-sans">Profile</span>
@@ -1472,13 +1604,21 @@ function renderMobileBottomNavButtons(): string {
 }
 
 function renderMobileBottomNav(): string {
+  const isChat = sovereignRouter.route === 'messages' || 
+                 clientStore.activeChannelId.startsWith('relays-') || 
+                 clientStore.activeChannelId.startsWith('relay-') || 
+                 clientStore.activeChannelId.startsWith('dm-') ||
+                 clientStore.activeChannelId === 'relays' ||
+                 clientStore.activeChannelId === 'messages';
+  const hideFab = isChat || postDetailView.isOpen();
+
   return `
-    <!-- MOBILE COMPOSER FLOATING ACTION BUTTON -->
+    <!-- MOBILE COMPOSER FLOATING ACTION BUTTON (HIDDEN ON CHAT / MESSAGES / POST DETAIL) -->
     <button
       type="button"
       id="btn-mobile-fab-composer"
       data-action="open-composer"
-      class="fixed bottom-20 right-4 z-40 lg:hidden w-13 h-13 rounded-full bg-gradient-to-tr from-cyan-500 via-indigo-600 to-indigo-700 hover:from-cyan-400 hover:to-indigo-500 text-white flex items-center justify-center text-xl font-bold shadow-2xl shadow-cyan-500/30 border border-white/20 active:scale-95 transition-all cursor-pointer"
+      class="${hideFab ? 'hidden ' : ''}fixed bottom-20 right-4 z-40 lg:hidden w-13 h-13 rounded-full bg-[var(--color-accent,#e59b3c)] hover:brightness-110 text-slate-950 flex items-center justify-center text-xl font-bold shadow-2xl shadow-black/40 border border-white/20 active:scale-95 transition-all cursor-pointer"
       title="Create Publication"
       aria-label="Create Publication"
     >
@@ -1491,7 +1631,7 @@ function renderMobileBottomNav(): string {
 function renderMobileDrawer(): string {
   return `
     <!-- MOBILE SLIDE-OVER DRAWER -->
-    <div id="mobile-drawer" class="fixed inset-0 z-50 lg:hidden transition-all ${isMobileDrawerOpen ? 'pointer-events-auto' : 'pointer-events-none'}" aria-hidden="${!isMobileDrawerOpen}">
+    <div id="mobile-drawer" data-ui-mode="${clientStore.uiMode}" ${isMobileDrawerOpen ? '' : 'inert'} class="fixed inset-0 z-50 lg:hidden transition-all ${isMobileDrawerOpen ? 'pointer-events-auto' : 'pointer-events-none'}" aria-hidden="${!isMobileDrawerOpen}">
       <!-- BACKDROP OVERLAY -->
       <div id="mobile-drawer-backdrop" data-action="close-mobile-drawer" class="fixed inset-0 bg-black/70 backdrop-blur-xs transition-opacity duration-300 ease-in-out cursor-pointer ${isMobileDrawerOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}"></div>
       
@@ -1510,7 +1650,7 @@ function renderMobileDrawer(): string {
               <div class="text-[10px] text-slate-400">The social network you actually own</div>
             </div>
           </div>
-          <button type="button" id="btn-close-mobile-drawer" data-action="close-mobile-drawer" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-surface-raised cursor-pointer transition-colors" title="Close Drawer">
+          <button type="button" id="btn-close-mobile-drawer" data-action="close-mobile-drawer" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-surface-raised cursor-pointer transition-colors" aria-label="Close navigation" title="Close Drawer">
             ${renderIcon('close', { size: 18 })}
           </button>
         </div>
@@ -1566,6 +1706,7 @@ function renderMobileDrawer(): string {
 
           <!-- COMMUNITIES -->
           <div class="pt-2 border-t border-white/5 space-y-1">
+            <button type="button" data-nav-mode="communities" class="btn-drawer-item w-full flex items-center gap-3 px-3 py-3">${renderIcon('users', { size: 18 })}All communities</button>
             <div class="text-[10px] uppercase font-bold text-slate-500 tracking-wider mb-2 px-2 flex items-center justify-between">
               <span class="flex items-center gap-1.5">${renderIcon('users', { size: 12 })} Communities</span>
             </div>
@@ -1600,10 +1741,10 @@ function renderMobileDrawer(): string {
             <div class="text-[10px] uppercase font-bold text-slate-500 tracking-wider mb-2 px-2 flex items-center gap-1.5">
               ${renderIcon('slidersHorizontal', { size: 12 })} Tools
             </div>
-            <button type="button" id="drawer-btn-settings" data-action="open-settings" class="w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold text-cyan-300 hover:text-white bg-cyan-950/30 hover:bg-surface-raised border border-cyan-500/30 transition-all flex items-center space-x-3 cursor-pointer">
-              <span class="shrink-0 text-cyan-400">${renderIcon('settings', { size: 16 })}</span>
+            <button type="button" id="drawer-btn-settings" data-action="open-settings" class="w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold text-[var(--color-accent,#e59b3c)] hover:text-white bg-[var(--color-accent,#e59b3c)]/10 hover:bg-surface-raised border border-[var(--color-accent,#e59b3c)]/30 transition-all flex items-center space-x-3 cursor-pointer">
+              <span class="shrink-0 text-[var(--color-accent,#e59b3c)]">${renderIcon('settings', { size: 16 })}</span>
               <span class="flex-1">Settings</span>
-              <span class="text-[9px] px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">CONFIG</span>
+              <span class="text-[9px] px-1.5 py-0.2 rounded bg-[var(--color-accent,#e59b3c)]/20 text-[var(--color-accent,#e59b3c)] border border-[var(--color-accent,#e59b3c)]/40">CONFIG</span>
             </button>
             <button type="button" id="drawer-btn-theme" data-action="open-theme" class="w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold text-amber-300 hover:text-white bg-amber-950/30 hover:bg-surface-raised border border-amber-500/30 transition-all flex items-center space-x-3 cursor-pointer">
               <span class="shrink-0 text-amber-400">${renderIcon('sliders', { size: 16 })}</span>
@@ -1615,6 +1756,8 @@ function renderMobileDrawer(): string {
               <span class="flex-1">Language (${i18n.getCurrentLanguageMeta().name})</span>
               <span class="text-[9px] font-mono text-slate-400 uppercase">${i18n.getLanguage()}</span>
             </button>
+            <button type="button" data-action="toggle-ui-mode" class="btn-drawer-item w-full px-3 py-3 text-left">${clientStore.isSimpleMode() ? 'Enable Advanced Mode' : 'Use simple mode'}</button>
+            ${clientStore.isSimpleMode() ? '' : `
             <button type="button" id="drawer-btn-dao" class="w-full text-left px-3.5 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
               <span class="shrink-0 text-slate-400">${renderIcon('vote', { size: 16 })}</span>
               <span class="flex-1">DAO Governance</span>
@@ -1651,21 +1794,22 @@ function renderMobileDrawer(): string {
               <span class="shrink-0 text-cyan-400">${renderIcon('image', { size: 16 })}</span>
               <span class="flex-1">Pixel Canvas Steganography</span>
             </button>
-            <button type="button" id="drawer-btn-binary-hygiene" data-action="open-feature" data-feature="binary_hygiene" class="w-full text-left px-3.5 py-2 rounded-xl text-xs font-bold text-cyan-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
+            <button type="button" id="drawer-btn-binary-hygiene" data-action="open-feature" data-feature="binary-hygiene" class="w-full text-left px-3.5 py-2 rounded-xl text-xs font-bold text-cyan-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
               <span class="shrink-0 text-cyan-400">${renderIcon('shield', { size: 16 })}</span>
               <span class="flex-1">Binary Hygiene Portal</span>
               <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-cyan-950 text-cyan-300 border border-cyan-500/30">FREE</span>
             </button>
-            <button type="button" id="drawer-btn-portable-trust" data-action="open-feature" data-feature="portable_trust" class="w-full text-left px-3.5 py-2 rounded-xl text-xs font-bold text-purple-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
+            <button type="button" id="drawer-btn-portable-trust" data-action="open-feature" data-feature="portable-trust" class="w-full text-left px-3.5 py-2 rounded-xl text-xs font-bold text-purple-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
               <span class="text-base">💎</span>
               <span class="flex-1">Portable ZK Trust Score</span>
               <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-purple-950 text-purple-300 border border-purple-500/30">ZK</span>
             </button>
-            <button type="button" id="drawer-btn-microsaas-docs" data-action="open-feature" data-feature="microsaas_docs" class="w-full text-left px-3.5 py-2 rounded-xl text-xs font-bold text-emerald-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
+            <button type="button" id="drawer-btn-microsaas-docs" data-action="open-feature" data-feature="microsaas-docs" class="w-full text-left px-3.5 py-2 rounded-xl text-xs font-bold text-emerald-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
               <span class="text-base">⚡</span>
               <span class="flex-1">Micro-SaaS & Dev APIs</span>
               <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-300 border border-emerald-500/30">EDGE</span>
             </button>
+            `}
             <!-- CADRU LEGAL & CONFORMITATE UE (DSA & GDPR) -->
             <div class="pt-3 border-t border-white/5 space-y-1">
               <div class="text-[10px] uppercase font-bold text-slate-500 tracking-wider mb-2 px-2 flex items-center justify-between">
@@ -1888,12 +2032,8 @@ function renderCommandRailModal(): string {
 
 
 function renderPostDetailModal(): string {
-  if (!postDetailView.isOpen() || !postDetailView.activePostId) return '';
-  const post = clientStore.posts.find(p => p.id === postDetailView.activePostId);
-  if (!post) return '';
-  const comments = threadManager.getRootCommentsForPost(post.id);
-  const related = postDetailView.findRelatedPosts(post, clientStore.posts);
-  return postDetailView.renderFullPostModal(post, comments, related);
+  // Post focus view is rendered directly in #main-stage, not as a floating modal overlay
+  return '';
 }
 
 function renderAwardModal(): string {
@@ -1932,6 +2072,9 @@ function bindEvents(): void {
   if (minimapCanvas) {
     void import('./network-minimap.js').then(({ ambientNetworkMinimap }) => ambientNetworkMinimap.bindCanvas(minimapCanvas));
   }
+
+  // Bind active feature modal DOM listeners if present
+  modalManager.bindActiveFeatureDOM();
 
   // ─── Scoped event binding helpers ─────────────────────────────────────────────
   // `on(el, event, handler)` → auto-injects AbortSignal so all listeners are removed on next bindEvents()
@@ -1996,6 +2139,7 @@ function bindEvents(): void {
   // Notifications Bell Toggle (Desktop & Mobile)
   (window as any).__aetherisToggleNotifs = () => {
     isNotificationPanelOpen = !isNotificationPanelOpen;
+    if (isNotificationPanelOpen) void notificationCenter.syncFromApi(clientStore.keypair.fingerprint);
     clientStore.notify();
   };
   (window as any).__aetherisCloseNotifs = () => {
@@ -2176,7 +2320,21 @@ function bindEvents(): void {
     }, { signal });
   });
 
-  // 7. Full Thread Detail Modal
+  // 7. Full Thread Detail Modal & Post Card Clickability
+  document.querySelectorAll('.social-post').forEach(postEl => {
+    postEl.addEventListener('click', (e) => {
+      const target = e.target as HTMLElement | null;
+      if (target && target.closest('button:not([data-action="open-post-detail"]), a, input, textarea, select, iframe, video, .reaction-row, [data-action="react-post"], .btn-pulse-merit, .btn-pulse-reply, .btn-pulse-boost, .btn-pulse-bookmark, .btn-pulse-award, .btn-pulse-share, .btn-pulse-more')) {
+        return;
+      }
+      const postId = postEl.getAttribute('data-post-card-id') || postEl.getAttribute('data-post-id');
+      if (postId) {
+        postDetailView.openPost(postId);
+        void import('./analytics-widget.js').then(({ localAnalytics }) => localAnalytics.recordPostView());
+      }
+    }, { signal });
+  });
+
   document.querySelectorAll('.btn-open-detail').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -2184,68 +2342,35 @@ function bindEvents(): void {
       if (postId) {
         postDetailView.openPost(postId);
         void import('./analytics-widget.js').then(({ localAnalytics }) => localAnalytics.recordPostView());
-        clientStore.notify();
       }
     }, { signal });
   });
-  const handleClosePostDetail = () => {
+  const handleClosePostDetail = (e?: Event) => {
+    e?.preventDefault();
     postDetailView.closePost();
-    clientStore.notify();
   };
-  document.getElementById('btn-close-post-detail')?.addEventListener('click', handleClosePostDetail, { signal });
-  document.getElementById('btn-back-to-feed')?.addEventListener('click', handleClosePostDetail, { signal });
-  document.getElementById('btn-close-post-detail-fallback')?.addEventListener('click', handleClosePostDetail, { signal });
+  const closeBtn = document.getElementById('btn-close-post-detail');
+  if (closeBtn) closeBtn.addEventListener('click', handleClosePostDetail, { signal });
+  const backBtn = document.getElementById('btn-back-to-feed');
+  if (backBtn) backBtn.addEventListener('click', handleClosePostDetail, { signal });
+  const fallbackBtn = document.getElementById('btn-close-post-detail-fallback');
+  if (fallbackBtn) fallbackBtn.addEventListener('click', handleClosePostDetail, { signal });
 
-  postDetailView.bindEvents(async (postId: string, commentText: string) => {
-    const text = commentText.trim();
-    if (!text) return;
+  // Attach intelligent autocomplete engine to chat, dm, and composer inputs
+  const msgInput = document.getElementById('input-message') as HTMLInputElement | null;
+  if (msgInput) autocompleteEngine.attach(msgInput);
+  const dmInput = document.getElementById('input-dm-message') as HTMLInputElement | null;
+  if (dmInput) autocompleteEngine.attach(dmInput);
+  const sovDmInput = document.getElementById('sovereign-dm-input') as HTMLInputElement | null;
+  if (sovDmInput) autocompleteEngine.attach(sovDmInput);
+  const replyInput = document.getElementById('input-post-reply') as HTMLTextAreaElement | null;
+  if (replyInput) autocompleteEngine.attach(replyInput);
+  const composerInput = document.getElementById('composer-content') as HTMLTextAreaElement | null;
+  if (composerInput) autocompleteEngine.attach(composerInput);
 
-    // 1. Optimistically add to ThreadManager
-    const newComment = threadManager.addReply(postId, clientStore.keypair.fingerprint, text, postId);
-
-    // 2. Synchronize reply counts across post in clientStore and pulseActionsEngine
-    const post = clientStore.posts.find((p) => p.id === postId);
-    if (post) {
-      post.replyCount = (post.replyCount || 0) + 1;
-    }
-    const pulseState = pulseActionsEngine.getInteractions(postId);
-    pulseState.repliesCount = Math.max(pulseState.repliesCount + 1, post?.replyCount || 1);
-
-    void import('./activity-feed.js').then(({ networkActivityFeed }) => networkActivityFeed.addEvent({
-      type: 'reply',
-      actorFP: clientStore.keypair.fingerprint,
-      actorRole: 'member',
-      targetTitle: post ? post.title : 'Pulse Thread',
-      targetId: postId,
-      timestamp: Date.now(),
-      meta: { length: text.length },
-    }));
-    clientStore.notify();
-
-    // 3. Persist to Cloudflare D1 /api/comments endpoint
-    try {
-      const res = await fetch('/api/comments', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          postId,
-          authorId: clientStore.keypair.fingerprint,
-          authorRole: 'MEMBER',
-          content: text,
-        }),
-      });
-
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
-      }
-
-      const data = await res.json() as any;
-      if (data?.success && data.comment?.id) {
-        newComment.id = data.comment.id;
-      }
-    } catch (err) {
-      console.warn('[Comments] Edge persistence warning (kept in sovereign local store):', err);
-    }
+  postDetailView.bindEvents(async (postId: string, commentText: string, parentId?: string) => {
+    const { publishComment } = await import('./controllers/comment-controller.js');
+    await publishComment(postId, commentText.trim(), parentId);
   });
 
   // 8. ZK Proof Visualizer
@@ -2362,7 +2487,6 @@ function bindEvents(): void {
   document.getElementById('btn-exit-dual-horizon')?.addEventListener('click', () => clientStore.toggleDualHorizon(), { signal });
 
   // Simple vs Advanced Mode Toggles
-  document.getElementById('btn-toggle-advanced-sidebar')?.addEventListener('click', () => clientStore.setUiMode('sovereign'), { signal });
   document.getElementById('btn-return-simple-sidebar')?.addEventListener('click', () => clientStore.setUiMode('simple'), { signal });
   document.getElementById('btn-toggle-ui-mode-header')?.addEventListener('click', () => {
     clientStore.setUiMode(clientStore.isSimpleMode() ? 'sovereign' : 'simple');
@@ -2399,7 +2523,7 @@ function updateCommandRailHighlight(index: number): void {
 
   const cmdInput = document.getElementById('command-rail-input') as HTMLInputElement;
   if (cmdInput) {
-    cmdInput.focus();
+    cmdInput.focus({ preventScroll: true });
     cmdInput.addEventListener('keydown', (e) => {
       const items = document.querySelectorAll<HTMLElement>('#command-rail-overlay [data-cmd-index]');
       const total = items.length;
@@ -2502,6 +2626,7 @@ function updateCommandRailHighlight(index: number): void {
 
   // Voice toggle
   document.getElementById('btn-toggle-voice')?.addEventListener('click', async () => {
+    const { voiceVisualizer } = await import('./webrtc-voice.js');
     if (voiceVisualizer.isConnected) {
       voiceVisualizer.zeroizeRam();
       clientStore.showToast('Voice disconnected. RAM zeroized.', 'info');
@@ -2512,7 +2637,8 @@ function updateCommandRailHighlight(index: number): void {
   }, { signal });
 
   // Ghost space toggle
-  document.getElementById('btn-toggle-ghost')?.addEventListener('click', () => {
+  document.getElementById('btn-toggle-ghost')?.addEventListener('click', async () => {
+    const { voiceVisualizer } = await import('./webrtc-voice.js');
     const active = voiceVisualizer.toggleGhostSpace();
     if (active) {
       clientStore.showToast('👻 Ghost Space active: volatile RAM only', 'warning');
@@ -2521,6 +2647,7 @@ function updateCommandRailHighlight(index: number): void {
 
   // Screen share button
   document.getElementById('btn-toggle-screen')?.addEventListener('click', async () => {
+    const { screenShareEngine } = await import('./screenshare.js');
     if (screenShareEngine.isStreaming) {
       screenShareEngine.stopCapture();
       clientStore.showToast('Screen sharing stopped', 'info');
@@ -2543,27 +2670,18 @@ function updateCommandRailHighlight(index: number): void {
       const mode = btn.getAttribute('data-nav-mode');
       isMobileDrawerOpen = false;
       if (mode === 'pulse' || mode === 'feed') {
-        clientStore.joinChannel('pulse-global');
         sovereignRouter.navigateTo('feed');
       } else if (mode === 'vault') {
-        clientStore.joinChannel('vault-releases');
         sovereignRouter.navigateTo('vault');
       } else if (mode === 'relays' || mode === 'messages') {
-        clientStore.joinChannel('relays-general');
         sovereignRouter.navigateTo('messages');
       } else if (mode === 'explore') {
-        clientStore.activeChannelId = 'explore';
         sovereignRouter.navigateTo('explore');
-        clientStore.notify();
       } else if (mode === 'communities') {
-        clientStore.activeChannelId = 'communities';
         sovereignRouter.navigateTo('communities');
-        clientStore.notify();
       } else if (mode === 'profile') {
-        clientStore.activeChannelId = 'profile';
         profileView.setTargetFingerprint(clientStore.keypair.fingerprint);
         sovereignRouter.navigateTo('profile');
-        clientStore.notify();
       }
     }, { signal });
   });
@@ -2590,7 +2708,9 @@ function updateCommandRailHighlight(index: number): void {
       e.stopPropagation();
       const postId = btn.getAttribute('data-post-id');
       if (postId) {
-        const res = pulseActionsEngine.toggleLike(postId, clientStore.keypair?.fingerprint);
+        const post = clientStore.posts.find(p => p.id === postId);
+        const baseline = (post as any)?.meritVotes || (post as any)?.meritScore || 0;
+        const res = pulseActionsEngine.toggleLike(postId, clientStore.keypair?.fingerprint, baseline);
         if (res.burst) {
           soundEffects.playReaction();
           pulseActionsEngine.triggerParticleBurst(postId);
@@ -2612,15 +2732,16 @@ function updateCommandRailHighlight(index: number): void {
   });
 
   document.querySelectorAll('[data-pulse-action="do-repost"]').forEach(btn => {
-    btn.addEventListener('click', (e) => {
+    btn.addEventListener('click', async (e) => {
       e.stopPropagation();
       const postId = btn.getAttribute('data-post-id');
       if (postId) {
         pulseActionsEngine.closeRepostMenu();
-        const res = pulseActionsEngine.toggleRepost(postId, clientStore.keypair?.fingerprint);
-        clientStore.boostPost(postId);
-        clientStore.showToast(res.isReposted ? '🔁 Reposted!' : '↩️ Repost removed.', 'success');
+        const post = clientStore.posts.find(p => p.id === postId);
+        const baseline = (post as any)?.boostCount || 0;
+        const res = pulseActionsEngine.toggleRepost(postId, clientStore.keypair?.fingerprint, false, baseline);
         clientStore.notifySync();
+        if (await pulseActionsEngine.whenSettled(postId, 'repost')) clientStore.showToast(res.isReposted ? 'Reposted' : 'Repost removed', 'success');
       }
     }, { signal });
   });
@@ -2651,13 +2772,13 @@ function updateCommandRailHighlight(index: number): void {
   });
 
   document.querySelectorAll('.btn-pulse-bookmark').forEach(btn => {
-    btn.addEventListener('click', (e) => {
+    btn.addEventListener('click', async (e) => {
       e.stopPropagation();
       const postId = btn.getAttribute('data-post-id');
       if (postId) {
         const isSaved = pulseActionsEngine.toggleBookmark(postId, clientStore.keypair?.fingerprint);
-        clientStore.showToast(isSaved ? t('toast.bookmarkAdded', undefined, '🔖 Pulse saved to bookmarks') : t('toast.bookmarkRemoved', undefined, '🔖 Bookmark removed'), 'info');
         clientStore.notify();
+        if (await pulseActionsEngine.whenSettled(postId, 'bookmark')) clientStore.showToast(isSaved ? 'Post saved' : 'Bookmark removed', 'info');
       }
     }, { signal });
   });
@@ -2781,8 +2902,7 @@ function updateCommandRailHighlight(index: number): void {
     btn.addEventListener('click', () => {
       const fp = btn.getAttribute('data-trust-fp');
       if (fp) {
-        const isNowFollowing = profileView.toggleFollow(fp);
-        clientStore.showToast(isNowFollowing ? `🤝 Trust connection established with @id:${fp.substring(0, 8)}` : `Trust connection removed`, 'info');
+        profileView.toggleFollow(fp);
         clientStore.notify();
       }
     }, { signal });
@@ -2804,7 +2924,11 @@ function updateCommandRailHighlight(index: number): void {
   }, { signal });
   const formEditProf = document.getElementById('form-edit-profile') as HTMLFormElement;
   if (formEditProf) {
-    formEditProf.addEventListener('submit', (e) => {
+    formEditProf.addEventListener('input', () => {
+      const field = (id: string) => (document.getElementById(id) as HTMLInputElement | null)?.value || '';
+      profileView.editDraft = { name: field('edit-profile-name'), handle: field('edit-profile-handle'), bio: field('edit-profile-bio'), location: field('edit-profile-location'), website: field('edit-profile-website'), avatar: field('edit-profile-avatar'), banner: field('edit-profile-banner') };
+    }, { signal });
+    formEditProf.addEventListener('submit', async (e) => {
       e.preventDefault();
       const name = (document.getElementById('edit-profile-name') as HTMLInputElement)?.value;
       const handle = (document.getElementById('edit-profile-handle') as HTMLInputElement)?.value;
@@ -2814,7 +2938,7 @@ function updateCommandRailHighlight(index: number): void {
       const avatar = (document.getElementById('edit-profile-avatar') as HTMLInputElement)?.value;
       const banner = (document.getElementById('edit-profile-banner') as HTMLInputElement)?.value;
       const cleanHandle = handle ? handle.replace(/^@/, '').trim() : undefined;
-      profileView.updateProfile(profileView.targetFingerprint, {
+      const saved = await profileView.saveProfile(profileView.targetFingerprint || clientStore.keypair.fingerprint, {
         name: name || undefined,
         handle: cleanHandle || undefined,
         bio: bio || undefined,
@@ -2823,8 +2947,8 @@ function updateCommandRailHighlight(index: number): void {
         avatar: avatar || undefined,
         banner: banner || undefined,
       });
+      if (!saved) return;
       profileView.isEditProfileModalOpen = false;
-      clientStore.showToast(t('toast.profileUpdated', undefined, '✨ Sovereign Profile updated!'), 'success');
       clientStore.notify();
     }, { signal });
   }
@@ -3052,11 +3176,10 @@ function updateCommandRailHighlight(index: number): void {
 
   // Thread endorsement
   document.querySelectorAll('.btn-endorse').forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
       const id = btn.getAttribute('data-endorse-id');
       if (id) {
-        threadManager.endorseComment(id);
-        clientStore.showToast('Endorsed comment (+1 Merit)', 'success');
+        await threadManager.endorseComment(id);
       }
     }, { signal });
   });
@@ -3066,10 +3189,17 @@ function updateCommandRailHighlight(index: number): void {
     btn.addEventListener('click', async () => {
       const parentId = btn.getAttribute('data-reply-to');
       if (!parentId) return;
+      const parent = threadManager.getComment(parentId);
+      const postId = parent?.postId || 'post-1';
       const text = await sovereignDialog.prompt('Write sovereign technical reply:', { title: 'Reply to Thread', placeholder: 'Enter your reply...' });
       if (text && text.trim()) {
-        threadManager.addReply(parentId, clientStore.keypair.fingerprint, text.trim());
-        clientStore.showToast('Reply added to discussion tree', 'success');
+        try {
+          const { publishComment } = await import('./controllers/comment-controller.js');
+          await publishComment(postId, text.trim(), parentId);
+          clientStore.showToast('Reply added to discussion tree', 'success');
+        } catch (err: any) {
+          clientStore.showToast(err?.message || 'Failed to post reply', 'warning');
+        }
       }
     }, { signal });
   });
@@ -3130,6 +3260,7 @@ function updateCommandRailHighlight(index: number): void {
   const inlineTextEl = document.getElementById('inline-composer-textarea') as HTMLTextAreaElement;
   if (inlineTextEl) {
     inlineTextEl.addEventListener('input', () => {
+      quickPostDraft.content = inlineTextEl.value;
       const charCount = document.getElementById('inline-char-count');
       if (charCount) {
         const remaining = 280 - inlineTextEl.value.length;
@@ -3138,6 +3269,9 @@ function updateCommandRailHighlight(index: number): void {
       }
     }, { signal });
   }
+  document.getElementById('inline-composer-hub')?.addEventListener('change', event => {
+    quickPostDraft.channelId = (event.target as HTMLSelectElement).value;
+  }, { signal });
 
   document.getElementById('btn-inline-open-full')?.addEventListener('click', () => {
     clientStore.toggleComposer();
@@ -3152,34 +3286,6 @@ function updateCommandRailHighlight(index: number): void {
     document.getElementById('file-inspector-input')?.click();
   }, { signal });
 
-  document.getElementById('btn-inline-broadcast')?.addEventListener('click', () => {
-    const titleInput = document.getElementById('inline-composer-title') as HTMLInputElement;
-    const textarea = document.getElementById('inline-composer-textarea') as HTMLTextAreaElement;
-    const hubSelect = document.getElementById('inline-composer-hub') as HTMLSelectElement;
-
-    const content = textarea?.value?.trim();
-    if (!content) {
-      clientStore.showToast('Please enter post text before broadcasting', 'warning');
-      return;
-    }
-
-    const title = titleInput && !titleInput.classList.contains('hidden') && titleInput.value.trim() 
-      ? titleInput.value.trim() 
-      : content.substring(0, 50);
-
-    const channelId = hubSelect?.value || clientStore.activeChannelId;
-    const flair = channelId.startsWith('vault-') ? 'VERIFIED RELEASE' : (titleInput && !titleInput.classList.contains('hidden') ? 'TECH DISCUSSION' : 'MICRO-PULSE');
-
-    clientStore.createPost({
-      title,
-      content,
-      channelId,
-      flair,
-    });
-
-    if (textarea) textarea.value = '';
-    if (titleInput) titleInput.value = '';
-  }, { signal });
   document.getElementById('btn-dismiss-onboarding-tour')?.addEventListener('click', () => {
     sovereignOnboarding.dismiss();
     clientStore.showToast('🚀 Tour completed! Welcome to the URE Network.', 'success');
@@ -3211,10 +3317,7 @@ function updateCommandRailHighlight(index: number): void {
   }, { signal });
 
   // Mobile Drawer Handlers
-  document.getElementById('btn-toggle-mobile-drawer')?.addEventListener('click', () => {
-    isMobileDrawerOpen = !isMobileDrawerOpen;
-    clientStore.notify();
-  }, { signal });
+  // The toggle is owned by ActionDispatcher; a second listener closes it again.
 
   document.getElementById('btn-close-mobile-drawer')?.addEventListener('click', () => {
     isMobileDrawerOpen = false;
@@ -3229,62 +3332,54 @@ function updateCommandRailHighlight(index: number): void {
   // Mobile Drawer Tool Action Buttons
   document.getElementById('drawer-btn-dao')?.addEventListener('click', () => {
     isMobileDrawerOpen = false;
-    isGovernanceModalOpen = true;
-    clientStore.notify();
+    modalManager.openFeature('governance');
   }, { signal });
 
   document.getElementById('drawer-btn-theme')?.addEventListener('click', () => {
     isMobileDrawerOpen = false;
     isThemeModalOpen = true;
-    clientStore.notify();
+    clientStore.notify('MODAL_CHANGE');
   }, { signal });
 
   document.getElementById('drawer-btn-lang')?.addEventListener('click', () => {
     isMobileDrawerOpen = false;
     isLangModalOpen = true;
-    clientStore.notify();
+    clientStore.notify('MODAL_CHANGE');
   }, { signal });
 
   document.getElementById('drawer-btn-cve')?.addEventListener('click', () => {
     isMobileDrawerOpen = false;
-    isCVEModalOpen = true;
-    clientStore.notify();
+    modalManager.openFeature('cve');
   }, { signal });
 
   document.getElementById('drawer-btn-backup')?.addEventListener('click', () => {
     isMobileDrawerOpen = false;
-    isExportBackupModalOpen = true;
-    clientStore.notify();
+    modalManager.openFeature('export-backup');
   }, { signal });
 
   document.getElementById('drawer-btn-gossip')?.addEventListener('click', () => {
     isMobileDrawerOpen = false;
-    isGossipModalOpen = true;
-    clientStore.notify();
+    modalManager.openFeature('gossip');
   }, { signal });
 
   document.getElementById('drawer-btn-rss')?.addEventListener('click', () => {
     isMobileDrawerOpen = false;
-    isRSSModalOpen = true;
-    clientStore.notify();
+    modalManager.openFeature('rss');
   }, { signal });
 
   document.getElementById('drawer-btn-paper-wallet')?.addEventListener('click', () => {
     isMobileDrawerOpen = false;
     modalManager.openFeature('paper-wallet');
-    clientStore.notify();
   }, { signal });
 
   document.getElementById('drawer-btn-observatory')?.addEventListener('click', () => {
     isMobileDrawerOpen = false;
     modalManager.openFeature('observatory');
-    clientStore.notify();
   }, { signal });
 
   document.getElementById('drawer-btn-wot')?.addEventListener('click', () => {
     isMobileDrawerOpen = false;
     modalManager.openFeature('wot-graph');
-    clientStore.notify();
   }, { signal });
 
   document.getElementById('btn-mobile-composer')?.addEventListener('click', () => {
@@ -3318,15 +3413,6 @@ function updateCommandRailHighlight(index: number): void {
   }, { signal });
 
   // Profile Photo Upload Handlers
-  document.getElementById('btn-profile-settings')?.addEventListener('click', () => {
-    if (window.__aetheris_open_settings) {
-      window.__aetheris_open_settings();
-    } else {
-      sovereignRouter.navigateTo('profile', { subtab: 'settings' });
-    }
-    clientStore.notify();
-  }, { signal });
-
   document.getElementById('btn-open-edit-profile')?.addEventListener('click', () => {
     profileView.isEditProfileModalOpen = true;
     clientStore.notify();
@@ -3347,65 +3433,27 @@ function updateCommandRailHighlight(index: number): void {
     clientStore.notify();
   }, { signal });
 
-  // Avatar file input change -> convert to DataURL & preview
-  document.getElementById('edit-profile-avatar-file')?.addEventListener('change', (e) => {
-    const file = (e.target as HTMLInputElement).files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        const dataUrl = ev.target?.result as string;
-        if (dataUrl) {
-          const avatarInput = document.getElementById('edit-profile-avatar') as HTMLInputElement;
-          const previewImg = document.getElementById('edit-preview-avatar') as HTMLImageElement;
-          if (avatarInput) avatarInput.value = dataUrl;
-          if (previewImg) previewImg.src = dataUrl;
-        }
-      };
-      reader.readAsDataURL(file);
-    }
-  }, { signal });
+  for (const kind of ['avatar', 'banner'] as const) {
+    document.getElementById(`edit-profile-${kind}-file`)?.addEventListener('change', async (event) => {
+      const input = event.target as HTMLInputElement;
+      const file = input.files?.[0];
+      if (!file) return;
+      if (!['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(file.type) || file.size > 2 * 1024 * 1024) {
+        clientStore.showToast('Choose a PNG, JPEG, WebP or GIF no larger than 2 MiB.', 'warning'); return;
+      }
+      input.disabled = true;
+      try {
+        const uploaded = await clientStore.uploadVaultFile(file);
+        if (!uploaded?.success || !uploaded.downloadUrl) return;
+        const url = new URL(uploaded.downloadUrl, window.location.origin).href;
+        profileView.editDraft = { ...profileView.getProfile(clientStore.keypair.fingerprint), ...profileView.editDraft, [kind]: url };
+        const field = document.getElementById(`edit-profile-${kind}`) as HTMLInputElement | null;
+        if (field) field.value = url;
+        clientStore.notify();
+      } finally { input.disabled = false; }
+    }, { signal });
+  }
 
-  // Banner file input change -> convert to DataURL
-  document.getElementById('edit-profile-banner-file')?.addEventListener('change', (e) => {
-    const file = (e.target as HTMLInputElement).files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        const dataUrl = ev.target?.result as string;
-        if (dataUrl) {
-          const bannerInput = document.getElementById('edit-profile-banner') as HTMLInputElement;
-          if (bannerInput) bannerInput.value = dataUrl;
-        }
-      };
-      reader.readAsDataURL(file);
-    }
-  }, { signal });
-
-  // Save profile form submission
-  document.getElementById('form-edit-profile')?.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const name = (document.getElementById('edit-profile-name') as HTMLInputElement)?.value.trim() || 'Sovereign Node';
-    const handle = (document.getElementById('edit-profile-handle') as HTMLInputElement)?.value.replace(/^@/, '').trim() || profileView.getProfile(clientStore.keypair.fingerprint).handle;
-    const bio = (document.getElementById('edit-profile-bio') as HTMLTextAreaElement)?.value.trim() || '';
-    const location = (document.getElementById('edit-profile-location') as HTMLInputElement)?.value.trim() || 'Cyberspace';
-    const website = (document.getElementById('edit-profile-website') as HTMLInputElement)?.value.trim() || 'urefy.com';
-    const avatar = (document.getElementById('edit-profile-avatar') as HTMLInputElement)?.value.trim() || profileView.getProfile(clientStore.keypair.fingerprint).avatar;
-    const banner = (document.getElementById('edit-profile-banner') as HTMLInputElement)?.value.trim() || profileView.getProfile(clientStore.keypair.fingerprint).banner;
-
-    profileView.saveProfile(clientStore.keypair.fingerprint, {
-      name,
-      handle,
-      bio,
-      location,
-      website,
-      avatar,
-      banner,
-    });
-
-    profileView.isEditProfileModalOpen = false;
-    clientStore.showToast(t('toast.profileUpdated', undefined, '👤 Sovereign Profile & Photo Updated!'), 'success');
-    clientStore.notify();
-  }, { signal });
 
   // Lightbox Image Gallery Listeners
   document.querySelectorAll('.btn-lightbox-img').forEach(img => {
@@ -3924,37 +3972,111 @@ function updateCommandRailHighlight(index: number): void {
   
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
-        let changed = false;
-        if (settingsView.isOpen) { settingsView.close(); changed = true; }
-        if (obsidianMediaPlayer.isLightboxOpen()) { obsidianMediaPlayer.closeLightbox(); changed = true; }
-        if (storiesEngine.activeStoryId) { storiesEngine.activeStoryId = null; changed = true; }
-        if (storiesEngine.isCreatorOpen) { storiesEngine.closeCreator(); changed = true; }
-        if (modalManager.getActiveFeature()) { modalManager.closeFeature(); changed = true; }
-        if (offlineSync.isOpen) { offlineSync.close(); changed = true; }
+        // If an inner portal/picker/popover is active, dismiss it and do not close the underlying post
+        const activePickerOrPortal = document.querySelector('.reaction-picker-portal, #reaction-picker, [data-portal-picker]');
+        if (activePickerOrPortal) {
+          activePickerOrPortal.remove();
+          return;
+        }
+
+        if (obsidianMediaPlayer.isLightboxOpen()) {
+          obsidianMediaPlayer.closeLightbox();
+          clientStore.notifySync('MODAL_CHANGE');
+          return;
+        }
+        if (settingsView.isOpen) {
+          settingsView.close();
+          clientStore.notifySync('MODAL_CHANGE');
+          return;
+        }
+        if (storiesEngine.activeStoryId || storiesEngine.isCreatorOpen) {
+          storiesEngine.activeStoryId = null;
+          storiesEngine.closeCreator();
+          clientStore.notifySync('MODAL_CHANGE');
+          return;
+        }
+        if (modalManager.getActiveFeature()) {
+          modalManager.closeFeature();
+          return;
+        }
+        if (offlineSync.isOpen) {
+          offlineSync.close();
+          clientStore.notifySync('MODAL_CHANGE');
+          return;
+        }
         void import('./cyber-defense-hub.js').then(({ cyberDefenseHub }) => {
           if (cyberDefenseHub.isOpen) cyberDefenseHub.close();
         });
         if (isThemeModalOpen || themeEngine.isModalOpen) {
           isThemeModalOpen = false;
           themeEngine.closeModal();
-          changed = true;
+          clientStore.notifySync('MODAL_CHANGE');
+          return;
         }
-        if (isLangModalOpen) { isLangModalOpen = false; changed = true; }
-        if (isGlobalScaleModalOpen) { isGlobalScaleModalOpen = false; changed = true; }
-        if (modalManager.getActiveFeature()) { modalManager.closeFeature(); changed = true; }
-        if (keyboardNavigator.isHelpModalOpen) { keyboardNavigator.closeHelpModal(); changed = true; }
-        if (isBookmarkModalOpen) { isBookmarkModalOpen = false; changed = true; }
-        if (isNotificationPanelOpen) { isNotificationPanelOpen = false; changed = true; }
-        if (profileView.isEditProfileModalOpen) { profileView.isEditProfileModalOpen = false; changed = true; }
-        if (omniComposer.isModalOpen) { omniComposer.isModalOpen = false; changed = true; }
+        if (isLangModalOpen) {
+          isLangModalOpen = false;
+          clientStore.notifySync('MODAL_CHANGE');
+          return;
+        }
+        if (isGlobalScaleModalOpen) {
+          isGlobalScaleModalOpen = false;
+          clientStore.notifySync('MODAL_CHANGE');
+          return;
+        }
+        if (keyboardNavigator.isHelpModalOpen) {
+          keyboardNavigator.closeHelpModal();
+          clientStore.notifySync('MODAL_CHANGE');
+          return;
+        }
+        if (isBookmarkModalOpen) {
+          isBookmarkModalOpen = false;
+          clientStore.notifySync('MODAL_CHANGE');
+          return;
+        }
+        if (isNotificationPanelOpen) {
+          isNotificationPanelOpen = false;
+          clientStore.notifySync('MODAL_CHANGE');
+          return;
+        }
+        if (profileView.isEditProfileModalOpen) {
+          profileView.isEditProfileModalOpen = false;
+          clientStore.notifySync('MODAL_CHANGE');
+          return;
+        }
+        if (omniComposer.isModalOpen) {
+          omniComposer.isModalOpen = false;
+          clientStore.notifySync('MODAL_CHANGE');
+          return;
+        }
+        if (clientStore.isComposerOpen) {
+          clientStore.toggleComposer();
+          clientStore.notifySync('MODAL_CHANGE');
+          return;
+        }
+        if (clientStore.isCommandRailOpen) {
+          clientStore.toggleCommandRail();
+          clientStore.notifySync('MODAL_CHANGE');
+          return;
+        }
+        if (activeCrossPostId) {
+          activeCrossPostId = null;
+          clientStore.notifySync('MODAL_CHANGE');
+          return;
+        }
+        if (isMobileDrawerOpen) {
+          isMobileDrawerOpen = false;
+          clientStore.notifySync('MODAL_CHANGE');
+          return;
+        }
         pulseActionsEngine.closeRepostMenu();
-        if (clientStore.isCommandRailOpen) { clientStore.toggleCommandRail(); changed = true; }
-        if (clientStore.isComposerOpen) { clientStore.toggleComposer(); changed = true; }
         awardsSystem.closeModal();
-        if (activeCrossPostId) { activeCrossPostId = null; changed = true; }
-        if (postDetailView.isOpen()) { postDetailView.closePost(); changed = true; }
-        if (isMobileDrawerOpen) { isMobileDrawerOpen = false; changed = true; }
-        if (changed) clientStore.notifySync();
+
+        // Finally, if post detail is open and no other modal was active, close it
+        if (postDetailView.isOpen()) {
+          postDetailView.closePost();
+          clientStore.notifySync();
+          return;
+        }
       } else if (obsidianMediaPlayer.isLightboxOpen()) {
         if (e.key === 'ArrowRight') { obsidianMediaPlayer.nextImage(); clientStore.notify(); }
         else if (e.key === 'ArrowLeft') { obsidianMediaPlayer.prevImage(); clientStore.notify(); }
@@ -3963,6 +4085,9 @@ function updateCommandRailHighlight(index: number): void {
       }
     });
   }
+
+  // Initialize video autoplay observer for feed videos
+  obsidianMediaPlayer.initAutoplayObserver();
 }
 
 function escapeHtml(text: string): string {

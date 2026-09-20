@@ -4,7 +4,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { isSimulationModeEnabled, renderSimulationBadgeHTML } from './simulation-mode.js';
-import { isLocalDev } from './admin-auth.js';
+import { isLocalDev } from './env-check.js';
 import { t } from './i18n.js';
 
 export interface ActivityEvent {

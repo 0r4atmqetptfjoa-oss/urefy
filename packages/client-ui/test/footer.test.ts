@@ -1,4 +1,4 @@
-﻿import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { legalFooter } from '../src/footer.js';
 import { legalModal } from '../src/legal-modal.js';
 import { i18n } from '../src/i18n.js';
@@ -28,7 +28,7 @@ describe('EU Legal & Regulatory Footer Suite', () => {
     expect(html).toContain('contact');
     // Zero-Tracker / Certificates
     expect(html).toContain('Zero Tracking Cookies');
-    expect(html).toContain('razvan@urefy.com');
+    expect(html).toContain('contact@urefy.com');
   });
 
   it('should render the compact sidebar snippet for aside rail', () => {
@@ -109,8 +109,7 @@ describe('EU Legal & Regulatory Footer Suite', () => {
     expect(legalModal.activeTab).toBe('contact');
     content = legalModal.render();
     expect(content).toContain('Single Points of Contact');
-    expect(content).toContain('razvan@urefy.com');
-    expect(content).toContain('razvan@urefy.com');
+    expect(content).toContain('contact@urefy.com');
 
     legalModal.close();
     expect(legalModal.isOpen).toBe(false);

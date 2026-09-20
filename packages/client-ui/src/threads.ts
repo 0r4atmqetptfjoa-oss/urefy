@@ -14,6 +14,8 @@ export interface ThreadComment {
   depth: number;
   meritScore: number;
   userVote?: number; // 1, 0, -1
+  likesCount?: number;
+  userLiked?: boolean;
   isCollapsed: boolean;
   isReplying?: boolean;
   isAuthorOP?: boolean;
@@ -22,12 +24,12 @@ export interface ThreadComment {
 }
 
 export const DEPTH_COLORS = [
-  '#00e5ff', // Depth 1: Cyphr Cyan
-  '#7c3aed', // Depth 2: Aether Violet
-  '#10b981', // Depth 3: Signal Emerald
-  '#f59e0b', // Depth 4: Amber Gold
-  '#ec4899', // Depth 5: Rose Pink
-  '#3b82f6', // Depth 6: Electric Blue
+  'rgba(255, 255, 255, 0.12)', // Depth 1: Neutral Guide
+  'rgba(255, 255, 255, 0.08)', // Depth 2: Subtle Guide
+  'rgba(255, 255, 255, 0.12)', // Depth 3: Neutral Guide
+  'rgba(255, 255, 255, 0.08)', // Depth 4: Subtle Guide
+  'rgba(255, 255, 255, 0.12)', // Depth 5: Neutral Guide
+  'rgba(255, 255, 255, 0.08)', // Depth 6: Subtle Guide
 ];
 
 function escapeHtml(str: string): string {
@@ -159,7 +161,7 @@ export class ThreadManager {
   public getRootCommentsForPost(postId?: string): ThreadComment[] {
     if (!postId) return this.getRootComments();
     const rootIds = this.postRootComments.get(postId);
-    if (rootIds && rootIds.length > 0) {
+    if (rootIds) {
       const raw = rootIds.map(id => this.comments.get(id)!).filter(Boolean);
       return this.sortComments(raw);
     }
@@ -190,7 +192,17 @@ export class ThreadManager {
     }
 
     try {
-      const res = await fetch(`/api/comments?postId=${encodeURIComponent(postId)}`);
+      let fp = '';
+      try {
+        const { clientStore } = await import('./client-state.js');
+        await clientStore.identityPersistence;
+        fp = clientStore.keypair?.fingerprint || '';
+      } catch (_) {}
+
+      const url = `/api/comments?postId=${encodeURIComponent(postId)}${fp ? `&userFingerprint=${encodeURIComponent(fp)}` : ''}`;
+      const res = await fetch(url, {
+        headers: fp ? { 'x-user-fingerprint': fp } : {},
+      });
       if (!res.ok) {
         return this.getRootCommentsForPost(postId);
       }
@@ -200,6 +212,9 @@ export class ThreadManager {
       }
 
       const edgeComments: any[] = data.comments;
+      // A successful response replaces this post's loaded page, including an
+      // empty page after moderation. Stale comments must never reappear.
+      for (const [id, comment] of this.comments) if (comment.postId === postId) this.comments.delete(id);
       if (edgeComments.length === 0) {
         // If post has no comments, clear postRootComments for this post
         this.postRootComments.set(postId, []);
@@ -211,6 +226,7 @@ export class ThreadManager {
       const rootList: ThreadComment[] = [];
 
       for (const ec of edgeComments) {
+        const awardsList = Array.isArray(ec.awards) ? ec.awards : [];
         const tc: ThreadComment = {
           id: ec.id,
           postId: ec.postId || postId,
@@ -220,12 +236,19 @@ export class ThreadManager {
           createdAt: Number(ec.createdAt) || Date.now(),
           depth: 0,
           meritScore: Number(ec.meritVotes) || 0,
-          userVote: 0,
+          userVote: Number(ec.userVote) || 0,
+          likesCount: Number(ec.likesCount) || 0,
+          userLiked: Boolean(ec.userLiked),
+          awards: awardsList,
           isCollapsed: false,
           replies: [],
         };
         nodeMap.set(tc.id, tc);
         this.comments.set(tc.id, tc);
+
+        if (awardsList.length > 0) {
+          awardsSystem.hydrateCommentAwards(tc.id, awardsList);
+        }
       }
 
       // Link parents and children
@@ -265,19 +288,19 @@ export class ThreadManager {
     }
   }
 
-  public addReply(parentId: string, authorFingerprint: string, content: string, postId: string = 'post-1'): ThreadComment {
+  public addReply(parentId: string, authorFingerprint: string, content: string, postId: string = 'post-1', persisted?: { id: string; createdAt: number; meritScore: number }): ThreadComment {
     const parent = this.comments.get(parentId);
     const targetPostId = parent?.postId || postId;
     const newComment: ThreadComment = {
-      id: `c-${Date.now()}-${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID().slice(0, 8) : Date.now().toString(36)}`,
+      id: persisted?.id || `c-${Date.now()}-${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID().slice(0, 8) : Date.now().toString(36)}`,
       postId: targetPostId,
       authorFingerprint,
       authorRole: 'MEMBER',
       content,
-      createdAt: Date.now(),
+      createdAt: persisted?.createdAt ?? Date.now(),
       depth: parent ? parent.depth + 1 : 0,
-      meritScore: 1,
-      userVote: 1,
+      meritScore: persisted?.meritScore ?? 1,
+      userVote: persisted ? 0 : 1,
       isCollapsed: false,
       replies: [],
     };
@@ -299,23 +322,116 @@ export class ThreadManager {
     return newComment;
   }
 
-  public endorseComment(commentId: string): void {
-    this.voteComment(commentId, 1);
+  public async endorseComment(commentId: string): Promise<void> {
+    await this.voteComment(commentId, 1);
   }
 
-  public voteComment(commentId: string, direction: number): void {
+  public updateCommentVoteInDom(commentId: string): void {
+    if (typeof document === 'undefined') return;
+    const c = this.comments.get(commentId);
+    if (!c) return;
+    const scoreSpans = document.querySelectorAll<HTMLElement>(`[data-comment-score="${commentId}"]`);
+    scoreSpans.forEach(span => {
+      span.textContent = String(c.meritScore);
+      span.className = `comment-merit-score text-[11px] font-bold px-1 tabular-nums ${c.userVote === 1 ? 'text-[var(--color-accent,#e59b3c)]' : c.userVote === -1 ? 'text-rose-500' : 'text-slate-300'}`;
+    });
+    const upvoteBtns = document.querySelectorAll<HTMLButtonElement>(`.btn-comment-upvote[data-comment-vote="${commentId}"]`);
+    upvoteBtns.forEach(btn => {
+      if (c.userVote === 1) {
+        btn.className = 'btn-comment-upvote text-[var(--color-accent,#e59b3c)] font-bold p-1 transition-colors cursor-pointer';
+      } else {
+        btn.className = 'btn-comment-upvote hover:text-[var(--color-accent,#e59b3c)] p-1 transition-colors cursor-pointer text-slate-400';
+      }
+    });
+    const downvoteBtns = document.querySelectorAll<HTMLButtonElement>(`.btn-comment-downvote[data-comment-vote="${commentId}"]`);
+    downvoteBtns.forEach(btn => {
+      if (c.userVote === -1) {
+        btn.className = 'btn-comment-downvote text-rose-500 font-bold p-1 transition-colors cursor-pointer';
+      } else {
+        btn.className = 'btn-comment-downvote hover:text-rose-500 p-1 transition-colors cursor-pointer text-slate-400';
+      }
+    });
+  }
+
+  public updateCommentLikeInDom(commentId: string): void {
+    if (typeof document === 'undefined') return;
+    const c = this.comments.get(commentId);
+    if (!c) return;
+    const btns = document.querySelectorAll<HTMLButtonElement>(`[data-comment-like="${commentId}"]`);
+    btns.forEach(btn => {
+      const heartSpan = btn.querySelector('.heart-icon');
+      const countSpan = btn.querySelector('.likes-count');
+      if (heartSpan) heartSpan.textContent = c.userLiked ? '❤️' : '🤍';
+      if (countSpan) countSpan.textContent = String(c.likesCount || 0);
+      if (c.userLiked) {
+        btn.classList.add('text-rose-400', 'font-medium');
+        btn.classList.remove('text-slate-400', 'hover:text-white');
+      } else {
+        btn.classList.remove('text-rose-400', 'font-medium');
+        btn.classList.add('text-slate-400', 'hover:text-white');
+      }
+    });
+  }
+
+  public async voteComment(commentId: string, direction: number): Promise<void> {
     const c = this.comments.get(commentId);
     if (!c) return;
 
-    if (c.userVote === direction) {
-      c.meritScore -= direction;
-      c.userVote = 0;
-    } else {
-      if (c.userVote !== undefined && c.userVote !== 0) {
-        c.meritScore -= c.userVote;
-      }
-      c.meritScore += direction;
-      c.userVote = direction;
+    const prevMerit = c.meritScore;
+    const prevVote = c.userVote ?? 0;
+
+    let targetDirection = direction;
+    if (prevVote === direction) {
+      targetDirection = 0;
+    }
+
+    // Optimistic localized UI update
+    const delta = targetDirection - prevVote;
+    c.meritScore = prevMerit + delta;
+    c.userVote = targetDirection;
+    this.updateCommentVoteInDom(commentId);
+
+    try {
+      const { persistCommentVote } = await import('./interaction-transport.js');
+      const res = await persistCommentVote(commentId, targetDirection);
+      c.meritScore = res.meritVotes;
+      c.userVote = res.userVote;
+      this.updateCommentVoteInDom(commentId);
+    } catch (err: any) {
+      c.meritScore = prevMerit;
+      c.userVote = prevVote;
+      this.updateCommentVoteInDom(commentId);
+      const { clientStore } = await import('./client-state.js');
+      clientStore.showToast(err?.message || 'Failed to save comment vote', 'warning');
+    }
+  }
+
+  public async likeComment(commentId: string): Promise<void> {
+    const c = this.comments.get(commentId);
+    if (!c) return;
+
+    const prevLiked = !!c.userLiked;
+    const prevCount = c.likesCount || 0;
+    const newLiked = !prevLiked;
+    const newCount = Math.max(0, prevCount + (newLiked ? 1 : -1));
+
+    // Optimistic localized UI update
+    c.userLiked = newLiked;
+    c.likesCount = newCount;
+    this.updateCommentLikeInDom(commentId);
+
+    try {
+      const { persistInteraction } = await import('./interaction-transport.js');
+      const res = await persistInteraction(commentId, 'like', newLiked, undefined, 'comment');
+      c.userLiked = res.active;
+      c.likesCount = res.newCount;
+      this.updateCommentLikeInDom(commentId);
+    } catch (err: any) {
+      c.userLiked = prevLiked;
+      c.likesCount = prevCount;
+      this.updateCommentLikeInDom(commentId);
+      const { clientStore } = await import('./client-state.js');
+      clientStore.showToast(err?.message || 'Failed to save comment like', 'warning');
     }
   }
 
@@ -332,6 +448,13 @@ export class ThreadManager {
     const isMe = currentFP && c.authorFingerprint === currentFP;
     const isReplyingThis = this.replyingCommentId === c.id;
 
+    const profile = (typeof window !== 'undefined' && (window as any).profileView)
+      ? (window as any).profileView.getProfile(c.authorFingerprint)
+      : null;
+    const authorName = profile?.name || (c.authorFingerprint.startsWith('fp_') ? c.authorFingerprint.slice(3).replace(/_/g, ' ') : `Member ${c.authorFingerprint.substring(0, 6)}`);
+    const authorHandle = profile?.handle ? `@${profile.handle.replace(/^@/, '')}` : `@${c.authorFingerprint.substring(0, 8)}`;
+    const authorAvatar = profile?.avatar;
+
     if (socialSafety.isBlocked(c.authorFingerprint)) {
       return `
         <div id="comment-${c.id}" class="py-1.5 px-3 rounded-xl bg-surface-base/40 text-xs text-slate-500 flex items-center space-x-2 border border-white/5 font-mono select-none my-1 opacity-70">
@@ -347,52 +470,74 @@ export class ThreadManager {
           <button data-collapse-id="${c.id}" class="btn-toggle-collapse text-slate-400 hover:text-white cursor-pointer px-1 py-0.5 rounded hover:bg-surface-overlay">
             [+]
           </button>
-          <span class="font-bold text-slate-200">@id:${c.authorFingerprint.slice(0, 8)}</span>
+          <span class="font-bold text-slate-200">${escapeHtml(authorName)}</span>
+          <span class="text-slate-500 text-[11px]">${escapeHtml(authorHandle)}</span>
           <span>• ${c.meritScore} Merit</span>
           <span class="text-slate-500">• (${c.replies.length} replies collapsed)</span>
         </div>
       `;
     }
 
+    const isDeepMobile = c.depth >= 3;
+    const indentClass = c.depth === 0
+      ? ''
+      : isDeepMobile
+        ? 'ml-1 sm:ml-6 pl-1.5 sm:pl-3.5'
+        : c.depth === 1
+          ? 'ml-2 sm:ml-5 pl-2 sm:pl-3.5'
+          : 'ml-2 sm:ml-6 pl-2 sm:pl-3.5';
+
     return `
       <div 
         id="comment-${c.id}" 
-        class="relative group/comment transition-all my-1.5 ${c.depth > 0 ? (c.depth <= 4 ? 'ml-2 sm:ml-5 pl-2 sm:pl-3.5' : 'ml-1 sm:ml-2 pl-1.5 sm:pl-2.5') : ''}" 
-        style="${c.depth > 0 ? `border-left: 2px solid ${color}40;` : ''}"
+        class="relative group/comment transition-all my-1.5 ${indentClass}" 
+        style="${c.depth > 0 ? `border-left: 2px solid ${color};` : ''}"
       >
-        <div class="p-3 rounded-xl bg-surface-base/80 hover:bg-surface-base border border-white/5 hover:border-white/10 transition-all space-y-2 shadow-xs">
+        ${c.depth >= 5 ? `
+          <div class="flex items-center space-x-1.5 text-[11px] text-slate-400 mb-1 pl-1">
+            <span>↳</span>
+            <span class="font-medium">Continued thread</span>
+          </div>
+        ` : ''}
+        <div class="p-3 rounded-xl bg-surface-base/85 hover:bg-surface-base border border-white/5 hover:border-white/10 transition-all space-y-2 shadow-xs">
           
           <!-- COMMENT HEADER: AVATAR, AUTHOR, OP TAG, YOU TAG, TIMESTAMP, COLLAPSE -->
           <div class="flex items-center justify-between text-xs gap-2 flex-wrap">
             <div class="flex items-center space-x-2 flex-wrap gap-y-1">
-              <div class="w-5 h-5 rounded-full bg-gradient-to-tr from-indigo-500 to-slate-700 flex items-center justify-center font-mono text-[8px] font-bold text-white shrink-0">
-                ${c.authorFingerprint.substring(0, 2).toUpperCase()}
-              </div>
-
-              <span class="font-mono text-xs font-bold" style="color: ${color};">
-                @id:${c.authorFingerprint.substring(0, 8)}
-              </span>
+              <button type="button" class="flex items-center space-x-2 text-left group/author hover:opacity-90 transition-opacity cursor-pointer min-h-[32px]" data-author-profile="${escapeHtml(c.authorFingerprint)}">
+                ${authorAvatar ? `
+                  <img src="${escapeHtml(authorAvatar)}" alt="${escapeHtml(authorName)}" class="w-6 h-6 rounded-full object-cover shrink-0 border border-white/10" loading="lazy" />
+                ` : `
+                  <div class="w-6 h-6 rounded-full bg-gradient-to-tr from-amber-600/60 to-slate-700 flex items-center justify-center text-[9px] font-bold text-white shrink-0">
+                    ${c.authorFingerprint.substring(0, 2).toUpperCase()}
+                  </div>
+                `}
+                <div class="flex items-baseline space-x-1.5">
+                  <strong class="font-bold text-xs text-white group-hover/author:text-[var(--color-accent,#e59b3c)] transition-colors">${escapeHtml(authorName)}</strong>
+                  <span class="text-[11px] text-slate-400">${escapeHtml(authorHandle)}</span>
+                </div>
+              </button>
 
               ${isOP ? `
-                <span class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 font-mono tracking-tight" title="Original Poster">
+                <span class="px-1.5 py-0.2 rounded text-[10px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30 tracking-tight" title="Original Poster">
                   OP
                 </span>
               ` : ''}
 
               ${isMe ? `
-                <span class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 font-mono" title="You">
+                <span class="px-1.5 py-0.2 rounded text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30" title="You">
                   YOU
                 </span>
               ` : ''}
 
               ${c.authorRole ? `
-                <span class="text-[8px] font-mono px-1 py-0.2 rounded bg-surface-overlay text-slate-400 border border-white/5">
+                <span class="text-[9px] px-1.5 py-0.2 rounded bg-surface-overlay text-slate-400 border border-white/5">
                   ${c.authorRole}
                 </span>
               ` : ''}
 
               <span class="text-slate-600 text-[10px]">•</span>
-              <span class="text-[10px] text-slate-500 font-mono">${time}</span>
+              <span class="text-[11px] text-slate-400">${time}</span>
 
               <!-- COMMENT AWARDS BADGES -->
               ${awardsSystem.renderCommentAwardBadges(c.id)}
@@ -401,7 +546,7 @@ export class ThreadManager {
             <!-- COLLAPSE BUTTON -->
             <button 
               data-collapse-id="${c.id}" 
-              class="btn-toggle-collapse text-[10px] text-slate-500 hover:text-slate-200 font-mono px-1.5 py-0.5 rounded hover:bg-surface-overlay cursor-pointer ml-auto"
+              class="btn-toggle-collapse text-xs text-slate-400 hover:text-slate-200 px-2 py-1 rounded hover:bg-surface-overlay cursor-pointer ml-auto min-h-[32px] flex items-center"
               title="Collapse comment thread"
             >
               [-]
@@ -409,52 +554,62 @@ export class ThreadManager {
           </div>
 
           <!-- COMMENT CONTENT BODY -->
-          <div class="text-xs text-slate-200 leading-relaxed select-text font-normal break-words pl-0.5">
+          <div class="text-base sm:text-[15px] text-slate-100 dark:text-slate-200 leading-[1.65] select-text font-normal break-words pl-0.5 font-sans">
             ${markdownRenderer.renderMarkdown(c.content)}
           </div>
 
           <!-- COMMENT ACTION FOOTER: VOTES, REPLY, AWARD -->
-          <div class="flex items-center space-x-3 pt-1 text-xs text-slate-400 font-mono border-t border-white/5">
+          <div class="flex items-center space-x-2.5 pt-1 text-xs text-slate-400 border-t border-white/5 flex-wrap gap-y-1.5">
             
-            <!-- VOTE PILL -->
-            <div class="flex items-center space-x-1 bg-surface-overlay/80 px-2 py-0.5 rounded-lg border border-white/5">
+            <!-- LIKE BUTTON FOR COMMENT (PRIMARY) -->
+            <button 
+              data-comment-like="${c.id}" 
+              class="btn-comment-like flex items-center space-x-1.5 px-3 py-1 rounded-lg hover:bg-surface-overlay transition-colors cursor-pointer min-h-[36px] sm:min-h-0 ${c.userLiked ? 'text-rose-400 font-bold bg-rose-500/10 border border-rose-500/20' : 'text-slate-300 hover:text-white bg-surface-overlay/60 border border-white/5'}"
+              title="Like comment"
+            >
+              <span class="heart-icon">${c.userLiked ? '❤️' : '🤍'}</span>
+              <span class="likes-count text-[11px] font-bold tabular-nums">${c.likesCount || 0}</span>
+            </button>
+
+            <!-- REPLY BUTTON (PRIMARY) -->
+            <button 
+              data-toggle-reply="${c.id}" 
+              class="btn-comment-toggle-reply flex items-center space-x-1.5 px-3 py-1 rounded-lg hover:bg-surface-overlay hover:text-white transition-colors cursor-pointer min-h-[36px] sm:min-h-0 text-slate-300 bg-surface-overlay/60 border border-white/5"
+            >
+              <span>💬</span>
+              <span class="text-xs font-medium">${t('feed.reply', undefined, 'Reply')}</span>
+            </button>
+
+            <!-- VOTE PILL (SECONDARY) -->
+            <div class="flex items-center space-x-1 bg-surface-overlay/40 px-2 py-0.5 rounded-lg border border-white/5 min-h-[36px] sm:min-h-0">
               <button 
                 data-comment-vote="${c.id}" 
                 data-dir="1" 
-                class="btn-comment-upvote hover:text-indigo-400 p-0.5 transition-colors cursor-pointer ${c.userVote === 1 ? 'text-indigo-400 font-bold' : 'text-slate-400'}" 
+                class="btn-comment-upvote hover:text-[var(--color-accent,#e59b3c)] p-1 transition-colors cursor-pointer ${c.userVote === 1 ? 'text-[var(--color-accent,#e59b3c)] font-bold' : 'text-slate-400'}" 
                 title="Endorse (+1 Merit)"
               >
                 ▲
               </button>
-              <span class="text-[11px] font-bold px-1 ${c.userVote === 1 ? 'text-indigo-400' : c.userVote === -1 ? 'text-rose-500' : 'text-slate-300'}">
+              <span data-comment-score="${c.id}" class="comment-merit-score text-[11px] font-bold px-1 tabular-nums ${c.userVote === 1 ? 'text-[var(--color-accent,#e59b3c)]' : c.userVote === -1 ? 'text-rose-500' : 'text-slate-300'}">
                 ${c.meritScore}
               </span>
               <button 
                 data-comment-vote="${c.id}" 
                 data-dir="-1" 
-                class="btn-comment-downvote hover:text-rose-500 p-0.5 transition-colors cursor-pointer ${c.userVote === -1 ? 'text-rose-500 font-bold' : 'text-slate-400'}" 
+                class="btn-comment-downvote hover:text-rose-500 p-1 transition-colors cursor-pointer ${c.userVote === -1 ? 'text-rose-500 font-bold' : 'text-slate-400'}" 
                 title="Divergent View (-1)"
               >
                 ▼
               </button>
             </div>
 
-            <!-- REPLY BUTTON -->
-            <button 
-              data-toggle-reply="${c.id}" 
-              class="btn-comment-toggle-reply flex items-center space-x-1 px-2 py-0.5 rounded-lg hover:bg-surface-overlay hover:text-white transition-colors cursor-pointer"
-            >
-              <span>💬</span>
-              <span>${t('feed.reply', undefined, 'Reply')}</span>
-            </button>
-
-            <!-- BESTOW AWARD ON COMMENT -->
+            <!-- BESTOW AWARD ON COMMENT (SECONDARY) -->
             ${awardsSystem.renderGiveCommentAwardButton(c.id, c.postId || 'post-1', 'GUARDIAN')}
 
-            <!-- COMMENT PERMALINK -->
+            <!-- COMMENT PERMALINK (SECONDARY) -->
             <button 
               data-comment-permalink="${c.id}" 
-              class="btn-comment-permalink flex items-center space-x-1 px-2 py-0.5 rounded-lg hover:bg-surface-overlay hover:text-white transition-colors cursor-pointer"
+              class="btn-comment-permalink flex items-center space-x-1 px-2.5 py-1 rounded-lg hover:bg-surface-overlay hover:text-white transition-colors cursor-pointer min-h-[36px] sm:min-h-0 text-slate-400"
               title="Copy link to comment"
             >
               <span>🔗</span>
@@ -464,33 +619,31 @@ export class ThreadManager {
 
           <!-- INLINE REPLY COMPOSER BOX -->
           ${isReplyingThis ? `
-            <div class="mt-2.5 p-3 rounded-xl bg-surface-raised border border-indigo-500/30 space-y-2 animate-in fade-in duration-100">
-              <div class="text-[11px] font-mono text-slate-400 flex items-center space-x-1">
-                <span class="text-indigo-400">↳</span>
-                <span>Replying to <span class="text-white font-bold">@id:${c.authorFingerprint.slice(0, 8)}</span>:</span>
+            <div class="mt-2.5 p-3 rounded-xl bg-surface-raised border border-[var(--color-accent,#e59b3c)]/40 space-y-2 animate-in fade-in duration-100">
+              <div class="text-[11px] text-slate-400 flex items-center space-x-1">
+                <span class="text-[var(--color-accent,#e59b3c)]">↳</span>
+                <span>Replying to <span class="text-white font-bold">${escapeHtml(authorName)}</span>:</span>
               </div>
               <textarea 
                 id="input-inline-reply-${c.id}"
                 rows="2"
-                placeholder="What are your thoughts on this cryptographic proof? (Markdown supported)"
-                class="w-full bg-surface-base border border-white/10 focus:border-indigo-500 rounded-lg p-2 text-xs text-slate-200 placeholder-slate-500 focus:outline-none resize-none font-sans"
-                autofocus
+                placeholder="Write a thoughtful reply... (Markdown supported)"
+                class="w-full bg-surface-base border border-white/10 focus:border-[var(--color-accent,#e59b3c)] rounded-lg p-2.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none resize-none font-sans"
               ></textarea>
               <div class="flex items-center justify-end space-x-2">
                 <button 
                   type="button" 
                   data-cancel-reply="${c.id}" 
-                  class="btn-cancel-reply px-3 py-1 text-xs font-mono text-slate-400 hover:text-white rounded-lg hover:bg-surface-overlay transition-colors cursor-pointer"
+                  class="btn-cancel-reply min-h-[36px] px-3 py-1 text-xs text-slate-400 hover:text-white rounded-lg hover:bg-surface-overlay transition-colors cursor-pointer"
                 >
-                  ${t('common.cancel', undefined, 'Cancel')}
+                  Cancel
                 </button>
                 <button 
                   type="button" 
                   data-submit-reply="${c.id}" 
-                  class="btn-submit-reply px-3.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-lg transition-all shadow-sm flex items-center space-x-1 cursor-pointer"
+                  class="btn-submit-reply min-h-[36px] px-4 py-1 text-xs font-bold bg-[var(--color-accent,#e59b3c)] text-slate-950 rounded-lg hover:brightness-105 transition-all shadow-sm cursor-pointer"
                 >
-                  <span>⚡</span>
-                  <span>${'Post Reply'}</span>
+                  Post Reply
                 </button>
               </div>
             </div>
@@ -522,7 +675,7 @@ export class ThreadManager {
           ${sorts.map(s => `
             <button 
               data-thread-sort="${s.key}" 
-              class="px-2 py-1 rounded-md text-[11px] font-mono cursor-pointer transition-colors ${this.sortMode === s.key ? 'bg-indigo-600 text-white font-bold' : 'text-slate-400 hover:text-slate-200'}"
+              class="px-2.5 py-1 rounded-md text-[11px] font-mono cursor-pointer transition-colors ${this.sortMode === s.key ? 'bg-[var(--color-accent,#e59b3c)] text-slate-950 font-bold shadow-xs' : 'text-slate-400 hover:text-slate-200'}"
             >
               ${s.icon} ${s.label}
             </button>
@@ -535,10 +688,11 @@ export class ThreadManager {
   public renderCommentTree(
     comments: ThreadComment[] = this.getRootComments(),
     postAuthorFP: string = 'c3dc28cb705e',
-    currentFP: string = ''
+    currentFP: string = '',
+    postId: string = ''
   ): string {
     return `
-      <div class="space-y-2 thread-comments-root">
+      <div class="space-y-2 thread-comments-root" data-post-id="${postId}" data-post-author="${postAuthorFP}">
         ${this.renderSortingToolbar()}
         ${comments.map(c => this.renderCommentNode(c, postAuthorFP, currentFP)).join('')}
       </div>
@@ -548,7 +702,7 @@ export class ThreadManager {
   private _initGlobalDomListeners(): void {
     if (typeof document === 'undefined') return;
 
-    document.addEventListener('click', (e: MouseEvent) => {
+    document.addEventListener('click', async (e: MouseEvent) => {
       const target = e.target as HTMLElement | null;
       if (!target) return;
 
@@ -600,8 +754,7 @@ export class ThreadManager {
         e.preventDefault();
         const cid = upvoteBtn.getAttribute('data-comment-vote');
         if (cid) {
-          this.voteComment(cid, 1);
-          this._refreshCommentsTreeInDom();
+          await this.voteComment(cid, 1);
         }
         return;
       }
@@ -611,8 +764,18 @@ export class ThreadManager {
         e.preventDefault();
         const cid = downvoteBtn.getAttribute('data-comment-vote');
         if (cid) {
-          this.voteComment(cid, -1);
-          this._refreshCommentsTreeInDom();
+          await this.voteComment(cid, -1);
+        }
+        return;
+      }
+
+      // Like comment
+      const likeBtn = target.closest('.btn-comment-like') as HTMLElement | null;
+      if (likeBtn) {
+        e.preventDefault();
+        const cid = likeBtn.getAttribute('data-comment-like');
+        if (cid) {
+          await this.likeComment(cid);
         }
         return;
       }
@@ -647,9 +810,21 @@ export class ThreadManager {
           const textarea = document.getElementById(`input-inline-reply-${cid}`) as HTMLTextAreaElement | null;
           const text = textarea ? textarea.value.trim() : '';
           if (text) {
-            const authorFP = (typeof window !== 'undefined' ? window.activeUserFP : undefined) || 'self.sovereign';
-            this.addReply(cid, authorFP, text);
-            this._refreshCommentsTreeInDom();
+            const parent = this.comments.get(cid);
+            const postId = parent?.postId || 'post-1';
+            submitReplyBtn.setAttribute('disabled', 'true');
+            submitReplyBtn.textContent = 'Posting...';
+            try {
+              const { publishComment } = await import('./controllers/comment-controller.js');
+              await publishComment(postId, text, cid);
+              this.replyingCommentId = null;
+              this._refreshCommentsTreeInDom();
+            } catch (err: any) {
+              const { clientStore } = await import('./client-state.js');
+              clientStore.showToast(err?.message || 'Failed to post reply. Your draft is still here.', 'warning');
+              submitReplyBtn.removeAttribute('disabled');
+              submitReplyBtn.textContent = 'Post Reply';
+            }
           }
         }
         return;
@@ -661,8 +836,13 @@ export class ThreadManager {
     if (typeof document === 'undefined') return;
     const treeEl = document.querySelector('.thread-comments-root');
     if (treeEl) {
-      treeEl.outerHTML = this.renderCommentTree();
+      const postId = treeEl.getAttribute('data-post-id') || '';
+      const postAuthor = treeEl.getAttribute('data-post-author') || 'c3dc28cb705e';
+      const comments = postId ? this.getRootCommentsForPost(postId) : this.getRootComments();
+      const currentFP = (typeof window !== 'undefined' && (window as any).clientStore?.keypair?.fingerprint) || '';
+      treeEl.outerHTML = this.renderCommentTree(comments, postAuthor, currentFP, postId);
     }
+    window.dispatchEvent(new CustomEvent('aetheris-detail-view-refresh'));
   }
 }
 

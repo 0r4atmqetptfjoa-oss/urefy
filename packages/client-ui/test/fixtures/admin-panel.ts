@@ -27,6 +27,20 @@ export function seedAdminPanelFixtures(panel: AdminPanelManager): void {
     { id: 'log-2', action: 'IP_BANNED', targetId: '185.220.101.5', adminFingerprint: 'genesis-core', timestamp: Date.now() - 120000 },
     { id: 'log-3', action: 'POST_DELETED', targetId: 'post-spam-44', adminFingerprint: 'genesis-core', timestamp: Date.now() - 60000 },
   ];
+  (panel as any).auditLedger = [
+    {
+      id: 'audit-001',
+      previous_entry_hash: '0000000000000000000000000000000000000000000000000000000000000000',
+      current_entry_hash: '3a41e97cf86a7d5b128549303c7343e5e6f6630f9a2e6371c19b486968c92a6b',
+      timestamp: Date.now() - 3600000,
+      admin_credential_id: 'cred-sovereign-genesis',
+      action: 'INIT_GENESIS_ENCLAVE',
+      target_resource: 'system/enclave',
+      client_ip: '127.0.0.1',
+      client_country: 'RO',
+      payload_digest: 'd41d8cd98f00b204e9800998ecf8427e',
+    },
+  ];
   (panel as any).incidents = [
     {
       id: 'inc-001',

@@ -13,9 +13,12 @@ test('onboarding and public tools display only UREfy product branding', async ({
   await page.goto('/');
   await expect(page.getByText('UREfy // SOVEREIGN WELCOME', { exact: true })).toBeVisible();
   await expect(page.locator('body')).not.toContainText(/\baetheris\b/i);
-  await page.getByRole('button', { name: /Skip/ }).first().click();
+  await page.locator('#btn-skip-onboarding').click();
   await expect(page.locator('#app-top-header')).toBeVisible();
-  if (await page.locator('#main-layout').getAttribute('data-ui-mode') !== 'sovereign') await page.locator('#btn-toggle-ui-mode').click();
+  if (await page.locator('#main-layout').getAttribute('data-ui-mode') !== 'sovereign') {
+    await page.locator('#btn-rail-more').click();
+    await page.locator('#btn-toggle-advanced-sidebar').click();
+  }
   for (const [button, modal] of [
     ['nav-btn-dao', 'governance-modal-backdrop'],
     ['btn-open-rss-panel', 'rss-modal-backdrop'],

@@ -912,10 +912,7 @@ export class NetworkObservatory {
     this.selectedNodeId = null;
     this.stopLiveUpdates();
     if (typeof document !== 'undefined') {
-      const modalEl = document.getElementById('network-observatory-modal-root');
-      if (modalEl) {
-        modalEl.remove();
-      }
+      document.querySelectorAll('#network-observatory-modal-root').forEach(el => el.remove());
     }
   }
 
@@ -1113,7 +1110,7 @@ export class NetworkObservatory {
           </button>
 
           <button
-            id="btn-close-observatory-modal" data-action="call-global" data-raw-click="window.__aetheris_close_observatory && window.__aetheris_close_observatory()"
+            id="btn-close-observatory-modal" data-action="close-feature"
             class="flex items-center justify-center w-8 h-8 rounded-lg bg-surface-overlay hover:bg-crimson/20 hover:border-crimson/40 border border-white/10 text-slate-400 hover:text-crimson transition-all text-base font-bold cursor-pointer"
             title="${t('modal.close', undefined, 'Close Observatory')} (ESC)"
           >
@@ -2029,7 +2026,7 @@ export class NetworkObservatory {
         </div>
 
         <div class="flex items-center gap-2">
-          <button data-action="call-global" data-raw-click="window.__aetheris_close_observatory && window.__aetheris_close_observatory()"
+          <button data-action="close-feature"
             class="px-4 py-1.5 rounded-lg bg-surface-overlay hover:bg-slate-700 border border-white/10 text-slate-200 hover:text-white transition-all text-xs font-semibold cursor-pointer"
           >
             Close Observatory

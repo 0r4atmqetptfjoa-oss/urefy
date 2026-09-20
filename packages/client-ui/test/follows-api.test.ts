@@ -101,15 +101,19 @@ describe('Follows & Social Graph API (/api/follows)', () => {
     expect(data2.isFollowing).toBe(false);
   });
 
-  it('5. supports DELETE /api/follows', async () => {
+  it('5. supports owner-signed DELETE /api/follows', async () => {
+    const { createSignedEnvelope, createSovereignIdentity } = await import('@aetheris/core-crypto');
+    const owner = createSovereignIdentity();
     globalFollowsStore.push({
-      followerId: 'user-x',
+      followerId: owner.identity.fingerprint,
       followingId: 'user-y',
       createdAt: Date.now(),
     });
 
     const delReq = new Request('https://urefy.com/api/follows?followerId=user-x&followingId=user-y', {
       method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(createSignedEnvelope({ action: 'unfollow', followingId: 'user-y' }, owner)),
     });
     const delRes = await onRequestDelete({ request: delReq });
     expect(delRes.status).toBe(200);

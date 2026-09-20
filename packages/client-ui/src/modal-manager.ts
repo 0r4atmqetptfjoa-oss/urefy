@@ -30,10 +30,12 @@ export type FeatureModalId =
   | 'wot-graph'
   | 'custom-theme'
   | 'governance'
+  | 'dao'
   | 'rss'
   | 'cve'
   | 'gossip'
   | 'export-backup'
+  | 'backup'
   | 'steganography'
   | 'archive'
   | 'social-recovery'
@@ -94,14 +96,18 @@ export class ModalManager {
     this.isLoading = true;
 
     try {
+      const normalizedId = (String(featureId).replace(/_/g, '-') as FeatureModalId);
       const fp = clientStore.keypair?.fingerprint || 'genesis-core';
       const pubHex = clientStore.keypair?.publicKeyHex || '';
 
-      switch (featureId) {
+      switch (normalizedId) {
         case 'observatory': {
           const mod = this.loadedModules.get('observatory') || (await import('./network-observatory.js'));
           this.loadedModules.set('observatory', mod);
-          mod.networkObservatory.open();
+          mod.networkObservatory.isOpen = true;
+          if (typeof mod.networkObservatory.startLiveUpdates === 'function' && !mod.networkObservatory.isLiveUpdating) {
+            mod.networkObservatory.startLiveUpdates();
+          }
           this.setActive(
             'observatory',
             () => mod.networkObservatory.renderObservatoryModal(),
@@ -113,7 +119,13 @@ export class ModalManager {
         case 'wot-graph': {
           const mod = this.loadedModules.get('wot-graph') || (await import('./network-wot-graph.js'));
           this.loadedModules.set('wot-graph', mod);
-          mod.wotGraphViz.open();
+          mod.wotGraphViz.isOpen = true;
+          if (typeof mod.wotGraphViz.startAnimation === 'function') {
+            mod.wotGraphViz.startAnimation();
+          }
+          if (typeof mod.wotGraphViz.setupGlobalListeners === 'function') {
+            mod.wotGraphViz.setupGlobalListeners();
+          }
           this.setActive(
             'wot-graph',
             () => mod.wotGraphViz.renderWoTGraphModal(),
@@ -134,6 +146,7 @@ export class ModalManager {
           break;
         }
 
+        case 'dao':
         case 'governance': {
           const mod = this.loadedModules.get('governance') || (await import('./governance-workspace.js'));
           this.loadedModules.set('governance', mod);
@@ -172,7 +185,11 @@ export class ModalManager {
                 </div>
               </div>
             `,
-            () => {}
+            () => {
+              if (mod.rssImporter && typeof mod.rssImporter.close === 'function') {
+                mod.rssImporter.close();
+              }
+            }
           );
           break;
         }
@@ -186,14 +203,18 @@ export class ModalManager {
               <div id="cve-modal-backdrop" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md" data-action="close-feature">
                 <div class="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto bg-surface-base border border-white/10 rounded-2xl p-6 shadow-2xl" data-action="stop-propagation">
                   <div class="flex justify-between items-center pb-3 mb-3 border-b border-white/5">
-                    <span class="text-sm font-bold text-white font-mono">🛡️ CVE Monitor</span>
+                    <span class="text-sm font-bold text-white font-mono">🛡️ CVE Monitor (Curated DB)</span>
                     <button type="button" data-action="close-feature" class="text-slate-400 hover:text-white px-2 py-1 cursor-pointer">✕</button>
                   </div>
                   <div id="cve-container-root">${mod.cveMonitor.renderCVEDashboard()}</div>
                 </div>
               </div>
             `,
-            () => {}
+            () => {
+              if (mod.cveMonitor && typeof mod.cveMonitor.close === 'function') {
+                mod.cveMonitor.close();
+              }
+            }
           );
           break;
         }
@@ -207,18 +228,23 @@ export class ModalManager {
               <div id="gossip-modal-backdrop" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md" data-action="close-feature">
                 <div class="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto bg-surface-base border border-white/10 rounded-2xl p-6 shadow-2xl" data-action="stop-propagation">
                   <div class="flex justify-between items-center pb-3 mb-3 border-b border-white/5">
-                    <span class="text-sm font-bold text-white font-mono">📡 Gossip Visualizer</span>
+                    <span class="text-sm font-bold text-white font-mono">📡 Gossip Protocol Simulator (Lab)</span>
                     <button type="button" data-action="close-feature" class="text-slate-400 hover:text-white px-2 py-1 cursor-pointer">✕</button>
                   </div>
                   <div id="gossip-container-root">${mod.gossipViz.renderGossipPanel()}</div>
                 </div>
               </div>
             `,
-            () => {}
+            () => {
+              if (mod.gossipViz && typeof mod.gossipViz.close === 'function') {
+                mod.gossipViz.close();
+              }
+            }
           );
           break;
         }
 
+        case 'backup':
         case 'export-backup': {
           const mod = this.loadedModules.get('export-backup') || (await import('./export-backup.js'));
           this.loadedModules.set('export-backup', mod);
@@ -235,7 +261,11 @@ export class ModalManager {
                 </div>
               </div>
             `,
-            () => {}
+            () => {
+              if (mod.exportBackup && typeof mod.exportBackup.close === 'function') {
+                mod.exportBackup.close();
+              }
+            }
           );
           break;
         }
@@ -479,7 +509,53 @@ export class ModalManager {
       }
     } finally {
       this.isLoading = false;
-      clientStore.notifySync();
+      clientStore.notifySync('MODAL_CHANGE');
+      this.bindActiveFeatureDOM();
+    }
+  }
+
+  public bindActiveFeatureDOM(): void {
+    if (!this.activeFeatureId || typeof document === 'undefined') return;
+    switch (this.activeFeatureId) {
+      case 'steganography': {
+        const mod = this.loadedModules.get('steganography');
+        if (mod && mod.steganographyModal) {
+          mod.steganographyModal.bindEvents();
+        }
+        break;
+      }
+      case 'cve': {
+        const mod = this.loadedModules.get('cve');
+        const container = document.getElementById('cve-container-root') || document.getElementById('cve-monitor-container');
+        if (mod && mod.cveMonitor && container) {
+          mod.cveMonitor.bindEvents(container);
+        }
+        break;
+      }
+      case 'rss': {
+        const mod = this.loadedModules.get('rss');
+        const container = document.getElementById('rss-container-root') || document.getElementById('rss-importer-container');
+        if (mod && mod.rssImporter && container) {
+          mod.rssImporter.attachEventListeners(container);
+        }
+        break;
+      }
+      case 'export-backup': {
+        const mod = this.loadedModules.get('export-backup');
+        const container = document.getElementById('export-container-root');
+        if (mod && mod.exportBackup && container) {
+          mod.exportBackup.attachEventListeners(container);
+        }
+        break;
+      }
+      case 'gossip': {
+        const mod = this.loadedModules.get('gossip');
+        const container = document.getElementById('gossip-container-root');
+        if (mod && mod.gossipViz && container) {
+          mod.gossipViz.attachEventListeners(container);
+        }
+        break;
+      }
     }
   }
 
@@ -503,7 +579,7 @@ export class ModalManager {
     this.activeFeatureId = null;
     this.activeFeatureRender = null;
     this.activeFeatureClose = null;
-    clientStore.notifySync();
+    clientStore.notifySync('MODAL_CHANGE');
   }
 
   /**

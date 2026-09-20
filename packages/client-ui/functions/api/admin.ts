@@ -221,6 +221,113 @@ export async function verifyAdminSessionToken(
   return timingSafeEqual(expectedSig, signature);
 }
 
+export const DESTRUCTIVE_ADMIN_ACTIONS = new Set([
+  'ban-ip',
+  'unban-ip',
+  'backup-trigger',
+  'server-config-update',
+  'clear-audit-logs',
+  'broadcast-message',
+  'emergency-freeze',
+  'purge-cache',
+]);
+
+/**
+ * Records an immutable entry into the cryptographic WORM audit ledger in Cloudflare D1.
+ * Uses SHA-256 Merkle chaining: previous_entry_hash -> current_entry_hash.
+ */
+export async function recordImmutableAuditEntry(
+  db: any,
+  entry: {
+    adminCredentialId: string;
+    action: string;
+    targetResource: string;
+    clientIp: string;
+    clientCountry?: string;
+    payload?: any;
+  }
+): Promise<{ id: string; currentEntryHash: string }> {
+  const id = crypto.randomUUID();
+  const timestamp = Date.now();
+  const payloadStr = entry.payload ? JSON.stringify(entry.payload) : '';
+  const payloadDigestBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(payloadStr));
+  const payloadDigest = Array.from(new Uint8Array(payloadDigestBuffer))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+
+  let previousHash = '0000000000000000000000000000000000000000000000000000000000000000';
+  if (db) {
+    try {
+      await db
+        .prepare(
+          `CREATE TABLE IF NOT EXISTS admin_immutable_audit_ledger (
+            id TEXT PRIMARY KEY,
+            previous_entry_hash TEXT NOT NULL,
+            current_entry_hash TEXT NOT NULL,
+            timestamp INTEGER NOT NULL,
+            admin_credential_id TEXT NOT NULL,
+            action TEXT NOT NULL,
+            target_resource TEXT NOT NULL,
+            client_ip TEXT NOT NULL,
+            client_country TEXT NOT NULL,
+            payload_digest TEXT NOT NULL
+          )`
+        )
+        .run();
+
+      const lastRow = await db
+        .prepare('SELECT current_entry_hash FROM admin_immutable_audit_ledger ORDER BY timestamp DESC LIMIT 1')
+        .first();
+      if (lastRow && (lastRow as any).current_entry_hash) {
+        previousHash = (lastRow as any).current_entry_hash;
+      }
+    } catch (_) {}
+  }
+
+  const messageToHash = `${previousHash}:${timestamp}:${entry.adminCredentialId}:${entry.action}:${entry.targetResource}:${payloadDigest}`;
+  const currentHashBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(messageToHash));
+  const currentEntryHash = Array.from(new Uint8Array(currentHashBuffer))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+
+  if (db) {
+    try {
+      await db
+        .prepare(
+          `INSERT INTO admin_immutable_audit_ledger
+          (id, previous_entry_hash, current_entry_hash, timestamp, admin_credential_id, action, target_resource, client_ip, client_country, payload_digest)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        )
+        .bind(
+          id,
+          previousHash,
+          currentEntryHash,
+          timestamp,
+          entry.adminCredentialId,
+          entry.action,
+          entry.targetResource,
+          entry.clientIp,
+          entry.clientCountry || 'XX',
+          payloadDigest
+        )
+        .run();
+    } catch (_) {}
+  }
+
+  // Also maintain in-memory fallback
+  globalAdminLogsStore.unshift({
+    id,
+    action: entry.action,
+    targetId: entry.targetResource,
+    adminFingerprint: entry.adminCredentialId,
+    timestamp,
+  });
+  if (globalAdminLogsStore.length > 500) globalAdminLogsStore.pop();
+
+  return { id, currentEntryHash };
+}
+
+
 export function isNonLocalEnvironment(req: Request, env?: Env): boolean {
   if (env?.ENVIRONMENT === 'production' || env?.NODE_ENV === 'production') {
     return true;
@@ -593,6 +700,18 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
       }
     }
 
+    let immutableAuditLedger: any[] = [];
+    if (db && (tab === 'all' || tab === 'logs' || tab === 'audit' || tab === 'moderation')) {
+      try {
+        const auditRows = await db
+          .prepare('SELECT * FROM admin_immutable_audit_ledger ORDER BY timestamp DESC LIMIT 100')
+          .all<any>();
+        if (auditRows && auditRows.results) {
+          immutableAuditLedger = auditRows.results;
+        }
+      } catch (_) {}
+    }
+
     const overview = await readAdminOverview(db);
 
     // Build comprehensive administrative dashboard payload
@@ -624,6 +743,7 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
       bannedIPs: tab === 'all' || tab === 'waf' ? globalBannedIPsStore : undefined,
       config: tab === 'all' || tab === 'config' ? globalServerConfig : undefined,
       logs: tab === 'all' || tab === 'logs' || tab === 'moderation' ? globalAdminLogsStore : undefined,
+      auditLedger: tab === 'all' || tab === 'logs' || tab === 'audit' ? (immutableAuditLedger.length > 0 ? immutableAuditLedger : globalAdminLogsStore) : undefined,
       storage: db ? 'Cloudflare-D1' : 'Edge-Isolate-Memory',
     };
 

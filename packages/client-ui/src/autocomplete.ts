@@ -10,7 +10,9 @@
 // Interfaces & Types
 // ---------------------------------------------------------------------------
 
-export type AutocompleteItemType = 'mention' | 'tag';
+import { searchEmojis } from './chat-rich-embed.js';
+
+export type AutocompleteItemType = 'mention' | 'tag' | 'emoji';
 
 export interface AutocompleteItem {
   type: AutocompleteItemType;
@@ -141,7 +143,7 @@ export class AutocompleteEngine {
   public isVisible: boolean = false;
   public items: AutocompleteItem[] = [];
   public selectedIndex: number = 0;
-  public currentPrefix: '@' | '#' | null = null;
+  public currentPrefix: '@' | '#' | ':' | null = null;
   public activeInputElement: HTMLInputElement | HTMLTextAreaElement | null = null;
 
   public query: string = '';
@@ -306,16 +308,16 @@ export class AutocompleteEngine {
 
     const textBeforeCursor = value.slice(0, cursorPos);
 
-    // Look for @ or # word currently being typed at cursor
-    // Word starts at beginning of string or after whitespace
-    const match = textBeforeCursor.match(/(?:^|\s)([@#])([a-zA-Z0-9_\-\.:]*)$/);
+    // Look for @, #, or : word currently being typed at cursor
+    // Word starts at beginning of string or after whitespace, excluding URLs (e.g. http:)
+    const match = textBeforeCursor.match(/(?:^|\s)([@#:](?!\/\/))([a-zA-Z0-9_\-\+]*)$/);
 
     if (!match) {
       this.hide();
       return;
     }
 
-    const prefix = match[1] as '@' | '#';
+    const prefix = match[1] as '@' | '#' | ':';
     const query = match[2] || '';
     this.queryStartIndex = cursorPos - query.length - 1;
 
@@ -328,6 +330,8 @@ export class AutocompleteEngine {
       filteredItems = this.filterMembers(query);
     } else if (prefix === '#') {
       filteredItems = this.filterTags(query);
+    } else if (prefix === ':') {
+      filteredItems = this.filterEmojis(query);
     }
 
     if (filteredItems.length === 0) {
@@ -336,6 +340,19 @@ export class AutocompleteEngine {
     }
 
     this.show(inputEl, filteredItems, prefix);
+  }
+
+  public filterEmojis(query: string): AutocompleteItem[] {
+    const emojis = searchEmojis(query, 8);
+    return emojis.map(e => ({
+      type: 'emoji',
+      value: e.emoji,
+      displayLabel: `:${e.shortcode}:`,
+      subtitle: e.name,
+      icon: `<span class="text-base leading-none w-5 text-center">${e.emoji}</span>`,
+      badge: e.category,
+      badgeColor: 'bg-amber-500/10 text-amber-400 border border-amber-500/20',
+    }));
   }
 
   // -------------------------------------------------------------------------
@@ -434,7 +451,7 @@ export class AutocompleteEngine {
   public show(
     inputEl: HTMLInputElement | HTMLTextAreaElement,
     items: AutocompleteItem[],
-    prefix: '@' | '#'
+    prefix: '@' | '#' | ':'
   ): void {
     this.activeInputElement = inputEl;
     this.items = items;
@@ -684,7 +701,9 @@ export class AutocompleteEngine {
     const startPos = Math.max(0, this.queryStartIndex);
 
     // Format replacement string with trailing space
-    const replacement = `${this.currentPrefix}${selectedItem.value} `;
+    const replacement = (this.currentPrefix === ':')
+      ? `${selectedItem.value} `
+      : `${this.currentPrefix}${selectedItem.value} `;
 
     // Replace matched word
     const before = value.substring(0, startPos);
@@ -728,8 +747,9 @@ export class AutocompleteEngine {
 
   public renderPopup(): string {
     const isMention = this.currentPrefix === '@';
-    const headerTitle = isMention ? 'MEMBERS & KEYS' : 'HASHTAGS & TOPICS';
-    const headerIcon = isMention ? '@' : '#';
+    const isEmoji = this.currentPrefix === ':';
+    const headerTitle = isMention ? 'MEMBERS & KEYS' : isEmoji ? 'EMOJIS' : 'HASHTAGS & TOPICS';
+    const headerIcon = isMention ? '@' : isEmoji ? '😊' : '#';
     const countLabel = `${this.items.length} ${this.items.length === 1 ? 'match' : 'matches'}`;
 
     return `

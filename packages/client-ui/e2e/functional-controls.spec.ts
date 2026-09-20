@@ -1,5 +1,9 @@
 import { expect, test } from '@playwright/test';
 
+// UI lifecycle tests are isolated from worker installation; pwa-runtime.spec.ts
+// exercises service-worker caching and offline behavior explicitly.
+test.use({ serviceWorkers: 'block' });
+
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem('aetheris_onboarding_completed', 'true');
@@ -44,21 +48,22 @@ test('interface mode changes visible tools and survives a reload', async ({ page
   await page.setViewportSize({ width: 1440, height: 960 });
   const advancedTools = page.locator('#left-rail-scroll > [aria-label="Advanced tools"]');
   await expect(advancedTools).toBeHidden();
-  await page.locator('#btn-toggle-ui-mode').click();
+  await page.locator('#btn-rail-more').click();
+  await page.locator('#btn-toggle-advanced-sidebar').click();
   await expect(page.locator('#main-layout')).toHaveAttribute('data-ui-mode', 'sovereign');
   await expect(advancedTools).toBeVisible();
   expect(await page.evaluate(() => localStorage.getItem('aetheris_ui_mode'))).toBe('sovereign');
   await page.reload();
   await expect(page.locator('#main-layout')).toHaveAttribute('data-ui-mode', 'sovereign');
   await expect(advancedTools).toBeVisible();
-  await page.locator('#btn-toggle-ui-mode').click();
+  await page.locator('#btn-return-simple-sidebar').click();
   await expect(advancedTools).toBeHidden();
 });
 
 test('profile settings retain the selected section and its scroll position', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 800 });
   await page.locator('[data-testid="nav-item-profile"]').click();
-  await page.locator('#btn-profile-tab-settings').click();
+  await page.locator('#btn-profile-settings').click();
   await page.locator('#btn-settings-cat-security').click();
   await expect(page.locator('[data-settings-section="security"]')).toBeVisible();
   await expect(async () => {
@@ -75,7 +80,9 @@ test('profile settings retain the selected section and its scroll position', asy
 test('wallet tabs and close controls work without a fabricated account', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 960 });
   expect(await page.evaluate(() => performance.getEntriesByType('resource').some(entry => /wallet-vendor-/.test(entry.name)))).toBe(false);
-  await page.locator('#aetheris-wallet-button-container button').click();
+  await page.locator('#btn-rail-more').click();
+  await page.locator('#btn-toggle-advanced-sidebar').click();
+  await page.locator('#rail-wallet').click();
   await expect(page.getByText('Wallet not connected', { exact: true })).toBeVisible();
   for (const tab of ['signatures', 'token-gate', 'networks', 'identity']) {
     await page.locator(`[data-action="set-wallet-tab"][data-tab="${tab}"]`).click();
@@ -117,7 +124,8 @@ test('product branding never rewrites user content', async ({ page }) => {
 
 test('advanced tools repeatedly open and close their own modal', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 960 });
-  await page.locator('#btn-toggle-ui-mode').click();
+  await page.locator('#btn-rail-more').click();
+  await page.locator('#btn-toggle-advanced-sidebar').click();
   for (const [button, modal] of [
     ['btn-open-rss-panel', 'rss-modal-backdrop'],
     ['btn-open-cve-monitor', 'cve-modal-backdrop'],

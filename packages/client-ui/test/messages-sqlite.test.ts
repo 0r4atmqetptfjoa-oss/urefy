@@ -17,6 +17,7 @@ describe('Messages persistence against the canonical SQLite schema', () => {
     sqlite = new DatabaseSync(':memory:');
     sqlite.exec(readFileSync(new URL('../functions/schema.sql', import.meta.url), 'utf8'));
     sqlite.exec('DELETE FROM messages');
+    sqlite.exec("INSERT INTO channels (id, space, name, created_at) VALUES ('relays-general', 'relays', 'General', 1000)");
     database = {
       prepare(query: string) {
         const statement = sqlite.prepare(query);

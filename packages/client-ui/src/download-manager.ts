@@ -7,7 +7,7 @@
 
 import './window-augmentation.js';
 import { serviceRegistry, SERVICES } from './service-registry.js';
-import { isLocalDev } from './admin-auth.js';
+import { isLocalDev } from './env-check.js';
 import { isSimulationModeEnabled, renderSimulationBadgeHTML } from './simulation-mode.js';
 
 export interface ChunkBlock {

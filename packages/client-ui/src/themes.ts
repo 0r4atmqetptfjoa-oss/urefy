@@ -169,16 +169,16 @@ export class ThemeEngine {
       id: 'alabaster-light',
       name: 'Alabaster Light',
       emoji: '☀️',
-      accentColor: '#4f46e5',
-      bgCanvas: '#f8fafc',
+      accentColor: '#c27803',
+      bgCanvas: '#f6f5f2',
       bgSurfaceBase: '#ffffff',
-      bgSurfaceRaised: '#f1f5f9',
-      bgSurfaceOverlay: '#e2e8f0',
-      textAccent: '#4f46e5',
-      borderAccent: 'rgba(79, 70, 229, 0.4)',
-      secondaryAccent: '#0284c7',
-      description: 'Daylight Alabaster Mode with pristine canvas (#f8fafc), white cards (#ffffff), soft architectural borders (#e2e8f0), and WCAG AAA typography (#0f172a).',
-      badgeText: 'LIGHT MODE',
+      bgSurfaceRaised: '#efede8',
+      bgSurfaceOverlay: '#e5e2da',
+      textAccent: '#c27803',
+      borderAccent: 'rgba(194, 120, 3, 0.4)',
+      secondaryAccent: '#b45309',
+      description: 'Warm daylight Alabaster Mode with natural off-white canvas (#f6f5f2), soft stone surfaces (#efede8), deep charcoal typography (#1a1917), and Keystone Amber accent (#c27803).',
+      badgeText: 'WARM DAYLIGHT',
       mode: 'light',
     },
     {
@@ -712,7 +712,7 @@ export class ThemeEngine {
                   </span>
                 </div>
                 <div class="flex items-center space-x-2">
-                  <span class="text-[10px] font-mono px-2 py-0.5 rounded" style="background-color: ${current.bgSurfaceRaised}; color: ${current.id === 'alabaster-light' ? '#0f172a' : '#f1f5f9'}; border: 1px solid rgba(255,255,255,0.1);">
+                  <span class="text-[10px] font-mono px-2 py-0.5 rounded" style="background-color: ${current.bgSurfaceRaised}; color: ${current.id === 'alabaster-light' ? '#1a1917' : '#f1f5f9'}; border: 1px solid rgba(255,255,255,0.1);">
                     ${this.escapeHtml(current.name)}
                   </span>
                   <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-950/60 text-emerald-400 border border-emerald-500/30">
@@ -724,7 +724,7 @@ export class ThemeEngine {
               <!-- MINI CARD SAMPLE -->
               <div
                 class="p-4 rounded-xl border transition-all duration-200 space-y-2.5"
-                style="background-color: ${current.bgSurfaceBase}; border-color: ${current.id === 'alabaster-light' ? '#e2e8f0' : 'rgba(255,255,255,0.1)'}; font-size: ${this.fontSize}px; font-family: ${this.fontFamily === 'mono' ? 'var(--font-family-mono)' : 'var(--font-family-sans)'};"
+                style="background-color: ${current.bgSurfaceBase}; border-color: ${current.id === 'alabaster-light' ? '#e5e2da' : 'rgba(255,255,255,0.1)'}; font-size: ${this.fontSize}px; font-family: ${this.fontFamily === 'mono' ? 'var(--font-family-mono)' : 'var(--font-family-sans)'};"
               >
                 <!-- Card Header -->
                 <div class="flex items-center justify-between">
@@ -733,13 +733,13 @@ export class ThemeEngine {
                       AO
                     </div>
                     <div>
-                      <div class="font-bold flex items-center space-x-1.5" style="color: ${current.id === 'alabaster-light' ? '#0f172a' : '#f8fafc'}">
+                      <div class="font-bold flex items-center space-x-1.5" style="color: ${current.id === 'alabaster-light' ? '#1a1917' : '#f8fafc'}">
                         <span>UREfy Sovereign</span>
                         <span class="text-[10px] font-mono px-1.5 py-0.2 rounded" style="background-color: ${effectiveAccent}20; color: ${effectiveAccent}; border: 1px solid ${effectiveAccent}40;">
                           ✓ STARK Verified
                         </span>
                       </div>
-                      <div class="text-[11px] opacity-60" style="color: ${current.id === 'alabaster-light' ? '#536471' : '#94a3b8'}">
+                      <div class="text-[11px] opacity-60" style="color: ${current.id === 'alabaster-light' ? '#615d56' : '#94a3b8'}">
                         @aetheris • sovereign mesh node
                       </div>
                     </div>
@@ -750,12 +750,12 @@ export class ThemeEngine {
                 </div>
 
                 <!-- Card Content -->
-                <p class="leading-relaxed" style="color: ${current.id === 'alabaster-light' ? '#0f172a' : '#e2e8f0'}">
+                <p class="leading-relaxed" style="color: ${current.id === 'alabaster-light' ? '#1a1917' : '#e2e8f0'}">
                   Synthesizing ultra-responsive visual systems with micro-broadcasting and sovereign community typography best practices: high legibility, fluid font scaling (${this.fontSize}px), and instantaneous live preview.
                 </p>
 
                 <!-- Card Footer Actions -->
-                <div class="flex items-center justify-between pt-2 border-t" style="border-color: ${current.id === 'alabaster-light' ? '#e2e8f0' : 'rgba(255,255,255,0.06)'};">
+                <div class="flex items-center justify-between pt-2 border-t" style="border-color: ${current.id === 'alabaster-light' ? '#e5e2da' : 'rgba(255,255,255,0.06)'};">
                   <div class="flex items-center space-x-2">
                     <button
                       type="button"
@@ -765,14 +765,14 @@ export class ThemeEngine {
                       <span>▲</span>
                       <span>Upvote</span>
                     </button>
-                    <span class="text-xs font-mono px-2 py-1 rounded" style="background-color: ${current.bgSurfaceRaised}; color: ${current.id === 'alabaster-light' ? '#0f172a' : '#94a3b8'};">
+                    <span class="text-xs font-mono px-2 py-1 rounded" style="background-color: ${current.bgSurfaceRaised}; color: ${current.id === 'alabaster-light' ? '#1a1917' : '#94a3b8'};">
                       💬 42 comments
                     </span>
-                    <span class="text-xs font-mono px-2 py-1 rounded" style="background-color: ${current.bgSurfaceRaised}; color: ${current.id === 'alabaster-light' ? '#0f172a' : '#94a3b8'};">
+                    <span class="text-xs font-mono px-2 py-1 rounded" style="background-color: ${current.bgSurfaceRaised}; color: ${current.id === 'alabaster-light' ? '#1a1917' : '#94a3b8'};">
                       ⚡ Boost
                     </span>
                   </div>
-                  <span class="text-[10px] font-mono opacity-50" style="color: ${current.id === 'alabaster-light' ? '#536471' : '#94a3b8'};">
+                  <span class="text-[10px] font-mono opacity-50" style="color: ${current.id === 'alabaster-light' ? '#615d56' : '#94a3b8'};">
                     Scale: ${fontDesc}
                   </span>
                 </div>
@@ -1049,6 +1049,13 @@ export class ThemeEngine {
     docEl.setAttribute('data-font-family', this.fontFamily);
     docEl.setAttribute('data-font-size', `${this.fontSize}px`);
     docEl.setAttribute('data-theme-mode', theme.mode || (theme.id === 'alabaster-light' ? 'light' : 'dark'));
+    if (theme.id === 'alabaster-light') {
+      docEl.classList.remove('dark');
+      docEl.classList.add('light');
+    } else {
+      docEl.classList.remove('light');
+      docEl.classList.add('dark');
+    }
 
     // 2. Set CSS Custom Properties on :root
     docEl.style.setProperty('--color-accent', effectiveAccent);
@@ -1073,7 +1080,7 @@ export class ThemeEngine {
       document.body.style.backgroundColor = theme.bgCanvas;
       document.body.style.fontSize = `${this.fontSize}px`;
       document.body.style.fontFamily = familyStack;
-      document.body.style.color = theme.id === 'alabaster-light' ? '#0f172a' : '#f1f5f9';
+      document.body.style.color = theme.id === 'alabaster-light' ? '#1a1917' : '#f1f5f9';
     }
 
     // 4. Inject / Update Dynamic Style Tag for Tailwind classes & transitions
@@ -1105,6 +1112,10 @@ export class ThemeEngine {
         --bg-surface-overlay: ${theme.bgSurfaceOverlay};
         --font-size-base: ${this.fontSize}px;
         --font-family-base: ${familyStack};
+        --text-primary: ${theme.id === 'alabaster-light' ? '#1a1917' : '#f8fafc'};
+        --text-secondary: ${theme.id === 'alabaster-light' ? '#2b2824' : '#cbd5e1'};
+        --text-muted: ${theme.id === 'alabaster-light' ? '#615d56' : '#94a3b8'};
+        --border-subtle: ${theme.id === 'alabaster-light' ? '#e5e2da' : 'rgba(255, 255, 255, 0.08)'};
       }
 
       body {
@@ -1191,44 +1202,45 @@ export class ThemeEngine {
       }
 
       /* High-contrast Daylight Light Mode styling (Sovereign Dual Horizon) */
+      /* Warm Alabaster Daylight Mode styling */
       [data-theme="alabaster-light"] {
         color-scheme: light;
       }
       [data-theme="alabaster-light"] body,
       [data-theme="alabaster-light"] #main-layout {
-        color: #0f172a !important;
-        background-color: #f8fafc !important;
+        color: #1a1917 !important;
+        background-color: #f6f5f2 !important;
       }
       [data-theme="alabaster-light"] ::-webkit-scrollbar-thumb {
-        background: rgba(15, 23, 42, 0.15) !important;
+        background: rgba(26, 25, 23, 0.15) !important;
         border-radius: 9999px;
       }
       [data-theme="alabaster-light"] ::-webkit-scrollbar-thumb:hover {
-        background: rgba(15, 23, 42, 0.35) !important;
+        background: rgba(26, 25, 23, 0.35) !important;
       }
       [data-theme="alabaster-light"] header,
       [data-theme="alabaster-light"] #app-top-header {
-        background-color: rgba(255, 255, 255, 0.96) !important;
-        border-color: #e2e8f0 !important;
-        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05) !important;
+        background-color: rgba(246, 245, 242, 0.96) !important;
+        border-color: #e5e2da !important;
+        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04) !important;
         backdrop-filter: blur(16px);
       }
       [data-theme="alabaster-light"] aside,
       [data-theme="alabaster-light"] #app-left-sidebar,
       [data-theme="alabaster-light"] #app-right-sidebar {
-        background-color: #ffffff !important;
-        border-color: #e2e8f0 !important;
+        background-color: #efede8 !important;
+        border-color: #e5e2da !important;
       }
       [data-theme="alabaster-light"] article,
       [data-theme="alabaster-light"] .post-card-container,
       [data-theme="alabaster-light"] .rounded-2xl {
-        background-color: #ffffff !important;
-        border-color: #e2e8f0 !important;
-        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04), 0 1px 2px -1px rgba(0, 0, 0, 0.04) !important;
+        background-color: #fbfaf8 !important;
+        border-color: #e5e2da !important;
+        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.03), 0 1px 2px -1px rgba(0, 0, 0, 0.03) !important;
       }
       [data-theme="alabaster-light"] article:hover {
-        box-shadow: 0 6px 20px -2px rgba(0, 0, 0, 0.07), 0 2px 6px -1px rgba(0, 0, 0, 0.04) !important;
-        border-color: #cbd5e1 !important;
+        box-shadow: 0 6px 20px -2px rgba(0, 0, 0, 0.06), 0 2px 6px -1px rgba(0, 0, 0, 0.03) !important;
+        border-color: #d8d4ca !important;
       }
       [data-theme="alabaster-light"] h1,
       [data-theme="alabaster-light"] h2,
@@ -1240,14 +1252,14 @@ export class ThemeEngine {
       [data-theme="alabaster-light"] .font-semibold,
       [data-theme="alabaster-light"] .btn-open-detail,
       [data-theme="alabaster-light"] .post-title {
-        color: #0f172a !important;
+        color: #1a1917 !important;
       }
       [data-theme="alabaster-light"] p,
       [data-theme="alabaster-light"] .post-content,
       [data-theme="alabaster-light"] .text-slate-100,
       [data-theme="alabaster-light"] .text-slate-200,
       [data-theme="alabaster-light"] .text-slate-300 {
-        color: #1e293b !important;
+        color: #2b2824 !important;
       }
       [data-theme="alabaster-light"] .text-slate-400,
       [data-theme="alabaster-light"] .text-slate-500,
@@ -1257,13 +1269,13 @@ export class ThemeEngine {
       [data-theme="alabaster-light"] .text-white\\/30,
       [data-theme="alabaster-light"] .text-white\\/25,
       [data-theme="alabaster-light"] .text-white\\/20 {
-        color: #475569 !important;
+        color: #615d56 !important;
       }
       [data-theme="alabaster-light"] .text-white,
       [data-theme="alabaster-light"] .text-white\\/90,
       [data-theme="alabaster-light"] .text-white\\/80,
       [data-theme="alabaster-light"] .text-white\\/70 {
-        color: #0f172a !important;
+        color: #1a1917 !important;
       }
       [data-theme="alabaster-light"] .border-white\\/5,
       [data-theme="alabaster-light"] .border-white\\/10,
@@ -1273,16 +1285,16 @@ export class ThemeEngine {
       [data-theme="alabaster-light"] .border-subtle-t,
       [data-theme="alabaster-light"] .border-subtle-r,
       [data-theme="alabaster-light"] .border-subtle-l {
-        border-color: #e2e8f0 !important;
+        border-color: #e5e2da !important;
       }
       [data-theme="alabaster-light"] .bg-canvas {
-        background-color: #f8fafc !important;
+        background-color: #f6f5f2 !important;
       }
       [data-theme="alabaster-light"] .bg-canvas\\/90,
       [data-theme="alabaster-light"] .bg-canvas\\/80,
       [data-theme="alabaster-light"] .bg-canvas\\/50,
       [data-theme="alabaster-light"] .bg-canvas\\/30 {
-        background-color: #ffffff !important;
+        background-color: #f6f5f2 !important;
       }
       [data-theme="alabaster-light"] .bg-surface-base,
       [data-theme="alabaster-light"] .bg-surface-base\\/95,
@@ -1291,7 +1303,7 @@ export class ThemeEngine {
       [data-theme="alabaster-light"] .bg-surface-base\\/80,
       [data-theme="alabaster-light"] .bg-surface-base\\/75,
       [data-theme="alabaster-light"] .bg-surface-base\\/50 {
-        background-color: rgba(255, 255, 255, 0.96) !important;
+        background-color: rgba(239, 237, 232, 0.96) !important;
       }
       [data-theme="alabaster-light"] .bg-surface-raised,
       [data-theme="alabaster-light"] .bg-surface-raised\\/90,
@@ -1299,27 +1311,27 @@ export class ThemeEngine {
       [data-theme="alabaster-light"] .bg-surface-raised\\/60,
       [data-theme="alabaster-light"] .bg-surface-raised\\/50,
       [data-theme="alabaster-light"] .bg-surface-raised\\/30 {
-        background-color: #ffffff !important;
+        background-color: #efede8 !important;
       }
       [data-theme="alabaster-light"] .bg-surface-overlay {
-        background-color: #f1f5f9 !important;
+        background-color: #e5e2da !important;
       }
       [data-theme="alabaster-light"] .bg-surface-highlight {
-        background-color: #e2e8f0 !important;
+        background-color: #ded9cf !important;
       }
       [data-theme="alabaster-light"] .stories-track,
       [data-theme="alabaster-light"] [class*="stories-track"] {
-        background-color: #ffffff !important;
-        border-bottom-color: #e2e8f0 !important;
+        background-color: #fbfaf8 !important;
+        border-bottom-color: #e5e2da !important;
       }
       [data-theme="alabaster-light"] .sticky.top-0 {
-        background-color: rgba(255, 255, 255, 0.96) !important;
-        border-bottom-color: #e2e8f0 !important;
+        background-color: rgba(246, 245, 242, 0.96) !important;
+        border-bottom-color: #e5e2da !important;
       }
       [data-theme="alabaster-light"] footer {
-        background-color: #ffffff !important;
-        border-top-color: #e2e8f0 !important;
-        color: #64748b !important;
+        background-color: #efede8 !important;
+        border-top-color: #e5e2da !important;
+        color: #615d56 !important;
       }
       [data-theme="alabaster-light"] .text-signal {
         color: #059669 !important;
@@ -1635,7 +1647,7 @@ export class ThemeEngine {
 
       const parsed = JSON.parse(raw);
       if (parsed && typeof parsed === 'object') {
-        if (typeof parsed.themeId === 'string' && this.THEMES.some((t) => t.id === parsed.themeId)) {
+        if (typeof parsed.themeId === 'string' && this.CURATED_THEMES.some((t) => t.id === parsed.themeId)) {
           this.currentThemeId = parsed.themeId;
         }
         if (typeof parsed.fontSize === 'number' && parsed.fontSize >= 12 && parsed.fontSize <= 18) {

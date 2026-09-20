@@ -62,6 +62,20 @@ export class MeshTopologyMatrix {
   public readonly maxDelayMs: number = 30000;
   public readonly backoffFactor: number = 1.8;
 
+  public open(): void {
+    this.isOpen = true;
+    if (typeof window !== 'undefined') {
+      (window as any).meshMatrix = this;
+    }
+  }
+
+  public close(): void {
+    this.isOpen = false;
+    if (typeof document !== 'undefined') {
+      document.getElementById('mesh-modal-backdrop')?.remove();
+    }
+  }
+
   constructor() {
     this.seedPeers();
     this.syncEdgeStatus().catch(() => {});
@@ -160,14 +174,6 @@ export class MeshTopologyMatrix {
         p.status = 'connected';
       }
     });
-  }
-
-  public open(): void {
-    this.isOpen = true;
-  }
-
-  public close(): void {
-    this.isOpen = false;
   }
 
   public getAverageRTT(): number {
@@ -344,7 +350,7 @@ export class MeshTopologyMatrix {
         title="WebRTC DTLS Mesh & Cloudflare Edge Status (D1 / R2 / DO)"
       >
         <span class="text-base group-hover:scale-110 transition-transform">🕸️</span>
-        <span class="flex-1">Mesh & Edge Matrix</span>
+        <span class="flex-1">Mesh Matrix Simulator (Lab)</span>
         <div class="flex items-center gap-1.5">
           <span class="w-1.5 h-1.5 rounded-full ${isD1Active ? 'bg-emerald-400' : 'bg-amber-400'}" title="D1 Database"></span>
           <span class="w-1.5 h-1.5 rounded-full ${isR2Active ? 'bg-cyan-400' : 'bg-amber-400'}" title="R2 Storage"></span>
@@ -368,8 +374,8 @@ export class MeshTopologyMatrix {
     const isDOMeshActive = this.doMeshStatus.includes('SYNCHRONIZED');
 
     return `
-      <div id="mesh-modal-backdrop" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 select-none animate-in fade-in duration-150 font-mono text-xs" data-action="call-global" data-raw-click="if(event.target.id === 'mesh-modal-backdrop') window.meshMatrix && window.meshMatrix.close();">
-        <div class="relative w-full max-w-4xl bg-surface-base border border-white/10 rounded-2xl p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
+      <div id="mesh-modal-backdrop" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 select-none animate-in fade-in duration-150 font-mono text-xs" data-action="close-feature">
+        <div class="relative w-full max-w-4xl bg-surface-base border border-white/10 rounded-2xl p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto" data-action="stop-propagation">
           
           <!-- HEADER -->
           <div class="flex items-center justify-between pb-3 border-subtle-b">
@@ -379,19 +385,27 @@ export class MeshTopologyMatrix {
               </div>
               <div>
                 <h3 class="text-sm font-bold text-white flex items-center space-x-2 flex-wrap">
-                  <span>Cloudflare Global Edge & WebRTC Mesh Matrix</span>
-                  <span class="text-[9px] px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-500/30 font-bold">${this.peers.length} PEERS CONNECTED</span>
+                  <span>Mesh Matrix Protocol Simulator (Lab)</span>
                   <span class="text-[9px] px-2 py-0.5 rounded-full bg-cyan-950 text-cyan-400 border border-cyan-500/30 font-bold">${this.edgeColo}</span>
-                  <span class="text-[9px] px-2 py-0.5 rounded-full ${this.isDiagnosticSimulation ? 'bg-amber-950 text-amber-300 border border-amber-500/30' : 'bg-emerald-950 text-emerald-400 border border-emerald-500/30'} font-bold">
-                    ${this.isDiagnosticSimulation ? 'DIAGNOSTIC TOPOLOGY' : 'LIVE WEBRTC MESH'}
+                  <span class="text-[9px] px-2 py-0.5 rounded-full bg-amber-950 text-amber-300 border border-amber-500/30 font-bold">
+                    PROTOCOL SIMULATION LAB
                   </span>
                 </h3>
-                <p class="text-[10px] text-slate-400">Zero-Trust P2P Tunnels · SFrame E2EE Active · Edge Infrastructure Live Latency Matrix</p>
+                <p class="text-[10px] text-slate-400">WebRTC DTLS Mesh Model &middot; SFrame E2EE Topology &middot; Live Cloudflare Edge Latency Matrix</p>
               </div>
             </div>
-            <button id="btn-close-mesh-modal" class="w-8 h-8 rounded-full bg-surface-raised hover:bg-surface-overlay text-slate-300 hover:text-white flex items-center justify-center text-sm border border-white/10 transition-colors cursor-pointer" title="${t('modal.close', undefined, 'Close')} (Esc)">
+            <button id="btn-close-mesh-modal" data-action="close-feature" class="w-8 h-8 rounded-full bg-surface-raised hover:bg-surface-overlay text-slate-300 hover:text-white flex items-center justify-center text-sm border border-white/10 transition-colors cursor-pointer" title="${t('modal.close', undefined, 'Close')} (Esc)">
               ✕
             </button>
+          </div>
+
+          <!-- Protocol Simulation Model Disclaimer Banner -->
+          <div class="p-3.5 rounded-xl bg-amber-950/40 border border-amber-500/30 flex items-start gap-2.5 text-xs text-amber-200">
+            <span class="text-base leading-none">🧪</span>
+            <div class="leading-relaxed font-sans">
+              <span class="font-bold text-amber-300">Protocol Simulation Model:</span>
+              Demonstrates WebRTC DTLS mesh topology heuristics and TreeKEM ratchet rotation models. Edge status indicators below (D1 / R2 / DO) query live edge infrastructure latency, while peer nodes (${this.peers.length} model peers) and packet jitter represent simulated topological models.
+            </div>
           </div>
 
           <!-- CLOUDFLARE GLOBAL EDGE STATUS MATRIX -->
@@ -551,3 +565,6 @@ export class MeshTopologyMatrix {
 }
 
 export const meshMatrix = new MeshTopologyMatrix();
+if (typeof window !== 'undefined') {
+  (window as any).meshMatrix = meshMatrix;
+}

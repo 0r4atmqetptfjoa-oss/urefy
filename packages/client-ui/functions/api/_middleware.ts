@@ -113,7 +113,7 @@ export const CORS_HEADERS: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD',
   'Access-Control-Allow-Headers':
-    'Content-Type, Authorization, X-Requested-With, Upgrade, Sec-WebSocket-Key, Sec-WebSocket-Version, Sec-WebSocket-Extensions, Sec-WebSocket-Protocol, X-URE-CSRF, X-CSRF-Token, X-Aetheris-CSRF, X-File-Name, X-Author, X-Title, X-Key, X-Sha256, X-Merkle-Root, X-Channel-Id, X-RLN-Nullifier, Cache-Control, X-Admin-PIN, X-Admin-Fingerprint',
+    'Content-Type, Authorization, X-Requested-With, Upgrade, Sec-WebSocket-Key, Sec-WebSocket-Version, Sec-WebSocket-Extensions, Sec-WebSocket-Protocol, X-URE-CSRF, X-CSRF-Token, X-Aetheris-CSRF, X-File-Name, X-Author, X-Title, X-Key, X-Sha256, X-Merkle-Root, X-Channel-Id, X-RLN-Nullifier, Cache-Control, X-Admin-PIN, X-Admin-Fingerprint, X-Sovereign-Envelope, X-User-Fingerprint',
   'Access-Control-Expose-Headers':
     'Content-Disposition, Content-Length, Content-Type, X-SHA256-Checksum, X-Merkle-Root, X-Author, X-Title, X-Edge-Storage, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset, Retry-After, ETag, Cache-Control',
   'Access-Control-Max-Age': '86400',
@@ -127,7 +127,7 @@ export function getCorsHeaders(req: Request, env?: any): Record<string, string> 
   const headers: Record<string, string> = {
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD',
     'Access-Control-Allow-Headers':
-      'Content-Type, Authorization, X-Requested-With, Upgrade, Sec-WebSocket-Key, Sec-WebSocket-Version, Sec-WebSocket-Extensions, Sec-WebSocket-Protocol, X-URE-CSRF, X-CSRF-Token, X-Aetheris-CSRF, X-File-Name, X-Author, X-Title, X-Key, X-Sha256, X-Merkle-Root, X-Channel-Id, X-RLN-Nullifier, Cache-Control, X-Admin-PIN, X-Admin-Fingerprint',
+      'Content-Type, Authorization, X-Requested-With, Upgrade, Sec-WebSocket-Key, Sec-WebSocket-Version, Sec-WebSocket-Extensions, Sec-WebSocket-Protocol, X-URE-CSRF, X-CSRF-Token, X-Aetheris-CSRF, X-File-Name, X-Author, X-Title, X-Key, X-Sha256, X-Merkle-Root, X-Channel-Id, X-RLN-Nullifier, Cache-Control, X-Admin-PIN, X-Admin-Fingerprint, X-Sovereign-Envelope, X-User-Fingerprint',
     'Access-Control-Expose-Headers':
       'Content-Disposition, Content-Length, Content-Type, X-SHA256-Checksum, X-Merkle-Root, X-Author, X-Title, X-Edge-Storage, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset, Retry-After, ETag, Cache-Control',
     'Access-Control-Max-Age': '86400',
@@ -197,12 +197,14 @@ export function evaluateRateLimit(
   ip: string,
   method: string,
   isBadBot: boolean,
-  now = Date.now()
+  now = Date.now(),
+  pathname = ''
 ): { allowed: boolean; limit: number; remaining: number; reset: number; retryAfter?: number } {
   const isMutation = ['POST', 'PUT', 'DELETE', 'PATCH'].includes(method.toUpperCase());
-  // Bad bots get much tighter limits
-  const limit = isBadBot ? 10 : isMutation ? 40 : 120;
-  const burstCapacity = isBadBot ? 3 : isMutation ? 15 : 40;
+  const isVaultSync = pathname.startsWith('/api/vault-sync');
+  // Bad bots get much tighter limits; vault sync gets dedicated burst headroom for multi-item sync
+  const limit = isBadBot ? 10 : isVaultSync ? 180 : isMutation ? 60 : 120;
+  const burstCapacity = isBadBot ? 3 : isVaultSync ? 60 : isMutation ? 30 : 40;
   const windowMs = 60000;
   const refillRate = limit / 60;
 
@@ -352,7 +354,7 @@ export const onRequest: PagesFunction = async (context) => {
     'unknown';
 
   // ── 4. Rate Limiting ──────────────────────────────────────────────────────
-  const rl = evaluateRateLimit(clientIp, method, isBadBot, now);
+  const rl = evaluateRateLimit(clientIp, method, isBadBot, now, url.pathname);
   if (!rl.allowed) {
     const retryAfter = rl.retryAfter || 60;
     return new Response(

@@ -127,7 +127,7 @@ export interface EdgePost {
   title: string;
   content: string;
   flair: 'VERIFIED RELEASE' | 'SECURITY ADVISORY' | 'TECH DISCUSSION' | 'MICRO-PULSE' | 'ASK COMMUNITY' | string;
-  status?: 'published' | 'draft' | 'archived' | 'pinned';
+  status?: 'published' | 'draft' | 'archived' | 'pinned' | 'deleted';
   meritVotes: number;
   userVoted?: number;
   replyCount: number;
@@ -333,6 +333,10 @@ export interface EdgeComment {
   authorRole: string;
   content: string;
   meritVotes: number;
+  userVote?: number;
+  likesCount?: number;
+  userLiked?: boolean;
+  awards?: Array<{ awardId: string; count: number }>;
   createdAt: number;
 }
 

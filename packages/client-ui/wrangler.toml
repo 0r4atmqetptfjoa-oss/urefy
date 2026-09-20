@@ -7,6 +7,8 @@ compatibility_flags = ["nodejs_compat"]
 ENVIRONMENT = "production"
 APP_NAME = "UREfy"
 MAX_STORAGE_CAP_BYTES = "8589934592" # 8.0 GB safe storage ceiling
+MAX_UPLOAD_BYTES = "26214400" # 25 MiB per file, checked by the upload API
+MAX_ACCOUNT_STORAGE_BYTES = "104857600" # 100 MiB per account, reserved atomically in D1
 MAX_BINARY_SCAN_BYTES = "26214400" # 25 MB max edge binary scan limit
 
 # Cloudflare Durable Object Binding (points to server-edge relay worker)

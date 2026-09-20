@@ -233,12 +233,12 @@ export function injectPostSeo(
 
   // Server-rendered article content for crawlers and initial render (replaces #app to prevent homepage shell duplication)
   const articleSnippet = `
-    <article style="max-width: 800px; margin: 40px auto; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #e2e8f0; background: #0f172a; border-radius: 12px; border: 1px solid #1e293b;">
-      <nav style="margin-bottom: 20px;"><a href="${origin}/" style="color: #6366f1; text-decoration: none;">&larr; Back to UREfy Feed</a></nav>
+    <article style="max-width: 800px; margin: 40px auto; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #e2e8f0; background: #12151c; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08);">
+      <nav style="margin-bottom: 20px;"><a href="${origin}/" style="color: #e59b3c; text-decoration: none; font-weight: 500;">&larr; Back to UREfy Feed</a></nav>
       <header style="margin-bottom: 24px;">
-        <span style="font-size: 12px; color: #6366f1; font-weight: bold; text-transform: uppercase; letter-spacing: 0.05em;">${escapeHtml(post.flair || 'DISCUSSION')}</span>
+        <span style="font-size: 12px; color: #e59b3c; font-weight: bold; text-transform: uppercase; letter-spacing: 0.05em;">${escapeHtml(post.flair || 'DISCUSSION')}</span>
         <h1 style="font-size: 28px; line-height: 1.3; margin: 8px 0 12px 0; color: #f8fafc;">${escapeHtml(post.title)}</h1>
-        <p style="font-size: 14px; color: #94a3b8; margin: 0;">By <a href="${origin}${profilePath(post.authorId)}">${escapeHtml(authorName)}</a> &bull; ${new Date(post.createdAt).toLocaleDateString()} &bull; ${post.meritVotes || 0} Merit &bull; ${post.replyCount || 0} Replies</p>
+        <p style="font-size: 14px; color: #94a3b8; margin: 0;">By <a href="${origin}${profilePath(post.authorId)}" style="color: #e59b3c; text-decoration: none;">${escapeHtml(authorName)}</a> &bull; ${new Date(post.createdAt).toLocaleDateString()} &bull; ${post.meritVotes || 0} Merit &bull; ${post.replyCount || 0} Replies</p>
       </header>
       <div style="font-size: 16px; line-height: 1.6; color: #cbd5e1;">
         ${escapeHtml(post.content).replace(/\n\n/g, '<br/><br/>')}
@@ -381,13 +381,13 @@ export function injectCommunitySeo(
   };
 
   const communitySnippet = `
-    <div style="max-width: 860px; margin: 40px auto; padding: 32px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #e2e8f0; background: #0c0906; border-radius: 16px; border: 1px solid rgba(255,255,255,0.1); line-height: 1.7;">
-      <nav style="margin-bottom: 24px;"><a href="${origin}/communities" style="color: #6366f1; text-decoration: none;">&larr; Back to Communities</a></nav>
+    <div style="max-width: 860px; margin: 40px auto; padding: 32px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #e2e8f0; background: #12151c; border-radius: 16px; border: 1px solid rgba(255,255,255,0.08); line-height: 1.7;">
+      <nav style="margin-bottom: 24px;"><a href="${origin}/communities" style="color: #e59b3c; text-decoration: none; font-weight: 500;">&larr; Back to Communities</a></nav>
       <h1 style="font-size: 32px; color: #f8fafc; margin-bottom: 12px;">${escapeHtml(community.name)} (c/${escapeHtml(communitySlug(community.name || community.id))})</h1>
       <p style="font-size: 18px; color: #94a3b8;">${escapeHtml(community.description)}</p>
       <h2>Recent discussions</h2>
-      <ul>${(community.posts || []).map(post => `<li><a href="${postPath(post.id)}">${escapeHtml(post.title)}</a></li>`).join('')}</ul>
-      <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.1); margin: 24px 0;" />
+      <ul>${(community.posts || []).map(post => `<li><a href="${postPath(post.id)}" style="color: #e59b3c;">${escapeHtml(post.title)}</a></li>`).join('')}</ul>
+      <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.08); margin: 24px 0;" />
       <p style="color: #94a3b8; font-size: 14px;">Welcome to the sovereign <strong>${escapeHtml(community.name)}</strong> discussion circle on UREfy. Browse public posts and join the conversation.</p>
     </div>
   `;
@@ -620,7 +620,7 @@ export function injectStaticPageSeo(
     rewriter = rewriter.on('script[type="module"]', { element(e) { e.remove(); } })
       .on('link[rel="modulepreload"]', { element(e) { e.remove(); } })
       .on('html', { element(e) { e.setAttribute('style', 'overflow-y: auto !important; height: auto !important; min-height: 100% !important;'); } })
-      .on('body', { element(e) { e.setAttribute('style', 'overflow-y: auto !important; height: auto !important; min-height: 100% !important; -webkit-overflow-scrolling: touch; background: #0c0906; color: #e2e8f0; margin: 0; padding: 0;'); } })
+      .on('body', { element(e) { e.setAttribute('style', 'overflow-y: auto !important; height: auto !important; min-height: 100% !important; -webkit-overflow-scrolling: touch; background: #090a0f; color: #e2e8f0; margin: 0; padding: 0;'); } })
       .on('#app', { element(e) { e.setAttribute('style', 'overflow-y: visible !important; height: auto !important; min-height: 100% !important; contain: none !important; padding-bottom: 5rem;'); } });
   }
 

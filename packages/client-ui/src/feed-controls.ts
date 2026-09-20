@@ -22,6 +22,7 @@ import { sovereignCircleEngine } from './sovereign-circle.js';
 import { profileView } from './profile-view.js';
 import { feedPersonalization, type ContentSignal } from './feed-personalization.js';
 import { renderAvatar } from './ui/avatar-generator.js';
+import { mobileFlowEngine } from './mobile-flow.js';
 import { t } from './i18n.js';
 
 export type StreamType = 'for-you' | 'following' | 'latest';
@@ -214,7 +215,7 @@ export class FeedControlsEngine {
             data-stream-type="for-you"
             class="btn-stream-type px-3 py-1.5 rounded-lg transition-all flex items-center space-x-1.5 cursor-pointer ${
               this.streamType === 'for-you'
-                ? 'bg-indigo-600 text-white font-bold shadow-xs'
+                ? 'bg-[var(--color-accent,#e59b3c)] text-slate-950 font-bold shadow-xs'
                 : 'text-slate-400 hover:text-white hover:bg-surface-overlay'
             }"
           >
@@ -228,7 +229,7 @@ export class FeedControlsEngine {
             data-stream-type="following"
             class="btn-stream-type px-3 py-1.5 rounded-lg transition-all flex items-center space-x-1.5 cursor-pointer ${
               this.streamType === 'following'
-                ? 'bg-indigo-600 text-white font-bold shadow-xs'
+                ? 'bg-[var(--color-accent,#e59b3c)] text-slate-950 font-bold shadow-xs'
                 : 'text-slate-400 hover:text-white hover:bg-surface-overlay'
             }"
           >
@@ -242,7 +243,7 @@ export class FeedControlsEngine {
             data-stream-type="latest"
             class="btn-stream-type px-3 py-1.5 rounded-lg transition-all flex items-center space-x-1.5 cursor-pointer ${
               this.streamType === 'latest'
-                ? 'bg-indigo-600 text-white font-bold shadow-xs'
+                ? 'bg-[var(--color-accent,#e59b3c)] text-slate-950 font-bold shadow-xs'
                 : 'text-slate-400 hover:text-white hover:bg-surface-overlay'
             }"
           >
@@ -291,14 +292,14 @@ export class FeedControlsEngine {
               data-feed-sort="top"
               class="btn-feed-sort px-3 py-1.5 rounded-xl text-xs font-bold font-mono transition-all flex items-center space-x-1.5 cursor-pointer ${
                 this.sortType === 'top'
-                  ? 'bg-gradient-to-r from-indigo-500/20 to-cyan-500/20 text-indigo-300 border border-indigo-500/40 shadow-xs'
+                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-xs'
                   : 'text-slate-400 hover:text-white hover:bg-surface-raised'
               }"
             >
               <span>🏆</span>
               <span>${t('feed.sortMerit', undefined, 'Top')}</span>
               ${this.sortType === 'top' ? `
-                <span class="text-[10px] text-indigo-400 ml-0.5">(${currentTfLabel})</span>
+                <span class="text-[10px] text-amber-400 ml-0.5">(${currentTfLabel})</span>
                 <span class="text-[9px] text-slate-400">▼</span>
               ` : ''}
             </button>
@@ -312,12 +313,12 @@ export class FeedControlsEngine {
                     data-top-timeframe="${tf.id}" 
                     class="btn-top-timeframe w-full text-left px-3 py-1.5 transition-colors flex items-center justify-between cursor-pointer ${
                       this.topTimeframe === tf.id
-                        ? 'bg-indigo-600/20 text-indigo-300 font-bold'
+                        ? 'bg-[var(--color-accent,#e59b3c)]/20 text-amber-300 font-bold'
                         : 'text-slate-300 hover:bg-surface-raised hover:text-white'
                     }"
                   >
                     <span>${tf.label}</span>
-                    ${this.topTimeframe === tf.id ? '<span class="text-indigo-400 text-xs">✓</span>' : ''}
+                    ${this.topTimeframe === tf.id ? '<span class="text-amber-400 text-xs">✓</span>' : ''}
                   </button>
                 `).join('')}
               </div>
@@ -340,52 +341,57 @@ export class FeedControlsEngine {
           </button>
         </div>
 
-        <!-- RIGHT: VIEW MODE SWITCHER (CARD, CLASSIC, COMPACT) -->
-        <div class="flex items-center space-x-1 bg-surface-raised p-1 rounded-xl border border-white/10">
-          <!-- CARD MODE -->
-          <button 
-            type="button" 
-            id="viewmode-card-btn" 
-            data-view-mode="card" 
-            class="btn-viewmode p-1.5 rounded-lg transition-all cursor-pointer ${
-              this.viewMode === 'card'
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'text-slate-400 hover:text-white hover:bg-surface-overlay'
-            }"
-            title="Card View (Full Media Preview & Content)"
-          >
-            <span class="text-xs">📰</span>
-          </button>
+        <!-- RIGHT: VIEW MODE SWITCHER (DESKTOP) + FLOW/CLASSIC SWITCHER (MOBILE) -->
+        <div class="flex items-center space-x-2">
+          <div class="block sm:hidden">
+            ${mobileFlowEngine.renderModeSwitcher()}
+          </div>
+          <div class="hidden sm:flex items-center space-x-1 bg-surface-raised p-1 rounded-xl border border-white/10">
+            <!-- CARD MODE -->
+            <button 
+              type="button" 
+              id="viewmode-card-btn" 
+              data-view-mode="card" 
+              class="btn-viewmode p-1.5 rounded-lg transition-all cursor-pointer ${
+                this.viewMode === 'card'
+                  ? 'bg-[var(--color-accent,#e59b3c)] text-slate-950 shadow-sm'
+                  : 'text-slate-400 hover:text-white hover:bg-surface-overlay'
+              }"
+              title="Card View (Full Media Preview & Content)"
+            >
+              <span class="text-xs">📰</span>
+            </button>
 
-          <!-- CLASSIC MODE -->
-          <button 
-            type="button" 
-            id="viewmode-classic-btn" 
-            data-view-mode="classic" 
-            class="btn-viewmode p-1.5 rounded-lg transition-all cursor-pointer ${
-              this.viewMode === 'classic'
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'text-slate-400 hover:text-white hover:bg-surface-overlay'
-            }"
-            title="Classic View (Compact 2-Column with Left Thumbnail)"
-          >
-            <span class="text-xs">📋</span>
-          </button>
+            <!-- CLASSIC MODE -->
+            <button 
+              type="button" 
+              id="viewmode-classic-btn" 
+              data-view-mode="classic" 
+              class="btn-viewmode p-1.5 rounded-lg transition-all cursor-pointer ${
+                this.viewMode === 'classic'
+                  ? 'bg-[var(--color-accent,#e59b3c)] text-slate-950 shadow-sm'
+                  : 'text-slate-400 hover:text-white hover:bg-surface-overlay'
+              }"
+              title="Classic View (Compact 2-Column with Left Thumbnail)"
+            >
+              <span class="text-xs">📋</span>
+            </button>
 
-          <!-- COMPACT MODE -->
-          <button 
-            type="button" 
-            id="viewmode-compact-btn" 
-            data-view-mode="compact" 
-            class="btn-viewmode p-1.5 rounded-lg transition-all cursor-pointer ${
-              this.viewMode === 'compact'
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'text-slate-400 hover:text-white hover:bg-surface-overlay'
-            }"
-            title="Compact View (Dense Rows for Ultra-Fast Browsing)"
-          >
-            <span class="text-xs">📑</span>
-          </button>
+            <!-- COMPACT MODE -->
+            <button 
+              type="button" 
+              id="viewmode-compact-btn" 
+              data-view-mode="compact" 
+              class="btn-viewmode p-1.5 rounded-lg transition-all cursor-pointer ${
+                this.viewMode === 'compact'
+                  ? 'bg-[var(--color-accent,#e59b3c)] text-slate-950 shadow-sm'
+                  : 'text-slate-400 hover:text-white hover:bg-surface-overlay'
+              }"
+              title="Compact View (Dense Rows for Ultra-Fast Browsing)"
+            >
+              <span class="text-xs">📑</span>
+            </button>
+          </div>
         </div>
 
       </div>
@@ -427,13 +433,13 @@ export class FeedControlsEngine {
       >
         <!-- VOTE PILL (HORIZONTAL) -->
         <div class="flex items-center space-x-1 shrink-0 font-mono text-xs" data-action="stop-propagation">
-          <button data-vote-id="${p.id}" data-dir="1" class="btn-upvote p-1 rounded hover:bg-surface-overlay text-slate-400 hover:text-indigo-400 transition-colors ${p.userVoted === 1 ? 'text-indigo-400 font-bold' : ''}" title="Endorse (+1)">
+          <button data-vote-id="${p.id}" data-dir="1" class="btn-upvote p-1 rounded hover:bg-surface-overlay text-slate-400 hover:text-indigo-400 transition-colors ${p.userVoted === 1 ? 'text-indigo-400 font-bold' : ''}" title="Upvote (+1)">
             ▲
           </button>
           <span class="font-bold text-xs px-1 ${p.userVoted === 1 ? 'text-indigo-400' : p.userVoted === -1 ? 'text-rose-500' : 'text-slate-300'}">
             ${p.meritVotes}
           </span>
-          <button data-vote-id="${p.id}" data-dir="-1" class="btn-downvote p-1 rounded hover:bg-surface-overlay text-slate-400 hover:text-rose-500 transition-colors ${p.userVoted === -1 ? 'text-rose-500 font-bold' : ''}" title="Divergent (-1)">
+          <button data-vote-id="${p.id}" data-dir="-1" class="btn-downvote p-1 rounded hover:bg-surface-overlay text-slate-400 hover:text-rose-500 transition-colors ${p.userVoted === -1 ? 'text-rose-500 font-bold' : ''}" title="Downvote (-1)">
             ▼
           </button>
         </div>
@@ -508,13 +514,13 @@ export class FeedControlsEngine {
       >
         <!-- LEFT COLUMN: VOTES PILL -->
         <div class="flex flex-col items-center justify-start space-y-0.5 bg-surface-base/80 rounded-xl p-1 shrink-0 font-mono text-xs h-fit" data-action="stop-propagation">
-          <button data-vote-id="${p.id}" data-dir="1" class="btn-upvote p-1 rounded-lg hover:bg-surface-overlay text-slate-400 hover:text-indigo-400 transition-colors ${p.userVoted === 1 ? 'text-indigo-400 font-bold' : ''}" title="Endorse (+1)">
+          <button data-vote-id="${p.id}" data-dir="1" class="btn-upvote p-1 rounded-lg hover:bg-surface-overlay text-slate-400 hover:text-indigo-400 transition-colors ${p.userVoted === 1 ? 'text-indigo-400 font-bold' : ''}" title="Upvote (+1)">
             ▲
           </button>
           <span class="font-bold text-xs py-0.5 ${p.userVoted === 1 ? 'text-indigo-400' : p.userVoted === -1 ? 'text-rose-500' : 'text-slate-300'}">
             ${p.meritVotes}
           </span>
-          <button data-vote-id="${p.id}" data-dir="-1" class="btn-downvote p-1 rounded-lg hover:bg-surface-overlay text-slate-400 hover:text-rose-500 transition-colors ${p.userVoted === -1 ? 'text-rose-500 font-bold' : ''}" title="Divergent (-1)">
+          <button data-vote-id="${p.id}" data-dir="-1" class="btn-downvote p-1 rounded-lg hover:bg-surface-overlay text-slate-400 hover:text-rose-500 transition-colors ${p.userVoted === -1 ? 'text-rose-500 font-bold' : ''}" title="Downvote (-1)">
             ▼
           </button>
         </div>
@@ -612,7 +618,7 @@ export class FeedControlsEngine {
     const time = new Date(p.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const flairStyle = p.flair === 'VERIFIED RELEASE' ? 'bg-emerald-950/70 text-emerald-400 border-emerald-500/30' :
                       p.flair === 'SECURITY ADVISORY' ? 'bg-indigo-950/70 text-indigo-300 border-indigo-500/30' :
-                      p.flair === 'MICRO-PULSE' ? 'bg-slate-800 text-indigo-300 border-indigo-500/30' :
+                      p.flair === 'MICRO-PULSE' ? 'bg-slate-800 text-[var(--color-accent,#e59b3c)] border-amber-500/30' :
                       'bg-surface-raised text-slate-300 border-white/10';
 
     const rootComments = threadManager.getRootCommentsForPost(p.id);
@@ -631,10 +637,10 @@ export class FeedControlsEngine {
         
         <!-- MERIT VOTING COLUMN -->
         <div class="flex flex-col items-center justify-start space-y-1 shrink-0 pt-0.5 select-none" data-action="stop-propagation">
-          <button data-vote-id="${p.id}" data-dir="1" class="btn-upvote text-slate-400 hover:text-indigo-400 transition-colors p-1.5 rounded-xl hover:bg-surface-overlay cursor-pointer ${p.userVoted === 1 ? 'text-indigo-400 font-bold bg-indigo-950/60' : ''}" title="Endorse (+1 Merit)">
+          <button data-vote-id="${p.id}" data-dir="1" class="btn-upvote text-slate-400 hover:text-[var(--color-accent,#e59b3c)] transition-colors p-1.5 rounded-xl hover:bg-surface-overlay cursor-pointer ${p.userVoted === 1 ? 'text-[var(--color-accent,#e59b3c)] font-bold bg-amber-950/60' : ''}" title="Endorse (+1 Merit)">
             ▲
           </button>
-          <span class="font-mono text-xs font-bold ${p.userVoted === 1 ? 'text-indigo-400' : p.userVoted === -1 ? 'text-rose-500' : 'text-slate-300'}">
+          <span class="font-mono text-xs font-bold ${p.userVoted === 1 ? 'text-[var(--color-accent,#e59b3c)]' : p.userVoted === -1 ? 'text-rose-500' : 'text-slate-300'}">
             ${p.meritVotes}
           </span>
           <button data-vote-id="${p.id}" data-dir="-1" class="btn-downvote text-slate-400 hover:text-rose-500 transition-colors p-1.5 rounded-xl hover:bg-surface-overlay cursor-pointer ${p.userVoted === -1 ? 'text-rose-500 font-bold bg-rose-950/60' : ''}" title="Divergent View (-1)">
@@ -655,10 +661,10 @@ export class FeedControlsEngine {
               <!-- AUTHOR HANDLE & PROFILE TRIGGER -->
               <div data-author-profile="${p.authorFingerprint}" class="btn-open-author-profile flex items-center space-x-1.5 cursor-pointer hover:opacity-85 transition-opacity" title="View Profile">
                 ${renderAvatar(authorProfile?.avatar, p.authorFingerprint, { size: 24, className: 'w-6 h-6 shrink-0' })}
-                <span class="text-xs font-bold text-white hover:text-indigo-300 transition-colors">${escapeHtml(authorName)}</span>
+                <span class="text-xs font-bold text-white hover:text-[var(--color-accent,#e59b3c)] transition-colors">${escapeHtml(authorName)}</span>
                 <span class="font-mono text-[11px] text-slate-400">${escapeHtml(authorHandle)}</span>
                 ${store?.showTrustBadges !== false ? zkReputation.renderInlineTrustBadge(p.authorFingerprint) : ''}
-                <span class="text-[9px] font-mono px-2 py-0.5 rounded-md border ${flairStyle}">${p.flair}</span>
+                <span class="text-[9px] font-mono px-2 py-0.5 rounded-md border ${flairStyle}">${p.flair === 'MICRO-PULSE' ? 'RECENT' : p.flair}</span>
               </div>
             </div>
             <span class="text-[10px] font-mono text-slate-500">${time}</span>
@@ -672,7 +678,7 @@ export class FeedControlsEngine {
           </div>
 
           <!-- POST TITLE -->
-          <h3 data-open-detail="${p.id}" class="btn-open-detail text-sm md:text-base font-bold text-white leading-snug hover:text-indigo-400 transition-colors cursor-pointer select-text">
+          <h3 data-open-detail="${p.id}" class="btn-open-detail text-sm md:text-base font-bold text-white leading-snug hover:text-[var(--color-accent,#e59b3c)] transition-colors cursor-pointer select-text">
             ${escapeHtml(p.title)}
           </h3>
 

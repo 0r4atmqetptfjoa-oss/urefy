@@ -30,11 +30,11 @@ describe('Unified Sovereign Settings Screen (SettingsView)', () => {
     expect(settingsView).toBeInstanceOf(SettingsView);
   });
 
-  it('2. should export SETTINGS_SECTIONS with all 5 sovereign sections', () => {
-    expect(SETTINGS_SECTIONS).toHaveLength(5);
+  it('2. should export SETTINGS_SECTIONS with all 6 sovereign sections', () => {
+    expect(SETTINGS_SECTIONS).toHaveLength(6);
 
     const ids = SETTINGS_SECTIONS.map((s) => s.id);
-    expect(ids).toEqual(['appearance', 'preferences', 'footprint', 'backup', 'telemetry']);
+    expect(ids).toEqual(['appearance', 'security', 'preferences', 'footprint', 'backup', 'telemetry']);
 
     const appearance = SETTINGS_SECTIONS.find((s) => s.id === 'appearance')!;
     expect(appearance.label).toBe('Appearance & Themes');
@@ -42,22 +42,27 @@ describe('Unified Sovereign Settings Screen (SettingsView)', () => {
     expect(appearance.description).toBe('Color palettes, OLED mode, and typography');
 
     const preferences = SETTINGS_SECTIONS.find((s) => s.id === 'preferences')!;
-    expect(preferences.label).toBe('Network & WoT Preferences');
+    expect(preferences.label).toBe('Network');
     expect(preferences.icon).toBe('⚙️');
-    expect(preferences.description).toBe('Web-of-Trust badges, merit thresholds, and AI assistant');
+    expect(preferences.description).toBe('Web-of-Trust badges, merit thresholds, and network preferences');
 
     const footprint = SETTINGS_SECTIONS.find((s) => s.id === 'footprint')!;
-    expect(footprint.label).toBe('Storage & Footprint');
+    expect(footprint.label).toBe('Storage');
     expect(footprint.icon).toBe('📊');
     expect(footprint.description).toBe('Local storage audit, zero tracking, and efficiency');
 
     const backup = SETTINGS_SECTIONS.find((s) => s.id === 'backup')!;
-    expect(backup.label).toBe('Backup & Account Export');
+    expect(backup.label).toBe('Data & Export');
     expect(backup.icon).toBe('💾');
     expect(backup.description).toBe('Encrypted backups and cryptographic key restoration');
 
+    const security = SETTINGS_SECTIONS.find((s) => s.id === 'security')!;
+    expect(security.label).toBe('Security & Passkeys');
+    expect(security.icon).toBe('🔑');
+    expect(security.description).toBe('Device passkeys, recovery phrase, and hardware authentication');
+
     const telemetry = SETTINGS_SECTIONS.find((s) => s.id === 'telemetry')!;
-    expect(telemetry.label).toBe('Diagnostics & Privacy');
+    expect(telemetry.label).toBe('Privacy');
     expect(telemetry.icon).toBe('🛡️');
     expect(telemetry.description).toBe('Local error telemetry and zero-knowledge memory wipe');
   });
@@ -129,14 +134,26 @@ describe('Unified Sovereign Settings Screen (SettingsView)', () => {
     expect(html).toContain('id="unified-settings-modal"');
     expect(html).toContain('⚙️ Sovereign Settings');
     expect(html).toContain('id="btn-close-settings-modal"');
-    expect(html).toContain('window.__aetheris_close_settings()');
+    expect(html).toContain('data-action="close-settings"');
 
     // Tab buttons
     expect(html).toContain('data-settings-tab="appearance"');
     expect(html).toContain('data-settings-tab="preferences"');
     expect(html).toContain('data-settings-tab="footprint"');
     expect(html).toContain('data-settings-tab="backup"');
+    expect(html).toContain('data-settings-tab="security"');
     expect(html).toContain('data-settings-tab="telemetry"');
+  });
+
+  it('6b. should render security tab with Passkeys and Seed Phrase recovery', () => {
+    view.setActiveTab('security');
+    const html = view.renderSettingsModal();
+    expect(html).toContain('Security &amp; Passkeys');
+    expect(html).toContain('Passkeys');
+    expect(html).toContain('FIDO2 / WebAuthn');
+    expect(html).toContain('btn-settings-register-passkey');
+    expect(html).toContain('Recovery Phrase');
+    expect(html).toContain('btn-settings-toggle-seed');
   });
 
   it('7. should render appearance tab with theme switcher, OLED toggle, font toggle, and Custom Theme Studio launcher', () => {
@@ -218,7 +235,7 @@ describe('Unified Sovereign Settings Screen (SettingsView)', () => {
     const html = profile.renderProfileView([], 'genesis-core');
 
     expect(html).toContain('id="btn-profile-settings"');
-    expect(html).toContain('window.__aetheris_open_settings()');
+    expect(html).toContain('data-action="open-settings"');
     expect(html).toContain('Settings');
   });
 

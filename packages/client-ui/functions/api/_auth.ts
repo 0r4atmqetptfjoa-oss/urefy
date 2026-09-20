@@ -59,6 +59,7 @@ export interface UnifiedAuthResult<T = any> {
   identity?: SovereignIdentity;
   payload?: T;
   response?: Response;
+  error?: string;
 }
 
 // ─── BOUNDED LRU MEMORY CACHE (PREVENTS MEMORY EXHAUSTION DOS) ───────────────
@@ -248,6 +249,7 @@ export async function requireSignedEnvelope<T = any>(
   ) {
     return {
       authorized: false,
+      error: 'SovereignSignedEnvelope required: payload, signature, nonce, and identity are mandatory.',
       response: new Response(
         JSON.stringify({
           success: false,
@@ -269,6 +271,7 @@ export async function requireSignedEnvelope<T = any>(
     const status = result.stage === 'authorization' ? 403 : 401;
     return {
       authorized: false,
+      error: result.error || 'Sovereign envelope authorization failed',
       response: new Response(
         JSON.stringify({
           success: false,
@@ -286,6 +289,7 @@ export async function requireSignedEnvelope<T = any>(
   if (!nonceCheck.fresh) {
     return {
       authorized: false,
+      error: nonceCheck.error || 'Replay attack detected: duplicate nonce',
       response: new Response(
         JSON.stringify({
           success: false,

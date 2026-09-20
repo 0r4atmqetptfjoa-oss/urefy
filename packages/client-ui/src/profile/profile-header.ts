@@ -21,7 +21,7 @@ function humanRole(role: UserProfileData['role']): string {
   return '';
 }
 
-export function renderProfileHeaderHTML(profile: UserProfileData, isOwnProfile: boolean, isFollowing: boolean, isEditModalOpen: boolean): string {
+export function renderProfileHeaderHTML(profile: UserProfileData, isOwnProfile: boolean, isFollowing: boolean, isEditModalOpen: boolean, followPending = false): string {
   const handle = profile.handle ? profile.handle.replace(/^@/, '') : profile.fingerprint.substring(0, 10);
   const isGeneratedProfile = /^Sovereign Node\b/i.test(profile.name) || /^Peer node participating\b/i.test(profile.bio || '');
   const displayName = isGeneratedProfile ? 'UREfy member' : profile.name;
@@ -47,10 +47,10 @@ export function renderProfileHeaderHTML(profile: UserProfileData, isOwnProfile: 
             <button type="button" id="btn-share-profile" data-action="share-profile" data-handle="${escapeAttr(handle)}" class="secondary-icon-button" title="Share profile" aria-label="Share profile">${renderIcon('share', { size: 18 })}</button>
             ${isOwnProfile ? `
               <button type="button" id="btn-open-edit-profile" data-action="open-edit-profile" class="secondary-button">Edit profile</button>
-              <button type="button" id="btn-profile-settings" data-action="open-settings" data-raw-click="window.__aetheris_open_settings()" class="secondary-icon-button" title="Settings" aria-label="Settings">${renderIcon('settings', { size: 18 })}</button>
+              <button type="button" id="btn-profile-settings" data-action="set-profile-tab" data-tab="settings" class="secondary-icon-button" title="Settings" aria-label="Settings">${renderIcon('settings', { size: 18 })}</button>
             ` : `
               <button type="button" data-action="open-dm" data-fingerprint="${profile.fingerprint}" class="secondary-icon-button" title="Message" aria-label="Message">${renderIcon('messages', { size: 18 })}</button>
-              <button type="button" id="btn-toggle-follow" data-action="toggle-follow" data-fingerprint="${profile.fingerprint}" class="primary-button ${isFollowing ? 'is-following' : ''}">${isFollowing ? 'Following' : 'Follow'}</button>
+              <button type="button" id="btn-toggle-follow" ${followPending ? 'disabled aria-busy="true"' : ''} aria-pressed="${isFollowing}" data-action="toggle-follow" data-fingerprint="${escapeAttr(profile.fingerprint)}" class="primary-button ${isFollowing ? 'is-following' : ''}">${isFollowing ? 'Following' : 'Follow'}</button>
               <div class="relative profile-more-menu-container"><button type="button" id="btn-profile-more" data-action="toggle-profile-menu" class="secondary-icon-button" aria-label="More profile actions">${renderIcon('more', { size: 18 })}</button>
                 <div id="profile-more-dropdown" class="hidden profile-more-menu"><button type="button" data-action="mute-user" data-fingerprint="${profile.fingerprint}" data-handle="${escapeAttr(handle)}">Mute</button><button type="button" data-action="block-user" data-fingerprint="${profile.fingerprint}" data-handle="${escapeAttr(handle)}">Block</button><button type="button" data-action="report-user" data-fingerprint="${profile.fingerprint}" data-handle="${escapeAttr(handle)}">Report</button></div>
               </div>
@@ -97,7 +97,7 @@ export function renderProfileHeaderHTML(profile: UserProfileData, isOwnProfile: 
     ${isEditModalOpen ? renderEditProfileModalHTML(profile) : ''}`;
 }
 
-export function renderEditProfileModalHTML(profile: UserProfileData): string {
+export function renderEditProfileModalHTML(profile: UserProfileData, saving = false): string {
   return `
     <div id="edit-profile-modal-overlay" class="modal-overlay" data-action="close-edit-profile" role="dialog" aria-modal="true" aria-labelledby="edit-profile-title">
       <section class="edit-profile-dialog" data-action="stop-propagation">
@@ -109,11 +109,11 @@ export function renderEditProfileModalHTML(profile: UserProfileData): string {
             <input type="hidden" id="edit-profile-avatar" value="${escapeAttr(profile.avatar)}" />
             <input type="hidden" id="edit-profile-banner" value="${escapeAttr(profile.banner)}" />
           </div>
-          <label><span>Display name</span><input type="text" id="edit-profile-name" value="${escapeAttr(profile.name)}" required maxlength="80" /></label>
-          <label><span>Handle</span><div class="handle-field"><span>@</span><input type="text" id="edit-profile-handle" value="${escapeAttr(profile.handle.replace(/^@/, ''))}" maxlength="40" /></div></label>
+          <label><span>Display name</span><input type="text" id="edit-profile-name" value="${escapeAttr(profile.name)}" required maxlength="60" /></label>
+          <label><span>Handle</span><div class="handle-field"><span>@</span><input type="text" id="edit-profile-handle" value="${escapeAttr(profile.handle.replace(/^@/, ''))}" required pattern="[a-zA-Z0-9_]{3,30}" maxlength="30" /></div></label>
           <label><span>Bio</span><textarea id="edit-profile-bio" rows="4" maxlength="280">${escapeAttr(profile.bio)}</textarea></label>
           <div class="form-grid"><label><span>Location</span><input type="text" id="edit-profile-location" value="${escapeAttr(profile.location)}" /></label><label><span>Website</span><input type="url" id="edit-profile-website" value="${escapeAttr(profile.website)}" /></label></div>
-          <footer><button type="button" data-action="close-edit-profile" class="secondary-button">Cancel</button><button type="submit" id="btn-save-profile" class="primary-button">Save changes</button></footer>
+          <footer><button type="button" data-action="close-edit-profile" class="secondary-button">Cancel</button><button type="submit" id="btn-save-profile" ${saving ? 'disabled aria-busy="true"' : ''} class="primary-button">${saving ? 'Saving…' : 'Save changes'}</button></footer>
         </form>
       </section>
     </div>`;

@@ -502,8 +502,8 @@ export class HybridComposer {
             <!-- MULTI-TAB SWITCHER -->
             <div class="flex items-center space-x-1 bg-surface-base/80 p-1 rounded-xl border border-white/5 overflow-x-auto">
               <button type="button" data-composer-tab="pulse" class="btn-composer-tab px-3 py-1.5 text-xs rounded-lg font-semibold transition-all cursor-pointer flex items-center space-x-1.5 ${this.activeTab === 'pulse' ? 'bg-indigo-600/30 text-indigo-300 border border-indigo-500/40 shadow-sm font-bold' : 'text-slate-400 hover:text-slate-200'}">
-                <span>⚡</span>
-                <span>Pulse & Thread</span>
+                <span>📝</span>
+                <span>Post</span>
               </button>
               
               <button type="button" data-composer-tab="article" class="btn-composer-tab px-3 py-1.5 text-xs rounded-lg font-semibold transition-all cursor-pointer flex items-center space-x-1.5 ${this.activeTab === 'article' ? 'bg-indigo-600/30 text-indigo-300 border border-indigo-500/40 shadow-sm font-bold' : 'text-slate-400 hover:text-slate-200'}">
@@ -557,7 +557,7 @@ export class HybridComposer {
               <div class="flex items-center space-x-2">
                 <span class="text-slate-400 font-medium text-[11px]">Audience Destination:</span>
                 <select id="composer-audience-select" class="bg-surface-raised border border-white/10 text-slate-200 text-xs rounded-lg px-2.5 py-1 focus:outline-none focus:border-indigo-500 cursor-pointer font-medium">
-                  <option value="public-stream" ${this.audience === 'public-stream' ? 'selected' : ''}>🌐 Public Pulse Stream</option>
+                  <option value="public-stream" ${this.audience === 'public-stream' ? 'selected' : ''}>🌐 Public Feed</option>
                   <option value="circle-core" ${this.audience === 'circle-core' ? 'selected' : ''}>🛡️ Sovereign Core Circle</option>
                   <option value="circle-guardians" ${this.audience === 'circle-guardians' ? 'selected' : ''}>🏛️ Guardians & Archivists</option>
                   <option value="relays-general" ${this.audience === 'relays-general' ? 'selected' : ''}>⚡ Developer Matrix</option>
@@ -575,7 +575,7 @@ export class HybridComposer {
               ` : `
                 <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
                   <span class="w-1.5 h-1.5 rounded-full bg-indigo-400 mr-1.5"></span>
-                  Protected Stream <span class="sr-only">ZK-RLN Gated Stream</span>
+                  Network Feed <span class="sr-only">ZK-RLN Gated Stream</span>
                 </span>
               `}
             </div>
@@ -597,7 +597,7 @@ export class HybridComposer {
               <div class="flex items-center space-x-3">
                 <button type="button" id="btn-toggle-proof-drawer" class="text-[11px] text-indigo-400 hover:text-indigo-300 flex items-center space-x-1 cursor-pointer transition-colors">
                   <span>🔐</span>
-                  <span>${this.isProofDrawerOpen ? 'Hide Security Details' : 'Security & Verification'}</span>
+                  <span>${this.isProofDrawerOpen ? 'Hide Security Details' : 'Verification Details'}</span>
                 </button>
                 <span class="text-[10px] text-slate-500 hidden sm:inline">• Anti-Spam Protected</span>
               </div>

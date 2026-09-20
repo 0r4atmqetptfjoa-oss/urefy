@@ -98,13 +98,13 @@ describe('Milestones 1–5: Onboarding, Navigation, Empty States & Performance V
   });
 
   describe('Milestone 4 — Chromatic Consistency in Navigation', () => {
-    it('8. Active tabs use unified cyan accent classes', () => {
+    it('8. Active tabs use unified accent classes', () => {
       mobileTabBar.setTab('feed');
       const html = mobileTabBar.renderTabBarHTML();
 
       expect(html).toContain('is-active');
-      expect(html).toContain('text-cyan-400 font-bold scale-105 is-active');
-      expect(html).toContain('bg-cyan-400');
+      expect(html).toContain('font-bold scale-105 is-active text-[var(--color-accent,#e59b3c)]');
+      expect(html).toContain('bg-[var(--color-accent,#e59b3c)]');
     });
   });
 

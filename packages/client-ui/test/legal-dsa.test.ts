@@ -41,7 +41,7 @@ describe('Legal & DSA Compliance Suite', () => {
     const html = modal.render();
     expect(html).toContain('Notice & Takedown (DSA)');
     expect(html).toContain('Notice and Takedown Procedure (DSA Art. 16)');
-    expect(html).toContain('razvan@urefy.com');
+    expect(html).toContain('contact@urefy.com');
   });
 
   it('should close cleanly', () => {

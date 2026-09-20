@@ -33,7 +33,7 @@ const rootDir = path.resolve(process.cwd());
 const clientSrc = path.join(rootDir, 'src');
 const headersPath = path.join(rootDir, 'public/_headers');
 const swPath = path.join(rootDir, 'public/sw.js');
-const distAssets = ['dist/assets-v4', 'dist/assets-v3', 'dist/assets-v2', 'dist/assets-v1', 'dist/assets']
+const distAssets = ['dist/assets-v5', 'dist/assets-v4', 'dist/assets-v3', 'dist/assets-v2', 'dist/assets-v1', 'dist/assets']
   .map((p) => path.join(rootDir, p))
   .find((p) => fs.existsSync(p)) || path.join(rootDir, 'dist/assets');
 const functionsDir = path.join(rootDir, 'functions');
@@ -353,7 +353,12 @@ function classifySeedOccurrence(relPath: string, line: string): Category {
     relPath === 'mnemonic-modal.ts' ||
     relPath === 'paper-wallet.ts' ||
     relPath === 'code-splitting.ts' ||
-    relPath === 'ui/avatar-generator.ts'
+    relPath === 'ui/avatar-generator.ts' ||
+    relPath === 'profile/seed-profiles-data.ts' ||
+    relPath === 'profile/profile-view.ts' ||
+    line.includes('seedDevProfiles') ||
+    line.includes('seed-profiles-data') ||
+    line.includes('SOVEREIGN_PERSONAS')
   ) {
     return 'PRODUCTION_BOOTSTRAP';
   }

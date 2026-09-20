@@ -14,10 +14,11 @@ import {
   createD1UnavailableResponse,
 } from '../_db.js';
 import { parseD1PostRow } from '../posts.js';
+import { requireAdmin, requireSignedEnvelope } from '../_auth.js';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-User-Fingerprint',
 };
 
@@ -77,7 +78,7 @@ export async function onRequestGet(context: {
     if (kv) {
       try {
         const cached = await kv.get<EdgePost>(cacheKey, 'json');
-        if (cached && cached.id === postId) {
+        if (cached && cached.id === postId && (!cached.status || ['published', 'pinned'].includes(cached.status))) {
           post = cached;
         }
       } catch (_) {}
@@ -87,7 +88,7 @@ export async function onRequestGet(context: {
     if (!post && db) {
       try {
         const stmt = db.prepare(
-          "SELECT * FROM posts WHERE id = ? AND (status != 'shadowbanned' OR status IS NULL)"
+          "SELECT * FROM posts WHERE id = ? AND status IN ('published', 'pinned')"
         ).bind(postId);
         const row = await stmt.first<any>();
         if (row) {
@@ -105,7 +106,7 @@ export async function onRequestGet(context: {
 
     // 3. In-memory fallback for non-production or isolate cache
     if (!post && !isProd) {
-      const found = globalPostsStore.find(p => p.id === postId);
+      const found = globalPostsStore.find(p => p.id === postId && (!p.status || ['published', 'pinned'].includes(p.status)));
       if (found) {
         post = found;
       }
@@ -252,3 +253,7 @@ export async function onRequestGet(context: {
     );
   }
 }
+
+export { onRequestDelete } from '../posts.js';
+
+

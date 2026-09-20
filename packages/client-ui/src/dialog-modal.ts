@@ -16,6 +16,7 @@ export interface DialogOptions {
   cancelText?: string;
   type?: 'info' | 'warning' | 'error' | 'success';
   destructive?: boolean;
+  danger?: boolean;
 }
 
 export class SovereignDialog {

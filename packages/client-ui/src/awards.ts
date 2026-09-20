@@ -7,8 +7,7 @@
 import './window-augmentation.js';
 import { serviceRegistry, SERVICES } from './service-registry.js';
 import { isDemoModeEnabled } from './demo-mode.js';
-import { isLocalDev } from './admin-auth.js';
-import { networkActivityFeed } from './activity-feed.js';
+import { isLocalDev } from './env-check.js';
 import { t } from './i18n.js';
 
 export type SovereignAwardType =
@@ -160,6 +159,7 @@ export class AwardsSystem {
   public postAwards: Map<string, PostAward[]> = new Map();
   public commentAwards: Map<string, PostAward[]> = new Map();
   public userMeritBalance: number = 2450;
+  private pendingAwards: Map<string, Promise<any>> = new Map();
 
   private activeModalPostId: string | null = null;
   private activeModalCommentId: string | null = null;
@@ -167,6 +167,7 @@ export class AwardsSystem {
 
   constructor() {
     const savedAwards = typeof localStorage !== 'undefined' ? localStorage.getItem('aetheris_awards_cache') : null;
+    const savedCommentAwards = typeof localStorage !== 'undefined' ? localStorage.getItem('aetheris_comment_awards_cache') : null;
     const savedBalance = typeof localStorage !== 'undefined' ? localStorage.getItem('aetheris_user_merit_balance') : null;
     if (savedBalance !== null) {
       const b = parseInt(savedBalance, 10);
@@ -182,6 +183,14 @@ export class AwardsSystem {
     } else if (isDemoModeEnabled() && isLocalDev()) {
       this._seedDemoAwards();
     }
+    if (savedCommentAwards) {
+      try {
+        const parsedComments = JSON.parse(savedCommentAwards);
+        for (const [k, v] of Object.entries(parsedComments)) {
+          this.commentAwards.set(k, v as PostAward[]);
+        }
+      } catch {}
+    }
     this._initGlobalDomListeners();
     if (typeof window !== 'undefined') {
       awardPopoverManager.init();
@@ -194,6 +203,11 @@ export class AwardsSystem {
       const obj: Record<string, PostAward[]> = {};
       this.postAwards.forEach((v, k) => { obj[k] = v; });
       localStorage.setItem('aetheris_awards_cache', JSON.stringify(obj));
+
+      const commentObj: Record<string, PostAward[]> = {};
+      this.commentAwards.forEach((v, k) => { commentObj[k] = v; });
+      localStorage.setItem('aetheris_comment_awards_cache', JSON.stringify(commentObj));
+
       localStorage.setItem('aetheris_user_merit_balance', this.userMeritBalance.toString());
     } catch {}
   }
@@ -483,6 +497,9 @@ export class AwardsSystem {
   /**
    * Grants an award on a post. Deducts merit points if sufficient balance.
    */
+  /**
+   * Grants an award on a post. Deducts merit points if sufficient balance.
+   */
   public giveAward(
     postId: string,
     awardType: string,
@@ -521,15 +538,17 @@ export class AwardsSystem {
     this.postAwards.get(postId)!.push(newAward);
     this._saveAwardsToStorage();
 
-    networkActivityFeed.addEvent({
-      type: 'award',
-      actorFP: giverFP,
-      actorRole: (giverRole.toLowerCase() === 'guardian' ? 'admin' : (giverRole.toLowerCase() === 'moderator' ? 'moderator' : 'member')) as any,
-      targetTitle: award.label,
-      targetId: postId,
-      timestamp: newAward.givenAt,
-      meta: { badge: award.label, recipient: postId, meritPoints: award.meritPoints },
-    });
+    void import('./activity-feed.js').then(({ networkActivityFeed }) => {
+      networkActivityFeed.addEvent({
+        type: 'award',
+        actorFP: giverFP,
+        actorRole: (giverRole.toLowerCase() === 'guardian' ? 'admin' : (giverRole.toLowerCase() === 'moderator' ? 'moderator' : 'member')) as any,
+        targetTitle: award.label,
+        targetId: postId,
+        timestamp: newAward.givenAt,
+        meta: { badge: award.label, recipient: postId, meritPoints: award.meritPoints },
+      });
+    }).catch(() => {});
 
     // Dispatch sovereign broadcast event
     if (typeof window !== 'undefined') {
@@ -544,21 +563,28 @@ export class AwardsSystem {
           },
         })
       );
-      
-      // Asynchronously persist to Cloudflare D1
-      if (typeof fetch !== 'undefined') {
-        fetch('/api/interactions', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            targetId: postId,
-            targetType: 'post',
-            userFingerprint: giverFP,
-            action: 'award',
-            value: award.type
-          }),
-        }).catch(err => console.warn('[AwardsSystem] Award sync error:', err));
-      }
+    }
+
+    // Dispatch signed persistence in background with rollback on rejection
+    if (typeof fetch !== 'undefined') {
+      const p = (async () => {
+        try {
+          const { persistInteraction } = await import('./interaction-transport.js');
+          await persistInteraction(postId, 'award', true, award.type, 'post');
+        } catch (err: any) {
+          // Rollback optimistic state
+          const list = this.postAwards.get(postId);
+          if (list) {
+            const idx = list.indexOf(newAward);
+            if (idx >= 0) list.splice(idx, 1);
+          }
+          this.userMeritBalance += award.meritPoints;
+          this.refreshPostBadgesInDom(postId);
+          const { clientStore } = await import('./client-state.js');
+          clientStore.showToast(err?.message || 'Could not bestow award.', 'warning');
+        }
+      })();
+      this.pendingAwards.set(postId, p);
     }
 
     return true;
@@ -606,15 +632,17 @@ export class AwardsSystem {
     this.commentAwards.get(commentId)!.push(newAward);
     this._saveAwardsToStorage();
 
-    networkActivityFeed.addEvent({
-      type: 'award',
-      actorFP: giverFP,
-      actorRole: (giverRole.toLowerCase() === 'guardian' ? 'admin' : (giverRole.toLowerCase() === 'moderator' ? 'moderator' : 'member')) as any,
-      targetTitle: award.label,
-      targetId: commentId,
-      timestamp: newAward.givenAt,
-      meta: { badge: award.label, recipient: commentId, meritPoints: award.meritPoints },
-    });
+    void import('./activity-feed.js').then(({ networkActivityFeed }) => {
+      networkActivityFeed.addEvent({
+        type: 'award',
+        actorFP: giverFP,
+        actorRole: (giverRole.toLowerCase() === 'guardian' ? 'admin' : (giverRole.toLowerCase() === 'moderator' ? 'moderator' : 'member')) as any,
+        targetTitle: award.label,
+        targetId: commentId,
+        timestamp: newAward.givenAt,
+        meta: { badge: award.label, recipient: commentId, meritPoints: award.meritPoints },
+      });
+    }).catch(() => {});
 
     if (typeof window !== 'undefined') {
       window.dispatchEvent(
@@ -629,23 +657,105 @@ export class AwardsSystem {
           },
         })
       );
-      
-      if (typeof fetch !== 'undefined') {
-        fetch('/api/interactions', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            targetId: commentId,
-            targetType: 'comment',
-            userFingerprint: giverFP,
-            action: 'award',
-            value: award.type
-          }),
-        }).catch(err => console.warn('[AwardsSystem] Comment Award sync error:', err));
-      }
+    }
+
+    if (typeof fetch !== 'undefined') {
+      const p = (async () => {
+        try {
+          const { persistInteraction } = await import('./interaction-transport.js');
+          await persistInteraction(commentId, 'award', true, award.type, 'comment');
+        } catch (err: any) {
+          const list = this.commentAwards.get(commentId);
+          if (list) {
+            const idx = list.indexOf(newAward);
+            if (idx >= 0) list.splice(idx, 1);
+          }
+          this.userMeritBalance += award.meritPoints;
+          this.refreshCommentBadgesInDom(commentId);
+          const { clientStore } = await import('./client-state.js');
+          clientStore.showToast(err?.message || 'Could not bestow award on comment.', 'warning');
+        }
+      })();
+      this.pendingAwards.set(commentId, p);
     }
 
     return true;
+  }
+
+  /**
+   * Awaitable hook ensuring award state mutations have settled.
+   */
+  public async whenSettled(targetId?: string): Promise<boolean> {
+    if (targetId) {
+      const p = this.pendingAwards.get(targetId);
+      if (p) await p.catch(() => {});
+    } else {
+      await Promise.allSettled(Array.from(this.pendingAwards.values()));
+    }
+    return true;
+  }
+
+  /**
+   * Hydrates post awards from server interaction response.
+   */
+  public hydratePostAwards(postId: string, awardsList: any[]): void {
+    if (!postId || !Array.isArray(awardsList)) return;
+    const hydrated: PostAward[] = [];
+    for (const item of awardsList) {
+      if (!item) continue;
+      const awardType = item.awardId || item.type;
+      const count = Number(item.count) || 1;
+      const awardDef = this.getAwardByType(awardType);
+      if (!awardDef) continue;
+      if (item.givenBy) {
+        hydrated.push(item as PostAward);
+      } else {
+        for (let i = 0; i < count; i++) {
+          hydrated.push({
+            type: awardDef.type,
+            awardId: awardDef.type,
+            postId,
+            givenBy: 'peer',
+            givenAt: Date.now(),
+            meritPoints: awardDef.meritPoints,
+          });
+        }
+      }
+    }
+    this.postAwards.set(postId, hydrated);
+    this.refreshPostBadgesInDom(postId);
+  }
+
+  /**
+   * Hydrates comment awards from server comments response.
+   */
+  public hydrateCommentAwards(commentId: string, awardsList: any[]): void {
+    if (!commentId || !Array.isArray(awardsList)) return;
+    const hydrated: PostAward[] = [];
+    for (const item of awardsList) {
+      if (!item) continue;
+      const awardType = item.awardId || item.type;
+      const count = Number(item.count) || 1;
+      const awardDef = this.getAwardByType(awardType);
+      if (!awardDef) continue;
+      if (item.givenBy) {
+        hydrated.push(item as PostAward);
+      } else {
+        for (let i = 0; i < count; i++) {
+          hydrated.push({
+            type: awardDef.type,
+            awardId: awardDef.type,
+            postId: item.postId || '',
+            commentId,
+            givenBy: 'peer',
+            givenAt: Date.now(),
+            meritPoints: awardDef.meritPoints,
+          });
+        }
+      }
+    }
+    this.commentAwards.set(commentId, hydrated);
+    this.refreshCommentBadgesInDom(commentId);
   }
 
   // ─── Rendering Methods ────────────────────────────────────────────────────
@@ -697,7 +807,9 @@ export class AwardsSystem {
    */
   public renderCommentAwardBadges(commentId: string): string {
     const grouped = this.getGroupedCommentAwards(commentId);
-    if (grouped.length === 0) return '';
+    if (grouped.length === 0) {
+      return `<div class="comment-award-badges inline-flex items-center gap-1 my-0.5 empty:hidden" data-comment-id="${commentId}"></div>`;
+    }
 
     return `
       <div class="comment-award-badges inline-flex items-center gap-1 my-0.5" data-comment-id="${commentId}">
@@ -776,7 +888,6 @@ export class AwardsSystem {
     const awardCardsHtml = this.AWARDS.map((award) => {
       const isUnlocked = this.canGiveAward(currentRole, award.type);
       const isSelected = award.type === this.selectedAwardType;
-      const canAfford = this.userMeritBalance >= award.meritPoints;
 
       let roleRequirementText = 'Available for All';
       if (award.type === 'PLATINUM' || award.type === 'GUARDIAN_CHOICE') {
@@ -801,16 +912,13 @@ export class AwardsSystem {
                   <span class="text-xs font-bold text-slate-400 truncate">${escapeHtml(award.label)}</span>
                   <span class="text-[9px] font-mono text-slate-500 font-bold">🔒 LOCKED</span>
                 </div>
-                <p class="text-[10px] text-slate-500 leading-tight mt-0.5 line-clamp-2">
+                <p class="text-[11px] text-slate-400 leading-snug mt-1 line-clamp-2">
                   ${escapeHtml(award.description)}
                 </p>
-                <div class="mt-2 text-[10px] font-mono font-bold text-amber-500/70">
-                  🪙 ${award.meritPoints.toLocaleString()} Merit Points
-                </div>
               </div>
             </div>
-            <div class="mt-2 text-[9px] font-mono text-crimson/80 bg-crimson/10 px-2 py-0.5 rounded border border-crimson/20 flex items-center justify-between">
-              <span>Requires higher tier privilege</span>
+            <div class="mt-2.5 text-[9px] font-mono text-crimson/80 bg-crimson/10 px-2 py-0.5 rounded border border-crimson/20 flex items-center justify-between">
+              <span>Tier privilege requirement</span>
               <span class="font-bold">${roleRequirementText}</span>
             </div>
           </div>
@@ -833,21 +941,22 @@ export class AwardsSystem {
             <div class="flex-1 min-w-0">
               <div class="flex items-center justify-between">
                 <span class="text-xs font-bold ${award.color} truncate">${escapeHtml(award.label)}</span>
-                <input 
-                  type="radio" 
-                  name="award_selection" 
-                  value="${award.type}" 
-                  ${isSelected ? 'checked' : ''}
-                  class="accent-cyan-400 cursor-pointer h-3.5 w-3.5"
-                />
+                <div class="flex items-center space-x-2">
+                  <span class="text-[10px] font-mono text-amber-400 font-semibold bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
+                    +${award.meritPoints.toLocaleString()} Merit Points
+                  </span>
+                  <input 
+                    type="radio" 
+                    name="award_selection" 
+                    value="${award.type}" 
+                    ${isSelected ? 'checked' : ''}
+                    class="accent-cyan-400 cursor-pointer h-3.5 w-3.5"
+                  />
+                </div>
               </div>
-              <p class="text-[10px] text-slate-300 leading-tight mt-0.5">
+              <p class="text-[11px] text-slate-300 leading-snug mt-1">
                 ${escapeHtml(award.description)}
               </p>
-              <div class="mt-2 inline-flex items-center gap-1 text-[11px] font-mono font-bold text-amber-400 bg-amber-400/10 px-2.5 py-0.5 rounded-full border border-amber-400/20">
-                <span>🪙</span>
-                <span>${award.meritPoints.toLocaleString()} Merit Points</span>
-              </div>
             </div>
           </div>
 
@@ -861,6 +970,11 @@ export class AwardsSystem {
 
     const selectedAward = this.getAwardByType(this.selectedAwardType) || this.AWARDS[0];
 
+    // Format recipient identification
+    let recipientDisplay = commentId
+      ? `Comment: ${escapeHtml(commentId.slice(0, 12))}`
+      : `Post: ${escapeHtml(postId.slice(0, 16))}`;
+
     return `
       <div id="aetheris-award-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-canvas/80 backdrop-blur-md animate-in fade-in duration-150" data-post-id="${postId}" ${commentId ? `data-comment-id="${commentId}"` : ''}>
         <div class="relative w-full max-w-2xl bg-surface-base border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
@@ -873,13 +987,13 @@ export class AwardsSystem {
               </div>
               <div>
                 <h3 class="text-sm font-bold text-slate-100 flex items-center space-x-2">
-                  <span>Bestow Sovereign Proof Award</span>
+                  <span>Bestow Recognition Award</span>
                   <span class="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-surface-overlay text-cyphr border border-cyphr/30">
-                    ${commentId ? `Comment: ${escapeHtml(commentId.slice(0, 10))}` : `Post: ${escapeHtml(postId)}`}
+                    ${recipientDisplay}
                   </span>
                 </h3>
-                <p class="text-[11px] text-slate-400 font-mono">
-                  Sign with sovereign identity &bull; Role privileges: <span class="text-cyphr font-bold">${escapeHtml(currentRole)}</span> (${allowed.length}/7 Unlocked)
+                <p class="text-[11px] text-slate-400 font-sans">
+                  Honest peer-to-peer social recognition &bull; Signed with sovereign key
                 </p>
               </div>
             </div>
@@ -893,20 +1007,11 @@ export class AwardsSystem {
             </button>
           </div>
 
-          <!-- USER MERIT BALANCE STRIP -->
-          <div class="px-5 py-2.5 bg-surface-base/90 border-b border-white/5 flex items-center justify-between text-xs font-mono">
-            <span class="text-slate-400">Your Available Merit Balance:</span>
-            <div class="flex items-center space-x-1.5 font-bold text-amber-400 bg-amber-400/10 px-3 py-1 rounded-full border border-amber-400/20">
-              <span>🪙</span>
-              <span>${this.userMeritBalance.toLocaleString()} Sovereign Points</span>
-            </div>
-          </div>
-
           <!-- MODAL BODY: AWARDS GRID -->
           <div class="p-5 overflow-y-auto space-y-4 flex-1">
-            <div class="flex items-center justify-between text-xs font-mono text-slate-400">
-              <span class="uppercase tracking-wider text-[10px] font-bold">Select Sovereign Badge Tier:</span>
-              <span class="text-[10px] text-slate-500">7 Cryptographic Accolades</span>
+            <div class="flex items-center justify-between text-xs font-sans text-slate-400">
+              <span class="uppercase tracking-wider text-[10px] font-bold">Select Accolade:</span>
+              <span class="text-[10px] text-slate-500">7 Sovereign Recognition Tiers</span>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -915,15 +1020,15 @@ export class AwardsSystem {
 
             <!-- COMMENT MEMO INPUT -->
             <div class="pt-2 space-y-1.5">
-              <label class="block text-[11px] font-mono text-slate-300 font-semibold">
-                Endorsement Memo / Proof Citation <span class="text-slate-500 font-normal">(Optional, publicly visible)</span>
+              <label class="block text-[11px] font-sans text-slate-300 font-semibold">
+                Citation or Peer Note <span class="text-slate-500 font-normal">(Optional, publicly visible)</span>
               </label>
               <div class="relative">
                 <textarea 
                   id="input-award-comment"
                   rows="2"
                   maxlength="280"
-                  placeholder="Provide technical merit justification or cryptographic peer note..."
+                  placeholder="Add a peer acknowledgement or citation..."
                   class="w-full bg-surface-raised border border-white/10 focus:border-cyphr rounded-xl p-2.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none transition-all font-sans resize-none"
                 ></textarea>
                 <div class="text-[9px] font-mono text-slate-500 text-right pr-1 pt-0.5">Max 280 chars &bull; Encrypted in post metadata</div>
@@ -934,7 +1039,7 @@ export class AwardsSystem {
             <div class="p-3.5 rounded-2xl bg-surface-raised border border-white/5 flex items-center space-x-3 text-xs">
               <div class="text-3xl">${selectedAward.emoji}</div>
               <div class="flex-1 min-w-0">
-                <div class="font-bold ${selectedAward.color}">Selected: ${escapeHtml(selectedAward.label)} (${selectedAward.meritPoints} pts)</div>
+                <div class="font-bold ${selectedAward.color}">Selected: ${escapeHtml(selectedAward.label)}</div>
                 <div class="text-[10px] text-slate-400 truncate">${escapeHtml(selectedAward.description)}</div>
               </div>
             </div>
@@ -944,7 +1049,7 @@ export class AwardsSystem {
           <div class="px-5 py-3.5 border-t border-white/10 bg-surface-raised/50 flex items-center justify-between">
             <div class="text-[10px] font-mono text-slate-500 flex items-center space-x-1.5">
               <span class="w-1.5 h-1.5 rounded-full bg-signal"></span>
-              <span>Signed via ZK-Passport &bull; Non-refundable</span>
+              <span>Signed with Sovereign Key &bull; Cryptographically Verified</span>
             </div>
 
             <div class="flex items-center space-x-2.5">
@@ -963,7 +1068,7 @@ export class AwardsSystem {
                 ${commentId ? `data-comment-id="${commentId}"` : ''}
               >
                 <span>🏅</span>
-                <span>Bestow Award (${selectedAward.meritPoints} pts)</span>
+                <span>Bestow ${escapeHtml(selectedAward.label)}</span>
               </button>
             </div>
           </div>
@@ -979,15 +1084,15 @@ export class AwardsSystem {
     if (typeof document === 'undefined') return;
 
     // Delegate clicks for open, close, select, and submit
-    document.addEventListener('click', (e: MouseEvent) => {
+    document.addEventListener('click', async (e: MouseEvent) => {
       const target = e.target as HTMLElement | null;
       if (!target) return;
 
       // 1. Open award modal on post
-      const openBtn = target.closest('.btn-open-award-modal') as HTMLElement | null;
+      const openBtn = target.closest('.btn-open-award-modal, .btn-detail-award') as HTMLElement | null;
       if (openBtn) {
         e.preventDefault();
-        const postId = openBtn.getAttribute('data-post-id');
+        const postId = openBtn.getAttribute('data-post-id') || openBtn.getAttribute('data-award-id');
         const userRole = openBtn.getAttribute('data-user-role') || 'GUARDIAN';
         if (postId) {
           this.openModal(postId, userRole);
@@ -1043,7 +1148,7 @@ export class AwardsSystem {
           const awardDef = this.getAwardByType(type);
           const confirmBtn = document.getElementById('btn-confirm-give-award');
           if (confirmBtn && awardDef) {
-            confirmBtn.innerHTML = `<span>🏅</span><span>Bestow Award (${awardDef.meritPoints} pts)</span>`;
+            confirmBtn.innerHTML = `<span>🏅</span><span>Bestow ${escapeHtml(awardDef.label)}</span>`;
           }
         }
         return;
@@ -1063,16 +1168,28 @@ export class AwardsSystem {
         const giverFP = (typeof window !== 'undefined' ? window.activeUserFP : undefined) || 'self.sovereign';
         const giverRole = (typeof window !== 'undefined' ? window.activeUserRole : undefined) || 'GUARDIAN';
 
+        confirmBtn.setAttribute('disabled', 'true');
+        const prevText = confirmBtn.innerHTML;
+        confirmBtn.innerHTML = `<span>⏳</span><span>Bestowing...</span>`;
+
         let success = false;
-        if (commentId) {
-          success = this.giveCommentAward(commentId, postId, this.selectedAwardType, giverFP, giverRole, comment);
-        } else {
-          success = this.giveAward(postId, this.selectedAwardType, giverFP, giverRole, comment);
+        try {
+          if (commentId) {
+            success = await this.giveCommentAward(commentId, postId, this.selectedAwardType, giverFP, giverRole, comment);
+          } else {
+            success = await this.giveAward(postId, this.selectedAwardType, giverFP, giverRole, comment);
+          }
+        } finally {
+          confirmBtn.removeAttribute('disabled');
+          confirmBtn.innerHTML = prevText;
         }
 
         if (success) {
           this.closeModal();
-          this._refreshPostBadgesInDom(postId);
+          this.refreshPostBadgesInDom(postId);
+          if (commentId) {
+            this.refreshCommentBadgesInDom(commentId);
+          }
         }
       }
     });
@@ -1135,12 +1252,44 @@ export class AwardsSystem {
     }
   }
 
-  private _refreshPostBadgesInDom(postId: string): void {
+  public refreshPostBadgesInDom(postId: string): void {
     if (typeof document === 'undefined') return;
-    const container = document.querySelector(`.award-badges-container[data-post-id="${postId}"]`);
-    if (container) {
+    const containers = document.querySelectorAll(`.award-badges-container[data-post-id="${postId}"]`);
+    containers.forEach((container) => {
       container.outerHTML = this.renderAwardBadges(postId);
+    });
+  }
+
+  public refreshCommentBadgesInDom(commentId: string): void {
+    if (typeof document === 'undefined') return;
+    const containers = document.querySelectorAll(`.comment-award-badges[data-comment-id="${commentId}"]`);
+    if (containers.length > 0) {
+      containers.forEach((container) => {
+        container.outerHTML = this.renderCommentAwardBadges(commentId);
+      });
+    } else {
+      // Fallback: locate comment actions or comment header and append
+      const actionBtn = document.querySelector(`.btn-open-comment-award-modal[data-comment-id="${commentId}"]`);
+      if (actionBtn) {
+        const commentContainer = actionBtn.closest('.border-l-2, .comment-node, div[id^="comment-"]') || actionBtn.parentElement?.parentElement;
+        const header = commentContainer?.querySelector('.flex.items-center.space-x-2, .items-center');
+        if (header) {
+          const temp = document.createElement('div');
+          temp.innerHTML = this.renderCommentAwardBadges(commentId);
+          if (temp.firstElementChild) {
+            header.appendChild(temp.firstElementChild);
+          }
+        }
+      }
     }
+  }
+
+  private _refreshPostBadgesInDom(postId: string): void {
+    this.refreshPostBadgesInDom(postId);
+  }
+
+  private _refreshCommentBadgesInDom(commentId: string): void {
+    this.refreshCommentBadgesInDom(commentId);
   }
 }
 
@@ -1207,6 +1356,7 @@ export class AwardPopoverManager {
     if (!this.popoverEl) this.init();
     if (!this.popoverEl) return;
 
+    clearTimeout(this.hideTimer);
     this.currentTarget = chip;
     const emoji = chip.getAttribute('data-award-emoji') || '🏆';
     const label = chip.getAttribute('data-award-label') || 'Award';
@@ -1239,7 +1389,7 @@ export class AwardPopoverManager {
         <div class="flex items-center space-x-1.5 pb-1 border-b border-white/10">
           <span class="text-base leading-none">${emoji}</span>
           <span class="text-xs font-bold ${color}">${escapeHtml(label)} <span class="text-[10px] text-slate-400 font-normal">(${count})</span></span>
-          <span class="text-[10px] font-mono text-amber-400 font-bold ml-auto bg-amber-500/10 px-1.5 py-0.2 rounded-full border border-amber-500/20">${points} pts</span>
+          <span class="text-[10px] font-sans text-amber-400 font-semibold ml-auto bg-amber-500/10 px-1.5 py-0.2 rounded-full border border-amber-500/20">Accolade</span>
         </div>
         ${desc ? `<p class="text-[10px] text-slate-300 leading-snug py-1">${desc}</p>` : ''}
         ${commentsHtml}
@@ -1291,6 +1441,7 @@ export class AwardPopoverManager {
 
   public hide(): void {
     if (!this.popoverEl) return;
+    clearTimeout(this.hideTimer);
     this.popoverEl.style.opacity = '0';
     this.popoverEl.style.transform = 'translateY(2px)';
     this.hideTimer = setTimeout(() => {

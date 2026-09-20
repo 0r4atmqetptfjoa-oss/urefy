@@ -11,7 +11,7 @@ import {
 import { isDemoModeEnabled } from './demo-mode.js';
 import { sovereignCircleEngine } from './sovereign-circle.js';
 import { sovereignRouter } from './router.js';
-import { knowledgeMemory, type KnowledgeMemory } from './knowledge-memory.js';
+import type { KnowledgeMemory } from './knowledge-memory.js';
 
 export type CommandRailFilter = 'ALL' | 'POSTS' | 'COMMUNITIES' | 'VAULT' | 'MESSAGES' | 'MEMBERS' | 'BINARIES' | 'COMMANDS';
 export type SearchItemType = 'post' | 'member' | 'binary' | 'command' | 'vault' | 'message';
@@ -189,9 +189,9 @@ export class CommandRailV2Engine {
     this._commandsRegistry = ([
       {
         id: 'nav-relays',
-        title: 'Go to Space: Relays',
+        title: 'Messages',
         category: 'Navigation',
-        description: 'Switch canvas space to E2EE Realtime Relays, P2P Channels & SFrame Audio Mesh.',
+        description: 'Switch to direct messages and community conversations.',
         shortcut: 'Alt+R',
         safetyLevel: 'Local Action',
         run: () => {
@@ -200,9 +200,9 @@ export class CommandRailV2Engine {
       },
       {
         id: 'nav-vault',
-        title: 'Go to Space: Vault',
+        title: 'Vault',
         category: 'Navigation',
-        description: 'Switch canvas space to Forensic Knowledge Vault & Clean Binary Swarm Repositories.',
+        description: 'View saved posts, collections, and offline knowledge.',
         shortcut: 'Alt+V',
         safetyLevel: 'Local Action',
         run: () => {
@@ -211,9 +211,9 @@ export class CommandRailV2Engine {
       },
       {
         id: 'nav-pulse',
-        title: 'Go to Space: Pulse',
+        title: 'Home Feed',
         category: 'Navigation',
-        description: 'Switch canvas space to Pulse (Pure Chronological Sovereign Micro-Feed).',
+        description: 'View latest posts and community updates.',
         shortcut: 'Alt+P',
         safetyLevel: 'Local Action',
         run: () => {
@@ -222,9 +222,9 @@ export class CommandRailV2Engine {
       },
       {
         id: 'toggle-split',
-        title: 'Toggle Dual-Horizon Split View',
+        title: 'Toggle Split View',
         category: 'Layout & View',
-        description: 'Split the main viewport into dual parallel columns for synchronized Relays & Pulse monitoring.',
+        description: 'View feed and messages side-by-side on desktop.',
         shortcut: 'Ctrl+\\',
         safetyLevel: 'Local Action',
         run: () => {
@@ -233,9 +233,9 @@ export class CommandRailV2Engine {
       },
       {
         id: 'density-compact',
-        title: 'Set Density: Compact (IRC / Terminal)',
+        title: 'Compact density',
         category: 'Layout & View',
-        description: 'Maximize information density with ultra-compact IRC-style single-line message rows.',
+        description: 'Tighter spacing with single-line rows.',
         shortcut: 'Alt+1',
         safetyLevel: 'Local Action',
         run: () => {
@@ -244,9 +244,9 @@ export class CommandRailV2Engine {
       },
       {
         id: 'density-balanced',
-        title: 'Set Density: Balanced (Linear Style)',
+        title: 'Balanced density',
         category: 'Layout & View',
-        description: 'Standard modern feed layout with balanced whitespace and readable typography.',
+        description: 'Standard feed layout with balanced spacing.',
         shortcut: 'Alt+2',
         safetyLevel: 'Local Action',
         run: () => {
@@ -255,9 +255,9 @@ export class CommandRailV2Engine {
       },
       {
         id: 'density-media',
-        title: 'Set Density: Expanded (Media / Cards)',
+        title: 'Expanded density',
         category: 'Layout & View',
-        description: 'Full rich card mode with large image previews, inline media players, and forensic cards.',
+        description: 'Full rich card mode with large image and media previews.',
         shortcut: 'Alt+3',
         safetyLevel: 'Local Action',
         run: () => {
@@ -266,9 +266,9 @@ export class CommandRailV2Engine {
       },
       {
         id: 'open-composer',
-        title: 'Compose Sovereign Broadcast / Micro-Pulse',
+        title: 'New post',
         category: 'Navigation',
-        description: 'Open the multi-modal Omni-Composer to publish E2EE discussions, polls, or micro-pulses.',
+        description: 'Open the composer to publish discussions, media, or polls.',
         shortcut: 'Ctrl+N',
         safetyLevel: 'Local Action',
         run: () => {
@@ -277,9 +277,9 @@ export class CommandRailV2Engine {
       },
       {
         id: 'zk-proof-rln',
-        title: 'Open ZK-Proof Visualizer (RLN & Circom)',
+        title: 'Zero-knowledge proofs viewer',
         category: 'Security & Crypto',
-        description: 'Inspect cryptographic BN254 Groth16 circuits, Rate-Limiting Nullifiers, and Snark proofs.',
+        description: 'Inspect cryptographic rate-limiting nullifiers and proofs.',
         shortcut: 'Ctrl+Shift+Z',
         safetyLevel: 'Local Action',
         run: () => {
@@ -289,9 +289,9 @@ export class CommandRailV2Engine {
       },
       {
         id: 'zk-passport-attest',
-        title: 'Attest ZK-Passport Sovereign Identity',
+        title: 'Verify sovereign identity',
         category: 'Security & Crypto',
-        description: 'Generate a zero-knowledge humanity attestation without revealing personal identity.',
+        description: 'Generate a privacy-preserving attestation without revealing personal data.',
         shortcut: 'Ctrl+Shift+I',
         safetyLevel: 'Cryptographic Broadcast',
         run: () => {
@@ -301,9 +301,9 @@ export class CommandRailV2Engine {
       },
       {
         id: 'sim-spam-slashing',
-        title: 'Simulate ZK-RLN Spam Slashing Attack',
+        title: 'Simulate spam protection',
         category: 'Simulation',
-        description: 'Trigger synthetic double-publish attack on the same epoch to observe Lagrange polynomial secret extraction.',
+        description: 'Trigger synthetic rate-limiting test to observe spam prevention in action.',
         shortcut: 'Ctrl+Shift+S',
         safetyLevel: 'Simulation Mode',
         run: () => {
@@ -312,9 +312,9 @@ export class CommandRailV2Engine {
       },
       {
         id: 'inspect-binary-file',
-        title: 'Inspect Binary File Shannon Entropy',
+        title: 'Inspect file integrity',
         category: 'Security & Crypto',
-        description: 'Upload an ELF, PE32, or Mach-O executable to inspect byte-level entropy and anomaly indicators.',
+        description: 'Check a file for byte-level integrity and reproducibility.',
         shortcut: 'Ctrl+Shift+E',
         safetyLevel: 'Local Action',
         run: () => {
@@ -323,22 +323,10 @@ export class CommandRailV2Engine {
         },
       },
       {
-        id: 'toggle-ghost-voice',
-        title: 'Toggle SFrame Ghost Voice Mesh',
-        category: 'Audio & Voice',
-        description: 'Enable or disable E2EE SFrame low-latency ephemeral voice channel with zero RAM retention.',
-        shortcut: 'Alt+G',
-        safetyLevel: 'Local Action',
-        run: () => {
-          const btn = document.getElementById('btn-toggle-ghost');
-          if (btn) btn.click();
-        },
-      },
-      {
         id: 'open-bookmarks',
-        title: 'Open Sovereign Bookmarks Vault',
+        title: 'Saved posts',
         category: 'Navigation',
-        description: 'Review offline encrypted saved threads, forensics reports, and cryptographic references.',
+        description: 'Review saved posts and bookmarks.',
         shortcut: 'Ctrl+B',
         safetyLevel: 'Local Action',
         run: () => {
@@ -348,9 +336,9 @@ export class CommandRailV2Engine {
       },
       {
         id: 'zeroize-ram',
-        title: 'Zeroize Ephemeral RAM Cache',
+        title: 'Clear session cache',
         category: 'Security & Crypto',
-        description: 'Perform deterministic memory zeroization on all decrypted ephemeral message buffers.',
+        description: 'Clear temporary in-memory session cache.',
         shortcut: 'Ctrl+Shift+X',
         safetyLevel: 'Local Action',
         run: () => {
@@ -467,7 +455,7 @@ export class CommandRailV2Engine {
     this.selectedIndex = 0;
     this.searchResults = this.search(this.searchQuery, this.activeFilterTab);
     this.activePreviewItem = this.searchResults[0] || null;
-    void knowledgeMemory.list().then(items => {
+    void import('./knowledge-memory.js').then(({ knowledgeMemory }) => knowledgeMemory.list()).then(items => {
       this._cachedVaultItems = items;
       this.searchResults = this.search(this.searchQuery, this.activeFilterTab);
       this.activePreviewItem = this.searchResults[this.selectedIndex] || this.searchResults[0] || null;
@@ -1062,16 +1050,16 @@ export class CommandRailV2Engine {
             <div class="flex items-center space-x-4 text-slate-400">
               <span class="flex items-center space-x-1.5">
                 <span class="w-2 h-2 rounded-full bg-signal shadow-signal-sm animate-pulse"></span>
-                <span class="text-slate-300">UREfy Local ZK-SSE BM25</span>
+                <span class="text-slate-300">Fast on-device search</span>
               </span>
               <span class="text-slate-600">|</span>
-              <span class="text-slate-500">Sub-millisecond memory index</span>
+              <span class="text-slate-500">Instant local index</span>
             </div>
             <div class="flex items-center space-x-3">
               <button id="btn-rail-v2-cancel" class="px-3 py-1 rounded-lg border border-white/10 bg-surface-raised hover:bg-surface-overlay text-slate-300 hover:text-white transition-all text-xs">
                 Esc to Close
               </button>
-              <button id="btn-rail-v2-confirm" class="px-4 py-1 rounded-lg bg-cyphr/20 border border-cyphr/40 hover:bg-cyphr/30 text-cyphr font-bold transition-all flex items-center space-x-1.5 shadow-[0_0_12px_rgba(0,229,255,0.2)]">
+              <button id="btn-rail-v2-confirm" class="px-4 py-1 rounded-lg bg-[var(--color-accent,#e59b3c)]/20 border border-[var(--color-accent,#e59b3c)]/40 hover:bg-[var(--color-accent,#e59b3c)]/30 text-[var(--color-accent,#e59b3c)] font-bold transition-all flex items-center space-x-1.5">
                 <span>Enter to Open</span>
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
@@ -1716,14 +1704,14 @@ export class CommandRailV2Engine {
 
         <!-- SECURITY & RUNTIME IMPACT INFO -->
         <div class="p-3.5 rounded-xl bg-surface-base/80 border border-white/5 space-y-2 text-xs font-sans text-slate-300">
-          <div class="flex items-center space-x-2 text-cyphr font-mono text-[11px] font-bold">
+          <div class="flex items-center space-x-2 text-[var(--color-accent,#e59b3c)] font-sans text-[11px] font-bold">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
             </svg>
-            <span>Runtime Impact Analysis</span>
+            <span>Performance &amp; memory</span>
           </div>
           <p class="text-[11px] text-slate-400 leading-relaxed">
-            Executing this action updates the local reactive state store and propagates UI context changes without network leakage.
+            This action runs locally on your device without sending private data to external servers.
           </p>
         </div>
 

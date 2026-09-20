@@ -306,17 +306,12 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
  */
 export async function onRequestDelete(context: { request: Request; env?: Env }): Promise<Response> {
   try {
-    const url = new URL(context.request.url);
-    let followerId = (url.searchParams.get('followerId') || '').trim();
-    let followingId = (url.searchParams.get('followingId') || url.searchParams.get('targetId') || '').trim();
-
-    if (!followerId || !followingId) {
-      try {
-        const body = await context.request.json() as any;
-        followerId = followerId || String(body?.followerId || '').trim();
-        followingId = followingId || String(body?.followingId || body?.targetId || '').trim();
-      } catch (_) {}
-    }
+    const raw = await context.request.json().catch(() => null);
+    const auth = await requireSignedEnvelope(context, raw, 'user:follow');
+    if (!auth.authorized) return auth.response!;
+    if (auth.payload?.action !== 'unfollow') return Response.json({ success: false, error: 'Invalid follow action' }, { status: 400 });
+    const followerId = auth.fingerprint!;
+    const followingId = String(auth.payload.followingId || '').trim();
 
     if (!followerId || !followingId) {
       return new Response(

@@ -56,6 +56,10 @@ describe('Web-of-Trust (WoT) Interactive Graph Visualizer Engine', () => {
     mockElements = new Map();
 
     const docMock = {
+      querySelectorAll: vi.fn((selector: string) => selector.split(',').flatMap(part => {
+        const id = part.trim().slice(1);
+        return mockElements.has(id) ? [{ remove: () => mockElements.delete(id) }] : [];
+      })),
       getElementById: vi.fn((id: string) => {
         if (!mockElements.has(id)) {
           mockElements.set(id, { id, innerHTML: '', textContent: '', className: '' });

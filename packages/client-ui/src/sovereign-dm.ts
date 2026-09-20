@@ -21,13 +21,14 @@ import {
   validateDirectMessageFrame,
 } from '@aetheris/core-crypto';
 import { encodeSteganography, decodeSteganography } from './steganography.js';
-import { isLocalDev } from './admin-auth.js';
+import { isLocalDev } from './env-check.js';
 import { secureStorage } from './secure-storage.js';
 import { DirectMessagingClient, type PrivateMessageTransport, type PrivateMessageDelivery } from './direct-messaging-client.js';
 import type { DirectMessageAttachment } from './client-state.js';
 import { socialSafety } from './social-safety.js';
 import { profileView } from './profile-view.js';
 import { branchOf, validateMessageContext, type ConversationBranch, type MessageContext } from './conversation-context.js';
+import { processChatMessageContent, replaceEmoticons } from './chat-rich-embed.js';
 
 export type { DirectMessageAttachment };
 
@@ -240,6 +241,10 @@ export class SovereignDMManager {
   public conversations: Map<string, DMConversation> = new Map();
   public activePeerFP: string | null = null;
   public isOpen: boolean = false;
+
+  public getConversations(): DMConversation[] {
+    return Array.from(this.conversations.values());
+  }
   
   public isMinimized: boolean = false;
   public isTreeKEMDrawerOpen: boolean = false;
@@ -319,6 +324,54 @@ export class SovereignDMManager {
       details: 'Blocked and reported from message requests inbox',
     });
     this.declineRequest(peerFP);
+  }
+
+  public deleteConversation(peerFP: string): void {
+    this.conversations.delete(peerFP);
+    if (this.activePeerFP === peerFP) {
+      this.activePeerFP = null;
+    }
+    this._saveToStorage();
+    this.syncDOM();
+    if (typeof window !== 'undefined' && (window as any).clientStore) {
+      (window as any).clientStore.notifySync();
+    }
+  }
+
+  public clearHistory(peerFP: string): void {
+    const conv = this.conversations.get(peerFP);
+    if (conv) {
+      conv.messages = [];
+      conv.unreadCount = 0;
+      conv.lastMessageAt = Date.now();
+      this._saveToStorage();
+      this.syncDOM();
+      if (typeof window !== 'undefined' && (window as any).clientStore) {
+        (window as any).clientStore.notifySync();
+      }
+    }
+  }
+
+  public blockPeer(peerFP: string): void {
+    socialSafety.blockUser(peerFP);
+    this._saveToStorage();
+    this.syncDOM();
+    if (typeof window !== 'undefined' && (window as any).clientStore) {
+      (window as any).clientStore.notifySync();
+    }
+  }
+
+  public unblockPeer(peerFP: string): void {
+    socialSafety.unblockUser(peerFP);
+    this._saveToStorage();
+    this.syncDOM();
+    if (typeof window !== 'undefined' && (window as any).clientStore) {
+      (window as any).clientStore.notifySync();
+    }
+  }
+
+  public isPeerBlocked(peerFP: string): boolean {
+    return socialSafety.isBlocked(peerFP);
   }
 
   public setPendingAttachment(att: DirectMessageAttachment | null): void {
@@ -909,7 +962,7 @@ export class SovereignDMManager {
     const context = this.getMessageContext();
     await this.ready;
 
-    let finalPlaintext = trimmed;
+    let finalPlaintext = replaceEmoticons(trimmed);
     if (this.isStegoModeActive) {
       try {
         const carrierDataUrl = await this._encodeStegoCarrier(trimmed, this.stegoDecoyPassphrase || undefined);
@@ -1498,36 +1551,38 @@ export class SovereignDMManager {
 
         <!-- MESSAGES FEED AREA -->
         <div id="sovereign-dm-messages-container" class="flex-1 p-4 overflow-y-auto space-y-3.5 bg-canvas/60 scroll-smooth">
-          <!-- E2EE Channel Encryption Handshake Banner -->
-          <div class="p-2.5 rounded-xl bg-surface-raised/80 border border-cyphr/20 flex items-start gap-2.5 shadow-sm">
-            <div class="w-6 h-6 rounded-lg bg-cyphr/10 border border-cyphr/30 flex items-center justify-center text-cyphr shrink-0 mt-0.5 text-xs">
-              🔒
-            </div>
-            <div class="flex flex-col text-[11px] text-slate-300 leading-tight">
-              <span class="font-bold text-slate-100 flex items-center gap-1.5">
-                End-to-End Encrypted Sovereign Channel
-              </span>
-              <span class="text-slate-400 mt-0.5">
-                Protected by TreeKEM MLS v2.4 + SFrame with continuous key ratcheting. No third-party relay can decrypt frames.
-              </span>
-            </div>
-          </div>
-
-          ${
-            conv.messages.length === 0
-              ? `
-              <div class="h-48 flex flex-col items-center justify-center text-center p-4">
-                <div class="w-12 h-12 rounded-2xl bg-surface-overlay border border-white/10 flex items-center justify-center text-2xl text-slate-400 mb-2">
-                  💬
-                </div>
-                <div class="text-xs font-semibold text-slate-200">Zero-Metadata DM Established</div>
-                <div class="text-[11px] text-slate-400 max-w-xs mt-1">
-                  Send an initial encrypted message to establish ephemeral ratchet key exchange.
-                </div>
+          <div class="max-w-[860px] mx-auto w-full space-y-3.5">
+            <!-- E2EE Channel Encryption Handshake Banner -->
+            <div class="p-2.5 rounded-xl bg-surface-raised/80 border border-cyphr/20 flex items-start gap-2.5 shadow-sm">
+              <div class="w-6 h-6 rounded-lg bg-cyphr/10 border border-cyphr/30 flex items-center justify-center text-cyphr shrink-0 mt-0.5 text-xs">
+                🔒
               </div>
-            `
-              : conv.messages.map((msg) => this.renderMessageItem(msg, myFP)).join('')
-          }
+              <div class="flex flex-col text-[11px] text-slate-300 leading-tight">
+                <span class="font-bold text-slate-100 flex items-center gap-1.5">
+                  End-to-End Encrypted Sovereign Channel
+                </span>
+                <span class="text-slate-400 mt-0.5">
+                  Protected by TreeKEM MLS v2.4 + SFrame with continuous key ratcheting. No third-party relay can decrypt frames.
+                </span>
+              </div>
+            </div>
+
+            ${
+              conv.messages.length === 0
+                ? `
+                <div class="h-48 flex flex-col items-center justify-center text-center p-4">
+                  <div class="w-12 h-12 rounded-2xl bg-surface-overlay border border-white/10 flex items-center justify-center text-2xl text-slate-400 mb-2">
+                    💬
+                  </div>
+                  <div class="text-xs font-semibold text-slate-200">Zero-Metadata DM Established</div>
+                  <div class="text-[11px] text-slate-400 max-w-xs mt-1">
+                    Send an initial encrypted message to establish ephemeral ratchet key exchange.
+                  </div>
+                </div>
+              `
+                : conv.messages.map((msg) => this.renderMessageItem(msg, myFP)).join('')
+            }
+          </div>
         </div>
 
         <!-- EMOJI QUICK PICKER BAR -->
@@ -1576,7 +1631,7 @@ export class SovereignDMManager {
         <div class="p-3 bg-surface-raised border-t border-white/5 shrink-0">
           <form
             id="sovereign-dm-composer-form" data-submit="call-global" data-raw-submit="event.preventDefault(); const inp = document.getElementById('sovereign-dm-input'); if(inp && inp.value.trim()){ window.__aetherisDM.sendMessage(inp.value.trim(), '${escapeHtml(myFP)}'); inp.value = ''; }"
-            class="flex items-center gap-2"
+            class="flex items-center gap-2 max-w-[860px] mx-auto w-full"
           >
             <!-- Chat Input Field -->
             <div class="relative flex-1">
@@ -1672,9 +1727,6 @@ export class SovereignDMManager {
           <span>•</span>
           <span>${timeStr}</span>
           ${isMine ? `<span class="text-signal font-bold" title="Delivered & Verified">✓✓</span>` : ''}
-          <span class="cursor-pointer" data-action="call-global" data-raw-click="if(window.__aetherisTransparency) window.__aetherisTransparency.open('pipeline');">
-            ${renderZKDeliveryBadge(msg.id, { compact: false, verified: msg.isRead || zkDeliveryManager.isZKVerified(msg.id) })}
-          </span>
         </div>
 
         <!-- Bubble Container -->
@@ -1726,7 +1778,7 @@ export class SovereignDMManager {
                 </div>
               `;
             }
-            return `<div class="break-words leading-relaxed">${escapeHtml(msg.plaintext)}</div>`;
+            return `<div class="break-words leading-relaxed select-text font-sans">${processChatMessageContent(msg.plaintext)}</div>`;
           })()}
 
           <!-- Ephemeral / Encryption SFrame Badge (hover reveal) -->

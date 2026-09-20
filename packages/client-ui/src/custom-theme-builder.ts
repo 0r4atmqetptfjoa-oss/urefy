@@ -98,6 +98,22 @@ export const COLOR_FIELDS: ColorFieldDefinition[] = [
 
 export const DEFAULT_THEME_PRESETS: PresetPalette[] = [
   {
+    id: 'preset-urefy-default',
+    name: 'UREfy Default',
+    emoji: '⚡',
+    theme: {
+      name: 'UREfy Default',
+      author: 'UREfy',
+      accentColor: '#e59b3c',
+      bgCanvas: '#090a0f',
+      bgSurfaceBase: '#12151c',
+      bgSurfaceRaised: '#1a1f2e',
+      textPrimary: '#f1f5f9',
+      textAccent: '#e59b3c',
+      borderAccent: '#e59b3c',
+    },
+  },
+  {
     id: 'preset-cyber-cyan',
     name: 'Obsidian Cyan',
     emoji: '🌌',
@@ -224,20 +240,20 @@ export class CustomThemeBuilder {
   // ─── INITIALIZATION AND GETTERS ──────────────────────────────────────────────────
 
   /**
-   * Initializes draft with default Obsidian Cyan values.
+   * Initializes draft with default UREfy Default values.
    */
   private initDefaultDraft(): void {
     this.currentDraft = {
       id: `custom-draft-${Date.now()}`,
-      name: 'My Sovereign Theme',
-      author: '0xCyphr...88fa',
-      accentColor: '#00e5ff',
+      name: 'UREfy Default',
+      author: 'UREfy',
+      accentColor: '#e59b3c',
       bgCanvas: '#090a0f',
       bgSurfaceBase: '#12151c',
       bgSurfaceRaised: '#1a1f2e',
       textPrimary: '#f1f5f9',
-      textAccent: '#00e5ff',
-      borderAccent: '#00e5ff',
+      textAccent: '#e59b3c',
+      borderAccent: '#e59b3c',
       createdAt: Date.now(),
     };
   }
@@ -250,15 +266,64 @@ export class CustomThemeBuilder {
       id: this.currentDraft.id || `custom-${Date.now()}`,
       name: (this.currentDraft.name || 'Custom Theme').trim(),
       author: (this.currentDraft.author || 'Anonymous').trim(),
-      accentColor: this.sanitizeHex(this.currentDraft.accentColor, '#00e5ff'),
+      accentColor: this.sanitizeHex(this.currentDraft.accentColor, '#e59b3c'),
       bgCanvas: this.sanitizeHex(this.currentDraft.bgCanvas, '#090a0f'),
       bgSurfaceBase: this.sanitizeHex(this.currentDraft.bgSurfaceBase, '#12151c'),
       bgSurfaceRaised: this.sanitizeHex(this.currentDraft.bgSurfaceRaised, '#1a1f2e'),
       textPrimary: this.sanitizeHex(this.currentDraft.textPrimary, '#f1f5f9'),
-      textAccent: this.sanitizeHex(this.currentDraft.textAccent, '#00e5ff'),
-      borderAccent: this.sanitizeHex(this.currentDraft.borderAccent, '#00e5ff'),
+      textAccent: this.sanitizeHex(this.currentDraft.textAccent, '#e59b3c'),
+      borderAccent: this.sanitizeHex(this.currentDraft.borderAccent, '#e59b3c'),
       createdAt: this.currentDraft.createdAt || Date.now(),
     };
+  }
+
+  /**
+   * Calculates WCAG relative luminance of a HEX color.
+   */
+  public getRelativeLuminance(hex: string): number {
+    const clean = hex.replace(/^#/, '');
+    let r = 0, g = 0, b = 0;
+    if (clean.length === 3) {
+      r = parseInt(clean[0] + clean[0], 16);
+      g = parseInt(clean[1] + clean[1], 16);
+      b = parseInt(clean[2] + clean[2], 16);
+    } else if (clean.length >= 6) {
+      r = parseInt(clean.substring(0, 2), 16);
+      g = parseInt(clean.substring(2, 4), 16);
+      b = parseInt(clean.substring(4, 6), 16);
+    }
+    const [rs, gs, bs] = [r, g, b].map(v => {
+      const s = v / 255;
+      return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+    });
+    return 0.2126 * rs + 0.7152 * gs + 0.0722 * bs;
+  }
+
+  /**
+   * Calculates contrast ratio between two colors according to WCAG 2.1 specifications.
+   */
+  public getContrastRatio(hex1: string, hex2: string): number {
+    const lum1 = this.getRelativeLuminance(hex1);
+    const lum2 = this.getRelativeLuminance(hex2);
+    const brightest = Math.max(lum1, lum2);
+    const darkest = Math.min(lum1, lum2);
+    return (brightest + 0.05) / (darkest + 0.05);
+  }
+
+  /**
+   * Returns WCAG evaluation label and style classes for a contrast ratio.
+   */
+  public getContrastGrade(ratio: number): { label: string; badgeClass: string } {
+    if (ratio >= 7.0) {
+      return { label: 'AAA Pass', badgeClass: 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' };
+    }
+    if (ratio >= 4.5) {
+      return { label: 'AA Pass', badgeClass: 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/30' };
+    }
+    if (ratio >= 3.0) {
+      return { label: 'AA Large Only', badgeClass: 'bg-amber-500/15 text-amber-400 border border-amber-500/30' };
+    }
+    return { label: 'Fail (<4.5)', badgeClass: 'bg-rose-500/15 text-rose-400 border border-rose-500/30' };
   }
 
   // ─── COLOR UPDATES AND LIVE EDITING ────────────────────────────────────────
@@ -294,6 +359,22 @@ export class CustomThemeBuilder {
   }
 
   /**
+   * Synchronizes all form inputs and previews from the current draft in-place.
+   */
+  public syncAllInputsFromDraft(): void {
+    if (typeof document === 'undefined') return;
+    const draft = this.getResolvedDraft();
+    COLOR_FIELDS.forEach(field => {
+      this.syncFormInputValues(field.key, (draft as any)[field.key]);
+    });
+    const nameInput = document.getElementById('theme-input-name') as HTMLInputElement | null;
+    if (nameInput) nameInput.value = draft.name;
+    const authorInput = document.getElementById('theme-input-author') as HTMLInputElement | null;
+    if (authorInput) authorInput.value = draft.author;
+    this.updatePreviewElements();
+  }
+
+  /**
    * Loads a color preset directly into the draft and applies it live.
    */
   public applyPreset(presetId: string): void {
@@ -314,7 +395,7 @@ export class CustomThemeBuilder {
 
     this.saveDraftToStorage();
     this.applyDraftLive();
-    this.refreshModalContent();
+    this.syncAllInputsFromDraft();
     this.showToastNotification(`Preset "${preset.name}" loaded into draft!`);
   }
 
@@ -325,7 +406,7 @@ export class CustomThemeBuilder {
     this.initDefaultDraft();
     this.saveDraftToStorage();
     this.applyDraftLive();
-    this.refreshModalContent();
+    this.syncAllInputsFromDraft();
     this.showToastNotification('Draft has been reset to default values.');
   }
 
@@ -460,7 +541,7 @@ export class CustomThemeBuilder {
     this.currentDraft = { ...theme };
     this.saveDraftToStorage();
     this.applyDraftLive();
-    this.refreshModalContent();
+    this.syncAllInputsFromDraft();
     this.showToastNotification(`Theme "${theme.name}" loaded.`);
   }
 
@@ -807,13 +888,13 @@ export class CustomThemeBuilder {
       <button
         type="button"
         id="aetheris-custom-theme-builder-btn" data-action="call-global" data-raw-click="window.customThemeBuilder ? window.customThemeBuilder.openModal() : null"
-        class="flex items-center space-x-2 px-3 py-2 rounded-xl bg-gradient-to-r from-cyphr/15 to-aether/15 hover:from-cyphr/25 hover:to-aether/25 border border-cyphr/30 hover:border-cyphr text-xs font-semibold text-slate-100 transition-all duration-200 shadow-sm hover:shadow-cyan-500/20 group cursor-pointer"
+        class="flex items-center space-x-2 px-3 py-2 rounded-xl bg-surface-raised hover:bg-surface-overlay border border-white/10 hover:border-white/20 text-xs font-semibold text-slate-200 hover:text-white transition-all duration-200 shadow-sm group cursor-pointer"
         title="Open UREfy Custom Theme Visual Builder"
         aria-label="Custom Theme Visual Builder"
       >
         <span class="text-sm transition-transform duration-200 group-hover:scale-125 group-hover:rotate-12">🎨</span>
         <span class="font-sans font-medium text-slate-200 group-hover:text-white">Custom Theme</span>
-        <span class="px-1.5 py-0.5 text-[9px] font-mono font-bold rounded bg-cyphr/20 text-cyphr border border-cyphr/40 uppercase">BUILDER</span>
+        <span class="px-1.5 py-0.5 text-[9px] font-mono font-bold rounded bg-white/10 text-slate-300 border border-white/10 uppercase">BUILDER</span>
       </button>
     `;
   }
@@ -823,6 +904,16 @@ export class CustomThemeBuilder {
    */
   public renderBuilderModal(): string {
     const draft = this.getResolvedDraft();
+
+    // Calculate WCAG contrast metrics
+    const textOnSurfaceRatio = this.getContrastRatio(draft.textPrimary, draft.bgSurfaceRaised);
+    const textOnSurfaceGrade = this.getContrastGrade(textOnSurfaceRatio);
+
+    const textOnCanvasRatio = this.getContrastRatio(draft.textPrimary, draft.bgCanvas);
+    const textOnCanvasGrade = this.getContrastGrade(textOnCanvasRatio);
+
+    const accentOnCanvasRatio = this.getContrastRatio(draft.accentColor, draft.bgCanvas);
+    const accentOnCanvasGrade = this.getContrastGrade(accentOnCanvasRatio);
 
     // Generate Color Pickers for Left Column
     const colorPickersHtml = COLOR_FIELDS.map((field) => {
@@ -860,7 +951,7 @@ export class CustomThemeBuilder {
                 id="theme-input-${field.key}-hex"
                 value="${currentValue.replace(/^#/, '')}"
                 maxlength="7" data-input="call-global" data-raw-input="if(window.customThemeBuilder) window.customThemeBuilder.updateColor('${field.key}', '#' + this.value.replace(/#/g, ''))"
-                class="w-full pl-6 pr-2.5 py-1.5 rounded-lg bg-canvas border border-white/10 text-xs font-mono text-white placeholder-slate-600 focus:outline-none focus:border-cyphr focus:ring-1 focus:ring-cyphr"
+                class="w-full pl-6 pr-2.5 py-1.5 rounded-lg bg-canvas border border-white/10 text-xs font-mono text-white placeholder-slate-600 focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/20"
                 placeholder="00e5ff"
               />
             </div>
@@ -874,7 +965,7 @@ export class CustomThemeBuilder {
       return `
         <button
           type="button" data-action="call-global" data-raw-click="if(window.customThemeBuilder) window.customThemeBuilder.applyPreset('${preset.id}')"
-          class="flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-surface-base hover:bg-surface-overlay border border-white/5 hover:border-cyphr/40 text-[11px] font-mono text-slate-300 hover:text-white transition-all cursor-pointer"
+          class="flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-surface-base hover:bg-surface-overlay border border-white/5 hover:border-white/20 text-[11px] font-mono text-slate-300 hover:text-white transition-all cursor-pointer"
           title="Load palette ${this.escapeHtml(preset.name)}"
         >
           <span>${preset.emoji}</span>
@@ -900,7 +991,7 @@ export class CustomThemeBuilder {
                 minute: '2-digit',
               });
               return `
-                <div class="p-3 rounded-xl bg-surface-base border border-white/5 hover:border-cyphr/40 transition-all flex flex-col justify-between space-y-2 group">
+                <div class="p-3 rounded-xl bg-surface-base border border-white/5 hover:border-white/20 transition-all flex flex-col justify-between space-y-2 group">
                   <div class="flex items-start justify-between">
                     <div>
                       <div class="text-xs font-bold text-slate-200 group-hover:text-white flex items-center space-x-1.5">
@@ -934,7 +1025,7 @@ export class CustomThemeBuilder {
 
                     <button
                       type="button" data-action="call-global" data-raw-click="if(window.customThemeBuilder) window.customThemeBuilder.loadSavedTheme('${st.id}')"
-                      class="px-2 py-0.5 text-[10px] font-mono font-bold rounded bg-cyphr/15 hover:bg-cyphr/30 text-cyphr border border-cyphr/30 transition-colors"
+                      class="px-2 py-0.5 text-[10px] font-mono font-bold rounded bg-white/10 hover:bg-white/20 text-slate-200 border border-white/15 transition-colors"
                     >
                       Load
                     </button>
@@ -958,13 +1049,13 @@ export class CustomThemeBuilder {
           <!-- MODAL HEADER -->
           <div class="px-6 py-4 border-b border-white/5 bg-surface-raised/80 flex items-center justify-between shrink-0">
             <div class="flex items-center space-x-3">
-              <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyphr/20 to-aether/20 border border-cyphr/40 flex items-center justify-center text-cyphr text-xl shadow-inner">
+              <div class="w-10 h-10 rounded-xl bg-surface-raised border border-white/10 flex items-center justify-center text-xl shadow-inner">
                 🎨
               </div>
               <div>
                 <h2 id="custom-theme-modal-title" class="text-base font-bold text-white flex items-center space-x-2">
                   <span>UREfy Custom Theme Studio</span>
-                  <span class="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-cyphr/15 text-cyphr border border-cyphr/30">VISUAL BUILDER</span>
+                  <span class="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-white/10 text-slate-300 border border-white/10">VISUAL BUILDER</span>
                 </h2>
                 <p class="text-xs text-slate-400">Customize OLED colors, visual accents, and live test Omni-Sphere components.</p>
               </div>
@@ -974,7 +1065,7 @@ export class CustomThemeBuilder {
             <div class="flex items-center space-x-2">
               <button
                 type="button" data-action="call-global" data-raw-click="if(window.customThemeBuilder) window.customThemeBuilder.applyDraftLive()"
-                class="px-3 py-1.5 rounded-lg bg-cyphr/20 hover:bg-cyphr/30 border border-cyphr/40 text-cyphr text-xs font-semibold flex items-center space-x-1.5 transition-all cursor-pointer"
+                class="px-3 py-1.5 rounded-lg bg-surface-raised hover:bg-surface-overlay border border-white/10 text-slate-200 hover:text-white text-xs font-semibold flex items-center space-x-1.5 transition-all cursor-pointer"
                 title="Apply current theme to interface"
               >
                 <span>⚡</span>
@@ -1001,7 +1092,7 @@ export class CustomThemeBuilder {
               <!-- METADATA THEME INPUTS -->
               <div class="p-4 rounded-xl bg-surface-raised border border-white/5 space-y-3">
                 <div class="text-xs font-semibold uppercase tracking-wider text-slate-300 font-mono flex items-center space-x-1.5">
-                  <span class="text-cyphr">◆</span>
+                  <span class="text-slate-400">◆</span>
                   <span>Theme Information</span>
                 </div>
 
@@ -1012,7 +1103,7 @@ export class CustomThemeBuilder {
                       type="text"
                       id="theme-builder-name-input"
                       value="${this.escapeHtml(draft.name)}" data-input="call-global" data-raw-input="if(window.customThemeBuilder) window.customThemeBuilder.updateMetadata('name', this.value)"
-                      class="w-full px-3 py-1.5 rounded-lg bg-canvas border border-white/10 text-xs font-sans text-white focus:outline-none focus:border-cyphr focus:ring-1 focus:ring-cyphr"
+                      class="w-full px-3 py-1.5 rounded-lg bg-canvas border border-white/10 text-xs font-sans text-white focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/20"
                       placeholder="e.g. Cyberpunk Neon"
                     />
                   </div>
@@ -1023,7 +1114,7 @@ export class CustomThemeBuilder {
                       type="text"
                       id="theme-builder-author-input"
                       value="${this.escapeHtml(draft.author)}" data-input="call-global" data-raw-input="if(window.customThemeBuilder) window.customThemeBuilder.updateMetadata('author', this.value)"
-                      class="w-full px-3 py-1.5 rounded-lg bg-canvas border border-white/10 text-xs font-mono text-slate-300 focus:outline-none focus:border-cyphr focus:ring-1 focus:ring-cyphr"
+                      class="w-full px-3 py-1.5 rounded-lg bg-canvas border border-white/10 text-xs font-mono text-slate-300 focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/20"
                       placeholder="e.g. 0xCyphr...88fa"
                     />
                   </div>
@@ -1033,7 +1124,7 @@ export class CustomThemeBuilder {
               <!-- QUICK PRESETS -->
               <div class="p-4 rounded-xl bg-surface-raised border border-white/5 space-y-2">
                 <div class="text-xs font-semibold uppercase tracking-wider text-slate-300 font-mono flex items-center space-x-1.5">
-                  <span class="text-aether">◆</span>
+                  <span class="text-slate-400">◆</span>
                   <span>Preset Palettes (Quick Presets)</span>
                 </div>
                 <div class="flex flex-wrap gap-1.5">
@@ -1045,7 +1136,7 @@ export class CustomThemeBuilder {
               <div class="p-4 rounded-xl bg-surface-raised border border-white/5 space-y-3">
                 <div class="flex items-center justify-between">
                   <div class="text-xs font-semibold uppercase tracking-wider text-slate-300 font-mono flex items-center space-x-1.5">
-                    <span class="text-signal">◆</span>
+                    <span class="text-slate-400">◆</span>
                     <span>CSS Color Variables</span>
                   </div>
                   <span class="text-[10px] font-mono text-slate-500">7 variables</span>
@@ -1061,7 +1152,7 @@ export class CustomThemeBuilder {
                 <button
                   type="button"
                   id="btn-save-custom-theme" data-action="call-global" data-raw-click="if(window.customThemeBuilder) window.customThemeBuilder.saveDraftAsTheme()"
-                  class="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-cyphr to-cyan-400 hover:from-cyan-400 hover:to-cyphr text-black text-xs font-bold shadow-lg shadow-cyan-500/20 transition-all flex items-center justify-center space-x-1.5 cursor-pointer"
+                  class="w-full py-2.5 px-3 rounded-xl bg-white hover:bg-slate-100 text-slate-950 text-xs font-bold shadow-sm transition-all flex items-center justify-center space-x-1.5 cursor-pointer"
                 >
                   <span>💾</span>
                   <span>Save Theme</span>
@@ -1103,7 +1194,7 @@ export class CustomThemeBuilder {
 
                 <button
                   type="button" data-action="call-global" data-raw-click="if(window.customThemeBuilder) window.customThemeBuilder.openImportModal()"
-                  class="w-full py-2 px-3 rounded-lg bg-surface-base hover:bg-surface-overlay border border-dashed border-white/20 hover:border-cyphr/50 text-xs text-cyphr font-mono transition-all flex items-center justify-center space-x-1.5"
+                  class="w-full py-2 px-3 rounded-lg bg-surface-base hover:bg-surface-overlay border border-dashed border-white/20 hover:border-white/40 text-xs text-slate-300 hover:text-white font-mono transition-all flex items-center justify-center space-x-1.5"
                 >
                   <span>📥</span>
                   <span>Import Theme from JSON / File</span>
@@ -1135,7 +1226,7 @@ export class CustomThemeBuilder {
                   </span>
                 </div>
 
-                <!-- 1. OMNI-SPHERE MINI POST CARD -->
+                <!-- 1. FEED POST CARD PREVIEW -->
                 <div
                   class="p-4 rounded-xl border transition-all duration-150 space-y-3"
                   style="background-color: ${draft.bgSurfaceRaised}; border-color: ${draft.borderAccent}30;"
@@ -1144,42 +1235,42 @@ export class CustomThemeBuilder {
                   <div class="flex items-center justify-between">
                     <div class="flex items-center space-x-2.5">
                       <div
-                        class="w-8 h-8 rounded-lg flex items-center justify-center font-mono text-xs font-bold shadow-sm"
+                        class="w-8 h-8 rounded-lg flex items-center justify-center font-sans text-xs font-bold shadow-sm"
                         style="background-color: ${draft.bgSurfaceBase}; border: 1px solid ${draft.accentColor}; color: ${draft.textAccent};"
                       >
-                        ZK
+                        AL
                       </div>
                       <div>
                         <div class="text-xs font-bold flex items-center space-x-1.5" style="color: ${draft.textPrimary};">
-                          <span>${this.escapeHtml(draft.author)}</span>
+                          <span>@alex</span>
                           <span
-                            class="px-1.5 py-0.2 text-[9px] font-mono rounded"
+                            class="px-1.5 py-0.2 text-[9px] font-sans rounded"
                             style="background-color: ${draft.accentColor}20; color: ${draft.textAccent}; border: 1px solid ${draft.borderAccent}40;"
                           >
-                            ✓ ZK-STARK
+                            Verified
                           </span>
                         </div>
-                        <div class="text-[10px] font-mono opacity-60" style="color: ${draft.textPrimary};">
-                          4 minutes ago • Channel: #cryptography
+                        <div class="text-[10px] opacity-60" style="color: ${draft.textPrimary};">
+                          4 minutes ago • c/technology
                         </div>
                       </div>
                     </div>
 
                     <span
-                      class="text-[10px] font-mono px-2 py-0.5 rounded-full"
+                      class="text-[10px] px-2 py-0.5 rounded-full"
                       style="background-color: ${draft.accentColor}15; color: ${draft.textAccent}; border: 1px solid ${draft.borderAccent}30;"
                     >
-                      #PROTOCOL
+                      #discussion
                     </span>
                   </div>
 
                   <!-- Post Content -->
                   <div class="space-y-1.5">
                     <h4 class="text-sm font-bold leading-tight" style="color: ${draft.textAccent};">
-                      Sovereign P2P Consensus & Zero-Knowledge Cryptographic Verification
+                      Building a privacy-first social platform without giving up usability
                     </h4>
                     <p class="text-xs leading-relaxed opacity-90" style="color: ${draft.textPrimary};">
-                      UREfy implements confidential off-chain transactions with recursive STARK proofs, guaranteeing absolute mathematical privacy across every mesh node.
+                      The goal has always been simple: strong client-side privacy that just works, with a calm and human interface where conversations come first.
                     </p>
                   </div>
 
@@ -1188,16 +1279,16 @@ export class CustomThemeBuilder {
                     <div class="flex items-center space-x-2">
                       <button
                         type="button"
-                        class="px-2.5 py-1 rounded-lg text-xs font-mono font-bold flex items-center space-x-1 transition-all"
-                        style="background-color: ${draft.accentColor}; color: #000000; box-shadow: 0 0 10px ${draft.accentColor}40;"
+                        class="px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center space-x-1 transition-all"
+                        style="background-color: ${draft.accentColor}; color: #090a0f; box-shadow: 0 0 10px ${draft.accentColor}40;"
                       >
                         <span>▲</span>
-                        <span>142 MERIT</span>
+                        <span>142 Likes</span>
                       </button>
 
                       <button
                         type="button"
-                        class="px-2 py-1 rounded-lg text-xs font-mono flex items-center space-x-1 opacity-80 hover:opacity-100 transition-all"
+                        class="px-2 py-1 rounded-lg text-xs flex items-center space-x-1 opacity-80 hover:opacity-100 transition-all"
                         style="background-color: ${draft.bgSurfaceBase}; color: ${draft.textPrimary}; border: 1px solid ${draft.borderAccent}25;"
                       >
                         <span>💬</span>
@@ -1206,16 +1297,16 @@ export class CustomThemeBuilder {
 
                       <button
                         type="button"
-                        class="px-2 py-1 rounded-lg text-xs font-mono flex items-center space-x-1 opacity-80 hover:opacity-100 transition-all"
+                        class="px-2 py-1 rounded-lg text-xs flex items-center space-x-1 opacity-80 hover:opacity-100 transition-all"
                         style="background-color: ${draft.bgSurfaceBase}; color: ${draft.textPrimary}; border: 1px solid ${draft.borderAccent}25;"
                       >
-                        <span>⚡</span>
-                        <span>Boost</span>
+                        <span>↗</span>
+                        <span>Share</span>
                       </button>
                     </div>
 
-                    <span class="text-[10px] font-mono opacity-50" style="color: ${draft.textPrimary};">
-                      ID: #p88fa2
+                    <span class="text-[10px] opacity-50" style="color: ${draft.textPrimary};">
+                      c/technology
                     </span>
                   </div>
                 </div>
@@ -1225,17 +1316,17 @@ export class CustomThemeBuilder {
                   class="p-4 rounded-xl border space-y-3"
                   style="background-color: ${draft.bgSurfaceBase}; border-color: ${draft.borderAccent}25;"
                 >
-                  <div class="text-[11px] font-mono uppercase tracking-wider font-semibold" style="color: ${draft.textAccent};">
-                    UI Buttons & Controls Showcase
+                  <div class="text-[11px] uppercase tracking-wider font-semibold" style="color: ${draft.textAccent};">
+                    Buttons & Controls
                   </div>
 
                   <div class="flex flex-wrap items-center gap-2.5">
                     <button
                       type="button"
                       class="px-3.5 py-1.5 rounded-lg text-xs font-bold font-sans transition-all shadow-md"
-                      style="background-color: ${draft.accentColor}; color: #000000; box-shadow: 0 0 12px ${draft.accentColor}50;"
+                      style="background-color: ${draft.accentColor}; color: #090a0f;"
                     >
-                      ✦ Primary Button
+                      Primary action
                     </button>
 
                     <button
@@ -1243,7 +1334,7 @@ export class CustomThemeBuilder {
                       class="px-3.5 py-1.5 rounded-lg text-xs font-medium font-sans border transition-all"
                       style="background-color: transparent; border-color: ${draft.borderAccent}; color: ${draft.textAccent};"
                     >
-                      ◈ Outlined Button
+                      Secondary
                     </button>
 
                     <button
@@ -1251,20 +1342,20 @@ export class CustomThemeBuilder {
                       class="px-3.5 py-1.5 rounded-lg text-xs font-medium font-sans transition-all"
                       style="background-color: ${draft.bgSurfaceRaised}; color: ${draft.textPrimary}; border: 1px solid ${draft.borderAccent}30;"
                     >
-                      Raised Surface
+                      Muted
                     </button>
 
                     <span
-                      class="px-2.5 py-1 text-[11px] font-mono rounded-full flex items-center space-x-1"
+                      class="px-2.5 py-1 text-[11px] rounded-full flex items-center space-x-1"
                       style="background-color: ${draft.accentColor}20; color: ${draft.textAccent}; border: 1px solid ${draft.borderAccent}40;"
                     >
                       <span class="w-1.5 h-1.5 rounded-full" style="background-color: ${draft.accentColor};"></span>
-                      <span>Signal Verified</span>
+                      <span>Online</span>
                     </span>
                   </div>
                 </div>
 
-                <!-- 3. CHAT PANEL / SOVEREIGN DM PREVIEW -->
+                <!-- 3. CHAT PANEL PREVIEW -->
                 <div
                   class="p-4 rounded-xl border space-y-3"
                   style="background-color: ${draft.bgSurfaceBase}; border-color: ${draft.borderAccent}25;"
@@ -1273,23 +1364,23 @@ export class CustomThemeBuilder {
                   <div class="flex items-center justify-between pb-2 border-b" style="border-color: ${draft.borderAccent}20;">
                     <div class="flex items-center space-x-2">
                       <span class="w-2 h-2 rounded-full" style="background-color: ${draft.accentColor};"></span>
-                      <span class="text-xs font-bold" style="color: ${draft.textPrimary};">Sovereign P2P Channel: #general-mesh</span>
+                      <span class="text-xs font-bold" style="color: ${draft.textPrimary};">Alex</span>
                     </div>
-                    <span class="text-[10px] font-mono" style="color: ${draft.textAccent};">E2EE ACTIVE</span>
+                    <span class="text-[10px]" style="color: ${draft.textAccent};">Online</span>
                   </div>
 
                   <!-- Chat Messages Stream -->
                   <div class="space-y-2 text-xs">
                     <!-- Received Message -->
                     <div class="flex items-start space-x-2">
-                      <div class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-mono" style="background-color: ${draft.bgSurfaceRaised}; color: ${draft.textPrimary}; border: 1px solid ${draft.borderAccent}30;">
-                        0x1
+                      <div class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold" style="background-color: ${draft.bgSurfaceRaised}; color: ${draft.textPrimary}; border: 1px solid ${draft.borderAccent}30;">
+                        A
                       </div>
                       <div
                         class="p-2.5 rounded-xl max-w-[80%]"
                         style="background-color: ${draft.bgSurfaceRaised}; color: ${draft.textPrimary}; border: 1px solid ${draft.borderAccent}25;"
                       >
-                        The node has synchronized the Merkle tree root. All proofs are valid.
+                        This is much easier to use now.
                       </div>
                     </div>
 
@@ -1299,10 +1390,10 @@ export class CustomThemeBuilder {
                         class="p-2.5 rounded-xl max-w-[80%]"
                         style="background-color: ${draft.accentColor}25; color: ${draft.textPrimary}; border: 1px solid ${draft.borderAccent};"
                       >
-                        Confirmed. Schnorr signature has been broadcast over gossipsub.
+                        Exactly. The controls stay out of the way.
                       </div>
-                      <div class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-mono font-bold" style="background-color: ${draft.accentColor}; color: #000000;">
-                        ME
+                      <div class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold" style="background-color: ${draft.accentColor}; color: #090a0f;">
+                        You
                       </div>
                     </div>
                   </div>
@@ -1312,17 +1403,63 @@ export class CustomThemeBuilder {
                     <input
                       type="text"
                       readonly
-                      value="Send an encrypted message..."
+                      value="Write a message..."
                       class="flex-1 px-3 py-1.5 rounded-lg text-xs font-sans cursor-default focus:outline-none"
                       style="background-color: ${draft.bgCanvas}; color: ${draft.textPrimary}; border: 1px solid ${draft.borderAccent}30;"
                     />
                     <button
                       type="button"
                       class="px-3 py-1.5 rounded-lg text-xs font-bold"
-                      style="background-color: ${draft.accentColor}; color: #000000;"
+                      style="background-color: ${draft.accentColor}; color: #090a0f;"
                     >
-                      ➤
+                      Send
                     </button>
+                  </div>
+                </div>
+
+                <!-- 4. WCAG CONTRAST VERIFICATION -->
+                <div
+                  class="p-4 rounded-xl border space-y-2.5"
+                  style="background-color: ${draft.bgSurfaceBase}; border-color: ${draft.borderAccent}25;"
+                >
+                  <div class="flex items-center justify-between text-[11px] uppercase tracking-wider font-semibold" style="color: ${draft.textAccent};">
+                    <span>WCAG 2.1 Contrast Verification</span>
+                    <span class="text-[10px] font-mono lowercase opacity-75">accessibility check</span>
+                  </div>
+
+                  <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 text-xs">
+                    <!-- Text on Card Surface -->
+                    <div class="p-2.5 rounded-lg bg-surface-raised border border-white/5 space-y-1">
+                      <div class="text-[10px] text-slate-400 font-medium">Text on Surface</div>
+                      <div class="flex items-center justify-between">
+                        <span class="font-mono font-bold text-slate-200">${textOnSurfaceRatio.toFixed(2)}:1</span>
+                        <span class="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold ${textOnSurfaceGrade.badgeClass}">
+                          ${textOnSurfaceGrade.label}
+                        </span>
+                      </div>
+                    </div>
+
+                    <!-- Text on Canvas -->
+                    <div class="p-2.5 rounded-lg bg-surface-raised border border-white/5 space-y-1">
+                      <div class="text-[10px] text-slate-400 font-medium">Text on Canvas</div>
+                      <div class="flex items-center justify-between">
+                        <span class="font-mono font-bold text-slate-200">${textOnCanvasRatio.toFixed(2)}:1</span>
+                        <span class="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold ${textOnCanvasGrade.badgeClass}">
+                          ${textOnCanvasGrade.label}
+                        </span>
+                      </div>
+                    </div>
+
+                    <!-- Accent on Canvas -->
+                    <div class="p-2.5 rounded-lg bg-surface-raised border border-white/5 space-y-1">
+                      <div class="text-[10px] text-slate-400 font-medium">Accent on Canvas</div>
+                      <div class="flex items-center justify-between">
+                        <span class="font-mono font-bold text-slate-200">${accentOnCanvasRatio.toFixed(2)}:1</span>
+                        <span class="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold ${accentOnCanvasGrade.badgeClass}">
+                          ${accentOnCanvasGrade.label}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -1332,7 +1469,7 @@ export class CustomThemeBuilder {
               <div class="p-4 rounded-xl bg-surface-raised border border-white/5 space-y-3">
                 <div class="flex items-center justify-between">
                   <div class="text-xs font-semibold uppercase tracking-wider text-slate-300 font-mono flex items-center space-x-1.5">
-                    <span class="text-cyphr">◆</span>
+                    <span class="text-slate-400">◆</span>
                     <span>Your Saved Themes Collection</span>
                   </div>
                   <span class="text-[10px] font-mono text-slate-500">${this.savedThemes.length} saved</span>
@@ -1350,7 +1487,7 @@ export class CustomThemeBuilder {
           <!-- MODAL FOOTER -->
           <div class="px-6 py-3.5 border-t border-white/10 bg-surface-raised/90 flex items-center justify-between shrink-0">
             <div class="flex items-center space-x-2 text-xs font-mono text-slate-400">
-              <span class="text-cyphr">●</span>
+              <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
               <span>Live Engine Ready</span>
             </div>
 
@@ -1364,7 +1501,7 @@ export class CustomThemeBuilder {
 
               <button
                 type="button" data-action="close-feature"
-                class="px-5 py-1.5 rounded-lg bg-cyphr hover:bg-cyphr/90 text-black font-bold text-xs transition-all shadow-md cursor-pointer"
+                class="px-5 py-1.5 rounded-lg bg-white text-slate-900 hover:bg-slate-100 font-semibold text-xs transition-all shadow-sm cursor-pointer"
               >
                 Done & Close
               </button>

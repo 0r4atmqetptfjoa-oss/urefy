@@ -228,9 +228,10 @@ export class ZenModeManager {
          UREfy ZEN / FOCUS MODE DYNAMIC STYLES
          ========================================================================== */
 
-      /* Base smooth transitions on layout elements */
-      aside, main, header, footer, .btn-channel, article {
-        transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      /* Transitions only applied during active Zen Mode toggling */
+      .zen-mode-active aside,
+      .zen-mode-active main {
+        transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1);
       }
 
       /* When Zen Mode is active: Collapse & hide sidebars smoothly */

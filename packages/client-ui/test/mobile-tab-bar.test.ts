@@ -84,12 +84,12 @@ describe('Mobile Bottom Tab Bar: 5-Tab Master Specification (Feed, Explore, Mess
     expect(html).toContain('Profile');
   });
 
-  it('5. should highlight active tab with cyan text and indicator dot', () => {
+  it('5. should highlight active tab with accent text and indicator dot', () => {
     tabBar.setTab('vault');
     const html = tabBar.renderTabBarHTML();
 
     expect(html).toContain('btn-mobile-tab-vault');
-    expect(html).toContain('text-cyan-400');
+    expect(html).toContain('text-[var(--color-accent,#e59b3c)]');
   });
 
   it('6. should render unread count badges when available', () => {
@@ -107,6 +107,6 @@ describe('Mobile Bottom Tab Bar: 5-Tab Master Specification (Feed, Explore, Mess
 
     expect(tabBar.getUnreadMessagesCount()).toBeGreaterThan(0);
     const html = tabBar.renderTabBarHTML();
-    expect(html).toContain('bg-cyan-500');
+    expect(html).toContain('bg-[var(--color-accent,#e59b3c)]');
   });
 });

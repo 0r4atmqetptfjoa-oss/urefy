@@ -93,7 +93,10 @@ describe('Real Interactions API (/api/interactions)', () => {
     expect(bkmkData.active).toBe(true);
 
     // Verify GET
-    const getReq = new Request(`https://urefy.com/api/interactions?postId=post-200&userFingerprint=${owner.identity.fingerprint}`);
+    const publicRequest = new Request(`https://urefy.com/api/interactions?postId=post-200&userFingerprint=${owner.identity.fingerprint}`);
+    const publicData = await (await onRequestGet({ request: publicRequest })).json();
+    expect(publicData.userInteractions.bookmarked).toBe(false);
+    const getReq = new Request(publicRequest, { headers: { 'X-Sovereign-Envelope': JSON.stringify(createSignedEnvelope({ scope: 'urefy-interactions-read-v1' }, owner)) } });
     const getRes = await onRequestGet({ request: getReq });
     const getData = await getRes.json();
     expect(getData.repostsCount).toBe(1);

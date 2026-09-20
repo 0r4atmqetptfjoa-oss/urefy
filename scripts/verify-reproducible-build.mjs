@@ -28,7 +28,7 @@ function build() {
   const npmCli = process.env.npm_execpath;
   const command = npmCli ? process.execPath : (process.platform === 'win32' ? 'npm.cmd' : 'npm');
   const args = npmCli ? [npmCli, 'run', 'build'] : ['run', 'build'];
-  const run = spawnSync(command, args, { cwd: root, stdio: 'inherit', env: { ...process.env, SOURCE_DATE_EPOCH: '0' } });
+  const run = spawnSync(command, args, { cwd: root, stdio: 'inherit', shell: process.platform === 'win32', env: { ...process.env, SOURCE_DATE_EPOCH: '0' } });
   if (run.error) throw run.error;
   if (run.status !== 0) throw new Error(`Build failed with exit code ${run.status}`);
   return digestTree(output);

@@ -20,17 +20,17 @@
 
 :root {
   color-scheme: dark;
-  --color-accent: #00e5ff;
-  --color-accent-glow: rgba(0, 229, 255, 0.25);
-  --color-accent-border: rgba(0, 229, 255, 0.35);
-  --color-accent-secondary: #a855f7;
-  --bg-canvas: #090a0f;
-  --bg-surface-base: #12151c;
-  --bg-surface-raised: #1a1f2e;
-  --bg-surface-overlay: #222840;
-  --text-primary: #f1f5f9;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
+  --color-accent: #e59b3c;
+  --color-accent-glow: rgba(229, 155, 60, 0.15);
+  --color-accent-border: rgba(229, 155, 60, 0.35);
+  --color-accent-secondary: #d97706;
+  --bg-canvas: #0c0906;
+  --bg-surface-base: #14110d;
+  --bg-surface-raised: #1c1813;
+  --bg-surface-overlay: #27221b;
+  --text-primary: #f5f4f0;
+  --text-secondary: #a39e93;
+  --text-muted: #746f66;
   --border-color: rgba(255, 255, 255, 0.08);
   --font-size-base: 14px;
   --font-family-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
@@ -478,16 +478,14 @@ code, kbd, samp, pre, .font-mono {
 .btn-nav-mode.is-active,
 .btn-drawer-item.is-active,
 .nav-item-active {
-  background-color: var(--nav-active-bg, rgba(0, 229, 255, 0.12)) !important;
-  color: var(--color-accent, #00e5ff) !important;
-  border-color: var(--color-accent-border, rgba(0, 229, 255, 0.35)) !important;
-  box-shadow: 0 0 12px var(--color-accent-glow, rgba(0, 229, 255, 0.2)) !important;
+  background-color: var(--nav-active-bg, rgba(229, 155, 60, 0.1)) !important;
+  color: var(--color-accent, #e59b3c) !important;
+  border-color: var(--color-accent-border, rgba(229, 155, 60, 0.25)) !important;
   font-weight: 700 !important;
 }
 
 .nav-indicator-active {
-  background-color: var(--color-accent, #00e5ff) !important;
-  box-shadow: 0 0 8px var(--color-accent, #00e5ff) !important;
+  background-color: var(--color-accent, #e59b3c) !important;
 }
 
 /* ─── MILESTONE 5: 60FPS FLUID SCROLLING (ZERO BACKDROP-BLUR ON FEED CARDS) ── */
@@ -863,7 +861,7 @@ article,
 }
 
 .glow-accent {
-  box-shadow: 0 0 20px var(--color-accent-glow, rgba(0, 229, 255, 0.25));
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
 }
 
 /* Keyboard hint styling */
@@ -2483,32 +2481,21 @@ button,
   }
 }
 
-/* 3. Glowing Active Indicator */
+/* 3. Solid Active Indicator */
 .nav-indicator-active {
-  background-color: var(--color-accent, #00e5ff) !important;
-  box-shadow: 0 0 10px var(--color-accent, #00e5ff), 0 0 20px rgba(0, 229, 255, 0.4) !important;
-  animation: indicatorGlow 2.5s ease-in-out infinite alternate;
+  background-color: var(--color-accent, #e59b3c) !important;
 }
 
-@keyframes indicatorGlow {
-  0% {
-    box-shadow: 0 0 6px var(--color-accent, #00e5ff), 0 0 12px rgba(0, 229, 255, 0.3);
-  }
-  100% {
-    box-shadow: 0 0 12px var(--color-accent, #00e5ff), 0 0 24px rgba(0, 229, 255, 0.6);
-  }
-}
-
-/* 4. Active Nav Item Border & Glow */
+/* 4. Active Nav Item Border */
 .is-active.nav-item-active {
-  background: rgba(0, 229, 255, 0.08) !important;
-  border-color: rgba(0, 229, 255, 0.3) !important;
+  background: rgba(229, 155, 60, 0.08) !important;
+  border-color: rgba(229, 155, 60, 0.25) !important;
   color: #ffffff !important;
 }
 
 [data-theme="alabaster-light"] .is-active.nav-item-active {
-  background: rgba(2, 132, 199, 0.08) !important;
-  border-color: rgba(2, 132, 199, 0.3) !important;
+  background: rgba(229, 155, 60, 0.08) !important;
+  border-color: rgba(229, 155, 60, 0.3) !important;
   color: #0f172a !important;
 }
 
@@ -2547,4 +2534,16 @@ button,
   transform: scale(1.06);
   border-color: rgba(6, 182, 212, 0.5);
   box-shadow: 0 0 14px rgba(6, 182, 212, 0.3);
+}
+
+/* ─── ZERO-FLICKER & ZERO-CLS IMAGE ASPECT-RATIO RESERVATION ─── */
+img[loading="lazy"]:not([width]):not([height]) {
+  aspect-ratio: 16 / 9;
+  contain-intrinsic-size: 320px 180px;
+}
+
+.aspect-video img,
+.editorial-card img,
+.post-media-container img {
+  content-visibility: auto;
 }

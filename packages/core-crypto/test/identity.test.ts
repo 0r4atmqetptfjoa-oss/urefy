@@ -7,6 +7,7 @@ import {
   createSignedEnvelope,
   verifySignedEnvelope,
   zeroizeKeyPairSet,
+  deriveVaultKey,
   DEFAULT_SOVEREIGN_CAPABILITIES,
   SOVEREIGN_IDENTITY_VERSION,
 } from '../src/identity.js';
@@ -180,4 +181,36 @@ describe('Unified Sovereign Identity Architecture (identity.ts)', () => {
     expect(keySet.encryptionPrivateKey.every((b) => b === 0)).toBe(true);
     expect(keySet.pqPrivateKey.every((b) => b === 0)).toBe(true);
   });
+
+  describe('deriveVaultKey', () => {
+    it('deterministically derives 32-byte AES key from recovery seed', () => {
+      const seed = new Uint8Array(32).fill(0x42);
+      const key1 = deriveVaultKey(seed);
+      const key2 = deriveVaultKey(seed);
+
+      expect(key1).toHaveLength(32);
+      expect(key2).toHaveLength(32);
+      expect(Array.from(key1)).toEqual(Array.from(key2));
+    });
+
+    it('enforces domain separation from other derivations', () => {
+      const seed = new Uint8Array(32).fill(0x7a);
+      const vaultKey = deriveVaultKey(seed);
+      const identity = createSovereignIdentity({ seed });
+
+      // Vault key must not match signing private key or encryption private key
+      expect(Array.from(vaultKey)).not.toEqual(Array.from(identity.signingPrivateKey));
+      expect(Array.from(vaultKey)).not.toEqual(Array.from(identity.encryptionPrivateKey));
+    });
+
+    it('produces different keys for different master seeds', () => {
+      const seedA = new Uint8Array(32).fill(1);
+      const seedB = new Uint8Array(32).fill(2);
+      const keyA = deriveVaultKey(seedA);
+      const keyB = deriveVaultKey(seedB);
+
+      expect(Array.from(keyA)).not.toEqual(Array.from(keyB));
+    });
+  });
 });
+

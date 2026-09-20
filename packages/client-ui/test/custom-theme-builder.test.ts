@@ -27,20 +27,20 @@ describe('Custom Theme Visual Builder & Real-time CSS Customizer', () => {
   // ─── 1. INITIALIZATION & CONSTANTS ──────────────────────────────────────────
 
   describe('1. Initialization & Constant Configurations', () => {
-    it('should initialize with default draft values matching Obsidian Cyan palette', () => {
+    it('should initialize with default draft values matching UREfy Default palette', () => {
       expect(builder).toBeInstanceOf(CustomThemeBuilder);
       expect(builder.isOpen).toBe(false);
 
       const draft = builder.getResolvedDraft();
-      expect(draft.name).toBe('My Sovereign Theme');
-      expect(draft.author).toBe('0xCyphr...88fa');
-      expect(draft.accentColor).toBe('#00e5ff');
+      expect(draft.name).toBe('UREfy Default');
+      expect(draft.author).toBe('UREfy');
+      expect(draft.accentColor).toBe('#e59b3c');
       expect(draft.bgCanvas).toBe('#090a0f');
       expect(draft.bgSurfaceBase).toBe('#12151c');
       expect(draft.bgSurfaceRaised).toBe('#1a1f2e');
       expect(draft.textPrimary).toBe('#f1f5f9');
-      expect(draft.textAccent).toBe('#00e5ff');
-      expect(draft.borderAccent).toBe('#00e5ff');
+      expect(draft.textAccent).toBe('#e59b3c');
+      expect(draft.borderAccent).toBe('#e59b3c');
       expect(draft.createdAt).toBeGreaterThan(0);
     });
 
@@ -71,11 +71,12 @@ describe('Custom Theme Visual Builder & Real-time CSS Customizer', () => {
       });
     });
 
-    it('should provide 6 curated DEFAULT_THEME_PRESETS', () => {
-      expect(DEFAULT_THEME_PRESETS.length).toBe(6);
+    it('should provide 7 curated DEFAULT_THEME_PRESETS', () => {
+      expect(DEFAULT_THEME_PRESETS.length).toBe(7);
 
       const presetIds = DEFAULT_THEME_PRESETS.map((p) => p.id);
       expect(presetIds).toEqual([
+        'preset-urefy-default',
         'preset-cyber-cyan',
         'preset-matrix-emerald',
         'preset-tokyo-magenta',
@@ -149,8 +150,8 @@ describe('Custom Theme Visual Builder & Real-time CSS Customizer', () => {
 
       builder.resetDraft();
       const reset = builder.getResolvedDraft();
-      expect(reset.accentColor).toBe('#00e5ff');
-      expect(reset.name).toBe('My Sovereign Theme');
+      expect(reset.accentColor).toBe('#e59b3c');
+      expect(reset.name).toBe('UREfy Default');
     });
   });
 
@@ -371,11 +372,11 @@ describe('Custom Theme Visual Builder & Real-time CSS Customizer', () => {
       // Right Column Live Preview Box
       expect(modalHtml).toContain('id="custom-theme-live-preview-box"');
       expect(modalHtml).toContain('LIVE COMPONENT PREVIEW');
-      expect(modalHtml).toContain('ZK-STARK');
-      expect(modalHtml).toContain('142 MERIT');
-      expect(modalHtml).toContain('UI Buttons & Controls Showcase');
-      expect(modalHtml).toContain('Sovereign P2P Channel: #general-mesh');
-      expect(modalHtml).toContain('E2EE ACTIVE');
+      expect(modalHtml).toContain('@alex');
+      expect(modalHtml).toContain('142 Likes');
+      expect(modalHtml).toContain('Buttons & Controls');
+      expect(modalHtml).toContain('Alex');
+      expect(modalHtml).toContain('This is much easier to use now.');
       expect(modalHtml).toContain('Your Saved Themes Collection');
 
       // Footer
@@ -398,6 +399,53 @@ describe('Custom Theme Visual Builder & Real-time CSS Customizer', () => {
 
       builder.toggleModal();
       expect(builder.isOpen).toBe(false);
+    });
+  });
+
+  // ─── 7. WCAG 2.1 LUMINANCE & CONTRAST RATIO CALCULATIONS ───────────────────
+
+  describe('7. WCAG 2.1 Luminance & Contrast Ratio Calculations', () => {
+    it('calculates correct relative luminance for black and white extremes', () => {
+      expect(builder.getRelativeLuminance('#000000')).toBeCloseTo(0, 3);
+      expect(builder.getRelativeLuminance('#ffffff')).toBeCloseTo(1, 3);
+      // Handles 3-digit hex
+      expect(builder.getRelativeLuminance('#fff')).toBeCloseTo(1, 3);
+      expect(builder.getRelativeLuminance('#000')).toBeCloseTo(0, 3);
+    });
+
+    it('calculates accurate contrast ratios according to WCAG 2.1 specs', () => {
+      // White on Black is maximum 21:1
+      const maxRatio = builder.getContrastRatio('#ffffff', '#000000');
+      expect(maxRatio).toBeCloseTo(21, 0);
+
+      // Same color on same color is 1:1
+      const minRatio = builder.getContrastRatio('#ffffff', '#ffffff');
+      expect(minRatio).toBeCloseTo(1, 1);
+
+      // Warm daylight text #1a1917 on white #ffffff
+      const textRatio = builder.getContrastRatio('#1a1917', '#ffffff');
+      expect(textRatio).toBeGreaterThan(12);
+
+      // Commutative property (order of fg and bg should not change ratio)
+      expect(builder.getContrastRatio('#1a1917', '#ffffff')).toBeCloseTo(
+        builder.getContrastRatio('#ffffff', '#1a1917'),
+        3
+      );
+    });
+
+    it('assigns correct contrast grades according to WCAG standards', () => {
+      expect(builder.getContrastGrade(15.2).label).toBe('AAA Pass');
+      expect(builder.getContrastGrade(5.1).label).toBe('AA Pass');
+      expect(builder.getContrastGrade(3.5).label).toBe('AA Large Only');
+      expect(builder.getContrastGrade(2.1).label).toBe('Fail (<4.5)');
+    });
+
+    it('renders WCAG 2.1 verification metrics in the live preview modal', () => {
+      const html = builder.renderBuilderModal();
+      expect(html).toContain('WCAG 2.1 Contrast Verification');
+      expect(html).toContain('Text on Surface');
+      expect(html).toContain('Text on Canvas');
+      expect(html).toContain('Accent on Canvas');
     });
   });
 });

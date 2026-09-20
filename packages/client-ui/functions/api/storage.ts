@@ -22,6 +22,7 @@ import {
   isProductionEnv,
 } from './_db.js';
 import { requireAdmin, requireOwnership, requireSignedEnvelope } from './_auth.js';
+import { allocateStorage, releaseStorage, getAccountStorage, storageLimits, validateUploadMime } from './_storage-accounting.js';
 
 export interface StorageMetadata {
   sha256: string;
@@ -820,11 +821,11 @@ export async function onRequestPost(context: {
     }
 
     // Maximum single upload limit: 25MB (Cloudflare R2 Sovereign Safety Guard)
-    if (binaryData.byteLength > MAX_SINGLE_UPLOAD_BYTES) {
+    if (binaryData.byteLength > storageLimits(context.env).maxFileBytes) {
       return new Response(
         JSON.stringify({
           success: false,
-          error: `Payload exceeds maximum permitted size of 25MB (received ${(binaryData.byteLength / (1024 * 1024)).toFixed(1)}MB)`,
+          error: `Payload exceeds the configured ${storageLimits(context.env).maxFileBytes} byte upload limit`,
         }),
         {
           status: 413,
@@ -834,6 +835,7 @@ export async function onRequestPost(context: {
     }
 
     // Compute Cryptographic Checksums
+    if (!validateUploadMime(detectedContentType, binaryData)) return Response.json({ success: false, error: 'Unsupported file type or file contents do not match the declared MIME type' }, { status: 415 });
     const sha256 = await computeSha256(binaryData);
     const merkleRoot = await computeMerkleRoot(binaryData);
     const byteSize = binaryData.byteLength;
@@ -904,13 +906,16 @@ export async function onRequestPost(context: {
       if (identityAuth.fingerprint) {
         author = identityAuth.fingerprint;
       }
+      if (!rawContentType.includes('application/json') && (envelopeObj?.payload?.sha256 !== sha256 || envelopeObj?.payload?.fileName !== fileName)) {
+        return Response.json({ success: false, error: 'The signed upload must match the file checksum and filename' }, { status: 403 });
+      }
     }
 
     const bucket = getStorageBucket(context.env);
 
     // ─── SHA-256 DEDUPLICATION (Zero Class A ops, Zero storage consumed) ────────
     const existingMatch = findObjectBySha256(sha256);
-    if (existingMatch) {
+    if (existingMatch && existingMatch.author === author) {
       const existingKey = existingMatch.key;
       const existingName = existingMatch.fileName || existingKey.split('/').pop() || fileName;
       const existingAuthor = existingMatch.author || author;
@@ -964,7 +969,17 @@ export async function onRequestPost(context: {
     let key = customKey ? sanitizeStorageKey(customKey) : '';
     if (!key) {
       const sanitizedName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
-      key = `releases/${Date.now()}-${sanitizedName}`;
+      key = `releases/${crypto.randomUUID()}-${sanitizedName}`;
+    }
+
+    if ((bucket && await bucket.head(key)) || globalEdgeStorageMap.has(key)) return Response.json({ success: false, error: 'A file already exists at this key. Use a new key.' }, { status: 409 });
+    if (bucket || isProductionEnv(context.env)) {
+      if (!bucket || !getD1Database(context.env)) return Response.json({ success: false, error: 'R2 storage and durable accounting must both be available' }, { status: 503 });
+      try {
+        if (!await allocateStorage(context.env, key, author, byteSize)) return Response.json({ success: false, error: 'Account or platform storage quota reached. Remove files before uploading more.' }, { status: 507 });
+      } catch {
+        return Response.json({ success: false, error: 'Storage accounting is unavailable. No file was uploaded.' }, { status: 503 });
+      }
     }
 
     let storageType: 'Cloudflare-R2' | 'Edge-Isolate-Memory' = 'Edge-Isolate-Memory';
@@ -1012,9 +1027,9 @@ export async function onRequestPost(context: {
                 sha256,
                 '',
                 0.0,
-                'CLEAN',
+                'UNSCANNED',
                 merkleRoot,
-                1,
+                0,
                 key,
                 Date.now()
               )
@@ -1024,6 +1039,7 @@ export async function onRequestPost(context: {
               // Roll back R2 upload to prevent orphan inconsistency
               try {
                 await bucket.delete(key);
+                await releaseStorage(context.env, key);
               } catch (_) {}
               return new Response(
                 JSON.stringify({
@@ -1058,6 +1074,8 @@ export async function onRequestPost(context: {
           });
         }
       } catch (r2Err: any) {
+        // Uncertain writes retain their allocation unless deletion succeeds.
+        try { await bucket.delete(key); await releaseStorage(context.env, key); } catch { /* retained for reconciliation */ }
         if (isProductionEnv(context.env)) {
           return new Response(
             JSON.stringify({
@@ -1193,6 +1211,14 @@ export async function onRequestGet(context: {
 
     // ─── 0. QUOTA TELEMETRY ENDPOINT ─────────────────────────────────────────
     const action = url.searchParams.get('action');
+    if (action === 'account') {
+      let envelope: unknown;
+      try { envelope = JSON.parse(context.request.headers.get('X-Sovereign-Envelope') || 'null'); } catch { envelope = null; }
+      const auth = await requireSignedEnvelope(context, envelope);
+      if (!auth.authorized) return auth.response!;
+      if (auth.payload?.scope !== 'urefy-storage-v1' || auth.payload?.action !== 'account') return Response.json({ success: false, error: 'Invalid storage request' }, { status: 400 });
+      return Response.json({ success: true, ...await getAccountStorage(context.env, auth.fingerprint!) }, { headers: { 'Cache-Control': 'private, no-store' } });
+    }
     const quotaQuery = url.searchParams.get('quota');
     if (action === 'quota' || quotaQuery === 'true') {
       await syncQuotaFromStorage(context.env);
@@ -1859,6 +1885,7 @@ export async function onRequestDelete(context: {
         recordClassAOp();
         await bucket.delete(key);
         deletedFromR2 = true;
+        await releaseStorage(context.env, key);
       } catch (err: any) {
         if (isProductionEnv(context.env)) {
           return new Response(
@@ -1877,9 +1904,11 @@ export async function onRequestDelete(context: {
       );
     }
 
-    const memItem = !isProductionEnv(context.env) ? globalEdgeStorageMap.get(key) : undefined;
+    const memItem = globalEdgeStorageMap.get(key);
     const deletedSize = memItem ? memItem.size : 0;
-    const deletedFromMemory = !isProductionEnv(context.env) ? globalEdgeStorageMap.delete(key) : false;
+    // The production map is a read cache, not a fallback. Evict it after a
+    // confirmed deletion so an isolate cannot continue serving removed bytes.
+    const deletedFromMemory = globalEdgeStorageMap.delete(key);
 
     if (deletedSize > 0) {
       currentTrackedStorageBytes = Math.max(0, currentTrackedStorageBytes - deletedSize);

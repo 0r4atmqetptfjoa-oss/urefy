@@ -11,7 +11,7 @@
  */
 
 import { PASSIVE_EVENT_OPTIONS, rafThrottle } from './dry-utils.js';
-import { isLocalDev } from './admin-auth.js';
+import { isLocalDev } from './env-check.js';
 
 // ---------------------------------------------------------------------------
 // 1. Data Types & Interfaces

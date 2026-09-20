@@ -4,6 +4,8 @@
 import './window-augmentation.js';
 import { serviceRegistry, SERVICES } from './service-registry.js';
 import { isDemoModeEnabled } from './demo-mode.js';
+import { clientStore } from './client-state.js';
+import { soundEffects } from './sound-effects.js';
 
 export interface Reaction {
   emoji: string;
@@ -21,17 +23,28 @@ export interface AvailableReaction {
 
 export class ReactionsEngine {
   public postReactions: PostReactions = new Map();
+  private pendingReactions: Map<string, Promise<any>> = new Map();
+
+  public readonly QUICK_REACTIONS: AvailableReaction[] = [
+    { emoji: '👍', label: 'Like' },
+    { emoji: '❤️', label: 'Love' },
+    { emoji: '🔥', label: 'Fire' },
+    { emoji: '💡', label: 'Insight' },
+    { emoji: '🤔', label: 'Think' },
+    { emoji: '🎉', label: 'Celebrate' },
+  ];
 
   public readonly AVAILABLE_REACTIONS: AvailableReaction[] = [
     { emoji: '👍', label: 'Like' },
-    { emoji: '🔥', label: 'Fire' },
     { emoji: '❤️', label: 'Love' },
-    { emoji: '⚡', label: 'Pulse' },
+    { emoji: '🔥', label: 'Fire' },
     { emoji: '💡', label: 'Insight' },
+    { emoji: '🤔', label: 'Think' },
+    { emoji: '🎉', label: 'Celebrate' },
+    { emoji: '⚡', label: 'Pulse' },
     { emoji: '🛡️', label: 'Shield' },
     { emoji: '🎯', label: 'Precise' },
     { emoji: '🚀', label: 'Launch' },
-    { emoji: '🤔', label: 'Think' },
   ];
 
   constructor() {
@@ -70,7 +83,10 @@ export class ReactionsEngine {
       }
     }
 
-    if (previousEmoji === emoji) {
+    const isRemoving = previousEmoji === emoji;
+    const active = !isRemoving;
+
+    if (isRemoving) {
       // 1. User clicked the exact same emoji they currently have -> TOGGLE OFF (remove)
       const current = reactions.get(emoji)!;
       current.reactedBy.delete(userFP);
@@ -106,18 +122,85 @@ export class ReactionsEngine {
     }
 
     if (typeof fetch !== 'undefined') {
-      fetch('/api/interactions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          targetId: postId,
-          targetType: 'post',
-          userFingerprint: userFP || 'anon-peer',
-          action: 'reaction',
-          value: emoji,
-        }),
-      }).catch(() => {});
+      const mutationPromise = (async () => {
+        try {
+          const { persistInteraction } = await import('./interaction-transport.js');
+          await persistInteraction(postId, 'reaction', active, emoji, 'post');
+        } catch (err: any) {
+          // Rollback optimistic state
+          this.initPost(postId);
+          const rxMap = this.postReactions.get(postId)!;
+          if (isRemoving) {
+            if (!rxMap.has(emoji)) {
+              rxMap.set(emoji, { emoji, label: available.label, count: 0, reactedBy: new Set() });
+            }
+            const rx = rxMap.get(emoji)!;
+            rx.reactedBy.add(userFP);
+            rx.count = rx.reactedBy.size;
+          } else {
+            const curr = rxMap.get(emoji);
+            if (curr) {
+              curr.reactedBy.delete(userFP);
+              curr.count = curr.reactedBy.size;
+              if (curr.count === 0) rxMap.delete(emoji);
+            }
+            if (previousEmoji) {
+              if (!rxMap.has(previousEmoji)) {
+                const prevAvail = this.AVAILABLE_REACTIONS.find(r => r.emoji === previousEmoji) || { emoji: previousEmoji, label: 'Reaction' };
+                rxMap.set(previousEmoji, { emoji: previousEmoji, label: prevAvail.label, count: 0, reactedBy: new Set() });
+              }
+              const prevRx = rxMap.get(previousEmoji)!;
+              prevRx.reactedBy.add(userFP);
+              prevRx.count = prevRx.reactedBy.size;
+            }
+          }
+          const { clientStore } = await import('./client-state.js');
+          clientStore.showToast(err?.message || 'Failed to save reaction', 'warning');
+        }
+      })();
+
+      this.pendingReactions.set(postId, mutationPromise);
     }
+  }
+
+  /**
+   * Hydrates remote reactions state for a post.
+   */
+  public hydrate(postId: string, reactionsList: any[], userFP: string = ''): void {
+    this.initPost(postId);
+    const reactions = this.postReactions.get(postId)!;
+    if (!Array.isArray(reactionsList)) return;
+    reactions.clear();
+    for (const item of reactionsList) {
+      if (!item) continue;
+      const emoji = item.emoji || (typeof item === 'string' ? item : null);
+      if (!emoji) continue;
+      const label = item.label || this.AVAILABLE_REACTIONS.find((r) => r.emoji === emoji)?.label || 'Reaction';
+      const count = Number(item.count) || 1;
+      const reactedBy = new Set<string>(Array.isArray(item.reactedBy) ? item.reactedBy : []);
+      if ((item.hasReacted || item.userReacted) && userFP) {
+        reactedBy.add(userFP);
+      }
+      reactions.set(emoji, {
+        emoji,
+        label,
+        count: Math.max(count, reactedBy.size),
+        reactedBy,
+      });
+    }
+  }
+
+  /**
+   * Awaitable hook ensuring reaction state mutations have settled.
+   */
+  public async whenSettled(postId?: string): Promise<boolean> {
+    if (postId) {
+      const p = this.pendingReactions.get(postId);
+      if (p) await p.catch(() => {});
+    } else {
+      await Promise.allSettled(Array.from(this.pendingReactions.values()));
+    }
+    return true;
   }
 
   /**
@@ -157,72 +240,78 @@ export class ReactionsEngine {
 
   // ─── Render ─────────────────────────────────────────────────────────────────
 
+  // ─── Render ─────────────────────────────────────────────────────────────────
+
   public renderReactionBar(postId: string, userFP: string): string {
     this.initPost(postId);
     const reactions = this.postReactions.get(postId)!;
     const pickerId = `picker-${postId.replace(/[^a-zA-Z0-9]/g, '-')}`;
     const userActiveEmoji = this.getUserReaction(postId, userFP);
 
+    // Filter to active reactions and sort descending by count
+    const sortedReactions = Array.from(reactions.values()).filter(r => r.count > 0);
+    sortedReactions.sort((a, b) => b.count - a.count);
+
+    // Collapsed summary: display top active emojis (up to 4, user's active reaction prioritized)
+    const maxVisiblePills = 4;
+    let displayReactions: Reaction[] = [];
+    if (userActiveEmoji) {
+      const userRx = sortedReactions.find(r => r.emoji === userActiveEmoji);
+      const otherTop = sortedReactions.filter(r => r.emoji !== userActiveEmoji).slice(0, maxVisiblePills - 1);
+      displayReactions = userRx ? [userRx, ...otherTop] : otherTop;
+    } else {
+      displayReactions = sortedReactions.slice(0, maxVisiblePills);
+    }
+
+    const remainingCount = Math.max(0, sortedReactions.length - displayReactions.length);
+
     let pillsHtml = '';
-    reactions.forEach((reaction) => {
+    displayReactions.forEach((reaction) => {
       const isActive = reaction.reactedBy.has(userFP);
       const activeClasses = isActive
-        ? 'bg-surface-overlay border border-[#00e5ff]/50 text-[#00e5ff] font-bold shadow-xs'
-        : 'bg-surface-raised border border-white/10 text-white/70 hover:border-white/30 hover:text-white';
+        ? 'bg-amber-500/15 border border-[var(--color-accent,#e59b3c)]/40 text-[var(--color-accent,#e59b3c)] font-bold shadow-xs'
+        : 'bg-surface-raised border border-white/10 text-slate-300 hover:border-white/30 hover:text-white';
 
       pillsHtml += `<button
           type="button"
           class="btn-toggle-reaction inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-sans
-                 transition-all duration-150 cursor-pointer select-none ${activeClasses} active:scale-95"
+                 transition-all duration-150 cursor-pointer select-none ${activeClasses} active:scale-95 min-h-[32px]"
           data-post-id="${postId}"
           data-emoji="${this._escapeAttr(reaction.emoji)}"
           title="${this._escapeAttr(reaction.label)}"
+          aria-label="${this._escapeAttr(reaction.label)}: ${reaction.count}"
           aria-pressed="${isActive ? 'true' : 'false'}"
         ><span class="leading-none text-sm" aria-hidden="true">${reaction.emoji}</span
-        ><span class="font-mono text-xs tabular-nums reaction-count font-semibold">${reaction.count}</span
+        ><span class="font-mono text-[11px] tabular-nums reaction-count font-semibold">${reaction.count}</span
         ></button>`;
     });
 
-    let pickerItems = '';
-    this.AVAILABLE_REACTIONS.forEach((avail) => {
-      const alreadyActive = avail.emoji === userActiveEmoji;
-      const pickerActiveClass = alreadyActive
-        ? 'ring-2 ring-[#00e5ff]/60 bg-surface-overlay text-white font-bold'
-        : 'hover:bg-surface-overlay text-slate-300 hover:text-white';
-      pickerItems += `<button
+    if (remainingCount > 0) {
+      pillsHtml += `<button
           type="button"
-          class="btn-toggle-reaction flex flex-col items-center gap-0.5 p-2 rounded-xl text-sm
-                 transition-all duration-150 cursor-pointer ${pickerActiveClass} active:scale-95"
+          class="btn-overflow-reactions inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-sans
+                 bg-surface-raised/80 border border-white/10 text-slate-400 hover:text-white hover:border-white/25
+                 transition-all duration-150 cursor-pointer select-none active:scale-95 min-h-[32px]"
           data-post-id="${postId}"
-          data-emoji="${this._escapeAttr(avail.emoji)}"
-          title="${this._escapeAttr(avail.label)}"
-        ><span class="text-xl leading-none transition-transform hover:scale-125">${avail.emoji}</span
-        ><span class="text-[10px] text-slate-400 font-sans mt-0.5">${this._escapeHtml(avail.label)}</span
-        ></button>`;
-    });
+          title="${remainingCount} more reaction type${remainingCount > 1 ? 's' : ''}"
+          aria-label="${remainingCount} more reaction types"
+        ><span class="font-mono text-[11px] tabular-nums font-semibold">+${remainingCount}</span></button>`;
+    }
 
-    return `<div class="reactions-bar flex items-center gap-1.5 flex-wrap relative mt-2 select-none" data-post-id="${postId}">
-  <div class="reaction-pills flex items-center gap-1.5 flex-wrap">${pillsHtml}</div>
-  <div class="relative inline-block">
+    return `<div class="reactions-bar flex items-center gap-1.5 flex-wrap relative select-none" data-post-id="${postId}">
+  ${pillsHtml ? `<div class="reaction-pills flex items-center gap-1.5 flex-wrap">${pillsHtml}</div>` : ''}
+  <div class="relative inline-block reactions-picker">
     <button
       type="button"
       class="add-reaction-btn inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-sans
-             bg-surface-raised border border-white/10 text-white/70
-             hover:border-white/30 hover:text-white transition-all duration-150 cursor-pointer select-none active:scale-95 ${userActiveEmoji ? 'border-[#00e5ff]/40 text-[#00e5ff]' : ''}"
+             bg-surface-raised hover:bg-surface-overlay border border-white/10 text-slate-300
+             hover:border-white/30 hover:text-white transition-all duration-150 cursor-pointer select-none active:scale-95 min-h-[32px] ${userActiveEmoji ? 'border-[var(--color-accent,#e59b3c)]/40 text-[var(--color-accent,#e59b3c)] font-semibold' : ''}"
       data-picker-id="${pickerId}"
       data-post-id="${postId}"
       aria-label="Add reaction"
       aria-expanded="false"
-    ><span class="text-sm font-bold text-indigo-400 leading-none" aria-hidden="true">${userActiveEmoji || '＋'}</span
+    ><span class="text-sm leading-none" aria-hidden="true">${userActiveEmoji || '＋'}</span
     ><span class="text-[11px] font-medium">${userActiveEmoji ? 'Reacted' : 'React'}</span></button>
-    <div
-      id="${pickerId}"
-      class="reactions-picker hidden"
-      role="dialog"
-      aria-label="Emoji reactions picker"
-    >${pickerItems}<div class="col-span-4 border-t border-white/10 mt-1 pt-1.5 flex justify-end"
-      ><button type="button" class="close-picker-btn text-[11px] text-slate-400 hover:text-white px-2 py-0.5 font-sans transition-colors cursor-pointer"
-               data-picker-id="${pickerId}">Close ✕</button></div></div>
   </div>
 </div>`.trim();
   }
@@ -269,23 +358,22 @@ export class ReactionsEngine {
 
     const userActiveEmoji = this.getUserReaction(postId, userFP);
     let pickerButtonsHtml = '';
-    this.AVAILABLE_REACTIONS.forEach((avail) => {
+    this.QUICK_REACTIONS.forEach((avail) => {
       const alreadyActive = avail.emoji === userActiveEmoji;
       const activeStyle = alreadyActive
-        ? 'ring-2 ring-indigo-400 bg-indigo-500/20 text-white font-bold'
-        : 'hover:bg-surface-overlay text-slate-300 hover:text-white';
+        ? 'ring-2 ring-[var(--color-accent,#e59b3c)] bg-amber-500/25 text-white font-bold shadow-xs'
+        : 'hover:bg-white/10 text-slate-300 hover:text-white';
 
       pickerButtonsHtml += `
         <button
           type="button"
-          class="btn-portal-reaction flex flex-col items-center gap-0.5 p-2 rounded-xl text-sm transition-all duration-150 cursor-pointer ${activeStyle} active:scale-95"
+          class="btn-portal-reaction w-11 h-11 sm:w-10 sm:h-10 flex items-center justify-center rounded-full text-xl sm:text-2xl transition-all duration-150 hover:scale-125 cursor-pointer ${activeStyle} active:scale-95 shrink-0"
           data-post-id="${postId}"
           data-emoji="${this._escapeAttr(avail.emoji)}"
           title="${this._escapeAttr(avail.label)}"
           aria-label="${this._escapeAttr(avail.label)}"
         >
-          <span class="text-xl leading-none transition-transform hover:scale-125">${avail.emoji}</span>
-          <span class="text-[10px] text-slate-400 font-sans mt-0.5">${this._escapeHtml(avail.label)}</span>
+          <span class="leading-none select-none">${avail.emoji}</span>
         </button>
       `;
     });
@@ -293,29 +381,42 @@ export class ReactionsEngine {
     portal.className = 'reactions-portal fixed z-[10000] animate-in fade-in zoom-in-95 duration-150';
     portal.innerHTML = `
       <div
-        class="reactions-picker-portal-card bg-surface-overlay/95 backdrop-blur-2xl border border-white/20 rounded-2xl shadow-2xl p-3 grid grid-cols-4 gap-1.5 w-64 max-w-[calc(100vw-1.5rem)] text-white"
+        class="reactions-picker-portal-card reactions-picker-compact-dock flex items-center justify-between sm:justify-start gap-1 p-1.5 bg-surface-overlay/95 backdrop-blur-2xl border border-[var(--surface-rule)] rounded-2xl sm:rounded-full shadow-2xl text-[var(--text-primary)] select-none transition-all duration-150 max-w-[calc(100vw-1.5rem)]"
         role="dialog"
         aria-label="Emoji reactions selector"
       >
-        ${pickerButtonsHtml}
-        <div class="col-span-4 border-t border-white/10 mt-1 pt-1.5 flex items-center justify-between">
-          <span class="text-[10px] text-slate-400 font-mono">React to post</span>
-          <button type="button" class="btn-close-portal text-[11px] text-slate-400 hover:text-white px-2 py-0.5 font-sans transition-colors cursor-pointer rounded hover:bg-white/5">Close ✕</button>
+        <div class="flex items-center gap-0.5 sm:gap-1 overflow-x-auto no-scrollbar py-0.5 shrink min-w-0">
+          ${pickerButtonsHtml}
         </div>
+        <div class="w-px h-6 bg-[var(--surface-rule)] mx-0.5 shrink-0"></div>
+        <button
+          type="button"
+          class="btn-portal-more-emojis w-11 h-11 sm:w-10 sm:h-10 rounded-full hover:bg-surface-hover flex items-center justify-center text-base sm:text-sm font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all cursor-pointer shrink-0"
+          title="Browse all emojis"
+          aria-label="Browse all emojis"
+        >
+          <span>✨</span>
+        </button>
+        <button
+          type="button"
+          class="btn-close-portal w-9 h-9 sm:w-7 sm:h-7 rounded-full text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-surface-hover flex items-center justify-center transition-colors cursor-pointer shrink-0 ml-0.5"
+          title="Close"
+          aria-label="Close"
+        >✕</button>
       </div>
     `;
 
     // Position dynamically relative to trigger with collision detection
     this._repositionPortal(triggerEl, portal);
 
-    // Bind item click events inside portal
+    // Bind quick item click events inside portal
     portal.querySelectorAll<HTMLButtonElement>('.btn-portal-reaction').forEach(btn => {
-      btn.addEventListener('click', (e) => {
+      btn.addEventListener('click', async (e) => {
         e.stopPropagation();
         const em = btn.getAttribute('data-emoji');
         if (em) {
           this.toggleReaction(postId, em, userFP);
-          if (onReactionSelect) onReactionSelect(em);
+          if (await this.whenSettled(postId)) onReactionSelect?.(em);
           this.closePortalPicker();
         }
       });
@@ -324,6 +425,128 @@ export class ReactionsEngine {
     portal.querySelector('.btn-close-portal')?.addEventListener('click', (e) => {
       e.stopPropagation();
       this.closePortalPicker();
+    });
+
+    // Handle "More emoji..." lazy loaded full browser
+    portal.querySelector('.btn-portal-more-emojis')?.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const emojiModule = await import('./emoji-data.js');
+      let activeCat: any = 'recent';
+
+      const renderCategoryGrid = (catKey: any, query = '') => {
+        if (query.trim()) {
+          const matched = emojiModule.searchEmojis(query);
+          if (matched.length === 0) {
+            return `<div class="p-6 text-center text-xs text-slate-400">No matching emojis found</div>`;
+          }
+          return `
+            <div class="grid grid-cols-6 gap-1.5 p-1">
+              ${matched.map(item => `
+                <button type="button" class="btn-select-full-emoji w-10 h-10 rounded-xl hover:bg-surface-raised flex items-center justify-center text-xl transition-transform active:scale-90 cursor-pointer" data-emoji="${this._escapeAttr(item.emoji)}" title=":${item.shortcode}:">
+                  ${item.emoji}
+                </button>
+              `).join('')}
+            </div>
+          `;
+        }
+
+        const emojis = catKey === 'recent'
+          ? emojiModule.getRecentEmojis()
+          : (emojiModule.RAW_CATEGORY_EMOJIS as any)[catKey] || [];
+
+        return `
+          <div class="grid grid-cols-6 gap-1.5 p-1">
+            ${emojis.map((em: string) => `
+              <button type="button" class="btn-select-full-emoji w-10 h-10 rounded-xl hover:bg-surface-raised flex items-center justify-center text-xl transition-transform active:scale-90 cursor-pointer" data-emoji="${this._escapeAttr(em)}">
+                ${em}
+              </button>
+            `).join('')}
+          </div>
+        `;
+      };
+
+      const card = portal.querySelector('.reactions-picker-portal-card') as HTMLElement | null;
+      if (!card) return;
+
+      const renderFullBrowser = () => {
+        card.className = 'reactions-picker-portal-card reactions-picker-full-browser bg-surface-overlay/95 backdrop-blur-2xl border border-[var(--surface-rule)] rounded-2xl shadow-2xl p-3 w-80 max-w-[calc(100vw-1.5rem)] text-[var(--text-primary)]';
+        card.innerHTML = `
+          <div class="flex flex-col space-y-2.5 w-full">
+            <div class="flex items-center justify-between pb-1.5 border-b border-[var(--surface-rule)] gap-2">
+              <input
+                type="text"
+                id="input-emoji-full-search"
+                placeholder="Search all emojis..."
+                class="flex-1 bg-surface-raised border border-[var(--surface-rule)] rounded-xl px-2.5 py-1.5 text-xs text-[var(--text-primary)] placeholder-[var(--text-secondary)] focus:outline-none focus:border-[var(--color-accent,#e59b3c)] font-sans"
+              />
+              <button type="button" class="btn-close-portal text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] px-2 py-1 rounded hover:bg-surface-hover cursor-pointer">✕</button>
+            </div>
+
+            <!-- CATEGORY ICON TABS -->
+            <div class="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5" id="emoji-category-tabs">
+              ${emojiModule.EMOJI_CATEGORIES.map(cat => `
+                <button type="button" data-cat="${cat.key}" class="btn-emoji-cat-tab w-8 h-8 rounded-lg flex items-center justify-center text-sm transition-colors cursor-pointer shrink-0 ${cat.key === activeCat ? 'bg-amber-500/20 text-[var(--color-accent,#e59b3c)] border border-[var(--color-accent,#e59b3c)]/40 font-bold' : 'text-[var(--text-secondary)] hover:bg-surface-raised hover:text-[var(--text-primary)]'}" title="${cat.label}">
+                  ${cat.icon}
+                </button>
+              `).join('')}
+            </div>
+
+            <!-- SCROLLABLE EMOJI GRID -->
+            <div id="emoji-full-grid" class="h-56 overflow-y-auto no-scrollbar rounded-xl bg-surface-raised/40 p-1">
+              ${renderCategoryGrid(activeCat)}
+            </div>
+          </div>
+        `;
+
+        this._repositionPortal(triggerEl, portal);
+
+        // Bind category switcher
+        card.querySelectorAll('.btn-emoji-cat-tab').forEach(tab => {
+          tab.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            const cat = tab.getAttribute('data-cat');
+            if (cat) {
+              activeCat = cat;
+              renderFullBrowser();
+            }
+          });
+        });
+
+        // Bind search input
+        const searchInput = card.querySelector('#input-emoji-full-search') as HTMLInputElement | null;
+        searchInput?.focus({ preventScroll: true });
+        searchInput?.addEventListener('input', () => {
+          const gridEl = card.querySelector('#emoji-full-grid');
+          if (gridEl) {
+            gridEl.innerHTML = renderCategoryGrid(activeCat, searchInput.value);
+            bindEmojiClicks();
+          }
+        });
+
+        const bindEmojiClicks = () => {
+          card.querySelectorAll<HTMLButtonElement>('.btn-select-full-emoji').forEach(b => {
+            b.addEventListener('click', async (ev) => {
+              ev.stopPropagation();
+              const em = b.getAttribute('data-emoji');
+              if (em) {
+                emojiModule.recordRecentEmoji(em);
+                this.toggleReaction(postId, em, userFP);
+                if (await this.whenSettled(postId)) onReactionSelect?.(em);
+                this.closePortalPicker();
+              }
+            });
+          });
+        };
+
+        bindEmojiClicks();
+
+        card.querySelector('.btn-close-portal')?.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          this.closePortalPicker();
+        });
+      };
+
+      renderFullBrowser();
     });
 
     // Dismiss on outside pointerdown
@@ -337,8 +560,17 @@ export class ReactionsEngine {
     // Dismiss on Escape key
     this.portalKeydownListener = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
         this.closePortalPicker();
-        triggerEl.focus();
+        triggerEl.focus({ preventScroll: true });
+      } else if (e.key === 'Tab' && portal) {
+        const buttons = [...portal.querySelectorAll<HTMLButtonElement>('button')];
+        const first = buttons[0];
+        const last = buttons.at(-1);
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last?.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus(); }
       }
     };
     window.addEventListener('keydown', this.portalKeydownListener);
@@ -349,53 +581,82 @@ export class ReactionsEngine {
         this._repositionPortal(this.activePortalTrigger, portal);
       }
     };
-    window.addEventListener('scroll', this.portalScrollListener, { passive: true });
+    window.addEventListener('scroll', this.portalScrollListener, { passive: true, capture: true });
     window.addEventListener('resize', this.portalScrollListener, { passive: true });
+    portal.querySelector<HTMLButtonElement>('.btn-portal-reaction')?.focus({ preventScroll: true });
   }
 
   private _repositionPortal(triggerEl: HTMLElement, portal: HTMLElement): void {
-    const rect = triggerEl.getBoundingClientRect();
-    const isMobile = window.innerWidth < 480;
-    const popoverWidth = 256;
-    const popoverHeight = 150;
-    const margin = 8;
+    if (typeof window === 'undefined') return;
+    const isMobile = window.innerWidth < 640;
+    const isFullBrowser = portal.querySelector('.reactions-picker-full-browser') !== null;
 
     if (isMobile) {
-      // Anchored compact mobile sheet
-      portal.style.left = '50%';
-      portal.style.transform = 'translateX(-50%)';
-      if (rect.top > popoverHeight + margin) {
-        portal.style.top = `${Math.max(margin, rect.top - popoverHeight - margin)}px`;
-        portal.style.bottom = 'auto';
-      } else {
-        portal.style.top = `${Math.min(window.innerHeight - popoverHeight - margin, rect.bottom + margin)}px`;
-        portal.style.bottom = 'auto';
-      }
+      portal.style.transform = 'none';
+      portal.style.top = 'auto';
+      portal.style.bottom = '0px';
+      portal.style.left = '0px';
+      portal.style.right = '0px';
+      portal.style.width = '100vw';
+      portal.style.maxHeight = isFullBrowser ? '80vh' : 'auto';
+      portal.style.overflowY = isFullBrowser ? 'auto' : 'visible';
+      portal.style.display = 'flex';
+      portal.style.justifyContent = 'center';
+      portal.style.alignItems = 'flex-end';
+      portal.style.padding = '12px 12px calc(12px + env(safe-area-inset-bottom, 0px)) 12px';
+      portal.style.background = 'rgba(0, 0, 0, 0.45)';
+      portal.style.backdropFilter = 'blur(6px)';
       return;
     }
 
-    portal.style.transform = 'none';
+    const rect = triggerEl.getBoundingClientRect();
+    if (!triggerEl.isConnected || rect.bottom < -100 || rect.top > window.innerHeight + 100) {
+      this.closePortalPicker();
+      return;
+    }
+    const cardEl = portal.firstElementChild as HTMLElement | null;
+    const popoverWidth = cardEl?.offsetWidth || portal.offsetWidth || 340;
+    const popoverHeight = cardEl?.offsetHeight || portal.offsetHeight || (isFullBrowser ? 340 : 54);
+    const margin = 12;
 
-    // Vertical positioning: check space above vs below
+    portal.style.transform = 'none';
+    portal.style.width = '';
+    portal.style.bottom = '';
+    portal.style.right = '';
+    portal.style.display = '';
+    portal.style.padding = '';
+    portal.style.background = '';
+    portal.style.backdropFilter = '';
+
+    // Check vertical space and video avoidance
     const spaceAbove = rect.top;
     const spaceBelow = window.innerHeight - rect.bottom;
-    let top = 0;
+    let prefersBelow = spaceAbove < popoverHeight + margin;
 
-    if (spaceAbove >= popoverHeight + margin) {
-      // Render above trigger
-      top = rect.top - popoverHeight - margin;
-    } else {
-      // Flip below trigger
-      top = rect.bottom + margin;
+    if (!prefersBelow) {
+      // If there's a video immediately above the trigger in the post card, avoid covering it
+      const postCard = triggerEl.closest('.social-post, .post-card, [data-post-id]');
+      const videoEl = postCard?.querySelector('video, iframe');
+      if (videoEl) {
+        const vRect = videoEl.getBoundingClientRect();
+        if (vRect.bottom > rect.top - popoverHeight - margin && vRect.top < rect.top) {
+          if (spaceBelow >= popoverHeight + margin) {
+            prefersBelow = true;
+          }
+        }
+      }
     }
 
-    // Horizontal positioning: align with trigger left, clamp to viewport
-    let left = rect.left;
+    let top = prefersBelow ? (rect.bottom + margin) : (rect.top - popoverHeight - margin);
+
+    // Horizontal positioning: center or clamp to viewport with margin
+    let left = rect.left + rect.width / 2 - popoverWidth / 2;
     if (left + popoverWidth > window.innerWidth - margin) {
       left = window.innerWidth - popoverWidth - margin;
     }
     left = Math.max(margin, left);
 
+    top = Math.max(margin, Math.min(top, window.innerHeight - popoverHeight - margin));
     portal.style.top = `${Math.round(top)}px`;
     portal.style.left = `${Math.round(left)}px`;
   }
@@ -527,3 +788,97 @@ if (typeof window !== 'undefined') {
   (window as any).__reactionsEngine = reactionsEngine;
   (window as any).reactionsEngine = reactionsEngine;
 }
+
+/**
+ * In-place update of reaction bars across the DOM for a given post ID.
+ * Preserves scroll position and avoids full feed re-renders.
+ */
+export function updateReactionBarDOM(postId: string): void {
+  if (typeof document === 'undefined') return;
+  const bars = document.querySelectorAll<HTMLElement>(`.reactions-bar[data-post-id="${postId}"]`);
+  if (!bars.length) return;
+  const userFP = (window as any).clientStore?.keypair?.fingerprint || '';
+  const newHtml = reactionsEngine.renderReactionBar(postId, userFP);
+  bars.forEach(bar => {
+    const temp = document.createElement('div');
+    temp.innerHTML = newHtml;
+    const newBar = temp.firstElementChild as HTMLElement | null;
+    if (newBar) {
+      bar.replaceWith(newBar);
+      bindReactionBarEvents(newBar);
+    }
+  });
+}
+
+/**
+ * Binds click events on reaction bar buttons within a container or root element.
+ */
+export function bindReactionBarEvents(container: HTMLElement | Document = document): void {
+  if (typeof document === 'undefined') return;
+
+  // 1. Toggle reaction button (clicking an active or existing emoji chip)
+  container.querySelectorAll<HTMLButtonElement>('.btn-toggle-reaction').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const postId = btn.getAttribute('data-post-id');
+      const emoji = btn.getAttribute('data-emoji');
+      const userFP = (window as any).clientStore?.keypair?.fingerprint || '';
+      if (postId && emoji) {
+        reactionsEngine.toggleReaction(postId, emoji, userFP);
+        updateReactionBarDOM(postId);
+      }
+    });
+  });
+
+  // 2. Add reaction button (+ pill) & overflow badge (+N)
+  const openTriggers = container.querySelectorAll<HTMLButtonElement>('.add-reaction-btn, .btn-overflow-reactions');
+  openTriggers.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const postId = btn.getAttribute('data-post-id');
+      const userFP = (window as any).clientStore?.keypair?.fingerprint || '';
+      if (postId) {
+        reactionsEngine.openPortalPicker(btn, postId, userFP, () => {
+          updateReactionBarDOM(postId);
+        });
+      }
+    });
+  });
+}
+
+// ─── Global Event Delegation for Reactions ──────────────────────────────────
+if (typeof document !== 'undefined') {
+  document.addEventListener('click', (e) => {
+    const target = e.target as HTMLElement | null;
+    if (!target) return;
+
+    // Fast delegation for toggle
+    const toggleBtn = target.closest<HTMLButtonElement>('.btn-toggle-reaction');
+    if (toggleBtn) {
+      e.stopPropagation();
+      const postId = toggleBtn.getAttribute('data-post-id');
+      const emoji = toggleBtn.getAttribute('data-emoji');
+      const userFP = (window as any).clientStore?.keypair?.fingerprint || '';
+      if (postId && emoji) {
+        reactionsEngine.toggleReaction(postId, emoji, userFP);
+        updateReactionBarDOM(postId);
+      }
+      return;
+    }
+
+    // Fast delegation for open picker
+    const triggerBtn = target.closest<HTMLButtonElement>('.add-reaction-btn, .btn-overflow-reactions');
+    if (triggerBtn) {
+      e.stopPropagation();
+      const postId = triggerBtn.getAttribute('data-post-id');
+      const userFP = (window as any).clientStore?.keypair?.fingerprint || '';
+      if (postId) {
+        reactionsEngine.openPortalPicker(triggerBtn, postId, userFP, () => {
+          updateReactionBarDOM(postId);
+        });
+      }
+      return;
+    }
+  });
+}
+

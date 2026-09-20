@@ -183,7 +183,7 @@ export const roDict: TranslationDictionary = {
     continue: 'Continuă',
     back: 'Înapoi',
     finish: 'Gata, intră în rețea',
-    stepOf: 'Pasul {step} din 4',
+    stepOf: 'Pasul {step} din 3',
   },
   emptyState: {
     pulseTitle: 'Feed-ul este liniștit',

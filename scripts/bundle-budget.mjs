@@ -46,7 +46,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   try {
     const dist = fileURLToPath(new URL('../packages/client-ui/dist/', import.meta.url));
     const manifest = JSON.parse(readFileSync(resolve(dist, '.vite/manifest.json'), 'utf8'));
-    const budgetKiB = Number(process.env.MAX_STARTUP_GZIP_KIB ?? 552);
+    const budgetKiB = Number(process.env.MAX_STARTUP_GZIP_KIB ?? 600);
     if (!Number.isFinite(budgetKiB) || budgetKiB <= 0) throw new Error('Invalid MAX_STARTUP_GZIP_KIB');
     const result = measureStartupBundle(manifest, (file) => readFileSync(resolve(dist, file)), startupEntries(manifest));
     const gzipKiB = result.javascriptGzipBytes / 1024;

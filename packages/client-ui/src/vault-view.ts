@@ -12,8 +12,16 @@ import { bookmarksVault } from './bookmarks.js';
 import { threadManager, ThreadComment } from './threads.js';
 import { t } from './i18n.js';
 import { toastManager } from './toast.js';
-import { renderKnowledgeMemory } from './knowledge-memory-view.js';
 import { isDemoModeEnabled } from './demo-mode.js';
+import { renderIcon } from './ui/icons.js';
+import { canonicalVault } from './canonical-vault.js';
+
+function renderKnowledgeMemoryPlaceholder(): string {
+  return `<section class="knowledge-memory" aria-labelledby="memory-title"><header class="memory-heading"><div><span class="context-eyebrow">Your knowledge, with its context</span><h2 id="memory-title">Saved in Vault</h2><p>Your Vault contents are encrypted before leaving your device. Cloudflare stores encrypted data and limited operational metadata but cannot read your private Vault content.</p></div><button type="button" class="context-button" data-action="keep-note">Write a note</button></header>
+    <label class="memory-search">Find in your knowledge<input id="memory-search" type="search" placeholder="Search text, author, or collection" autocomplete="off" aria-describedby="memory-search-help"></label>
+    <p id="memory-search-help" class="context-help">Local search: &quot;exact phrase&quot;, -exclude, kind:post, author:name, collection:&quot;Reading list&quot;, after:2026-01-01, before:2027-01-01. Dates use UTC.</p>
+    <div id="memory-items" aria-live="polite"><p role="status">Opening encrypted knowledge…</p></div></section>`;
+}
 
 export interface VaultCollection {
   id: string;
@@ -40,6 +48,24 @@ let selectedCollectionId: string | null = null;
 let isNewCollectionModalOpen = false;
 let uploadProgress: VaultUploadProgress | null = null;
 let uploadTimer: any = null;
+let accountStorage: { usedBytes: number; accountQuotaBytes: number; maxFileBytes: number } | null = null;
+let storageLoading = false;
+let storageIdentity = '';
+let storageError = '';
+
+export async function refreshAccountStorage(): Promise<void> {
+  if (storageLoading) return;
+  storageLoading = true;
+  const identity = clientStore.keypair.fingerprint;
+  storageIdentity = identity;
+  try {
+    const response = await fetch('/api/storage?action=account', { cache: 'no-store', headers: { 'X-Sovereign-Envelope': JSON.stringify(clientStore.createSignedEnvelope({ scope: 'urefy-storage-v1', action: 'account' })) } });
+    const data = await response.json();
+    if (!response.ok || !data.success || !Number.isFinite(data.usedBytes)) throw new Error('Account usage is unavailable.');
+    if (clientStore.keypair.fingerprint === identity) { accountStorage = data; storageError = ''; }
+  } catch { accountStorage = null; storageError = 'Account usage is unavailable.'; }
+  finally { storageLoading = false; clientStore.notify(); }
+}
 
 const DEFAULT_COLLECTIONS: VaultCollection[] = [
   {
@@ -130,12 +156,14 @@ export function createVaultCollection(name: string, description: string, icon = 
   };
   cols.unshift(newCol);
   saveCollections(cols);
+  void canonicalVault.createCollection(name, description, icon);
   return newCol;
 }
 
 export function deleteVaultCollection(id: string): void {
   const cols = loadCollections().filter(c => c.id !== id);
   saveCollections(cols);
+  void canonicalVault.deleteCollection(id);
   if (selectedCollectionId === id) selectedCollectionId = null;
 }
 
@@ -255,18 +283,17 @@ export function renderVaultReleaseCard(p: ClientPost): string {
   const entropy = p.attachment?.entropy || 6.12;
 
   return `
-    <div class="p-4 sm:p-5 rounded-2xl bg-surface-raised border border-white/5 hover:border-cyan-500/30 transition-all shadow-md space-y-3.5">
+    <div class="p-4 sm:p-5 rounded-2xl bg-surface-raised border border-white/5 hover:border-white/10 transition-all shadow-md space-y-3.5">
       
       <!-- TOP RELEASE HEADER -->
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
         <div class="flex items-center space-x-3 min-w-0">
-          <div class="w-10 h-10 rounded-xl bg-cyan-950/80 border border-cyan-500/30 flex items-center justify-center text-xl text-cyan-400 shadow-sm shrink-0">
+          <div class="w-10 h-10 rounded-xl bg-surface-base border border-white/10 flex items-center justify-center text-xl text-slate-300 shadow-sm shrink-0">
             📦
           </div>
           <div class="min-w-0">
             <div class="flex items-center space-x-2 flex-wrap gap-y-1">
-              <h3 data-open-detail="${p.id}" class="btn-open-detail text-sm sm:text-base font-bold text-white hover:text-cyan-400 transition-colors cursor-pointer truncate">${escapeHtml(p.title)}</h3>
-              <span class="text-[9px] font-mono px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-500/30 font-bold shrink-0">100% REPRODUCIBLE</span>
+              <h3 data-open-detail="${p.id}" class="btn-open-detail text-sm sm:text-base font-bold text-white hover:text-[var(--color-accent,#e59b3c)] transition-colors cursor-pointer truncate">${escapeHtml(p.title)}</h3>
             </div>
             <div class="flex items-center space-x-2 text-[11px] text-slate-400 mt-0.5 flex-wrap">
               <span>By @${p.authorFingerprint.substring(0, 8)}</span>
@@ -289,12 +316,7 @@ export function renderVaultReleaseCard(p: ClientPost): string {
       </div>
 
       <!-- CONSUMER BADGES ROW -->
-      <div class="flex items-center space-x-2 text-[10px] flex-wrap gap-y-1">
-        <span class="px-2 py-0.5 rounded-md bg-emerald-950/70 text-emerald-400 border border-emerald-500/30 font-medium">✓ Verified source</span>
-        <span class="px-2 py-0.5 rounded-md bg-indigo-950/70 text-indigo-300 border border-indigo-500/30 font-medium">🔒 Encrypted</span>
-        <span class="px-2 py-0.5 rounded-md bg-cyan-950/70 text-cyan-300 border border-cyan-500/30 font-medium">🛡️ Safe file</span>
-        <span class="px-2 py-0.5 rounded-md bg-sky-950/70 text-sky-300 border border-sky-500/30 font-medium">☁️ Cloud (R2 Standard)</span>
-      </div>
+      <p class="public-resource-state text-xs text-slate-400 flex items-center gap-1.5">${renderIcon('globe', { size: 14 })} Public resource · inspect the source before downloading</p>
 
       <!-- RELEASE BODY & SYNTHESIS -->
       <div class="text-xs sm:text-sm text-slate-300 leading-relaxed">
@@ -308,12 +330,12 @@ export function renderVaultReleaseCard(p: ClientPost): string {
             <span>🔬</span>
             <span>Technical & Cryptographic Verification</span>
           </span>
-          <span class="text-[10px] text-cyan-400 font-sans">Inspect SHA & Entropy ▾</span>
+          <span class="text-[10px] text-slate-400 font-sans">Inspect SHA & Entropy ▾</span>
         </summary>
         <div class="pt-2 space-y-2 border-t border-white/5 text-[11px]">
           <div class="flex items-center justify-between text-[11px] pb-1">
             <span class="text-slate-400 font-bold">Cryptographic Software Attestation:</span>
-            <span class="text-emerald-400 font-bold">Audit Status: PASS</span>
+            <span class="text-slate-400 font-medium">Publisher-supplied metadata</span>
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
@@ -323,7 +345,7 @@ export function renderVaultReleaseCard(p: ClientPost): string {
             </div>
             <div>
               <span class="text-slate-500">Shannon Entropy:</span>
-              <div class="text-emerald-400 font-bold">${entropy.toFixed(2)} bits/byte (Clean / Unpacked)</div>
+              <div class="text-slate-300 font-medium">${typeof entropy === 'number' ? `${entropy.toFixed(2)} bits/byte` : 'Not measured'}</div>
             </div>
           </div>
 
@@ -366,7 +388,7 @@ export function renderVaultReleaseCard(p: ClientPost): string {
           </button>
         </div>
 
-        <button data-file-name="${fileName}" data-byte-size="${byteSize}" data-sha="${sha}" class="btn-download-p2p px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition-all shadow-sm flex items-center space-x-2 cursor-pointer">
+        <button data-file-name="${fileName}" data-byte-size="${byteSize}" data-sha="${sha}" class="btn-download-p2p px-4 py-2 bg-[var(--color-accent,#e59b3c)] hover:brightness-105 text-slate-950 font-bold text-xs rounded-xl transition-all shadow-sm flex items-center space-x-2 cursor-pointer">
           <span>⬇</span>
           <span>Download</span>
         </button>
@@ -472,14 +494,14 @@ function renderStorageQuotaMeter(): string {
           <div class="flex items-center space-x-2">
             <span class="text-sm font-bold text-white">Storage &amp; portability</span>
           </div>
-          <p class="text-xs text-slate-400 mt-0.5">Private snapshots stay encrypted on this device. Public resource metadata can travel in a Knowledge Pack.</p>
+          <p class="text-xs text-slate-400 mt-0.5">Your Vault contents are encrypted before leaving your device. Cloudflare stores encrypted data and limited operational metadata but cannot read your private Vault content.</p>
         </div>
         <div class="flex items-center space-x-2 shrink-0">
-          <button type="button" data-action="export-vaultpack" class="px-3 py-1.5 bg-surface-base hover:bg-surface-overlay text-cyan-300 hover:text-cyan-200 text-xs font-semibold rounded-xl border border-cyan-500/20 transition-all flex items-center space-x-1.5 cursor-pointer" title="Bundle collections and files as .vaultpack">
+          <button type="button" data-action="export-vaultpack" class="px-3 py-1.5 bg-surface-base hover:bg-surface-overlay text-[var(--color-accent,#e59b3c)] hover:text-white text-xs font-semibold rounded-xl border border-[var(--color-accent,#e59b3c)]/30 transition-all flex items-center space-x-1.5 cursor-pointer" title="Bundle collections and files as .vaultpack">
             <span>📦</span>
             <span>Export metadata</span>
           </button>
-          <button type="button" data-action="import-vaultpack" class="px-3 py-1.5 bg-surface-base hover:bg-surface-overlay text-slate-200 hover:text-white text-xs font-semibold rounded-xl border border-white/5 transition-all flex items-center space-x-1.5 cursor-pointer" title="Import a .vaultpack file">
+          <button type="button" data-action="import-vaultpack" class="px-3 py-1.5 bg-surface-base hover:bg-surface-overlay text-slate-200 hover:text-white text-xs font-semibold rounded-xl border border-white/10 transition-all flex items-center space-x-1.5 cursor-pointer" title="Import a .vaultpack file">
             <span>📥</span>
             <span>Import</span>
           </button>
@@ -490,9 +512,9 @@ function renderStorageQuotaMeter(): string {
         <div class="p-3 rounded-xl bg-surface-base border border-white/5 space-y-1.5">
           <div class="flex items-center justify-between text-xs">
             <span class="text-slate-300 font-medium">Listed attachment sizes</span>
-            <span class="font-mono text-cyan-400 font-bold">${usedMb} MB</span>
+            <span class="tabular-nums text-[var(--color-accent,#e59b3c)] font-bold">${usedMb} MB</span>
           </div>
-          <div class="flex items-center justify-between text-[10px] text-slate-500 font-mono">
+          <div class="flex items-center justify-between text-[10px] text-slate-500">
             <span>Metadata only · not account storage usage</span>
           </div>
         </div>
@@ -500,10 +522,11 @@ function renderStorageQuotaMeter(): string {
         <div class="p-3 rounded-xl bg-surface-base border border-white/5 space-y-1.5">
           <div class="flex items-center justify-between text-xs">
             <span class="text-slate-300 font-medium">Cloud account quota</span>
-            <span class="font-mono text-slate-400">Unavailable here</span>
+            <span class="tabular-nums text-slate-400">${accountStorage ? `${(accountStorage.usedBytes / 1048576).toFixed(1)} / ${(accountStorage.accountQuotaBytes / 1048576).toFixed(0)} MiB` : storageLoading ? 'Loading…' : 'Unavailable'}</span>
           </div>
-          <div class="flex items-center justify-between text-[10px] text-slate-500 font-mono">
-            <span>The server enforces its configured upload limits.</span>
+          <div class="flex items-center justify-between text-[10px] text-slate-500">
+            <span>${accountStorage ? `Up to ${(accountStorage.maxFileBytes / 1048576).toFixed(0)} MiB per file` : storageError || 'The server enforces its configured upload limits.'}</span>
+            <button type="button" data-action="refresh-storage-usage" class="hover:underline text-[var(--color-accent,#e59b3c)] cursor-pointer" ${storageLoading ? 'disabled' : ''}>Refresh</button>
           </div>
         </div>
       </div>
@@ -516,7 +539,7 @@ function renderStorageQuotaMeter(): string {
           <span>•</span>
           <span class="flex items-center space-x-1"><span>🌐</span><span>P2P Mesh (WebRTC)</span></span>
         </div>
-        <span class="text-slate-500 font-mono text-[10px]">Private knowledge: up to 200 snapshots / 4 MiB locally</span>
+        <span class="text-slate-500 text-[10px]">Private knowledge: up to 200 snapshots / 4 MiB locally</span>
       </div>
     </div>
   `;
@@ -526,10 +549,10 @@ function renderUploadProgressCard(): string {
   if (!uploadProgress) return '';
   const isComplete = uploadProgress.percent >= 100;
   return `
-    <div class="p-4 rounded-2xl bg-gradient-to-r from-cyan-950/40 via-surface-raised to-indigo-950/30 border border-cyan-500/30 shadow-lg space-y-3 mb-4 animate-in fade-in duration-200">
+    <div class="p-4 rounded-2xl bg-surface-raised border border-white/10 shadow-lg space-y-3 mb-4 animate-in fade-in duration-200">
       <div class="flex items-center justify-between">
         <div class="flex items-center space-x-2.5 min-w-0">
-          <div class="w-8 h-8 rounded-xl bg-cyan-900/60 border border-cyan-500/40 flex items-center justify-center text-sm ${isComplete ? 'text-emerald-400' : 'text-cyan-300 animate-spin'} shrink-0">
+          <div class="w-8 h-8 rounded-xl bg-surface-base border border-white/10 flex items-center justify-center text-sm ${isComplete ? 'text-emerald-400' : 'text-[var(--color-accent,#e59b3c)] animate-spin'} shrink-0">
             ${isComplete ? '✓' : '⚙️'}
           </div>
           <div class="min-w-0">
@@ -540,7 +563,7 @@ function renderUploadProgressCard(): string {
           </div>
         </div>
         <div class="flex items-center space-x-2 shrink-0">
-          <span class="text-xs font-mono font-bold ${isComplete ? 'text-emerald-400' : 'text-cyan-300'}">${uploadProgress.percent}%</span>
+          <span class="text-xs font-mono font-bold ${isComplete ? 'text-emerald-400' : 'text-[var(--color-accent,#e59b3c)]'}">${uploadProgress.percent}%</span>
           ${!isComplete ? `
             <button type="button" data-action="cancel-upload-sim" class="text-slate-400 hover:text-rose-400 p-1 text-xs cursor-pointer" title="Cancel upload">✕</button>
           ` : ''}
@@ -548,7 +571,7 @@ function renderUploadProgressCard(): string {
       </div>
       <!-- PROGRESS BAR -->
       <div class="w-full bg-surface-base rounded-full h-2 overflow-hidden border border-white/5">
-        <div class="bg-gradient-to-r from-cyan-500 to-indigo-500 h-2 rounded-full transition-all duration-300 ease-out" style="width: ${uploadProgress.percent}%"></div>
+        <div class="bg-[var(--color-accent,#e59b3c)] h-2 rounded-full transition-all duration-300 ease-out" style="width: ${uploadProgress.percent}%"></div>
       </div>
     </div>
   `;
@@ -578,7 +601,7 @@ function renderCollectionsView(posts: ClientPost[]): string {
               <div class="flex items-center space-x-2">
                 <span class="text-base">${escapeHtml(activeCol.icon)}</span>
                 <h3 class="text-sm font-bold text-white truncate">${escapeHtml(activeCol.name)}</h3>
-                <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-950 text-cyan-300 border border-cyan-500/30 font-bold">${matchingPosts.length} items</span>
+                <span class="text-[10px] tabular-nums px-2 py-0.5 rounded-full bg-surface-base text-slate-300 border border-white/10 font-medium">${matchingPosts.length} items</span>
               </div>
               <p class="text-xs text-slate-400 truncate mt-0.5">${escapeHtml(activeCol.description)}</p>
             </div>
@@ -610,7 +633,7 @@ function renderCollectionsView(posts: ClientPost[]): string {
           <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider">Resource collections (${collections.length})</h3>
           <p class="text-xs text-slate-400">Local groups of public resources, matched by tags.</p>
         </div>
-        <button type="button" data-action="open-new-collection-modal" class="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs rounded-xl transition-all shadow-sm flex items-center space-x-1.5 cursor-pointer">
+        <button type="button" data-action="open-new-collection-modal" class="px-3 py-1.5 bg-[var(--color-accent,#e59b3c)] hover:brightness-105 text-slate-950 font-bold text-xs rounded-xl transition-all shadow-sm flex items-center space-x-1.5 cursor-pointer">
           <span>+</span>
           <span>New Collection</span>
         </button>
@@ -622,23 +645,23 @@ function renderCollectionsView(posts: ClientPost[]): string {
           <div 
             data-action="select-vault-collection" 
                 data-collection-id="${escapeHtml(c.id)}"
-            class="p-4 rounded-2xl bg-surface-raised hover:bg-surface-overlay border border-white/5 hover:border-cyan-500/30 transition-all shadow-sm cursor-pointer space-y-2.5 group"
+            class="p-4 rounded-2xl bg-surface-raised hover:bg-surface-overlay border border-white/5 hover:border-white/15 transition-all shadow-sm cursor-pointer space-y-2.5 group"
           >
             <div class="flex items-start justify-between">
-              <div class="w-10 h-10 rounded-xl bg-surface-base border border-white/5 group-hover:border-cyan-500/30 flex items-center justify-center text-xl shadow-xs transition-colors shrink-0">
+              <div class="w-10 h-10 rounded-xl bg-surface-base border border-white/5 group-hover:border-white/20 flex items-center justify-center text-xl shadow-xs transition-colors shrink-0">
                 ${escapeHtml(c.icon)}
               </div>
-              <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-surface-base text-slate-300 border border-white/10 group-hover:text-cyan-300 group-hover:border-cyan-500/30 transition-colors">
+              <span class="text-[10px] tabular-nums px-2 py-0.5 rounded-full bg-surface-base text-slate-300 border border-white/10 group-hover:text-slate-200 group-hover:border-white/20 transition-colors">
                 ${posts.filter(post => c.tags?.some(tag => post.flair?.toUpperCase().includes(tag) || post.title?.toUpperCase().includes(tag) || post.channelId?.includes(tag.toLowerCase()))).length} resources
               </span>
             </div>
             <div>
-              <h4 class="text-sm font-bold text-white group-hover:text-cyan-300 transition-colors">${escapeHtml(c.name)}</h4>
+              <h4 class="text-sm font-bold text-white group-hover:text-[var(--color-accent,#e59b3c)] transition-colors">${escapeHtml(c.name)}</h4>
               <p class="text-xs text-slate-400 line-clamp-2 mt-0.5 leading-relaxed">${escapeHtml(c.description)}</p>
             </div>
-            <div class="pt-2 border-t border-white/5 flex items-center justify-between text-[10px] text-slate-500 font-mono">
+            <div class="pt-2 border-t border-white/5 flex items-center justify-between text-[10px] text-slate-500">
               <span>Created ${escapeHtml(c.createdAt)}</span>
-              <span class="text-cyan-400 group-hover:translate-x-0.5 transition-transform">Explore →</span>
+              <span class="text-slate-400 group-hover:text-[var(--color-accent,#e59b3c)] group-hover:translate-x-0.5 transition-all">Explore →</span>
             </div>
           </div>
         `).join('')}
@@ -646,9 +669,9 @@ function renderCollectionsView(posts: ClientPost[]): string {
         <!-- ADD COLLECTION PLACEHOLDER CARD -->
         <div 
           data-action="open-new-collection-modal"
-          class="p-4 rounded-2xl border-2 border-dashed border-white/10 hover:border-cyan-500/40 hover:bg-surface-raised/30 transition-all flex flex-col items-center justify-center text-center p-6 space-y-2 cursor-pointer group min-h-[140px]"
+          class="p-4 rounded-2xl border-2 border-dashed border-white/10 hover:border-white/20 hover:bg-surface-raised/30 transition-all flex flex-col items-center justify-center text-center p-6 space-y-2 cursor-pointer group min-h-[140px]"
         >
-          <div class="w-10 h-10 rounded-xl bg-surface-base/80 border border-white/5 flex items-center justify-center text-xl text-slate-400 group-hover:text-cyan-400 group-hover:border-cyan-500/30 transition-colors">
+          <div class="w-10 h-10 rounded-xl bg-surface-base/80 border border-white/5 flex items-center justify-center text-xl text-slate-400 group-hover:text-slate-200 group-hover:border-white/20 transition-colors">
             +
           </div>
           <span class="text-xs font-bold text-slate-300 group-hover:text-white transition-colors">Create Custom Folder</span>
@@ -680,7 +703,7 @@ function renderNewCollectionModal(): string {
               id="input-collection-name"
               required
               placeholder="e.g. Audit Reports 2026"
-              class="w-full bg-surface-raised border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
+              class="w-full bg-surface-raised border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[var(--color-accent,#e59b3c)]"
             />
           </div>
 
@@ -690,7 +713,7 @@ function renderNewCollectionModal(): string {
               type="text"
               id="input-collection-desc"
               placeholder="Brief description of this folder..."
-              class="w-full bg-surface-raised border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
+              class="w-full bg-surface-raised border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[var(--color-accent,#e59b3c)]"
             />
           </div>
 
@@ -704,7 +727,7 @@ function renderNewCollectionModal(): string {
             </button>
             <button
               type="submit"
-              class="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold rounded-xl transition-all shadow-sm cursor-pointer"
+              class="px-4 py-2 bg-[var(--color-accent,#e59b3c)] hover:brightness-105 text-slate-950 font-bold text-xs rounded-xl transition-all shadow-sm cursor-pointer"
             >
               Create Folder
             </button>
@@ -715,6 +738,13 @@ function renderNewCollectionModal(): string {
   `;
 }
 
+let vaultSearchQuery = '';
+
+export function setVaultSearchQuery(q: string): void {
+  vaultSearchQuery = q;
+  clientStore.notifySync();
+}
+
 export function renderVaultWorkspace(): string {
   let posts = clientStore.posts.filter(p => p.channelId.startsWith('vault-') || p.flair === 'VERIFIED RELEASE' || p.flair === 'SECURITY ADVISORY');
   flairFilter.updateCounts(clientStore.posts);
@@ -722,12 +752,38 @@ export function renderVaultWorkspace(): string {
 
   // Category specific filtering
   if (activeVaultCategory === 'saved') {
-    const savedIds = new Set(bookmarksVault.bookmarks.map(b => b.postId));
-    posts = clientStore.posts.filter(p => savedIds.has(p.id));
+    const savedIds = canonicalVault.getSavedPostIds();
+    const canonicalSaved = canonicalVault.getSavedPosts();
+    const feedPosts = clientStore.posts.filter(p => savedIds.has(p.id) || savedIds.has(p.id.replace(/^post:/, '')));
+    const feedIds = new Set(feedPosts.map(p => p.id));
+    const extraPosts: ClientPost[] = canonicalSaved
+      .filter(item => !feedIds.has(item.id.replace(/^post:/, '')) && !feedIds.has(item.source?.id || ''))
+      .map(item => ({
+        id: item.source?.id || item.id.replace(/^post:/, ''),
+        channelId: item.source?.channelId || 'relays-general',
+        authorFingerprint: item.source?.author || item.owner,
+        authorRole: 'MEMBER' as const,
+        title: item.title,
+        content: item.content,
+        flair: (item.tags[0]?.toUpperCase() as ClientPost['flair']) || 'TECH DISCUSSION',
+        meritVotes: 0,
+        replyCount: 0,
+        boostCount: 0,
+        userVoted: 0,
+        isExpanded: false,
+        createdAt: item.createdAt,
+        status: 'published' as const,
+      }));
+    posts = [...feedPosts, ...extraPosts];
   } else if (activeVaultCategory === 'private') {
     posts = posts.filter(p => p.attachment || p.flair === 'SECURITY ADVISORY');
   } else if (activeVaultCategory === 'downloads') {
     posts = posts.filter(p => p.attachment);
+  }
+
+  if (vaultSearchQuery.trim()) {
+    const q = vaultSearchQuery.toLowerCase();
+    posts = posts.filter(p => (p.title && p.title.toLowerCase().includes(q)) || p.content.toLowerCase().includes(q));
   }
 
   return `
@@ -736,7 +792,7 @@ export function renderVaultWorkspace(): string {
       <!-- STICKY TOP VAULT NAVIGATION BAR -->
       <div class="sticky top-0 z-10 border-b border-white/5 bg-surface-base/90 backdrop-blur-xl px-4 md:px-6 flex items-center justify-between shrink-0 min-h-[56px] py-2 shadow-sm gap-3">
         <div class="flex items-center space-x-3 min-w-0">
-          <div class="w-9 h-9 rounded-xl bg-cyan-950/80 border border-cyan-500/30 flex items-center justify-center text-cyan-400 text-lg font-bold shadow-sm shrink-0">
+          <div class="w-9 h-9 rounded-xl bg-surface-base border border-white/10 flex items-center justify-center text-[var(--color-accent,#e59b3c)] text-lg font-bold shadow-sm shrink-0">
             📁
           </div>
           <div class="min-w-0">
@@ -766,66 +822,100 @@ export function renderVaultWorkspace(): string {
         </div>
       </div>
 
+      <!-- IN-VAULT SEARCH BAR -->
+      <div class="px-4 md:px-6 py-2 border-b border-white/5 bg-surface-base/40 flex items-center shrink-0">
+        <div class="relative w-full max-w-lg">
+          <input
+            type="text"
+            id="input-vault-search"
+            value="${escapeHtml(vaultSearchQuery)}"
+            placeholder="Search within Vault..."
+            aria-label="Search within Vault"
+            data-input="search-vault"
+            class="w-full bg-surface-raised border border-white/10 rounded-xl px-3.5 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[var(--color-accent,#e59b3c)] transition-all font-sans"
+          />
+        </div>
+      </div>
+
+      <!-- PRIVACY REASSURANCE BANNER -->
+      <div class="px-4 md:px-6 py-1.5 bg-surface-raised/30 border-b border-white/5 flex items-center text-[11px] text-slate-400">
+        <span class="mr-1.5">🔒</span>
+        <span>Your Vault contents are encrypted before leaving your device. Cloudflare stores encrypted data and limited operational metadata but cannot read your private Vault content.</span>
+      </div>
+
       <!-- CONSUMER SECTION CATEGORIES / TABS -->
       <div class="flex items-center gap-1.5 overflow-x-auto py-2 px-4 md:px-6 border-b border-white/5 bg-surface-base/60 text-xs no-scrollbar shrink-0">
         ${[
           { id: 'private', label: 'My knowledge', icon: '🔒' },
-          { id: 'recent', label: 'Public resources', icon: '⏱️' },
           { id: 'saved', label: 'Saved posts', icon: '🔖' },
+          { id: 'recent', label: 'Public resources', icon: '⏱️' },
           { id: 'collections', label: 'Collections', icon: '📁' },
           { id: 'downloads', label: 'Attachments', icon: '⬇️' },
         ].map(cat => `
-          <button type="button" data-action="switch-vault-tab" data-vault-tab="${cat.id}" class="px-3 py-1.5 rounded-xl font-medium whitespace-nowrap transition-all cursor-pointer flex items-center space-x-1.5 ${activeVaultCategory === cat.id ? 'bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/30 shadow-sm' : 'text-slate-400 hover:text-white hover:bg-surface-raised border border-transparent'}">
+          <button type="button" data-action="switch-vault-tab" data-vault-tab="${cat.id}" class="px-3 py-1.5 rounded-xl font-medium whitespace-nowrap transition-all cursor-pointer flex items-center space-x-1.5 ${activeVaultCategory === cat.id ? 'bg-[var(--color-accent,#e59b3c)] text-slate-950 font-bold shadow-xs' : 'text-slate-400 hover:text-white hover:bg-surface-raised border border-transparent'}">
             <span>${cat.icon}</span>
             <span>${cat.label}</span>
           </button>
         `).join('')}
       </div>
 
-      <!-- COLLAPSIBLE TELEMETRY & INTEGRITY BAR -->
-      <details class="vault-telemetry-details border-b border-white/5 bg-surface-base/80 text-xs font-mono select-none" ${clientStore.isSimpleMode() ? '' : 'open'}>
-        <summary class="px-4 md:px-6 py-2 flex items-center justify-between text-slate-400 hover:text-white cursor-pointer bg-surface-raised/30 transition-colors">
-          <div class="flex items-center space-x-2">
-            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span class="text-xs font-semibold text-slate-300">Storage details</span>
-          </div>
-          <span class="text-[11px] text-cyan-400 hover:underline">Node Diagnostics ▾</span>
-        </summary>
-        <div class="p-3 md:p-4 bg-gradient-to-r from-emerald-950/20 via-surface-base to-surface-base border-t border-white/5">
-          <div class="max-w-5xl mx-auto grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div class="p-3 rounded-xl bg-surface-raised/80 border border-emerald-500/20">
-              <div class="text-[10px] text-slate-400 uppercase">ACTIVE SEEDERS</div>
-              <div class="text-sm text-slate-400 mt-0.5">Not measured</div>
-            </div>
-            <div class="p-3 rounded-xl bg-surface-raised/80 border border-white/5">
-              <div class="text-[10px] text-slate-400 uppercase">REPRODUCIBILITY</div>
-              <div class="text-sm text-slate-400 mt-0.5">Inspect each resource</div>
-            </div>
-            <div class="p-3 rounded-xl bg-surface-raised/80 border border-white/5">
-              <div class="text-[10px] text-slate-400 uppercase">ENTROPY VERDICT</div>
-              <div class="text-sm text-slate-400 mt-0.5">Not a malware verdict</div>
-            </div>
-            <div class="p-3 rounded-xl bg-surface-raised/80 border border-white/5">
-              <div class="text-[10px] text-slate-400 uppercase">LEDGER STATE</div>
-              <div class="text-sm text-slate-400 mt-0.5">Not measured</div>
-            </div>
-          </div>
-        </div>
-      </details>
-
-      <!-- VAULT CONTENT SCROLL AREA -->
+      <!-- VAULT CONTENT SCROLL AREA (CONTENT FIRST) -->
       <div id="main-feed-scroll" class="flex-1 p-3 sm:p-4 md:p-6 overflow-y-auto space-y-4 max-w-5xl mx-auto w-full pb-20 md:pb-6">
-        ${renderStorageQuotaMeter()}
         ${renderUploadProgressCard()}
         ${
           activeVaultCategory === 'private'
-            ? renderKnowledgeMemory()
+            ? renderKnowledgeMemoryPlaceholder()
             : activeVaultCategory === 'collections'
             ? renderCollectionsView(posts)
             : posts.length === 0
               ? (clientStore.activeChannelId === 'vault-releases' ? renderVaultReleasesEmptyState() : renderVaultFilesEmptyState())
               : posts.map(p => renderVaultReleaseCard(p)).join('')
         }
+
+        <!-- SECONDARY CONTROLS (COLLAPSIBLE AT BOTTOM) -->
+        <details class="vault-storage-details border border-white/5 rounded-2xl bg-surface-base/50 overflow-hidden text-xs select-none mt-8">
+          <summary class="px-4 py-3 flex items-center justify-between text-slate-400 hover:text-white cursor-pointer bg-surface-raised/40 transition-colors font-medium">
+            <span class="flex items-center gap-2">
+              <span>💾</span>
+              <span class="text-xs font-semibold text-slate-300">Storage &amp; Portability</span>
+            </span>
+            <span class="text-[11px] text-slate-500">Details ▾</span>
+          </summary>
+          <div class="p-4 border-t border-white/5 bg-surface-base">
+            ${renderStorageQuotaMeter()}
+          </div>
+        </details>
+
+        <!-- NODE DIAGNOSTICS (COLLAPSED) -->
+        <details class="vault-telemetry-details border border-white/5 rounded-2xl bg-surface-base/50 overflow-hidden text-xs font-mono select-none">
+          <summary class="px-4 py-3 flex items-center justify-between text-slate-400 hover:text-white cursor-pointer bg-surface-raised/40 transition-colors">
+            <div class="flex items-center space-x-2">
+              <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+              <span class="text-xs font-semibold text-slate-300">Node Diagnostics</span>
+            </div>
+            <span class="text-[11px] text-slate-500">Diagnostics ▾</span>
+          </summary>
+          <div class="p-3 md:p-4 bg-surface-base border-t border-white/5">
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div class="p-3 rounded-xl bg-surface-raised/80 border border-white/10">
+                <div class="text-[10px] text-slate-400 uppercase">ACTIVE SEEDERS</div>
+                <div class="text-sm text-slate-400 mt-0.5">Not measured</div>
+              </div>
+              <div class="p-3 rounded-xl bg-surface-raised/80 border border-white/5">
+                <div class="text-[10px] text-slate-400 uppercase">REPRODUCIBILITY</div>
+                <div class="text-sm text-slate-400 mt-0.5">Inspect each resource</div>
+              </div>
+              <div class="p-3 rounded-xl bg-surface-raised/80 border border-white/5">
+                <div class="text-[10px] text-slate-400 uppercase">ENTROPY VERDICT</div>
+                <div class="text-sm text-slate-400 mt-0.5">Not a malware verdict</div>
+              </div>
+              <div class="p-3 rounded-xl bg-surface-raised/80 border border-white/5">
+                <div class="text-[10px] text-slate-400 uppercase">LEDGER STATE</div>
+                <div class="text-sm text-slate-400 mt-0.5">Not measured</div>
+              </div>
+            </div>
+          </div>
+        </details>
       </div>
 
       <!-- NEW COLLECTION MODAL -->

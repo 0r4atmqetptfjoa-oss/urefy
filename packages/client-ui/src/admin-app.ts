@@ -52,95 +52,144 @@ export function initAdminApp(): void {
 }
 
 // ─────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────
 // LOGIN PAGE
 // ─────────────────────────────────────────────────────────
 
 function renderLoginPage(): string {
-  return `
-    <div class="min-h-screen bg-[#090a0c] flex items-center justify-center p-4 font-sans">
+  const isPasskeySupported = typeof window !== 'undefined' && !!window.PublicKeyCredential;
 
-      <!-- Ambient background glow -->
+  return `
+    <div class="min-h-screen bg-[#07080b] flex items-center justify-center p-4 font-sans text-slate-200 selection:bg-amber/30">
+
+      <!-- Ambient tactical grid & glow -->
       <div class="fixed inset-0 pointer-events-none overflow-hidden">
-        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-amber/5 blur-[120px]"></div>
+        <div class="absolute inset-0 bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:24px_24px] opacity-20"></div>
+        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[640px] h-[640px] rounded-full bg-gradient-to-tr from-amber-500/10 via-orange-600/5 to-transparent blur-[140px]"></div>
       </div>
 
-      <div class="relative w-full max-w-sm">
+      <div class="relative w-full max-w-md">
 
-        <!-- LOGO -->
-        <div class="text-center mb-8">
-          <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-tr from-amber/30 via-orange-500/20 to-amber/10 border border-amber/30 shadow-2xl shadow-amber/10 mb-4">
-            <span class="text-2xl font-black text-amber tracking-widest">U</span>
+        <!-- BRAND HEADER -->
+        <div class="text-center mb-6">
+          <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-tr from-amber-500/20 via-orange-500/10 to-transparent border border-amber-500/30 shadow-2xl shadow-amber-500/10 mb-3.5 ring-1 ring-white/10">
+            <span class="text-2xl font-black text-amber tracking-wider">U</span>
           </div>
-          <h1 class="text-xl font-bold text-white tracking-wide">UREfy</h1>
-          <p class="text-xs text-slate-500 mt-1 font-mono uppercase tracking-widest">Admin Control Panel</p>
+          <h1 class="text-xl font-extrabold text-white tracking-tight flex items-center justify-center space-x-2">
+            <span>UREfy Control Plane</span>
+            <span class="text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-full">v4.0</span>
+          </h1>
+          <p class="text-xs text-slate-400 mt-1 font-mono">Sovereign Mission Control & Zero-Trust Perimeter</p>
         </div>
 
-        <!-- LOGIN CARD -->
-        <div class="bg-[#0f1117] border border-white/10 rounded-3xl overflow-hidden shadow-2xl shadow-black/50">
+        <!-- COCKPIT CLEARANCE CARD -->
+        <div class="bg-[#0c0e14]/90 backdrop-blur-2xl border border-white/10 rounded-3xl overflow-hidden shadow-2xl shadow-black/80 ring-1 ring-white/5">
 
-          <!-- HEADER STRIPE -->
-          <div class="h-1 bg-gradient-to-r from-amber/0 via-amber to-amber/0"></div>
+          <!-- STATUS TICKER STRIPE -->
+          <div class="h-1 bg-gradient-to-r from-amber-500/0 via-amber-400 to-amber-500/0"></div>
 
-          <div class="p-8">
-            <div class="text-center mb-6">
-              <div class="inline-flex items-center space-x-2 text-xs font-mono text-amber/70 bg-amber/10 border border-amber/20 px-3 py-1.5 rounded-full">
-                <span class="w-1.5 h-1.5 rounded-full bg-amber animate-pulse"></span>
-                <span>RESTRICTED ACCESS</span>
+          <div class="p-6 sm:p-8 space-y-5">
+            
+            <!-- ZERO-TRUST BADGE -->
+            <div class="flex items-center justify-between p-3 rounded-2xl bg-surface-raised/40 border border-white/5 text-xs font-mono">
+              <div class="flex items-center space-x-2">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span class="text-slate-300 font-semibold">Zero-Trust Enclave</span>
+              </div>
+              <span class="text-[10px] text-amber-400/90 font-bold tracking-wider">FIDO2 L3 LEVEL</span>
+            </div>
+
+            <!-- SECURITY RADAR SPEC -->
+            <div class="grid grid-cols-2 gap-2 text-[11px] font-mono text-slate-400">
+              <div class="p-2.5 rounded-xl bg-white/[0.02] border border-white/5">
+                <div class="text-[10px] text-slate-500">AUTH METHOD</div>
+                <div class="text-slate-200 font-bold flex items-center space-x-1 mt-0.5">
+                  <span>🛡️</span>
+                  <span>Hardware Key</span>
+                </div>
+              </div>
+              <div class="p-2.5 rounded-xl bg-white/[0.02] border border-white/5">
+                <div class="text-[10px] text-slate-500">ORIGIN BINDING</div>
+                <div class="text-emerald-400 font-bold flex items-center space-x-1 mt-0.5">
+                  <span>🔒</span>
+                  <span>Strict RP-ID</span>
+                </div>
               </div>
             </div>
 
-            <form id="admin-login-form" data-submit="call-global" data-global-method="event.preventDefault" class="space-y-4">
-              <div class="space-y-1.5">
-                <div class="flex items-center justify-between">
-                  <label for="login-pin-input" class="text-xs text-slate-400 font-medium">Administrator Password / PIN</label>
-                  <button
-                    type="button"
-                    id="btn-toggle-pin-visibility"
-                    class="text-[11px] text-slate-500 hover:text-amber transition-colors cursor-pointer font-mono"
-                  >
-                    👁 Show password
-                  </button>
-                </div>
-                <input
-                  type="password"
-                  id="login-pin-input"
-                  name="admin-pin"
-                  maxlength="128"
-                  placeholder="Enter admin password or PIN..."
-                  class="w-full bg-[#1a1d27] border border-white/10 rounded-xl px-4 py-3 text-center text-base font-mono text-white placeholder-slate-600 focus:outline-none focus:border-amber/50 focus:ring-2 focus:ring-amber/10 transition-all"
-                  autocomplete="current-password"
-                  autofocus
-                />
-              </div>
-
-              <div id="login-error" class="hidden text-xs text-crimson font-medium text-center py-1"></div>
-
+            <!-- PRIMARY AUTHENTICATION BUTTON: HARDWARE PASSKEY -->
+            <div class="space-y-2.5 pt-1">
               <button
-                type="submit"
-                id="btn-login-submit"
-                class="w-full py-3.5 rounded-xl bg-amber text-black font-bold text-sm hover:bg-amber/90 active:scale-95 transition-all shadow-lg shadow-amber/20 cursor-pointer"
+                type="button"
+                id="btn-login-passkey"
+                class="w-full py-4 px-4 rounded-2xl bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 text-slate-950 font-extrabold text-sm flex items-center justify-center space-x-2.5 shadow-xl shadow-amber-500/20 hover:brightness-110 active:scale-[0.98] transition-all cursor-pointer group"
               >
-                Unlock Admin Panel
+                <span class="text-base group-hover:scale-110 transition-transform">🔑</span>
+                <span>Authenticate with Hardware Key</span>
               </button>
-            </form>
+              <p class="text-center text-[10px] text-slate-500 font-mono">
+                Supports YubiKey, Apple Touch ID / Face ID, Windows Hello & FIDO2
+              </p>
+            </div>
 
-            <button type="button" id="btn-login-passkey" class="mt-3 w-full py-3 rounded-xl border border-amber/30 text-amber text-sm font-bold">Sign in with a passkey</button>
+            <div id="login-error" class="hidden text-xs text-crimson font-medium text-center p-2 rounded-xl bg-crimson/10 border border-crimson/30 animate-in fade-in"></div>
 
-            <div class="mt-6 pt-4 border-t border-white/5 text-center">
-              <a href="/" class="text-xs text-slate-600 hover:text-slate-400 transition-colors">
-                ← Back to UREfy
+            <!-- EMERGENCY BREAK-GLASS & LOCAL DEV ACCORDION -->
+            <details class="pt-2 border-t border-white/5 group/dev">
+              <summary class="text-[11px] font-mono text-slate-500 hover:text-slate-300 transition-colors cursor-pointer text-center select-none py-1">
+                ⚡ Emergency Break-Glass & Dev Override
+              </summary>
+              <div class="pt-3 space-y-3">
+                <form id="admin-login-form" data-submit="call-global" data-global-method="event.preventDefault" class="space-y-3">
+                  <div class="space-y-1">
+                    <div class="flex items-center justify-between">
+                      <label for="login-pin-input" class="text-[11px] text-slate-400 font-medium">Break-Glass PIN / Passphrase</label>
+                      <button
+                        type="button"
+                        id="btn-toggle-pin-visibility"
+                        class="text-[10px] text-slate-500 hover:text-amber transition-colors cursor-pointer font-mono"
+                      >
+                        👁 Show
+                      </button>
+                    </div>
+                    <input
+                      type="password"
+                      id="login-pin-input"
+                      name="admin-pin"
+                      maxlength="128"
+                      placeholder="Emergency override..."
+                      class="w-full bg-[#141824] border border-white/10 rounded-xl px-3.5 py-2.5 text-center text-sm font-mono text-white placeholder-slate-600 focus:outline-none focus:border-amber/50 focus:ring-1 focus:ring-amber/20 transition-all"
+                      autocomplete="current-password"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    id="btn-login-submit"
+                    class="w-full py-2.5 rounded-xl bg-surface-raised hover:bg-surface-overlay text-slate-300 hover:text-white border border-white/10 font-bold text-xs transition-all cursor-pointer"
+                  >
+                    Unlock with Override PIN
+                  </button>
+                </form>
+              </div>
+            </details>
+
+            <div class="pt-2 text-center">
+              <a href="/" class="text-xs text-slate-500 hover:text-slate-300 transition-colors font-mono">
+                ← Return to Public Network
               </a>
             </div>
           </div>
         </div>
 
-        <p class="text-center text-xs text-slate-600 mt-4 font-mono">
-          Authorized administrators only. Passkeys can be added after signing in.
+        <p class="text-center text-[10px] text-slate-600 mt-4 font-mono">
+          UREfy Sovereign Control Architecture · Zero Plaintext Secrets · WORM Audit Log Active
         </p>
       </div>
     </div>
   `;
 }
+
 
 function bindLoginEvents(): void {
   const form = document.querySelector('form');
@@ -236,6 +285,8 @@ function bindLoginEvents(): void {
 // FULL ADMIN APP
 // ─────────────────────────────────────────────────────────
 
+let sessionTickerInterval: any = null;
+
 function renderFullAdminApp(): string {
   return adminPanel.renderAdminPanel(adminAuth.adminFingerprintId, adminAuth.getSessionRemainingFormatted());
 }
@@ -244,9 +295,41 @@ function bindAdminEvents(): void {
   adminPanel.bindEvents(() => initAdminApp());
   void bindAdminPasskeySettings();
 
+  if (sessionTickerInterval) clearInterval(sessionTickerInterval);
+  sessionTickerInterval = setInterval(() => {
+    const tickerEl = document.getElementById('admin-session-ticker');
+    if (tickerEl) {
+      tickerEl.textContent = `Session: ${adminAuth.getSessionRemainingFormatted()}`;
+    }
+    if (!adminAuth.isAdmin) {
+      if (sessionTickerInterval) {
+        clearInterval(sessionTickerInterval);
+        sessionTickerInterval = null;
+      }
+      adminPanel.close();
+      initAdminApp();
+    }
+  }, 1000);
+
   // Lock session button
   document.getElementById('btn-close-admin-panel')?.addEventListener('click', () => {
+    if (sessionTickerInterval) {
+      clearInterval(sessionTickerInterval);
+      sessionTickerInterval = null;
+    }
     adminAuth.logout();
+    adminPanel.close();
+    initAdminApp();
+  });
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('urefy-admin-locked', () => {
+    if (sessionTickerInterval) {
+      clearInterval(sessionTickerInterval);
+      sessionTickerInterval = null;
+    }
+    adminPanel.close();
     initAdminApp();
   });
 }

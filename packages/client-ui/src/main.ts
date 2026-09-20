@@ -1,9 +1,28 @@
+import './theme-boot.js';
 import './style.css';
 import './premium.css';
 import './orbit.css';
 import './discovery.css';
 import './context.css';
+import './product.css';
 import { secureStorage } from './secure-storage.js';
+
+// An open tab can outlive the deployment that supplied its lazy chunks. Preserve
+// the user's current form rather than replacing the page without their action.
+window.addEventListener('vite:preloadError', (event) => {
+  event.preventDefault();
+  if (document.getElementById('workspace-update-notice')) return;
+  const notice = document.createElement('div');
+  notice.id = 'workspace-update-notice';
+  notice.className = 'workspace-update-notice';
+  notice.setAttribute('role', 'alert');
+  const text = document.createElement('span');
+  text.textContent = navigator.onLine ? 'This view needs the latest app files. Save your current work, then reload.' : 'This view is not available offline. Reconnect, then reload.';
+  const reload = document.createElement('button');
+  reload.type = 'button'; reload.textContent = 'Reload app';
+  reload.addEventListener('click', () => window.location.reload());
+  notice.append(text, reload); document.body.appendChild(notice);
+});
 
 const start = async () => {
   await secureStorage.init();

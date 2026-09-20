@@ -15,16 +15,20 @@ export class MicroSaaSDocsModal {
   private activeTab: 'binary-hygiene' | 'zk-trust' | 'crypto-sdk' = 'binary-hygiene';
 
   public open(): void {
+    this.activeTab = 'binary-hygiene';
     if (this.container) {
       this.container.remove();
+      this.container = null;
     }
-    this.render();
   }
 
   public close(): void {
     if (this.container) {
       this.container.remove();
       this.container = null;
+    }
+    if (typeof document !== 'undefined') {
+      document.querySelectorAll('#microsaas-docs-modal').forEach(el => el.remove());
     }
   }
 
@@ -206,7 +210,7 @@ export class MicroSaaSDocsModal {
               <div class="relative bg-slate-950 p-3 rounded-lg border border-slate-800 font-mono text-xs text-emerald-400 overflow-x-auto">
                 <pre><code>curl -X POST "${origin}/api/scan-binary" \\
   -F "file=@payload.exe"</code></pre>
-                <button id="copy-curl-binary-btn" class="absolute top-2 right-2 px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-[10px] text-slate-200 border border-slate-700 transition">
+                <button id="copy-curl-binary-btn" data-action="microsaas-copy-curl" class="absolute top-2 right-2 px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-[10px] text-slate-200 border border-slate-700 transition cursor-pointer">
                   Copy
                 </button>
               </div>
@@ -234,9 +238,9 @@ export class MicroSaaSDocsModal {
 
           <div class="flex items-center justify-between pt-2">
             <div class="text-xs text-slate-400">
-              Direct Web Interface: <a href="javascript:void(0)" id="launch-binary-portal-link" class="text-cyan-400 underline hover:text-cyan-300">Open In-Browser Binary Scanner</a>
+              Direct Web Interface: <a href="javascript:void(0)" id="launch-binary-portal-link" data-action="microsaas-launch-portal" class="text-cyan-400 underline hover:text-cyan-300 cursor-pointer">Open In-Browser Binary Scanner</a>
             </div>
-            <button id="test-sample-scan-btn" class="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold shadow-lg shadow-cyan-600/20 transition">
+            <button id="test-sample-scan-btn" data-action="microsaas-test-scan" class="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold shadow-lg shadow-cyan-600/20 transition cursor-pointer">
               🧪 Test Live Edge Endpoint
             </button>
           </div>
@@ -265,7 +269,7 @@ export class MicroSaaSDocsModal {
   src="${origin}/embed/trust-badge?domain=mydao.eth&threshold=75"
   width="360" height="190" frameborder="0" style="border-radius: 12px; border: 1px solid #7c3aed44;"&gt;
 &lt;/iframe&gt;</code></pre>
-              <button id="copy-iframe-trust-btn" class="absolute top-2 right-2 px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-[10px] text-slate-200 border border-slate-700 transition">
+              <button id="copy-iframe-trust-btn" data-action="microsaas-copy-iframe" class="absolute top-2 right-2 px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-[10px] text-slate-200 border border-slate-700 transition cursor-pointer">
                 Copy
               </button>
             </div>
@@ -414,3 +418,6 @@ const recoveredSecret = decapsulateHybrid(ciphertext, keyPair);</code></pre>
 }
 
 export const microSaaSDocsModal = new MicroSaaSDocsModal();
+if (typeof window !== 'undefined') {
+  (window as any).microSaaSDocsModal = microSaaSDocsModal;
+}

@@ -139,8 +139,8 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
     // List communities
     let communities: any[] = [];
     if (db) {
-      let query = 'SELECT * FROM communities';
-      const params: any[] = [];
+      let query = 'SELECT communities.*, EXISTS(SELECT 1 FROM community_members WHERE community_id = communities.id AND user_id = ?) AS is_member FROM communities';
+      const params: any[] = [userId];
       if (category) {
         query += ' WHERE category = ?';
         params.push(category);
@@ -165,6 +165,7 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
           channelId: comm.channel_id,
           rules,
           membersCount: Number(comm.member_count) || 0,
+          isMember: Boolean(comm.is_member),
           createdAt: Number(comm.created_at),
         };
       });
@@ -210,28 +211,21 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
  */
 export async function onRequestPost(context: { request: Request; env?: Env }): Promise<Response> {
   try {
-    const body = await context.request.json().catch(() => null) as Record<string, any> | null;
-    if (!body) {
+    const raw = await context.request.json().catch(() => null) as Record<string, any> | null;
+    if (!raw) {
       return new Response(
         JSON.stringify({ success: false, error: 'Malformed JSON payload' }),
         { status: 400, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
       );
     }
 
-    let action = (body.action || '').trim().toLowerCase();
-    let communityId = (body.communityId || '').trim();
-    let userId = (body.userId || '').trim();
-
-    // Check signed envelope
-    if (body.envelope && typeof body.envelope === 'object') {
-      const auth = await requireSignedEnvelope(context, body.envelope);
-      if (auth.authorized) {
-        userId = auth.fingerprint || userId;
-        const payload = (auth.payload || {}) as any;
-        action = (payload.action || action).trim().toLowerCase();
-        communityId = (payload.communityId || communityId).trim();
-      }
-    }
+    const auth = await requireSignedEnvelope(context, raw.envelope || raw);
+    if (!auth.authorized) return auth.response!;
+    const body = auth.payload as Record<string, any>;
+    if (body.scope !== 'urefy-community-v1') return Response.json({ success: false, error: 'Invalid community request scope' }, { status: 400 });
+    const action = typeof body.action === 'string' ? body.action : '';
+    const communityId = typeof body.communityId === 'string' ? body.communityId : '';
+    const userId = auth.fingerprint!;
 
     const db = getD1Database(context.env);
     const isProd = isProductionEnv(context.env);
@@ -241,6 +235,11 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
     }
 
     const now = Date.now();
+
+    if (action === 'join' || action === 'leave') {
+      const exists = db ? await db.prepare('SELECT id FROM communities WHERE id = ?').bind(communityId).first() : globalCommunitiesStore.find(c => c.id === communityId);
+      if (!exists) return Response.json({ success: false, error: 'Community not found' }, { status: 404 });
+    }
 
     if (action === 'join') {
       if (!communityId || !userId) {
@@ -305,6 +304,7 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
     }
 
     if (action === 'create') {
+      if (body.communityType && body.communityType !== 'public') return Response.json({ success: false, error: 'Private community access controls are not available yet. Create a public community or use encrypted direct messages.' }, { status: 422 });
       const name = (body.name || '').trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
       const displayName = (body.displayName || '').trim();
       const description = (body.description || '').trim();

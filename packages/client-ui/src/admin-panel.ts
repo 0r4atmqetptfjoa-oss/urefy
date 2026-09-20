@@ -10,7 +10,20 @@ import { wotGraphViz } from './network-wot-graph.js';
 import { toastManager } from './toast.js';
 import { fetchAndRenderR2Quota } from './admin.js';
 
-export type AdminTab = 'dashboard' | 'users' | 'channels' | 'waf' | 'config' | 'moderation' | 'sql' | 'r2' | 'gossip' | 'cve' | 'observatory' | 'wot' | 'dsa';
+export type AdminTab = 'dashboard' | 'users' | 'channels' | 'waf' | 'config' | 'moderation' | 'sql' | 'r2' | 'gossip' | 'cve' | 'observatory' | 'wot' | 'dsa' | 'audit';
+
+export interface AdminAuditLedgerEntry {
+  id: string;
+  previous_entry_hash: string;
+  current_entry_hash: string;
+  timestamp: number;
+  admin_credential_id: string;
+  action: string;
+  target_resource?: string;
+  client_ip?: string;
+  client_country?: string;
+  payload_digest?: string;
+}
 
 export interface AdminUser {
   fingerprint: string;
@@ -96,6 +109,7 @@ export class AdminPanelManager {
   public overview: AdminOverview | null = null;
   public syncError = '';
   public onSyncComplete: (() => void) | null = null;
+  public auditLedger: AdminAuditLedgerEntry[] = [];
 
   public incidentSeverityFilter: IncidentSeverity = 'ALL';
 
@@ -179,6 +193,9 @@ export class AdminPanelManager {
     if (tab === 'r2') {
       this.listR2Objects().catch(() => {});
     }
+    if (tab === 'audit') {
+      this.syncWithServer().catch(() => {});
+    }
   }
 
   public startAutoSync(): void {
@@ -226,6 +243,7 @@ export class AdminPanelManager {
         if (data.bannedIPs && Array.isArray(data.bannedIPs)) this.bannedIPs = data.bannedIPs;
         if (data.config && typeof data.config === 'object') Object.assign(this.serverConfig, data.config);
         if (data.logs && Array.isArray(data.logs)) this.adminLogs = data.logs;
+        if (data.auditLedger && Array.isArray(data.auditLedger)) this.auditLedger = data.auditLedger;
         if (data.emergencyFreeze !== undefined) {
           this.emergencyFreeze = Boolean(data.emergencyFreeze);
         }
@@ -298,6 +316,7 @@ export class AdminPanelManager {
   private async _apiPost(action: string, payload: Record<string, any> = {}): Promise<any> {
     if (typeof fetch === 'undefined') return null;
     try {
+      adminAuth.touchSession();
       const res = await fetch('/api/admin', {
         method: 'POST',
         headers: this._getAuthHeaders(),
@@ -456,8 +475,9 @@ export class AdminPanelManager {
       title: 'UREfy Sovereign Security Audit Ledger',
       exportedAt: new Date().toISOString(),
       adminFingerprint: adminAuth.adminFingerprintId,
-      totalEntries: this.adminLogs.length,
-      logs: this.adminLogs,
+      totalEntries: (this.auditLedger && this.auditLedger.length) || this.adminLogs.length,
+      wormAuditLedger: this.auditLedger || [],
+      sessionLogs: this.adminLogs,
       serverConfig: this.serverConfig,
       bannedIPsCount: this.bannedIPs.length,
     };
@@ -694,7 +714,7 @@ export class AdminPanelManager {
                 <div class="w-9 h-9 rounded-xl bg-amber/20 border border-amber/40 flex items-center justify-center text-lg">⚙️</div>
                 <div>
                   <div class="text-sm font-bold text-white">Admin Panel</div>
-                  <div class="text-[10px] text-amber font-mono">Session: ${sessionRemaining}</div>
+                  <div class="text-[10px] text-amber font-mono" id="admin-session-ticker">Session: ${sessionRemaining}</div>
                 </div>
               </div>
               <div class="mt-2.5 text-[10px] text-slate-500 font-mono truncate">id:${adminFingerprint.substring(0,16)}...</div>
@@ -715,6 +735,7 @@ export class AdminPanelManager {
               ${this._renderNavTab('config', '🔧', 'Server Config')}
               ${this._renderNavTab('moderation', '📝', 'Moderation')}
               ${this._renderNavTab('dsa', '🚩', 'DSA Reports')}
+              ${this._renderNavTab('audit', '📜', 'Audit Ledger (WORM)')}
             </div>
           </div>
 
@@ -731,6 +752,14 @@ export class AdminPanelManager {
               class="w-full py-1.5 px-3 rounded-lg text-xs font-medium transition-all cursor-pointer ${this.serverConfig.maintenanceMode ? 'bg-crimson/20 text-crimson border border-crimson/30' : 'bg-surface-raised text-slate-300 border border-white/10 hover:border-amber/30'}"
             >
               ${this.serverConfig.maintenanceMode ? '🔴 Disable Maintenance' : '🟡 Enable Maintenance'}
+            </button>
+            <button
+              id="btn-admin-panic-lock"
+              class="w-full py-1.5 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer bg-red-950/80 hover:bg-red-900 text-red-300 border border-red-500/40 flex items-center justify-center space-x-1.5 shadow-sm"
+              title="Instantly zeroize memory and lock session"
+            >
+              <span>🚨</span>
+              <span>Panic Lock (Zeroize)</span>
             </button>
             <button
               id="btn-close-admin-panel"
@@ -796,7 +825,7 @@ export class AdminPanelManager {
   private _getTabIcon(): string {
     const icons: Record<AdminTab, string> = {
       dashboard: '📊', users: '👥', channels: '📢', waf: '🛡️', config: '🔧', moderation: '📝',
-      sql: '🖥️', r2: '🗄️', gossip: '🌐', cve: '🔍', observatory: '📡', wot: '🕸️', dsa: '🚩'
+      sql: '🖥️', r2: '🗄️', gossip: '🌐', cve: '🔍', observatory: '📡', wot: '🕸️', dsa: '🚩', audit: '📜'
     };
     return icons[this.activeTab] || '⚙️';
   }
@@ -816,6 +845,7 @@ export class AdminPanelManager {
       observatory: 'Network Observatory & Peer Slashing Radar',
       wot: 'Web of Trust Graph Inspector & Physics Simulation',
       dsa: 'EU DSA Notice & Takedown Queue (Art. 16)',
+      audit: 'Cryptographic Immutable Audit Ledger (WORM Merkle Chain)',
     };
     return titles[this.activeTab] || 'Admin Settings';
   }
@@ -831,12 +861,163 @@ export class AdminPanelManager {
       case 'config': return this._renderConfig();
       case 'moderation': return this._renderModeration();
       case 'dsa': return this._renderDSAReports();
+      case 'audit': return this._renderAuditLedger();
       case 'gossip': return `<div id="gossip-container-root">${gossipViz.renderGossipPanel()}</div>`;
       case 'cve': return `<div id="cve-container-root">${cveMonitor.renderCVEDashboard()}</div>`;
       case 'observatory': return `<div id="observatory-container-root">${networkObservatory.renderObservatoryModal()}</div>`;
       case 'wot': return `<div id="wot-container-root">${wotGraphViz.renderWoTGraphModal()}</div>`;
       default: return '';
     }
+  }
+
+  private _renderAuditLedger(): string {
+    const entries = this.auditLedger || [];
+    let isChainIntact = true;
+    for (let i = entries.length - 1; i > 0; i--) {
+      if (entries[i - 1].previous_entry_hash !== entries[i].current_entry_hash) {
+        isChainIntact = false;
+        break;
+      }
+    }
+
+    return `
+      <div class="space-y-5">
+        <!-- TOP BANNER: WORM CRYPTOGRAPHIC LEDGER -->
+        <div class="p-5 rounded-2xl bg-gradient-to-r from-amber-950/40 via-surface-raised to-emerald-950/30 border border-amber-500/30 space-y-3 shadow-lg">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div class="flex items-center space-x-3">
+              <div class="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-xl shadow-inner">
+                📜
+              </div>
+              <div>
+                <h3 class="text-sm font-bold text-white font-mono flex items-center gap-2">
+                  <span>Cryptographic WORM Audit Ledger</span>
+                  <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-500/30 font-mono font-bold">
+                    ${isChainIntact ? '✓ MERKLE CHAIN VERIFIED' : '⚠ CHAIN INTEGRITY ALERT'}
+                  </span>
+                </h3>
+                <p class="text-xs text-slate-400 mt-0.5 font-mono">
+                  Write Once, Read Many · Cloudflare D1 Append-Only · SHA-256 Block-Chained Verification
+                </p>
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <button
+                id="btn-admin-export-audit"
+                class="px-3 py-1.5 rounded-xl bg-amber/10 hover:bg-amber/20 text-amber border border-amber/30 text-xs font-mono font-bold flex items-center space-x-1.5 transition-all cursor-pointer shadow-sm"
+              >
+                <span>💾</span>
+                <span>Export Ledger JSON</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- METRICS ROW -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+            <div class="p-3 rounded-xl bg-black/40 border border-white/5 font-mono">
+              <div class="text-[10px] text-slate-500 uppercase">Total Sealed Events</div>
+              <div class="text-base font-bold text-white mt-1">${entries.length}</div>
+            </div>
+            <div class="p-3 rounded-xl bg-black/40 border border-white/5 font-mono">
+              <div class="text-[10px] text-slate-500 uppercase">Tamper Resistance</div>
+              <div class="text-base font-bold text-emerald-400 mt-1">SHA-256 Chained</div>
+            </div>
+            <div class="p-3 rounded-xl bg-black/40 border border-white/5 font-mono">
+              <div class="text-[10px] text-slate-500 uppercase">Origin Invariant</div>
+              <div class="text-base font-bold text-cyan-300 mt-1">D1 Edge Persistent</div>
+            </div>
+            <div class="p-3 rounded-xl bg-black/40 border border-white/5 font-mono">
+              <div class="text-[10px] text-slate-500 uppercase">Zero Plaintext PINs</div>
+              <div class="text-base font-bold text-amber-300 mt-1">Passkey / Token</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- AUDIT ENTRIES TABLE -->
+        <div class="bg-surface-raised border border-white/10 rounded-2xl overflow-hidden shadow-xl">
+          <div class="p-4 border-b border-white/10 flex items-center justify-between bg-surface-raised/80">
+            <div class="flex items-center space-x-2">
+              <span class="text-sm">🔗</span>
+              <h4 class="text-xs font-bold text-white uppercase font-mono tracking-wider">Immutable Merkle Chain</h4>
+            </div>
+            <span class="text-[11px] text-slate-400 font-mono">${entries.length} verified operations</span>
+          </div>
+
+          ${entries.length === 0 ? `
+            <div class="p-12 text-center text-slate-500 font-mono text-xs">
+              <span class="text-3xl block mb-3">📜</span>
+              No audit entries recorded in this session. All administrative actions will append here with cryptographic SHA-256 chaining.
+            </div>
+          ` : `
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs font-mono">
+                <thead class="bg-black/40 text-slate-400 uppercase text-[10px]">
+                  <tr>
+                    <th class="px-4 py-2.5">Time (UTC)</th>
+                    <th class="px-4 py-2.5">Action</th>
+                    <th class="px-4 py-2.5">Admin ID</th>
+                    <th class="px-4 py-2.5">Resource / IP</th>
+                    <th class="px-4 py-2.5">Chain Block Hash (SHA-256)</th>
+                    <th class="px-4 py-2.5">Payload Digest</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-white/5 text-slate-300">
+                  ${entries.map(entry => {
+                    const isDestructive = [
+                      'purge-cache', 'backup-trigger', 'ban-ip', 'broadcast-message',
+                      'server-config-update', 'emergency-freeze', 'delete-post',
+                      'delete-message', 'delete-channel', 'execute-sql', 'delete-r2-object'
+                    ].includes(entry.action.toLowerCase());
+                    const timeStr = new Date(entry.timestamp).toISOString().replace('T', ' ').slice(0, 19);
+                    return `
+                      <tr class="hover:bg-white/[0.02] transition-colors">
+                        <td class="px-4 py-3 whitespace-nowrap text-slate-400 font-mono text-[11px]">
+                          ${timeStr}
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap">
+                          <span class="px-2 py-0.5 rounded text-[10px] font-bold font-mono ${
+                            isDestructive
+                              ? 'bg-rose-950/80 text-rose-300 border border-rose-500/40'
+                              : 'bg-indigo-950/80 text-indigo-300 border border-indigo-500/40'
+                          }">
+                            ${entry.action}
+                          </span>
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap text-slate-300 font-mono" title="${entry.admin_credential_id}">
+                          ${entry.admin_credential_id.slice(0, 14)}…
+                        </td>
+                        <td class="px-4 py-3 text-slate-400 font-mono text-[11px]">
+                          <div class="truncate max-w-xs text-white" title="${entry.target_resource || '-'}">
+                            ${entry.target_resource || '-'}
+                          </div>
+                          <div class="text-[10px] text-slate-500">
+                            ${entry.client_ip || 'local'} ${entry.client_country ? '(' + entry.client_country + ')' : ''}
+                          </div>
+                        </td>
+                        <td class="px-4 py-3 font-mono text-[11px]">
+                          <div class="flex items-center space-x-1.5">
+                            <span class="text-emerald-400 font-bold" title="Current block hash: ${entry.current_entry_hash}">
+                              #${entry.current_entry_hash.slice(0, 10)}…
+                            </span>
+                            <span class="text-slate-600">←</span>
+                            <span class="text-slate-500 text-[10px]" title="Previous block hash: ${entry.previous_entry_hash}">
+                              ${entry.previous_entry_hash.slice(0, 8)}…
+                            </span>
+                          </div>
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap text-slate-500 font-mono text-[10px]" title="Payload SHA-256 digest: ${entry.payload_digest || '-'}">
+                          ${entry.payload_digest ? entry.payload_digest.slice(0, 12) + '…' : '-'}
+                        </td>
+                      </tr>
+                    `;
+                  }).join('')}
+                </tbody>
+              </table>
+            </div>
+          `}
+        </div>
+      </div>
+    `;
   }
 
   private _renderDashboard(): string {
@@ -2584,6 +2765,11 @@ export class AdminPanelManager {
           onStateChange();
         }
       });
+    });
+
+    // Panic Lock (Instant Zeroize RAM & Lock)
+    document.getElementById('btn-admin-panic-lock')?.addEventListener('click', () => {
+      adminAuth.panicLock();
     });
 
     // Logout

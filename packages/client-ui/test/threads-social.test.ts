@@ -8,6 +8,7 @@ describe('Threads Social Features (Sorting, Safety, Permalinks)', () => {
   beforeEach(() => {
     socialSafety.clearAll();
     tm = new ThreadManager();
+    tm.loadDemoData();
   });
 
   afterEach(() => {

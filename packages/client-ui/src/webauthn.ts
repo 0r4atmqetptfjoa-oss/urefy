@@ -10,7 +10,8 @@ import { sovereignDialog } from './dialog-modal.js';
 import './window-augmentation.js';
 import { serviceRegistry, SERVICES } from './service-registry.js';
 import { safeRequestAnimationFrame } from './dry-utils.js';
-import { isProductionBuild } from './admin-auth.js';
+import { isProductionBuild } from './env-check.js';
+import { signMessage, bytesToHex } from '@aetheris/core-crypto';
 
 // ─── Interfaces ─────────────────────────────────────────────────────────────
 
@@ -287,7 +288,6 @@ export class WebAuthnManager {
           { type: 'public-key', alg: -37 },  // PS256 (RSA-PSS w/ SHA-256)
         ],
         authenticatorSelection: {
-          authenticatorAttachment: 'cross-platform', // External Security Keys (YubiKey)
           userVerification: 'preferred',
           requireResidentKey: false,
         },
@@ -304,6 +304,7 @@ export class WebAuthnManager {
       }
 
       const detectedName = this._detectDefaultDeviceName();
+      const initialDeviceName = (displayName && displayName !== 'UREfy Sovereign Identity') ? displayName : detectedName;
 
       const newCredential: WebAuthnCredential = {
         id: credential.id,
@@ -311,7 +312,7 @@ export class WebAuthnManager {
         type: 'public-key',
         userHandle: userName,
         createdAt: Date.now(),
-        deviceName: detectedName,
+        deviceName: initialDeviceName,
         counter: 0,
       };
 
@@ -321,7 +322,7 @@ export class WebAuthnManager {
 
       // Server-side attestation registration and public key credential storage
       const attResp = credential.response as AuthenticatorAttestationResponse;
-      const regPayload = {
+      const regPayload: Record<string, any> = {
         action: 'register',
         fingerprint: userName,
         credentialId: credential.id,
@@ -330,11 +331,32 @@ export class WebAuthnManager {
         attestationObject: attResp?.attestationObject ? bufferToBase64URL(attResp.attestationObject) : '',
       };
 
+      // Finding 10: Cryptographic Identity Binding (Ed25519 signature over challenge)
+      try {
+        const cs = (serviceRegistry.tryResolve(SERVICES.ClientStore) as any) || (typeof window !== 'undefined' ? (window as any).clientStore : undefined);
+        if (cs?.keypair?.privateKey) {
+          const challengeStr = bufferToBase64URL(challenge);
+          const sigBytes = signMessage(challengeStr, cs.keypair.privateKey);
+          regPayload.signature = bytesToHex(sigBytes);
+          regPayload.publicKeyHex = cs.keypair.publicKeyHex || bytesToHex(cs.keypair.publicKey);
+        }
+      } catch (bindErr) {
+        console.warn('[WebAuthn] Could not attach Ed25519 identity binding signature:', bindErr);
+      }
+
+      const reqHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (typeof localStorage !== 'undefined') {
+        const adminPin = localStorage.getItem('urefy_admin_pin') || localStorage.getItem('aetheris_admin_pin');
+        if (adminPin) reqHeaders['X-Admin-PIN'] = adminPin;
+        const sessionToken = localStorage.getItem('aetheris_session_token') || (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('aetheris_session_token') : null);
+        if (sessionToken) reqHeaders['Authorization'] = `Bearer ${sessionToken}`;
+      }
+
       let regRes: Response;
       try {
         regRes = await fetch('/api/webauthn', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: reqHeaders,
           body: JSON.stringify(regPayload),
         });
       } catch (netErr: any) {
@@ -569,6 +591,13 @@ export class WebAuthnManager {
   }
 
   /**
+   * Returns whether the vault is currently locked.
+   */
+  public isVaultLocked(): boolean {
+    return this.vaultLocked;
+  }
+
+  /**
    * Verifies if vault is unlocked. If locked, prompts for authentication automatically.
    */
   public async ensureVaultUnlocked(actionReason: string = 'access protected data'): Promise<boolean> {
@@ -595,7 +624,7 @@ export class WebAuthnManager {
   }
 
   /**
-   * Removes a registered credential by its ID.
+   * Removes a registered credential by its ID and prunes it authoritatively from D1.
    */
   public removeCredential(credentialId: string): boolean {
     const idx = this.registeredCredentials.findIndex((c) => c.id === credentialId);
@@ -609,10 +638,44 @@ export class WebAuthnManager {
       this.vaultLocked = true;
     }
 
+    // Remote authoritative deletion on Cloudflare D1 (async background)
+    void this._deleteRemoteCredential(credentialId, removed.userHandle);
+
     this._notifyListeners('credential_removed', removed);
     this._showNotification(`Hardware key "${removed.deviceName}" deleted.`, 'amber');
     this._refreshDomComponents();
     return true;
+  }
+
+  /**
+   * Authoritatively informs the D1 registry of credential deletion.
+   */
+  public async _deleteRemoteCredential(credentialId: string, userHandle?: string): Promise<void> {
+    try {
+      const cs = (serviceRegistry.tryResolve(SERVICES.ClientStore) as any) || (typeof window !== 'undefined' ? (window as any).clientStore : undefined);
+      const activeFp = userHandle || cs?.keypair?.fingerprint || 'sovereign_node';
+      const delPayload: Record<string, any> = {
+        action: 'delete',
+        credentialId,
+        fingerprint: activeFp,
+      };
+
+      if (cs?.keypair?.privateKey) {
+        const sigBytes = signMessage(credentialId, cs.keypair.privateKey);
+        delPayload.signature = bytesToHex(sigBytes);
+        delPayload.publicKeyHex = cs.keypair.publicKeyHex || bytesToHex(cs.keypair.publicKey);
+      }
+
+      await fetch('/api/webauthn', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(delPayload),
+      }).catch((err) => {
+        console.warn('[WebAuthn] Remote passkey deletion notice:', err);
+      });
+    } catch (e) {
+      console.warn('[WebAuthn] Could not delete remote passkey:', e);
+    }
   }
 
   /**

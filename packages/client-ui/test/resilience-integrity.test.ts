@@ -109,7 +109,7 @@ describe('UREfy Sovereign Integrity & E2E Resilience Test Suite', () => {
       expect(createdPost.id).toBeDefined();
       expect(createdPost.title).toBe('Zero-Knowledge Micro-Kernel v1.0.0 Architecture');
       expect(createdPost.authorFingerprint).toBe(store.keypair.fingerprint);
-      expect(createdPost.meritVotes).toBe(1);
+      expect(createdPost.meritVotes).toBe(0);
       expect(store.posts.some((p) => p.id === createdPost.id)).toBe(true);
 
       // Step B: ZK-RLN Cryptographic Proof Generation for Rate-Limiting
@@ -122,15 +122,15 @@ describe('UREfy Sovereign Integrity & E2E Resilience Test Suite', () => {
       expect(proofShare.y).toBeDefined();
 
       // Step C: Merit Voting (Upvote, Downvote, Neutral Toggle)
-      store.votePost(createdPost.id, 1); // Cancel existing self-vote (+1 -> 0)
+      store.votePost(createdPost.id, 1); // First explicit endorsement
       let postInStore = store.posts.find((p) => p.id === createdPost.id)!;
-      expect(postInStore.meritVotes).toBe(0);
-      expect(postInStore.userVoted).toBe(0);
-
-      store.votePost(createdPost.id, 1); // Endorse (+1)
-      postInStore = store.posts.find((p) => p.id === createdPost.id)!;
       expect(postInStore.meritVotes).toBe(1);
       expect(postInStore.userVoted).toBe(1);
+
+      store.votePost(createdPost.id, 1); // Undo endorsement
+      postInStore = store.posts.find((p) => p.id === createdPost.id)!;
+      expect(postInStore.meritVotes).toBe(0);
+      expect(postInStore.userVoted).toBe(0);
 
       store.votePost(createdPost.id, -1); // Change to Divergent perspective (-1)
       postInStore = store.posts.find((p) => p.id === createdPost.id)!;

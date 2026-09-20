@@ -586,6 +586,36 @@ async function getCredential(
   return null;
 }
 
+export async function deleteCredential(
+  env: Env | undefined,
+  credentialId: string,
+  fingerprint: string
+): Promise<boolean> {
+  const isProd = isProductionEnv(env);
+  const db = getD1Database(env);
+  if (isProd && !db) {
+    throw new Error('Production WebAuthn requires active D1 database');
+  }
+
+  if (db) {
+    try {
+      await db.prepare(
+        `DELETE FROM webauthn_credentials WHERE credential_id = ? AND fingerprint = ?`
+      )
+        .bind(credentialId, fingerprint)
+        .run();
+    } catch (e: any) {
+      if (isProd) {
+        throw new Error(`Production WebAuthn credential deletion failed: ${e?.message || e}`);
+      }
+      console.warn('[WebAuthn] D1 deleteCredential warning:', e);
+    }
+  }
+
+  credentialMemoryCache.delete(credentialId);
+  return true;
+}
+
 /**
  * Finding 11: Concurrency-Safe WebAuthn sign-count Update
  * Uses atomic Compare-And-Set (CAS) to prevent cloned authenticator replay attacks
@@ -1364,6 +1394,41 @@ export async function onRequest(context: { request: Request; env?: Env }): Promi
             verifiedAt: Date.now(),
             counter: updatedCounter,
             message: 'FIDO2 Level 3 Assertion cryptographically verified on Sovereign Edge.',
+          }),
+          { status: 200, headers: corsHeaders }
+        );
+      }
+
+      // ────────────────────────────────────────────────────────────────────────
+      // 3. Action: Delete / Remove Passkey
+      // ────────────────────────────────────────────────────────────────────────
+      if (action === 'delete' || action === 'remove') {
+        if (!credentialId || !fingerprint) {
+          return new Response(
+            JSON.stringify({ success: false, error: 'Missing credentialId or fingerprint for deletion' }),
+            { status: 400, headers: corsHeaders }
+          );
+        }
+
+        // Verify cryptographic identity authorization matching claimed fingerprint
+        const idCheck = await verifyRegistrationIdentity(request, env, fingerprint, credentialId, body);
+        if (!idCheck.authorized) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: idCheck.reason || 'Unauthorized: Passkey deletion requires cryptographic identity authorization',
+            }),
+            { status: 401, headers: corsHeaders }
+          );
+        }
+
+        await deleteCredential(env, credentialId, fingerprint);
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            credentialId,
+            message: 'Passkey successfully removed from Sovereign Edge.',
           }),
           { status: 200, headers: corsHeaders }
         );

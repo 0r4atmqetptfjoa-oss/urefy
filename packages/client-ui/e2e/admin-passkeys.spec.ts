@@ -41,6 +41,7 @@ test('administrator enrolls, signs in with, and revokes a passkey', async ({ pag
     hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true } });
   try {
     await page.goto('/admin.html');
+    await page.getByText('Emergency Break-Glass & Dev Override', { exact: false }).click();
     await page.locator('#login-pin-input').fill(pin);
     await page.locator('#btn-login-submit').click();
     await page.locator('[data-admin-tab="config"]').click();
@@ -57,6 +58,7 @@ test('administrator enrolls, signs in with, and revokes a passkey', async ({ pag
     await page.reload();
     await page.locator('#btn-login-passkey').click();
     await expect(page.locator('#login-error')).toContainText('Passkey verification failed');
+    await page.getByText('Emergency Break-Glass & Dev Override', { exact: false }).click();
     await expect(page.locator('#login-pin-input')).toBeVisible();
     await page.screenshot({ path: fileURLToPath(new URL('../../../artifacts/admin-passkey-login.png', import.meta.url)) });
     expect(errors).toEqual([]);

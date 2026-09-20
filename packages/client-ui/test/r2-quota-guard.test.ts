@@ -213,8 +213,7 @@ describe('Cloudflare R2 Zero-Overage Quota Guardian Verification Suite', () => {
 
       const json = await res.json();
       expect(json.success).toBe(false);
-      expect(json.error).toContain('Payload exceeds maximum permitted size of 25MB');
-      expect(json.error).toContain('26.0MB');
+      expect(json.error).toContain('26214400 byte upload limit');
     });
 
     it('permits uploads within the 25MB limit', async () => {
@@ -270,13 +269,13 @@ describe('Cloudflare R2 Zero-Overage Quota Guardian Verification Suite', () => {
 
       const storageAfterFirstUpload = getTotalStorageBytes();
 
-      // Second upload: exact same binary payload under a different filename and author
+      // Same owner's exact binary under a different filename is deduplicated.
       const secondReq = new Request('https://aetheris-omni-sphere.pages.dev/api/storage', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/octet-stream',
           'X-File-Name': 'zk-prover-mirror-copy.bin',
-          'X-Author': 'a89104fa2211',
+          'X-Author': 'c3dc28cb705e',
           'X-Title': 'ZK Prover Mirror Upload',
           'X-Admin-PIN': '11223',
         },

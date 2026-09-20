@@ -230,5 +230,37 @@ describe('Admin Authentication & Control Panel Architecture', () => {
       panel.actionModerationItem('mod-102', 'dismissed');
       expect(panel.moderationQueue.find(m => m.id === 'mod-102')?.status).toBe('dismissed');
     });
+
+    it('should switch to audit tab and render cryptographic WORM audit ledger with Merkle hashes', () => {
+      panel.setTab('audit');
+      expect(panel.activeTab).toBe('audit');
+      const html = panel.renderAdminPanel('genesis-core', '28m');
+      expect(html).toContain('Cryptographic WORM Audit Ledger');
+      expect(html).toContain('MERKLE CHAIN VERIFIED');
+      expect(html).toContain('INIT_GENESIS_ENCLAVE');
+      expect(html).toContain('#3a41e97cf8');
+      expect(html).toContain('btn-admin-panic-lock');
+      expect(html).toContain('admin-session-ticker');
+    });
+
+    it('should support instant panicLock zeroizing memory and resetting state', () => {
+      auth.verifyPin(ADMIN_DEFAULT_PIN);
+      expect(auth.isAdmin).toBe(true);
+
+      let eventFired = false;
+      const handler = () => { eventFired = true; };
+      if (typeof window !== 'undefined') {
+        window.addEventListener('urefy-admin-locked', handler);
+      }
+
+      auth.panicLock();
+      expect(auth.isAdmin).toBe(false);
+      expect(auth.activePin).toBe(ADMIN_DEFAULT_PIN); // falls back to dev default in test
+
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('urefy-admin-locked', handler);
+        expect(eventFired).toBe(true);
+      }
+    });
   });
 });

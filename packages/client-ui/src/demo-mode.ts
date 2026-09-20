@@ -6,7 +6,7 @@
  * persistent watermark banner whenever simulated/demo data or keys are active.
  */
 
-import { isProductionBuild } from './admin-auth.js';
+import { isProductionBuild } from './env-check.js';
 
 export const DEMO_MODE_STORAGE_KEY = 'urefy:demo_mode';
 export const DEMO_WATERMARK_ELEMENT_ID = 'urefy-demo-watermark-banner';

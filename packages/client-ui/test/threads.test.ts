@@ -4,6 +4,7 @@ import { ThreadManager, threadManager } from '../src/threads.js';
 describe('Threaded Hierarchical Comments Engine', () => {
   it('should initialize with hierarchical comments structure and OP tag', () => {
     const tm = new ThreadManager();
+    tm.loadDemoData();
     const roots = tm.getRootComments();
     expect(roots.length).toBeGreaterThanOrEqual(1);
 
@@ -21,6 +22,7 @@ describe('Threaded Hierarchical Comments Engine', () => {
 
   it('should support collapsing and expanding comment threads', () => {
     const tm = new ThreadManager();
+    tm.loadDemoData();
     const root = tm.getRootComments()[0];
 
     expect(root.isCollapsed).toBe(false);
@@ -37,6 +39,7 @@ describe('Threaded Hierarchical Comments Engine', () => {
 
   it('should support adding replies, comment upvoting and downvoting', () => {
     const tm = new ThreadManager();
+    tm.loadDemoData();
     const root = tm.getRootComments()[0];
     const initialMerit = root.meritScore;
 
@@ -58,6 +61,7 @@ describe('Threaded Hierarchical Comments Engine', () => {
 
   it('should support inline reply toggling and rendering', () => {
     const tm = new ThreadManager();
+    tm.loadDemoData();
     const root = tm.getRootComments()[0];
 
     expect(tm.replyingCommentId).toBeNull();

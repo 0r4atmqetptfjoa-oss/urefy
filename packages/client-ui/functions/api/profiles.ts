@@ -140,8 +140,8 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
               bio: '',
               avatarUrl: '',
               bannerUrl: '',
-              createdAt: Date.now(),
-              updatedAt: Date.now(),
+              createdAt: 0,
+              updatedAt: 0,
             },
             stats: {
               followersCount,
@@ -186,15 +186,19 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
  */
 export async function onRequestPost(context: { request: Request; env?: Env }): Promise<Response> {
   try {
-    const body = await context.request.json().catch(() => null) as Record<string, any> | null;
-    if (!body) {
+    const raw = await context.request.json().catch(() => null) as Record<string, any> | null;
+    if (!raw) {
       return new Response(
         JSON.stringify({ success: false, error: 'Malformed JSON payload' }),
         { status: 400, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
       );
     }
 
-    let userId = (body.userId || '').trim();
+    const auth = await requireSignedEnvelope(context, raw.envelope || raw);
+    if (!auth.authorized) return auth.response!;
+    const body = auth.payload as Record<string, any>;
+    if (body.scope !== 'urefy-profile-v1' || body.action !== 'save') return Response.json({ success: false, error: 'Invalid profile request' }, { status: 400 });
+    let userId = auth.fingerprint!;
     let displayName = (body.displayName || '').trim();
     let handle = (body.handle || '').trim();
     let bio = typeof body.bio === 'string' ? body.bio.trim().slice(0, 500) : undefined;
@@ -205,22 +209,8 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
     let website = sanitizeUrl(body.website);
     let location = typeof body.location === 'string' ? body.location.trim().slice(0, 100) : undefined;
 
-    // Check signed envelope
-    if (body.envelope && typeof body.envelope === 'object') {
-      const auth = await requireSignedEnvelope(context, body.envelope);
-      if (auth.authorized) {
-        userId = auth.fingerprint || userId;
-        const payload = (auth.payload || {}) as any;
-        displayName = (payload.displayName || displayName).trim();
-        handle = (payload.handle || handle).trim();
-        if (payload.bio !== undefined) bio = String(payload.bio).trim().slice(0, 500);
-        if (payload.avatarUrl !== undefined) avatarUrl = String(payload.avatarUrl).trim();
-        if (payload.bannerUrl !== undefined) bannerUrl = String(payload.bannerUrl).trim();
-        if (payload.pinnedPostId !== undefined) pinnedPostId = String(payload.pinnedPostId).trim();
-        if (Array.isArray(payload.interests)) interests = payload.interests;
-        if (payload.website !== undefined) website = sanitizeUrl(payload.website);
-        if (payload.location !== undefined) location = String(payload.location).trim().slice(0, 100);
-      }
+    for (const image of [avatarUrl, bannerUrl]) {
+      if (image && !sanitizeUrl(image)) return Response.json({ success: false, error: 'Profile images must use an http or https URL' }, { status: 400 });
     }
 
     if (handle.startsWith('@')) handle = handle.slice(1);

@@ -17,8 +17,15 @@ import {
   createD1UnavailableResponse,
 } from './_db.js';
 import { requireAdmin, requireSignedEnvelope } from './_auth.js';
+import { dispatchOutboundPostFederation } from './federation.js';
 
 export { EdgePost };
+
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-User-Fingerprint',
+};
 
 /**
  * Parses raw D1 post row into typed EdgePost object
@@ -280,7 +287,13 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
           { status: 400, headers: { 'Content-Type': 'application/json' } }
         );
       }
-      const voteDir = Number(direction) || 0;
+      const voteDir = Number(direction);
+      if (![-1, 0, 1].includes(voteDir)) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Vote direction must be -1, 0, or 1' }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
 
       // Update in D1 if available
       if (db) {
@@ -288,38 +301,58 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
           // Check if post exists
           const existing = await db.prepare('SELECT * FROM posts WHERE id = ?').bind(postId).first<any>();
           if (existing) {
-            const currentVotes = Number(existing.merit_votes ?? existing.meritVotes) || 0;
-            const newVotes = currentVotes + voteDir;
+            // Check existing vote from this user to ensure idempotence
+            const prevVote = await db.prepare(
+              "SELECT direction FROM votes WHERE target_type = 'post' AND target_id = ? AND user_fingerprint = ?"
+            ).bind(postId, userFingerprint).first<any>();
 
-            const updateStmt = db
-              .prepare('UPDATE posts SET merit_votes = merit_votes + ? WHERE id = ?')
-              .bind(voteDir, postId);
+            const prevDir = prevVote ? Number(prevVote.direction) : 0;
+            const delta = voteDir - prevDir;
 
-            // Record vote in ledger
-            const voteId = `vote-${postId}-${userFingerprint}`;
-            const ballotStmt = db
-              .prepare(
-                'INSERT OR REPLACE INTO votes (id, target_type, target_id, user_fingerprint, direction, created_at) VALUES (?, ?, ?, ?, ?, ?)'
-              )
-              .bind(voteId, 'post', postId, userFingerprint, voteDir, Date.now());
+            if (delta !== 0) {
+              const currentVotes = Number(existing.merit_votes ?? existing.meritVotes) || 0;
+              const newVotes = currentVotes + delta;
 
-            const batchResults = await db.batch([updateStmt, ballotStmt]);
+              const updateStmt = db
+                .prepare('UPDATE posts SET merit_votes = merit_votes + ? WHERE id = ?')
+                .bind(delta, postId);
 
-            if (isProd && batchResults.some((r: any) => r && r.success === false)) {
-              return new Response(
-                JSON.stringify({ success: false, error: 'Database atomic vote transaction failed in D1' }),
-                { status: 500, headers: { 'Content-Type': 'application/json' } }
-              );
+              let ballotStmt;
+              if (voteDir === 0) {
+                // Direction 0 is unvote / retraction: delete from votes
+                ballotStmt = db
+                  .prepare(
+                    "DELETE FROM votes WHERE target_type = 'post' AND target_id = ? AND user_fingerprint = ?"
+                  )
+                  .bind(postId, userFingerprint);
+              } else {
+                const voteId = `vote-${postId}-${userFingerprint}`;
+                ballotStmt = db
+                  .prepare(
+                    'INSERT OR REPLACE INTO votes (id, target_type, target_id, user_fingerprint, direction, created_at) VALUES (?, ?, ?, ?, ?, ?)'
+                  )
+                  .bind(voteId, 'post', postId, userFingerprint, voteDir, Date.now());
+              }
+
+              const batchResults = await db.batch([updateStmt, ballotStmt]);
+
+              if (isProd && batchResults.some((r: any) => r && r.success === false)) {
+                return new Response(
+                  JSON.stringify({ success: false, error: 'Database atomic vote transaction failed in D1' }),
+                  { status: 500, headers: { 'Content-Type': 'application/json' } }
+                );
+              }
+
+              existing.merit_votes = newVotes;
+              existing.meritVotes = newVotes;
             }
 
-            existing.merit_votes = newVotes;
-            existing.meritVotes = newVotes;
             const updatedPost = parseD1PostRow(existing);
 
             // Also keep in-memory sync
             const memIndex = globalPostsStore.findIndex((p) => p.id === postId);
-            if (memIndex >= 0) {
-              globalPostsStore[memIndex].meritVotes += voteDir;
+            if (memIndex >= 0 && delta !== 0) {
+              globalPostsStore[memIndex].meritVotes += delta;
             }
 
             return new Response(JSON.stringify({ success: true, post: updatedPost }), {
@@ -353,7 +386,30 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
           { status: 404, headers: { 'Content-Type': 'application/json' } }
         );
       }
-      post.meritVotes += voteDir;
+      const existingVoteIdx = globalVotesStore.findIndex(
+        (v) => v.targetType === 'post' && v.targetId === postId && v.userFingerprint === userFingerprint
+      );
+      const prevDir = existingVoteIdx >= 0 ? globalVotesStore[existingVoteIdx].direction : 0;
+      const delta = voteDir - prevDir;
+      if (delta !== 0) {
+        post.meritVotes += delta;
+        if (voteDir === 0) {
+          if (existingVoteIdx >= 0) {
+            globalVotesStore.splice(existingVoteIdx, 1);
+          }
+        } else if (existingVoteIdx >= 0) {
+          globalVotesStore[existingVoteIdx].direction = voteDir;
+        } else {
+          globalVotesStore.push({
+            id: `vote-${postId}-${userFingerprint}`,
+            targetType: 'post',
+            targetId: postId,
+            userFingerprint,
+            direction: voteDir,
+            createdAt: Date.now(),
+          });
+        }
+      }
       return new Response(
         JSON.stringify({ success: true, post }),
         { status: 200, headers: { 'Content-Type': 'application/json' } }
@@ -362,6 +418,15 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
 
     // ─── ACTION: ANONYMOUS VOTE (CHAUMIAN BLIND SIGNATURE BALLOT) ────────────
     if (body.action === 'anonymous-vote') {
+      if (isProd) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'Anonymous ZK voting is offline in production: proof verifier not connected',
+          }),
+          { status: 503, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
       const { postId, direction, nullifier } = body;
       if (!postId || typeof postId !== 'string' || postId.length > 256) {
         return new Response(
@@ -681,7 +746,7 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
       status: postStatus,
       meritVotes: adminCheck.authorized
         ? (typeof body.meritVotes === 'number' ? body.meritVotes : (typeof body.merit_votes === 'number' ? body.merit_votes : (existingPost?.meritVotes ?? 1)))
-        : (existingPost ? existingPost.meritVotes : 1),
+        : (existingPost ? existingPost.meritVotes : 0),
       userVoted: existingPost ? existingPost.userVoted : 0,
       replyCount: existingPost ? existingPost.replyCount : 0,
       boostCount: existingPost ? existingPost.boostCount : 0,
@@ -819,6 +884,23 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
       globalPostsStore.splice(1000);
     }
 
+    // Trigger outbound ActivityPub federation asynchronously
+    if (newPost.status === 'published') {
+      try {
+        const origin = new URL(context.request.url).origin;
+        const federationPromise = dispatchOutboundPostFederation(context.env, newPost, origin);
+        if (typeof (context as any).waitUntil === 'function') {
+          (context as any).waitUntil(federationPromise);
+        } else {
+          federationPromise.catch((fedErr) => {
+            console.warn('[ActivityPub Outbound Dispatch Warning]', fedErr);
+          });
+        }
+      } catch (fedErr) {
+        console.warn('[ActivityPub Outbound Dispatch Warning]', fedErr);
+      }
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
@@ -836,6 +918,153 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
     return new Response(
       JSON.stringify({ success: false, error: err?.message || 'Invalid request body' }),
       { status: 400, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
+}
+
+export async function onRequestOptions(): Promise<Response> {
+  return new Response(null, {
+    status: 204,
+    headers: CORS_HEADERS,
+  });
+}
+
+/**
+ * DELETE /api/posts or /api/posts/:id
+ * Body: signed envelope with { action: 'delete-post', postId }
+ */
+export async function onRequestDelete(context: {
+  request: Request;
+  env?: Env;
+  params?: { id?: string | string[] };
+}): Promise<Response> {
+  try {
+    const url = new URL(context.request.url);
+    let postId = '';
+    if (context.params?.id) {
+      postId = Array.isArray(context.params.id) ? context.params.id.join('/') : String(context.params.id);
+    }
+    if (!postId) {
+      postId = url.searchParams.get('postId') || url.searchParams.get('id') || '';
+    }
+    if (!postId) {
+      const segments = url.pathname.split('/').filter(Boolean);
+      const lastSeg = segments[segments.length - 1] || '';
+      if (lastSeg && lastSeg !== 'posts') {
+        postId = lastSeg;
+      }
+    }
+    postId = decodeURIComponent(postId).trim();
+
+    const rawBodyText = await context.request.clone().text().catch(() => '');
+    let body: Record<string, any> | null = null;
+    if (rawBodyText) {
+      try {
+        body = JSON.parse(rawBodyText);
+      } catch (_) {}
+    }
+    if (!postId && body) {
+      postId = body.postId || body.id || (body.payload && (body.payload.postId || body.payload.id)) || '';
+    }
+
+    if (!postId) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Post ID is required' }),
+        { status: 400, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
+      );
+    }
+
+    const adminCheck = await requireAdmin(context);
+    let callerFingerprint = '';
+
+    if (!adminCheck.authorized) {
+      const auth = await requireSignedEnvelope(context, body?.envelope || body);
+      if (!auth.authorized) return auth.response!;
+      if (auth.payload?.action && auth.payload.action !== 'delete-post') {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Invalid post action' }),
+          { status: 400, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
+        );
+      }
+      callerFingerprint = auth.fingerprint!;
+    }
+
+    const db = getD1Database(context.env);
+    const kv = getKVStore(context.env);
+    const isProd = isProductionEnv(context.env);
+
+    if (!db && isProd) {
+      return createD1UnavailableResponse();
+    }
+
+    let channelId = '';
+
+    if (db) {
+      const postRow = await db.prepare(
+        'SELECT id, author_id, channel_id, status FROM posts WHERE id = ?'
+      ).bind(postId).first<{ id: string; author_id: string; channel_id: string; status: string }>();
+
+      if (!postRow || postRow.status === 'deleted') {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Post not found or already deleted' }),
+          { status: 404, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
+        );
+      }
+
+      if (!adminCheck.authorized && postRow.author_id !== callerFingerprint) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Forbidden: only author or administrator can delete this post' }),
+          { status: 403, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
+        );
+      }
+
+      channelId = postRow.channel_id;
+
+      // Soft-delete post by marking status = 'deleted'
+      await db.prepare("UPDATE posts SET status = 'deleted' WHERE id = ?").bind(postId).run();
+    } else {
+      const post = globalPostsStore.find(p => p.id === postId && p.status !== 'deleted');
+      if (!post) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Post not found or already deleted' }),
+          { status: 404, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
+        );
+      }
+
+      if (!adminCheck.authorized && post.authorFingerprint !== callerFingerprint) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Forbidden: only author or administrator can delete this post' }),
+          { status: 403, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
+        );
+      }
+
+      channelId = post.channelId;
+      post.status = 'deleted';
+    }
+
+    // Purge KV cache so edge cache does not serve deleted content
+    if (kv) {
+      try {
+        await kv.delete(`post:${postId}`);
+        await kv.delete(`seo:post:${postId}`);
+        await kv.delete('posts:all:all:hot:50:0');
+        if (channelId) await kv.delete(`posts:${channelId}:all:hot:50:0`);
+      } catch (_) {}
+    }
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        id: postId,
+        deleted: true,
+        status: 410,
+      }),
+      { status: 200, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
+    );
+  } catch (err: any) {
+    return new Response(
+      JSON.stringify({ success: false, error: err?.message || 'Failed to delete post' }),
+      { status: 500, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
     );
   }
 }

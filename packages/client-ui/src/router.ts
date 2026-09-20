@@ -8,17 +8,20 @@
 import { clientStore } from './client-state.js';
 import { profileView } from './profile-view.js';
 import { sovereignCircleEngine } from './sovereign-circle.js';
+import { postDetailView } from './post-detail.js';
 
-export type SovereignRoute = 'feed' | 'explore' | 'communities' | 'messages' | 'vault' | 'profile' | 'more';
+export type SovereignRoute = 'feed' | 'explore' | 'communities' | 'messages' | 'vault' | 'profile' | 'settings' | 'more' | 'governance';
 
 export class SovereignRouter {
   private currentRoute: SovereignRoute = 'feed';
   private listeners: Array<(route: SovereignRoute) => void> = [];
+  private isInternalNavigating: boolean = false;
 
   constructor() {
     if (typeof window !== 'undefined') {
       window.addEventListener('hashchange', () => this.handleHashChange());
       window.addEventListener('popstate', () => this.handleHashChange());
+      this.handleHashChange();
     }
 
     if (clientStore && typeof clientStore.subscribe === 'function') {
@@ -44,6 +47,18 @@ export class SovereignRouter {
   }
 
   public navigateTo(route: SovereignRoute, options: { replace?: boolean; subtab?: string } = {}): void {
+    // Close post detail view if open
+    if (postDetailView.isOpen()) {
+      postDetailView.closePost({ skipHistory: true });
+    }
+
+    // Dismiss any open feature modals or transient overlays
+    if (typeof window !== 'undefined') {
+      if ((window as any).modalManager && typeof (window as any).modalManager.closeFeature === 'function') {
+        (window as any).modalManager.closeFeature();
+      }
+    }
+
     this.currentRoute = route;
 
     // Synchronize clientStore activeChannelId
@@ -80,9 +95,30 @@ export class SovereignRouter {
         clientStore.activeChannelId = 'profile';
         if (options.subtab) {
           if (options.subtab === 'settings') {
-            profileView.setActiveTab('settings');
+            this.navigateTo('settings');
+            return;
           } else {
             profileView.setActiveTab(options.subtab as any);
+          }
+        }
+        break;
+      case 'settings':
+        clientStore.activeChannelId = 'settings';
+        if (typeof window !== 'undefined') {
+          const win = window as any;
+          if (win.settingsView && typeof win.settingsView.open === 'function') {
+            win.settingsView.open(options.subtab as any);
+          } else if (typeof win.__aetheris_open_settings === 'function') {
+            win.__aetheris_open_settings(options.subtab as any);
+          }
+        }
+        break;
+      case 'governance':
+        clientStore.activeChannelId = 'governance';
+        if (typeof window !== 'undefined') {
+          const win = window as any;
+          if (win.modalManager && typeof win.modalManager.openFeature === 'function') {
+            win.modalManager.openFeature('governance');
           }
         }
         break;
@@ -91,43 +127,149 @@ export class SovereignRouter {
         break;
     }
 
-    if (typeof window !== 'undefined' && window.location) {
-      const targetHash = `#${route}${options.subtab ? `/${options.subtab}` : ''}`;
-      if (window.location.hash !== targetHash) {
-        if (options.replace) {
-          window.history.replaceState(null, '', targetHash);
-        } else {
-          window.location.hash = targetHash;
+    this.isInternalNavigating = true;
+    try {
+      if (typeof window !== 'undefined' && window.location) {
+        const targetHash = `#${route}${options.subtab ? `/${options.subtab}` : ''}`;
+        const currentPath = window.location.pathname || '';
+        const isPostPath = /^\/(?:p|post)\//i.test(currentPath);
+
+        if (isPostPath) {
+          // Reset path from /p/:id back to / with destination hash
+          window.history.pushState(null, '', `/${targetHash}`);
+        } else if (window.location.hash !== targetHash) {
+          if (options.replace) {
+            window.history.replaceState(null, '', targetHash);
+          } else {
+            window.location.hash = targetHash;
+          }
         }
       }
-    }
 
-    this.notifyListeners();
-    clientStore.notify('ROUTE_CHANGED', { route });
+      this.notifyListeners();
+      clientStore.notify('ROUTE_CHANGED', { route, subtab: options.subtab });
+    } finally {
+      if (typeof queueMicrotask === 'function') {
+        queueMicrotask(() => { this.isInternalNavigating = false; });
+      } else {
+        setTimeout(() => { this.isInternalNavigating = false; }, 0);
+      }
+    }
   }
 
-  private handleHashChange(): void {
+  public handleHashChange(): void {
     if (typeof window === 'undefined' || !window.location) return;
+    if (this.isInternalNavigating) return;
 
-    const rawHash = (window.location.hash || '').replace(/^#\/?/, '').toLowerCase();
-    
-    // Support deep link directly to post: #post-xxx or #p-xxx
-    if (rawHash.startsWith('post-') || rawHash.startsWith('p/')) {
-      const postId = rawHash.startsWith('post-') ? rawHash.replace(/^post-/, '') : rawHash.replace(/^p\//, '');
+    const pathname = window.location.pathname || '';
+    const originalHash = window.location.hash;
+    const rawHash = (originalHash || '').replace(/^#\/?/, '');
+
+    // Support pathname deep link: /p/xxx or /post/xxx
+    const postMatch = pathname.match(/^\/(?:p|post)\/([^/?#]+)/i);
+    const hasPostHash = /^(post-|p\/)/i.test(rawHash);
+
+    // If navigating back/forward away from post URL or to another hash, cleanly dismiss post focus view
+    if ((!postMatch || Boolean(rawHash)) && !hasPostHash && postDetailView.isOpen()) {
+      postDetailView.closePost({ skipHistory: true });
+    }
+
+    if (postMatch && rawHash && !hasPostHash) {
+      try {
+        window.history.replaceState(null, '', `/#${rawHash}`);
+      } catch (_) {}
+    }
+
+    if (postMatch && !rawHash) {
+      let postId: string;
+      try { postId = decodeURIComponent(postMatch[1]); }
+      catch { clientStore.showToast('This post link is invalid', 'warning'); return; }
       this.currentRoute = 'feed';
-      clientStore.notify('OPEN_POST_DETAIL', { postId });
+      clientStore.activeChannelId = 'pulse-global';
+      void import('./context-navigation.js').then(module =>
+        module.openPostContext(postId, undefined, () => (window.location.pathname || '') === pathname)
+      ).catch(error => {
+        if ((window.location.pathname || '') === pathname) {
+          clientStore.showToast(error instanceof Error ? error.message : 'Post unavailable', 'warning');
+          clientStore.notify();
+        }
+      });
       return;
     }
 
-    const [mainRoute, subParam] = rawHash.split('/');
+    // Support pathname community link: /c/xxx
+    const commMatch = pathname.match(/^\/c\/([^/?#]+)/i);
+    if (commMatch && !rawHash) {
+      const commId = decodeURIComponent(commMatch[1]);
+      this.currentRoute = 'communities';
+      clientStore.activeChannelId = `c/${commId}`;
+      clientStore.notify();
+      return;
+    }
 
-    const validRoutes: SovereignRoute[] = ['feed', 'explore', 'communities', 'messages', 'vault', 'profile', 'more'];
+    // Support pathname user profile link: /u/xxx
+    const userMatch = pathname.match(/^\/u\/([^/?#]+)/i);
+    if (userMatch && !rawHash) {
+      const userTarget = decodeURIComponent(userMatch[1]);
+      this.currentRoute = 'profile';
+      clientStore.activeChannelId = 'profile';
+      clientStore.notify();
+      void import('./profile-view.js').then(m => {
+        m.profileView.setTargetFingerprint(userTarget);
+        clientStore.notify();
+      }).catch(() => {});
+      return;
+    }
+
+    if (pathname === '/explore' && !rawHash) {
+      this.currentRoute = 'explore';
+      clientStore.activeChannelId = 'explore';
+      this.notifyListeners();
+      clientStore.notify();
+      return;
+    }
+    if (pathname === '/communities' && !rawHash) {
+      this.currentRoute = 'communities';
+      clientStore.activeChannelId = 'communities';
+      clientStore.notify();
+      return;
+    }
+    
+    if (!rawHash && ['/messages', '/vault', '/profile', '/more', '/settings', '/governance'].includes(pathname)) {
+      this.navigateTo(pathname.slice(1) as SovereignRoute, { replace: true });
+      return;
+    }
+
+    // Support deep link directly to post: #post-xxx or #p-xxx
+    if (/^(post-|p\/)/i.test(rawHash)) {
+      let postId: string;
+      try { postId = decodeURIComponent(rawHash.replace(/^(post-|p\/)/i, '')); }
+      catch { clientStore.showToast('This post link is invalid', 'warning'); return; }
+      this.currentRoute = 'feed';
+      clientStore.activeChannelId = 'pulse-global';
+      void import('./context-navigation.js').then(module => module.openPostContext(postId, undefined, () => window.location.hash === originalHash))
+        .catch(error => {
+          if (window.location.hash === originalHash) {
+            clientStore.showToast(error instanceof Error ? error.message : 'Post unavailable', 'warning');
+            clientStore.notify();
+          }
+        });
+      return;
+    }
+
+    const [mainRoute, subParam] = rawHash.toLowerCase().split('/');
+
+    const validRoutes: SovereignRoute[] = ['feed', 'explore', 'communities', 'messages', 'vault', 'profile', 'settings', 'more', 'governance'];
 
     let resolvedRoute: SovereignRoute | null = null;
     if (mainRoute === 'relays' || mainRoute === 'chat' || mainRoute === 'messages') {
       resolvedRoute = 'messages';
     } else if (mainRoute === 'pulse' || mainRoute === 'home' || mainRoute === 'feed') {
       resolvedRoute = 'feed';
+    } else if (mainRoute === 'settings') {
+      resolvedRoute = 'settings';
+    } else if (mainRoute === 'governance' || mainRoute === 'dao') {
+      resolvedRoute = 'governance';
     } else if (mainRoute === 'communities' || mainRoute === 'circles' || mainRoute === 'c') {
       resolvedRoute = 'communities';
       if (subParam) {
@@ -140,11 +282,12 @@ export class SovereignRouter {
     if (resolvedRoute) {
       this.currentRoute = resolvedRoute;
       this.navigateTo(this.currentRoute, { replace: true, subtab: subParam });
-    } else if (rawHash.startsWith('settings')) {
-      this.navigateTo('profile', { replace: true, subtab: 'settings' });
     } else {
-      // Default to feed
+      // Default to feed (e.g. root / or empty hash)
       this.currentRoute = 'feed';
+      clientStore.activeChannelId = 'pulse-global';
+      this.notifyListeners();
+      clientStore.notify('ROUTE_CHANGED', { route: 'feed' });
     }
   }
 
@@ -167,9 +310,11 @@ export class SovereignRouter {
 }
 
 export const sovereignRouter = new SovereignRouter();
+export const router = sovereignRouter;
 
 if (typeof window !== 'undefined') {
   (window as any).sovereignRouter = sovereignRouter;
+  (window as any).router = sovereignRouter;
   (window as any).__aetheris_navigate = (route: SovereignRoute, subtab?: string) => {
     sovereignRouter.navigateTo(route, { subtab });
   };

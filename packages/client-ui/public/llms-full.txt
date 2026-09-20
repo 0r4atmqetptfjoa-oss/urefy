@@ -1,0 +1,84 @@
+# UREfy Full System Architecture & Knowledge Base
+> Canonical: https://urefy.com
+> Manifest: https://urefy.com/llms.txt
+
+## Executive Summary
+UREfy (Unified Relay Enclave framework for You) is a next-generation consumer social network and secure communications platform. It combines the ease of use and rich interactivity of modern social platforms (such as Reddit and X) with the uncompromising security guarantees of client-side cryptography, zero-knowledge proofs, and decentralized peer-to-peer topologies.
+
+---
+
+## Technical Specifications & Cryptography
+
+### 1. Identity Layer
+- **Key Algorithm:** Ed25519 (RFC 8032) for asymmetric signing and verification.
+- **Key Derivation:** BIP-39 mnemonic seed phrases (12 or 24 words) with PBKDF2-HMAC-SHA512.
+- **Fingerprint:** SHA-256 digest of canonical public key truncated to 16 hexadecimal characters.
+- **Pseudonymity:** Zero real-name requirements. Users interact via sovereign nicknames and cryptographic handles (`@handle`).
+
+### 2. Encryption & Messaging Protocols
+- **Key Exchange:** X25519 Elliptic Curve Diffie-Hellman (ECDH) hybridized with ML-KEM-768 (CRYSTALS-Kyber) for quantum resistance.
+- **Direct Messaging:** Double Ratchet protocol delivering per-message forward secrecy and break-in recovery.
+- **Symmetric Cipher:** Authenticated Encryption with Associated Data (AEAD) using AES-256-GCM.
+- **Sealed Sender:** The sender's identity is encrypted inside the inner payload envelope, preventing relay servers from mapping social graphs or analyzing who communicates with whom.
+
+### 3. Anti-Spam & Reputation (Zero-Knowledge)
+- **ZK-RLN (Rate Limiting Nullifiers):** Zero-knowledge proof system that enforces rate limits without revealing user identity. Attempting to spam burns the user's nullifier and slashes their reputation score automatically.
+- **Merit System:** Transparent community-driven upvoting where reputation is earned through high-value technical contributions, verified solutions, and constructive discussion.
+
+### 4. Client Storage & Vault Security
+- **Engine:** Client-side IndexedDB encrypted with AES-256-GCM.
+- **Zero Plaintext Invariant:** Sensitive credentials, private keys, and drafts are never stored unencrypted in browser localStorage.
+- **Authentication:** WebAuthn / FIDO2 passkey hardware integration protecting device unlock and critical operations.
+
+---
+
+## Infrastructure & Edge Performance
+- **Global Anycast Edge:** Hosted on Cloudflare Pages and Workers distributed across 300+ edge locations worldwide.
+- **Database:** Distributed Cloudflare D1 SQL engine with edge caching via Cloudflare KV.
+- **Network Protocol:** HTTP/3 over QUIC with strict Transport Layer Security (HSTS preload, 2-year max-age).
+- **Client Bundle:** Ultra-lightweight reactive client (< 300 kB gzip entry chunk budget), zero tracking pixels, zero ad-network SDKs.
+
+---
+
+## Sovereign Communities Overview
+
+### 1. Technology (`c/technology`)
+Focused on microprocessor architecture (e.g. AMD Zen 5 3D V-Cache vs Intel Arrow Lake), Linux kernel internals, networking protocols, and systems programming.
+
+### 2. Gaming (`c/gaming`)
+Technical game development, benchmarking (RTX 40-series, Radeon 7000/8000), AAA releases (GTA VI, Monster Hunter Wilds, Elden Ring), and indie game engineering.
+
+### 3. Open Source (`c/opensource`)
+Free and open-source software, replacing bloated Electron apps with Tauri v2, ZFS homelab configurations, self-hosted alternatives (Immich, Nextcloud), and package maintenance.
+
+### 4. Privacy & AI (`c/privacy-ai`)
+Running local AI models with private weights (DeepSeek R1, Llama 3, Mistral) on consumer hardware (dual RTX 3090, Apple Silicon), vLLM deployment, and mobile operating system hardening (GrapheneOS).
+
+### 5. Digital Freedom (`c/digitalfreedom`)
+Reverse engineering IoT devices, SPI flash firmware extraction with CH341A, bypassing captive portals via DNS iodine tunnels, analyzing kernel-level anti-cheat drivers in Ghidra, and protecting digital civil liberties.
+
+### 6. Solarpunk (`c/solarpunk`)
+Building resilient off-grid computing infrastructure, 12V LiFePO4 battery systems, solar-powered Raspberry Pi homelabs, and community microgrids.
+
+---
+
+## User Interaction Mechanics
+
+- **Post Types:** Text, markdown articles, verified YouTube video embeds, code snippets with syntax highlighting, multi-image galleries, and interactive polls.
+- **Community Reactions:** Dedicated emoji reaction pills on every card:
+  - 🚀 Launch
+  - 🔥 Fire
+  - 💡 Insight
+  - ❤️ Love
+  - 🛡️ Shield / Security
+  - ⚡ Pulse
+  - 🎯 Precise
+  - 🤔 Think
+- **Threaded Discussions:** Deep nested reply trees with author badges, timestamping, and real-time synchronization.
+
+---
+
+## Compliance & Privacy Guarantees
+- **GDPR / CCPA:** Compliant by design (Privacy by Architecture). Because no personal data, cookies, or surveillance telemetry are collected, user rights are protected at the protocol level.
+- **Data Export:** Complete sovereign backup export with 1-click encrypted JSON bundle download.
+- **Account Deletion:** Instant local storage wipe and cryptographic revocation without waiting for central server approvals.

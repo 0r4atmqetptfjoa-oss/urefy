@@ -72,14 +72,14 @@ describe('Obsidian Theme Engine, Display Customizer & Typography System', () => 
       expect(current.id).toBe('alabaster-light');
       expect(current.name).toBe('Alabaster Light');
       expect(current.emoji).toBe('☀️');
-      expect(current.bgCanvas).toBe('#f8fafc');
+      expect(current.bgCanvas).toBe('#f6f5f2');
       expect(current.bgSurfaceBase).toBe('#ffffff');
-      expect(current.bgSurfaceRaised).toBe('#f1f5f9');
-      expect(current.bgSurfaceOverlay).toBe('#e2e8f0');
-      expect(current.accentColor).toBe('#4f46e5');
-      expect(current.textAccent).toBe('#4f46e5');
+      expect(current.bgSurfaceRaised).toBe('#efede8');
+      expect(current.bgSurfaceOverlay).toBe('#e5e2da');
+      expect(current.accentColor).toBe('#c27803');
+      expect(current.textAccent).toBe('#c27803');
       expect(current.mode).toBe('light');
-      expect(current.badgeText).toBe('LIGHT MODE');
+      expect(current.badgeText).toBe('WARM DAYLIGHT');
     });
   });
 

@@ -1649,9 +1649,18 @@ export class RSSImporter {
       this.attachEventListeners(parent);
     }
   }
+
+  public close(): void {
+    if (typeof document !== 'undefined') {
+      document.querySelectorAll('#rss-modal-backdrop, #rss-container-root').forEach(el => el.remove());
+    }
+  }
 }
 
 /**
  * Global singleton instance of the Sovereign RSS Importer.
  */
 export const rssImporter = new RSSImporter();
+if (typeof window !== 'undefined') {
+  (window as any).rssImporter = rssImporter;
+}

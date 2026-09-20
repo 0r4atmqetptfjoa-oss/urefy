@@ -1,7 +1,7 @@
 /**
  * @file community-view.ts
  * @package @aetheris/client-ui
- * @description Dedicated Subreddit & Discord-style community workspace.
+ * @description Community workspace connecting discussion, live context and shared resources.
  * Features:
  * - Cover hero banner with gradient/image, live online counter, and category pill
  * - Identity header with custom avatar, community title, join toggle, and creator tools
@@ -43,28 +43,28 @@ export class CommunityView {
     const channelMsgs: ClientMessage[] = direct.length > 0 ? direct : relayMsgs;
     return `
       <div class="space-y-4">
-        <div class="p-4 rounded-2xl bg-gradient-to-r from-emerald-950/40 via-surface-raised to-surface-raised border border-emerald-500/30 shadow-md flex items-center justify-between">
+        <div class="context-trail community-context-heading">
           <div class="flex items-center space-x-2.5">
             <span class="w-3 h-3 rounded-full bg-emerald-400 animate-pulse"></span>
             <div>
-              <h3 class="text-xs font-bold text-white uppercase tracking-wider font-mono">Real-Time Community Relay</h3>
-              <p class="text-[11px] text-slate-400">Ephemeral mesh broadcast with sovereign cryptographic delivery proofs.</p>
+              <h3>Live conversation</h3>
+              <p>Talk with the community. Keep useful messages privately in your Vault.</p>
             </div>
           </div>
-          <span class="text-xs font-mono text-emerald-400 font-bold">${circle.onlineCount ?? 0} active nodes</span>
+          ${circle.onlineCount && circle.onlineCount > 0 ? `<span class="text-xs font-mono text-emerald-400 font-bold">${circle.onlineCount} active in discussion</span>` : ''}
         </div>
 
         <div class="p-4 rounded-2xl bg-surface-raised border border-white/5 shadow-sm space-y-3 min-h-[360px] flex flex-col justify-between">
           <div class="space-y-2.5 overflow-y-auto max-h-96 pr-1">
             ${channelMsgs.length === 0 ? `
               <div class="p-8 text-center text-slate-500 text-xs space-y-2">
-                <div class="text-2xl">⚡</div>
-                <p>No live messages in c/${escapeHtml(circle.name)} yet.</p>
-                <p class="text-[11px] text-slate-600">Say hello to other online members in this community!</p>
+                <div class="text-2xl">💬</div>
+                <p>No messages in c/${escapeHtml(circle.name)} yet.</p>
+                <p class="text-[11px] text-slate-500">Say hello to other members in this community!</p>
               </div>
             ` : channelMsgs.map(m => `
-              <div class="flex items-start space-x-2.5 text-xs">
-                <div class="w-6 h-6 rounded-lg bg-surface-base border border-white/10 flex items-center justify-center text-[10px] font-mono text-cyan-400 font-bold shrink-0">
+              <div id="context-live-${escapeHtml(m.id)}" tabindex="-1" class="flex items-start space-x-2.5 text-xs">
+                <div class="w-6 h-6 rounded-lg bg-surface-base border border-white/10 flex items-center justify-center text-[10px] text-slate-300 font-bold shrink-0">
                   ${(m.authorFingerprint || 'AN').slice(0, 2).toUpperCase()}
                 </div>
                 <div class="min-w-0 flex-1">
@@ -75,9 +75,8 @@ export class CommunityView {
                   </div>
                   <div class="text-slate-300 mt-0.5">${escapeHtml(m.text || '')}</div>
                   <div class="mt-1 flex items-center space-x-2 text-[10px]">
-                    <button type="button" data-action="live-msg-branch-to-discussion" data-channel="${circle.channelId}" data-text="${escapeHtml(m.text || '')}" class="text-slate-500 hover:text-cyan-400 font-mono transition-colors flex items-center space-x-1 cursor-pointer" title="Branch this live thought into a persistent community discussion">
-                      <span>↳</span>
-                      <span>Branch to Discussion</span>
+                    <button type="button" data-action="keep-live-message" data-channel="${escapeHtml(direct.length ? circle.channelId : `relays-${circle.name}`)}" data-message-id="${escapeHtml(m.id)}" class="context-button min-h-[32px]" ${m.text?.trim() ? '' : 'disabled'}>
+                      <span>Keep in Vault</span>
                     </button>
                   </div>
                 </div>
@@ -89,15 +88,15 @@ export class CommunityView {
             <input
               type="text"
               id="input-community-live-msg"
-              placeholder="Send a live message in c/${escapeHtml(circle.name)}..."
-              class="flex-1 bg-surface-base border border-white/10 rounded-xl px-3.5 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+              aria-label="Message this community"
+              placeholder="Message c/${escapeHtml(circle.name)}..."
+              class="flex-1 bg-surface-base border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[var(--color-accent,#e59b3c)] min-h-[44px]"
               autocomplete="off"
             />
             <button
               type="submit"
-              class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl transition-all cursor-pointer shadow-sm flex items-center space-x-1"
+              class="min-h-[44px] px-4 py-2 bg-[var(--color-accent,#e59b3c)] hover:brightness-105 text-slate-950 text-xs font-bold rounded-xl transition-all cursor-pointer shadow-sm flex items-center space-x-1"
             >
-              <span>⚡</span>
               <span>Send</span>
             </button>
           </form>
@@ -110,19 +109,19 @@ export class CommunityView {
     const knowledgePosts = posts.filter(p => p.attachment || p.flair === 'VERIFIED RELEASE' || p.flair === 'SECURITY ADVISORY');
     return `
       <div class="space-y-4">
-        <div class="p-4 rounded-2xl bg-gradient-to-r from-cyan-950/40 via-surface-raised to-surface-raised border border-cyan-500/30 shadow-md flex items-center justify-between">
+        <div class="context-trail community-context-heading">
           <div class="flex items-center space-x-2.5">
             <span class="text-xl">📚</span>
             <div>
-              <h3 class="text-xs font-bold text-white uppercase tracking-wider font-mono">Community Knowledge Base &amp; Files</h3>
-              <p class="text-[11px] text-slate-400">Curated resources, verified binaries, and reproducible guides for c/${escapeHtml(circle.name)}.</p>
+              <h3>Community resources</h3>
+              <p>Shared files and release or security posts from c/${escapeHtml(circle.name)}. Keep a private copy of useful context.</p>
             </div>
           </div>
           <button
             type="button"
             data-action="open-composer"
             data-channel="${circle.channelId}"
-            class="px-3 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold transition-all shadow-sm flex items-center space-x-1 cursor-pointer"
+            class="px-3 py-1.5 rounded-xl bg-[var(--color-accent,#e59b3c)] hover:brightness-105 text-slate-950 text-xs font-bold transition-all shadow-sm flex items-center space-x-1 cursor-pointer"
           >
             <span>+</span>
             <span>Add Resource</span>
@@ -150,7 +149,7 @@ export class CommunityView {
                 <div class="flex items-center justify-between">
                   <div class="flex items-center space-x-2">
                     <span class="text-base">${p.attachment ? '📁' : '📄'}</span>
-                    <h4 data-open-detail="${p.id}" class="text-xs sm:text-sm font-bold text-white hover:text-cyan-300 cursor-pointer transition-colors truncate max-w-md">${escapeHtml(p.title)}</h4>
+                    <h4><button type="button" data-action="more-open-detail" data-post-id="${escapeHtml(p.id)}" class="text-xs sm:text-sm font-bold text-white hover:text-cyan-300 text-left">${escapeHtml(p.title)}</button></h4>
                   </div>
                   <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-surface-base text-cyan-400 border border-cyan-500/20 font-bold">${p.flair || 'GUIDE'}</span>
                 </div>
@@ -158,7 +157,7 @@ export class CommunityView {
                 ${p.attachment ? `
                   <div class="flex items-center justify-between p-2 rounded-xl bg-surface-base border border-white/5 text-[11px] font-mono text-slate-400">
                     <span class="truncate">📦 ${escapeHtml(p.attachment.fileName || 'document.bin')} (${((p.attachment.byteSize || 1024) / 1024).toFixed(1)} KB)</span>
-                    <span class="text-emerald-400 font-bold">SHA: ${escapeHtml(p.attachment.sha256?.slice(0, 8) || 'verified')}...</span>
+                    <span class="text-slate-400">${p.attachment.sha256 ? `SHA: ${escapeHtml(p.attachment.sha256.slice(0, 8))}…` : 'Checksum unavailable'}</span>
                   </div>
                 ` : ''}
                 <div class="flex items-center justify-between pt-2 border-t border-white/5 text-xs">
@@ -214,17 +213,17 @@ export class CommunityView {
 
     return `
       <div id="community-view-workspace" class="community-workspace flex-1 flex flex-col overflow-y-auto bg-canvas">
-        <nav class="discovery-breadcrumb" aria-label="Community navigation"><button type="button" data-action="nav-mode" data-mode="communities">${renderIcon('users', { size: 16 })} All communities</button><span aria-hidden="true">/</span><span>c/${escapeHtml(circle.name)}</span></nav>
+        <nav class="discovery-breadcrumb" aria-label="Community navigation"><a href="/communities" data-public-link>${renderIcon('users', { size: 16 })} All communities</a><span aria-hidden="true">/</span><span>c/${escapeHtml(circle.name)}</span></nav>
         
         <!-- 1. FULL-WIDTH COMMUNITY HERO BANNER -->
-        <div class="community-hero relative w-full h-36 sm:h-52 overflow-hidden" style="background: ${circle.banner || 'linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%)'};">
-          <div class="absolute inset-0 bg-gradient-to-t from-canvas via-black/30 to-transparent"></div>
+        <div class="community-hero relative w-full h-36 sm:h-52 overflow-hidden" style="background: ${circle.banner || 'linear-gradient(135deg, #1c1813 0%, #27221b 50%, #362e24 100%)'};">
+          <div class="absolute inset-0 bg-gradient-to-t from-canvas via-black/40 to-transparent"></div>
           <div class="absolute top-4 right-4 flex items-center space-x-2">
-            <span class="px-3 py-1 rounded-xl bg-black/60 backdrop-blur-md text-xs font-mono text-cyan-300 border border-white/10 shadow-md">
+            <span class="px-3 py-1 rounded-xl bg-black/60 backdrop-blur-md text-xs text-slate-300 border border-white/10">
               ${escapeHtml(circle.category || 'General')}
             </span>
-            <span class="px-2.5 py-1 rounded-xl bg-black/60 backdrop-blur-md text-xs font-mono text-emerald-400 border border-white/10 flex items-center space-x-1.5 shadow-md">
-              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span class="px-2.5 py-1 rounded-xl bg-black/60 backdrop-blur-md text-xs text-slate-300 border border-white/10 ${circle.onlineCount && circle.onlineCount > 0 ? 'flex' : 'hidden'} items-center space-x-1.5">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
               <span>${circle.onlineCount ?? 0} online</span>
             </span>
           </div>
@@ -234,18 +233,18 @@ export class CommunityView {
         <div class="max-w-6xl mx-auto w-full px-4 sm:px-6 -mt-12 sm:-mt-16 relative z-10 mb-6">
           <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-4 border-b border-white/10">
             <div class="flex items-end space-x-4">
-              <div class="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-surface-base border-4 border-canvas shadow-2xl flex items-center justify-center shrink-0" style="color: ${circle.primaryColor || '#6366f1'};">
+              <div class="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-surface-base border-4 border-canvas shadow-2xl flex items-center justify-center shrink-0" style="color: ${circle.primaryColor || 'var(--color-accent,#e59b3c)'};">
                 ${circle.icon && !circle.icon.includes('🏛️') ? circle.icon : renderIcon('users', { size: 36, strokeWidth: 1.75 })}
               </div>
               <div class="space-y-1 pb-1">
                 <div class="flex items-center space-x-2 flex-wrap">
                   <h1 class="text-xl sm:text-2xl font-bold text-white tracking-tight">${escapeHtml(circle.displayName || circle.name)}</h1>
-                  <span class="text-xs px-2.5 py-0.5 rounded-full bg-white/10 text-slate-300 font-mono inline-flex items-center gap-1.5">
+                  <span class="text-xs px-2.5 py-0.5 rounded-full bg-white/10 text-slate-300 inline-flex items-center gap-1.5">
                     ${circle.communityType === 'private' ? `${renderIcon('lock', { size: 12 })} Private` : circle.communityType === 'restricted' ? `${renderIcon('eye', { size: 12 })} Restricted` : `${renderIcon('globe', { size: 12 })} Public`}
                   </span>
                 </div>
                 <p class="text-xs sm:text-sm text-slate-300 font-medium">c/${escapeHtml(circle.name)}</p>
-                <div class="text-xs text-slate-400 font-mono flex items-center space-x-3">
+                <div class="text-xs text-slate-400 flex items-center space-x-3">
                   <span><b>${(circle.membersCount || 0).toLocaleString()}</b> members</span>
                   <span>•</span>
                   <span><b>${(circle.rules || []).length}</b> rules</span>
@@ -259,24 +258,35 @@ export class CommunityView {
                 type="button"
                 data-action="toggle-join-circle"
                 data-circle-id="${circle.id}"
-                class="px-5 py-2.5 rounded-xl font-bold text-xs transition-all shadow-md flex items-center space-x-1.5 cursor-pointer ${
+                class="min-h-[44px] px-5 py-2.5 rounded-xl font-bold text-xs transition-all shadow-md flex items-center space-x-1.5 cursor-pointer ${
                   circle.isJoined
-                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-500/30'
+                    ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25'
                     : 'bg-white text-slate-900 hover:bg-slate-200'
                 }"
               >
                 ${circle.isJoined ? renderIcon('check', { size: 14 }) : renderIcon('plus', { size: 14 })}
-                <span>${circle.isJoined ? 'Joined' : 'Join Community'}</span>
+                <span>${circle.isJoined ? 'Joined' : 'Join'}</span>
               </button>
 
               <button
                 type="button"
                 data-action="open-composer"
                 data-channel="${circle.channelId}"
-                class="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all shadow-md flex items-center space-x-1.5 cursor-pointer"
+                class="min-h-[44px] px-4 py-2.5 rounded-xl bg-[var(--color-accent,#e59b3c)] hover:brightness-110 text-slate-950 text-xs font-bold transition-all shadow-md flex items-center space-x-1.5 cursor-pointer"
               >
                 ${renderIcon('plus', { size: 14 })}
-                <span>Post</span>
+                <span>New Post</span>
+              </button>
+
+              <button
+                type="button"
+                data-action="share-community-link"
+                data-community="${circle.name}"
+                class="min-h-[44px] px-3.5 py-2.5 rounded-xl bg-surface-raised hover:bg-surface-overlay border border-white/10 text-slate-300 hover:text-white text-xs font-semibold transition-all shadow-sm flex items-center space-x-1.5 cursor-pointer"
+                title="Share community link"
+              >
+                ${renderIcon('share', { size: 14 })}
+                <span>Share</span>
               </button>
 
               ${isMod ? `
@@ -284,7 +294,7 @@ export class CommunityView {
                   type="button"
                   data-action="open-circle-mod-tools"
                   data-circle-id="${circle.id}"
-                  class="px-3.5 py-2.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-xs font-bold transition-all shadow-md flex items-center space-x-1.5 cursor-pointer"
+                  class="min-h-[44px] px-3.5 py-2.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-xs font-bold transition-all shadow-md flex items-center space-x-1.5 cursor-pointer"
                   title="Community Moderation & Governance Settings"
                 >
                   ${renderIcon('shield', { size: 14 })}
@@ -297,47 +307,48 @@ export class CommunityView {
 
         <!-- 3-PILLAR COMMUNITY NAVIGATION -->
         <div class="max-w-6xl mx-auto w-full px-4 sm:px-6 mb-4">
-          <div class="flex items-center space-x-1.5 p-1 bg-surface-raised/80 rounded-2xl border border-white/10 w-fit">
+          <div class="community-pillars" role="group" aria-label="Community spaces">
             <button
               type="button"
               data-action="switch-community-pillar"
               data-pillar="discuss"
-              class="px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center space-x-2 ${
+              aria-pressed="${this.activePillar === 'discuss'}"
+              class="min-h-[44px] px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center space-x-2 ${
                 this.activePillar === 'discuss'
-                  ? 'bg-indigo-600 text-white shadow-md'
+                  ? 'bg-[var(--color-accent,#e59b3c)] text-slate-950 shadow-md font-bold'
                   : 'text-slate-400 hover:text-white hover:bg-white/5'
               }"
             >
-              <span>💬</span>
-              <span>Discuss</span>
+              <span>${renderIcon('messageSquare', { size: 15 })}</span>
+              <span>Posts</span>
             </button>
             <button
               type="button"
               data-action="switch-community-pillar"
               data-pillar="live"
-              class="px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center space-x-2 ${
+              aria-pressed="${this.activePillar === 'live'}"
+              class="min-h-[44px] px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center space-x-2 ${
                 this.activePillar === 'live'
-                  ? 'bg-emerald-600 text-white shadow-md'
+                  ? 'bg-[var(--color-accent,#e59b3c)] text-slate-950 shadow-md font-bold'
                   : 'text-slate-400 hover:text-white hover:bg-white/5'
               }"
             >
-              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span>Live Chat</span>
-              <span class="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-500/30">${circle.onlineCount ?? 3}</span>
+              <span>${renderIcon('messages', { size: 15 })}</span>
+              <span>Chat</span>
             </button>
             <button
               type="button"
               data-action="switch-community-pillar"
               data-pillar="knowledge"
-              class="px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center space-x-2 ${
+              aria-pressed="${this.activePillar === 'knowledge'}"
+              class="min-h-[44px] px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center space-x-2 ${
                 this.activePillar === 'knowledge'
-                  ? 'bg-cyan-600 text-white shadow-md'
+                  ? 'bg-[var(--color-accent,#e59b3c)] text-slate-950 shadow-md font-bold'
                   : 'text-slate-400 hover:text-white hover:bg-white/5'
               }"
             >
-              <span>📚</span>
-              <span>Knowledge</span>
-              <span class="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-cyan-950 text-cyan-300 border border-cyan-500/30">Wiki</span>
+              <span>${renderIcon('book', { size: 15 })}</span>
+              <span>Wiki</span>
             </button>
           </div>
         </div>
@@ -379,19 +390,46 @@ export class CommunityView {
                     <!-- INLINE QUICK COMPOSER -->
                     <div class="p-3.5 rounded-2xl bg-surface-raised border border-white/5 shadow-sm">
                       <div class="flex items-center space-x-3">
-                        <div class="w-8 h-8 rounded-full bg-indigo-600/30 text-indigo-400 flex items-center justify-center font-bold text-xs">
-                          ${renderIcon('plus', { size: 16, class: 'text-indigo-400' })}
+                        <div class="w-8 h-8 rounded-full bg-[var(--color-accent,#e59b3c)]/20 text-[var(--color-accent,#e59b3c)] flex items-center justify-center font-bold text-xs">
+                          ${renderIcon('plus', { size: 16, class: 'text-[var(--color-accent,#e59b3c)]' })}
                         </div>
                         <input
                           type="text"
-                          placeholder="Share a thought, link, or discussion in c/${escapeHtml(circle.name)}..."
+                          placeholder="Share a perspective, research paper, or discussion in c/${escapeHtml(circle.name)}..."
                           data-action="open-composer"
                           data-channel="${circle.channelId}"
-                          class="flex-1 bg-surface-base border border-white/10 rounded-xl px-4 py-2 text-xs text-slate-300 hover:border-white/20 cursor-pointer focus:outline-none"
+                          class="flex-1 bg-surface-base border border-white/10 rounded-xl px-4 py-2.5 text-xs text-slate-300 hover:border-white/20 cursor-pointer focus:outline-none min-h-[44px]"
                           readonly
                         />
                       </div>
                     </div>
+
+                    <!-- TOPIC FLAIR CHIPS (IF PRESENT) -->
+                    ${(circle.flairs && circle.flairs.length > 0) ? `
+                      <div class="flex items-center space-x-1.5 overflow-x-auto pb-1 text-xs no-scrollbar">
+                        <span class="text-[11px] font-mono text-slate-500 uppercase tracking-wider shrink-0">Topics:</span>
+                        <button 
+                          type="button" 
+                          id="btn-clear-flair-filter" 
+                          class="px-2.5 py-1 rounded-lg text-[11px] font-mono transition-colors cursor-pointer shrink-0 ${!sovereignCircleEngine.selectedFlair ? 'bg-[var(--color-accent,#e59b3c)]/20 text-[var(--color-accent,#e59b3c)] border border-[var(--color-accent,#e59b3c)]/40 font-bold' : 'bg-surface-base text-slate-400 border border-white/5 hover:text-white'}"
+                        >
+                          All
+                        </button>
+                        ${circle.flairs.map((flair) => `
+                          <button 
+                            type="button" 
+                            data-select-flair="${escapeHtml(flair)}" 
+                            class="btn-flair-filter px-2.5 py-1 rounded-lg text-[11px] font-mono transition-all cursor-pointer shrink-0 ${
+                              sovereignCircleEngine.selectedFlair === flair
+                                ? 'bg-[var(--color-accent,#e59b3c)]/20 text-[var(--color-accent,#e59b3c)] border border-[var(--color-accent,#e59b3c)]/40 font-bold shadow-xs'
+                                : 'bg-surface-base text-slate-400 border border-white/5 hover:text-white'
+                            }"
+                          >
+                            ${escapeHtml(flair)}
+                          </button>
+                        `).join('')}
+                      </div>
+                    ` : ''}
 
                     <!-- FEED CONTROLS -->
                     ${feedControlsEngine.renderFeedControlsToolbar()}
@@ -399,7 +437,7 @@ export class CommunityView {
                     <!-- POST STREAM -->
                     ${streamPosts.length === 0 ? `
                       <div class="p-8 rounded-2xl bg-surface-raised/40 border border-dashed border-white/10 text-center space-y-4 my-2">
-                        <div class="w-12 h-12 mx-auto rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-2xl text-indigo-400">
+                        <div class="w-12 h-12 mx-auto rounded-2xl bg-[var(--color-accent,#e59b3c)]/15 border border-[var(--color-accent,#e59b3c)]/30 flex items-center justify-center text-2xl text-[var(--color-accent,#e59b3c)]">
                           💬
                         </div>
                         <div class="space-y-1">
@@ -407,19 +445,19 @@ export class CommunityView {
                           <p class="text-xs text-slate-400 max-w-sm mx-auto">Be the first to share an update, start a discussion, or share useful resources with this community.</p>
                         </div>
                         <div class="flex flex-wrap items-center justify-center gap-2 pt-2">
-                          <button type="button" data-action="open-composer" data-channel="${circle.channelId}" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all shadow-sm cursor-pointer flex items-center space-x-1.5">
+                          <button type="button" data-action="open-composer" data-channel="${circle.channelId}" class="min-h-[44px] px-4 py-2 rounded-xl bg-[var(--color-accent,#e59b3c)] hover:brightness-110 text-slate-950 text-xs font-bold transition-all shadow-sm cursor-pointer flex items-center space-x-1.5">
                             <span>✍️</span>
                             <span>Create first post</span>
                           </button>
-                          <button type="button" data-action="copy-community-url" data-community="${circle.name}" class="px-3.5 py-2 rounded-xl bg-surface-raised hover:bg-surface-overlay text-slate-300 hover:text-white border border-white/5 text-xs font-medium transition-all cursor-pointer flex items-center space-x-1.5">
+                          <button type="button" data-action="copy-community-url" data-community="${circle.name}" class="min-h-[44px] px-3.5 py-2 rounded-xl bg-surface-raised hover:bg-surface-overlay text-slate-300 hover:text-white border border-white/5 text-xs font-medium transition-all cursor-pointer flex items-center space-x-1.5">
                             <span>🔗</span>
                             <span>Invite people</span>
                           </button>
-                          <button type="button" data-action="share-community-link" data-community="${circle.name}" class="px-3.5 py-2 rounded-xl bg-surface-raised hover:bg-surface-overlay text-slate-300 hover:text-white border border-white/5 text-xs font-medium transition-all cursor-pointer flex items-center space-x-1.5">
+                          <button type="button" data-action="share-community-link" data-community="${circle.name}" class="min-h-[44px] px-3.5 py-2 rounded-xl bg-surface-raised hover:bg-surface-overlay text-slate-300 hover:text-white border border-white/5 text-xs font-medium transition-all cursor-pointer flex items-center space-x-1.5">
                             <span>📢</span>
                             <span>Share community</span>
                           </button>
-                          <button type="button" data-nav-mode="communities" class="px-3.5 py-2 rounded-xl bg-surface-raised hover:bg-surface-overlay text-slate-300 hover:text-white border border-white/5 text-xs font-medium transition-all cursor-pointer flex items-center space-x-1.5">
+                          <button type="button" data-nav-mode="communities" class="min-h-[44px] px-3.5 py-2 rounded-xl bg-surface-raised hover:bg-surface-overlay text-slate-300 hover:text-white border border-white/5 text-xs font-medium transition-all cursor-pointer flex items-center space-x-1.5">
                             <span>🧭</span>
                             <span>Browse spaces</span>
                           </button>
@@ -430,7 +468,7 @@ export class CommunityView {
             }
           </div>
 
-          <!-- RIGHT RAIL (4 Cols): ABOUT, RULES, MODERATORS -->
+          <!-- RIGHT RAIL (4 Cols): ABOUT, RULES, GOVERNANCE, MODERATORS -->
           <div class="lg:col-span-4 space-y-4">
             
             <!-- ABOUT CARD -->
@@ -466,25 +504,64 @@ export class CommunityView {
               </div>
               <div class="space-y-2">
                 ${(circle.rules || []).map((rule, idx) => `
-                  <div class="p-2.5 rounded-xl bg-surface-base border border-white/5 space-y-1">
-                    <div class="font-semibold text-xs text-slate-200">
-                      ${idx + 1}. ${escapeHtml(rule.title)}
-                    </div>
-                    <p class="text-[11px] text-slate-400 leading-relaxed">${escapeHtml(rule.description)}</p>
-                  </div>
+                  <details class="group p-2.5 rounded-xl bg-surface-base border border-white/5 space-y-1" ${idx === 0 ? 'open' : ''}>
+                    <summary class="btn-toggle-rule font-semibold text-xs text-slate-200 flex items-center justify-between cursor-pointer select-none" data-toggle-rule-circle="${circle.id}" data-rule-idx="${idx}">
+                      <span class="truncate pr-2">${idx + 1}. ${escapeHtml(rule.title)}</span>
+                      <span class="text-slate-500 text-[10px] group-open:rotate-180 transition-transform">▼</span>
+                    </summary>
+                    <p class="text-[11px] text-slate-400 leading-relaxed pt-2 border-t border-white/5 mt-1">
+                      ${escapeHtml(rule.description)}
+                    </p>
+                  </details>
                 `).join('')}
               </div>
             </div>
 
+            <!-- GOVERNANCE & TRANSPARENCY (PROGRESSIVE DISCLOSURE) -->
+            <details class="group p-4 rounded-2xl bg-surface-raised border border-white/5 shadow-sm space-y-3">
+              <summary class="flex items-center justify-between cursor-pointer select-none">
+                <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center space-x-1.5">
+                  <span>🏛️</span>
+                  <span>Governance & Details</span>
+                </h3>
+                <span class="text-slate-500 text-[10px] group-open:rotate-180 transition-transform">▼</span>
+              </summary>
+              <div class="space-y-2 text-xs pt-2 border-t border-white/5">
+                <div class="flex items-center justify-between p-2 rounded-xl bg-surface-base border border-white/5">
+                  <span class="text-slate-400">Consensus Model</span>
+                  <span class="text-slate-200 font-medium">Community Council</span>
+                </div>
+                <div class="flex items-center justify-between p-2 rounded-xl bg-surface-base border border-white/5">
+                  <span class="text-slate-400">Storage Policy</span>
+                  <span class="text-slate-200 font-medium">Local & Relay Sync</span>
+                </div>
+                <div class="flex items-center justify-between p-2 rounded-xl bg-surface-base border border-white/5">
+                  <span class="text-slate-400">Zero Ad-Tracking</span>
+                  <span class="text-emerald-400 font-medium">Client-Enforced</span>
+                </div>
+                <div class="pt-1">
+                  <button
+                    type="button"
+                    data-action="open-mod-logs"
+                    data-circle-id="${circle.id}"
+                    class="w-full px-3 py-2 rounded-xl bg-surface-base hover:bg-surface-overlay border border-white/10 text-xs font-medium text-slate-300 hover:text-white transition-colors cursor-pointer text-center flex items-center justify-center space-x-1.5"
+                  >
+                    <span>📜</span>
+                    <span>View Audit Log</span>
+                  </button>
+                </div>
+              </div>
+            </details>
+
             ${isMod ? `
               <!-- MODERATOR TOOLS CARD -->
-              <div class="p-4 rounded-2xl bg-indigo-950/40 border border-indigo-500/30 shadow-md space-y-3">
+              <div class="p-4 rounded-2xl bg-[var(--color-accent,#e59b3c)]/10 border border-[var(--color-accent,#e59b3c)]/30 shadow-md space-y-3">
                 <div class="flex items-center justify-between">
-                  <h3 class="text-xs font-mono font-bold uppercase tracking-wider text-indigo-300 flex items-center space-x-1.5">
+                  <h3 class="text-xs font-mono font-bold uppercase tracking-wider text-[var(--color-accent,#e59b3c)] flex items-center space-x-1.5">
                     <span>🛡️</span>
                     <span>Mod Tools</span>
                   </h3>
-                  <span class="text-[9px] font-mono px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-bold">AUTHORIZED</span>
+                  <span class="text-[9px] font-mono px-2 py-0.5 rounded bg-[var(--color-accent,#e59b3c)]/20 text-[var(--color-accent,#e59b3c)] font-bold">AUTHORIZED</span>
                 </div>
                 <div class="grid grid-cols-2 gap-2 pt-1">
                   <button
@@ -513,12 +590,12 @@ export class CommunityView {
               <div class="space-y-2">
                 <div class="flex items-center justify-between p-2 rounded-xl bg-surface-base border border-white/5">
                   <div class="flex items-center space-x-2">
-                    <span class="text-indigo-400">${renderIcon('award', { size: 14 })}</span>
-                    <span class="text-xs font-semibold text-indigo-300 truncate max-w-[140px]">
+                    <span class="text-[var(--color-accent,#e59b3c)]">${renderIcon('award', { size: 14 })}</span>
+                    <span class="text-xs font-semibold text-[var(--color-accent,#e59b3c)] truncate max-w-[140px]">
                       Community Founder
                     </span>
                   </div>
-                  <span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-bold">FOUNDER</span>
+                  <span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[var(--color-accent,#e59b3c)]/20 text-[var(--color-accent,#e59b3c)] font-bold">FOUNDER</span>
                 </div>
                 ${(circle.moderators || []).filter(m => m !== circle.creatorFingerprint).map(mFp => `
                   <div class="flex items-center justify-between p-2 rounded-xl bg-surface-base border border-white/5">
@@ -544,7 +621,7 @@ export class CommunityView {
                       <div class="flex items-center space-x-2 min-w-0">
                         <span class="text-base">${other.icon || '🏛️'}</span>
                         <div class="min-w-0">
-                          <button type="button" data-action="join-channel" data-channel="${other.channelId}" class="text-xs font-bold text-slate-200 hover:text-indigo-400 truncate block text-left cursor-pointer">
+                          <button type="button" data-action="join-channel" data-channel="${other.channelId}" class="text-xs font-bold text-slate-200 hover:text-[var(--color-accent,#e59b3c)] truncate block text-left cursor-pointer">
                             c/${escapeHtml(other.name)}
                           </button>
                           <span class="text-[10px] text-slate-400 font-mono">${(other.membersCount || 0).toLocaleString()} members</span>
@@ -590,11 +667,6 @@ export class CommunityView {
     return `<div id="communities-hub-workspace" class="discovery-hub">
       <header class="view-header"><div><h1>Communities</h1><p>Small worlds. Shared interests.</p></div><button type="button" class="discovery-create" data-action="open-create-circle">${renderIcon('plus', { size: 17 })}<span>Create community</span></button></header>
       <div id="communities-directory-scroll" class="discovery-hub__scroll">
-        <section class="discovery-intro discovery-intro--communities" aria-labelledby="communities-intro-title">
-          <div><span class="discovery-eyebrow">FIND YOUR CORNER OF THE INTERNET</span><h2 id="communities-intro-title">Different interests.<br><em>Shared curiosity.</em></h2><p>From a first question to a shared obsession.<br>There is a place for your kind of conversation.</p></div>
-          <div class="discovery-constellation" aria-hidden="true"><span>${renderIcon('users', { size: 32 })}</span><span>${renderIcon('terminal', { size: 26 })}</span><span>${renderIcon('sparkles', { size: 28 })}</span></div>
-          <footer><span>${allCircles.length} spaces to explore</span><span>${joinedCount} in your circle</span></footer>
-        </section>
         <div class="discovery-directory-tools">
           <div class="discovery-segmented" role="group" aria-label="Community membership filter">
             <button type="button" data-action="filter-community-membership" data-membership="all" aria-pressed="${this.membershipFilter === 'all'}">Discover <span>${allCircles.length}</span></button>
@@ -603,7 +675,7 @@ export class CommunityView {
           <label class="discovery-search">${renderIcon('search', { size: 18 })}<input type="text" id="input-community-search" data-input="search-communities" aria-label="Search communities" placeholder="Find a community…" value="${escapeHtml(this.searchQuery)}" autocomplete="off" />${this.searchQuery ? `<button type="button" data-action="clear-community-search" aria-label="Clear community search">${renderIcon('close', { size: 17 })}</button>` : ''}</label>
         </div>
         <div class="discovery-category-list" role="group" aria-label="Community topics">${categories.map(category => `<button type="button" data-action="filter-community-category" data-category="${escapeHtml(category)}" aria-pressed="${this.activeCategory.toLowerCase() === category.toLowerCase()}">${category === 'all' ? 'All topics' : escapeHtml(category)}</button>`).join('')}</div>
-        <div class="discovery-results-heading"><h2>${this.membershipFilter === 'joined' ? 'Your communities' : 'Explore the possibilities'}</h2><span role="status">${filtered.length} ${filtered.length === 1 ? 'community' : 'communities'}</span></div>
+        <div class="discovery-results-heading"><h2>${this.membershipFilter === 'joined' ? 'Your communities' : 'Find a conversation'}</h2><span role="status">${filtered.length} ${filtered.length === 1 ? 'community' : 'communities'}</span></div>
         ${filtered.length ? `<div class="discovery-space-grid">${filtered.map(renderDiscoveryCard).join('')}</div>` : `<div class="discovery-empty discovery-empty--roomy">${renderIcon('search', { size: 28 })}<strong>${this.membershipFilter === 'joined' && !joinedCount ? 'Your circle starts here' : 'No communities match these filters'}</strong><span>Try a different topic, broaden your search, or start a space of your own.</span>${isFiltering ? '<button type="button" data-action="reset-community-filters">Reset filters</button>' : ''}<button type="button" data-action="open-create-circle">Create a community</button></div>`}
       </div>
     </div>`;

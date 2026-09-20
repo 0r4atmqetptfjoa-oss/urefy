@@ -114,7 +114,9 @@ describe('Modular Views Architecture', () => {
 
       const html = renderVaultReleaseCard(samplePost);
       expect(html).toContain('Ghost Node v3.4 Binary');
-      expect(html).toContain('100% REPRODUCIBLE');
+      expect(html).toContain('Public resource');
+      expect(html).toContain('Publisher-supplied metadata');
+      expect(html).not.toContain('Audit Status: PASS');
       expect(html).toContain('btn-download-p2p');
       expect(html).toContain('ghost-node-v3.4-x86_64.bin');
       expect(html).toContain('deadbeef12345678');
@@ -160,7 +162,7 @@ describe('Modular Views Architecture', () => {
       };
 
       const html = renderPulsePostCard(post);
-      expect(html).toContain('btn-upvote');
+      expect(html).toContain('btn-pulse-like');
       expect(html).toContain('btn-downvote');
       expect(html).toContain('15');
       expect(html).toContain('Decentralized Gossip Protocol Insights');

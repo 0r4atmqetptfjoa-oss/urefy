@@ -91,6 +91,7 @@ export interface ActivityPubEnvelope {
   actor: string;
   published?: string;
   to?: string[];
+  cc?: string[];
   object: ActivityStreamsNote | any;
   signature?: {
     type?: string;
@@ -135,10 +136,31 @@ export function getNodeKeyPair(env?: Env): KeyPair {
   const privateKey = env?.NODE_PRIVATE_KEY || (env as any)?.FEDERATION_PRIVATE_KEY;
   if (privateKey && typeof privateKey === 'string') {
     try {
-      const privBytes = hexToBytes(privateKey);
-      if (privBytes.length === 32) {
-        return generateKeyPair(privBytes);
+      let clean = privateKey.trim();
+      if ((clean.startsWith('"') && clean.endsWith('"')) || (clean.startsWith("'") && clean.endsWith("'"))) {
+        clean = clean.slice(1, -1).trim();
       }
+      if (clean.startsWith('0x') || clean.startsWith('0X')) {
+        clean = clean.slice(2);
+      }
+      if (/^[0-9a-fA-F]{64}$/.test(clean)) {
+        const privBytes = hexToBytes(clean);
+        if (privBytes.length === 32) {
+          return generateKeyPair(privBytes);
+        }
+      }
+      if (/^[0-9a-fA-F]{128}$/.test(clean)) {
+        const privBytes = hexToBytes(clean);
+        return generateKeyPair(privBytes.slice(0, 32));
+      }
+      try {
+        const bin = atob(clean);
+        if (bin.length === 32 || bin.length === 64) {
+          const privBytes = new Uint8Array(32);
+          for (let i = 0; i < 32; i++) privBytes[i] = bin.charCodeAt(i);
+          return generateKeyPair(privBytes);
+        }
+      } catch (_) {}
     } catch (_) {}
   }
 
@@ -195,6 +217,7 @@ export interface CachedActorKey {
   publicKeyHex?: string;
   publicKeyPem?: string;
   inbox?: string;
+  sharedInbox?: string;
   expiresAt: number;
 }
 
@@ -328,6 +351,7 @@ export async function fetchActorPublicKey(actorUrl: string, allowLocalDev: boole
         ? data.publicKey.publicKeyPem
         : undefined;
       const inbox = typeof data?.inbox === 'string' ? data.inbox : undefined;
+      const sharedInbox = typeof data?.endpoints?.sharedInbox === 'string' ? data.endpoints.sharedInbox : undefined;
 
       if (pubKey && typeof pubKey === 'string' && /^[0-9a-f]{64}$/i.test(pubKey)) {
         const canonicalKey = pubKey.toLowerCase();
@@ -335,12 +359,13 @@ export async function fetchActorPublicKey(actorUrl: string, allowLocalDev: boole
           publicKeyHex: canonicalKey,
           publicKeyPem,
           inbox,
+          sharedInbox,
           expiresAt: Date.now() + ACTOR_KEY_TTL_MS,
         });
         return canonicalKey;
       }
       if (publicKeyPem) {
-        actorKeyCache.set(actorUrl, { publicKeyPem, inbox, expiresAt: Date.now() + ACTOR_KEY_TTL_MS });
+        actorKeyCache.set(actorUrl, { publicKeyPem, inbox, sharedInbox, expiresAt: Date.now() + ACTOR_KEY_TTL_MS });
       }
     }
   } catch (_) {
@@ -890,6 +915,32 @@ export async function handleInboxPost(request: Request, env?: Env): Promise<Resp
           });
         }
       }
+
+      // Persist remote follower in D1 database
+      const db = getD1Database(env);
+      if (db && remoteInbox) {
+        try {
+          const cached = actorKeyCache.get(envelope.actor);
+          await db.prepare(
+            `INSERT INTO activitypub_followers (actor, inbox, shared_inbox, public_key_pem, created_at)
+             VALUES (?, ?, ?, ?, ?)
+             ON CONFLICT(actor) DO UPDATE SET
+               inbox = excluded.inbox,
+               shared_inbox = excluded.shared_inbox,
+               public_key_pem = excluded.public_key_pem,
+               created_at = excluded.created_at`
+          ).bind(
+            envelope.actor,
+            remoteInbox,
+            cached?.sharedInbox || null,
+            cached?.publicKeyPem || null,
+            Date.now()
+          ).run();
+        } catch (dbErr) {
+          console.warn('[ActivityPub Follower Storage Error]', dbErr);
+        }
+      }
+
       return new Response(JSON.stringify({ success: true, accepted: true }), {
         status: 202,
         headers: { 'Content-Type': 'application/activity+json; charset=utf-8' },
@@ -916,6 +967,22 @@ export async function handleInboxPost(request: Request, env?: Env): Promise<Resp
 
     // C. Undo / Reject Activity
     if (envelope.type === 'Undo' || envelope.type === 'Reject') {
+      if (envelope.type === 'Undo') {
+        const undoneObject = envelope.object;
+        const undoneType = typeof undoneObject === 'object' && undoneObject ? (undoneObject as any).type : undefined;
+        if (undoneType === 'Follow') {
+          const db = getD1Database(env);
+          if (db) {
+            try {
+              await db.prepare('DELETE FROM activitypub_followers WHERE actor = ?')
+                .bind(envelope.actor)
+                .run();
+            } catch (dbErr) {
+              console.warn('[ActivityPub Undo Follow Error]', dbErr);
+            }
+          }
+        }
+      }
       return new Response(JSON.stringify({ success: true, status: 'acknowledged', type: envelope.type }), {
         status: 200,
         headers: { 'Content-Type': 'application/activity+json; charset=utf-8' },
@@ -1180,6 +1247,150 @@ export async function deliverFederatedPulse(
       error: err?.message || 'Failed outbound federation delivery',
     };
   }
+}
+
+/**
+ * Asynchronously delivers a newly published public post to all remote ActivityPub followers.
+ * Gathers unique inboxes (preferring shared_inbox for multi-actor Fediverse instances),
+ * creates an ActivityStreams Create(Note) activity, signs with draft-cavage HTTP Signatures,
+ * dispatches via SSRF safeFetch guard, and logs delivery attempts in D1 `activitypub_deliveries`.
+ */
+export async function dispatchOutboundPostFederation(
+  env: Env | undefined,
+  post: {
+    id: string;
+    title?: string;
+    content: string;
+    authorFingerprint?: string;
+    authorId?: string;
+    createdAt?: number;
+    status?: string;
+    channelId?: string;
+  },
+  origin: string = 'https://urefy.com',
+  options?: { allowLocalDev?: boolean }
+): Promise<{ dispatched: number; successful: number; failed: number }> {
+  // Only federate published public posts (not private, deleted, or drafts)
+  if (post.status && post.status !== 'published') {
+    return { dispatched: 0, successful: 0, failed: 0 };
+  }
+
+  const db = getD1Database(env);
+  if (!db) {
+    return { dispatched: 0, successful: 0, failed: 0 };
+  }
+
+  let followers: Array<{ actor: string; inbox: string; shared_inbox?: string | null }> = [];
+  try {
+    const res = await db.prepare(
+      'SELECT actor, inbox, shared_inbox FROM activitypub_followers'
+    ).all<{ actor: string; inbox: string; shared_inbox?: string | null }>();
+    if (res && Array.isArray(res.results)) {
+      followers = res.results;
+    }
+  } catch (err) {
+    console.warn('[ActivityPub Outbound Query Error]', err);
+    return { dispatched: 0, successful: 0, failed: 0 };
+  }
+
+  if (followers.length === 0) {
+    return { dispatched: 0, successful: 0, failed: 0 };
+  }
+
+  // Deduplicate destination inboxes: prefer shared_inbox when available
+  const targetInboxes = new Set<string>();
+  for (const f of followers) {
+    const target = f.shared_inbox || f.inbox;
+    if (target) targetInboxes.add(target);
+  }
+
+  const cleanOrigin = origin.replace(/\/+$/, '');
+  const localActor = `${cleanOrigin}/api/federation/actor`;
+  const postUrl = `${cleanOrigin}/p/${post.id}`;
+  const publishedIso = new Date(post.createdAt || Date.now()).toISOString();
+
+  // Construct standard ActivityStreams 2.0 Note & Create envelope
+  const noteObject = {
+    '@context': 'https://www.w3.org/ns/activitystreams',
+    id: postUrl,
+    type: 'Note',
+    attributedTo: localActor,
+    published: publishedIso,
+    to: ['https://www.w3.org/ns/activitystreams#Public'],
+    cc: [`${localActor}/followers`],
+    content: post.title ? `<strong>${post.title}</strong><p>${post.content}</p>` : `<p>${post.content}</p>`,
+    url: postUrl,
+  };
+
+  const createActivity: ActivityPubEnvelope = {
+    '@context': 'https://www.w3.org/ns/activitystreams',
+    id: `${cleanOrigin}/api/federation/activities/create-${post.id}`,
+    type: 'Create',
+    actor: localActor,
+    published: publishedIso,
+    to: ['https://www.w3.org/ns/activitystreams#Public'],
+    cc: [`${localActor}/followers`],
+    object: noteObject,
+  };
+
+  const rsaPrivateKeyPem = typeof env?.FEDERATION_RSA_PRIVATE_KEY_PEM === 'string'
+    ? env.FEDERATION_RSA_PRIVATE_KEY_PEM
+    : undefined;
+  const isProd = isProductionEnv(env);
+  const keyPair = rsaPrivateKeyPem ? undefined : getNodeKeyPair(env);
+
+  let successful = 0;
+  let failed = 0;
+
+  for (const inboxUrl of targetInboxes) {
+    const deliveryId = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : Array.from(crypto.getRandomValues(new Uint8Array(16)), (b: number) => b.toString(16).padStart(2, '0')).join('');
+    const now = Date.now();
+
+    // Insert pending delivery ledger record
+    try {
+      await db.prepare(
+        `INSERT INTO activitypub_deliveries (id, post_id, target_inbox, status, attempts, last_attempt_at, created_at)
+         VALUES (?, ?, ?, 'pending', 1, ?, ?)`
+      ).bind(deliveryId, post.id, inboxUrl, now, now).run();
+    } catch (_) {}
+
+    // Deliver via deliverFederatedPulse with draft-cavage signatures and SSRF guard
+    const deliveryResult = await deliverFederatedPulse(
+      inboxUrl,
+      createActivity,
+      keyPair,
+      cleanOrigin,
+      {
+        allowLocalDev: options?.allowLocalDev ?? !isProd,
+        rsaPrivateKeyPem,
+      }
+    );
+
+    const isSuccess = deliveryResult.success;
+    if (isSuccess) {
+      successful++;
+    } else {
+      failed++;
+    }
+
+    // Update delivery record status
+    try {
+      await db.prepare(
+        `UPDATE activitypub_deliveries
+         SET status = ?, last_attempt_at = ?, error = ?
+         WHERE id = ?`
+      ).bind(
+        isSuccess ? 'delivered' : 'failed',
+        Date.now(),
+        deliveryResult.error || (isSuccess ? null : `HTTP status ${deliveryResult.status}`),
+        deliveryId
+      ).run();
+    } catch (_) {}
+  }
+
+  return { dispatched: targetInboxes.size, successful, failed };
 }
 
 // ─── ENDPOINT LOGIC: OUTBOX GET ──────────────────────────────────────────────

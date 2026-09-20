@@ -12,17 +12,34 @@
 
 import './window-augmentation.js';
 import { serviceRegistry, SERVICES } from './service-registry.js';
+import { escapeHtml } from './dry-utils.js';
 import { sovereignFootprint } from './settings-footprint.js';
-import { exportBackup } from './export-backup.js';
+import { renderExportPanelHTML } from './export-backup-ui.js';
 import { localDiagnostics } from './local-diagnostics.js';
 import { themeEngine, THEMES } from './themes.js';
 import { clientStore } from './client-state.js';
+import { profileView } from './profile-view.js';
 import { zenModeManager } from './zen-mode.js';
 import { i18n, t } from './i18n.js';
 
 // ─── INTERFACES & DEFINITIONS ──────────────────────────────────────────────────
 
-export type SettingsTab = 'appearance' | 'preferences' | 'footprint' | 'backup' | 'telemetry';
+export type SettingsTab =
+  | 'account'
+  | 'security'
+  | 'privacy'
+  | 'notifications'
+  | 'appearance'
+  | 'messages'
+  | 'network'
+  | 'storage'
+  | 'data'
+  | 'advanced'
+  | 'preferences'
+  | 'footprint'
+  | 'backup'
+  | 'telemetry'
+  | 'messaging';
 
 export interface SettingsSectionDefinition {
   id: SettingsTab;
@@ -39,28 +56,97 @@ export const SETTINGS_SECTIONS: SettingsSectionDefinition[] = [
     description: 'Color palettes, OLED mode, and typography',
   },
   {
+    id: 'security',
+    label: 'Security & Passkeys',
+    icon: '🔑',
+    description: 'Device passkeys, recovery phrase, and hardware authentication',
+  },
+  {
     id: 'preferences',
-    label: 'Network & WoT Preferences',
+    label: 'Network',
     icon: '⚙️',
-    description: 'Web-of-Trust badges, merit thresholds, and AI assistant',
+    description: 'Web-of-Trust badges, merit thresholds, and network preferences',
   },
   {
     id: 'footprint',
-    label: 'Storage & Footprint',
+    label: 'Storage',
     icon: '📊',
     description: 'Local storage audit, zero tracking, and efficiency',
   },
   {
     id: 'backup',
-    label: 'Backup & Account Export',
+    label: 'Data & Export',
     icon: '💾',
     description: 'Encrypted backups and cryptographic key restoration',
   },
   {
     id: 'telemetry',
-    label: 'Diagnostics & Privacy',
+    label: 'Privacy',
     icon: '🛡️',
     description: 'Local error telemetry and zero-knowledge memory wipe',
+  },
+];
+
+export const SETTINGS_WORKSPACE_SECTIONS: SettingsSectionDefinition[] = [
+  {
+    id: 'account',
+    label: 'Account',
+    icon: '👤',
+    description: 'Profile name, bio, and handle',
+  },
+  {
+    id: 'security',
+    label: 'Security',
+    icon: '🔑',
+    description: 'Passkeys, recovery phrase, and keys',
+  },
+  {
+    id: 'privacy',
+    label: 'Privacy',
+    icon: '🛡️',
+    description: 'Visibility, trust thresholds, and data protection',
+  },
+  {
+    id: 'notifications',
+    label: 'Notifications',
+    icon: '🔔',
+    description: 'Alerts, mentions, and push notifications',
+  },
+  {
+    id: 'appearance',
+    label: 'Appearance & Themes',
+    icon: '🎨',
+    description: 'Themes, dark/OLED mode, and typography',
+  },
+  {
+    id: 'messages',
+    label: 'Messages',
+    icon: '💬',
+    description: 'Direct messaging preferences and receipts',
+  },
+  {
+    id: 'network',
+    label: 'Network',
+    icon: '⚙️',
+    description: 'Peers, relay nodes, and mesh preferences',
+  },
+  {
+    id: 'storage',
+    label: 'Storage',
+    icon: '📊',
+    description: 'Local cache, footprint, and offline data',
+  },
+  {
+    id: 'data',
+    label: 'Data',
+    icon: '💾',
+    description: 'Encrypted backups and account export',
+  },
+  {
+    id: 'advanced',
+    label: 'Advanced',
+    icon: '⚡',
+    description: 'Diagnostics, telemetry, and developer options',
   },
 ];
 
@@ -94,8 +180,10 @@ export class SettingsView {
    */
   public open(initialTab?: SettingsTab): void {
     this.isOpen = true;
-    if (initialTab && SETTINGS_SECTIONS.some(s => s.id === initialTab)) {
-      this.activeTab = initialTab;
+    if (initialTab) {
+      if (SETTINGS_SECTIONS.some(s => s.id === initialTab) || SETTINGS_WORKSPACE_SECTIONS.some(s => s.id === initialTab)) {
+        this.activeTab = initialTab;
+      }
     }
 
     if (typeof document !== 'undefined') {
@@ -168,7 +256,7 @@ export class SettingsView {
    * Switches the active settings tab and updates the modal view.
    */
   public setActiveTab(tab: SettingsTab): void {
-    if (!SETTINGS_SECTIONS.some(s => s.id === tab)) return;
+    if (!SETTINGS_SECTIONS.some(s => s.id === tab) && !SETTINGS_WORKSPACE_SECTIONS.some(s => s.id === tab)) return;
     this.activeTab = tab;
 
     if (this.isOpen && typeof document !== 'undefined') {
@@ -190,7 +278,11 @@ export class SettingsView {
    * Generates the complete HTML string for the responsive settings modal.
    */
   public renderSettingsModal(): string {
-    const tabsHTML = SETTINGS_SECTIONS.map((sec) => {
+    const activeWorkspaceSec = SETTINGS_WORKSPACE_SECTIONS.find((s) => s.id === this.activeTab);
+    const sections = (activeWorkspaceSec && !SETTINGS_SECTIONS.some((s) => s.id === this.activeTab))
+      ? [...SETTINGS_SECTIONS, activeWorkspaceSec]
+      : SETTINGS_SECTIONS;
+    const tabsHTML = sections.map((sec) => {
       const isSelected = this.activeTab === sec.id;
       const label = t(`settings.${sec.id}Title`, undefined, sec.label);
       const desc = t(`settings.${sec.id}Desc`, undefined, sec.description);
@@ -200,40 +292,20 @@ export class SettingsView {
           data-settings-tab="${sec.id}" data-action="set-settings-tab"
           class="flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-left text-xs md:text-sm font-medium transition-all cursor-pointer whitespace-nowrap md:whitespace-normal w-full group ${
             isSelected
-              ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-semibold shadow-[0_0_12px_rgba(0,229,255,0.15)]'
+              ? 'bg-[var(--color-accent,#e59b3c)]/15 text-[var(--color-accent,#e59b3c)] border border-[var(--color-accent,#e59b3c)]/30 font-semibold shadow-xs'
               : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 border border-transparent'
           }"
         >
           <span class="text-base md:text-lg shrink-0 group-hover:scale-110 transition-transform">${sec.icon}</span>
           <div class="hidden sm:block min-w-0 flex-1">
-            <div class="truncate ${isSelected ? 'text-cyan-200 font-semibold' : 'text-slate-300'}">${label}</div>
+            <div class="truncate ${isSelected ? 'text-[var(--color-accent,#e59b3c)] font-semibold' : 'text-slate-300'}">${label}</div>
             <div class="text-[10px] text-slate-500 truncate hidden md:block">${desc}</div>
           </div>
         </button>
       `;
     }).join('');
 
-    let contentHTML = '';
-    switch (this.activeTab) {
-      case 'appearance':
-        contentHTML = this.renderAppearanceTab();
-        break;
-      case 'preferences':
-        contentHTML = this.renderPreferencesTab();
-        break;
-      case 'footprint':
-        contentHTML = sovereignFootprint.renderFootprintSectionHTML();
-        break;
-      case 'backup':
-        contentHTML = exportBackup.renderExportPanel();
-        break;
-      case 'telemetry':
-        contentHTML = localDiagnostics.renderDiagnosticsSectionHTML();
-        break;
-      default:
-        contentHTML = this.renderAppearanceTab();
-        break;
-    }
+    const contentHTML = this.renderTabContent(this.activeTab);
 
     return `
       <div
@@ -250,20 +322,20 @@ export class SettingsView {
           <!-- HEADER -->
           <div class="flex items-center justify-between px-6 py-4 border-b border-white/10 shrink-0 bg-surface-raised/40">
             <div class="flex items-center space-x-3">
-              <div class="w-10 h-10 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-300 text-lg shadow-[0_0_15px_rgba(0,229,255,0.15)]">
+              <div class="w-10 h-10 rounded-2xl bg-[var(--color-accent,#e59b3c)]/15 border border-[var(--color-accent,#e59b3c)]/30 flex items-center justify-center text-[var(--color-accent,#e59b3c)] text-lg shadow-sm">
                 ⚙️
               </div>
               <div>
                 <h2 id="settings-modal-title" class="text-lg md:text-xl font-bold text-white tracking-wide flex items-center gap-2">
                   <span>⚙️ Sovereign Settings</span>
-                  <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 font-semibold">SOVEREIGN CORE</span>
+                  <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[var(--color-accent,#e59b3c)]/15 text-[var(--color-accent,#e59b3c)] border border-[var(--color-accent,#e59b3c)]/30 font-semibold">PREFERENCES</span>
                 </h2>
-                <p class="text-xs text-slate-400">Total sovereign control, zero third-party telemetry, 100% on-device autonomy</p>
+                <p class="text-xs text-slate-400">Privacy, appearance, and account options</p>
               </div>
             </div>
             <button
               type="button"
-              id="btn-close-settings-modal" data-action="close-settings" data-raw-click="if(window.__aetheris_close_settings) window.__aetheris_close_settings();"
+              id="btn-close-settings-modal" data-action="close-settings"
               class="text-slate-400 hover:text-white p-2 rounded-xl hover:bg-white/10 transition-colors cursor-pointer text-sm font-mono flex items-center justify-center"
               title="${t('common.close', undefined, 'Close Settings')}"
               aria-label="${t('common.close', undefined, 'Close settings')}"
@@ -289,19 +361,327 @@ export class SettingsView {
           <div class="px-6 py-3.5 border-t border-white/10 bg-surface-raised/60 flex items-center justify-between shrink-0">
             <div class="flex items-center space-x-2 text-xs text-slate-400 font-mono">
               <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span class="hidden sm:inline">Changes persist automatically to sovereign storage</span>
+              <span class="hidden sm:inline">Settings saved automatically</span>
               <span class="sm:hidden">Auto-saved</span>
             </div>
-            <div class="flex items-center space-x-3">
+            <div class="flex items-center space-3">
               <button
                 type="button"
                 id="btn-settings-save-done" data-action="close-settings"
-                class="px-5 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white font-bold text-xs shadow-lg shadow-cyan-500/20 transition-all cursor-pointer flex items-center space-x-1.5"
+                class="px-5 py-2 rounded-xl bg-[var(--color-accent,#e59b3c)] hover:brightness-105 text-slate-950 font-bold text-xs shadow-sm transition-all cursor-pointer flex items-center space-x-1.5"
               >
                 <span>✓</span>
                 <span>${t('common.save', undefined, 'Save & Close')}</span>
               </button>
             </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * Generates the dedicated full-stage Settings workspace layout.
+   */
+  public renderDedicatedWorkspace(): string {
+    const tabsHTML = SETTINGS_WORKSPACE_SECTIONS.map((sec) => {
+      const isSelected = this.activeTab === sec.id;
+      const label = t(`settings.${sec.id}Title`, undefined, sec.label);
+      const desc = t(`settings.${sec.id}Desc`, undefined, sec.description);
+      return `
+        <button
+          type="button"
+          data-settings-tab="${sec.id}" data-action="set-settings-tab"
+          class="flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-left text-xs md:text-sm font-medium transition-all cursor-pointer whitespace-nowrap md:whitespace-normal w-full group ${
+            isSelected
+              ? 'bg-[var(--color-accent,#e59b3c)]/15 text-[var(--color-accent,#e59b3c)] border border-[var(--color-accent,#e59b3c)]/30 font-semibold shadow-xs'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 border border-transparent'
+          }"
+        >
+          <span class="text-base md:text-lg shrink-0 group-hover:scale-110 transition-transform">${sec.icon}</span>
+          <div class="min-w-0 flex-1">
+            <div class="truncate ${isSelected ? 'text-[var(--color-accent,#e59b3c)] font-semibold' : 'text-slate-200'}">${label}</div>
+            <div class="text-[11px] text-slate-400 truncate hidden md:block">${desc}</div>
+          </div>
+        </button>
+      `;
+    }).join('');
+
+    const contentHTML = this.renderTabContent(this.activeTab);
+
+    return `
+      <div class="flex-1 flex flex-col overflow-hidden bg-canvas">
+        <header class="view-header">
+          <div>
+            <h1>Settings</h1>
+            <p>Preferences, appearance, and account options</p>
+          </div>
+        </header>
+        <div class="flex-1 flex flex-col md:flex-row overflow-hidden max-w-6xl w-full mx-auto p-4 md:p-6 gap-6">
+          <nav class="w-full md:w-64 shrink-0 space-y-1 overflow-x-auto md:overflow-y-auto no-scrollbar flex md:flex-col" aria-label="Settings categories">
+            ${tabsHTML}
+          </nav>
+          <main class="flex-1 bg-surface-base border border-white/5 rounded-2xl p-6 overflow-y-auto shadow-sm">
+            ${contentHTML}
+          </main>
+        </div>
+      </div>
+    `;
+  }
+
+  private renderTabContent(tab: SettingsTab): string {
+    switch (tab) {
+      case 'account':
+        return this.renderAccountTab();
+      case 'security':
+        return this.renderSecurityTab();
+      case 'privacy':
+        return this.renderPrivacyTab();
+      case 'notifications':
+        return this.renderNotificationsTab();
+      case 'appearance':
+        return this.renderAppearanceTab();
+      case 'messages':
+      case 'messaging':
+        return this.renderMessagesTab();
+      case 'network':
+      case 'preferences':
+        return this.renderPreferencesTab();
+      case 'storage':
+      case 'footprint':
+        return sovereignFootprint.renderFootprintSectionHTML();
+      case 'data':
+      case 'backup':
+        return renderExportPanelHTML();
+      case 'advanced':
+      case 'telemetry':
+        return localDiagnostics.renderDiagnosticsSectionHTML();
+      default:
+        return this.renderAppearanceTab();
+    }
+  }
+
+  private renderAccountTab(): string {
+    const fp = clientStore.keypair?.fingerprint || '';
+    const myProfile = profileView.getProfile(fp);
+    const name = myProfile?.name || 'You';
+    const handle = `@${fp.substring(0, 8)}`;
+    return `
+      <div class="space-y-6">
+        <div class="border-b border-white/5 pb-4">
+          <h2 class="text-base font-bold text-white flex items-center space-x-2">
+            <span>👤</span>
+            <span>Account</span>
+          </h2>
+          <p class="text-xs text-slate-400 mt-0.5">Profile information, username, and account identity</p>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+          <div class="p-4 rounded-2xl bg-surface-raised border border-white/5 space-y-2">
+            <div class="text-[11px] text-slate-400">Display Name</div>
+            <div class="text-sm font-bold text-white">${name}</div>
+            <div class="text-[11px] text-[var(--color-accent,#e59b3c)] font-mono">${handle}</div>
+          </div>
+          <div class="p-4 rounded-2xl bg-surface-raised border border-white/5 space-y-2">
+            <div class="text-[11px] text-slate-400">Edit Profile</div>
+            <button type="button" data-action="open-edit-profile" class="px-3.5 py-1.5 rounded-xl bg-[var(--color-accent,#e59b3c)] hover:brightness-105 text-slate-950 font-bold text-xs transition-all cursor-pointer">Edit Profile</button>
+          </div>
+        </div>
+        <div class="p-4 rounded-2xl bg-surface-raised border border-white/5 space-y-2 text-xs">
+          <div class="text-[11px] text-slate-400">Public Key Fingerprint</div>
+          <div class="font-mono text-[11px] text-emerald-400 break-all select-all bg-black/40 p-2.5 rounded-xl border border-white/5">${fp}</div>
+        </div>
+      </div>
+    `;
+  }
+
+  private renderSecurityTab(): string {
+    const wa = typeof window !== 'undefined' ? (window as any).webAuthnManager : null;
+    const creds: any[] = wa?.registeredCredentials || [];
+    const mnemonic = clientStore?.mnemonic || '';
+
+    const passkeysListHtml = creds.length === 0
+      ? `<div class="p-3.5 rounded-xl bg-surface-base/60 border border-white/5 text-xs text-slate-400">
+           No device passkeys registered yet. Add a passkey below to enable instant hardware authentication on this device.
+         </div>`
+      : creds.map((c: any) => {
+          const dateStr = c.createdAt ? new Date(c.createdAt).toLocaleDateString(undefined, {
+            year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+          }) : 'Recently registered';
+          return `
+            <div class="p-3.5 rounded-xl bg-surface-base border border-white/5 flex items-center justify-between gap-3">
+              <div class="space-y-0.5 min-w-0">
+                <div class="text-xs font-bold text-white flex items-center gap-2">
+                  <span>🔑</span>
+                  <span class="truncate">${escapeHtml(c.deviceName || 'Device Passkey')}</span>
+                  <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">ACTIVE</span>
+                </div>
+                <div class="text-[11px] text-slate-400">Registered: ${dateStr}</div>
+              </div>
+              <button
+                type="button"
+                data-action="remove-passkey"
+                data-credential-id="${escapeHtml(c.id)}"
+                class="px-3 py-1.5 rounded-xl bg-surface-raised hover:bg-rose-500/20 hover:text-rose-400 hover:border-rose-500/30 text-slate-400 border border-white/10 text-xs font-medium transition-all cursor-pointer shrink-0"
+              >
+                Remove
+              </button>
+            </div>
+          `;
+        }).join('');
+
+    return `
+      <div class="space-y-6">
+        <div class="border-b border-white/5 pb-4">
+          <h2 class="text-base font-bold text-white flex items-center space-x-2">
+            <span>🔑</span>
+            <span>Security &amp; Passkeys</span>
+          </h2>
+          <p class="text-xs text-slate-400 mt-0.5">Device authentication, cryptographic keys, and master recovery options</p>
+        </div>
+
+        <!-- SECTION 1: PASSKEYS -->
+        <div class="p-4 rounded-2xl bg-surface-raised border border-white/5 space-y-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div class="space-y-1">
+              <div class="text-xs font-bold text-white flex items-center gap-2">
+                <span>Passkeys</span>
+                <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-semibold">FIDO2 / WebAuthn</span>
+              </div>
+              <p class="text-[11px] text-slate-400 leading-relaxed">
+                Secure access to this identity using a device passkey (Windows Hello, Touch ID, Face ID, or security keys).
+              </p>
+            </div>
+            <button
+              type="button"
+              id="btn-settings-register-passkey"
+              data-action="register-passkey"
+              class="px-4 py-2 rounded-xl bg-[var(--color-accent,#e59b3c)] hover:brightness-105 text-slate-950 font-bold text-xs shadow-sm transition-all cursor-pointer shrink-0 flex items-center justify-center gap-1.5"
+            >
+              <span>+</span>
+              <span>Add Passkey</span>
+            </button>
+          </div>
+
+          <!-- Existing Passkeys List -->
+          <div class="space-y-2 pt-2 border-t border-white/5">
+            <div class="text-[11px] font-semibold text-slate-300">Registered passkeys on this device</div>
+            ${passkeysListHtml}
+          </div>
+
+          <!-- Technical Details Disclosure -->
+          <details class="p-3 rounded-xl bg-surface-base/50 border border-white/5 text-[11px] text-slate-400">
+            <summary class="cursor-pointer font-medium text-slate-300 hover:text-white select-none">Technical details</summary>
+            <div class="mt-2.5 space-y-1 font-mono text-[10px] text-slate-400">
+              <div>• Standard: FIDO2 / WebAuthn Level 3 (W3C)</div>
+              <div>• Cryptography: P-256 ECDSA (ES256 w/ SHA-256)</div>
+              <div>• Edge Registry: Cloudflare D1 Authoritative (webauthn_credentials)</div>
+              <div>• Verification: User Presence (UP) &amp; Preferred Biometrics (UV)</div>
+              <div>• Anti-Replay: Monotonic Sign Counter CAS &amp; Challenge Expiry</div>
+            </div>
+          </details>
+        </div>
+
+        <!-- SECTION 2: RECOVERY PHRASE -->
+        <div class="p-4 rounded-2xl bg-surface-raised border border-white/5 space-y-3">
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="text-xs font-bold text-white">Recovery Phrase</div>
+              <p class="text-[11px] text-slate-400 leading-relaxed">
+                Your 12-word recovery phrase is the master root of your sovereign identity. Use it to restore your identity on any device.
+              </p>
+            </div>
+            <button
+              type="button"
+              id="btn-settings-toggle-seed"
+              data-action="settings-toggle-seed"
+              class="px-3.5 py-1.5 rounded-xl bg-surface-base hover:bg-surface-overlay text-slate-300 border border-white/10 text-xs font-medium transition-colors cursor-pointer shrink-0"
+            >
+              Reveal recovery phrase
+            </button>
+          </div>
+
+          <div
+            id="settings-seed-display"
+            class="p-3 bg-black/50 border border-white/5 rounded-xl font-mono text-xs text-amber-400 select-all blur-sm transition-all duration-200 break-words"
+            autocomplete="off"
+            spellcheck="false"
+          >
+            ${escapeHtml(mnemonic || 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about')}
+          </div>
+
+          <div class="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-300/90 leading-relaxed">
+            <span class="font-bold">Important Security Notice:</span> Anyone with this recovery phrase has complete control of this identity. Passkeys provide fast hardware unlock on this device, but do <strong>not</strong> replace your recovery phrase. Keep your recovery phrase written down in a safe offline location.
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  private renderPrivacyTab(): string {
+    const isSimple = clientStore.isSimpleMode();
+    return `
+      <div class="space-y-6">
+        <div class="border-b border-white/5 pb-4">
+          <h2 class="text-base font-bold text-white flex items-center space-x-2">
+            <span>🛡️</span>
+            <span>Privacy</span>
+          </h2>
+          <p class="text-xs text-slate-400 mt-0.5">Control interface complexity and privacy protection</p>
+        </div>
+        <div class="p-4 rounded-2xl bg-surface-raised border border-white/5 flex items-center justify-between">
+          <div class="space-y-1">
+            <div class="text-xs font-bold text-white">Interface Mode</div>
+            <p class="text-[11px] text-slate-400">Choose between simple, focused browsing or full advanced tools.</p>
+          </div>
+          <button type="button" data-action="toggle-ui-mode" class="px-4 py-2 rounded-xl bg-[var(--color-accent,#e59b3c)] hover:brightness-105 text-slate-950 font-bold text-xs transition-all cursor-pointer">${isSimple ? 'Switch to Advanced Mode' : 'Switch to Simple Mode'}</button>
+        </div>
+        <div class="p-4 rounded-2xl bg-surface-raised border border-white/5 space-y-2">
+          <div class="text-xs font-bold text-white">On-Device Privacy</div>
+          <p class="text-[11px] text-slate-400 leading-relaxed">UREfy does not track you. No advertising cookies, no third-party trackers, and no telemetry selling.</p>
+        </div>
+      </div>
+    `;
+  }
+
+  private renderNotificationsTab(): string {
+    return `
+      <div class="space-y-6">
+        <div class="border-b border-white/5 pb-4">
+          <h2 class="text-base font-bold text-white flex items-center space-x-2">
+            <span>🔔</span>
+            <span>Notifications</span>
+          </h2>
+          <p class="text-xs text-slate-400 mt-0.5">Manage how and when you receive updates</p>
+        </div>
+        <div class="p-4 rounded-2xl bg-surface-raised border border-white/5 flex items-center justify-between">
+          <div class="space-y-1">
+            <div class="text-xs font-bold text-white">Push Notifications</div>
+            <p class="text-[11px] text-slate-400">Receive private direct messages and mentions when UREfy is not in focus.</p>
+          </div>
+          <button type="button" id="btn-settings-toggle-push" data-action="settings-toggle-push" class="px-4 py-2 rounded-xl bg-[var(--color-accent,#e59b3c)] hover:brightness-105 text-slate-950 font-bold text-xs transition-all cursor-pointer">Configure Push</button>
+        </div>
+      </div>
+    `;
+  }
+
+  private renderMessagesTab(): string {
+    return `
+      <div class="space-y-6">
+        <div class="border-b border-white/5 pb-4">
+          <h2 class="text-base font-bold text-white flex items-center space-x-2">
+            <span>💬</span>
+            <span>Messages</span>
+          </h2>
+          <p class="text-xs text-slate-400 mt-0.5">Direct messaging preferences, encryption, and delivery</p>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+          <div class="p-4 rounded-2xl bg-surface-raised border border-white/5 space-y-2">
+            <div class="text-xs font-bold text-white">End-to-End Encryption</div>
+            <p class="text-[11px] text-slate-400 leading-relaxed">Direct messages are end-to-end encrypted. Keys are stored strictly on your device.</p>
+          </div>
+          <div class="p-4 rounded-2xl bg-surface-raised border border-white/5 space-y-2">
+            <div class="text-xs font-bold text-white">Privacy Routing</div>
+            <p class="text-[11px] text-slate-400 leading-relaxed">Relay nodes route encrypted envelopes without inspecting message content.</p>
           </div>
         </div>
       </div>
@@ -327,7 +707,7 @@ export class SettingsView {
       { id: 'matrix-monolith', name: 'Matrix Monolith', emoji: '🌲', accentColor: '#22c55e', description: 'Pure OLED black' },
       { id: 'tokyo-neon', name: 'Tokyo Neon', emoji: '🌆', accentColor: '#f43f5e', description: 'Cyberpunk nocturnal violet' },
       { id: 'solar-amber', name: 'Solar Amber', emoji: '🌅', accentColor: '#f59e0b', description: 'Warm charcoal & solar amber' },
-      { id: 'alabaster-light', name: 'Alabaster Light', emoji: '☀️', accentColor: '#4f46e5', description: 'Daylight clean light mode' },
+      { id: 'alabaster-light', name: 'Alabaster Light', emoji: '☀️', accentColor: '#c27803', description: 'Warm daylight off-white mode' },
       { id: 'nordic-frost', name: 'Nordic Frost', emoji: '❄️', accentColor: '#38bdf8', description: 'Arctic blue & glacial frost' },
     ];
 
@@ -339,7 +719,7 @@ export class SettingsView {
           id="theme-card-${t.id}" data-action="set-settings-theme" data-theme-id="${t.id}"
           class="p-3.5 rounded-2xl border text-left flex flex-col justify-between space-y-2 transition-all cursor-pointer group ${
             isSelected
-              ? 'bg-cyan-500/15 border-cyan-400 ring-2 ring-cyan-500/40 shadow-lg'
+              ? 'bg-[var(--color-accent,#e59b3c)]/15 border-[var(--color-accent,#e59b3c)] ring-2 ring-[var(--color-accent,#e59b3c)]/40 shadow-lg'
               : 'bg-surface-raised/70 hover:bg-surface-overlay border-white/5 hover:border-white/20'
           }"
         >
@@ -348,10 +728,10 @@ export class SettingsView {
             <span class="w-3 h-3 rounded-full border border-white/20" style="background-color: ${t.accentColor};"></span>
           </div>
           <div>
-            <div class="text-xs font-bold text-white group-hover:text-cyan-200 transition-colors">${t.name}</div>
+            <div class="text-xs font-bold text-white group-hover:text-slate-200 transition-colors">${t.name}</div>
             <div class="text-[10px] text-slate-400 line-clamp-1">${t.description || ''}</div>
           </div>
-          ${isSelected ? '<span class="text-[9px] font-mono font-bold text-cyan-300 uppercase tracking-wider">✓ Active</span>' : ''}
+          ${isSelected ? '<span class="text-[9px] font-mono font-bold text-[var(--color-accent,#e59b3c)] uppercase tracking-wider">✓ Active</span>' : ''}
         </button>
       `;
     }).join('');
@@ -363,13 +743,10 @@ export class SettingsView {
           <div>
             <h3 class="text-base font-bold text-white flex items-center gap-2">
               <span>🎨</span>
-              <span>Themes &amp; Sovereign Appearance</span>
+              <span>Appearance &amp; Themes</span>
             </h3>
             <p class="text-xs text-slate-400">Customize the color palette, OLED display mode, and interface typography.</p>
           </div>
-          <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/30">
-            SOVEREIGN UI
-          </span>
         </div>
 
         <!-- THEME SWITCHER -->
@@ -443,7 +820,7 @@ export class SettingsView {
               id="btn-font-mono" data-action="call-global" data-raw-click="if(window.themeEngine) { window.themeEngine.setFontFamily('mono'); } if(window.settingsView) { window.settingsView.setActiveTab('appearance'); }"
               class="p-3.5 rounded-xl border text-left flex items-center space-x-3 transition-all cursor-pointer ${
                 currentFont === 'mono'
-                  ? 'bg-cyan-500/20 border-cyan-500 text-cyan-200 shadow-md font-semibold'
+                  ? 'bg-[var(--color-accent,#e59b3c)]/15 border-[var(--color-accent,#e59b3c)] text-[var(--color-accent,#e59b3c)] shadow-md font-semibold'
                   : 'bg-surface-base/80 border-white/5 text-slate-400 hover:text-white hover:bg-surface-overlay'
               }"
             >
@@ -457,9 +834,9 @@ export class SettingsView {
         </div>
 
         <!-- CUSTOM THEME STUDIO LAUNCHER -->
-        <div class="p-5 rounded-2xl bg-gradient-to-r from-cyan-950/40 via-indigo-950/30 to-purple-950/40 border border-cyan-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div class="p-5 rounded-2xl bg-surface-raised border border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div class="space-y-1">
-            <span class="text-xs font-bold text-cyan-200 flex items-center gap-1.5">
+            <span class="text-xs font-bold text-white flex items-center gap-1.5">
               <span>🎨</span>
               <span>Custom Theme Studio &amp; Live Palette</span>
             </span>
@@ -470,7 +847,7 @@ export class SettingsView {
           <button
             type="button"
             id="btn-settings-open-theme-builder" data-action="open-feature" data-feature="custom-theme"
-            class="shrink-0 px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-400 to-indigo-500 hover:from-cyan-300 hover:to-indigo-400 text-slate-950 font-bold text-xs flex items-center space-x-2 shadow-lg shadow-cyan-500/25 transition-all cursor-pointer active:scale-95"
+            class="shrink-0 px-5 py-2.5 rounded-xl bg-[var(--color-accent,#e59b3c)] hover:brightness-105 text-slate-950 font-bold text-xs flex items-center space-x-2 shadow-sm transition-all cursor-pointer active:scale-95"
             title="Open Custom Theme Studio"
           >
             <span>⚡</span>
@@ -512,12 +889,12 @@ export class SettingsView {
           <div>
             <h3 class="text-base font-bold text-white flex items-center gap-2">
               <span>⚙️</span>
-              <span>${t('settings.preferencesTitle', undefined, 'Network & Web-of-Trust Preferences')}</span>
+              <span>${t('settings.preferencesTitle', undefined, 'Network')}</span>
             </h3>
-            <p class="text-xs text-slate-400">${t('settings.preferencesDesc', undefined, 'Configure cryptographic attestations, feed filtering thresholds, and local AI assistant.')}</p>
+            <p class="text-xs text-slate-400">${t('settings.preferencesDesc', undefined, 'Configure cryptographic attestations, feed filtering thresholds, and network preferences.')}</p>
           </div>
           <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/30">
-            WOT &amp; AI GOVERNANCE
+            NETWORK &amp; WOT
           </span>
         </div>
 
@@ -791,9 +1168,11 @@ export class SettingsView {
 
     // Backup tab listeners delegation
     if (this.activeTab === 'backup') {
-      try {
-        exportBackup.attachEventListeners(root);
-      } catch (_) {}
+      import('./export-backup.js')
+        .then(({ exportBackup }) => {
+          exportBackup.attachEventListeners(root);
+        })
+        .catch(() => {});
     }
 
     // Language picker buttons
@@ -810,6 +1189,7 @@ export class SettingsView {
         }
       });
     });
+
   }
 }
 

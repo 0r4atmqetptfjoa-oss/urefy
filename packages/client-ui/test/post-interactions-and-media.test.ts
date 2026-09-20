@@ -66,7 +66,7 @@ describe('Post Interactions, Boost Toggle, Share & Media Embeds', () => {
       expect(extracted).not.toBeNull();
       expect(extracted!.type).toBe('youtube');
       expect(extracted!.videoId).toBe('4yEFz5DxHo4');
-      expect(extracted!.embedUrl).toBe('https://www.youtube.com/embed/4yEFz5DxHo4?rel=0&modestbranding=1');
+      expect(extracted!.embedUrl).toBe('https://www.youtube.com/embed/4yEFz5DxHo4?rel=0&modestbranding=1&enablejsapi=1');
     });
 
     it('should extract video ID from short youtu.be URL', () => {
@@ -110,7 +110,7 @@ describe('Post Interactions, Boost Toggle, Share & Media Embeds', () => {
       expect(mockShare).toHaveBeenCalledWith(
         expect.objectContaining({
           title: 'Test Title',
-          url: expect.stringContaining('#post-post-1'),
+          url: expect.stringContaining('/p/post-1'),
         })
       );
     });
@@ -122,7 +122,7 @@ describe('Post Interactions, Boost Toggle, Share & Media Embeds', () => {
 
       const success = await sharePostOrCopyLink('post-1', 'Test Title', 'Test Content');
       expect(success).toBe(true);
-      expect(mockWriteText).toHaveBeenCalledWith(expect.stringContaining('#post-post-1'));
+      expect(mockWriteText).toHaveBeenCalledWith(expect.stringContaining('/p/post-1'));
     });
   });
 

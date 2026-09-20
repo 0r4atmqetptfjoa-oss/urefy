@@ -149,7 +149,7 @@ describe('UREfy — Zero-Trust Security & OWASP Top 10 Hardening Suite', () => {
     it('enforces tighter rate limits on mutating POST/PUT/DELETE endpoints', () => {
       const ip = '198.51.100.88';
       const result = evaluateRateLimit(ip, 'POST', false);
-      expect(result.limit).toBe(40);
+      expect(result.limit).toBe(60);
     });
   });
 

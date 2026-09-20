@@ -104,7 +104,7 @@ describe('ExploreView - Sovereign Explore & Trending Topics Hub', () => {
   it('renders discovery from available conversations without invented trends', () => {
     const html = explore.renderExploreView(samplePosts);
     expect(html).toContain('explore-search-input');
-    expect(html).toContain('FOLLOW YOUR CURIOSITY');
+    expect(html).toContain('aria-label="Discovery shortcuts"');
     expect(html).toContain('SECURITY ADVISORY');
     expect(html).toContain('1 post');
     expect(html).not.toContain('1.4k posts');

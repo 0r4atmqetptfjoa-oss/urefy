@@ -321,6 +321,7 @@ describe('Sovereign Board Architecture — Comprehensive Test Suite', () => {
 
     beforeEach(() => {
       threads = new ThreadManager();
+      threads.loadDemoData();
     });
 
     it('should organize comments in a hierarchical tree structure with depth indicators', () => {

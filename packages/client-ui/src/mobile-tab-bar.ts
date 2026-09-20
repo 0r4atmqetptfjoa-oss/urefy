@@ -23,7 +23,7 @@ export interface MobileTabDefinition {
 }
 
 export class MobileTabBar {
-  public activeTab: MobileTab = 'feed';
+  public activeTab: MobileTab | null = 'feed';
   private readonly tabsOrder: MobileTab[] = ['feed', 'explore', 'messages', 'vault', 'profile'];
   private touchStartX: number = 0;
   private touchStartY: number = 0;
@@ -55,7 +55,10 @@ export class MobileTabBar {
   /**
    * Derives active MobileTab from current channel ID
    */
-  public resolveTabFromChannel(channelId: string): MobileTab {
+  public resolveTabFromChannel(channelId: string): MobileTab | null {
+    if (channelId === 'settings' || channelId.startsWith('settings')) {
+      return null;
+    }
     if (channelId.startsWith('c/') || channelId === 'communities') {
       return 'communities';
     }
@@ -80,8 +83,22 @@ export class MobileTabBar {
    * that renderMainStage() picks up the correct route (it reads sovereignRouter.route first).
    */
   public setTab(tab: MobileTab): void {
-    // If tapping the already active tab, scroll feed to top
-    if (this.activeTab === tab) {
+    // If post detail is currently open, closing it is required regardless of whether activeTab matches
+    let wasPostOpen = false;
+    if (typeof window !== 'undefined' && (window as any).postDetailView?.isOpen?.()) {
+      wasPostOpen = true;
+      (window as any).postDetailView.closePost({ skipHistory: true });
+    }
+
+    // Dismiss any open feature modals or mobile drawer
+    if (typeof window !== 'undefined') {
+      if ((window as any).modalManager?.closeFeature) {
+        (window as any).modalManager.closeFeature();
+      }
+    }
+
+    // If tapping the already active tab AND post was NOT open, scroll feed to top
+    if (this.activeTab === tab && !wasPostOpen) {
       if (typeof window !== 'undefined') {
         const feedScroll = document.getElementById('main-feed-scroll');
         if (feedScroll) {
@@ -127,13 +144,17 @@ export class MobileTabBar {
         clientStore.activeChannelId = 'profile';
         break;
     }
+
+    if (clientStore && typeof clientStore.notify === 'function') {
+      clientStore.notify('MOBILE_TAB_CHANGE');
+    }
   }
 
   /**
    * Advances to next tab (e.g. on swipe left)
    */
   public nextTab(): void {
-    const currentIndex = this.tabsOrder.indexOf(this.activeTab);
+    const currentIndex = this.activeTab ? this.tabsOrder.indexOf(this.activeTab) : -1;
     const nextIndex = (currentIndex + 1) % this.tabsOrder.length;
     this.setTab(this.tabsOrder[nextIndex]);
   }
@@ -142,7 +163,7 @@ export class MobileTabBar {
    * Reverses to previous tab (e.g. on swipe right)
    */
   public previousTab(): void {
-    const currentIndex = this.tabsOrder.indexOf(this.activeTab);
+    const currentIndex = this.activeTab ? this.tabsOrder.indexOf(this.activeTab) : 0;
     const prevIndex = (currentIndex - 1 + this.tabsOrder.length) % this.tabsOrder.length;
     this.setTab(this.tabsOrder[prevIndex]);
   }
@@ -231,6 +252,33 @@ export class MobileTabBar {
     return Math.min(clientStore.posts.filter(p => (p.createdAt || 0) > oneHourAgo).length, 9);
   }
 
+  public syncActiveTabDOM(channelId?: string): void {
+    if (typeof document === 'undefined') return;
+    const currentTab = this.resolveTabFromChannel(channelId || clientStore?.activeChannelId || 'pulse-global');
+    this.activeTab = currentTab;
+    const nav = document.getElementById('native-mobile-tab-bar');
+    if (!nav) return;
+
+    this.tabsOrder.forEach(tabId => {
+      const btn = nav.querySelector(`[data-tab="${tabId}"]`) as HTMLElement | null;
+      if (!btn) return;
+      const isActive = currentTab !== null && tabId === currentTab;
+      if (isActive) {
+        btn.classList.add('font-bold', 'scale-105', 'is-active', 'text-[var(--color-accent,#e59b3c)]');
+        btn.classList.remove('text-slate-400');
+        if (!btn.querySelector('.tab-indicator-dot')) {
+          const dot = document.createElement('span');
+          dot.className = 'tab-indicator-dot w-1 h-1 rounded-full bg-[var(--color-accent,#e59b3c)] -mt-0.5';
+          btn.appendChild(dot);
+        }
+      } else {
+        btn.classList.remove('font-bold', 'scale-105', 'is-active', 'text-[var(--color-accent,#e59b3c)]');
+        btn.classList.add('text-slate-400');
+        btn.querySelector('.tab-indicator-dot')?.remove();
+      }
+    });
+  }
+
   /**
    * Renders the native bottom tab bar HTML markup for mobile devices
    */
@@ -244,8 +292,8 @@ export class MobileTabBar {
     const tabs: Array<{ id: MobileTab; label: string; defaultLabel: string; iconName: IconName; title: string; defaultTitle: string; badge?: number }> = [
       { id: 'feed', label: 'Feed', defaultLabel: 'Feed', iconName: 'feed', title: 'Feed (Pulse Stream)', defaultTitle: 'Feed', badge: unreadFeed > 0 ? unreadFeed : undefined },
       { id: 'explore', label: 'Explore', defaultLabel: 'Explore', iconName: 'explore', title: 'Explore · Trending Topics & Creators', defaultTitle: 'Explore' },
-      { id: 'messages', label: 'Messages', defaultLabel: 'Messages', iconName: 'messages', title: 'Relays · Relay Servers & Chat Channels', defaultTitle: 'Messages', badge: unreadMessages > 0 ? unreadMessages : undefined },
-      { id: 'vault', label: 'Vault', defaultLabel: 'Vault', iconName: 'shield', title: 'Vault · Sovereign Releases & Cryptographic Keys', defaultTitle: 'Vault' },
+      { id: 'messages', label: 'Messages', defaultLabel: 'Messages Relays', iconName: 'messages', title: 'Relays · Relay Servers & Chat Channels', defaultTitle: 'Messages', badge: unreadMessages > 0 ? unreadMessages : undefined },
+      { id: 'vault', label: 'Vault', defaultLabel: 'Vault', iconName: 'vault', title: 'Vault · Sovereign Releases & Cryptographic Keys', defaultTitle: 'Vault' },
       { id: 'profile', label: 'Profile', defaultLabel: 'Profile', iconName: 'profile', title: 'Profile · Sovereign Identity', defaultTitle: 'Profile' },
     ];
 
@@ -254,19 +302,12 @@ export class MobileTabBar {
       <nav 
         id="native-mobile-tab-bar" 
         role="navigation"
-        class="fixed bottom-0 left-0 right-0 z-50 lg:hidden bg-surface-base/95 backdrop-blur-xl border-t border-white/10 pb-[env(safe-area-inset-bottom)] flex items-center justify-around px-2 select-none shadow-2xl transition-all"
+        class="fixed bottom-0 left-0 right-0 z-50 lg:hidden bg-surface-base/95 backdrop-blur-xl border-t border-white/10 pb-[env(safe-area-inset-bottom)] flex items-center justify-around px-1 select-none shadow-2xl transition-all"
         style="min-height: 3.5rem; height: calc(3.5rem + env(safe-area-inset-bottom, 0px)); padding-bottom: max(env(safe-area-inset-bottom, 0px), 0px);"
         aria-label="Mobile Sovereign Navigation"
       >
         ${tabs.map(tab => {
-          const isActive = currentTab === tab.id;
-          const activeClass = isActive 
-            ? 'text-cyan-400 font-bold scale-105 is-active' 
-            : 'text-slate-400 hover:text-slate-200';
-          const indicator = isActive
-            ? '<span class="w-1 h-1 rounded-full bg-cyan-400 -mt-0.5"></span>'
-            : '';
-
+          const isActive = currentTab !== null && tab.id === currentTab;
           return `
             <button
               type="button"
@@ -274,20 +315,20 @@ export class MobileTabBar {
               data-tab="${tab.id}"
               data-nav-label="${tab.defaultLabel}"
               data-nav-title="${tab.defaultTitle}"
-              class="relative flex-1 min-h-[44px] flex flex-col items-center justify-center py-1 transition-all cursor-pointer active:scale-95 ${activeClass}"
+              class="relative flex-1 min-h-[44px] flex flex-col items-center justify-center py-1 transition-all cursor-pointer active:scale-95 ${isActive ? 'font-bold scale-105 is-active text-[var(--color-accent,#e59b3c)]' : 'text-slate-400 hover:text-slate-200'}"
               title="${tab.title}"
-              aria-label="${tab.label}"
+              aria-label="${tab.id === 'messages' ? 'Relays' : tab.label}"
             >
               <div class="relative flex items-center justify-center">
-                ${renderIcon(tab.iconName, { size: 20, variant: isActive ? 'solid' : 'outline', strokeWidth: 2.0 })}
+                ${renderIcon(tab.iconName, { size: 19, variant: 'outline', strokeWidth: 1.8 })}
                 ${tab.badge !== undefined && tab.badge > 0 ? `
-                  <span class="absolute -top-1 -right-2 px-1.5 py-0.2 rounded-full bg-cyan-500 text-black text-[9px] font-mono font-bold shadow-xs">
+                  <span class="absolute -top-1 -right-2 px-1.5 py-0.2 rounded-full bg-[var(--color-accent,#e59b3c)] text-slate-950 text-[9px] font-mono font-bold shadow-xs">
                     ${tab.badge}
                   </span>
                 ` : ''}
               </div>
-              <span class="text-[10px] font-medium font-sans mt-1">${tab.label}</span>
-              ${indicator}
+              <span class="text-[10px] font-medium font-sans mt-0.5">${tab.label}</span>
+              ${isActive ? `<span class="tab-indicator-dot w-1 h-1 rounded-full bg-[var(--color-accent,#e59b3c)] -mt-0.5"></span>` : ''}
             </button>
           `;
         }).join('')}

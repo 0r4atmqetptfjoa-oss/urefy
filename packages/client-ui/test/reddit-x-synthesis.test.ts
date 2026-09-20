@@ -441,10 +441,10 @@ describe('Sovereign Board & Micro-Broadcasting Synthesis Engine - Comprehensive 
       const light = themes.getCurrentTheme();
       expect(light.name).toBe('Alabaster Light');
       expect(light.emoji).toBe('☀️');
-      expect(light.bgCanvas).toBe('#f8fafc');
+      expect(light.bgCanvas).toBe('#f6f5f2');
       expect(light.bgSurfaceBase).toBe('#ffffff');
-      expect(light.accentColor).toBe('#4f46e5');
-      expect(light.badgeText).toBe('LIGHT MODE');
+      expect(light.accentColor).toBe('#c27803');
+      expect(light.badgeText).toBe('WARM DAYLIGHT');
     });
 
     it('should switch across all 5 dark themes: Matrix Monolith, Tokyo Neon, Solar Amber, Nordic Frost, Obsidian Cyber', () => {

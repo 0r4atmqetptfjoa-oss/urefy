@@ -515,7 +515,7 @@ describe('UREfy — WebRTC P2P File Transfer Engine', () => {
   // 10. Sovereign Cloudflare R2 Free-Tier Quota Shield & P2P Swarm Failover
   // ---------------------------------------------------------------------------
   describe('10. Sovereign Cloudflare R2 Quota Guard & P2P Swarm Failover', () => {
-    it('should pre-flight intercept files > 25MB, prevent /api/storage upload, and fallback to P2P WebRTC Direct Swarm', async () => {
+    it('rejects oversized cloud uploads without claiming a P2P transfer succeeded', async () => {
       // Create simulated 28 MB file
       const rawData = new Uint8Array(1024);
       rawData.fill(77);
@@ -538,27 +538,14 @@ describe('UREfy — WebRTC P2P File Transfer Engine', () => {
 
       try {
         const progressUpdates: number[] = [];
-        const result = await transferEngine.uploadToCloudflareR2(largeFile, (pct) => {
+        await expect(transferEngine.uploadToCloudflareR2(largeFile, (pct) => {
           progressUpdates.push(pct);
-        });
+        })).rejects.toThrow('25 MiB cloud upload limit');
 
         // 1. Zero data sent to R2 (/api/storage)
         expect(xhrConstructed).toBe(false);
 
-        // 2. Friendly warning toast shown
-        expect(toastSpy).toHaveBeenCalledWith(
-          expect.objectContaining({
-            message: 'File (28.0MB) exceeds 25MB sovereign safe ceiling to preserve Cloudflare R2 free tier. Automatically transferring via zero-cost P2P WebRTC Direct Swarm.',
-            type: 'warning',
-          })
-        );
-
-        // 3. P2P Swarm descriptor returned
-        expect(result.success).toBe(true);
-        expect(result.storage).toBe('P2P-WebRTC-Direct-Swarm');
-        expect(result.fileName).toBe('sovereign-archive-full.tar.gz');
-        expect(result.byteSize).toBe(28 * 1024 * 1024);
-        expect(result.r2Key).toBe('p2p-swarm/sovereign-archive-full.tar.gz');
+        expect(progressUpdates).toEqual([]);
       } finally {
         globalThis.XMLHttpRequest = originalXHR;
       }
@@ -580,11 +567,15 @@ describe('UREfy — WebRTC P2P File Transfer Engine', () => {
         this.status = 200;
         this.responseText = JSON.stringify({
           success: true,
-          r2Key: 'vault/payload.bin',
+          key: 'vault/payload.bin',
           storage: 'Cloudflare-R2',
           fileName: 'payload.bin',
         });
         this.send = vi.fn(() => {
+          const payload = JSON.parse(this.responseText);
+          payload.sha256 = capturedHeaders['X-File-SHA256'];
+          payload.byteSize = smallFile.size;
+          this.responseText = JSON.stringify(payload);
           if (this.onload) this.onload();
         });
         return this;
@@ -598,12 +589,13 @@ describe('UREfy — WebRTC P2P File Transfer Engine', () => {
         expect(capturedHeaders['X-File-SHA256']).toBeDefined();
         expect(capturedHeaders['X-File-SHA256'].length).toBe(64);
         expect(capturedHeaders['X-File-Name']).toBe(encodeURIComponent('payload.bin'));
+        expect(JSON.parse(capturedHeaders['X-Sovereign-Envelope']).payload).toMatchObject({ sha256: capturedHeaders['X-File-SHA256'], fileName: 'payload.bin' });
       } finally {
         globalThis.XMLHttpRequest = originalXHR;
       }
     });
 
-    it('should show HUD toast and failover to P2P WebRTC Swarm when server returns 413, 429, 507 or SOVEREIGN_R2_QUOTA_GUARD', async () => {
+    it('surfaces server quota rejection and keeps the transfer in an error state', async () => {
       const fileData = new TextEncoder().encode('quota test content');
       const file = new File([fileData], 'shield-test.dat', { type: 'application/octet-stream' });
 
@@ -627,23 +619,14 @@ describe('UREfy — WebRTC P2P File Transfer Engine', () => {
       });
 
       try {
-        const result = await transferEngine.uploadToCloudflareR2(file);
-
-        expect(toastSpy).toHaveBeenCalledWith(
-          expect.objectContaining({
-            message: 'R2 free-tier quota shield active. Seamless failover to zero-cost P2P WebRTC Direct Swarm.',
-            type: 'warning',
-          })
-        );
-        expect(result.success).toBe(true);
-        expect(result.storage).toBe('P2P-WebRTC-Direct-Swarm');
-        expect(result.r2Key).toBe('p2p-swarm/shield-test.dat');
+        await expect(transferEngine.uploadToCloudflareR2(file)).rejects.toThrow('SOVEREIGN_R2_QUOTA_GUARD');
+        expect([...transferEngine.activeTransfers.values()].find(item => item.fileName === file.name)?.status).toBe('error');
       } finally {
         globalThis.XMLHttpRequest = originalXHR;
       }
     });
 
-    it('should failover to P2P WebRTC Swarm on XMLHttpRequest error handler when quota shield is triggered', async () => {
+    it('surfaces network failure without returning fabricated storage keys', async () => {
       const fileData = new TextEncoder().encode('error quota test content');
       const file = new File([fileData], 'shield-error-test.dat', { type: 'application/octet-stream' });
 
@@ -664,16 +647,8 @@ describe('UREfy — WebRTC P2P File Transfer Engine', () => {
       });
 
       try {
-        const result = await transferEngine.uploadToCloudflareR2(file);
-
-        expect(toastSpy).toHaveBeenCalledWith(
-          expect.objectContaining({
-            message: 'R2 free-tier quota shield active. Seamless failover to zero-cost P2P WebRTC Direct Swarm.',
-            type: 'warning',
-          })
-        );
-        expect(result.success).toBe(true);
-        expect(result.storage).toBe('P2P-WebRTC-Direct-Swarm');
+        await expect(transferEngine.uploadToCloudflareR2(file)).rejects.toThrow('Upload connection interrupted');
+        expect([...transferEngine.activeTransfers.values()].find(item => item.fileName === file.name)?.status).toBe('error');
       } finally {
         globalThis.XMLHttpRequest = originalXHR;
       }

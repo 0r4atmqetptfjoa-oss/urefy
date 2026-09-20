@@ -1,8 +1,33 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <script type="module" src="/src/theme-boot.ts"></script>
+    <script>
+      (function() {
+        try {
+          var raw = localStorage.getItem('aetheris_theme_pref') || localStorage.getItem('aetheris_theme');
+          var t = 'obsidian-cyber';
+          if (raw) {
+            try { var parsed = JSON.parse(raw) || {}; t = parsed.themeId || parsed.activeThemeId || t; }
+            catch(e) { t = raw; }
+          }
+          var isLight = (t === 'alabaster-light' || t === 'light');
+          var d = document.documentElement;
+          d.setAttribute('data-theme', t);
+          d.style.colorScheme = isLight ? 'light' : 'dark';
+          if (isLight) {
+            d.classList.remove('dark');
+            d.classList.add('light');
+            d.style.backgroundColor = '#f6f5f2';
+          } else {
+            d.classList.add('dark');
+            d.classList.remove('light');
+            d.style.backgroundColor = '#090a0f';
+          }
+        } catch(e) {}
+      })();
+    </script>
+    <script src="/theme-boot.js"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
     
     <!-- ══════════════════════════════════════════════════════════════════════════ -->
@@ -104,105 +129,104 @@
     <link rel="apple-touch-icon" sizes="192x192" href="/icon-192.png?v=keystone-2026" />
     <link rel="manifest" href="/manifest.json?v=keystone-2026" />
     
-    <!-- ─── ANTI-FOUC THEME SYNCHRONIZATION & CRAWLER SHELL STYLES ─── -->
-    <script>
-      (function(){
-        try {
-          var savedLang = localStorage.getItem('aetheris_locale');
-          if (savedLang) {
-            document.documentElement.lang = savedLang;
-            if (savedLang === 'ar') document.documentElement.dir = 'rtl';
-          }
-          var raw = localStorage.getItem('aetheris_theme_pref');
-          var t = 'solar-amber';
-          if (raw) {
-            try {
-              var parsed = JSON.parse(raw);
-              if (parsed && (parsed.themeId || parsed.activeThemeId)) t = parsed.themeId || parsed.activeThemeId;
-            } catch (_) { if (typeof raw === 'string') t = raw; }
-          }
-          var bgMap = {
-            'alabaster-light': '#f8fafc',
-            'matrix-monolith': '#000000',
-            'obsidian-cyber': '#0f172a',
-            'solar-amber': '#0c0906'
-          };
-          var bg = bgMap[t] || '#0c0906';
-          document.documentElement.setAttribute('data-theme', t);
-          document.documentElement.style.backgroundColor = bg;
-          if (t === 'alabaster-light') {
-            document.documentElement.style.colorScheme = 'light';
-          } else {
-            document.documentElement.style.colorScheme = 'dark';
-          }
-          var d = localStorage.getItem('aetheris_density');
-          if (d) document.documentElement.setAttribute('data-density', d);
-        } catch (_) {}
-      })();
-    </script>
     <style>
+      :root {
+        --bg-canvas: #090a0f;
+        --text-primary: #e2e8f0;
+      }
       html, body {
         width: 100%;
         min-height: 100%;
         margin: 0;
         padding: 0;
-        background-color: #0c0906;
+        background-color: var(--bg-canvas, #090a0f);
         color-scheme: dark;
-        color: #e2e8f0;
+        color: var(--text-primary, #e2e8f0);
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
         overflow-x: hidden;
         overflow-y: auto;
         -webkit-overflow-scrolling: touch;
         -webkit-font-smoothing: antialiased;
       }
+      html.light, html.light body, [data-theme="alabaster-light"], [data-theme="alabaster-light"] body {
+        --bg-canvas: #f6f5f2 !important;
+        --text-primary: #1a1917 !important;
+        background-color: #f6f5f2 !important;
+        color-scheme: light !important;
+        color: #1a1917 !important;
+      }
+      [data-theme="matrix-monolith"], [data-theme="matrix-monolith"] body {
+        --bg-canvas: #000000 !important;
+        background-color: #000000 !important;
+      }
+      [data-theme="matrix-emerald"], [data-theme="matrix-emerald"] body {
+        --bg-canvas: #020d08 !important;
+        background-color: #020d08 !important;
+      }
+      [data-theme="solar-amber"], [data-theme="solar-amber"] body {
+        --bg-canvas: #0c0906 !important;
+        background-color: #0c0906 !important;
+      }
+      [data-theme="tokyo-neon"], [data-theme="tokyo-neon"] body {
+        --bg-canvas: #0d0714 !important;
+        background-color: #0d0714 !important;
+      }
+      [data-theme="nordic-frost"], [data-theme="nordic-frost"] body {
+        --bg-canvas: #080d16 !important;
+        background-color: #080d16 !important;
+      }
       #app {
         width: 100%;
         min-height: 100%;
+        background-color: transparent;
       }
       .public-home-intro {
-        max-width: 56rem;
-        width: min(100% - 2rem, 56rem);
-        margin: 2rem auto;
-        padding: 1.5rem;
-        background: rgba(255,255,255,0.02);
+        margin: 0 0 16px;
+        max-width: none;
+        padding: 18px 20px;
+        background: rgba(255,255,255,0.03);
         border: 1px solid rgba(255,255,255,0.08);
-        border-radius: 1rem;
+        border-radius: 16px;
         box-sizing: border-box;
-        line-height: 1.6;
+        color: #94a3b8;
+        line-height: 1.65;
       }
       .public-home-intro h1 {
-        font-size: 1.5rem;
+        font-size: 18px;
+        line-height: 1.4;
         font-weight: 700;
         color: #f8fafc;
-        margin-top: 0;
-        letter-spacing: -0.015em;
+        margin: 0 0 8px;
+        letter-spacing: -0.01em;
       }
       .public-home-intro p {
         color: #94a3b8;
-        font-size: 0.95rem;
+        font-size: 13px;
+        line-height: 1.65;
+        margin: 0;
       }
       .public-home-intro nav {
         display: flex;
         flex-wrap: wrap;
-        gap: 0.75rem;
-        margin-top: 1.25rem;
+        gap: 10px 18px;
+        margin-top: 12px;
+        font-size: 12px;
       }
       .public-home-intro a {
         display: inline-flex;
         align-items: center;
-        padding: 0.5rem 0.875rem;
-        background: rgba(255,255,255,0.06);
-        border: 1px solid rgba(255,255,255,0.1);
-        border-radius: 0.5rem;
-        color: #38bdf8;
-        font-size: 0.875rem;
+        padding: 0;
+        background: transparent;
+        border: 0;
+        color: #e59b3c;
+        font-size: 12px;
         font-weight: 500;
-        text-decoration: none;
-        transition: background 0.15s ease, border-color 0.15s ease;
+        text-decoration: underline;
+        text-underline-offset: 3px;
+        transition: opacity 0.15s ease;
       }
       .public-home-intro a:hover {
-        background: rgba(255,255,255,0.1);
-        border-color: rgba(56,189,248,0.4);
+        opacity: 0.85;
       }
     </style>
   </head>

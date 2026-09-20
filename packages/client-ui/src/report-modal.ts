@@ -9,6 +9,7 @@
 
 import { clientStore } from './client-state.js';
 import { renderIcon } from './ui/icons.js';
+import { escapeHtml } from './dry-utils.js';
 
 export interface ReportTargetInfo {
   targetId: string;
@@ -39,6 +40,7 @@ export type ReportCategory =
 export class ReportModalManager {
   private activeTarget: ReportTargetInfo | null = null;
   private isSubmitting = false;
+  private returnFocus: HTMLElement | null = null;
   private selectedCategory: ReportCategory = 'copyright_piracy';
   private copyrightSubtype: 'pirated_download' | 'media_reproduction' | 'trademark' = 'pirated_download';
 
@@ -59,6 +61,7 @@ export class ReportModalManager {
   }
 
   public open(target: ReportTargetInfo): void {
+    this.returnFocus = typeof document !== 'undefined' ? document.activeElement as HTMLElement : null;
     const detectedUrls = target.detectedExternalUrls || target.externalLinks || [];
     this.activeTarget = {
       ...target,
@@ -78,6 +81,7 @@ export class ReportModalManager {
     if (typeof document !== 'undefined') {
       const el = document.getElementById('urefy-dsa-report-modal-overlay');
       if (el) el.remove();
+      if (this.returnFocus?.isConnected) this.returnFocus.focus();
     }
   }
 
@@ -97,7 +101,7 @@ export class ReportModalManager {
               ${renderIcon('flag', { size: 18 })}
             </span>
             <div>
-              <h2 class="text-sm font-bold text-white tracking-wide">Notice & Takedown Report</h2>
+              <h2 id="report-title" class="text-sm font-bold text-white tracking-wide">Report content</h2>
               <p class="text-[10px] font-mono text-slate-400">EU Regulation 2022/2065 (Digital Services Act, Art. 16)</p>
             </div>
           </div>
@@ -112,26 +116,26 @@ export class ReportModalManager {
           <!-- PREFILLED TARGET METADATA SUMMARY -->
           <div class="p-3 rounded-xl bg-surface-raised border border-white/5 space-y-1.5 font-mono text-[11px]">
             <div class="flex items-center justify-between text-slate-400">
-              <span>Target ID: <strong class="text-slate-200">${tInfo.targetId}</strong></span>
-              <span class="text-[10px] px-1.5 py-0.5 rounded bg-surface-overlay text-indigo-300 uppercase">${tInfo.targetType}</span>
+              <span>Target ID: <strong class="text-slate-200">${escapeHtml(tInfo.targetId)}</strong></span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded bg-surface-overlay text-indigo-300 uppercase">${escapeHtml(tInfo.targetType)}</span>
             </div>
             <div class="text-slate-400 truncate">
-              Author: <span class="text-slate-200 font-semibold">${authorStr}</span>
+              Author: <span class="text-slate-200 font-semibold">${escapeHtml(authorStr)}</span>
             </div>
             <div class="text-slate-400 truncate">
-              URL: <a href="${tInfo.canonicalUrl}" target="_blank" rel="noopener noreferrer" class="text-cyan-400 hover:underline">${tInfo.canonicalUrl}</a>
+              URL: <span>${escapeHtml(tInfo.canonicalUrl)}</span>
             </div>
             ${tInfo.detectedExternalUrls && tInfo.detectedExternalUrls.length > 0 ? `
               <div class="text-slate-400 pt-1 border-t border-white/5">
                 <span class="text-amber-300">Detected External Links:</span>
-                <div class="text-[10px] text-slate-300 truncate">${tInfo.detectedExternalUrls.join(', ')}</div>
+                <div class="text-[10px] text-slate-300 truncate">${escapeHtml(tInfo.detectedExternalUrls.join(', '))}</div>
               </div>
             ` : ''}
           </div>
 
           <!-- PRIMARY VIOLATION REASON SELECTOR -->
           <div class="space-y-1.5">
-            <label class="block font-bold text-slate-200">Violation Category <span class="text-rose-400">*</span></label>
+            <label for="select-dsa-reason" class="block font-bold text-slate-200">Violation Category <span class="text-rose-400">*</span></label>
             <select id="select-dsa-reason" class="w-full bg-surface-raised border border-white/10 rounded-xl p-2.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 cursor-pointer">
               <option value="copyright_piracy" ${this.selectedCategory === 'copyright_piracy' ? 'selected' : ''}>
                 ⚖️ Copyright & Intellectual Property / Pirated Content
@@ -273,17 +277,28 @@ export class ReportModalManager {
       if (!overlay) {
         overlay = document.createElement('div');
         overlay.id = 'urefy-dsa-report-modal-overlay';
+        overlay.setAttribute('role', 'dialog');
+        overlay.setAttribute('aria-modal', 'true');
+        overlay.setAttribute('aria-labelledby', 'report-title');
         overlay.className = 'fixed inset-0 z-[10050] bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-150';
         document.body.appendChild(overlay);
       }
       overlay.innerHTML = html;
       this.bindEvents(overlay);
+      overlay.querySelector<HTMLButtonElement>('#btn-close-dsa-report-modal')?.focus();
     }
 
     return html;
   }
 
   private bindEvents(overlay: HTMLElement): void {
+    overlay.onkeydown = (event) => {
+      if (event.key === 'Escape') { event.preventDefault(); this.close(); }
+      if (event.key !== 'Tab') return;
+      const controls = [...overlay.querySelectorAll<HTMLElement>('button:not([disabled]), select, input, textarea, a[href]')].filter(el => el.getClientRects().length > 0);
+      if (event.shiftKey && document.activeElement === controls[0]) { event.preventDefault(); controls.at(-1)?.focus(); }
+      else if (!event.shiftKey && document.activeElement === controls.at(-1)) { event.preventDefault(); controls[0]?.focus(); }
+    };
     const btnClose = overlay.querySelector('#btn-close-dsa-report-modal');
     const btnCancel = overlay.querySelector('#btn-cancel-dsa-report');
     const form = overlay.querySelector('#form-submit-dsa-report') as HTMLFormElement | null;
@@ -357,15 +372,17 @@ export class ReportModalManager {
         });
 
         const data = await res.json() as any;
-        if (res.ok && data?.success) {
-          this.showSuccessConfirmation(data.reportId || 'dsa_logged');
+        if (res.ok && data?.success && typeof data.reportId === 'string' && data.reportId) {
+          this.showSuccessConfirmation(data.reportId);
         } else {
           throw new Error(data?.error || `HTTP ${res.status}`);
         }
       } catch (err: any) {
-        console.warn('[DSA] Report submission error:', err);
-        // Fallback: report recorded locally
-        this.showSuccessConfirmation(`dsa_local_${Date.now()}`);
+        this.isSubmitting = false;
+        if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit report'; }
+        let error = overlay.querySelector<HTMLElement>('[data-report-error]');
+        if (!error) { error = document.createElement('p'); error.dataset.reportError = ''; error.setAttribute('role', 'alert'); form?.appendChild(error); }
+        error.textContent = `Report not submitted. ${err?.message || 'Check your connection and try again.'} Your details are still in the form.`;
       }
     });
   }
@@ -379,12 +396,12 @@ export class ReportModalManager {
         <div class="w-12 h-12 rounded-2xl bg-emerald-500/15 text-emerald-400 mx-auto flex items-center justify-center border border-emerald-500/30 text-2xl">
           ✓
         </div>
-        <h2 class="text-base font-bold text-white">DSA Notice Successfully Logged</h2>
+        <h2 id="report-title" class="text-base font-bold text-white">DSA Notice Successfully Logged</h2>
         <p class="text-xs text-slate-300 leading-relaxed">
           Your notice has been registered under <strong>EU Digital Services Act (Regulation 2022/2065, Art. 16)</strong>.
         </p>
         <div class="p-3 bg-surface-raised rounded-xl font-mono text-[11px] text-emerald-300 break-all border border-white/5">
-          Reference ID: ${reportId}
+          Reference ID: ${escapeHtml(reportId)}
         </div>
         <p class="text-[10px] text-slate-400">
           The content will be reviewed promptly by sovereign network moderators.
@@ -400,6 +417,7 @@ export class ReportModalManager {
     `;
 
     overlay.querySelector('#btn-dsa-done')?.addEventListener('click', () => this.close());
+    overlay.querySelector<HTMLButtonElement>('#btn-dsa-done')?.focus();
     clientStore.showToast('🚩 DSA Notice submitted successfully', 'success');
   }
 }

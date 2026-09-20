@@ -190,16 +190,17 @@ export class FlairFilterEngine {
       const isSelected = this.activeFlair === flair.id;
       const count = this.flairCounts.get(flair.id) ?? 0;
       const chipClasses = this._buildChipClasses(flair, isSelected);
+      const displayLabel = flair.id === 'MICRO-PULSE' ? 'Recent' : flair.id;
 
       return `
         <button
           class="${chipClasses}"
           data-flair-id="${this._escapeAttr(flair.id)}"
           aria-pressed="${isSelected}"
-          title="Filter by: ${this._escapeHtml(flair.id)}"
+          title="Filter by: ${this._escapeHtml(displayLabel)}"
         >
           <span>${flair.emoji}</span>
-          <span>${this._escapeHtml(flair.id)}</span>
+          <span>${this._escapeHtml(displayLabel)}</span>
           <span class="${isSelected ? 'text-white/70' : 'text-slate-500'} font-normal">(${count})</span>
         </button>`;
     }).join('');

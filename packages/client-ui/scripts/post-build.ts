@@ -33,17 +33,36 @@ if (fs.existsSync(indexJs)) {
 }
 
 if (fs.existsSync(workerJs)) {
-  const workerSource = fs.readFileSync(workerJs, 'utf8');
-  const normalizedWorker = workerSource.replace(
-    /^\/\/ \.\.\/\.wrangler\/tmp\/pages-[^/]+\/functionsRoutes-[^\s]+\.mjs$/m,
-    '// wrangler-generated/functionsRoutes.mjs'
-  );
-  fs.writeFileSync(workerJs, normalizedWorker);
+  let workerSource = fs.readFileSync(workerJs, 'utf8');
+  workerSource = workerSource
+    .replace(/\/\/[^\n]*\.wrangler[^\n]*\n?/g, '')
+    .replace(/functionsRoutes[-_0-9.]+/g, 'functionsRoutes_static')
+    .replace(/pages-[a-zA-Z0-9_-]{6,}/g, 'pages-static');
+  fs.writeFileSync(workerJs, workerSource);
 }
 
 fs.writeFileSync(
   routesJson,
-  JSON.stringify({ version: 1, include: ['/api/*', '/.well-known/*'], exclude: [] }, null, 2)
+  JSON.stringify(
+    {
+      version: 1,
+      include: ['/*'],
+      exclude: [
+        '/assets-v5/*',
+        '/sw.js',
+        '/manifest.json',
+        '/favicon.*',
+        '/icon-*.png',
+        '/og-image.png',
+        '/screenshot-*.png',
+        '/audio/*',
+        '/fonts/*',
+        '/images/*',
+      ],
+    },
+    null,
+    2
+  )
 );
 
 console.log('[Post-Build] Generated _worker.js and _routes.json in dist.');

@@ -74,7 +74,7 @@ describe('Storage API Hardening & Security (Pass 2)', () => {
               content: 'console.log("XSS attempt")',
               fileName: 'evil"file\r\nX-Injected: attack.svg',
               key: 'releases/xss-test.svg',
-              contentType: 'image/svg+xml',
+              contentType: 'application/octet-stream',
             },
             alice
           )

@@ -86,13 +86,38 @@ export class SovereignWebPush {
   private _bannerDismissed: boolean = false;
 
   constructor() {
+    this._initEngagementGate();
     this._initStatus();
+  }
+
+  private _initEngagementGate(): void {
+    if (typeof window === 'undefined' || typeof sessionStorage === 'undefined') return;
+    try {
+      if (!sessionStorage.getItem('urefy_session_start')) {
+        sessionStorage.setItem('urefy_session_start', String(Date.now()));
+      }
+      const onAction = () => {
+        const count = Number(sessionStorage.getItem('urefy_user_action_count') || '0') + 1;
+        sessionStorage.setItem('urefy_user_action_count', String(count));
+      };
+      window.addEventListener('click', onAction, { passive: true, capture: true });
+      window.addEventListener('keydown', onAction, { passive: true, capture: true });
+    } catch (_) {}
   }
 
   private async _initStatus(): Promise<void> {
     if (typeof window === 'undefined') return;
 
-    if (typeof sessionStorage !== 'undefined') {
+    if (typeof localStorage !== 'undefined') {
+      try {
+        const dismissedUntil = Number(localStorage.getItem('urefy_push_banner_dismissed_until') || '0');
+        if (dismissedUntil > Date.now()) {
+          this._bannerDismissed = true;
+        }
+      } catch (_) {}
+    }
+
+    if (!this._bannerDismissed && typeof sessionStorage !== 'undefined') {
       try {
         this._bannerDismissed = sessionStorage.getItem('aetheris_push_banner_dismissed') === '1';
       } catch (_) {}
@@ -177,6 +202,7 @@ export class SovereignWebPush {
    * and registers the endpoint on the Cloudflare Edge API.
    */
   public async subscribeUser(fingerprint?: string): Promise<PushSubscription | null> {
+    this.dismissBanner();
     if (!this.isSupported()) {
       return null;
     }
@@ -432,6 +458,12 @@ export class SovereignWebPush {
 
   public dismissBanner(): void {
     this._bannerDismissed = true;
+    if (typeof localStorage !== 'undefined') {
+      try {
+        const fourteenDaysMs = 14 * 24 * 60 * 60 * 1000;
+        localStorage.setItem('urefy_push_banner_dismissed_until', String(Date.now() + fourteenDaysMs));
+      } catch (_) {}
+    }
     if (typeof sessionStorage !== 'undefined') {
       try {
         sessionStorage.setItem('aetheris_push_banner_dismissed', '1');
@@ -443,6 +475,7 @@ export class SovereignWebPush {
       setTimeout(() => bannerEl.remove(), 250);
     }
     this._dispatchEvent('aetheris:push:banner_dismissed', {});
+    void import('./client-state.js').then(m => m.clientStore.notify('MODAL_CHANGE')).catch(() => {});
   }
 
   private _dispatchEvent(name: string, detail: Record<string, unknown>): void {
@@ -462,6 +495,19 @@ export class SovereignWebPush {
     if (this._bannerDismissed || this.getPermissionState() === 'granted') {
       return '';
     }
+
+    // Engagement gate: require at least 3 user actions or 45 seconds of active session before displaying banner
+    if (typeof sessionStorage !== 'undefined') {
+      try {
+        const sessionStart = Number(sessionStorage.getItem('urefy_session_start') || Date.now());
+        const actionCount = Number(sessionStorage.getItem('urefy_user_action_count') || '0');
+        const elapsed = Date.now() - sessionStart;
+        if (elapsed < 45000 && actionCount < 3) {
+          return '';
+        }
+      } catch (_) {}
+    }
+
     // Keep compact and installed-PWA navigation unobstructed. Push opt-in stays
     // fully available from Profile > Settings on these devices.
     if (typeof window !== 'undefined' && typeof window.matchMedia === 'function' && (
@@ -638,7 +684,8 @@ export class SovereignWebPush {
 
       const action = target.getAttribute('data-action');
       if (action === 'push-subscribe') {
-        this.subscribeUser();
+        this.dismissBanner();
+        void this.subscribeUser();
       } else if (action === 'push-dismiss') {
         this.dismissBanner();
       } else if (action === 'push-unsubscribe') {

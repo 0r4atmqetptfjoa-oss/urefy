@@ -12,8 +12,3 @@
 /feed  / 301
 /pulse / 301
 
-# ─── Do not fallback static assets to index.html ────────────────────────────
-/assets/*  /assets/:splat  404
-
-# ─── SPA Fallback: All unmatched routes → index.html (200) ───────────────────
-/*  /index.html  200

@@ -177,28 +177,173 @@ export function renderRelaysEmptyState(options?: EmptyStateOptions): string {
 export function renderPulseFeedSkeleton(count = 3): string {
   const loadingLabel = t('emptyState.loadingPulses', undefined, 'Loading pulses...');
   return `
-    <div class="space-y-4 animate-pulse w-full max-w-3xl mx-auto" aria-busy="true" aria-label="${loadingLabel}">
+    <div class="post-stream-skeleton w-full divide-y divide-white/5" aria-busy="true" aria-label="${loadingLabel}">
       ${Array.from({ length: count }).map(() => `
-        <div class="p-4 rounded-2xl bg-surface-raised/50 border border-white/5 space-y-3">
-          <div class="flex items-center space-x-3">
-            <div class="w-9 h-9 rounded-full bg-slate-800/80 shrink-0"></div>
-            <div class="space-y-1.5 flex-1">
-              <div class="h-3.5 bg-slate-800/80 rounded w-1/4"></div>
-              <div class="h-2.5 bg-slate-800/50 rounded w-1/6"></div>
+        <article class="social-post social-post-skeleton animate-pulse" style="pointer-events: none;">
+          <div class="social-post__avatar">
+            <div class="w-10 h-10 rounded-full bg-white/10 shrink-0"></div>
+          </div>
+          <div class="social-post__content space-y-2.5">
+            <header class="social-post__header flex items-center gap-2">
+              <div class="h-3.5 bg-white/15 rounded w-28"></div>
+              <div class="h-3 bg-white/10 rounded w-16"></div>
+              <div class="h-3 bg-white/5 rounded w-20 ml-auto"></div>
+            </header>
+            <div class="h-4 bg-white/10 rounded w-3/4"></div>
+            <div class="space-y-1.5 pt-0.5">
+              <div class="h-3.5 bg-white/10 rounded w-full"></div>
+              <div class="h-3.5 bg-white/5 rounded w-4/5"></div>
+            </div>
+            <div class="flex items-center space-x-4 pt-2">
+              <div class="h-6 bg-white/5 rounded-full w-14"></div>
+              <div class="h-6 bg-white/5 rounded-full w-14"></div>
+              <div class="h-6 bg-white/5 rounded-full w-14"></div>
             </div>
           </div>
-          <div class="space-y-2 pt-1">
-            <div class="h-3.5 bg-slate-800/70 rounded w-3/4"></div>
-            <div class="h-3 bg-slate-800/50 rounded w-full"></div>
-            <div class="h-3 bg-slate-800/40 rounded w-2/3"></div>
-          </div>
-          <div class="flex items-center space-x-6 pt-2">
-            <div class="h-3.5 bg-slate-800/60 rounded w-12"></div>
-            <div class="h-3.5 bg-slate-800/60 rounded w-12"></div>
-            <div class="h-3.5 bg-slate-800/60 rounded w-12"></div>
+        </article>
+      `).join('')}
+    </div>
+  `;
+}
+
+/**
+ * 6. Actionable empty state for Following feed when user follows 0 authors/communities
+ */
+export function renderFollowingEmptyState(): string {
+  return `
+    <div id="empty-state-following" class="empty-state-card flex flex-col items-center justify-center text-center p-6 sm:p-10 my-6 rounded-2xl border border-dashed border-white/10 bg-surface-base/60 max-w-xl mx-auto select-none animate-in fade-in duration-300">
+      <div class="w-16 h-16 rounded-2xl bg-[var(--color-accent,#e59b3c)]/10 border border-[var(--color-accent,#e59b3c)]/30 flex items-center justify-center text-[var(--color-accent,#e59b3c)] text-3xl mb-4">
+        👥
+      </div>
+      <h3 class="text-base font-bold text-white mb-1.5 font-sans">
+        Your Following feed is quiet
+      </h3>
+      <p class="text-xs text-slate-300 leading-relaxed max-w-sm mb-6 font-sans">
+        Follow contributors or join communities below to see their posts and updates directly in this feed.
+      </p>
+
+      <!-- Actionable Discovery Section -->
+      <div class="w-full space-y-4 text-left border-t border-white/5 pt-4">
+        <!-- Recommended Communities -->
+        <div>
+          <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-2">Recommended Communities</span>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div class="p-2.5 rounded-xl bg-surface-raised border border-white/5 flex items-center justify-between gap-2">
+              <div class="flex items-center space-x-2 min-w-0">
+                <span class="text-lg shrink-0">🚀</span>
+                <div class="min-w-0">
+                  <div class="text-xs font-bold text-white truncate">Technology</div>
+                  <div class="text-[10px] text-slate-400">c/technology</div>
+                </div>
+              </div>
+              <button type="button" data-action="call-global" data-global-method="onboardingWizard.toggleJoinCommunity" data-global-arg="technology" class="px-2.5 py-1 text-[10px] font-semibold rounded-lg bg-surface-overlay hover:bg-[var(--color-accent,#e59b3c)] hover:text-slate-950 text-white border border-white/10 transition-all shrink-0 cursor-pointer">Join</button>
+            </div>
+
+            <div class="p-2.5 rounded-xl bg-surface-raised border border-white/5 flex items-center justify-between gap-2">
+              <div class="flex items-center space-x-2 min-w-0">
+                <span class="text-lg shrink-0">🤖</span>
+                <div class="min-w-0">
+                  <div class="text-xs font-bold text-white truncate">AI &amp; Neural</div>
+                  <div class="text-[10px] text-slate-400">c/ai</div>
+                </div>
+              </div>
+              <button type="button" data-action="call-global" data-global-method="onboardingWizard.toggleJoinCommunity" data-global-arg="ai" class="px-2.5 py-1 text-[10px] font-semibold rounded-lg bg-surface-overlay hover:bg-[var(--color-accent,#e59b3c)] hover:text-slate-950 text-white border border-white/10 transition-all shrink-0 cursor-pointer">Join</button>
+            </div>
+
+            <div class="p-2.5 rounded-xl bg-surface-raised border border-white/5 flex items-center justify-between gap-2">
+              <div class="flex items-center space-x-2 min-w-0">
+                <span class="text-lg shrink-0">🎮</span>
+                <div class="min-w-0">
+                  <div class="text-xs font-bold text-white truncate">Gaming</div>
+                  <div class="text-[10px] text-slate-400">c/gaming</div>
+                </div>
+              </div>
+              <button type="button" data-action="call-global" data-global-method="onboardingWizard.toggleJoinCommunity" data-global-arg="gaming" class="px-2.5 py-1 text-[10px] font-semibold rounded-lg bg-surface-overlay hover:bg-[var(--color-accent,#e59b3c)] hover:text-slate-950 text-white border border-white/10 transition-all shrink-0 cursor-pointer">Join</button>
+            </div>
+
+            <div class="p-2.5 rounded-xl bg-surface-raised border border-white/5 flex items-center justify-between gap-2">
+              <div class="flex items-center space-x-2 min-w-0">
+                <span class="text-lg shrink-0">🛡️</span>
+                <div class="min-w-0">
+                  <div class="text-xs font-bold text-white truncate">Privacy</div>
+                  <div class="text-[10px] text-slate-400">c/privacy</div>
+                </div>
+              </div>
+              <button type="button" data-action="call-global" data-global-method="onboardingWizard.toggleJoinCommunity" data-global-arg="privacy" class="px-2.5 py-1 text-[10px] font-semibold rounded-lg bg-surface-overlay hover:bg-[var(--color-accent,#e59b3c)] hover:text-slate-950 text-white border border-white/10 transition-all shrink-0 cursor-pointer">Join</button>
+            </div>
           </div>
         </div>
-      `).join('')}
+
+        <!-- Recommended Creators -->
+        <div>
+          <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-2">Contributors to Follow</span>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <div class="p-2 rounded-xl bg-surface-raised border border-white/5 flex items-center justify-between gap-1.5">
+              <div class="min-w-0">
+                <div class="text-[11px] font-bold text-white truncate">Archivist Zero</div>
+                <div class="text-[9px] text-slate-400">@archivist</div>
+              </div>
+              <button type="button" data-action="call-global" data-global-method="onboardingWizard.toggleFollowCreator" data-global-arg="aeth_archivist_01" class="px-2 py-0.5 text-[10px] font-medium rounded bg-surface-overlay hover:bg-surface-highlight text-white border border-white/10 shrink-0 cursor-pointer">+ Follow</button>
+            </div>
+
+            <div class="p-2 rounded-xl bg-surface-raised border border-white/5 flex items-center justify-between gap-1.5">
+              <div class="min-w-0">
+                <div class="text-[11px] font-bold text-white truncate">Ada Sovereign</div>
+                <div class="text-[9px] text-slate-400">@ada_builder</div>
+              </div>
+              <button type="button" data-action="call-global" data-global-method="onboardingWizard.toggleFollowCreator" data-global-arg="aeth_builder_02" class="px-2 py-0.5 text-[10px] font-medium rounded bg-surface-overlay hover:bg-surface-highlight text-white border border-white/10 shrink-0 cursor-pointer">+ Follow</button>
+            </div>
+
+            <div class="p-2 rounded-xl bg-surface-raised border border-white/5 flex items-center justify-between gap-1.5">
+              <div class="min-w-0">
+                <div class="text-[11px] font-bold text-white truncate">Cipher Nomad</div>
+                <div class="text-[9px] text-slate-400">@cipher_nomad</div>
+              </div>
+              <button type="button" data-action="call-global" data-global-method="onboardingWizard.toggleFollowCreator" data-global-arg="aeth_cipher_03" class="px-2 py-0.5 text-[10px] font-medium rounded bg-surface-overlay hover:bg-surface-highlight text-white border border-white/10 shrink-0 cursor-pointer">+ Follow</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action button to explore directory -->
+      <div class="pt-4 mt-2">
+        <button
+          type="button"
+          data-action="nav-mode"
+          data-mode="explore"
+          class="px-5 py-2 rounded-xl bg-surface-overlay hover:bg-surface-highlight text-white text-xs font-semibold border border-white/10 transition-all flex items-center space-x-1.5 cursor-pointer mx-auto"
+        >
+          <span>🔍</span>
+          <span>Explore All Communities &amp; Topics</span>
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+/**
+ * 7. Actionable empty state for Search
+ */
+export function renderSearchEmptyState(query = ''): string {
+  return `
+    <div id="empty-state-search" class="empty-state-card flex flex-col items-center justify-center text-center p-8 sm:p-12 my-6 rounded-2xl border border-dashed border-white/10 bg-surface-base/60 max-w-lg mx-auto select-none animate-in fade-in duration-300">
+      <div class="w-16 h-16 rounded-2xl bg-indigo-950/40 border border-indigo-500/30 flex items-center justify-center text-indigo-400 mb-4">
+        ${renderIcon('search', { size: 30, strokeWidth: 1.75, class: 'text-indigo-400' })}
+      </div>
+      <h3 class="text-base font-bold text-white mb-2 tracking-wide font-sans">
+        ${query ? `No results for "${query}"` : 'Explore UREfy'}
+      </h3>
+      <p class="text-xs text-slate-300 leading-relaxed max-w-sm mb-5 font-sans">
+        ${query ? 'Try searching for another keyword, tag, or topic.' : 'Search across sovereign discussions, encrypted vault, and community circles.'}
+      </p>
+      <div class="flex flex-wrap items-center justify-center gap-1.5 max-w-sm">
+        <span class="text-[11px] text-slate-500 w-full mb-1">Popular Topics:</span>
+        <button type="button" data-action="search-tag" data-tag="Technology" class="px-2.5 py-1 rounded-lg bg-surface-raised hover:bg-surface-overlay text-cyan-400 border border-white/5 text-xs font-mono transition-all cursor-pointer">#Technology</button>
+        <button type="button" data-action="search-tag" data-tag="ArtificialIntelligence" class="px-2.5 py-1 rounded-lg bg-surface-raised hover:bg-surface-overlay text-purple-400 border border-white/5 text-xs font-mono transition-all cursor-pointer">#AI</button>
+        <button type="button" data-action="search-tag" data-tag="Gaming" class="px-2.5 py-1 rounded-lg bg-surface-raised hover:bg-surface-overlay text-amber-400 border border-white/5 text-xs font-mono transition-all cursor-pointer">#Gaming</button>
+        <button type="button" data-action="search-tag" data-tag="Privacy" class="px-2.5 py-1 rounded-lg bg-surface-raised hover:bg-surface-overlay text-emerald-400 border border-white/5 text-xs font-mono transition-all cursor-pointer">#Privacy</button>
+        <button type="button" data-action="search-tag" data-tag="OpenSource" class="px-2.5 py-1 rounded-lg bg-surface-raised hover:bg-surface-overlay text-sky-400 border border-white/5 text-xs font-mono transition-all cursor-pointer">#OpenSource</button>
+      </div>
     </div>
   `;
 }

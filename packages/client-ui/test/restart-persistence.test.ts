@@ -6,6 +6,7 @@ import { onRequestGet as handleReportGet, onRequestPost as handleReportPost } fr
 import { onRequest as handleWebAuthn } from '../functions/api/webauthn.js';
 import { onRequestGet as handleStorageGet, onRequestPost as handleStoragePost } from '../functions/api/storage.js';
 import { executeBackup, restoreBackup } from '../functions/api/cron-backup.js';
+import { createProductDatabase } from './helpers/product-database.js';
 
 // ─── MOCK PERSISTENT D1 SQL STORE (Survives runtime destruction) ─────────────
 class PersistentMockD1 {
@@ -189,6 +190,8 @@ class PersistentMockR2 {
     };
   }
 
+  async head(key: string) { return this.get(key); }
+
   async list(options?: { prefix?: string }) {
     const list = [];
     for (const [k, v] of this.objects.entries()) {
@@ -299,11 +302,12 @@ describe('Mandatory Test B: Restart Persistence Verification (Write -> Destroy R
   });
 
   it('B.3 R2 Object & Metadata Persistence: Stored binary survives complete worker crash', async () => {
+    const accounting = createProductDatabase();
     const runtime1Env = {
       ENVIRONMENT: 'production',
       ADMIN_PIN: 'test-admin-secret-pin',
       VAULT_BUCKET: persistentR2,
-      DB: persistentD1,
+      DB: accounting.database,
     };
 
     const uploadReq = new Request('http://localhost/api/storage', {
@@ -324,7 +328,7 @@ describe('Mandatory Test B: Restart Persistence Verification (Write -> Destroy R
       ENVIRONMENT: 'production',
       ADMIN_PIN: 'test-admin-secret-pin',
       VAULT_BUCKET: persistentR2,
-      DB: persistentD1,
+      DB: accounting.database,
     };
 
     const getReq = new Request('http://localhost/api/storage?key=vault/reboot-proof.bin');
@@ -333,6 +337,8 @@ describe('Mandatory Test B: Restart Persistence Verification (Write -> Destroy R
     const buf = await getRes.arrayBuffer();
     const bytes = new Uint8Array(buf);
     expect(bytes).toEqual(new Uint8Array([11, 22, 33, 44, 55]));
+    expect(accounting.sqlite.prepare('SELECT byte_size FROM storage_allocations').get()?.byte_size).toBe(5);
+    accounting.sqlite.close();
   });
 
   it('B.4 WebAuthn Challenge Persistence: Server-issued challenge survives isolate restart', async () => {

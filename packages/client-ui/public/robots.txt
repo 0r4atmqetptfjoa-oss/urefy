@@ -1,6 +1,13 @@
+# Public discovery; administrative and private paths are not crawl targets.
 User-agent: *
-Disallow: /api/
-Disallow: /vault/
 Allow: /
+Disallow: /api/
+Disallow: /admin
+Disallow: /messages
+Disallow: /vault
+Disallow: /profile
+Disallow: /wp-admin/
+Disallow: /wp-content/
+Disallow: /*.php
 
 Sitemap: https://urefy.com/sitemap.xml

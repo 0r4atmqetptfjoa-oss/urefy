@@ -1,0 +1,134 @@
+{
+  "version": 1,
+  "skills": {
+    "2d-games": {
+      "source": "sickn33/agentic-awesome-skills",
+      "ref": "main",
+      "sourceType": "github",
+      "skillPath": "skills/game-development/2d-games/SKILL.md",
+      "computedHash": "4e373eb1e2c3df8c8427f3906caf1087cd84ad07a672512993ae9f686ddf7821"
+    },
+    "3d-games": {
+      "source": "sickn33/agentic-awesome-skills",
+      "ref": "main",
+      "sourceType": "github",
+      "skillPath": "skills/game-development/3d-games/SKILL.md",
+      "computedHash": "d69fb6868ad0d939d4a5f5fb3e25e63d26783cff8b29f1a225a28deb4370f252"
+    },
+    "api-design-principles": {
+      "source": "sickn33/agentic-awesome-skills",
+      "sourceType": "github",
+      "skillPath": "skills/api-design-principles/SKILL.md",
+      "computedHash": "e04b68ae7b16015d13a1950188a1fd77ac2e7c82356be73572e07dcbf8f2860c"
+    },
+    "architecture": {
+      "source": "sickn33/agentic-awesome-skills",
+      "sourceType": "github",
+      "skillPath": "skills/architecture/SKILL.md",
+      "computedHash": "a7a6d85d018ee5f1447ecedcb8c153a9dbcac00cf2529aee40db8a86637b9ee9"
+    },
+    "engine-selection": {
+      "source": "sickn33/agentic-awesome-skills",
+      "ref": "main",
+      "sourceType": "github",
+      "skillPath": "skills/game-development/engine-selection/SKILL.md",
+      "computedHash": "fb3843d458c49f241b99a840e080ec834e0651818edd7198f64b642cccca302d"
+    },
+    "frontend-design": {
+      "source": "sickn33/agentic-awesome-skills",
+      "sourceType": "github",
+      "skillPath": "skills/frontend-design/SKILL.md",
+      "computedHash": "808e01b929a2b0fabaede596026c8072ba967fe970ac331f2e75367ce548b3c0"
+    },
+    "frontend-design-deslop": {
+      "source": "samber/cc-skills",
+      "sourceType": "github",
+      "skillPath": "skills/frontend-design-deslop/SKILL.md",
+      "computedHash": "95320335ba5f82eec350801617df877d57f6d582e7b6eec8c5edf98407ad7bfd"
+    },
+    "game-art": {
+      "source": "sickn33/agentic-awesome-skills",
+      "ref": "main",
+      "sourceType": "github",
+      "skillPath": "skills/game-development/game-art/SKILL.md",
+      "computedHash": "529ba3ec2b1d4913a5453485cdee6941627804171863b79100e62314f5c4bbae"
+    },
+    "game-audio": {
+      "source": "sickn33/agentic-awesome-skills",
+      "ref": "main",
+      "sourceType": "github",
+      "skillPath": "skills/game-development/game-audio/SKILL.md",
+      "computedHash": "a9b5686fde4a8e8def71cc60e8b6971c804ab39a93a710c4154634f9b3b21cce"
+    },
+    "game-design": {
+      "source": "sickn33/agentic-awesome-skills",
+      "ref": "main",
+      "sourceType": "github",
+      "skillPath": "skills/game-development/game-design/SKILL.md",
+      "computedHash": "b2c8642364436a8232ec9c904c728381321eabc85968a5b3aa004809af40b161"
+    },
+    "game-development": {
+      "source": "sickn33/agentic-awesome-skills",
+      "ref": "main",
+      "sourceType": "github",
+      "skillPath": "skills/game-development/SKILL.md",
+      "computedHash": "d9278adfbebfbd2090f094f01f8651c24b151455b12a125c432d3b6410bd732f"
+    },
+    "mobile-games": {
+      "source": "sickn33/agentic-awesome-skills",
+      "ref": "main",
+      "sourceType": "github",
+      "skillPath": "skills/game-development/mobile-games/SKILL.md",
+      "computedHash": "b5bc37a43d5927658d39449df26eeb50489c9bb34fe37b0f4bdc72aa6ba042e7"
+    },
+    "multiplayer": {
+      "source": "sickn33/agentic-awesome-skills",
+      "ref": "main",
+      "sourceType": "github",
+      "skillPath": "skills/game-development/multiplayer/SKILL.md",
+      "computedHash": "2d53ac9b7e8aa16e86b45cf5761bc2ad91612fe29202ff48b561c29b23cfe5f5"
+    },
+    "react-patterns": {
+      "source": "sickn33/agentic-awesome-skills",
+      "sourceType": "github",
+      "skillPath": "skills/react-patterns/SKILL.md",
+      "computedHash": "a417f1ad54433907a219d042bf8a0737b61268f52bc71379bc61a71b344a58f0"
+    },
+    "security-auditor": {
+      "source": "sickn33/agentic-awesome-skills",
+      "sourceType": "github",
+      "skillPath": "skills/security-auditor/SKILL.md",
+      "computedHash": "7f618562271cbd667bb9998b73d68c8a25ab1b866c00d045e21281cbec6468d9"
+    },
+    "seo-audit": {
+      "source": "sickn33/agentic-awesome-skills",
+      "sourceType": "github",
+      "skillPath": "skills/seo-audit/SKILL.md",
+      "computedHash": "783e0d027bd7750a68ba0ec50fa3b18857ad32cdf9cf917b10be65184768e211"
+    },
+    "typescript-expert": {
+      "source": "sickn33/agentic-awesome-skills",
+      "sourceType": "github",
+      "skillPath": "skills/typescript-expert/SKILL.md",
+      "computedHash": "b4623290742a2319a2c6aca09c62438a796c399f65aac6facd7273f9b144c8e7"
+    },
+    "web-design-guidelines": {
+      "source": "sickn33/agentic-awesome-skills",
+      "sourceType": "github",
+      "skillPath": "skills/web-design-guidelines/SKILL.md",
+      "computedHash": "e0aac199087e84ce561cddbc7c2c964b8ed1ec445c79c88882416ae7777806e7"
+    },
+    "webapp-testing": {
+      "source": "sickn33/agentic-awesome-skills",
+      "sourceType": "github",
+      "skillPath": "skills/webapp-testing/SKILL.md",
+      "computedHash": "0d3b778f27693a59ba0273eb530645e45033eb00be94723a54d4b7aee11e2709"
+    },
+    "writing-plans": {
+      "source": "sickn33/agentic-awesome-skills",
+      "sourceType": "github",
+      "skillPath": "skills/writing-plans/SKILL.md",
+      "computedHash": "725642a4094f4e594d29f185539319ee0a6840fc45b2626415e97a1418f83c1d"
+    }
+  }
+}

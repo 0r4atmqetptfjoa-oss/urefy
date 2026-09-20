@@ -40,7 +40,7 @@ export function renderButton(props: ButtonProps): string {
   } = props;
 
   const baseStyles =
-    'inline-flex items-center justify-center font-medium rounded-xl transition-all cursor-pointer select-none active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400';
+    'inline-flex items-center justify-center font-medium rounded-xl transition-all cursor-pointer select-none active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]';
 
   const sizeStyles = {
     sm: 'px-2.5 py-1 text-xs gap-1.5 h-8',
@@ -50,17 +50,17 @@ export function renderButton(props: ButtonProps): string {
 
   const variantStyles = {
     primary:
-      'bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-semibold shadow-lg shadow-cyan-500/20',
+      'bg-[var(--color-accent,#e59b3c)] hover:opacity-90 text-slate-950 font-semibold shadow-sm',
     secondary:
-      'bg-surface-raised/80 hover:bg-surface-overlay text-slate-200 border border-white/10 hover:border-white/20',
+      'bg-surface-raised hover:bg-surface-overlay text-slate-200 border border-white/10 hover:border-white/20',
     accent:
-      'bg-gradient-to-r from-cyan-500 to-emerald-400 hover:from-cyan-400 hover:to-emerald-300 text-slate-950 font-semibold shadow-md',
+      'bg-[var(--color-accent,#e59b3c)] hover:opacity-90 text-slate-950 font-semibold shadow-sm',
     ghost:
       'bg-transparent hover:bg-white/5 text-slate-300 hover:text-white',
     danger:
       'bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 hover:border-rose-500/50',
     outline:
-      'bg-transparent border border-white/15 hover:border-cyan-400/50 text-slate-200 hover:text-cyan-300',
+      'bg-transparent border border-white/15 hover:border-white/30 text-slate-200 hover:text-white',
   }[variant];
 
   const iconSvg = icon ? renderIcon(icon, { size: size === 'sm' ? 14 : size === 'lg' ? 20 : 16 }) : '';
@@ -108,9 +108,9 @@ export function renderIconButton(props: IconButtonProps): string {
 
   const variantStyles = {
     ghost: 'text-slate-400 hover:text-white hover:bg-white/5',
-    secondary: 'bg-surface-raised/80 text-slate-300 hover:text-white hover:bg-surface-overlay border border-white/10',
+    secondary: 'bg-surface-raised text-slate-300 hover:text-white hover:bg-surface-overlay border border-white/10',
     danger: 'text-rose-400 hover:bg-rose-500/10 hover:text-rose-300',
-    primary: 'bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold',
+    primary: 'bg-[var(--color-accent,#e59b3c)] hover:opacity-90 text-slate-950 font-bold',
   }[variant];
 
   const idAttr = id ? `id="${id}"` : '';
@@ -158,7 +158,7 @@ export function renderInput(props: InputProps): string {
   const paddingLeft = icon ? 'pl-10' : 'pl-3.5';
   const borderStyle = error
     ? 'border-rose-500 focus:ring-rose-500/30'
-    : 'border-white/10 focus:border-cyan-400 focus:ring-cyan-400/20';
+    : 'border-white/10 focus:border-[var(--color-accent,#e59b3c)] focus:ring-[var(--color-accent,#e59b3c)]/20';
 
   return `
     <div class="flex flex-col gap-1.5 w-full ${className}">
@@ -172,7 +172,7 @@ export function renderInput(props: InputProps): string {
           value="${value}"
           placeholder="${placeholder}"
           ${required ? 'required' : ''}
-          class="w-full ${paddingLeft} pr-3.5 py-2.5 min-h-[44px] bg-surface-base/80 rounded-xl border ${borderStyle} text-slate-100 placeholder-slate-500 text-sm transition-all focus:outline-none focus:ring-2"
+          class="w-full ${paddingLeft} pr-3.5 py-2.5 min-h-[44px] bg-surface-base rounded-xl border ${borderStyle} text-slate-100 placeholder-slate-500 text-sm transition-all focus:outline-none focus:ring-1"
         />
       </div>
       ${error ? `<p class="text-xs text-rose-400 flex items-center gap-1">${renderIcon('alert', { size: 12 })}<span>${error}</span></p>` : helperText ? `<p class="${TYPOGRAPHY.caption}">${helperText}</p>` : ''}
@@ -195,8 +195,8 @@ export function renderBadge(props: BadgeProps): string {
     success: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
     warning: 'bg-amber-500/10 text-amber-400 border-amber-500/30',
     danger: 'bg-rose-500/10 text-rose-400 border-rose-500/30',
-    accent: 'bg-cyan-500/10 text-cyan-300 border-cyan-500/30',
-    mono: 'bg-surface-raised text-cyan-300 border-white/10 font-mono text-[10px]',
+    accent: 'bg-[var(--color-accent,#e59b3c)]/15 text-[var(--color-accent,#e59b3c)] border-[var(--color-accent,#e59b3c)]/30',
+    mono: 'bg-surface-raised text-slate-300 border-white/10 font-mono text-[10px]',
   }[variant];
 
   const iconSvg = icon ? renderIcon(icon, { size: 12 }) : '';
@@ -340,7 +340,7 @@ export function renderTextarea(props: TextareaProps): string {
 
   const borderStyle = error
     ? 'border-rose-500 focus:ring-rose-500/30'
-    : 'border-white/10 focus:border-cyan-400 focus:ring-cyan-400/20';
+    : 'border-white/10 focus:border-[var(--color-accent,#e59b3c)] focus:ring-[var(--color-accent,#e59b3c)]/20';
 
   return `
     <div class="flex flex-col gap-1.5 w-full ${className}">
@@ -351,7 +351,7 @@ export function renderTextarea(props: TextareaProps): string {
         rows="${rows}"
         placeholder="${placeholder}"
         ${required ? 'required' : ''}
-        class="w-full px-3.5 py-2.5 bg-surface-base/80 rounded-xl border ${borderStyle} text-slate-100 placeholder-slate-500 text-sm transition-all focus:outline-none focus:ring-2 resize-none"
+        class="w-full px-3.5 py-2.5 bg-surface-base rounded-xl border ${borderStyle} text-slate-100 placeholder-slate-500 text-sm transition-all focus:outline-none focus:ring-1 resize-none"
       >${value}</textarea>
       ${error ? `<p class="text-xs text-rose-400 flex items-center gap-1">${renderIcon('alert', { size: 12 })}<span>${error}</span></p>` : helperText ? `<p class="${TYPOGRAPHY.caption}">${helperText}</p>` : ''}
     </div>
@@ -382,7 +382,7 @@ export function renderSelect(props: SelectProps): string {
       <select
         id="${id}"
         ${actionAttr}
-        class="w-full px-3.5 py-2.5 min-h-[44px] bg-surface-base/90 rounded-xl border border-white/10 text-slate-100 text-sm focus:outline-none focus:border-cyan-400 transition-all cursor-pointer"
+        class="w-full px-3.5 py-2.5 min-h-[44px] bg-surface-base rounded-xl border border-white/10 text-slate-100 text-sm focus:outline-none focus:border-[var(--color-accent,#e59b3c)] transition-all cursor-pointer"
       >
         ${options.map(opt => `
           <option value="${opt.value}" ${opt.value === selectedValue ? 'selected' : ''}>
@@ -409,7 +409,7 @@ export function renderToggle(props: ToggleProps): string {
   const actionAttr = dataAction ? `data-action="${dataAction}"` : '';
 
   return `
-    <label class="flex items-start justify-between gap-4 p-3 rounded-2xl bg-surface-base/60 border border-white/5 hover:border-white/10 transition-colors cursor-pointer select-none ${className}">
+    <label class="flex items-start justify-between gap-4 p-3 rounded-2xl bg-surface-base border border-white/5 hover:border-white/10 transition-colors cursor-pointer select-none ${className}">
       <div class="space-y-0.5">
         <div class="text-xs font-semibold text-slate-100">${label}</div>
         ${description ? `<p class="text-[11px] text-slate-400 leading-relaxed">${description}</p>` : ''}
@@ -423,7 +423,7 @@ export function renderToggle(props: ToggleProps): string {
           ${disabled ? 'disabled' : ''}
           class="sr-only peer"
         />
-        <div class="w-11 h-6 bg-surface-raised peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[12px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan-500 border border-white/15"></div>
+        <div class="w-11 h-6 bg-surface-raised peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[12px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-accent,#e59b3c)] border border-white/15"></div>
       </div>
     </label>
   `;
@@ -450,7 +450,7 @@ export function renderCheckbox(props: CheckboxProps): string {
         ${actionAttr}
         ${checked ? 'checked' : ''}
         ${disabled ? 'disabled' : ''}
-        class="w-4 h-4 rounded bg-surface-raised border border-white/20 accent-cyan-400 cursor-pointer"
+        class="w-4 h-4 rounded bg-surface-raised border border-white/20 accent-[var(--color-accent,#e59b3c)] cursor-pointer"
       />
       <span>${label}</span>
     </label>
@@ -485,7 +485,7 @@ export function renderTabs(props: TabsProps): string {
             data-tab-id="${tab.id}"
             class="px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center space-x-2 cursor-pointer border ${
               isActive
-                ? 'bg-cyan-500/20 text-cyan-200 border-cyan-400/40 shadow-sm shadow-cyan-500/10'
+                ? 'bg-[var(--color-accent,#e59b3c)]/15 text-white border-[var(--color-accent,#e59b3c)]/40 shadow-sm'
                 : 'bg-surface-raised hover:bg-surface-overlay text-slate-400 hover:text-slate-200 border-white/5'
             }"
           >

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * context-menu.ts
  * UREfy — Context Menu Engine
  * Right-click contextual actions for posts and comments.
@@ -18,10 +18,13 @@ export interface MenuAction {
   action: () => void;
 }
 
+import { canonicalVault } from './canonical-vault.js';
+import { clientStore } from './client-state.js';
+
 type MenuListener = () => void;
 
 // ---------------------------------------------------------------------------
-// Saved-posts in-memory store (no external deps)
+// Saved-posts fallback store
 // ---------------------------------------------------------------------------
 
 const savedPosts = new Set<string>();
@@ -93,7 +96,7 @@ export class ContextMenuEngine {
   }
 
   public getPostActions(postId: string): MenuAction[] {
-    const isSaved = savedPosts.has(postId);
+    const isSaved = canonicalVault.isSaved(postId) || savedPosts.has(postId);
     return [
       {
         id: 'copy-link',
@@ -117,14 +120,24 @@ export class ContextMenuEngine {
       },
       {
         id: 'save-post',
-        label: isSaved ? 'Unsave' : 'Save',
+        label: isSaved ? 'Remove from Vault' : 'Save to Vault',
         emoji: '🔖',
         shortcut: 'S',
         action: () => {
-          if (savedPosts.has(postId)) {
+          if (canonicalVault.isSaved(postId) || savedPosts.has(postId)) {
             savedPosts.delete(postId);
+            void canonicalVault.unsavePost(postId);
           } else {
             savedPosts.add(postId);
+            const p = clientStore.posts.find(x => x.id === postId);
+            void canonicalVault.savePost({
+              id: postId,
+              title: p?.title || 'Saved Post',
+              content: p?.content || '',
+              authorFingerprint: p?.authorFingerprint || '',
+              channelId: p?.channelId || 'relays-general',
+              flair: p?.flair,
+            });
           }
           this.hide();
         },

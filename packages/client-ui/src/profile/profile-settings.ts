@@ -38,7 +38,7 @@ export function renderProfileSettingsHTML(
   currentUserFp: string
 ): string {
   return `
-    <div id="profile-settings-panel" class="space-y-6 animate-in fade-in duration-200">
+    <div id="profile-settings-panel" class="space-y-6">
       <!-- CATEGORY NAVIGATION PILLS -->
       <div id="profile-settings-nav" role="tablist" aria-label="Profile settings" class="flex items-center space-x-1.5 overflow-x-auto pb-2 scrollbar-none border-b border-white/5">
         ${SETTINGS_CATEGORIES.map(cat => `
@@ -118,7 +118,9 @@ export function renderSettingsCategoryContentHTML(
               <div class="text-xs font-mono font-bold text-indigo-300">${federatedHandle}</div>
               <button
                 type="button"
-                id="btn-settings-copy-fed-handle" data-action="call-global" data-raw-click="if(window.__aetheris_copy_federated_handle){window.__aetheris_copy_federated_handle('${federatedHandle}');}else{navigator.clipboard&&navigator.clipboard.writeText('${federatedHandle}');}"
+                id="btn-settings-copy-fed-handle"
+                data-action="settings-copy-fed-handle"
+                data-handle="${federatedHandle}"
                 class="px-2.5 py-1 rounded-lg bg-surface-raised hover:bg-surface-overlay border border-white/10 text-[11px] font-mono text-slate-300 hover:text-white transition-colors flex items-center space-x-1 cursor-pointer"
               >
                 <span>📋</span>
@@ -139,7 +141,11 @@ export function renderSettingsCategoryContentHTML(
         </div>
       `;
 
-    case 'notifications':
+    case 'notifications': {
+      const notifyDm = typeof localStorage !== 'undefined' ? localStorage.getItem('aetheris_pref_notify_dm') !== 'false' : true;
+      const notifyMentions = typeof localStorage !== 'undefined' ? localStorage.getItem('aetheris_pref_notify_mentions') !== 'false' : true;
+      const notifySecurity = typeof localStorage !== 'undefined' ? localStorage.getItem('aetheris_pref_notify_security') !== 'false' : true;
+
       return `
         <div class="space-y-5" data-settings-section="notifications">
           <div class="pb-3 border-b border-white/5">
@@ -160,7 +166,8 @@ export function renderSettingsCategoryContentHTML(
             </div>
             <button
               type="button"
-              id="btn-settings-toggle-push" data-action="call-global" data-raw-click="if(window.sovereignWebPush){ window.sovereignWebPush.requestPermission(); }"
+              id="btn-settings-toggle-push"
+              data-action="settings-toggle-push"
               class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition-colors shadow cursor-pointer"
             >
               Enable Push
@@ -170,19 +177,20 @@ export function renderSettingsCategoryContentHTML(
           <div class="space-y-3">
             <div class="p-3.5 rounded-2xl bg-surface-base border border-white/5 flex items-center justify-between text-xs">
               <span class="text-slate-200">Notify on Direct Encrypted Messages</span>
-              <input type="checkbox" checked class="accent-indigo-500 cursor-pointer" />
+              <input type="checkbox" ${notifyDm ? 'checked' : ''} data-change="settings-toggle-pref" data-pref="notify_dm" class="accent-indigo-500 cursor-pointer" />
             </div>
             <div class="p-3.5 rounded-2xl bg-surface-base border border-white/5 flex items-center justify-between text-xs">
               <span class="text-slate-200">Notify on Mentions & Replies</span>
-              <input type="checkbox" checked class="accent-indigo-500 cursor-pointer" />
+              <input type="checkbox" ${notifyMentions ? 'checked' : ''} data-change="settings-toggle-pref" data-pref="notify_mentions" class="accent-indigo-500 cursor-pointer" />
             </div>
             <div class="p-3.5 rounded-2xl bg-surface-base border border-white/5 flex items-center justify-between text-xs">
               <span class="text-slate-200">Urgent Network & Security Bulletins</span>
-              <input type="checkbox" checked class="accent-indigo-500 cursor-pointer" />
+              <input type="checkbox" ${notifySecurity ? 'checked' : ''} data-change="settings-toggle-pref" data-pref="notify_security" class="accent-indigo-500 cursor-pointer" />
             </div>
           </div>
         </div>
       `;
+    }
 
     case 'appearance':
       return `
@@ -197,7 +205,9 @@ export function renderSettingsCategoryContentHTML(
             </div>
             <button
               type="button"
-              id="btn-settings-open-theme-builder" data-action="open-feature" data-feature="custom-theme"
+              id="btn-settings-open-theme-builder"
+              data-action="open-feature"
+              data-feature="custom-theme"
               class="px-3.5 py-1.5 rounded-xl bg-surface-raised hover:bg-surface-overlay border border-white/10 text-slate-200 text-xs font-bold transition-colors cursor-pointer"
             >
               Custom Theme Studio
@@ -208,7 +218,8 @@ export function renderSettingsCategoryContentHTML(
             ${CURATED_THEMES.map(t => `
               <button
                 type="button"
-                data-theme-id="${t.id}" data-action="call-global" data-raw-click="if(window.themeEngine){ window.themeEngine.setTheme('${t.id}'); if(window.profileView) window.profileView.openSettings('appearance'); }"
+                data-theme-id="${t.id}"
+                data-action="settings-set-theme"
                 class="p-3 rounded-2xl text-left border transition-all cursor-pointer space-y-2 hover:-translate-y-0.5 ${
                   themeEngine.currentThemeId === t.id
                     ? 'bg-indigo-950/40 border-indigo-500/60 ring-1 ring-indigo-500/40 shadow-lg shadow-indigo-500/10'
@@ -233,7 +244,9 @@ export function renderSettingsCategoryContentHTML(
             <div class="grid grid-cols-3 gap-3">
               ${(['compact', 'balanced', 'media'] as const).map(d => `
                 <button
-                  type="button" data-action="call-global" data-raw-click="if(window.clientStore){ window.clientStore.setDensity('${d}'); if(window.profileView) window.profileView.openSettings('appearance'); }"
+                  type="button"
+                  data-action="settings-set-density"
+                  data-density="${d}"
                   class="py-2 px-3 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
                     clientStore?.density === d
                       ? 'bg-indigo-600/30 text-indigo-200 border-indigo-500/40'
@@ -253,7 +266,10 @@ export function renderSettingsCategoryContentHTML(
         </div>
       `;
 
-    case 'messaging':
+    case 'messaging': {
+      const sealedSender = typeof localStorage !== 'undefined' ? localStorage.getItem('aetheris_pref_sealed_sender') !== 'false' : true;
+      const ephemeralTimer = typeof localStorage !== 'undefined' ? localStorage.getItem('aetheris_pref_ephemeral_timer') || '7d' : '7d';
+
       return `
         <div class="space-y-5" data-settings-section="messaging">
           <div class="flex items-center justify-between pb-3 border-b border-white/5">
@@ -332,7 +348,7 @@ export function renderSettingsCategoryContentHTML(
                 <div class="text-slate-200 font-semibold">Enable Sealed Sender Routing</div>
                 <p class="text-[11px] text-slate-400">Prevents edge relays from correlating sender IP and metadata with recipient</p>
               </div>
-              <input type="checkbox" checked class="accent-indigo-500 cursor-pointer w-4 h-4" />
+              <input type="checkbox" ${sealedSender ? 'checked' : ''} data-change="settings-toggle-pref" data-pref="sealed_sender" class="accent-indigo-500 cursor-pointer w-4 h-4" />
             </div>
 
             <div class="flex items-center justify-between text-xs pt-3 border-t border-white/5">
@@ -340,18 +356,24 @@ export function renderSettingsCategoryContentHTML(
                 <div class="text-slate-200 font-semibold">Disappearing Ephemeral Messages</div>
                 <p class="text-[11px] text-slate-400">Cryptographically shred local IndexedDB message keys after expiration</p>
               </div>
-              <select class="bg-surface-raised border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white cursor-pointer focus:outline-none focus:border-indigo-500">
-                <option value="off">Off (Keep History)</option>
-                <option value="24h">24 Hours</option>
-                <option value="7d" selected>7 Days</option>
-                <option value="30d">30 Days</option>
+              <select data-change="settings-set-pref" data-pref="ephemeral_timer" class="bg-surface-raised border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white cursor-pointer focus:outline-none focus:border-indigo-500">
+                <option value="off" ${ephemeralTimer === 'off' ? 'selected' : ''}>Off (Keep History)</option>
+                <option value="24h" ${ephemeralTimer === '24h' ? 'selected' : ''}>24 Hours</option>
+                <option value="7d" ${ephemeralTimer === '7d' ? 'selected' : ''}>7 Days</option>
+                <option value="30d" ${ephemeralTimer === '30d' ? 'selected' : ''}>30 Days</option>
               </select>
             </div>
           </div>
         </div>
       `;
+    }
 
-    case 'accessibility':
+    case 'accessibility': {
+      const motionDynamics = typeof localStorage !== 'undefined' ? localStorage.getItem('aetheris_pref_motion_dynamics') || 'full' : 'full';
+      const highContrast = typeof localStorage !== 'undefined' ? localStorage.getItem('aetheris_pref_high_contrast') === 'true' : false;
+      const focusRing = typeof localStorage !== 'undefined' ? localStorage.getItem('aetheris_pref_focus_ring') !== 'false' : true;
+      const autoPlayVideo = typeof localStorage !== 'undefined' ? localStorage.getItem('aetheris_pref_autoplay_video') === 'true' : false;
+
       return `
         <div class="space-y-5" data-settings-section="accessibility">
           <div class="pb-3 border-b border-white/5">
@@ -371,10 +393,10 @@ export function renderSettingsCategoryContentHTML(
                 </div>
                 <p class="text-[11px] text-slate-400">Fluid hover lifts, modal transitions, and card springs. Respects OS prefers-reduced-motion automatically.</p>
               </div>
-              <select id="select-settings-motion" class="bg-surface-raised border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white cursor-pointer focus:outline-none focus:border-cyan-500">
-                <option value="full" selected>Fluid Springs (Default)</option>
-                <option value="reduced">Reduced Motion (WCAG)</option>
-                <option value="none">Disable All Transitions</option>
+              <select id="select-settings-motion" data-change="settings-set-pref" data-pref="motion_dynamics" class="bg-surface-raised border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white cursor-pointer focus:outline-none focus:border-cyan-500">
+                <option value="full" ${motionDynamics === 'full' ? 'selected' : ''}>Fluid Springs (Default)</option>
+                <option value="reduced" ${motionDynamics === 'reduced' ? 'selected' : ''}>Reduced Motion (WCAG)</option>
+                <option value="none" ${motionDynamics === 'none' ? 'selected' : ''}>Disable All Transitions</option>
               </select>
             </div>
 
@@ -383,7 +405,7 @@ export function renderSettingsCategoryContentHTML(
                 <div class="text-xs font-bold text-white">Enhanced Contrast & Borders</div>
                 <p class="text-[11px] text-slate-400">Increases container border definition and card separation for high-glare or low-vision environments</p>
               </div>
-              <input type="checkbox" class="accent-cyan-500 cursor-pointer w-4 h-4" />
+              <input type="checkbox" ${highContrast ? 'checked' : ''} data-change="settings-toggle-pref" data-pref="high_contrast" class="accent-cyan-500 cursor-pointer w-4 h-4" />
             </div>
 
             <div class="p-4 rounded-2xl bg-surface-base border border-white/5 flex items-center justify-between">
@@ -391,7 +413,7 @@ export function renderSettingsCategoryContentHTML(
                 <div class="text-xs font-bold text-white">Focus Ring Accentuation</div>
                 <p class="text-[11px] text-slate-400">Prominent keyboard navigation indicators across interactive elements</p>
               </div>
-              <input type="checkbox" checked class="accent-cyan-500 cursor-pointer w-4 h-4" />
+              <input type="checkbox" ${focusRing ? 'checked' : ''} data-change="settings-toggle-pref" data-pref="focus_ring" class="accent-cyan-500 cursor-pointer w-4 h-4" />
             </div>
 
             <div class="p-4 rounded-2xl bg-surface-base border border-white/5 flex items-center justify-between">
@@ -399,11 +421,12 @@ export function renderSettingsCategoryContentHTML(
                 <div class="text-xs font-bold text-white">Auto-Play Feed Videos</div>
                 <p class="text-[11px] text-slate-400">Automatically play video previews on hover or viewport intersection</p>
               </div>
-              <input type="checkbox" class="accent-cyan-500 cursor-pointer w-4 h-4" />
+              <input type="checkbox" ${autoPlayVideo ? 'checked' : ''} data-change="settings-toggle-pref" data-pref="autoplay_video" class="accent-cyan-500 cursor-pointer w-4 h-4" />
             </div>
           </div>
         </div>
       `;
+    }
 
     case 'advanced':
       return `
@@ -424,13 +447,24 @@ export function renderSettingsCategoryContentHTML(
               </div>
               <p class="text-[11px] text-slate-400">Inspect real-time ML-KEM encapsulation, ZK-RLN polynomial shares, and Merkle proofs</p>
             </div>
-            <button
-              type="button"
-              id="btn-settings-open-transparency" data-action="call-global" data-raw-click="if(window.__aetheris_open_transparency_mode) window.__aetheris_open_transparency_mode();"
-              class="px-3.5 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs transition-colors shadow cursor-pointer"
-            >
-              Open Inspector
-            </button>
+            <div class="flex items-center space-x-2">
+              <button
+                type="button"
+                id="btn-settings-open-transparency"
+                data-action="settings-open-transparency"
+                class="px-3.5 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs transition-colors shadow cursor-pointer"
+              >
+                Open Inspector
+              </button>
+              <button
+                type="button"
+                id="btn-settings-export-diagnostics"
+                data-action="settings-export-diagnostics"
+                class="px-3 py-1.5 rounded-xl bg-surface-raised hover:bg-surface-overlay text-slate-200 border border-white/10 text-xs font-bold transition-colors cursor-pointer"
+              >
+                Export Telemetry
+              </button>
+            </div>
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs font-mono">

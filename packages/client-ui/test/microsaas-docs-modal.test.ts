@@ -69,6 +69,10 @@ const mockDocument: any = {
   getElementById(id: string) {
     return elementRegistry.get(id) || null;
   },
+  querySelectorAll(selector: string) {
+    const found = elementRegistry.get(selector.replace(/^#/, ''));
+    return found ? [found] : [];
+  },
 };
 
 (globalThis as any).document = mockDocument;
@@ -81,6 +85,11 @@ import { MicroSaaSDocsModal } from '../src/microsaas-docs-modal.js';
 
 describe('MicroSaaSDocsModal (Micro-SaaS & Developer APIs)', () => {
   let modal: MicroSaaSDocsModal;
+  function mount() {
+    let container = document.getElementById('microsaas-docs-modal');
+    if (!container) { container = document.createElement('div'); container.id = 'microsaas-docs-modal'; document.body.appendChild(container); }
+    container.innerHTML = modal.renderModalHTML();
+  }
 
   beforeEach(() => {
     elementRegistry.clear();
@@ -95,6 +104,7 @@ describe('MicroSaaSDocsModal (Micro-SaaS & Developer APIs)', () => {
 
   it('renders modal with Developer APIs header and tab buttons', () => {
     modal.open();
+    mount(); // The shared ModalManager owns insertion into the document.
     const container = document.getElementById('microsaas-docs-modal');
     expect(container).not.toBeNull();
     expect(container?.innerHTML).toContain('Developer APIs & Micro-SaaS Hub');
@@ -108,6 +118,7 @@ describe('MicroSaaSDocsModal (Micro-SaaS & Developer APIs)', () => {
 
   it('displays Binary Hygiene cURL snippet and test endpoint trigger in default tab', () => {
     modal.open();
+    mount();
     const container = document.getElementById('microsaas-docs-modal');
     expect(container?.innerHTML).toContain('/api/scan-binary');
     expect(container?.innerHTML).toContain('Shannon entropy');
@@ -116,19 +127,20 @@ describe('MicroSaaSDocsModal (Micro-SaaS & Developer APIs)', () => {
 
   it('displays ZK Trust Badge and Post-Quantum SDK in respective tabs', () => {
     modal.open();
+    mount();
     const container = document.getElementById('microsaas-docs-modal');
 
     // Simulate switching to zk-trust
-    (modal as any).activeTab = 'zk-trust';
-    (modal as any).render();
+    modal.setActiveTab('zk-trust');
+    mount();
     const zkContainer = document.getElementById('microsaas-docs-modal');
     expect(zkContainer?.innerHTML).toContain('/embed/trust-badge');
     expect(zkContainer?.innerHTML).toContain('/api/verify-trust');
     expect(zkContainer?.innerHTML).toContain('BN254');
 
     // Simulate switching to crypto-sdk
-    (modal as any).activeTab = 'crypto-sdk';
-    (modal as any).render();
+    modal.setActiveTab('crypto-sdk');
+    mount();
     const pqContainer = document.getElementById('microsaas-docs-modal');
     expect(pqContainer?.innerHTML).toContain('Post-Quantum (ML-KEM-768)');
     expect(pqContainer?.innerHTML).toContain('generateHybridKemKeyPair');
@@ -136,6 +148,7 @@ describe('MicroSaaSDocsModal (Micro-SaaS & Developer APIs)', () => {
 
   it('closes cleanly on close method call', () => {
     modal.open();
+    mount();
     expect(document.getElementById('microsaas-docs-modal')).not.toBeNull();
 
     modal.close();

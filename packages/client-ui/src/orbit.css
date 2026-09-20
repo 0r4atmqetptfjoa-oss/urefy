@@ -1,5 +1,11 @@
 /* Edition 27: quiet surfaces, editorial hierarchy, and a recognisable home. */
 :root { --orbit-radius: 20px; }
+.public-home-intro { margin: 0 0 16px; max-width: none; padding: 18px 20px; border: 1px solid var(--premium-line); border-radius: 16px; background: var(--bg-surface-raised); color: var(--text-secondary); font: inherit; }
+.public-home-intro h1 { margin: 0 0 8px; color: var(--text-primary); font-size: 18px; line-height: 1.4; }
+.public-home-intro p { font-size: 13px; line-height: 1.65; }
+.public-home-intro nav { display: flex; flex-wrap: wrap; gap: 10px 18px; margin-top: 12px; font-size: 12px; }
+.public-home-intro a { color: var(--color-accent); text-decoration: underline; text-underline-offset: 3px; }
+.orbit-shortcuts > a { display: flex; align-items: center; gap: 8px; padding: 12px; color: var(--text-primary); }
 
 #app-top-header { box-shadow: none !important; }
 .urefy-brand__word { font-size: 20px; font-weight: 800; letter-spacing: -0.03em; }
@@ -27,8 +33,8 @@
 [data-theme="alabaster-light"] .urefy-brand__word span { color: #17202a !important; }
 [data-theme="alabaster-light"] #main-feed-scroll > .quick-composer { background: #fff !important; border-color: #dce2e9 !important; }
 [data-theme="alabaster-light"] .compact-join-button.is-joined { background: #edf2f6 !important; color: #45566a !important; }
+.urefy-icon, .lucide-icon, .compact-join-button svg, .compact-follow-button svg { pointer-events: none; }
 .horizon__copy p { font-size: 13px; line-height: 1.6; color: var(--text-secondary); margin: 0 0 18px; max-width: 540px; }
-.horizon__actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
 .horizon__cta { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 16px; border-radius: 10px; font-size: 12px; font-weight: 600; color: #fff; background: var(--color-accent); transition: opacity .15s ease, transform .15s ease; }
 .horizon__cta:hover { opacity: .92; transform: translateY(-1px); }
 .horizon__secondary-cta { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 14px; border-radius: 10px; font-size: 12px; font-weight: 600; color: var(--text-primary); background: var(--bg-surface-base); border: 1px solid var(--premium-line); transition: background .15s ease; }
@@ -67,7 +73,7 @@
 .orbit-return > span { display: inline-flex; align-items: center; gap: 8px; }
 .orbit-return button { display: grid; place-items: center; min-width: 44px; min-height: 44px; }
 #main-feed-scroll > .quick-composer { margin-inline: auto; border-radius: 16px; box-shadow: none; }
-.social-post { border-radius: 16px; }
+.social-post { border-radius: 0; }
 .context-card { border-radius: 16px; box-shadow: none; }
 .context-card__header h2 { letter-spacing: -.025em; }
 .orbit-note { border: 1px solid var(--premium-line); padding: 20px; border-radius: 16px; background: color-mix(in srgb, var(--color-accent) 4%, var(--bg-surface-base)); }

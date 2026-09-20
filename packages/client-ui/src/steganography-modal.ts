@@ -70,6 +70,9 @@ export class SovereignSteganographyModal {
     this.revealedPayload = null;
     this.encodeStatus = this.decodeStatus = null;
     this.isEncoding = this.isDecoding = this.isRestoring = false;
+    if (typeof document !== 'undefined') {
+      document.querySelectorAll('#steganography-modal-backdrop').forEach(el => el.remove());
+    }
     clientStore.notify();
   }
 
@@ -792,3 +795,6 @@ export class SovereignSteganographyModal {
 
 export const steganographyModal = new SovereignSteganographyModal();
 serviceRegistry.registerInstance(SERVICES.SteganographyModal, steganographyModal);
+if (typeof window !== 'undefined') {
+  (window as any).steganographyModal = steganographyModal;
+}

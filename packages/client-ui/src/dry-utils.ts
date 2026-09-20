@@ -324,7 +324,7 @@ export async function sharePostOrCopyLink(
   targetButton?: HTMLElement | null
 ): Promise<boolean> {
   const origin = typeof window !== 'undefined' ? (window.location.origin || '') : 'https://urefy.com';
-  const url = `${origin}/#post-${postId}`;
+  const url = `${origin}/p/${encodeURIComponent(postId)}`;
   const shareData = {
     title: title || 'UREfy verified publication',
     text: content ? (content.slice(0, 140) + '...') : 'View this publication on UREfy:',

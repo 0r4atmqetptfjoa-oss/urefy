@@ -24,18 +24,18 @@ export interface HeaderToolsOptions {
 }
 
 export function renderHeaderPrimaryNav(): string {
-  const active = clientStore.activeChannelId;
   const items = [
-    { mode: 'pulse', label: 'Home', icon: 'feed' as const, on: active.startsWith('pulse-') },
-    { mode: 'explore', label: 'Explore', icon: 'explore' as const, on: active === 'explore' },
-    { mode: 'communities', label: 'Communities', icon: 'users' as const, on: active === 'communities' || active.startsWith('c/') },
-    { mode: 'relays', label: 'Messages', icon: 'messages' as const, on: active.startsWith('relay') || active.startsWith('dm-') },
-    { mode: 'profile', label: 'Profile', icon: 'profile' as const, on: active.startsWith('profile') },
+    { mode: 'pulse', label: 'Home', icon: 'feed' as const },
+    { mode: 'explore', label: 'Explore', icon: 'explore' as const },
+    { mode: 'communities', label: 'Communities', icon: 'users' as const },
+    { mode: 'relays', label: 'Messages', icon: 'messages' as const },
+    { mode: 'vault', label: 'Vault', icon: 'vault' as const },
+    { mode: 'profile', label: 'Profile', icon: 'profile' as const },
   ];
 
   return items.map(item => `
-    <button type="button" data-nav-mode="${item.mode}" class="btn-nav-mode header-nav-item ${item.on ? 'is-active nav-item-active' : ''}" aria-current="${item.on ? 'page' : 'false'}">
-      ${renderIcon(item.icon, { size: 17, variant: item.on ? 'solid' : 'outline' })}
+    <button type="button" data-nav-mode="${item.mode}" class="btn-nav-mode header-nav-item" aria-current="false">
+      ${renderIcon(item.icon, { size: 17 })}
       <span>${item.label}</span>
     </button>
   `).join('');

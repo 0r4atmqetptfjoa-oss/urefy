@@ -606,10 +606,10 @@ export class NodeFederationEngine {
               id="btn-federation-broadcast-test"
               class="px-3 py-1.5 rounded-xl bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white text-xs font-bold transition-all shadow-md shadow-cyan-900/30 flex items-center space-x-1.5 cursor-pointer disabled:opacity-50"
               ${this.isBroadcasting ? 'disabled' : ''}
-              title="Broadcast a cryptographically signed pulse to all connected federated nodes"
+              title="Publish a cryptographically signed post to all connected federated nodes"
             >
               <span>📡</span>
-              <span>${this.isBroadcasting ? 'Broadcasting...' : 'Broadcast Pulse'}</span>
+              <span>${this.isBroadcasting ? 'Publishing...' : 'Publish Post'}</span>
             </button>
           </div>
         </div>

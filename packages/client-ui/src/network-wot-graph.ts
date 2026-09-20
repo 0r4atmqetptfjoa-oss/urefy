@@ -916,7 +916,7 @@ export class WoTGraphVisualizer {
               </button>
 
               <button
-                id="btn-close-wot-modal" data-action="call-global" data-raw-click="window.__aetheris_close_wot_graph && window.__aetheris_close_wot_graph()"
+                id="btn-close-wot-modal" data-action="close-feature"
                 class="w-8 h-8 rounded-lg bg-surface-overlay hover:bg-crimson/20 border border-white/10 hover:border-crimson/40 text-gray-400 hover:text-crimson flex items-center justify-center text-sm transition-all cursor-pointer"
                 title="${t('modal.close', undefined, 'Close modal')} (Esc)"
               >
@@ -1223,7 +1223,9 @@ export class WoTGraphVisualizer {
     this.isOpen = false;
     this.stopAnimation();
     this.cleanupGlobalListeners();
-    this.reRenderModal();
+    if (typeof document !== 'undefined') {
+      document.querySelectorAll('#wot-graph-modal-overlay, #wot-graph-modal-container').forEach(el => el.remove());
+    }
   }
 
   public toggle(): void {

@@ -11,6 +11,7 @@ import { filterProfilePosts, renderProfileTimelinePostsHTML } from './profile-po
 import { renderProfileSettingsHTML, renderSettingsCategoryContentHTML } from './profile-settings.js';
 import { ClientPost, clientStore } from '../client-state.js';
 import { isDemoModeEnabled } from '../demo-mode.js';
+import { SOVEREIGN_PERSONAS } from './seed-profiles-data.js';
 
 export class ProfileView {
   public activeTab: ProfileTab = 'pulses';
@@ -20,8 +21,13 @@ export class ProfileView {
   public lastTabSwitched: boolean = false;
   public followingSet: Set<string>;
   public profileData: Map<string, UserProfileData> = new Map();
+  private pendingFollows = new Set<string>();
+  private savingProfiles = new Set<string>();
+  public editDraft: Partial<UserProfileData> | null = null;
 
   constructor() {
+    (globalThis as any).profileView = this;
+    if (typeof window !== 'undefined') (window as any).profileView = this;
     const savedFollowing = typeof localStorage !== 'undefined' ? localStorage.getItem('aetheris_following_set') : null;
     if (savedFollowing) {
       try {
@@ -39,65 +45,31 @@ export class ProfileView {
   }
 
   private seedDevProfiles(): void {
-    this.profileData.set('genesis-core', {
-      fingerprint: 'genesis-core',
-      name: 'Genesis Protocol Archon',
-      handle: 'genesis-core',
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80',
-      banner: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1200&auto=format&fit=crop&q=80',
-      bio: 'Product engineer & privacy advocate. Building UREfy — the social network you actually own.',
-      location: 'San Francisco, CA',
-      website: 'https://urefy.com',
-      joinedEpoch: 'Early Member',
-      role: 'GUARDIAN',
-      status: 'online',
-      isZKVerified: true,
-      followingCount: 12,
-      followersCount: 1420,
-      meritScore: 9940,
-      trustScore: 98,
-      badges: ['🛡️ ZK-Human', '💎 Sovereign Archon', '🔑 Keymaster'],
-    });
+    for (const p of SOVEREIGN_PERSONAS) {
+      this.profileData.set(p.fingerprint, p);
+    }
 
-    this.profileData.set('c3dc28cb705e', {
-      fingerprint: 'c3dc28cb705e',
-      name: 'Elena Rostova',
-      handle: 'elena_r',
-      avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=300&auto=format&fit=crop&q=80',
-      banner: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1200&auto=format&fit=crop&q=80',
-      bio: 'Open source developer & privacy researcher. Building decentralized tools for people and communities.',
-      location: 'Bucharest, RO',
-      website: 'https://urefy.com',
-      joinedEpoch: 'Early Member',
-      role: 'ARCHIVIST',
-      status: 'online',
-      isZKVerified: true,
-      followingCount: 84,
-      followersCount: 512,
-      meritScore: 4320,
-      trustScore: 92,
-      badges: ['🔬 Contributor', '🛡️ Verified', '✨ Early Member'],
-    });
-
-    this.profileData.set('a89104fa2211', {
-      fingerprint: 'a89104fa2211',
-      name: 'David Chen',
-      handle: 'david_c',
-      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&auto=format&fit=crop&q=80',
-      banner: 'https://images.unsplash.com/photo-1519681393784-d120267933ba?w=1200&auto=format&fit=crop&q=80',
-      bio: 'Community moderator & systems engineer. Passionate about digital rights and open social graphs.',
-      location: 'Austin, TX',
-      website: 'https://urefy.com',
-      joinedEpoch: 'Early Member',
-      role: 'MODERATOR',
-      status: 'online',
-      isZKVerified: true,
-      followingCount: 42,
-      followersCount: 380,
-      meritScore: 3120,
-      trustScore: 90,
-      badges: ['🛡️ Moderator', '✨ Early Member'],
-    });
+    if (isDemoModeEnabled()) {
+      this.profileData.set('genesis-core', {
+        fingerprint: 'genesis-core',
+        name: 'Genesis Protocol Archon',
+        handle: 'genesis-core',
+        avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=genesis-core&backgroundColor=0f172a,1e1b4b,180a3e',
+        banner: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1200&auto=format&fit=crop&q=80',
+        bio: 'Product engineer & privacy advocate. Building UREfy — the social network you actually own.',
+        location: 'San Francisco, CA',
+        website: 'https://urefy.com',
+        joinedEpoch: 'Early Member',
+        role: 'GUARDIAN',
+        status: 'online',
+        isZKVerified: true,
+        followingCount: 12,
+        followersCount: 1420,
+        meritScore: 9940,
+        trustScore: 98,
+        badges: ['🛡️ ZK-Human', '💎 Sovereign Archon', '🔑 Keymaster'],
+      });
+    }
   }
 
   public getProfile(fp: string): UserProfileData {
@@ -118,20 +90,20 @@ export class ProfileView {
         fingerprint: fp,
         name,
         handle,
-        avatar: `https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&auto=format&fit=crop&q=80`,
+        avatar: '',
         banner: '',
-        bio: 'Sharing thoughts, projects, and good conversations on UREfy.',
-        location: 'Global',
+        bio: '',
+        location: '',
         website: '',
         joinedEpoch: 'Member',
-        role: fp === 'genesis-core' ? 'GUARDIAN' : 'MEMBER',
-        status: 'online',
-        isZKVerified: true,
+        role: 'MEMBER',
+        status: 'idle',
+        isZKVerified: false,
         followingCount: 0,
         followersCount: 0,
-        meritScore: 100,
-        trustScore: fp === 'genesis-core' ? 98 : 70,
-        badges: fp === 'genesis-core' ? ['🛡️ ZK-Human', '💎 Sovereign Archon', '🔑 Keymaster'] : ['✨ Member'],
+        meritScore: 0,
+        trustScore: 0,
+        badges: [],
       });
     }
     return this.profileData.get(fp)!;
@@ -148,8 +120,54 @@ export class ProfileView {
     }
   }
 
-  public saveProfile(fp: string, updates: Partial<UserProfileData>): void {
+  public async saveProfile(fp: string, updates: Partial<UserProfileData>): Promise<boolean> {
+    if (this.savingProfiles.has(fp)) return false;
+    const before = { ...this.getProfile(fp) };
     this.updateProfile(fp, updates);
+    if (typeof window === 'undefined') return true;
+    this.savingProfiles.add(fp);
+    clientStore.notify();
+    try {
+      if (fp !== clientStore.keypair.fingerprint) throw new Error('Only your own profile can be edited');
+      const profile = this.getProfile(fp);
+      const envelope = clientStore.createSignedEnvelope({ scope: 'urefy-profile-v1', action: 'save', displayName: profile.name, handle: profile.handle, bio: profile.bio, location: profile.location, website: profile.website, avatarUrl: profile.avatar, bannerUrl: profile.banner, pinnedPostId: profile.pinnedPostId });
+      const response = await fetch('/api/profiles', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(envelope) });
+      const result = await response.json();
+      if (!response.ok || !result.success) throw new Error(result.error || 'Profile could not be saved');
+      this.isEditProfileModalOpen = false;
+      this.editDraft = null;
+      clientStore.showToast('Profile saved', 'success');
+      return true;
+    } catch (error) {
+      this.editDraft = { ...before, ...updates };
+      this.updateProfile(fp, before);
+      clientStore.showToast(error instanceof Error ? error.message : 'Profile could not be saved', 'warning');
+      return false;
+    } finally { this.savingProfiles.delete(fp); clientStore.notify(); }
+  }
+
+  public async syncFollowing(): Promise<void> {
+    const owner = clientStore.keypair.fingerprint;
+    try {
+      const response = await fetch(`/api/follows?userId=${encodeURIComponent(owner)}`, { cache: 'no-store' });
+      const result = await response.json();
+      if (!response.ok || !result.success || !Array.isArray(result.following) || this.pendingFollows.size || owner !== clientStore.keypair.fingerprint) return;
+      this.followingSet = new Set(result.following);
+      localStorage.setItem('aetheris_following_set', JSON.stringify(result.following));
+      clientStore.notify();
+    } catch { /* retain the last known social graph while offline */ }
+  }
+
+  public async loadPublicProfile(fp: string): Promise<void> {
+    try {
+      const response = await fetch(`/api/profiles?userId=${encodeURIComponent(fp)}`);
+      const data = await response.json();
+      if (!response.ok || !data.success || !data.profile || this.savingProfiles.has(fp)) return;
+      const p = data.profile;
+      if (p.updatedAt) this.updateProfile(fp, { name: p.displayName, handle: p.handle, bio: p.bio || '', avatar: p.avatarUrl || '', banner: p.bannerUrl || '', website: p.website || '', location: p.location || '', ...data.stats });
+      else Object.assign(this.getProfile(fp), data.stats || {});
+      clientStore.notify();
+    } catch { /* keep cached identity while offline */ }
   }
 
   public setTargetFingerprint(fp: string): void {
@@ -157,6 +175,7 @@ export class ProfileView {
       this.lastTabSwitched = true;
     }
     this.targetFingerprint = fp;
+    if (typeof window !== 'undefined') void this.loadPublicProfile(fp);
     this.activeTab = 'pulses';
   }
 
@@ -177,6 +196,9 @@ export class ProfileView {
   }
 
   public toggleFollow(fp: string): boolean {
+    if (this.pendingFollows.has(fp) || fp === clientStore.keypair.fingerprint) return this.isFollowing(fp);
+    const wasFollowing = this.isFollowing(fp);
+    const beforeCount = this.getProfile(fp).followersCount;
     let result = false;
     if (this.followingSet.has(fp)) {
       this.followingSet.delete(fp);
@@ -194,6 +216,24 @@ export class ProfileView {
       try {
         localStorage.setItem('aetheris_following_set', JSON.stringify(Array.from(this.followingSet)));
       } catch {}
+    }
+    if (typeof window !== 'undefined') {
+      this.pendingFollows.add(fp);
+      const envelope = clientStore.createSignedEnvelope({ action: result ? 'follow' : 'unfollow', followingId: fp });
+      void fetch('/api/follows', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(envelope) }).then(async response => {
+        const data = await response.json();
+        if (!response.ok || !data.success) throw new Error(data.error || 'Follow change could not be saved');
+        data.isFollowing ? this.followingSet.add(fp) : this.followingSet.delete(fp);
+        clientStore.showToast(data.isFollowing ? 'Following this person' : 'Unfollowed', 'info');
+      }).catch(error => {
+        wasFollowing ? this.followingSet.add(fp) : this.followingSet.delete(fp);
+        this.getProfile(fp).followersCount = beforeCount;
+        clientStore.showToast(error.message || 'Follow change could not be saved', 'warning');
+      }).finally(() => {
+        this.pendingFollows.delete(fp);
+        try { localStorage.setItem('aetheris_following_set', JSON.stringify([...this.followingSet])); } catch {}
+        clientStore.notify();
+      });
     }
     return result;
   }
@@ -222,7 +262,7 @@ export class ProfileView {
 
   public renderEditProfileModal(profile?: UserProfileData): string {
     const p = profile || this.getProfile(this.targetFingerprint || 'genesis-core');
-    return renderEditProfileModalHTML(p);
+    return renderEditProfileModalHTML({ ...p, ...this.editDraft }, this.savingProfiles.has(p.fingerprint));
   }
 
   public renderSettingsCategoryContent(cat: SettingsCategory, profile: UserProfileData, currentUserFp: string): string {
@@ -239,7 +279,7 @@ export class ProfileView {
       <div id="sovereign-profile-container" class="flex-1 w-full h-full min-h-0 overflow-y-auto overflow-x-hidden p-3 sm:p-4 md:p-6 pb-28 lg:pb-12 scroll-smooth">
         <div class="max-w-4xl mx-auto space-y-6">
           <!-- 1. HERO HEADER -->
-          ${renderProfileHeaderHTML(profile, isOwnProfile, isFollowing, this.isEditProfileModalOpen)}
+          ${renderProfileHeaderHTML(profile, isOwnProfile, isFollowing, false, this.pendingFollows.has(target))}
 
           <!-- 2. TIMELINE TABS BAR -->
           ${renderProfileTabsHTML(this.activeTab, isOwnProfile)}
@@ -277,7 +317,7 @@ if (typeof window !== 'undefined') {
 
     const targetFp = profileView.targetFingerprint || (window as any).clientStore?.keypair?.fingerprint || 'genesis-core';
     const cleanHandle = handleInput?.value ? handleInput.value.replace(/^@/, '').trim() : '';
-    profileView.updateProfile(targetFp, {
+    void profileView.saveProfile(targetFp, {
       name: nameInput?.value || 'Sovereign Node',
       handle: cleanHandle || profileView.getProfile(targetFp).handle,
       bio: bioInput?.value || '',
@@ -286,10 +326,5 @@ if (typeof window !== 'undefined') {
       avatar: avInput?.value || profileView.getProfile(targetFp).avatar,
       banner: banInput?.value || profileView.getProfile(targetFp).banner,
     });
-    profileView.isEditProfileModalOpen = false;
-    if ((window as any).clientStore) {
-      (window as any).clientStore.showToast?.('✨ Sovereign Profile updated!', 'success');
-      (window as any).clientStore.notifySync();
-    }
   };
 }

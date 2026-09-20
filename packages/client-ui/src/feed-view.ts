@@ -1,3 +1,4 @@
+import { postPath, profilePath, communityPath } from './public-urls.js';
 /** Consumer home feed and shared post card. */
 
 import { clientStore, ClientPost } from './client-state.js';
@@ -6,7 +7,7 @@ import { sovereignCircleEngine } from './sovereign-circle.js';
 import { profileView } from './profile-view.js';
 import { feedControlsEngine } from './feed-controls.js';
 import { hashtagExplorer } from './hashtag-explorer.js';
-import { renderPulseEmptyState, renderPulseFeedSkeleton } from './empty-states.js';
+import { renderPulseEmptyState, renderPulseFeedSkeleton, renderFollowingEmptyState } from './empty-states.js';
 import { omniComposer } from './composer-hybrid.js';
 import { threadManager, ThreadComment } from './threads.js';
 import { markdownRenderer } from './markdown-renderer.js';
@@ -17,6 +18,8 @@ import { pulseActionsEngine } from './pulse-actions.js';
 import { renderAvatar } from './ui/avatar-generator.js';
 import { renderIcon } from './ui/icons.js';
 import { renderHomeHorizon } from './home-horizon.js';
+import { homeDiscoveryEngine } from './home-discovery.js';
+import { mobileFlowEngine } from './mobile-flow.js';
 import { countPostsSince } from './home-signals.js';
 import { renderWorkspaceLayoutControls } from './workspace-layout.js';
 import { isDemoModeEnabled } from './demo-mode.js';
@@ -47,28 +50,31 @@ function roleLabel(role: string): string {
 }
 
 function renderPostActions(post: ClientPost): string {
+  if (post.deliveryStatus) return `<div class="post-delivery" role="status"><span>${post.deliveryStatus === 'sending' ? 'Publishing…' : escapeHtml(post.deliveryError || 'Not published')}</span>${post.deliveryStatus === 'failed' ? `<button type="button" data-action="retry-publication" data-post-id="${escapeHtml(post.id)}">Retry publication</button>` : ''}</div>`;
   const state = pulseActionsEngine.getInteractions(post.id);
   const metric = (value: number) => pulseActionsEngine.formatMetric(value);
-  const replies = post.replyCount !== undefined && post.replyCount > state.repliesCount ? post.replyCount : (state.repliesCount || 0);
+  const replies = post.replyCount ?? state.repliesCount ?? 0;
+  const merits = pulseActionsEngine.hasSynced(post.id) ? state.likesCount : Math.max(state.likesCount, post.meritVotes || 0);
+  const reposts = pulseActionsEngine.hasSynced(post.id) ? state.repostsCount : Math.max(state.repostsCount, post.boostCount || 0);
   return `
     <div class="post-actions" data-post-id="${post.id}" data-action="stop-propagation">
-      <button type="button" data-pulse-action="like" data-post-id="${post.id}" data-dir="1" class="btn-pulse-like btn-upvote ${state.liked ? 'is-active' : ''}" aria-label="${state.liked ? 'Remove Merit' : 'Give Merit'}" title="Merit">
-        ${renderIcon('sparkles', { size: 18, variant: state.liked ? 'solid' : 'outline' })}<span>Merit</span><b>${metric(state.likesCount)}</b>
+      <button type="button" ${pulseActionsEngine.isPending(post.id, 'like') ? 'disabled aria-busy="true"' : ''} aria-pressed="${state.liked}" data-pulse-action="like" data-post-id="${post.id}" data-dir="1" class="btn-pulse-like ${state.liked ? 'is-active' : ''}" aria-label="${state.liked ? 'Remove Merit' : 'Give Merit'}" title="Merit">
+        ${renderIcon('sparkles', { size: 18, variant: state.liked ? 'solid' : 'outline' })}<span>Merit</span><b>${metric(merits)}</b>
         <i id="particle-burst-${post.id}" aria-hidden="true"></i>
       </button>
       <button type="button" data-pulse-action="reply" data-post-id="${post.id}" class="btn-pulse-reply" aria-label="Reply">
         ${renderIcon('messageSquare', { size: 18 })}<span>Reply</span><b>${metric(replies)}</b>
       </button>
       <div class="post-actions__repost">
-        <button type="button" data-action="toggle-repost-menu" data-pulse-action="repost-menu" data-post-id="${post.id}" class="btn-pulse-repost-menu ${state.reposted ? 'is-active' : ''}" aria-label="Repost">
-          ${renderIcon('repost', { size: 18 })}<span>Repost</span><b>${metric(state.repostsCount)}</b>
+        <button type="button" ${pulseActionsEngine.isPending(post.id, 'repost') ? 'disabled aria-busy="true"' : ''} aria-expanded="${pulseActionsEngine.isRepostMenuOpen(post.id)}" data-action="toggle-repost-menu" data-pulse-action="repost-menu" data-post-id="${post.id}" class="btn-pulse-repost-menu ${state.reposted ? 'is-active' : ''}" aria-label="Repost">
+          ${renderIcon('repost', { size: 18 })}<span>Repost</span><b>${metric(reposts)}</b>
         </button>
         ${pulseActionsEngine.isRepostMenuOpen(post.id) ? `<div class="repost-menu"><button type="button" data-action="do-repost" data-pulse-action="do-repost" data-post-id="${post.id}">${renderIcon('repost', { size: 16 })}<span>${state.reposted ? 'Undo repost' : 'Repost'}</span></button><button type="button" data-action="do-quote" data-pulse-action="do-quote" data-post-id="${post.id}">${renderIcon('messageSquare', { size: 16 })}<span>Quote post</span></button></div>` : ''}
       </div>
       <button type="button" data-pulse-action="share" data-post-id="${post.id}" class="btn-pulse-share" aria-label="Share">
         ${renderIcon('share', { size: 18 })}<span>Share</span>
       </button>
-      <button type="button" data-pulse-action="bookmark" data-post-id="${post.id}" class="btn-pulse-bookmark ${state.bookmarked ? 'is-active' : ''}" aria-label="${state.bookmarked ? 'Remove bookmark' : 'Bookmark'}">
+      <button type="button" ${pulseActionsEngine.isPending(post.id, 'bookmark') ? 'disabled aria-busy="true"' : ''} aria-pressed="${state.bookmarked}" data-pulse-action="bookmark" data-post-id="${post.id}" class="btn-pulse-bookmark ${state.bookmarked ? 'is-active' : ''}" aria-label="${state.bookmarked ? 'Remove bookmark' : 'Bookmark'}">
         ${renderIcon('bookmark', { size: 18, variant: state.bookmarked ? 'solid' : 'outline' })}<span class="sr-only">Bookmark</span>
       </button>
       <div class="post-actions__more relative">
@@ -83,13 +89,31 @@ function renderThreadNode(comment: ThreadComment): string {
   return threadManager.renderCommentNode(comment, 'c3dc28cb705e', clientStore.keypair.fingerprint);
 }
 
+// A background response can replace the feed while focus moves to Post. Keep
+// the draft independent of DOM focus so a render cannot erase the user's text.
+export const quickPostDraft = { content: '', channelId: '' };
+
+export function submitQuickPost(): void {
+  const textarea = document.getElementById('inline-composer-textarea') as HTMLTextAreaElement | null;
+  const content = (textarea?.value || quickPostDraft.content).trim();
+  if (!content) { clientStore.showToast('Write something before posting.', 'warning'); return; }
+  if (content.length > 280) { clientStore.showToast('Keep quick posts within 280 characters, or use the full composer.', 'warning'); return; }
+  const titleInput = document.getElementById('inline-composer-title') as HTMLInputElement | null;
+  const hasTitle = titleInput && !titleInput.classList.contains('hidden') && titleInput.value.trim();
+  const channel = (document.getElementById('inline-composer-hub') as HTMLSelectElement | null)?.value || quickPostDraft.channelId || clientStore.activeChannelId;
+  quickPostDraft.content = '';
+  if (textarea) textarea.value = '';
+  clientStore.createPost({ title: hasTitle || content.slice(0, 50), content, channelId: channel, flair: hasTitle ? 'TECH DISCUSSION' : 'MICRO-PULSE' });
+  if (titleInput) titleInput.value = '';
+}
+
 export function renderInlineQuickComposer(): string {
   const circles = sovereignCircleEngine.getAllCircles();
   return `
     <section class="quick-composer" aria-label="Create a post">
       ${renderAvatar(profileView.getProfile(clientStore.keypair.fingerprint)?.avatar, clientStore.keypair.fingerprint, { size: 42, className: 'quick-composer__avatar' })}
       <div class="quick-composer__body">
-        <textarea id="inline-composer-textarea" rows="2" placeholder="What's on your mind?" aria-label="Post text"></textarea>
+        <textarea id="inline-composer-textarea" rows="2" placeholder="What's on your mind?" aria-label="Post text">${escapeHtml(quickPostDraft.content)}</textarea>
         <input type="text" id="inline-composer-title" placeholder="Add a title" class="hidden" aria-label="Post title" />
         <div class="quick-composer__footer">
           <div class="composer-tools">
@@ -102,10 +126,10 @@ export function renderInlineQuickComposer(): string {
           </div>
           <div class="composer-submit-row">
             <select id="inline-composer-hub" aria-label="Choose community">
-              ${circles.map(circle => `<option value="${circle.channelId}" ${circle.channelId === clientStore.activeChannelId ? 'selected' : ''}>c/${escapeHtml(circle.name)}</option>`).join('')}
+              ${circles.map(circle => `<option value="${circle.channelId}" ${circle.channelId === (quickPostDraft.channelId || clientStore.activeChannelId) ? 'selected' : ''}>c/${escapeHtml(circle.name)}</option>`).join('')}
             </select>
             <span id="inline-char-ring-container" class="composer-count">${omniComposer.renderCircularCountdownRing(0, 280)}</span>
-            <button id="btn-inline-broadcast" type="button" class="primary-button">Post</button>
+            <button id="btn-inline-broadcast" data-action="submit-quick-post" type="button" class="primary-button">Post</button>
           </div>
         </div>
       </div>
@@ -120,7 +144,7 @@ export function renderCommunityHeaderBanner(circle: import('./sovereign-circle.j
         <div class="flex items-center gap-3">
           <span class="community-avatar community-avatar--large w-12 h-12 rounded-xl bg-surface-base flex items-center justify-center text-2xl border border-white/10">${circle.icon || renderIcon('users', { size: 24 })}</span>
           <div>
-            <span class="text-[11px] font-bold text-indigo-400 uppercase tracking-wider">Sovereign Community</span>
+            <span class="text-[11px] font-bold text-[var(--color-accent,#e59b3c)] uppercase tracking-wider">Sovereign Community</span>
             <h1 class="text-base font-bold text-white">c/${escapeHtml(circle.name)}</h1>
             <p class="text-xs text-slate-300">${escapeHtml(circle.description)}</p>
             <div class="text-xs text-slate-400 mt-1">
@@ -131,7 +155,7 @@ export function renderCommunityHeaderBanner(circle: import('./sovereign-circle.j
         </div>
         <div class="flex items-center gap-2">
           <button type="button" class="compact-join-button ${circle.isJoined ? 'is-joined' : ''} px-3 py-1.5 rounded-xl text-xs font-bold bg-surface-overlay text-white hover:bg-white/10" data-action="toggle-join-circle" data-circle-id="${circle.id}">${circle.isJoined ? 'Joined' : 'Join'}</button>
-          <button type="button" data-action="open-composer-for-circle" data-channel="${circle.channelId}" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white cursor-pointer">✍️ Post</button>
+          <button type="button" data-action="open-composer-for-circle" data-channel="${circle.channelId}" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-[var(--color-accent,#e59b3c)] hover:brightness-105 text-slate-950 cursor-pointer">✍️ Post</button>
         </div>
       </div>
       ${circle.rules && circle.rules.length > 0 ? `
@@ -170,46 +194,61 @@ export function renderPulseWorkspace(): string {
   if (activeCircle) posts = posts.filter(post => post.channelId === activeCircle.channelId || post.channelId === activeCircle.id || post.channelId === `c/${activeCircle.name}`);
   posts = feedControlsEngine.filterAndSortPosts(posts);
 
+  const isFlow = mobileFlowEngine.getMode() === 'flow';
+
+  const classicStreamHtml = `
+    <div class="post-stream" aria-live="polite">
+      ${clientStore.isSyncing && posts.length === 0
+        ? renderPulseFeedSkeleton(3)
+        : posts.length === 0
+          ? (feedControlsEngine.getStreamType() === 'following'
+              ? renderFollowingEmptyState()
+              : renderPulseEmptyState({
+                  title: activeCircle 
+                    ? `Start the conversation in c/${activeCircle.name}` 
+                    : 'Your feed is ready for people',
+                  description: activeCircle 
+                    ? 'Share something useful, ask a question, or welcome the next member.' 
+                    : 'Follow people and join communities to shape what appears here.',
+                  actionText: activeCircle 
+                    ? 'Create the first post' 
+                    : 'Explore UREfy',
+                  actionType: activeCircle ? 'composer' : 'explore',
+                }))
+          : posts.map(renderPulsePostCard).join('')}
+    </div>
+  `;
+
+  const discoveryLayerHtml = (!activeCircle && !hashtagExplorer.activeTag) 
+    ? homeDiscoveryEngine.renderDiscoveryLayer(posts) 
+    : '';
+
   return `
     <div class="feed-workspace">
       <header class="view-header">
         <div>
           <h1>${activeCircle ? `c/${escapeHtml(activeCircle.name)}` : 'Home'}</h1>
-          <p>${activeCircle ? escapeHtml(activeCircle.displayName) : 'Your daily orbit'}</p>
+          ${activeCircle ? `<p>${escapeHtml(activeCircle.displayName)}</p>` : ''}
           <span class="sr-only">PULSE STREAM ${activeCircle?.channelId === 'vault-releases' ? 'c/CLEAN-RELEASES Reproducible Binary Knowledge Vault' : ''}</span>
         </div>
         <div class="orbit-layout-tools">${renderWorkspaceLayoutControls()}</div>
       </header>
       ${hashtagExplorer.renderActiveTagBanner()}
       <div id="main-feed-scroll" class="feed-scroll">
-        ${!activeCircle ? renderSinceYouWereAwayCard() : ''}
-        ${activeCircle ? renderCommunityHeaderBanner(activeCircle) : renderHomeHorizon(posts, clientStore.isConnected, isDemoModeEnabled())}
-        ${renderInlineQuickComposer()}
+        ${activeCircle ? renderCommunityHeaderBanner(activeCircle) : ''}
         <div class="feed-toolbar-wrap">${feedControlsEngine.renderFeedControlsToolbar()}</div>
-        <div class="post-stream" aria-live="polite">
-          ${clientStore.isSyncing && posts.length === 0
-            ? renderPulseFeedSkeleton(3)
-            : posts.length === 0
-              ? renderPulseEmptyState({
-                  title: activeCircle 
-                    ? `Start the conversation in c/${activeCircle.name}` 
-                    : feedControlsEngine.getStreamType() === 'following'
-                      ? 'No posts from followed authors yet'
-                      : 'Your feed is ready for people',
-                  description: activeCircle 
-                    ? 'Share something useful, ask a question, or welcome the next member.' 
-                    : feedControlsEngine.getStreamType() === 'following'
-                      ? 'Follow authors from Explore or discussions to see their updates right here.'
-                      : 'Follow people and join communities to shape what appears here.',
-                  actionText: activeCircle 
-                    ? 'Create the first post' 
-                    : feedControlsEngine.getStreamType() === 'following'
-                      ? 'Find Creators to Follow'
-                      : 'Explore UREfy',
-                  actionType: !activeCircle && feedControlsEngine.getStreamType() === 'following' ? 'explore' : 'composer',
-                })
-              : posts.map(renderPulsePostCard).join('')}
-        </div>
+        ${renderInlineQuickComposer()}
+        ${!activeCircle ? renderSinceYouWereAwayCard() : ''}
+        ${discoveryLayerHtml}
+        ${!activeCircle ? renderHomeHorizon(posts, clientStore.isConnected, isDemoModeEnabled()) : ''}
+        ${isFlow ? `
+          <div class="block sm:hidden">
+            ${mobileFlowEngine.renderFlowStream(posts)}
+          </div>
+          <div class="hidden sm:block">
+            ${classicStreamHtml}
+          </div>
+        ` : classicStreamHtml}
       </div>
     </div>`;
 }
@@ -222,7 +261,6 @@ export function renderPulsePostCard(post: ClientPost): string {
   const authorHandle = profile?.handle ? `@${profile.handle.replace(/^@/, '')}` : `@${post.authorFingerprint.substring(0, 8)}`;
   const role = roleLabel(post.authorRole);
   const comments = threadManager.getRootCommentsForPost(post.id);
-  const isHighActivity = (post.replyCount && post.replyCount >= 10) || (post.meritVotes && post.meritVotes >= 200) || post.flair === 'TECH DISCUSSION';
 
   const reposters = pulseActionsEngine.getRepostersForPost(post.id);
   const reposterFP = (post as any).repostedBy || (reposters.length > 0 ? reposters[0] : null);
@@ -231,45 +269,77 @@ export function renderPulsePostCard(post: ClientPost): string {
     const repProfile = profileView.getProfile(reposterFP);
     const repName = repProfile?.name || repProfile?.handle || `@${reposterFP.substring(0, 8)}`;
     repostAttribution = `
-      <div class="repost-attribution-pill flex items-center space-x-1.5 text-xs text-slate-400 font-mono mb-2 pl-0.5">
+      <div class="repost-attribution-pill flex items-center space-x-1.5 text-xs text-slate-400 font-sans mb-2 pl-0.5">
         ${renderIcon('repost', { size: 14, className: 'text-emerald-400 shrink-0' })}
         <span>Reposted by <strong class="text-slate-200 font-bold">${escapeHtml(repName)}</strong></span>
       </div>
     `;
   }
 
+  // Media detection & Reddit-style layout ordering
+  const detectedVideo = obsidianMediaPlayer.extractVideo(post.content);
+  const videoHtml = post.video
+    ? obsidianMediaPlayer.renderVideoCard(post.id, post.video.src, post.video.poster)
+    : (detectedVideo ? obsidianMediaPlayer.renderVideoCard(post.id, post.content) : '');
+  const imagesHtml = post.images?.length
+    ? `<div class="social-post__media">${obsidianMediaPlayer.renderImageMosaic(post.images)}</div>`
+    : '';
+  const hasMedia = Boolean(videoHtml || imagesHtml);
+
+  // Clean raw standalone video URL from content if video player was embedded
+  let displayContent = post.content || '';
+  if (detectedVideo && !post.video) {
+    displayContent = displayContent
+      .replace(/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)[a-zA-Z0-9_-]{11}[^\s]*/gi, '')
+      .replace(/(?:https?:\/\/)?(?:www\.)?vimeo\.com\/\d+[^\s]*/gi, '')
+      .replace(/https?:\/\/[^\s"'<>]+\.(?:mp4|webm|ogg)(?:\?[^\s"'<>]*)?/gi, '')
+      .trim();
+  }
+
+  // Reddit-style post clamping thresholds:
+  // - Text-only: clamped to ~220px preview if length > 280 chars or >= 4 linebreaks
+  // - Media posts: clamped to ~80px preview if length > 120 chars or >= 2 linebreaks
+  const isClamped = hasMedia
+    ? (displayContent.length > 120 || (displayContent.match(/\n/g) || []).length >= 2)
+    : (displayContent.length > 280 || (displayContent.match(/\n/g) || []).length >= 4);
+
   return `
-    <article class="social-post" data-post-card-id="${post.id}">
+    <article class="social-post cursor-pointer" data-post-card-id="${post.id}" data-action="open-post-detail" data-post-id="${post.id}">
       <div class="social-post__avatar" data-author-profile="${post.authorFingerprint}">${renderAvatar(profile?.avatar, post.authorFingerprint, { size: 42, className: 'w-10 h-10' })}</div>
       <div class="social-post__content">
         ${repostAttribution}
         <header class="social-post__header">
-          <button type="button" class="social-post__author" data-author-profile="${post.authorFingerprint}"><strong>${escapeHtml(authorName)}</strong><span>${escapeHtml(authorHandle)}</span><span class="sr-only">${escapeHtml(post.authorFingerprint.substring(0, 8))}</span></button>
+          <a href="${profilePath(post.authorFingerprint)}" data-public-link class="social-post__author"><strong>${escapeHtml(authorName)}</strong><span>${escapeHtml(authorHandle)}</span><span class="sr-only">${escapeHtml(post.authorFingerprint.substring(0, 8))}</span></a>
           ${role ? `<span class="role-badge">${role}</span>` : ''}
           <span class="social-post__separator">·</span>
-          <time datetime="${new Date(post.createdAt).toISOString()}">${relativeTime(post.createdAt)}</time>
-          <button type="button" data-action="open-community" data-channel="${post.channelId}" class="social-post__community">${escapeHtml(circleName)}</button>
-          ${isHighActivity ? `
-            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30 flex items-center gap-1 font-mono" title="High discussion velocity">
-              <span class="animate-pulse">🔥</span> High Activity
-            </span>
-          ` : ''}
+          <a href="${postPath(post.id)}" data-public-link aria-label="Open post"><time datetime="${new Date(post.createdAt).toISOString()}">${relativeTime(post.createdAt)}</time></a>
+          <a href="${communityPath(circleName)}" data-public-link class="social-post__community">${escapeHtml(circleName)}</a>
         </header>
 
         ${post.content.startsWith('> [ 🔗 Evolved from') || post.content.startsWith('> Evolved from Live Chat') ? `
-          <div class="provenance-badge inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full bg-indigo-950/60 border border-indigo-500/30 text-indigo-300 text-[10px] font-mono my-1">
-            <span>${post.content.startsWith('> [ 🔗') ? '🔗' : '⚡'}</span>
-            <span>${post.content.startsWith('> [ 🔗') ? 'Evolved from Private Branch' : 'Evolved from Live Chat'}</span>
+          <div class="provenance-badge inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full bg-surface-raised border border-white/10 text-slate-300 text-[10px] font-sans my-1">
+            <span>${post.content.startsWith('> [ 🔗') ? '🔗' : '💬'}</span>
+            <span>${post.content.startsWith('> [ 🔗') ? 'Evolved from Private Branch' : 'Evolved from Chat'}</span>
           </div>
         ` : ''}
 
-        ${post.title && post.title !== post.content.substring(0, 50) ? `<h2 data-open-detail="${post.id}" class="social-post__title">${escapeHtml(post.title)}</h2>` : ''}
-        <div class="social-post__body">${markdownRenderer.renderMarkdown(post.content)}</div>
-        ${post.video ? obsidianMediaPlayer.renderVideoCard(post.id, post.video.src, post.video.poster) : (obsidianMediaPlayer.extractVideo(post.content) ? obsidianMediaPlayer.renderVideoCard(post.id, post.content) : '')}
-        ${post.images?.length ? `<div class="social-post__media">${obsidianMediaPlayer.renderImageMosaic(post.images)}</div>` : ''}
+        ${post.title && post.title !== post.content.substring(0, 50) ? `<h2 class="social-post__title"><a href="${postPath(post.id)}" data-public-link>${escapeHtml(post.title)}</a></h2>` : ''}
+        ${videoHtml}
+        ${imagesHtml}
+        ${displayContent ? `
+          <div class="social-post__body-wrapper ${hasMedia ? 'has-media' : 'text-only'} ${isClamped ? 'is-clamped' : ''}">
+            <div data-action="open-post-detail" data-post-id="${post.id}" class="social-post__body cursor-pointer">${markdownRenderer.renderMarkdown(displayContent)}</div>
+            ${isClamped ? `
+              <button type="button" data-action="open-post-detail" data-post-id="${escapeHtml(post.id)}" class="social-post__see-more" aria-label="Read full post">
+                <span>Read full post</span>
+                <svg class="w-3.5 h-3.5 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+              </button>
+            ` : ''}
+          </div>
+        ` : ''}
         ${post.pollId ? pollEngine.renderPollCard(post.pollId, clientStore.keypair.fingerprint) : ''}
         ${post.quotedPost ? `<button type="button" data-open-detail="${post.quotedPost.id}" class="quoted-post"><span>${escapeHtml(post.quotedPost.title || 'Quoted post')}</span><p>${escapeHtml(post.quotedPost.content)}</p></button>` : ''}
-        <div class="reaction-row">${reactionsEngine.renderReactionBar(post.id, clientStore.keypair.fingerprint)}</div>
+        ${!post.deliveryStatus ? `<div class="reaction-row" data-action="stop-propagation">${reactionsEngine.renderReactionBar(post.id, clientStore.keypair.fingerprint)}</div>` : ''}
         ${renderPostActions(post)}
         <span class="hidden" style="display:none !important;" aria-hidden="true"><button type="button" class="btn-downvote" data-vote-id="${post.id}" data-dir="-1" aria-hidden="true" tabindex="-1"></button></span>
         ${post.isExpanded ? `<section class="reply-thread"><h3>Replies</h3>${comments.map(renderThreadNode).join('')}</section>` : ''}

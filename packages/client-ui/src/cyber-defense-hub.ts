@@ -26,7 +26,7 @@ export interface SecurityThreatLog {
   blockedAtMs: number;
 }
 
-import { isLocalDev } from './admin-auth.js';
+import { isLocalDev } from './env-check.js';
 import { isSimulationModeEnabled, renderSimulationBadgeHTML } from './simulation-mode.js';
 
 export class CyberDefenseHub {

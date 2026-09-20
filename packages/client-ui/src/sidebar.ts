@@ -1,3 +1,4 @@
+import { communityPath } from './public-urls.js';
 /** Consumer contextual rail. Everything shown here supports the active social task. */
 
 import { clientStore } from './client-state.js';
@@ -43,7 +44,7 @@ export class ContextualSidebar {
     return `
       <div class="context-stack" data-sidebar-context="feed">
         <section class="context-card">
-          <div class="context-card__header"><h2>In the conversation</h2><button type="button" data-nav-mode="explore">Explore</button></div>
+          <div class="context-card__header"><h2>In the conversation</h2><a href="/explore" data-public-link>Explore</a></div>
           ${topics.length ? `<div class="context-list">${topics.map((topic, index) => `
             <button type="button" class="context-topic" data-nav-mode="explore" title="Explore ${escapeHtml(topic.tag)}">
               <span class="context-topic__rank">${index + 1}</span><span><strong>${escapeHtml(topic.tag)}</strong><small>${topic.count} ${topic.count === 1 ? 'post' : 'posts'}</small></span>
@@ -52,13 +53,13 @@ export class ContextualSidebar {
         </section>
 
         <section class="context-card">
-          <div class="context-card__header"><h2>Communities for you <span class="sr-only">Sovereign Communities</span></h2><div class="flex items-center gap-1.5"><button type="button" data-nav-mode="communities">Browse <span class="sr-only">Directory</span></button><button type="button" data-action="open-create-circle" class="sr-only">+ Create</button></div></div>
+          <div class="context-card__header"><h2>Communities for you <span class="sr-only">Sovereign Communities</span></h2><div class="flex items-center gap-1.5"><a href="/communities" data-public-link>Browse <span class="sr-only">Directory</span></a><button type="button" data-action="open-create-circle" class="sr-only">+ Create</button></div></div>
           <div class="context-list">${communities.map(circle => `
             <div class="community-suggestion">
-              <button type="button" class="community-suggestion__identity" data-action="open-community" data-channel="${circle.channelId}">
+              <a href="${communityPath(circle.name)}" data-public-link class="community-suggestion__identity">
                 <span class="community-avatar">${circle.icon || renderIcon('users', { size: 16 })}</span>
                 <span><strong>c/${escapeHtml(circle.name)}</strong><small>${circle.membersCount || 0} members</small></span>
-              </button>
+              </a>
               <button type="button" class="compact-join-button ${circle.isJoined ? 'is-joined' : ''}" data-action="toggle-join-circle" data-circle-id="${circle.id}">${circle.isJoined ? 'Joined' : 'Join'}</button>
             </div>`).join('')}</div>
         </section>
@@ -79,11 +80,10 @@ export class ContextualSidebar {
       <div class="context-stack" data-sidebar-context="messages">
         <section class="context-card context-card--secure">
           <span class="security-mark">${renderIcon('lock', { size: 18 })}</span>
-          <div><h2>End-to-end encrypted</h2><p>Only people in this conversation can read its messages.</p></div>
+          <div><h2>Choose your audience</h2><p>Direct messages are end-to-end encrypted. Community chat is shared with the community.</p></div>
         </section>
         <section class="context-card">
           <div class="context-card__header"><h2>Conversation</h2></div>
-          <button type="button" id="btn-sidebar-join-voice" data-action="toggle-voice" class="context-action">${renderIcon('volume', { size: 17 })}<span>Start a voice chat</span></button>
           <button type="button" data-action="open-settings" data-subtab="privacy" class="context-action">${renderIcon('shield', { size: 17 })}<span>Privacy & safety</span></button>
         </section>
       </div>`;
@@ -128,31 +128,20 @@ export class ContextualSidebar {
       <div class="context-stack" data-sidebar-context="vault">
         <section class="context-card">
           <div class="context-card__header">
-            <h2>Storage & Quota</h2>
-            <span class="text-[10px] font-mono text-cyan-400 bg-cyan-950/80 px-2 py-0.5 rounded-full border border-cyan-500/20">Local Sovereign</span>
+            <h2>Where your knowledge lives</h2>
           </div>
           <div class="mt-2 space-y-2">
-            <div class="flex justify-between text-xs text-slate-300 font-medium">
-              <span>142.5 MB used</span>
-              <span class="text-slate-400">8.0 GB safe cap</span>
-            </div>
-            <div class="w-full h-2 bg-surface-overlay rounded-full overflow-hidden border border-white/5">
-              <div class="h-full bg-gradient-to-r from-cyan-500 to-indigo-500 rounded-full" style="width: 1.78%;"></div>
-            </div>
-            <p class="context-copy">Encrypted locally in IndexedDB & P2P cache. Zero unencrypted bytes leave your device.</p>
+            <p class="context-copy">Private snapshots are encrypted on this device. Up to 200 snapshots / 4 MiB. Clearing browser data removes these local copies.</p>
+            <p class="context-copy">Cloud storage has separate server-enforced limits. Account usage is unavailable in this view.</p>
           </div>
         </section>
 
         <section class="context-card">
           <div class="context-card__header"><h2>Vault shortcuts</h2></div>
           <div class="space-y-1.5">
-            <button type="button" data-action="open-composer" class="context-action w-full text-left flex items-center space-x-2">
-              ${renderIcon('plus', { size: 16 })}
-              <span>Upload file</span>
-            </button>
             <button type="button" data-action="open-feature" data-feature="export-backup" class="context-action w-full text-left flex items-center space-x-2">
               ${renderIcon('download', { size: 16 })}
-              <span>Export vault backup</span>
+              <span>Account export & backup</span>
             </button>
             <button type="button" data-action="open-feature" data-feature="binary-hygiene" class="context-action w-full text-left flex items-center space-x-2">
               ${renderIcon('shield', { size: 16 })}
@@ -164,8 +153,8 @@ export class ContextualSidebar {
         <section class="context-card context-card--secure">
           <span class="security-mark">${renderIcon('lock', { size: 18 })}</span>
           <div>
-            <h2>Security & Privacy Invariants</h2>
-            <p>Files are sealed with client-side AES-256-GCM. Hashes are anchored to the sovereign Merkle ledger.</p>
+            <h2>Keep the context</h2>
+            <p>Snapshots retain their source, author and date. A checksum identifies the saved copy; it does not verify the source's claims.</p>
           </div>
         </section>
       </div>`;
@@ -177,3 +166,14 @@ export const contextualSidebar = new ContextualSidebar();
 export function renderSidebar(mode = 'feed'): string {
   return contextualSidebar.renderSidebarContent(mode);
 }
+
+export function hasContextualSidebar(route: string, channelId: string): boolean {
+  if (route === 'messages' || channelId.startsWith('relays-') || channelId.startsWith('relay-') || channelId.startsWith('dm-') || channelId === 'messages') return false;
+  if (route === 'vault' || channelId.startsWith('vault')) return false;
+  if (route === 'settings' || channelId === 'settings') return false;
+  if (route === 'explore' || channelId === 'explore') return false;
+  if (route === 'communities' || channelId === 'communities') return false;
+  if (route === 'profile' || channelId.startsWith('profile')) return false;
+  return true;
+}
+

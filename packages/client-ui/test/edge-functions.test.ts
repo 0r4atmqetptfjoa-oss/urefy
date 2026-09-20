@@ -821,15 +821,15 @@ describe('Cloudflare Pages Functions - Full-Stack Edge Backend & D1/KV/R2 Bindin
       });
       expect(newPost.id).toBeDefined();
       expect(store.posts[0].id).toBe(newPost.id);
-      expect(store.posts[0].userVoted).toBe(1);
-
-      // Voting again clears merit vote
-      store.votePost(newPost.id, 1);
       expect(store.posts[0].userVoted).toBe(0);
 
-      // Voting 1 again sets it to 1
+      // First explicit endorsement
       store.votePost(newPost.id, 1);
       expect(store.posts[0].userVoted).toBe(1);
+
+      // Repeating it removes the endorsement
+      store.votePost(newPost.id, 1);
+      expect(store.posts[0].userVoted).toBe(0);
 
       store.boostPost(newPost.id);
       expect(store.posts[0].boostCount).toBe(1);

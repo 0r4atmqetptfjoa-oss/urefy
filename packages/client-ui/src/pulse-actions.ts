@@ -11,6 +11,7 @@ import { isDemoModeEnabled } from './demo-mode.js';
 import { safeLocalStorage } from './dry-utils.js';
 import { t } from './i18n.js';
 import { renderIcon, renderMeritIcon } from './ui/icons.js';
+import { persistInteraction, notifyInteractionChange, type SocialAction } from './interaction-transport.js';
 
 export interface PulseInteractionState {
   liked: boolean;
@@ -37,6 +38,51 @@ export class PulseActionsEngine {
   public repostMenuOpenId: string | null = null;
   private syncedPostIds: Set<string> = new Set();
   private repostAttributions: Map<string, Set<string>> = new Map();
+  private pending = new Map<string, Promise<boolean>>();
+
+  public isPending(postId: string, action: SocialAction): boolean { return this.pending.has(`${postId}:${action}`); }
+  public hasSynced(postId: string): boolean { return this.syncedPostIds.has(postId); }
+  public whenSettled(postId: string, action: SocialAction): Promise<boolean> { return this.pending.get(`${postId}:${action}`) || Promise.resolve(true); }
+
+  private persist(postId: string, action: 'like' | 'repost' | 'bookmark', before: PulseInteractionState, fingerprint?: string): void {
+    if (typeof window === 'undefined') return;
+    const state = this.getInteractions(postId);
+    const flag = action === 'like' ? 'liked' : action === 'repost' ? 'reposted' : 'bookmarked';
+    const counter = action === 'like' ? 'likesCount' : action === 'repost' ? 'repostsCount' : 'bookmarksCount';
+    const key = `${postId}:${action}`;
+    const operation = persistInteraction(postId, action, state[flag]).then(async result => {
+      state[flag] = result.active;
+      state[counter] = result.newCount;
+      this.syncedPostIds.add(postId);
+      this._setLocalFlag(postId, flag, result.active);
+      if (action === 'repost' && fingerprint) {
+        const set = this.repostAttributions.get(postId) || new Set<string>();
+        result.active ? set.add(fingerprint) : set.delete(fingerprint);
+        this.repostAttributions.set(postId, set);
+      }
+      const { clientStore } = await import('./client-state.js');
+      const post = clientStore.posts.find(item => item.id === postId);
+      if (post && action === 'bookmark') {
+        const { canonicalVault } = await import('./canonical-vault.js');
+        if (result.active && !canonicalVault.isSaved(postId)) void canonicalVault.savePost(post);
+        if (!result.active && canonicalVault.isSaved(postId)) void canonicalVault.unsavePost(postId);
+      }
+      if (post && action === 'repost') { post.boostCount = result.newCount; post.userBoosted = result.active; }
+      if (post && action === 'like') post.meritVotes = result.newCount;
+      return true;
+    }).catch(async error => {
+      state[flag] = before[flag];
+      state[counter] = before[counter] || 0;
+      this._setLocalFlag(postId, flag, before[flag]);
+      if (action === 'repost' && fingerprint) {
+        const set = this.repostAttributions.get(postId);
+        before.reposted ? set?.add(fingerprint) : set?.delete(fingerprint);
+      }
+      await notifyInteractionChange(error);
+      return false;
+    }).finally(() => { this.pending.delete(key); void notifyInteractionChange(); });
+    this.pending.set(key, operation);
+  }
 
   constructor() {
     if (isDemoModeEnabled()) {
@@ -114,9 +160,9 @@ export class PulseActionsEngine {
   public getInteractions(postId: string): PulseInteractionState {
     if (!this.postInteractions.has(postId)) {
       this.postInteractions.set(postId, {
-        liked: this._getLocalFlag(postId, 'liked'),
-        reposted: this._getLocalFlag(postId, 'reposted'),
-        bookmarked: this._getLocalFlag(postId, 'bookmarked'),
+        liked: false,
+        reposted: false,
+        bookmarked: false,
         likesCount: 0,
         repostsCount: 0,
         viewsCount: 0,
@@ -135,24 +181,41 @@ export class PulseActionsEngine {
     const toSync = postIds.filter(id => !this.syncedPostIds.has(id));
     if (toSync.length === 0) return;
 
-    toSync.forEach(id => this.syncedPostIds.add(id));
-
     try {
+      // Keep each D1 query below the bound-variable limit.
+      if (toSync.length > 50) {
+        for (let i = 0; i < toSync.length; i += 50) await this.syncInteractions(toSync.slice(i, i + 50), userFingerprint);
+        return;
+      }
       const params = new URLSearchParams();
       params.set('postIds', toSync.join(','));
       if (userFingerprint) params.set('userFingerprint', userFingerprint);
 
-      const res = await fetch(`/api/interactions?${params.toString()}`);
-      if (!res.ok) return;
+      const { clientStore } = await import('./client-state.js');
+      const envelope = clientStore.createSignedEnvelope({ scope: 'urefy-interactions-read-v1' });
+      const res = await fetch(`/api/interactions?${params.toString()}`, { cache: 'no-store', headers: { 'X-Sovereign-Envelope': JSON.stringify(envelope) } });
+      if (!res.ok) {
+        toSync.forEach(id => this.syncedPostIds.add(id));
+        return;
+      }
 
       const data = await res.json() as any;
-      if (data?.success && data.interactions) {
-        for (const [id, info] of Object.entries<any>(data.interactions)) {
+      if (data?.success) {
+        const entries = data.interactions || (data.targetId ? { [data.targetId]: data } : {});
+        const { reactionsEngine } = await import('./reactions.js');
+        for (const [id, info] of Object.entries<any>(entries)) {
+          if (['like', 'repost', 'bookmark'].some(action => this.isPending(id, action as SocialAction))) continue;
+          this.syncedPostIds.add(id);
           const state = this.getInteractions(id);
           state.likesCount = Number(info.likesCount) || 0;
           state.repostsCount = Number(info.repostsCount) || 0;
           state.bookmarksCount = Number(info.bookmarksCount) || 0;
           state.viewsCount = Number(info.viewsCount) || 0;
+          if (Array.isArray(info.reactions)) reactionsEngine.hydrate(id, info.reactions, userFingerprint || '');
+          if (Array.isArray(info.awards)) {
+            const { awardsSystem } = await import('./awards.js');
+            awardsSystem.hydratePostAwards(id, info.awards);
+          }
 
           if (info.userInteractions) {
             if (info.userInteractions.liked !== undefined) {
@@ -162,6 +225,11 @@ export class PulseActionsEngine {
             if (info.userInteractions.reposted !== undefined) {
               state.reposted = Boolean(info.userInteractions.reposted);
               this._setLocalFlag(id, 'reposted', state.reposted);
+              if (userFingerprint) {
+                const set = this.repostAttributions.get(id) || new Set<string>();
+                state.reposted ? set.add(userFingerprint) : set.delete(userFingerprint);
+                this.repostAttributions.set(id, set);
+              }
             }
             if (info.userInteractions.bookmarked !== undefined) {
               state.bookmarked = Boolean(info.userInteractions.bookmarked);
@@ -169,8 +237,12 @@ export class PulseActionsEngine {
             }
           }
         }
+        void notifyInteractionChange();
+      } else {
+        toSync.forEach(id => this.syncedPostIds.add(id));
       }
     } catch (err) {
+      toSync.forEach(id => this.syncedPostIds.add(id));
       console.warn('[PulseActions] Failed to sync interactions from edge API:', err);
     }
   }
@@ -178,8 +250,13 @@ export class PulseActionsEngine {
   /**
    * Toggles Like status, dispatches to Cloudflare D1, and returns whether particle burst should fire.
    */
-  public toggleLike(postId: string, userFingerprint?: string): { isLiked: boolean; newCount: number; burst: boolean } {
+  public toggleLike(postId: string, userFingerprint?: string, baselineCount?: number): { isLiked: boolean; newCount: number; burst: boolean } {
     const state = this.getInteractions(postId);
+    if (this.isPending(postId, 'like')) return { isLiked: state.liked, newCount: state.likesCount, burst: false };
+    if (state.likesCount === 0 && baselineCount) {
+      state.likesCount = baselineCount;
+    }
+    const before = { ...state };
     state.liked = !state.liked;
     if (state.liked) {
       state.likesCount += 1;
@@ -188,28 +265,7 @@ export class PulseActionsEngine {
     }
     this._setLocalFlag(postId, 'liked', state.liked);
 
-    // Asynchronously persist to Cloudflare D1
-    if (typeof window !== 'undefined' && typeof fetch !== 'undefined') {
-      fetch('/api/interactions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          targetId: postId,
-          targetType: 'post',
-          userFingerprint: userFingerprint || 'anon-peer',
-          action: 'like',
-        }),
-      })
-        .then(r => r.json())
-        .then((data: any) => {
-          if (data?.success && typeof data.newCount === 'number') {
-            state.likesCount = data.newCount;
-            state.liked = Boolean(data.active);
-            this._setLocalFlag(postId, 'liked', state.liked);
-          }
-        })
-        .catch(err => console.warn('[PulseActions] Like sync error:', err));
-    }
+    this.persist(postId, 'like', before, userFingerprint);
 
     return { isLiked: state.liked, newCount: state.likesCount, burst: state.liked };
   }
@@ -228,13 +284,13 @@ export class PulseActionsEngine {
     if (isPrivate) {
       return { success: false, isReposted: false, newCount: this.getInteractions(postId).repostsCount, error: 'Cannot repost restricted or private circles' };
     }
+    const state = this.getInteractions(postId);
     const fp = userFingerprint || 'anon-peer';
     let set = this.repostAttributions.get(postId);
     if (!set) {
       set = new Set();
       this.repostAttributions.set(postId, set);
     }
-    const state = this.getInteractions(postId);
     if (!set.has(fp)) {
       set.add(fp);
       state.repostsCount += 1;
@@ -247,7 +303,7 @@ export class PulseActionsEngine {
   /**
    * Toggles Repost status and dispatches to Cloudflare D1.
    */
-  public toggleRepost(postId: string, userFingerprint?: string): { isReposted: boolean; newCount: number } {
+  public toggleRepost(postId: string, userFingerprint?: string, isPrivate: boolean = false, baselineCount?: number): { isReposted: boolean; newCount: number } {
     const fp = userFingerprint || 'anon-peer';
     let set = this.repostAttributions.get(postId);
     if (!set) {
@@ -255,7 +311,12 @@ export class PulseActionsEngine {
       this.repostAttributions.set(postId, set);
     }
     const state = this.getInteractions(postId);
-    const wasReposted = set.has(fp);
+    if (state.repostsCount === 0 && baselineCount) {
+      state.repostsCount = baselineCount;
+    }
+    if (isPrivate || this.isPending(postId, 'repost')) return { isReposted: state.reposted, newCount: state.repostsCount };
+    const before = { ...state };
+    const wasReposted = state.reposted;
     if (!wasReposted) {
       set.add(fp);
       state.repostsCount += 1;
@@ -268,28 +329,7 @@ export class PulseActionsEngine {
     this._setLocalFlag(postId, 'reposted', state.reposted);
     this.repostMenuOpenId = null;
 
-    // Asynchronously persist to Cloudflare D1
-    if (typeof window !== 'undefined' && typeof fetch !== 'undefined') {
-      fetch('/api/interactions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          targetId: postId,
-          targetType: 'post',
-          userFingerprint: fp,
-          action: 'repost',
-        }),
-      })
-        .then(r => r.json())
-        .then((data: any) => {
-          if (data?.success && typeof data.newCount === 'number') {
-            state.repostsCount = data.newCount;
-            state.reposted = Boolean(data.active);
-            this._setLocalFlag(postId, 'reposted', state.reposted);
-          }
-        })
-        .catch(err => console.warn('[PulseActions] Repost sync error:', err));
-    }
+    this.persist(postId, 'repost', before, fp);
 
     return { isReposted: state.reposted, newCount: state.repostsCount };
   }
@@ -299,22 +339,12 @@ export class PulseActionsEngine {
    */
   public toggleBookmark(postId: string, userFingerprint?: string): boolean {
     const state = this.getInteractions(postId);
+    if (this.isPending(postId, 'bookmark')) return state.bookmarked;
+    const before = { ...state };
     state.bookmarked = !state.bookmarked;
     this._setLocalFlag(postId, 'bookmarked', state.bookmarked);
 
-    // Asynchronously persist to Cloudflare D1
-    if (typeof window !== 'undefined' && typeof fetch !== 'undefined') {
-      fetch('/api/interactions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          targetId: postId,
-          targetType: 'post',
-          userFingerprint: userFingerprint || 'anon-peer',
-          action: 'bookmark',
-        }),
-      }).catch(err => console.warn('[PulseActions] Bookmark sync error:', err));
-    }
+    this.persist(postId, 'bookmark', before, userFingerprint);
 
     return state.bookmarked;
   }
@@ -394,14 +424,14 @@ export class PulseActionsEngine {
           type="button"
           data-pulse-action="reply"
           data-post-id="${postId}"
-          class="btn-pulse-reply min-w-[44px] min-h-[44px] flex items-center justify-center space-x-1.5 group hover:text-cyan-400 transition-colors cursor-pointer"
+          class="btn-pulse-reply min-w-[44px] min-h-[44px] flex items-center justify-center space-x-1.5 group hover:text-[var(--color-accent,#e59b3c)] transition-colors cursor-pointer"
           title="${t('actions.reply', undefined, 'Reply to pulse')}"
           aria-label="${t('actions.reply', undefined, 'Reply to pulse')}"
         >
-          <div class="p-2 rounded-full group-hover:bg-cyan-500/10 transition-colors">
+          <div class="p-2 rounded-full group-hover:bg-amber-500/10 transition-colors">
             ${renderIcon('messageSquare', { size: 16, strokeWidth: 1.75 })}
           </div>
-          <span class="text-xs group-hover:text-cyan-400">${this.formatMetric(replies)}</span>
+          <span class="text-xs group-hover:text-[var(--color-accent,#e59b3c)]">${this.formatMetric(replies)}</span>
         </button>
 
         <!-- 2. REPOST & QUOTE POST DROPDOWN MENU -->
@@ -443,36 +473,36 @@ export class PulseActionsEngine {
                 class="w-full flex items-center space-x-2.5 px-4 py-2.5 hover:bg-white/10 text-xs font-bold text-slate-200 transition-colors cursor-pointer border-t border-white/5"
                 aria-label="${t('actions.quotePost', undefined, 'Quote Pulse')}"
               >
-                ${renderIcon('messageSquare', { size: 15, class: 'text-indigo-400' })}
+                ${renderIcon('messageSquare', { size: 15, class: 'text-slate-400' })}
                 <span>${t('actions.quotePost', undefined, 'Quote Pulse')}</span>
               </button>
             </div>
           ` : ''}
         </div>
 
-        <!-- 3. SOVEREIGN MERIT INTERACTION (ASCENDANT PRISM) -->
+        <!-- 3. MERIT INTERACTION -->
         <button
           type="button"
           data-pulse-action="like"
           data-post-id="${postId}"
-          class="btn-pulse-like relative min-w-[44px] min-h-[44px] flex items-center justify-center space-x-1.5 group transition-colors cursor-pointer ${state.liked ? 'text-cyan-400 is-endorsed' : 'hover:text-cyan-400'}"
-          title="${state.liked ? 'Remove Sovereign Merit' : 'Grant Sovereign Merit'}"
-          aria-label="${state.liked ? 'Remove Sovereign Merit' : 'Grant Sovereign Merit'}"
+          class="btn-pulse-like relative min-w-[44px] min-h-[44px] flex items-center justify-center space-x-1.5 group transition-colors cursor-pointer ${state.liked ? 'text-[var(--color-accent,#e59b3c)] is-endorsed' : 'hover:text-[var(--color-accent,#e59b3c)]'}"
+          title="${state.liked ? 'Remove merit' : 'Endorse (merit)'}"
+          aria-label="${state.liked ? 'Remove merit' : 'Endorse (merit)'}"
         >
-          <div class="relative p-2 rounded-full group-hover:bg-cyan-500/10 transition-colors">
+          <div class="relative p-2 rounded-full group-hover:bg-amber-500/10 transition-colors">
             ${renderMeritIcon(state.liked, { size: 18 })}
             <!-- PARTICLE BURST CONTAINER -->
             <div id="particle-burst-${postId}" class="absolute inset-0 pointer-events-none flex items-center justify-center overflow-visible"></div>
           </div>
-          <span class="text-xs ${state.liked ? 'text-cyan-400 font-bold' : ''}">${this.formatMetric(state.likesCount)}</span>
+          <span class="text-xs ${state.liked ? 'text-[var(--color-accent,#e59b3c)] font-bold' : ''}">${this.formatMetric(state.likesCount)}</span>
         </button>
 
-        <!-- 4. VIEWS / IMPRESSIONS COUNTER -->
-        <div class="min-w-[44px] min-h-[44px] flex items-center justify-center space-x-1.5 group hover:text-indigo-400 transition-colors cursor-default" title="Total Views & Ledger Impressions">
-          <div class="p-2 rounded-full group-hover:bg-indigo-500/10 transition-colors">
+        <!-- 4. VIEWS COUNTER -->
+        <div class="min-w-[44px] min-h-[44px] flex items-center justify-center space-x-1.5 group hover:text-slate-200 transition-colors cursor-default" title="Views">
+          <div class="p-2 rounded-full group-hover:bg-white/5 transition-colors">
             ${renderIcon('activity', { size: 16, strokeWidth: 1.75 })}
           </div>
-          <span class="text-xs">${this.formatMetric(state.viewsCount)}</span>
+          <span class="text-xs text-slate-400 group-hover:text-slate-200">${this.formatMetric(state.viewsCount)}</span>
         </div>
 
         <!-- 5. BOOKMARK & SHARE -->
@@ -481,7 +511,7 @@ export class PulseActionsEngine {
             type="button"
             data-pulse-action="bookmark"
             data-post-id="${postId}"
-            class="btn-pulse-bookmark min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full transition-colors cursor-pointer ${state.bookmarked ? 'text-amber-400' : 'hover:text-amber-400 hover:bg-amber-400/10'}"
+            class="btn-pulse-bookmark min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full transition-colors cursor-pointer ${state.bookmarked ? 'text-[var(--color-accent,#e59b3c)]' : 'hover:text-[var(--color-accent,#e59b3c)] hover:bg-amber-500/10'}"
             title="${t('actions.bookmark', undefined, 'Bookmark')}"
             aria-label="${state.bookmarked ? t('actions.unbookmark', undefined, 'Remove bookmark') : t('actions.bookmark', undefined, 'Bookmark pulse')}"
           >
@@ -492,7 +522,7 @@ export class PulseActionsEngine {
             type="button"
             data-action="keep-post"
             data-post-id="${postId}"
-            class="btn-pulse-keep min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full hover:text-cyan-400 hover:bg-cyan-500/10 transition-colors cursor-pointer"
+            class="btn-pulse-keep min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full hover:text-[var(--color-accent,#e59b3c)] hover:bg-amber-500/10 transition-colors cursor-pointer"
             title="Keep this post, with its source, in your private Vault"
             aria-label="Keep this post in your private Vault"
           >
@@ -503,9 +533,9 @@ export class PulseActionsEngine {
             type="button"
             data-pulse-action="share"
             data-post-id="${postId}"
-            class="btn-pulse-share min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full hover:text-cyan-400 hover:bg-cyan-500/10 transition-colors cursor-pointer"
-            title="${t('actions.share', undefined, 'Share sovereign permalink')}"
-            aria-label="${t('actions.share', undefined, 'Share sovereign permalink')}"
+            class="btn-pulse-share min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full hover:text-[var(--color-accent,#e59b3c)] hover:bg-amber-500/10 transition-colors cursor-pointer"
+            title="${t('actions.share', undefined, 'Share permalink')}"
+            aria-label="${t('actions.share', undefined, 'Share permalink')}"
           >
             ${renderIcon('share', { size: 16, strokeWidth: 1.75 })}
           </button>
@@ -516,10 +546,11 @@ export class PulseActionsEngine {
             data-pulse-action="report"
             data-post-id="${postId}"
             class="btn-pulse-report min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
-            title="${t('actions.report', undefined, 'Report')} (${'DSA Notice & Takedown'})"
-            aria-label="${t('actions.report', undefined, 'Report')} (${'DSA Notice & Takedown'})"
+            title="${t('actions.report', undefined, 'Report')}"
+            aria-label="${t('actions.report', undefined, 'Report')}"
           >
             ${renderIcon('flag', { size: 16, strokeWidth: 1.75 })}
+            <span class="sr-only">DSA Notice & Takedown</span>
           </button>
         </div>
 
@@ -535,8 +566,8 @@ export class PulseActionsEngine {
     const container = document.getElementById(`particle-burst-${postId}`);
     if (!container) return;
 
-    // 8 radial particle sparks in sovereign cyan/indigo/amber
-    const colors = ['#00E5FF', '#38BDF8', '#6366F1', '#F59E0B', '#22D3EE', '#818CF8'];
+    // 8 radial particle sparks in warm Keystone amber
+    const colors = ['#e59b3c', '#f59e0b', '#fbbf24', '#d97706', '#fde68a'];
     const particles = Array.from({ length: 8 }).map((_, i) => {
       const angle = (i * 45) * (Math.PI / 180);
       const distance = 24 + Math.random() * 10;

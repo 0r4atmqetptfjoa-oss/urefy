@@ -1,4 +1,5 @@
 import { sovereignDialog } from './dialog-modal.js';
+import { isDemoModeEnabled } from './demo-mode.js';
 /**
  * UREfy — Feed Personalization & Sovereign Recommendation Engine
  *
@@ -309,10 +310,11 @@ export class FeedPersonalizationEngine {
         this.contentSignals.set(sig.postId, sig);
       }
     }
-
-    // Seed baseline interactions if empty
-    if (this.userHistory.length === 0) {
-      this.userHistory = [...SEED_INTERACTIONS];
+    // Honest start: seed mock interactions only when Demo Mode is explicitly enabled
+    if (this.userHistory.length === 0 && isDemoModeEnabled()) {
+      for (const inter of SEED_INTERACTIONS) {
+        this.userHistory.push(inter);
+      }
     }
   }
 
@@ -371,6 +373,10 @@ export class FeedPersonalizationEngine {
         })
       );
     }
+  }
+
+  public recordInteraction(postId: string, type: UserInteraction['type'] = 'skip', dwellTimeMs = 1000): void {
+    this.trackInteraction({ postId, type, timestamp: Date.now(), dwellTimeMs });
   }
 
   // ─── Algorithmic Computation: Topic & Affinity Inference ───────────────────
@@ -488,7 +494,21 @@ export class FeedPersonalizationEngine {
 
   // ─── Core Recommendation Algorithm: TF-IDF & Multimodal Scoring ───────────
 
-  public scorePost(signal: ContentSignal): PersonalizationScore {
+  public clearCache(): void {
+    this.cachedScores.clear();
+  }
+
+  public scorePost(signalOrPostId: ContentSignal | string): PersonalizationScore {
+    let signal: ContentSignal | undefined;
+    if (typeof signalOrPostId === 'string') {
+      signal = this.contentSignals.get(signalOrPostId);
+      if (!signal) {
+        return { postId: signalOrPostId, relevanceScore: 50, reasons: ['Default network content'] };
+      }
+    } else {
+      signal = signalOrPostId;
+    }
+
     if (!signal || !signal.postId) {
       return { postId: 'unknown', relevanceScore: 50, reasons: ['Default network content'] };
     }
@@ -561,7 +581,9 @@ export class FeedPersonalizationEngine {
 
       const denominator = (Math.sqrt(postNormSq) * Math.sqrt(Math.max(0.01, userNormSq)));
       const cosineSim = denominator > 0 ? (dotProduct / denominator) : 0.2;
-      topicScore = Math.min(100, Math.max(0, cosineSim * 100));
+      const userInterests = signal.tags.map(t => (this.topicInterests.get(this.normalizeTag(t)) || 10) / 100);
+      const maxInterest = userInterests.length > 0 ? Math.max(...userInterests) : 0.1;
+      topicScore = Math.min(100, Math.max(0, (cosineSim * 0.5 + maxInterest * 0.5) * 100));
 
       if (matchedTopics.length > 0) {
         matchedTopics.sort((a, b) => b.weight - a.weight);
@@ -634,13 +656,28 @@ export class FeedPersonalizationEngine {
       }
     }
 
-    // ── 7. Weighted Composite Score Formulation ─────────────────────────────
-    // Weights: Topic (38%), Author (22%), Merit (20%), Freshness (20%)
+    // ── 7. Joined Community & Following Boosts ──────────────────────────────
+    let communityBoost = 0;
+    if (signal.channelId && this.isCommunityJoined(signal.channelId)) {
+      communityBoost = 25;
+      reasons.unshift(`🏛️ From c/${signal.channelId} (community you joined)`);
+    }
+
+    let followingBoost = 0;
+    if (signal.authorFP && this.isAuthorFollowed(signal.authorFP)) {
+      followingBoost = 25;
+      reasons.unshift(`👤 From a creator you follow`);
+    }
+
+    // ── 8. Weighted Composite Score Formulation ─────────────────────────────
+    // Weights: Topic (38%), Author (22%), Merit (20%), Freshness (20%) + Boosts
     const rawComposite =
       topicScore * 0.38 +
       authorScore * 0.22 +
       meritScore * 0.20 +
-      freshnessScore * 0.20;
+      freshnessScore * 0.20 +
+      communityBoost +
+      followingBoost;
 
     // Apply view/skip penalty
     const finalScore = Math.min(100, Math.max(1, Math.round(rawComposite - viewPenalty)));
@@ -795,6 +832,10 @@ export class FeedPersonalizationEngine {
     this.saveToStorage();
   }
 
+  public muteTag(tag: string): void {
+    this.muteTopic(tag);
+  }
+
   public muteAuthor(authorFP: string): void {
     if (!authorFP) return;
     this.mutedAuthors.add(authorFP);
@@ -811,6 +852,52 @@ export class FeedPersonalizationEngine {
     this.cachedScores.clear();
     this.computeTopicInterests();
     this.saveToStorage();
+  }
+
+  public isCommunityJoined(channelId: string): boolean {
+    if (!channelId) return false;
+    try {
+      const g = (globalThis as any);
+      if (g.sovereignCircleEngine && typeof g.sovereignCircleEngine.findCircle === 'function') {
+        const c = g.sovereignCircleEngine.findCircle(channelId);
+        if (c && c.isJoined) return true;
+      }
+      if (typeof window !== 'undefined' && (window as any).sovereignCircleEngine) {
+        const c = (window as any).sovereignCircleEngine.findCircle(channelId);
+        if (c && c.isJoined) return true;
+      }
+      if (typeof localStorage !== 'undefined') {
+        const raw = localStorage.getItem('aetheris_sovereign_circles_joined');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && (parsed[channelId] === true || parsed[channelId.replace(/^c\//, '')] === true || parsed[`c/${channelId}`] === true)) {
+            return true;
+          }
+        }
+      }
+    } catch {}
+    return false;
+  }
+
+  public isAuthorFollowed(authorFP: string): boolean {
+    if (!authorFP) return false;
+    try {
+      const g = (globalThis as any);
+      if (g.profileView && typeof g.profileView.isFollowing === 'function') {
+        if (g.profileView.isFollowing(authorFP)) return true;
+      }
+      if (typeof window !== 'undefined' && (window as any).profileView) {
+        if ((window as any).profileView.isFollowing(authorFP)) return true;
+      }
+      if (typeof localStorage !== 'undefined') {
+        const raw = localStorage.getItem('aetheris_following_set');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.includes(authorFP)) return true;
+        }
+      }
+    } catch {}
+    return false;
   }
 
   public resetInterests(): void {

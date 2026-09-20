@@ -1,5 +1,8 @@
 import { expect, test } from '@playwright/test';
 
+// These are local Vault UI tests. Worker lifecycle is covered by pwa-runtime.
+test.use({ serviceWorkers: 'block' });
+
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem('aetheris_onboarding_completed', 'true');
@@ -64,5 +67,26 @@ test('organizes and removes a snapshot from the Vault', async ({ page }) => {
 
   await page.locator('[data-memory-action="remove"]').click();
   await page.locator('#sovereign-dialog-confirm-btn').click();
+  await expect(page.locator('.memory-item')).toHaveCount(0);
+});
+
+test('local query operators and integrity checks stay on device and fit mobile', async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 800 });
+  await page.locator('[data-action="keep-note"]').click();
+  await submitDialog(page, 'Open source reading list');
+  await page.locator('[data-memory-action="collect"]').click();
+  await submitDialog(page, 'Privacy research');
+  const requests: string[] = [];
+  page.on('request', request => requests.push(request.url() + (request.postData() || '')));
+  await page.locator('#memory-search').fill('"Open source" -cloud kind:note collection:"Privacy research"');
+  await expect(page.locator('.memory-item')).toHaveCount(1);
+  await page.locator('.memory-provenance summary').click();
+  await page.getByRole('button', { name: 'Check snapshot integrity' }).click();
+  await expect(page.locator('[data-memory-verification]')).toHaveText('Snapshot matches its saved checksum.');
+  expect(requests.some(request => request.includes('Privacy research') || request.includes('Open source'))).toBe(false);
+  expect(await page.locator('.knowledge-memory').evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+  const button = page.getByRole('button', { name: 'Check snapshot integrity' });
+  expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  await page.locator('#memory-search').fill('"Open source" -reading');
   await expect(page.locator('.memory-item')).toHaveCount(0);
 });

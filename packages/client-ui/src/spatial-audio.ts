@@ -9,7 +9,7 @@
  */
 
 import { createSafeAudioContext } from './dry-utils.js';
-import { isLocalDev } from './admin-auth.js';
+import { isLocalDev } from './env-check.js';
 import { isDemoModeEnabled } from './demo-mode.js';
 
 export interface SpatialParticipant {

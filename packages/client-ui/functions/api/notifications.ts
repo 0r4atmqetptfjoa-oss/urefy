@@ -13,12 +13,14 @@ import {
   globalBlocksStore,
   EdgeNotification,
 } from './_db.js';
-import { requireSignedEnvelope } from './_auth.js';
+import { requireSignedEnvelope, requireAdmin } from './_auth.js';
+import { storeNotification } from './_notification-storage.js';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-User-Fingerprint',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-User-Fingerprint, X-Sovereign-Envelope',
+  'Cache-Control': 'private, no-store',
 };
 
 export async function onRequestOptions(): Promise<Response> {
@@ -148,7 +150,14 @@ export function groupNotifications(items: EdgeNotification[]): GroupedNotificati
 export async function onRequestGet(context: { request: Request; env?: Env }): Promise<Response> {
   try {
     const url = new URL(context.request.url);
-    const userId = (url.searchParams.get('userId') || '').trim();
+    const rawEnvelope = context.request.headers.get('X-Sovereign-Envelope');
+    let envelope: unknown;
+    try { envelope = JSON.parse(rawEnvelope || 'null'); } catch { envelope = null; }
+    const auth = await requireSignedEnvelope(context, envelope);
+    if (!auth.authorized) return auth.response!;
+    if (auth.payload?.scope !== 'urefy-notifications-v1' || auth.payload?.action !== 'list') return Response.json({ success: false, error: 'Invalid notification request' }, { status: 400 });
+    const userId = auth.fingerprint!;
+    if (url.searchParams.has('userId') && url.searchParams.get('userId') !== userId) return Response.json({ success: false, error: 'Recipient mismatch' }, { status: 403 });
     const unreadOnly = url.searchParams.get('unreadOnly') === 'true';
     const limit = Math.min(Math.max(parseInt(url.searchParams.get('limit') || '50', 10), 1), 100);
     const offset = Math.max(parseInt(url.searchParams.get('offset') || '0', 10), 0);
@@ -202,10 +211,10 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
           userId: r.user_id,
           actorId: r.actor_id,
           actorName: r.actor_name || undefined,
-          type: r.type,
+          type: r.type || r.action_type,
           targetId: r.target_id || undefined,
           targetType: r.target_type || undefined,
-          previewText: r.preview_text || undefined,
+          previewText: r.preview_text || r.content_snippet || undefined,
           isRead: Boolean(r.is_read),
           createdAt: Number(r.created_at),
         }));
@@ -252,6 +261,10 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
  */
 export async function onRequestPost(context: { request: Request; env?: Env }): Promise<Response> {
   try {
+    // Public clients cannot fabricate security/moderation notifications. Domain APIs
+    // create notifications alongside their own authorized mutations.
+    const admin = await requireAdmin(context);
+    if (!admin.authorized) return admin.response!;
     const body = await context.request.json().catch(() => null) as Record<string, any> | null;
     if (!body) {
       return new Response(
@@ -335,14 +348,7 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
     };
 
     if (db) {
-      await db.prepare(
-        `INSERT INTO notifications (
-          id, user_id, actor_id, actor_name, type, target_id, target_type, preview_text, is_read, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`
-      ).bind(
-        id, userId, actorId, actorName || null, type,
-        targetId || null, targetType || null, previewText || null, now
-      ).run();
+      await storeNotification(db, notification);
     } else {
       globalNotificationsStore.unshift(notification);
       if (globalNotificationsStore.length > 1000) {
@@ -368,15 +374,19 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
  */
 export async function onRequestPatch(context: { request: Request; env?: Env }): Promise<Response> {
   try {
-    const body = await context.request.json().catch(() => null) as Record<string, any> | null;
-    if (!body) {
+    const raw = await context.request.json().catch(() => null);
+    if (!raw) {
       return new Response(
         JSON.stringify({ success: false, error: 'Malformed JSON payload' }),
         { status: 400, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
       );
     }
 
-    const userId = typeof body.userId === 'string' ? body.userId.trim() : '';
+    const auth = await requireSignedEnvelope(context, raw);
+    if (!auth.authorized) return auth.response!;
+    const body = auth.payload;
+    if (body?.scope !== 'urefy-notifications-v1' || body?.action !== 'mark-read') return Response.json({ success: false, error: 'Invalid notification action' }, { status: 400 });
+    const userId = auth.fingerprint!;
     const notifId = typeof body.id === 'string' ? body.id.trim() : '';
     const markAll = Boolean(body.markAll);
 
@@ -442,19 +452,14 @@ export async function onRequestPatch(context: { request: Request; env?: Env }): 
  */
 export async function onRequestDelete(context: { request: Request; env?: Env }): Promise<Response> {
   try {
-    const url = new URL(context.request.url);
-    let userId = (url.searchParams.get('userId') || '').trim();
-    let notifId = (url.searchParams.get('id') || '').trim();
-    let clearAll = url.searchParams.get('clearAll') === 'true';
-
-    if (!userId) {
-      const body = await context.request.json().catch(() => null) as Record<string, any> | null;
-      if (body) {
-        userId = typeof body.userId === 'string' ? body.userId.trim() : '';
-        notifId = typeof body.id === 'string' ? body.id.trim() : notifId;
-        clearAll = Boolean(body.clearAll) || clearAll;
-      }
-    }
+    const raw = await context.request.json().catch(() => null);
+    const auth = await requireSignedEnvelope(context, raw);
+    if (!auth.authorized) return auth.response!;
+    const body = auth.payload;
+    if (body?.scope !== 'urefy-notifications-v1' || body?.action !== 'clear') return Response.json({ success: false, error: 'Invalid notification action' }, { status: 400 });
+    const userId = auth.fingerprint!;
+    const notifId = typeof body.id === 'string' ? body.id : '';
+    const clearAll = body.clearAll === true;
 
     if (!userId) {
       return new Response(

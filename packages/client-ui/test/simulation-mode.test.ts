@@ -11,7 +11,7 @@ import {
   renderSimulationBadgeHTML,
   SIMULATION_BADGE_TEXT,
 } from '../src/simulation-mode.js';
-import * as adminAuth from '../src/admin-auth.js';
+import * as envCheck from '../src/env-check.js';
 
 describe('Centralized Simulation Mode Engine', () => {
   const originalWindowSimulation = (window as any).__AETHERIS_ENABLE_SIMULATION;
@@ -27,18 +27,18 @@ describe('Centralized Simulation Mode Engine', () => {
   });
 
   it('is disabled by default when no explicit flag is set', () => {
-    vi.spyOn(adminAuth, 'isProductionBuild').mockReturnValue(false);
+    vi.spyOn(envCheck, 'isProductionBuild').mockReturnValue(false);
     expect(isSimulationModeEnabled()).toBe(false);
   });
 
   it('enables simulation when window.__AETHERIS_ENABLE_SIMULATION is set to true in dev', () => {
-    vi.spyOn(adminAuth, 'isProductionBuild').mockReturnValue(false);
+    vi.spyOn(envCheck, 'isProductionBuild').mockReturnValue(false);
     setSimulationMode(true);
     expect(isSimulationModeEnabled()).toBe(true);
   });
 
   it('strictly disallows simulation mode in production builds', () => {
-    vi.spyOn(adminAuth, 'isProductionBuild').mockReturnValue(true);
+    vi.spyOn(envCheck, 'isProductionBuild').mockReturnValue(true);
     (window as any).__AETHERIS_ENABLE_SIMULATION = true;
     
     // In production build, must strictly return false regardless of window flags

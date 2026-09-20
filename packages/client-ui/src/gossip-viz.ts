@@ -1048,7 +1048,7 @@ export class GossipProtocolVisualizer {
         <div class="flex items-center gap-2.5">
           <span class="text-lg group-hover:scale-110 transition-transform">🌐</span>
           <div class="flex flex-col">
-            <span class="text-xs font-semibold text-white/90 group-hover:text-cyphr transition-colors">Gossip Protocol</span>
+            <span class="text-xs font-semibold text-white/90 group-hover:text-cyphr transition-colors">Gossip Protocol Simulator (Lab)</span>
             <span class="text-[10px] text-white/40 font-mono">Epidemic Swarm</span>
           </div>
         </div>
@@ -1077,13 +1077,19 @@ export class GossipProtocolVisualizer {
             <div class="flex items-center space-x-2">
               <span class="text-base">🌐</span>
               <div>
-                <h3 class="text-xs font-bold text-slate-100 tracking-wide uppercase">Gossip Protocol P2P</h3>
-                <p class="text-[10px] font-mono text-slate-400">Epidemic Dissemination Swarm</p>
+                <h3 class="text-xs font-bold text-slate-100 tracking-wide uppercase">Gossip Protocol P2P Simulator (Lab)</h3>
+                <p class="text-[10px] font-mono text-slate-400">Epidemic Dissemination Model</p>
               </div>
             </div>
             <span class="text-[9px] font-mono px-2 py-0.5 rounded bg-surface-overlay text-cyphr border border-cyphr/20">
               P=${this.infectionProbability.toFixed(2)} · Fanout=${this.fanout}
             </span>
+          </div>
+
+          <!-- Educational Simulation Model Disclaimer -->
+          <div class="p-2.5 rounded-xl bg-amber-950/30 border border-amber-500/20 text-[11px] text-amber-200/90 leading-relaxed font-sans">
+            <span class="font-bold text-amber-300">🧪 Educational Model:</span>
+            Mathematical simulation of epidemic dissemination (Push-Sum / Anti-Entropy).
           </div>
 
           <!-- Progress Bar -->
@@ -1374,6 +1380,13 @@ export class GossipProtocolVisualizer {
       });
     });
   }
+
+  public close(): void {
+    this.stopAutoSimulation();
+    if (typeof document !== 'undefined') {
+      document.querySelectorAll('#gossip-modal-backdrop, #gossip-container-root').forEach(el => el.remove());
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1381,3 +1394,6 @@ export class GossipProtocolVisualizer {
 // ---------------------------------------------------------------------------
 
 export const gossipViz = new GossipProtocolVisualizer();
+if (typeof window !== 'undefined') {
+  (window as any).gossipViz = gossipViz;
+}

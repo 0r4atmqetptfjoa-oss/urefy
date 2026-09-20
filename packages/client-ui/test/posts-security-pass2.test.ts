@@ -34,8 +34,8 @@ describe('Pass 2: Posts API Security & Trust Boundary Enforcement', () => {
 
     const json = await res.json();
     expect(json.success).toBe(true);
-    // meritVotes MUST be sanitized to 1, replyCount to 0, boostCount to 0
-    expect(json.post.meritVotes).toBe(1);
+    // Creation does not fabricate an endorsement; engagement starts at zero.
+    expect(json.post.meritVotes).toBe(0);
     expect(json.post.replyCount).toBe(0);
     expect(json.post.boostCount).toBe(0);
   });
@@ -236,7 +236,7 @@ describe('Pass 2: Posts API Security & Trust Boundary Enforcement', () => {
     expect(resShortNullifier.status).toBe(400);
   });
 
-  it('handles D1 atomic batch rollback on duplicate nullifier unique constraint failure', async () => {
+  it('keeps duplicate-nullifier rollback in the isolated development ballot fixture', async () => {
     const mockDb = {
       prepare: (sql: string) => ({
         bind: (...args: any[]) => ({
@@ -270,7 +270,7 @@ describe('Pass 2: Posts API Security & Trust Boundary Enforcement', () => {
 
     const res = await handlePostsPost({
       request: req,
-      env: { DB: mockDb as any, ENVIRONMENT: 'production' } as any,
+      env: { DB: mockDb as any, ENVIRONMENT: 'development' } as any,
     });
 
     expect(res.status).toBe(409);

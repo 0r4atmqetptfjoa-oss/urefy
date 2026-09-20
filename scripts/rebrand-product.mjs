@@ -8,7 +8,8 @@ export function rebrandProduct(text) {
     .replace(/\b(?:Aetheris|AETHERIS)\b(?!\sNetwork)(?![\w:/-]|\.[A-Za-z0-9])/g, 'UREfy')
     .replace(/(\.download\s*=\s*['"`])aetheris/g, '$1urefy')
     .replaceAll('https://aetheris.network', 'https://urefy.com')
-    .replaceAll('legal@aetheris.network', 'razvan@urefy.com')
+    .replaceAll('legal@aetheris.network', 'contact@urefy.com')
+    .replaceAll('razvan@urefy.com', 'contact@urefy.com')
     .replaceAll('Aetheris-Desktop', 'UREfy-Desktop')
     .replaceAll('Aetheris-Vault-CLI', 'UREfy-Vault-CLI');
 }

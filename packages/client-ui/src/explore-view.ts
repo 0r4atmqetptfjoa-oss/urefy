@@ -183,12 +183,12 @@ export class ExploreView {
 
         <div id="explore-feed-scroll" class="explore-scroll">
           ${this.searchQuery ? this.renderSearchResults(allPosts) : this.activeSubTab === 'communities' ? this.renderCommunitiesDirectory() : `
-            ${this.activeCategory === 'all' ? `<section class="discovery-intro discovery-intro--explore" aria-labelledby="explore-intro-title"><div><span class="discovery-eyebrow">FOLLOW YOUR CURIOSITY</span><h2 id="explore-intro-title">A fresh perspective.<br><em>One conversation away.</em></h2><p>Explore ideas, meet independent minds,<br>and find something worth staying for.</p></div><div class="discovery-lens" aria-hidden="true"><span></span><span></span><span></span></div><footer><span>EXPLORE / EDITION 27</span><button type="button" data-action="nav-mode" data-mode="communities">Find your community ${renderIcon('chevronRight', { size: 16 })}</button></footer></section>` : ''}
+            ${this.activeCategory === 'all' ? `<nav class="discovery-wayfinding" aria-label="Discovery shortcuts"><span>People, ideas and conversations</span><button type="button" data-action="nav-mode" data-mode="communities">Browse communities ${renderIcon('chevronRight', { size: 16 })}</button></nav>` : ''}
             ${recentSearches.length ? `<section class="recent-searches"><span>Recent</span>${recentSearches.slice(0, 5).map(item => `<button type="button" class="btn-select-trend" data-search-trend="${escapeHtml(item)}">${escapeHtml(item)}</button>`).join('')}<button type="button" id="btn-clear-recent-searches">Clear</button></section>` : ''}
             <section class="discovery-section">
               <div class="section-heading">
                 <div>
-                  <span>Conversation radar</span>
+                  <span>Trending conversations</span>
                   <h2>${this.activeCategory === 'all' ? 'Ideas making connections' : escapeHtml(this.categories.find(category => category.id === this.activeCategory)?.label || 'Conversations')}</h2>
                 </div>
               </div>

@@ -9,26 +9,8 @@ import './window-augmentation.js';
 import { serviceRegistry, SERVICES } from './service-registry.js';
 import { safeLocalStorage } from './dry-utils.js';
 
-export function isLocalDev(): boolean {
-  const isTestRuntime = typeof process !== 'undefined' && process.env?.VITEST === 'true';
-  if (!isTestRuntime) return false;
-  if (typeof window === 'undefined' || !window.location) return true;
-  const host = window.location.hostname;
-  return host === 'localhost' || host === '127.0.0.1' || host === '::1' || host === '[::1]';
-}
-
-export function isProductionBuild(): boolean {
-  if (typeof import.meta !== 'undefined' && (import.meta as any).env && (import.meta as any).env.PROD) {
-    return true;
-  }
-  if (typeof process !== 'undefined' && process.env?.VITEST === 'true') {
-    return !isLocalDev();
-  }
-  if (typeof import.meta !== 'undefined' && (import.meta as any).env && (import.meta as any).env.DEV) {
-    return false;
-  }
-  return !isLocalDev();
-}
+import { isLocalDev, isProductionBuild } from './env-check.js';
+export { isLocalDev, isProductionBuild };
 
 export const ADMIN_DEFAULT_PIN = isLocalDev() ? '11223' : '';
 
@@ -255,6 +237,22 @@ export class AdminAuthManager {
     this._isAdmin = false;
     this._activePin = '';
     this._sessionStartedAt = 0;
+  }
+
+  /** Immediate emergency zero-trust lock */
+  public panicLock(): void {
+    this.logout();
+    clearAdminStorage();
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('urefy-admin-locked'));
+    }
+  }
+
+  /** Refreshes session on user interaction */
+  public touchSession(): void {
+    if (this._isAdmin) {
+      this._sessionStartedAt = Date.now();
+    }
   }
 
   /** Reset admin binding — dangerous, only for recovery */

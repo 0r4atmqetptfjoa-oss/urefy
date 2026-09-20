@@ -107,4 +107,43 @@ describe('KnowledgeMemoryStore', () => {
       .rejects.toThrow(/Identity changed/);
     expect(storage.records.size).toBe(0);
   });
+
+  it('detects changed snapshot content while collection edits preserve integrity', async () => {
+    const { store, storage } = setup();
+    await store.keep({ title: 'Original', text: 'Original text', source: source('integrity') });
+    const id = (await store.list())[0].id;
+    await store.collect(id, 'Research');
+    expect(await store.verify(id)).toBe(true);
+    const saved = storage.records.get('knowledge:owner-fp-01') as { items: KnowledgeMemory[] };
+    saved.items[0].text = 'Changed text';
+    expect(await store.verify(id)).toBe(false);
+  });
+
+  it('keeps identical comment ids from different discussions separate', async () => {
+    const { store } = setup();
+    for (const postId of ['post-a', 'post-b']) await store.keep({ title: postId, text: 'Comment', source: source('same-id', { kind: 'comment', postId }) });
+    expect(await store.list()).toHaveLength(2);
+  });
+
+  it('rejects invalid provenance and credential-bearing links', async () => {
+    const { store } = setup();
+    for (const extra of [{ kind: 'comment' as const }, { createdAt: Infinity }, { author: '' }, { peer: 'x'.repeat(161) }]) {
+      await expect(store.keep({ title: 'Bad source', text: 'Text', source: source('bad-source', extra) })).rejects.toThrow(/source/);
+    }
+    await expect(store.keep({ title: 'Secret URL', text: 'Link', source: source('url', { kind: 'link', url: 'https://user:secret@example.test' }) })).rejects.toThrow(/credentials/);
+  });
+
+  it('rejects unsafe URLs read from encrypted legacy state', async () => {
+    const { store, storage } = setup();
+    await store.keep({ title: 'Link', text: 'Link', source: source('link', { url: 'https://example.test' }) });
+    const saved = storage.records.get('knowledge:owner-fp-01') as { items: KnowledgeMemory[] };
+    saved.items[0].source.url = 'javascript:alert(1)';
+    await expect(store.list()).rejects.toThrow(/http or https/);
+  });
+
+  it('serializes concurrent saves without losing a snapshot', async () => {
+    const { store } = setup();
+    await Promise.all(Array.from({ length: 12 }, (_, i) => store.keep({ title: `Note ${i}`, text: 'Text', source: source(`concurrent-${i}`) })));
+    expect(await store.list()).toHaveLength(12);
+  });
 });

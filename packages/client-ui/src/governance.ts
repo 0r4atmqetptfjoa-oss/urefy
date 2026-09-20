@@ -7,7 +7,7 @@ import { t } from './i18n.js';
 // ============================================================================
 
 import { serviceRegistry, SERVICES } from './service-registry.js';
-import { isLocalDev } from './admin-auth.js';
+import { isLocalDev } from './env-check.js';
 import { isDemoModeEnabled } from './demo-mode.js';
 import { networkActivityFeed } from './activity-feed.js';
 

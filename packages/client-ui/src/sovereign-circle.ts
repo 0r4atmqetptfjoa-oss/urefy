@@ -9,6 +9,7 @@ import { serviceRegistry, SERVICES } from './service-registry.js';
 import { clientStore } from './client-state.js';
 import { t } from './i18n.js';
 import { renderIcon } from './ui/icons.js';
+import { isDemoModeEnabled } from './demo-mode.js';
 
 export interface CircleRule {
   id: number;
@@ -59,6 +60,7 @@ export class SovereignCircleEngine {
   public activeModTab: 'settings' | 'rules' | 'flairs' | 'moderation' = 'settings';
   public expandedRuleIndices: Map<string, number | null> = new Map();
   public selectedFlair: string | null = null;
+  private pendingMemberships = new Set<string>();
 
   private readonly STORAGE_CUSTOM_KEY = 'aetheris_sovereign_circles_custom';
   private readonly STORAGE_JOINED_KEY = 'aetheris_sovereign_circles_joined';
@@ -77,7 +79,10 @@ export class SovereignCircleEngine {
   ];
 
   constructor() {
+    (globalThis as any).sovereignCircleEngine = this;
+    if (typeof window !== 'undefined') (window as any).sovereignCircleEngine = this;
     this.seedDefaultCircles();
+    if (!isDemoModeEnabled()) for (const circle of this.getAllCircles()) circle.isJoined = false;
     this.loadFromStorage();
     void this.syncCommunitiesFromApi();
     this._initGlobalDomListeners();
@@ -91,7 +96,7 @@ export class SovereignCircleEngine {
         displayName: 'Zero-Knowledge & Cryptographic Privacy',
         channelId: 'pulse-global',
         icon: '🛡️',
-        banner: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%)',
+        banner: 'linear-gradient(135deg, #14171d 0%, #1a1e27 50%, #202632 100%)',
         description: 'Discussions on digital rights, personal privacy, secure tools, and zero-knowledge cryptographic verification.',
         category: 'Privacy & Freedom',
         membersCount: 0,
@@ -174,7 +179,7 @@ export class SovereignCircleEngine {
         displayName: 'Technology & Computing',
         channelId: 'pulse-technology',
         icon: '💻',
-        banner: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%)',
+        banner: 'linear-gradient(135deg, #14171d 0%, #1a1e27 50%, #202632 100%)',
         description: 'Discussions on consumer tech, computing, breakthroughs, hardware, and engineering.',
         category: 'Technology',
         membersCount: 0,
@@ -288,6 +293,26 @@ export class SovereignCircleEngine {
         flairs: ['DIGITAL RIGHTS', 'CENSORSHIP WATCH', 'DECENTRALIZATION', 'DISCUSSION'],
         isJoined: true,
         createdAt: '',
+      },
+      {
+        id: 'c-science',
+        name: 'science',
+        displayName: 'Science & Cosmos',
+        channelId: 'pulse-science',
+        icon: '🔬',
+        banner: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%)',
+        description: 'Physics, cosmology, peer review, biology, and scientific exploration.',
+        category: 'Science & Cosmos',
+        membersCount: 0,
+        onlineCount: 0,
+        primaryColor: '#6366f1',
+        rules: [
+          { id: 1, title: 'Cite Primary Sources', description: 'Link to published papers, preprints, or institutional releases.' },
+          { id: 2, title: 'Civil Peer Review', description: 'Maintain scientific decorum and debate hypotheses constructively.' }
+        ],
+        flairs: ['RESEARCH', 'PHYSICS', 'SPACE', 'BIOLOGY', 'DISCUSSION'],
+        isJoined: false,
+        createdAt: '',
       }
     ];
 
@@ -314,6 +339,24 @@ export class SovereignCircleEngine {
     const pm = this.circles.get('relays-general')!;
     this.circles.set('c/general', pm);
     this.circles.set('general', pm);
+
+    const pai = this.circles.get('c-privacy-ai');
+    if (pai) {
+      this.circles.set('c/ai', pai);
+      this.circles.set('ai', pai);
+    }
+
+    const os = this.circles.get('c-opensource');
+    if (os) {
+      this.circles.set('c/developers', os);
+      this.circles.set('developers', os);
+    }
+
+    const crt = this.circles.get('c-creative');
+    if (crt) {
+      this.circles.set('c/design', crt);
+      this.circles.set('design', crt);
+    }
   }
 
   public loadFromStorage(): void {
@@ -357,7 +400,7 @@ export class SovereignCircleEngine {
   public async syncCommunitiesFromApi(): Promise<void> {
     if (typeof fetch === 'undefined') return;
     try {
-      const res = await fetch('/api/communities');
+      const res = await fetch(`/api/communities?userId=${encodeURIComponent(clientStore.keypair?.fingerprint || '')}`);
       if (!res.ok) return;
       const data = await res.json();
       if (!data.success || !Array.isArray(data.communities)) return;
@@ -366,8 +409,13 @@ export class SovereignCircleEngine {
       for (const comm of data.communities) {
         const existing = this.circles.get(comm.id) || this.circles.get(comm.channelId) || this.circles.get(`c/${comm.name}`) || this.circles.get(comm.name);
         if (existing) {
+          if (this.pendingMemberships.has(existing.id)) continue;
+          existing.communityType = 'public'; // This API currently persists public communities only.
+          if (typeof comm.isMember === 'boolean') { existing.isJoined = comm.isMember; changed = true; }
+          existing.id = comm.id;
+          this.circles.set(comm.id, existing);
           if (comm.membersCount !== undefined && comm.membersCount !== existing.membersCount) {
-            existing.membersCount = Math.max(existing.membersCount, comm.membersCount);
+            existing.membersCount = Math.max(0, comm.membersCount);
             changed = true;
           }
           if (comm.description && comm.description !== existing.description) {
@@ -385,16 +433,16 @@ export class SovereignCircleEngine {
             displayName: comm.displayName || `c/${comm.name}`,
             channelId: comm.channelId || `c/${comm.name}`,
             icon: comm.icon || '🏛️',
-            banner: comm.banner || 'linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%)',
+            banner: comm.banner || 'linear-gradient(135deg, #1c1813 0%, #27221b 50%, #362e24 100%)',
             description: comm.description || '',
             category: comm.category || 'General Discussions',
             communityType: comm.communityType || 'public',
-            membersCount: Number(comm.membersCount) || 1,
-            onlineCount: 1,
+            membersCount: Number(comm.membersCount) || 0,
+            onlineCount: 0,
             primaryColor: comm.primaryColor || '#6366f1',
             rules: Array.isArray(comm.rules) ? comm.rules : [],
             flairs: ['TECH DISCUSSION', 'VERIFIED RELEASE', 'MICRO-PULSE', 'SECURITY ADVISORY', 'ANNOUNCEMENT'],
-            isJoined: false,
+            isJoined: Boolean(comm.isMember),
             createdAt: comm.createdAt ? new Date(comm.createdAt).toLocaleDateString() : 'Recently',
             isCustom: true,
           };
@@ -419,6 +467,12 @@ export class SovereignCircleEngine {
         }
       }
 
+      if (data.communities.length > 0) {
+        const remoteIds = new Set(data.communities.map((community: any) => community.id));
+        for (const [alias, circle] of this.circles) {
+          if (circle.isCustom && !remoteIds.has(circle.id)) { this.circles.delete(alias); changed = true; }
+        }
+      }
       if (changed) {
         this.saveToStorage();
         if (typeof window !== 'undefined' && (window as any).clientStore) {
@@ -473,27 +527,38 @@ export class SovereignCircleEngine {
   }
 
   public toggleJoin(circleId: string): boolean {
-    const c = this.getCircle(circleId);
+    const c = this.findCircle(circleId);
     if (!c) return false;
+    if (this.pendingMemberships.has(c.id)) return c.isJoined;
+    const before = { joined: c.isJoined, count: c.membersCount };
     c.isJoined = !c.isJoined;
     c.membersCount += c.isJoined ? 1 : -1;
     if (c.membersCount < 0) c.membersCount = 0;
     this.saveToStorage();
 
     // Persist join/leave to Cloudflare D1
-    if (typeof fetch !== 'undefined') {
+    if (typeof window !== 'undefined' && typeof fetch !== 'undefined') {
+      this.pendingMemberships.add(c.id);
       fetch('/api/communities', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+        body: JSON.stringify(clientStore.createSignedEnvelope({
+          scope: 'urefy-community-v1',
           action: c.isJoined ? 'join' : 'leave',
           communityId: c.id,
-          userId: clientStore.keypair?.fingerprint || 'anon-member',
-        }),
-      }).catch(() => {});
+        })),
+      }).then(async response => {
+        const result = await response.json();
+        if (!response.ok || !result.success) throw new Error(result.error || 'Membership could not be saved');
+        c.isJoined = result.isMember;
+        this.saveToStorage();
+        clientStore.showToast(c.isJoined ? `Joined c/${c.name}` : `Left c/${c.name}`, 'info');
+      }).catch(error => {
+        c.isJoined = before.joined; c.membersCount = before.count;
+        this.saveToStorage();
+        clientStore.showToast(error.message || 'Membership could not be saved. Try again.', 'warning');
+      }).finally(() => { this.pendingMemberships.delete(c.id); clientStore.notifySync(); });
     }
-
-    clientStore.showToast(c.isJoined ? `✓ Joined c/${c.name}` : `Left c/${c.name}`, 'info');
     clientStore.notifySync();
     return c.isJoined;
   }
@@ -521,6 +586,7 @@ export class SovereignCircleEngine {
     primaryColor: string;
     rules: { title: string; description: string }[];
   }): SovereignCircle {
+    if (!isDemoModeEnabled() && data.communityType && data.communityType !== 'public') throw new Error('Private community access controls are not available yet.');
     const cleanName = data.name.toLowerCase().replace(/[^a-z0-9_]/g, '') || 'sovereign_circle';
     const channelId = `pulse-${cleanName}`;
     const icon = data.category.includes('Cryptography') ? '⚡' : 
@@ -534,7 +600,7 @@ export class SovereignCircleEngine {
       displayName: data.displayName || `c/${cleanName}`,
       channelId,
       icon,
-      banner: `linear-gradient(135deg, ${data.primaryColor}33 0%, #1e1b4b 100%)`,
+      banner: `linear-gradient(135deg, ${data.primaryColor}22 0%, #14171d 50%, #1e232d 100%)`,
       description: data.description || 'A newly chartered sovereign decentralized circle.',
       category: data.category || 'General Discussions',
       communityType: data.communityType || 'public',
@@ -576,8 +642,10 @@ export class SovereignCircleEngine {
       fetch('/api/communities', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+        body: JSON.stringify(clientStore.createSignedEnvelope({
+          scope: 'urefy-community-v1',
           action: 'create',
+          communityType: newCircle.communityType,
           name: cleanName,
           displayName: newCircle.displayName,
           description: newCircle.description,
@@ -586,21 +654,24 @@ export class SovereignCircleEngine {
           banner: newCircle.banner,
           primaryColor: newCircle.primaryColor,
           rules: newCircle.rules,
-          userId: clientStore.keypair?.fingerprint || 'anon-creator',
-        }),
+        })),
       }).then(async (res) => {
-        if (res.ok) {
-          const resData = await res.json();
-          if (resData.success) {
-            console.log(`[Communities] Community c/${cleanName} persisted to Cloudflare D1.`);
-          }
-        }
-      }).catch(() => {});
+        const resData = await res.json();
+        if (!res.ok || !resData.success) throw new Error(resData.error || 'Community could not be created');
+        clientStore.showToast(`Community c/${cleanName} created`, 'success');
+        await this.syncCommunitiesFromApi();
+      }).catch(error => {
+        for (const [key, value] of this.circles) if (value === newCircle) this.circles.delete(key);
+        clientStore.channels = clientStore.channels.filter(channel => channel.id !== channelId);
+        this.saveToStorage();
+        clientStore.activeChannelId = 'communities';
+        clientStore.showToast(error.message || 'Community could not be created. Try again.', 'warning');
+        clientStore.notifySync();
+      });
     }
 
     // Auto-join newly created channel and notify
     clientStore.activeChannelId = channelId;
-    clientStore.showToast(`✨ Sovereign Community c/${cleanName} successfully chartered!`, 'success');
     clientStore.notifySync();
 
     return newCircle;
@@ -650,7 +721,7 @@ export class SovereignCircleEngine {
     if (updates.communityType !== undefined) circle.communityType = updates.communityType;
     if (updates.primaryColor !== undefined) {
       circle.primaryColor = updates.primaryColor;
-      circle.banner = `linear-gradient(135deg, ${updates.primaryColor}33 0%, #1e1b4b 100%)`;
+      circle.banner = `linear-gradient(135deg, ${updates.primaryColor}22 0%, #171717 100%)`;
     }
     this.saveToStorage();
     clientStore.showToast(`✓ Community c/${circle.name} settings updated!`, 'success');
@@ -824,7 +895,7 @@ export class SovereignCircleEngine {
               id="btn-circle-create-post" 
               class="py-2 px-3 rounded-xl bg-surface-overlay hover:bg-surface-highlight text-white text-xs font-bold border border-white/10 transition-all flex items-center justify-center space-x-1 cursor-pointer"
             >
-              <span>✍️ ${t('pulse.publishPost', undefined, 'Broadcast')}</span>
+              <span>✍️ ${t('pulse.publishPost', undefined, 'Post')}</span>
             </button>
           </div>
 
@@ -832,10 +903,10 @@ export class SovereignCircleEngine {
           <button 
             type="button" 
             id="btn-open-create-circle-modal" 
-            class="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-indigo-600/20 via-purple-600/20 to-cyan-600/20 hover:from-indigo-600/30 hover:to-cyan-600/30 text-indigo-200 border border-indigo-500/30 text-xs font-bold transition-all flex items-center justify-center space-x-1.5 cursor-pointer shadow-xs"
+            class="w-full py-2 px-3 rounded-xl bg-surface-overlay hover:bg-surface-highlight text-slate-200 hover:text-white border border-white/10 text-xs font-semibold transition-all flex items-center justify-center space-x-1.5 cursor-pointer shadow-xs"
           >
-            ${renderIcon('sparkles', { size: 14, className: 'text-indigo-300' })}
-            <span>Charter New Sovereign Circle</span>
+            ${renderIcon('sparkles', { size: 14, className: 'text-slate-400' })}
+            <span>Create Community</span>
           </button>
 
           <!-- SOVEREIGN CIRCLE RULES ACCORDION -->
@@ -1038,8 +1109,8 @@ export class SovereignCircleEngine {
                       class="w-full bg-surface-raised border border-white/10 focus:border-cyan-500 rounded-xl px-3 py-2 text-xs text-white focus:outline-none cursor-pointer"
                     >
                       <option value="public" ${circle.communityType === 'public' ? 'selected' : ''}>🌐 Public (Anyone can view & post)</option>
-                      <option value="restricted" ${circle.communityType === 'restricted' ? 'selected' : ''}>👁️ Restricted (View open, posting curated)</option>
-                      <option value="private" ${circle.communityType === 'private' ? 'selected' : ''}>🔒 Private (Encrypted Sovereign Circle)</option>
+                      <option value="restricted" disabled>Restricted — access controls unavailable</option>
+                      <option value="private" disabled>Private — access controls unavailable</option>
                     </select>
                   </div>
                 </div>
@@ -1353,8 +1424,8 @@ export class SovereignCircleEngine {
                 ${renderIcon('landmark', { size: 18 })}
               </div>
               <div>
-                <h2 class="text-sm sm:text-base font-bold text-white">Charter Sovereign Circle</h2>
-                <p class="text-[11px] text-slate-400 font-mono">Establish a peer-governed collective with custom cryptoeconomic rules</p>
+                <h2 class="text-sm sm:text-base font-bold text-white">Create a Community <span class="sr-only">Charter Sovereign Circle</span></h2>
+                <p class="text-[11px] text-slate-400 font-sans">Build a space for discussions, links, and sharing</p>
               </div>
             </div>
             <button 
@@ -1372,7 +1443,7 @@ export class SovereignCircleEngine {
             <!-- NAME -->
             <div>
               <label class="block text-xs font-mono font-bold uppercase tracking-wider text-slate-300 mb-1">
-                Circle Identifier <span class="text-indigo-400">*</span>
+                Community Handle / Slug <span class="text-indigo-400">*</span>
               </label>
               <div class="relative flex items-center">
                 <span class="absolute left-3.5 text-xs font-mono font-bold text-slate-500">c/</span>
@@ -1380,23 +1451,23 @@ export class SovereignCircleEngine {
                   type="text" 
                   id="input-circle-name"
                   required
-                  placeholder="cryptographic_hub" 
+                  placeholder="gaming_lounge" 
                   value="${escapeHtml(this.formName)}"
                   class="w-full bg-surface-raised border border-white/10 focus:border-indigo-500 rounded-xl pl-8 pr-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none font-mono font-bold"
                 />
               </div>
-              <p class="text-[10px] text-slate-500 mt-1 font-mono">Lowercase letters, numbers, and underscores only. Immutable once signed.</p>
+              <p class="text-[10px] text-slate-500 mt-1 font-mono">Lowercase letters, numbers, and underscores.</p>
             </div>
 
             <!-- DISPLAY TITLE -->
             <div>
               <label class="block text-xs font-mono font-bold uppercase tracking-wider text-slate-300 mb-1">
-                Display Title
+                Community Display Name
               </label>
               <input 
                 type="text" 
                 id="input-circle-display-title"
-                placeholder="e.g. Applied ZK Verification Lab" 
+                placeholder="e.g. Gaming Lounge" 
                 value="${escapeHtml(this.formDisplayName)}"
                 class="w-full bg-surface-raised border border-white/10 focus:border-indigo-500 rounded-xl px-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none"
               />
@@ -1405,17 +1476,20 @@ export class SovereignCircleEngine {
             <!-- CATEGORY -->
             <div>
               <label class="block text-xs font-mono font-bold uppercase tracking-wider text-slate-300 mb-1">
-                Domain / Topic Category
+                Topic Category
               </label>
               <select 
                 id="input-circle-category"
                 class="w-full bg-surface-raised border border-white/10 focus:border-indigo-500 rounded-xl px-4 py-2 text-xs text-white focus:outline-none cursor-pointer"
               >
-                <option value="Cryptography & Security" ${this.formCategory === 'Cryptography & Security' ? 'selected' : ''}>Cryptography & Security</option>
-                <option value="Software & Vault" ${this.formCategory === 'Software & Vault' ? 'selected' : ''}>Software & Vault</option>
-                <option value="P2P Networking" ${this.formCategory === 'P2P Networking' ? 'selected' : ''}>P2P Networking & Swarms</option>
-                <option value="Governance & DAO" ${this.formCategory === 'Governance & DAO' ? 'selected' : ''}>Governance & DAO</option>
-                <option value="General Sovereign" ${this.formCategory === 'General Sovereign' ? 'selected' : ''}>General Sovereign Discussions</option>
+                <option value="Technology" ${this.formCategory === 'Technology' ? 'selected' : ''}>Technology &amp; Computing</option>
+                <option value="Artificial Intelligence" ${this.formCategory === 'Artificial Intelligence' ? 'selected' : ''}>Artificial Intelligence &amp; AI</option>
+                <option value="Gaming" ${this.formCategory === 'Gaming' ? 'selected' : ''}>Gaming &amp; Game Dev</option>
+                <option value="Software & Dev" ${this.formCategory === 'Software & Dev' ? 'selected' : ''}>Software &amp; Programming</option>
+                <option value="Privacy & Security" ${this.formCategory === 'Privacy & Security' ? 'selected' : ''}>Privacy &amp; Security</option>
+                <option value="Science" ${this.formCategory === 'Science' ? 'selected' : ''}>Science &amp; Research</option>
+                <option value="Creative Arts" ${this.formCategory === 'Creative Arts' ? 'selected' : ''}>Creative Arts &amp; Design</option>
+                <option value="General Sovereign" ${this.formCategory === 'General Sovereign' ? 'selected' : ''}>General Discussion</option>
               </select>
             </div>
 
@@ -1437,7 +1511,7 @@ export class SovereignCircleEngine {
                 </label>
 
                 <label class="flex items-start gap-3 p-3 rounded-xl border border-white/10 hover:border-indigo-500/50 hover:bg-surface-raised cursor-pointer transition-all ${this.formCommunityType === 'restricted' ? 'bg-indigo-950/40 border-indigo-500/60 ring-1 ring-indigo-500/40' : 'bg-surface-base'}">
-                  <input type="radio" name="input-circle-type" value="restricted" ${this.formCommunityType === 'restricted' ? 'checked' : ''} class="mt-0.5 text-indigo-500 focus:ring-0 cursor-pointer">
+                  <input type="radio" name="input-circle-type" value="restricted" disabled aria-label="Restricted communities are not available yet" class="mt-0.5 text-indigo-500 focus:ring-0">
                   <div>
                     <div class="flex items-center gap-2 font-bold text-xs text-white">
                       <span class="flex items-center gap-1.5">${renderIcon('eye', { size: 14, className: 'text-indigo-400' })} Restricted</span>
@@ -1447,7 +1521,7 @@ export class SovereignCircleEngine {
                 </label>
 
                 <label class="flex items-start gap-3 p-3 rounded-xl border border-white/10 hover:border-indigo-500/50 hover:bg-surface-raised cursor-pointer transition-all ${this.formCommunityType === 'private' ? 'bg-indigo-950/40 border-indigo-500/60 ring-1 ring-indigo-500/40' : 'bg-surface-base'}">
-                  <input type="radio" name="input-circle-type" value="private" ${this.formCommunityType === 'private' ? 'checked' : ''} class="mt-0.5 text-indigo-500 focus:ring-0 cursor-pointer">
+                  <input type="radio" name="input-circle-type" value="private" disabled aria-label="Private communities are not available yet" class="mt-0.5 text-indigo-500 focus:ring-0">
                   <div>
                     <div class="flex items-center gap-2 font-bold text-xs text-white">
                       <span class="flex items-center gap-1.5">${renderIcon('lock', { size: 14, className: 'text-amber-400' })} Private</span>
@@ -1558,7 +1632,7 @@ export class SovereignCircleEngine {
                 id="btn-submit-create-circle" 
                 class="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold shadow-md transition-all cursor-pointer"
               >
-                Charter Circle
+                Create Community
               </button>
             </div>
 
@@ -1693,6 +1767,7 @@ export class SovereignCircleEngine {
       if (!rawName) return;
 
       const communityType = (typeRadio?.value as CommunityType) || 'public';
+      if (communityType !== 'public') { clientStore.showToast('Private community access controls are not available yet.', 'warning'); return; }
 
       // Harvest rules
       const ruleTitles = Array.from(document.querySelectorAll('[data-rule-title-idx]')) as HTMLInputElement[];

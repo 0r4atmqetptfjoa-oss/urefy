@@ -26,8 +26,7 @@ import { localSearchIndex } from './search-index.js';
 import { crossTabSync } from './cross-tab-sync.js';
 import { sovereignWebPush } from './web-push.js';
 import { pulseActionsEngine } from './pulse-actions.js';
-import { networkActivityFeed } from './activity-feed.js';
-import { isLocalDev } from './admin-auth.js';
+import { isLocalDev } from './env-check.js';
 import { isDemoModeEnabled } from './demo-mode.js';
 import { secureStorage } from './secure-storage.js';
 
@@ -699,9 +698,9 @@ export class AetherisClientStore {
             } else {
               const lp = this.posts[localIndex];
               if (ep.meritVotes !== lp.meritVotes || ep.boostCount !== lp.boostCount || ep.replyCount !== lp.replyCount) {
-                lp.meritVotes = Math.max(lp.meritVotes, ep.meritVotes);
-                lp.boostCount = Math.max(lp.boostCount, ep.boostCount);
-                lp.replyCount = Math.max(lp.replyCount, ep.replyCount);
+                lp.meritVotes = ep.meritVotes;
+                lp.boostCount = ep.boostCount;
+                lp.replyCount = ep.replyCount;
                 hasChanged = true;
               }
             }
@@ -832,15 +831,17 @@ export class AetherisClientStore {
     crossTabSync.broadcast('POST_VOTED', { postId, direction, meritVotes: p.meritVotes });
 
     if (p.userVoted !== 0) {
-      networkActivityFeed.addEvent({
-        type: 'vote',
-        actorFP: this.keypair.fingerprint,
-        actorRole: 'member',
-        targetTitle: p.title,
-        targetId: p.id,
-        timestamp: Date.now(),
-        meta: { direction: p.userVoted > 0 ? 'up' : 'down' },
-      });
+      void import('./activity-feed.js').then(({ networkActivityFeed }) => {
+        networkActivityFeed.addEvent({
+          type: 'vote',
+          actorFP: this.keypair.fingerprint,
+          actorRole: 'member',
+          targetTitle: p.title,
+          targetId: p.id,
+          timestamp: Date.now(),
+          meta: { direction: p.userVoted > 0 ? 'up' : 'down' },
+        });
+      }).catch(() => {});
     }
 
     // Coalesced non-blocking sync with Edge Functions
@@ -860,15 +861,17 @@ export class AetherisClientStore {
       p.userBoosted = true;
       this.showToast('⟳ Boosted to Sovereign Chrono-Stream!', 'success');
 
-      networkActivityFeed.addEvent({
-        type: 'boost',
-        actorFP: this.keypair.fingerprint,
-        actorRole: 'member',
-        targetTitle: p.title,
-        targetId: p.id,
-        timestamp: Date.now(),
-        meta: { boostAmount: p.boostCount },
-      });
+      void import('./activity-feed.js').then(({ networkActivityFeed }) => {
+        networkActivityFeed.addEvent({
+          type: 'boost',
+          actorFP: this.keypair.fingerprint,
+          actorRole: 'member',
+          targetTitle: p.title,
+          targetId: p.id,
+          timestamp: Date.now(),
+          meta: { boostAmount: p.boostCount },
+        });
+      }).catch(() => {});
     }
 
     this.notify('BOOST', { postId, boostCount: p.boostCount, userBoosted: p.userBoosted });

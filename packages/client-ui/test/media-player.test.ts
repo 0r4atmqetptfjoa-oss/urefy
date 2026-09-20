@@ -19,6 +19,28 @@ describe('ObsidianMediaPlayer — Video Player & Multi-Image Gallery Lightbox', 
     // Ensure custom scrubber has seek-video action
     expect(html).toContain('data-action="seek-video"');
     expect(html).toContain('data-video-id="v1"');
+    // Reserved aspect-video container and object-contain prevent initial 0px collapse
+    expect(html).toContain('aspect-video');
+    expect(html).toContain('object-contain');
+  });
+
+  it('should render YouTube embed in a 16:9 aspect-video container with poster overlay to prevent iframe resize jumps', () => {
+    const html = player.renderVideoCard('yt1', 'https://www.youtube.com/watch?v=dQw4w9WgXcQ');
+    expect(html).toContain('aspect-video');
+    expect(html).toContain('media-poster-layer');
+    expect(html).toContain('i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg');
+    expect(html).toContain('feed-video-frame');
+    expect(html).toContain('transition-opacity duration-300');
+    expect(html).not.toContain('onload=');
+    expect(html).toContain('data-action="fade-media-poster"');
+  });
+
+  it('should render Vimeo embed in a 16:9 aspect-video container with poster overlay', () => {
+    const html = player.renderVideoCard('vm1', 'https://vimeo.com/123456789', 'https://example.com/vimeo-poster.jpg');
+    expect(html).toContain('aspect-video');
+    expect(html).toContain('media-poster-layer');
+    expect(html).toContain('https://example.com/vimeo-poster.jpg');
+    expect(html).toContain('player.vimeo.com/video/123456789');
   });
 
   it('should render a mosaic gallery for 1, 2, 3, and 4 images', () => {

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * UREfy Sovereign Legal & Regulatory Footer Component
  * Provides comprehensive EU Digital Services Act (DSA), GDPR, and eCommerce Directive
  * compliant navigation, point-of-contact info, community guidelines, and legal disclosures.
@@ -156,7 +156,7 @@ export class LegalFooter {
             </div>
             <div class="flex items-center space-x-3 shrink-0">
               <span class="text-slate-400">EU Point of Contact:</span>
-              <a href="mailto:razvan@urefy.com" class="text-cyan-400 hover:underline font-mono">razvan@urefy.com</a>
+              <a href="mailto:contact@urefy.com" class="text-cyan-400 hover:underline font-mono">contact@urefy.com</a>
               <span>·</span>
               <button type="button" data-action="open-legal" data-legal-tab="dsa" class="px-2.5 py-1 rounded bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/20 text-[10px] font-bold cursor-pointer transition-colors">
                 🚩 ${t('footer.dsa', undefined, 'Report Content')}

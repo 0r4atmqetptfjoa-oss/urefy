@@ -71,7 +71,7 @@ export function renderProfileTimelinePostsHTML(
             Discover and join sovereign communities to share ideas, code, and discussions.
           </p>
           <div class="pt-2">
-            <a href="#communities" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition-all inline-block shadow-sm">
+            <a href="/communities" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition-all inline-block shadow-sm">
               Explore Communities
             </a>
           </div>
@@ -87,13 +87,13 @@ export function renderProfileTimelinePostsHTML(
                 ${circle.icon || '🏛️'}
               </div>
               <div class="min-w-0">
-                <a href="#c/${circle.name}" class="text-sm font-bold text-white hover:text-indigo-400 transition-colors truncate block">
+                <a href="/c/${circle.name}" class="text-sm font-bold text-white hover:text-indigo-400 transition-colors truncate block">
                   c/${circle.name}
                 </a>
                 <p class="text-[11px] text-slate-400 truncate">${circle.displayName}</p>
               </div>
             </div>
-            <a href="#c/${circle.name}" class="px-3 py-1.5 rounded-xl bg-surface-raised hover:bg-surface-overlay text-slate-300 hover:text-white text-xs font-semibold shrink-0 transition-colors">
+            <a href="/c/${circle.name}" class="px-3 py-1.5 rounded-xl bg-surface-raised hover:bg-surface-overlay text-slate-300 hover:text-white text-xs font-semibold shrink-0 transition-colors">
               Visit
             </a>
           </div>
@@ -178,8 +178,30 @@ export function renderProfileTimelinePostsHTML(
         const repProfile = profileView.getProfile(targetFp);
         const repName = repProfile?.name || repProfile?.handle || `@${targetFp.substring(0, 8)}`;
 
+        const detectedVideo = obsidianMediaPlayer.extractVideo(p.content);
+        const videoHtml = p.video?.src
+          ? `<div class="mt-2">${obsidianMediaPlayer.renderVideoCard(p.id, p.video.src, p.video.poster)}</div>`
+          : (detectedVideo ? `<div class="mt-2">${obsidianMediaPlayer.renderVideoCard(p.id, p.content)}</div>` : '');
+        const imagesHtml = p.images && p.images.length > 0
+          ? `<div class="rounded-2xl overflow-hidden mt-2 border border-white/10 max-h-80"><img src="${p.images[0]}" alt="Attached Media" class="w-full h-full object-cover" /></div>`
+          : '';
+        const hasMedia = Boolean(videoHtml || imagesHtml);
+
+        let displayContent = p.content || '';
+        if (detectedVideo && !p.video?.src) {
+          displayContent = displayContent
+            .replace(/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)[a-zA-Z0-9_-]{11}[^\s]*/gi, '')
+            .replace(/(?:https?:\/\/)?(?:www\.)?vimeo\.com\/\d+[^\s]*/gi, '')
+            .replace(/https?:\/\/[^\s"'<>]+\.(?:mp4|webm|ogg)(?:\?[^\s"'<>]*)?/gi, '')
+            .trim();
+        }
+
+        const isClamped = hasMedia
+          ? (displayContent.length > 120 || (displayContent.match(/\n/g) || []).length >= 2)
+          : (displayContent.length > 280 || (displayContent.match(/\n/g) || []).length >= 4);
+
         return `
-          <article class="p-5 rounded-3xl bg-surface-base border ${isPinned ? 'border-amber-500/40 shadow-amber-500/5' : 'border-white/10'} hover:border-white/20 transition-all space-y-3 shadow-lg">
+          <article class="p-5 rounded-3xl bg-surface-base border ${isPinned ? 'border-amber-500/40 shadow-amber-500/5' : 'border-white/10'} hover:border-white/20 transition-all space-y-3 shadow-lg cursor-pointer" data-action="open-post-detail" data-post-id="${p.id}">
             ${isRepost ? `
               <div class="flex items-center space-x-1.5 text-xs text-slate-400 font-mono pb-1 border-b border-white/5">
                 <span class="text-emerald-400">🔁</span>
@@ -207,19 +229,26 @@ export function renderProfileTimelinePostsHTML(
               </div>
             </div>
 
-            <div class="text-xs text-slate-200 leading-relaxed">
-              ${markdownRenderer.renderMarkdown(p.content)}
-            </div>
+            ${p.title && p.title !== p.content.substring(0, 50) ? `
+              <h2 class="text-sm md:text-base font-bold text-white hover:text-indigo-400 transition-colors">
+                <button type="button" data-action="open-post-detail" data-post-id="${p.id}" class="text-left font-bold">${p.title}</button>
+              </h2>
+            ` : ''}
 
-            ${
-              p.video?.src
-                ? `<div class="mt-2">${obsidianMediaPlayer.renderVideoCard(p.id, p.video.src, p.video.poster)}</div>`
-                : obsidianMediaPlayer.extractVideo(p.content)
-                ? `<div class="mt-2">${obsidianMediaPlayer.renderVideoCard(p.id, p.content)}</div>`
-                : p.images && p.images.length > 0
-                ? `<div class="rounded-2xl overflow-hidden mt-2 border border-white/10 max-h-80"><img src="${p.images[0]}" alt="Attached Media" class="w-full h-full object-cover" /></div>`
-                : ''
-            }
+            ${videoHtml}
+            ${imagesHtml}
+
+            ${displayContent ? `
+              <div class="social-post__body-wrapper ${hasMedia ? 'has-media' : 'text-only'} ${isClamped ? 'is-clamped' : ''}">
+                <div data-action="open-post-detail" data-post-id="${p.id}" class="social-post__body text-xs text-slate-200 leading-relaxed cursor-pointer">${markdownRenderer.renderMarkdown(displayContent)}</div>
+                ${isClamped ? `
+                  <button type="button" data-action="open-post-detail" data-post-id="${p.id}" class="social-post__see-more" aria-label="Read full post">
+                    <span>Read full post</span>
+                    <svg class="w-3.5 h-3.5 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                  </button>
+                ` : ''}
+              </div>
+            ` : ''}
 
             <div class="pt-2 border-t border-white/5 flex items-center justify-between">
               ${pulseActionsEngine.renderPulseActionBar(p.id, p.replyCount)}

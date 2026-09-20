@@ -6,6 +6,7 @@
 
 import { Env, getD1Database, isProductionEnv, createD1UnavailableResponse } from './_db.js';
 import { requireAdmin, requireSignedEnvelope } from './_auth.js';
+import { setPostInteraction } from './_interaction-mutations.js';
 
 export interface InteractionRecord {
   id: string;
@@ -23,7 +24,7 @@ export const memoryInteractionsStore: InteractionRecord[] = [];
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-User-Fingerprint',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-User-Fingerprint, X-Sovereign-Envelope',
 };
 
 export async function onRequestOptions(): Promise<Response> {
@@ -42,6 +43,16 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
     const targetIdsParam = url.searchParams.get('targetIds') || url.searchParams.get('postIds');
     const userFingerprint = (url.searchParams.get('userFingerprint') || '').trim();
     const targetType = (url.searchParams.get('targetType') || 'post').trim();
+    let canReadBookmarks = false;
+    const signedRead = context.request.headers.get('X-Sovereign-Envelope');
+    if (signedRead) {
+      let envelope: unknown;
+      try { envelope = JSON.parse(signedRead); } catch { envelope = null; }
+      const auth = await requireSignedEnvelope(context, envelope);
+      if (!auth.authorized) return auth.response!;
+      if (auth.payload?.scope !== 'urefy-interactions-read-v1' || auth.fingerprint !== userFingerprint) return Response.json({ success: false, error: 'Invalid interaction reader' }, { status: 403 });
+      canReadBookmarks = true;
+    }
 
     const targetIds = targetIdsParam
       ? targetIdsParam.split(',').map(id => id.trim()).filter(Boolean)
@@ -54,6 +65,10 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
         JSON.stringify({ success: false, error: 'targetId or targetIds parameter is required' }),
         { status: 400, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
       );
+    }
+
+    if (targetIds.length > 50 || targetIds.some(id => id.length > 256) || !['post', 'comment', 'nanopublication'].includes(targetType)) {
+      return Response.json({ success: false, error: 'Request up to 50 valid targets' }, { status: 400 });
     }
 
     const db = getD1Database(context.env);
@@ -155,13 +170,17 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
       fillFromMemory(targetIds, targetType, userFingerprint, resultsMap);
     }
 
+    if (!canReadBookmarks) for (const item of Object.values(resultsMap)) {
+      item.bookmarksCount = 0;
+      item.userInteractions.bookmarked = false;
+    }
     const payload = targetIds.length === 1
       ? { success: true, ...resultsMap[targetIds[0]] }
       : { success: true, interactions: resultsMap };
 
     return new Response(JSON.stringify(payload), {
       status: 200,
-      headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
+      headers: { 'Content-Type': 'application/json', ...CORS_HEADERS, 'Cache-Control': 'private, no-store' },
     });
   } catch (err: any) {
     return new Response(
@@ -250,6 +269,11 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
     const isProd = isProductionEnv(context.env);
     if (!db && isProd) {
       return createD1UnavailableResponse();
+    }
+
+    if (typeof body.active === 'boolean') {
+      if (!db) return createD1UnavailableResponse();
+      return await setPostInteraction(db, userFingerprint, body);
     }
 
     const now = Date.now();

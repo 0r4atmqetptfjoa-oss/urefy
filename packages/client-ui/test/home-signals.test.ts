@@ -25,21 +25,21 @@ describe('home signals', () => {
     for (const lastActive of [0, NaN, -1, now, now + 1]) expect(countPostsSince(posts, lastActive, now)).toBe(0);
   });
 
-  it('escapes externally supplied titles, channels and action identifiers', () => {
+  it('keeps untrusted post data out of shared navigation', () => {
     const malicious = { ...post('" onclick="bad', Date.now() - 1), title: '<img src=x onerror=bad>', channelId: '<script>bad</script>' };
     const html = renderHomeHorizon([malicious], false, false);
-    expect(html).toContain('&lt;img src=x onerror=bad&gt;');
-    expect(html).toContain('&lt;script&gt;bad&lt;/script&gt;');
-    expect(html).toContain('data-post-id="&quot; onclick=&quot;bad"');
+    expect(html).not.toContain('onerror');
+    expect(html).not.toContain('onclick');
+    expect(html).not.toContain('data-post-id');
     expect(html).not.toContain('<script>');
   });
 
-  it('distinguishes local, connected and demo states without fabricated activity', () => {
+  it('provides working destinations without fabricated activity or a duplicate feed', () => {
     const html = renderHomeHorizon([], false, false);
-    expect(html).toContain('Local workspace');
-    expect(html).toContain('Join a community or share the first idea.');
+    expect(html).toContain('href="/communities"');
+    expect(html).toContain('data-mode="vault"');
     expect(html).not.toContain('orbit-signal"');
-    expect(renderHomeHorizon([], true, false)).toContain('Relay connected');
-    expect(renderHomeHorizon([], true, true)).toContain('Demo content');
+    expect(renderHomeHorizon([], true, false)).not.toContain('E2EE');
+    expect(renderHomeHorizon([], true, true)).not.toContain('members');
   });
 });

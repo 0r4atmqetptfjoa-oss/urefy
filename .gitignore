@@ -52,3 +52,9 @@ artifacts/
 # OS Artifacts
 .DS_Store
 Thumbs.db
+.wrangler-product-qa/
+.wrangler-seo-qa/
+**/test-results-*/
+.playwright-mcp/
+__pycache__/
+*.pyc

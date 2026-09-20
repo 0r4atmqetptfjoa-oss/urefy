@@ -40,7 +40,7 @@ describe('D1 Edge Functions Hardening — Batch Atomicity & Error Transparency',
       expect(batchArgs.length).toBe(2); // updateStmt and ballotStmt
     });
 
-    it('executes anonymous-vote in a single atomic db.batch call and handles failure', async () => {
+    it('refuses production anonymous ballots before touching D1 when no proof verifier is connected', async () => {
       const mockBatch = vi.fn().mockResolvedValue([{ success: false }, { success: false }]);
       const mockPrepare = vi.fn((sql: string) => ({
         bind: vi.fn((...args: any[]) => ({
@@ -70,11 +70,11 @@ describe('D1 Edge Functions Hardening — Batch Atomicity & Error Transparency',
         env: { DB: mockDb as any, ENVIRONMENT: 'production' } as any,
       });
 
-      // When batch fails in production, returns HTTP 500
-      expect(res.status).toBe(500);
+      expect(res.status).toBe(503);
       const json = await res.json();
       expect(json.success).toBe(false);
-      expect(json.error).toContain('atomic ballot transaction failed');
+      expect(json.error).toContain('proof verifier');
+      expect(mockBatch).not.toHaveBeenCalled();
     });
   });
 

@@ -54,7 +54,7 @@ export class RelaysManager {
       channels: [
         { id: 'relays-general', name: 'general', type: 'text', isEncrypted: true },
         { id: 'relays-dev', name: 'dev-core', type: 'text', isEncrypted: true },
-        { id: 'relays-voice-general', name: 'voice-radar', type: 'voice', isEncrypted: true },
+        { id: 'relays-community', name: 'community', type: 'text', isEncrypted: true },
       ],
       members: ['genesis-core', 'c3dc28cb705e', 'a89104fa2211'],
       createdAt: 1700000000000,
@@ -76,6 +76,22 @@ export class RelaysManager {
       if (!this.relays.some(r => r.id === 'relay-global-nexus')) {
         this.relays.unshift(defaultRelay);
       }
+    }
+
+    // Migrate any legacy voice-radar channels in local storage to standard text community channel
+    let didMigrate = false;
+    for (const relay of this.relays) {
+      for (const ch of relay.channels) {
+        if (ch.id === 'voice-radar' || ch.name === 'voice-radar') {
+          ch.id = 'relays-community';
+          ch.name = 'community';
+          ch.type = 'text';
+          didMigrate = true;
+        }
+      }
+    }
+    if (didMigrate) {
+      this._saveRelays();
     }
   }
 
@@ -369,56 +385,93 @@ export class RelaysManager {
   // UI RENDERERS
   // ─────────────────────────────────────────────────────────
 
-  /** Vertical Rail on the Left Side of Relays Chat */
+  /** Unified Navigation Pane on the Left Side of Relays Chat */
   public renderRelayServerRail(): string {
+    const activeRelay = this.getActiveRelay();
+    const windowClientStore = typeof window !== 'undefined' ? (window as any).clientStore : null;
+    const activeChId = windowClientStore?.activeChannelId || activeRelay.channels[0]?.id || 'relays-general';
+
     return `
-      <div class="w-14 bg-surface-base border-r border-white/5 flex flex-col items-center py-3 space-y-2 shrink-0 select-none">
-        ${this.relays.map(r => {
-          const isActive = r.id === this.activeRelayId;
-          return `
-            <div class="relative group">
-              <!-- Active indicator bar -->
-              <span class="absolute -left-3 top-1/2 -translate-y-1/2 w-1.5 rounded-r transition-all ${
-                isActive ? 'h-8 bg-indigo-400' : 'h-2 bg-transparent group-hover:h-4 group-hover:bg-white/40'
-              }"></span>
-              <button
-                type="button"
-                data-select-relay="${r.id}"
-                class="btn-select-relay w-10 h-10 rounded-2xl flex items-center justify-center text-lg transition-all duration-200 cursor-pointer ${
-                  isActive
-                    ? 'bg-gradient-to-tr from-indigo-600 to-cyan-500 text-white rounded-xl shadow-lg shadow-indigo-500/20'
-                    : 'bg-surface-raised hover:bg-indigo-600/30 hover:rounded-xl text-slate-300 hover:text-white border border-white/5'
-                }"
-                title="${this._escapeHtml(r.name)}"
-              >
-                <span>${r.icon}</span>
-              </button>
-            </div>
-          `;
-        }).join('')}
+      <aside class="hidden md:flex w-72 border-subtle-r bg-surface-base/80 flex-col shrink-0 overflow-hidden select-none">
+        <!-- Top header: Communities + Actions -->
+        <div class="p-3 border-b border-white/5 flex items-center justify-between">
+          <div class="flex items-center space-x-2">
+            <span class="text-sm">📻</span>
+            <h2 class="text-xs font-bold text-slate-300">Community Spaces</h2>
+          </div>
+          <div class="flex items-center space-x-1">
+            <button
+              type="button"
+              id="btn-open-create-relay"
+              class="px-2 py-1 bg-surface-raised hover:bg-surface-elevated text-slate-300 hover:text-white rounded-lg text-xs font-semibold flex items-center space-x-1 border border-white/10 transition-all cursor-pointer"
+              title="Create a community chat"
+            >
+              <span>+</span>
+              <span class="hidden sm:inline">New</span>
+            </button>
+            <button
+              type="button"
+              id="btn-open-join-relay"
+              class="px-2 py-1 bg-surface-raised hover:bg-surface-elevated text-slate-300 hover:text-white rounded-lg text-xs font-semibold flex items-center space-x-1 border border-white/10 transition-all cursor-pointer"
+              title="Join with an invite"
+            >
+              <span>📥</span>
+            </button>
+          </div>
+        </div>
 
-        <div class="w-6 h-px bg-white/10 my-1"></div>
+        <!-- Communities and Channels List -->
+        <div class="flex-1 overflow-y-auto p-2 space-y-2">
+          ${this.relays.map(r => {
+            const isActive = r.id === this.activeRelayId;
+            return `
+              <div class="space-y-1">
+                <!-- Community Header Button -->
+                <button
+                  type="button"
+                  data-select-relay="${r.id}"
+                  class="btn-select-relay w-full text-left p-2.5 rounded-xl transition-all cursor-pointer flex items-center space-x-2.5 border ${
+                    isActive
+                      ? 'bg-surface-raised border-[var(--color-accent,#e59b3c)]/40 shadow-xs'
+                      : 'bg-transparent hover:bg-surface-raised/40 border-transparent text-slate-300 hover:text-white'
+                  }"
+                  title="${this._escapeHtml(r.name)}"
+                >
+                  <span class="text-lg shrink-0">${r.icon}</span>
+                  <div class="flex-1 min-w-0">
+                    <div class="text-xs font-bold truncate ${isActive ? 'text-white' : 'text-slate-300'}">${this._escapeHtml(r.name)}</div>
+                    <div class="text-[10px] text-slate-500 truncate">${r.channels.length} channels</div>
+                  </div>
+                  ${isActive ? `<span class="w-1.5 h-1.5 rounded-full bg-[var(--color-accent,#e59b3c)] shrink-0"></span>` : ''}
+                </button>
 
-        <!-- Create Relay Button -->
-        <button
-          type="button"
-          id="btn-open-create-relay"
-          class="w-10 h-10 rounded-full bg-surface-raised hover:bg-emerald-500/20 hover:text-emerald-400 hover:rounded-xl text-slate-400 border border-white/5 hover:border-emerald-500/30 flex items-center justify-center text-lg transition-all cursor-pointer group"
-          title="Create a community chat"
-        >
-          <span>➕</span>
-        </button>
-
-        <!-- Join Relay Button -->
-        <button
-          type="button"
-          id="btn-open-join-relay"
-          class="w-10 h-10 rounded-full bg-surface-raised hover:bg-cyan-500/20 hover:text-cyan-400 hover:rounded-xl text-slate-400 border border-white/5 hover:border-cyan-500/30 flex items-center justify-center text-lg transition-all cursor-pointer group"
-          title="Join with an invite"
-        >
-          <span>📥</span>
-        </button>
-      </div>
+                <!-- Channels under active community -->
+                ${isActive ? `
+                  <div class="pl-4 pr-1 space-y-0.5 border-l border-white/5 ml-4">
+                    ${r.channels.map(ch => {
+                      const isChActive = activeChId === ch.id;
+                      return `
+                        <button
+                          type="button"
+                          data-channel-id="${ch.id}"
+                          class="btn-channel w-full text-left px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-between transition-all cursor-pointer ${
+                            isChActive
+                              ? 'bg-[var(--color-accent,#e59b3c)]/15 text-[var(--color-accent,#e59b3c)] font-semibold border border-[var(--color-accent,#e59b3c)]/30'
+                              : 'text-slate-400 hover:text-slate-200 hover:bg-surface-raised/50'
+                          }"
+                        >
+                          <span class="truncate"># ${this._escapeHtml(ch.name)}</span>
+                          <span class="text-[10px] text-slate-500">${ch.type === 'voice' ? '🎙️' : ''}</span>
+                        </button>
+                      `;
+                    }).join('')}
+                  </div>
+                ` : ''}
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </aside>
     `;
   }
 
@@ -441,7 +494,7 @@ export class RelaysManager {
           <div>
             <div class="flex items-center space-x-2">
               <h2 class="text-sm font-bold text-white tracking-tight">${this._escapeHtml(displayName)}</h2>
-              <span class="text-[10px] px-1.5 py-0.2 rounded bg-indigo-950 text-indigo-300 border border-indigo-500/30">Private</span>
+              <span class="text-[10px] px-1.5 py-0.2 rounded bg-surface-raised text-slate-300 border border-white/10">Private</span>
             </div>
             <div class="text-[11px] text-slate-400 font-mono flex items-center space-x-1.5">
               <span># ${activeChannelName}</span>
@@ -452,13 +505,13 @@ export class RelaysManager {
         </div>
 
         <div class="flex items-center space-x-2">
-          <!-- ZK Delivery & Cryptographic Transparency Badge -->
+          <!-- Privacy Info Badge -->
           <button
             type="button" data-action="call-global" data-raw-click="if(window.__aetherisTransparency) window.__aetherisTransparency.open('pipeline');"
-            class="px-2.5 py-1.5 rounded-xl bg-cyan-950/40 hover:bg-cyan-900/40 border border-cyan-500/30 text-cyan-300 text-xs font-mono font-semibold flex items-center space-x-1.5 transition-all cursor-pointer"
+            class="px-2.5 py-1.5 rounded-xl bg-surface-raised hover:bg-surface-elevated border border-white/10 text-slate-300 text-xs font-medium flex items-center space-x-1.5 transition-all cursor-pointer"
             title="How message privacy works"
           >
-            <span>🛡️🛡️</span>
+            <span>🛡️</span>
             <span class="hidden lg:inline">Privacy</span>
           </button>
 
@@ -466,7 +519,7 @@ export class RelaysManager {
           <button
             type="button"
             data-open-relay-invite="${relay.id}"
-            class="px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-indigo-600/80 to-indigo-500/80 hover:from-indigo-600 hover:to-indigo-500 text-white text-xs font-semibold flex items-center space-x-1.5 shadow-sm transition-all cursor-pointer active:scale-95"
+            class="px-3 py-1.5 rounded-xl bg-[var(--color-accent,#e59b3c)] hover:brightness-105 text-slate-950 text-xs font-bold flex items-center space-x-1.5 shadow-sm transition-all cursor-pointer active:scale-95"
             title="Invite people"
           >
             <span>🔗</span>
@@ -572,7 +625,7 @@ export class RelaysManager {
               </button>
               <button
                 type="submit"
-                class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-cyan-500 hover:from-indigo-500 hover:to-cyan-400 text-white text-xs font-bold shadow-lg shadow-indigo-600/30 transition-all cursor-pointer active:scale-95"
+                class="px-5 py-2.5 rounded-xl bg-[var(--color-accent,#e59b3c)] hover:brightness-105 text-slate-950 text-xs font-bold shadow-sm transition-all cursor-pointer active:scale-95"
               >
                 Create community
               </button>
@@ -596,7 +649,7 @@ export class RelaysManager {
           
           <div class="flex items-center justify-between border-b border-white/10 pb-4">
             <div class="flex items-center space-x-2.5">
-              <div class="w-9 h-9 rounded-2xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-lg">${relay.icon}</div>
+              <div class="w-9 h-9 rounded-2xl bg-surface-raised border border-white/10 flex items-center justify-center text-lg">${relay.icon}</div>
               <div>
                 <h3 class="text-base font-bold text-white tracking-tight">Invite Friends to ${this._escapeHtml(relay.name)}</h3>
                 <p class="text-xs text-slate-400">Share this invitation with people you trust</p>
@@ -614,12 +667,12 @@ export class RelaysManager {
                 id="relay-invite-url-input"
                 readonly
                 value="${link}"
-                class="flex-1 bg-transparent text-xs text-indigo-300 font-mono focus:outline-none select-all"
+                class="flex-1 bg-transparent text-xs text-[var(--color-accent,#e59b3c)] font-mono focus:outline-none select-all"
               />
               <button
                 type="button"
                 id="btn-copy-relay-invite"
-                class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shrink-0 transition-all cursor-pointer active:scale-95 flex items-center space-x-1"
+                class="px-3 py-1.5 rounded-lg bg-[var(--color-accent,#e59b3c)] hover:brightness-105 text-slate-950 text-xs font-bold shrink-0 transition-all cursor-pointer active:scale-95 flex items-center space-x-1"
               >
                 <span>📋</span>
                 <span id="copy-btn-text">Copy</span>
@@ -635,7 +688,7 @@ export class RelaysManager {
             </div>
             <div class="text-right">
               <div class="text-[10px] text-slate-500 uppercase tracking-wider">Privacy</div>
-              <div class="text-xs text-cyan-300 mt-0.5">Protected conversation</div>
+              <div class="text-xs text-slate-300 mt-0.5">Protected conversation</div>
             </div>
           </div>
 
@@ -667,7 +720,7 @@ export class RelaysManager {
           
           <div class="flex items-center justify-between border-b border-white/10 pb-4">
             <div class="flex items-center space-x-2.5">
-              <div class="w-9 h-9 rounded-2xl bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center text-lg">📥</div>
+              <div class="w-9 h-9 rounded-2xl bg-surface-raised border border-white/10 flex items-center justify-center text-lg">📥</div>
               <div>
                 <h3 class="text-base font-bold text-white tracking-tight">Join a community chat</h3>
                 <p class="text-xs text-slate-400">Enter an invite link or code</p>
@@ -684,7 +737,7 @@ export class RelaysManager {
                 id="join-relay-input"
                 placeholder="Paste an invite link or code"
                 required
-                class="w-full bg-surface-raised border border-white/15 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 transition-all font-mono"
+                class="w-full bg-surface-raised border border-white/15 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-[var(--color-accent,#e59b3c)] transition-all font-mono"
               />
             </div>
 
@@ -700,7 +753,7 @@ export class RelaysManager {
               </button>
               <button
                 type="submit"
-                class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white text-xs font-bold shadow-lg shadow-cyan-600/30 transition-all cursor-pointer active:scale-95"
+                class="px-5 py-2.5 rounded-xl bg-[var(--color-accent,#e59b3c)] hover:brightness-105 text-slate-950 text-xs font-bold shadow-sm transition-all cursor-pointer active:scale-95"
               >
                 🔑 Join Enclave
               </button>

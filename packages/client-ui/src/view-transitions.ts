@@ -497,11 +497,11 @@ export class ViewTransitionManager {
   --vt-easing: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-/* ── Base Default View Transition ────────────────────────────────────────── */
-::view-transition-old(root) {
+/* ── Base Default View Transition (only when a transition class is explicitly active) ────────────────── */
+html[class*="transition-"]::view-transition-old(root) {
   animation: var(--vt-duration) var(--vt-easing) both aether-fade-out;
 }
-::view-transition-new(root) {
+html[class*="transition-"]::view-transition-new(root) {
   animation: var(--vt-duration) var(--vt-easing) both aether-fade-in;
 }
 

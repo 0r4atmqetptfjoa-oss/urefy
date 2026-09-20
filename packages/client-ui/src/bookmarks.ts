@@ -1,6 +1,7 @@
 import { serviceRegistry, SERVICES } from './service-registry.js';
 import { isDemoModeEnabled } from './demo-mode.js';
-import { isLocalDev } from './admin-auth.js';
+import { isLocalDev } from './env-check.js';
+import { canonicalVault } from './canonical-vault.js';
 
 /**
  * Interface representing an individual encrypted bookmark entry stored in local vault.
@@ -162,6 +163,14 @@ export class BookmarksVault {
     tags?: string[],
     note?: string
   ): void {
+    void canonicalVault.savePost({
+      id: post.id,
+      title: post.title,
+      content: note || '',
+      authorFingerprint: post.authorFingerprint,
+      channelId: post.channelId,
+    });
+
     const existingIndex = this.bookmarks.findIndex(b => b.postId === post.id || b.id === post.id);
     const cleanedTags = tags && tags.length > 0
       ? Array.from(new Set(tags.map(t => t.trim().toLowerCase()).filter(t => t.length > 0)))
@@ -195,9 +204,6 @@ export class BookmarksVault {
     }
 
     this.persist();
-    if (typeof window !== 'undefined' && (window as any).toastManager) {
-      (window as any).toastManager.success('Post saved to bookmarks', '🔖');
-    }
   }
 
   /**
@@ -206,13 +212,11 @@ export class BookmarksVault {
    * @param postId - ID of the post or bookmark to remove
    */
   public unsave(postId: string): void {
+    void canonicalVault.unsavePost(postId);
     const initialLen = this.bookmarks.length;
     this.bookmarks = this.bookmarks.filter(b => b.postId !== postId && b.id !== postId);
     if (this.bookmarks.length !== initialLen) {
       this.persist();
-      if (typeof window !== 'undefined' && (window as any).toastManager) {
-        (window as any).toastManager.info('Bookmark removed', '🗑️');
-      }
     }
   }
 
@@ -222,6 +226,7 @@ export class BookmarksVault {
    * @param postId - ID of the post to check
    */
   public isSaved(postId: string): boolean {
+    if (canonicalVault.isSaved(postId)) return true;
     return this.bookmarks.some(b => b.postId === postId || b.id === postId);
   }
 

@@ -23,7 +23,7 @@ export function createWebSocketUpgradeResponse(clientWs: any): Response {
   }
 }
 
-declare class WebSocketPair {
+interface WebSocketPair {
   0: WebSocket;
   1: WebSocket;
   [Symbol.iterator](): IterableIterator<WebSocket>;

@@ -1,112 +1,95 @@
-﻿# Ghid de Inițializare și Configurare Cloudflare (Producție)
+# UREfy — deploy Cloudflare
 
-Acest document conține pașii exacți pentru crearea resurselor Cloudflare și legarea lor la proiectele **Pages** (client-ui) și **Workers** (server-edge).
+## Proiectul existent
 
----
+- Domeniu: **https://urefy.com**
+- Pages: `aetheris-omni-sphere`, ramura de producție `main`
+- Configurație: `packages/client-ui/wrangler.toml`
+- D1: `aetheris-db`, binding `DB`
+- R2: `aetheris-vault` / `VAULT_BUCKET`, `aetheris-storage` / `STORAGE_BUCKET`
+- KV: binding `KV`
+- Relay Worker: `aetheris-edge-relay`, binding `RELAY_DO`
 
-## 1. Autentificare în Cloudflare CLI
+Nu este necesară crearea unor resurse noi pentru un deploy obișnuit.
 
-`ash
-npx wrangler login
-npx wrangler whoami
-`
+## Autentificare
 
----
+Folosește `CLOUDFLARE_API_TOKEN` în mediul procesului sau un fișier local de secrete exclus din Git. Tokenul nu aparține aplicației client și nu se pune în variabile `VITE_*`.
 
-## 2. Crearea Bazei de Date D1 (SQLite Edge)
+Verificare fără afișarea valorilor secretelor, din rădăcina repository-ului:
 
-`ash
-# Crează baza de date în rețeaua globală Cloudflare
-npx wrangler d1 create aetheris-global-d1
-`
-
-> **Notă**: Comanda va returna un database_id (un UUID de tipul xxxx-xxxx-xxxx).
-> Copiază acest ID în packages/client-ui/wrangler.toml și packages/server-edge/wrangler.toml la câmpul database_id.
-
-### Aplicarea Schemei Inițiale de Tabele (Migrații)
-
-`ash
-# Execută migrația 0001_initial_schema.sql pe instanța de producție
-npx wrangler d1 migrations apply aetheris-global-d1 --remote --cwd packages/client-ui
-`
-
----
-
-## 3. Crearea Namespace-ului KV (Cache Rapid)
-
-`ash
-# Crează namespace-ul KV
-npx wrangler kv:namespace create aetheris-cache-kv
-`
-
-> Copiază ID-ul returnat în packages/client-ui/wrangler.toml la [[kv_namespaces]] id.
-
----
-
-## 4. Crearea Bucket-ului R2 (Stocare Fisiere & Backup D1)
-
-`ash
-# Crează bucket-ul R2 dedicat fișierelor din seif și snapshot-urilor automate
-npx wrangler r2 bucket create aetheris-vault-storage
-`
-
----
-
-## 5. Setarea Secretelor Criptografice (Nu se pun în cod!)
-
-### A. Secretul Admin PIN (obligatoriu în producție)
-`ash
-# Setează PIN-ul administrativ (minim 5 cifre / caractere complexe)
-npx wrangler secret put ADMIN_PIN --cwd packages/client-ui
-`
-
-### B. Cheia Privată a Nodului Ed25519 (pentru federație și semnături)
-`ash
-# Setează cheia privată Ed25519 a nodului
-npx wrangler secret put NODE_PRIVATE_KEY --cwd packages/client-ui
-`
-
-Pentru interoperabilitate cu servere Fediverse care folosesc RSA-SHA256, configurează
-ambele chei PEM ale aceluiași keypair RSA de minimum 2048 biți. Cheia privată trebuie
-să fie PKCS#8 (`BEGIN PRIVATE KEY`), nu PKCS#1. Nu configura doar una dintre ele.
-
-```bash
-npx wrangler secret put FEDERATION_RSA_PRIVATE_KEY_PEM --cwd packages/client-ui
-npx wrangler secret put FEDERATION_RSA_PUBLIC_KEY_PEM --cwd packages/client-ui
+```powershell
+node --env-file=.env scripts/inspect-cloudflare-release.mjs
 ```
 
-Dacă perechea RSA este configurată, actorul ActivityPub o publică și o folosește
-pentru livrările draft-cavage. `NODE_PRIVATE_KEY` rămâne cheia Ed25519 pentru
-protocoalele native UREfy.
+## Verificări și build
 
-### C. Cheile VAPID pentru Web Push
-`ash
-npx wrangler secret put VAPID_PRIVATE_KEY --cwd packages/client-ui
-npx wrangler secret put VAPID_PUBLIC_KEY --cwd packages/client-ui
-`
-
----
-
-## 6. Deploy Pages & Deploy Workers
-
-### Deploy Proiect Pages (@aetheris/client-ui)
-`ash
-cd packages/client-ui
+```powershell
+npm test
+npm run lint
 npm run build
-npx wrangler pages deploy dist --project-name aetheris-omni-sphere
-`
+npm run audit:bundle
+```
 
-### Deploy Worker Signaling Relay & Backup Cron (@aetheris/server-edge)
-`ash
-cd packages/server-edge
+`lint` este aliasul proiectului pentru verificarea TypeScript. Bugetul de pornire rămâne 600 KiB JavaScript gzip.
+
+## Migrații
+
+Din directorul `packages/client-ui`, cu tokenul prezent în mediu:
+
+```powershell
+npx wrangler d1 migrations list aetheris-db --remote
+npx wrangler d1 time-travel info aetheris-db
+npx wrangler d1 migrations apply aetheris-db --remote
+```
+
+Inspectează lista înainte de aplicare. Nu executa schema inițială sau scripturile de seed peste producție.
+
+Migrațiile `0012_storage_allocations.sql` și `0013_social_safety_tables.sql` au fost aplicate la publicarea din 19 septembrie 2026. Prima introduce evidența cotelor; a doua completează tabelele de siguranță lipsă în instalările vechi. API-ul notificărilor suportă ambele scheme existente de coloane.
+
+## Publicare Pages
+
+Din `packages/client-ui`:
+
+```powershell
+npx wrangler pages deploy dist --project-name=aetheris-omni-sphere --branch=main --commit-dirty=true
+```
+
+Folosește `--commit-dirty=true` doar când publici intenționat un checkout cu schimbări necomise. Comanda nu creează commituri Git. Fișierul Wrangler este sursa configurației pentru bindings și variabilele nesensibile; verifică după deploy că secretele existente au rămas configurate.
+
+## Limite de stocare
+
+Configurate în `wrangler.toml` și verificate pe server:
+
+| Variabilă | Valoare implicită publicată |
+| --- | --- |
+| `MAX_UPLOAD_BYTES` | 26,214,400 — 25 MiB/fișier |
+| `MAX_ACCOUNT_STORAGE_BYTES` | 104,857,600 — 100 MiB/cont |
+| `MAX_STORAGE_CAP_BYTES` | 8,589,934,592 — 8 GiB/platformă |
+
+Alocările în curs contează în cotă. O încărcare cu rezultat incert păstrează alocarea până când ștergerea/reconcilierea confirmă că obiectul nu mai există. Inventarul istoric R2 trebuie reconciliat înainte de a considera consumul istoric pe cont complet.
+
+## Verificări după deploy
+
+- Confirmă domeniul și ID-ul deployment-ului prin scriptul de inspecție.
+- Verifică HTML-ul, activele JS/CSS, manifestul și `/api/health`.
+- Verifică `/api/posts` și `/api/communities`.
+- Citirile private fără semnătură trebuie refuzate; citirile semnate de notificări și stocare trebuie să reușească.
+- `wrangler d1 migrations list ... --remote` trebuie să arate lista așteptată.
+- Verifică păstrarea binding-urilor și a secretelor, fără afișarea valorilor acestora.
+
+## Preview local complet
+
+Din rădăcina repository-ului:
+
+```powershell
 npm run build
-npx wrangler deploy
-`
+npm run local:db --workspace=packages/client-ui
+npm run preview:full --workspace=packages/client-ui
+```
 
----
+Preview: `http://127.0.0.1:3011`. Folosește emulatoare locale și directorul separat `.wrangler-product-qa/`. Relay-ul Durable Object necesită și procesul worker local; absența acestuia nu este simulată ca o conexiune live.
 
-## 7. Verificare Post-Deploy
+## Raportul publicării
 
-1. Accesează https://aetheris.pages.dev/api/health -> Răspuns: {"status":"healthy","d1Enabled":true,"kvEnabled":true}
-2. Accesează panoul admin: https://aetheris.pages.dev/admin.html -> Tastează PIN-ul secret definit la Pasul 5.
-3. Testează backup-ul automat manual: POST /api/cron-backup cu header X-Admin-PIN sau verifică rularea la 03:00 UTC.
+Vezi [raportul de hardening și deploy](docs/PRODUCT_HARDENING_2026-09-19.md) pentru ID-urile deployment-urilor, rezultatele exacte, migrații și dependențele încă neimplementate.

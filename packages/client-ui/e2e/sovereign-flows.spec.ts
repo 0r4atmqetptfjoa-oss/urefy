@@ -59,6 +59,7 @@ test.describe('Aetheris Sovereign Omni-Sphere: End-to-End User Journeys', () => 
 
   test('3. Responsive Mobile Tab Bar provides zero-jargon navigation landmarks', async ({ page, isMobile }) => {
     if (isMobile) {
+      await page.locator('#btn-skip-onboarding').click();
       const mobileNav = page.locator('#native-mobile-tab-bar');
       await expect(mobileNav).toBeVisible();
 
@@ -70,7 +71,7 @@ test.describe('Aetheris Sovereign Omni-Sphere: End-to-End User Journeys', () => 
 
       // Click Vault tab
       await page.locator('#btn-mobile-tab-vault').click();
-      await expect(page.locator('#vault-container, [data-view="vault"], text=Knowledge Vault')).toBeVisible();
+      await expect(page.locator('#memory-title')).toBeVisible();
     }
   });
 

@@ -9,7 +9,7 @@
 import './window-augmentation.js';
 import { serviceRegistry, SERVICES } from './service-registry.js';
 import { toastManager } from './toast.js';
-import { isLocalDev } from './admin-auth.js';
+import { isLocalDev } from './env-check.js';
 import { isDemoModeEnabled } from './demo-mode.js';
 import { t } from './i18n.js';
 
@@ -1422,10 +1422,7 @@ export class WebRTCFileTransfer {
 
     // Pre-flight check: If file exceeds 25 MB sovereign safe ceiling, bypass R2 to preserve free tier
     if (file.size > 25 * 1024 * 1024) {
-      const sizeMB = (file.size / 1048576).toFixed(1);
-      const limitMsg = `File (${sizeMB}MB) exceeds 25MB sovereign safe ceiling to preserve Cloudflare R2 free tier. Automatically transferring via zero-cost P2P WebRTC Direct Swarm.`;
-      showTransferNotification(limitMsg, 'warning');
-      return this.sendBinaryDirectWebRTC(file, onProgress);
+      throw new Error('This file exceeds the 25 MiB cloud upload limit. Choose a smaller file.');
     }
 
     const transferId = `r2-tx-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`;
@@ -1492,9 +1489,13 @@ export class WebRTCFileTransfer {
       formData.append('sha256', fullSha256);
       formData.append('key', `vault/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`);
 
-      const uploadResult = await new Promise<{ success: boolean; r2Key: string; sha256: string; storage: string; fileName: string; byteSize: number }>((resolve) => {
+      const { clientStore } = await import('./client-state.js');
+      const uploadEnvelope = clientStore.createSignedEnvelope({ action: 'storage:upload', sha256: fullSha256, fileName: file.name });
+      const uploadResult = await new Promise<{ success: boolean; r2Key: string; sha256: string; storage: string; fileName: string; byteSize: number }>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         xhr.open('POST', '/api/storage', true);
+        xhr.timeout = 120000;
+        xhr.setRequestHeader('X-Sovereign-Envelope', JSON.stringify(uploadEnvelope));
         xhr.setRequestHeader('X-File-SHA256', fullSha256);
         xhr.setRequestHeader('X-File-Name', encodeURIComponent(file.name));
 
@@ -1529,101 +1530,18 @@ export class WebRTCFileTransfer {
           }
         };
 
-        const handleQuotaGuardFailover = () => {
-          const quotaMsg = 'R2 free-tier quota shield active. Seamless failover to zero-cost P2P WebRTC Direct Swarm.';
-          showTransferNotification(quotaMsg, 'warning');
-          console.warn(`[R2 Quota Guard] ${quotaMsg} (Status: ${xhr.status})`);
-
-          // Seamlessly switch transfer to P2P WebRTC direct transfer mode
-          transfer.peerFP = 'P2P-WebRTC-Direct-Swarm';
-          const telem = this.transferTelemetry.get(transferId);
-          if (telem) {
-            telem.protocol = 'WebRTC-DataChannel-DTLS-SRTP (Swarm Failover)';
-          }
-          this.notifyListeners(transfer);
-
-          this.createTransferSession(file, 'P2P-WebRTC-Direct-Swarm')
-            .catch((err) => console.warn('[P2P Swarm Failover Warning]', err))
-            .finally(() => {
-              resolve({
-                success: true,
-                r2Key: `p2p-swarm/${encodeURIComponent(file.name)}`,
-                sha256: fullSha256,
-                storage: 'P2P-WebRTC-Direct-Swarm',
-                fileName: file.name,
-                byteSize: file.size,
-              });
-            });
-        };
-
         xhr.onload = () => {
-          const isQuotaGuard =
-            xhr.status === 413 ||
-            xhr.status === 429 ||
-            xhr.status === 507 ||
-            (typeof xhr.responseText === 'string' && xhr.responseText.includes('SOVEREIGN_R2_QUOTA_GUARD'));
-
-          if (isQuotaGuard) {
-            handleQuotaGuardFailover();
-            return;
-          }
-
-          if (xhr.status >= 200 && xhr.status < 300) {
-            try {
-              const resData = JSON.parse(xhr.responseText);
-              resolve({
-                success: true,
-                r2Key: resData.r2Key || resData.key || `vault/${file.name}`,
-                sha256: resData.sha256 || fullSha256,
-                storage: resData.storage || 'Cloudflare-R2',
-                fileName: file.name,
-                byteSize: file.size,
-              });
-            } catch {
-              resolve({
-                success: true,
-                r2Key: `vault/${file.name}`,
-                sha256: fullSha256,
-                storage: 'Cloudflare-R2',
-                fileName: file.name,
-                byteSize: file.size,
-              });
-            }
-          } else {
-            console.warn('[R2 Upload Warning] Fallback response from /api/storage:', xhr.status);
-            resolve({
-              success: true,
-              r2Key: `vault/${file.name}`,
-              sha256: fullSha256,
-              storage: 'Edge-Fallback',
-              fileName: file.name,
-              byteSize: file.size,
-            });
+          try {
+            const data = JSON.parse(xhr.responseText);
+            if (xhr.status < 200 || xhr.status >= 300 || !data.success || !data.key || data.sha256 !== fullSha256) throw new Error(data.error || 'The server did not acknowledge this upload');
+            resolve({ success: true, r2Key: data.key, sha256: data.sha256, storage: data.storage, fileName: data.fileName, byteSize: data.byteSize });
+          } catch (error) {
+            reject(error instanceof Error ? error : new Error('The upload response could not be verified'));
           }
         };
-
-        xhr.onerror = () => {
-          const isQuotaGuard =
-            xhr.status === 413 ||
-            xhr.status === 429 ||
-            xhr.status === 507 ||
-            (typeof xhr.responseText === 'string' && xhr.responseText.includes('SOVEREIGN_R2_QUOTA_GUARD'));
-
-          if (isQuotaGuard) {
-            handleQuotaGuardFailover();
-            return;
-          }
-
-          console.warn('[R2 Upload Warning] Network fallback active during upload to /api/storage');
-          resolve({
-            success: true,
-            r2Key: `vault/${file.name}`,
-            sha256: fullSha256,
-            storage: 'Edge-Fallback',
-            fileName: file.name,
-            byteSize: file.size,
-          });
-        };
+        xhr.onerror = () => reject(new Error('Upload connection interrupted. Check your connection and retry.'));
+        xhr.ontimeout = () => reject(new Error('Upload timed out. Check account storage before retrying.'));
+        xhr.onabort = () => reject(new Error('Upload cancelled'));
 
         xhr.send(formData);
       });

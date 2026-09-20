@@ -1,7 +1,8 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { createProductDatabase } from './helpers/product-database.js';
 import {
   onRequestGet,
-  onRequestPost,
+  onRequestPost as uploadHandler,
   onRequestOptions,
   onRequestHead,
   onRequestDelete,
@@ -23,6 +24,8 @@ import {
   clearListingCache,
 } from '../functions/api/storage.js';
 import { R2Bucket, R2Object, R2ObjectBody } from '../functions/api/_db.js';
+let accounting: ReturnType<typeof createProductDatabase>;
+const onRequestPost = (context: Parameters<typeof uploadHandler>[0]) => uploadHandler({ ...context, env: { DB: accounting.database, ...context.env } });
 
 // ─── MOCK CLOUDFLARE R2 BUCKET IMPLEMENTATION ────────────────────────────────
 
@@ -159,7 +162,9 @@ function createMockR2Bucket(): R2Bucket {
 describe('Cloudflare Pages Functions - R2 & Edge Vault Storage Architecture (storage.ts)', () => {
   beforeEach(() => {
     resetEdgeStorage();
+    accounting = createProductDatabase();
   });
+  afterEach(() => accounting.sqlite.close());
 
   // ─── 1. CORS PREFLIGHT & HEADERS ───────────────────────────────────────────
   describe('1. Complete CORS Preflight & Security Headers (onRequestOptions)', () => {
@@ -671,7 +676,7 @@ describe('Cloudflare Pages Functions - R2 & Edge Vault Storage Architecture (sto
       expect(res.status).toBe(413);
       const json = await res.json();
       expect(json.success).toBe(false);
-      expect(json.error).toContain('25MB');
+      expect(json.error).toContain('26214400');
     });
 
     it('should reject upload with HTTP 507 when sovereign storage safety cap (8.0 GB) is exceeded', async () => {
@@ -821,6 +826,7 @@ describe('Cloudflare Pages Functions - R2 & Edge Vault Storage Architecture (sto
         headers: {
           'Content-Type': 'application/octet-stream',
           'X-Key': 'vault/duplicate-binary.bin',
+          'X-Author': 'originator',
           'X-Admin-PIN': '11223',
         },
         body: originalPayload,

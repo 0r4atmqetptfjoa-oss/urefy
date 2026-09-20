@@ -21,11 +21,11 @@ export const PROFILE_TABS: ProfileTabItem[] = [
   { id: 'communities', label: 'Communities', iconName: 'shield' },
 ];
 
-export function renderProfileTabsHTML(activeTab: ProfileTab, isOwnProfile: boolean): string {
+export function renderProfileTabsHTML(activeTab: ProfileTab, _isOwnProfile?: boolean): string {
   const tabsToShow = PROFILE_TABS;
 
   return `
-    <div class="flex items-center space-x-2 border-b border-white/10 pb-2 overflow-x-auto scrollbar-none">
+    <div class="flex items-center space-x-2 border-b border-white/10 pb-2 overflow-x-auto scrollbar-none no-scrollbar">
       ${tabsToShow.map(tab => {
         const isActive = activeTab === tab.id;
         return `
@@ -37,7 +37,7 @@ export function renderProfileTabsHTML(activeTab: ProfileTab, isOwnProfile: boole
             data-profile-tab="${tab.id}"
             class="btn-profile-tab px-4 py-2.5 rounded-2xl text-xs font-semibold whitespace-nowrap transition-all flex items-center space-x-2 cursor-pointer border ${
               isActive
-                ? 'bg-cyan-500/20 text-cyan-200 border-cyan-400/40 shadow-sm shadow-cyan-500/10'
+                ? 'bg-[var(--color-accent,#e59b3c)]/15 text-[var(--color-accent,#e59b3c)] border-[var(--color-accent,#e59b3c)]/40 font-bold shadow-xs'
                 : 'bg-surface-raised hover:bg-surface-overlay text-slate-400 hover:text-slate-200 border-white/5'
             }"
           >

@@ -54,12 +54,15 @@ self.addEventListener('install', (e) => {
 // ─── ACTIVATE ─────────────────────────────────────────────────────────────────
 self.addEventListener('activate', (e) => {
   e.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(
-        keys.filter((k) => (k.startsWith('aetheris-') || k.startsWith('urefy-')) && ![CACHE_CORE, CACHE_ASSETS, CACHE_API, CACHE_FONTS].includes(k))
-          .map((k) => caches.delete(k))
-      )
-    ).then(() => self.clients.claim())
+    caches.keys().then((keys) => {
+      // Retain one previous immutable-asset build for tabs that are still open.
+      // API caches are not retained across releases (moderation/privacy freshness).
+      const previousCore = keys.filter(k => k.startsWith('urefy-core-') && k !== CACHE_CORE).at(-1);
+      const previousVersion = previousCore?.slice('urefy-core-'.length);
+      const keep = [CACHE_CORE, CACHE_ASSETS, CACHE_API, CACHE_FONTS,
+        ...(previousVersion ? [`urefy-assets-${previousVersion}`] : [])];
+      return Promise.all(keys.filter(k => (k.startsWith('aetheris-') || k.startsWith('urefy-')) && !keep.includes(k)).map(k => caches.delete(k)));
+    }).then(() => self.clients.claim())
   );
 });
 

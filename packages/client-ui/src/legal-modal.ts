@@ -38,6 +38,12 @@ export class LegalModal {
     return this._targetPostId;
   }
 
+  private _handleKeyDown = (e: KeyboardEvent): void => {
+    if (e.key === 'Escape') {
+      this.close();
+    }
+  };
+
   public open(tab: LegalTab = 'terms', targetId: string = ''): void {
     this._isOpen = true;
     this._activeTab = tab;
@@ -46,6 +52,9 @@ export class LegalModal {
     }
     this._reportSubmittedId = '';
     this._reportError = '';
+    if (typeof window !== 'undefined') {
+      window.addEventListener('keydown', this._handleKeyDown);
+    }
     if (typeof document !== 'undefined') {
       let container = document.getElementById('legal-modal-container');
       if (!container) {
@@ -65,6 +74,9 @@ export class LegalModal {
     this._targetPostId = '';
     this._reportSubmittedId = '';
     this._reportError = '';
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('keydown', this._handleKeyDown);
+    }
     if (typeof document !== 'undefined') {
       const container = document.getElementById('legal-modal-container');
       if (container) container.remove();
@@ -189,8 +201,8 @@ export class LegalModal {
     if (!this._isOpen) return '';
 
     return `
-      <div id="legal-modal-backdrop" class="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-md animate-fade-in select-none pointer-events-auto cursor-pointer" data-action="close-feature">
-        <div class="relative w-full max-w-3xl max-h-[92vh] sm:max-h-[85vh] flex flex-col rounded-2xl bg-surface-base border border-white/10 shadow-2xl overflow-hidden font-sans text-xs pointer-events-auto cursor-default" data-action="stop-propagation">
+      <div id="legal-modal-backdrop" class="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/80 backdrop-blur-md animate-fade-in select-none pointer-events-auto cursor-pointer" data-action="close-feature">
+        <div class="relative w-full max-w-4xl lg:max-w-5xl max-h-[92vh] sm:max-h-[85vh] flex flex-col rounded-2xl bg-surface-base border border-white/10 shadow-2xl overflow-hidden font-sans text-xs pointer-events-auto cursor-default" data-action="stop-propagation">
           
           <!-- Header -->
           <div class="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-white/10 bg-surface-raised/80">
@@ -212,12 +224,12 @@ export class LegalModal {
           </div>
 
           <!-- Navigation Tabs -->
-          <div class="flex overflow-x-auto border-b border-white/10 bg-black/40 px-3 sm:px-6 space-x-1 pt-1.5 sm:pt-2 no-scrollbar scroll-smooth" style="-webkit-overflow-scrolling: touch;">
+          <div class="flex flex-wrap md:flex-nowrap border-b border-white/10 bg-black/40 px-3 sm:px-6 gap-1 pt-1.5 sm:pt-2 overflow-x-auto md:overflow-x-visible no-scrollbar">
             <button
               type="button" data-action="set-legal-tab" data-tab="about"
               class="px-2.5 sm:px-3 py-1.5 sm:py-2 text-[11px] sm:text-xs font-semibold whitespace-nowrap transition-all border-b-2 cursor-pointer ${
                 this._activeTab === 'about'
-                  ? 'border-cyan-400 text-cyan-300 bg-white/5'
+                  ? 'border-[var(--color-accent,#e59b3c)] text-[var(--color-accent,#e59b3c)] bg-[var(--color-accent,#e59b3c)]/10'
                   : 'border-transparent text-slate-400 hover:text-slate-200'
               }"
             >
@@ -227,7 +239,7 @@ export class LegalModal {
               type="button" data-action="set-legal-tab" data-tab="terms"
               class="px-2.5 sm:px-3 py-1.5 sm:py-2 text-[11px] sm:text-xs font-semibold whitespace-nowrap transition-all border-b-2 cursor-pointer ${
                 this._activeTab === 'terms'
-                  ? 'border-cyan-400 text-cyan-300 bg-white/5'
+                  ? 'border-[var(--color-accent,#e59b3c)] text-[var(--color-accent,#e59b3c)] bg-[var(--color-accent,#e59b3c)]/10'
                   : 'border-transparent text-slate-400 hover:text-slate-200'
               }"
             >
@@ -237,7 +249,7 @@ export class LegalModal {
               type="button" data-action="set-legal-tab" data-tab="privacy"
               class="px-2.5 sm:px-3 py-1.5 sm:py-2 text-[11px] sm:text-xs font-semibold whitespace-nowrap transition-all border-b-2 cursor-pointer ${
                 this._activeTab === 'privacy'
-                  ? 'border-cyan-400 text-cyan-300 bg-white/5'
+                  ? 'border-[var(--color-accent,#e59b3c)] text-[var(--color-accent,#e59b3c)] bg-[var(--color-accent,#e59b3c)]/10'
                   : 'border-transparent text-slate-400 hover:text-slate-200'
               }"
             >
@@ -247,7 +259,7 @@ export class LegalModal {
               type="button" data-action="set-legal-tab" data-tab="rules"
               class="px-2.5 sm:px-3 py-1.5 sm:py-2 text-[11px] sm:text-xs font-semibold whitespace-nowrap transition-all border-b-2 cursor-pointer ${
                 this._activeTab === 'rules'
-                  ? 'border-cyan-400 text-cyan-300 bg-white/5'
+                  ? 'border-[var(--color-accent,#e59b3c)] text-[var(--color-accent,#e59b3c)] bg-[var(--color-accent,#e59b3c)]/10'
                   : 'border-transparent text-slate-400 hover:text-slate-200'
               }"
             >
@@ -257,7 +269,7 @@ export class LegalModal {
               type="button" data-action="set-legal-tab" data-tab="dsa"
               class="px-2.5 sm:px-3 py-1.5 sm:py-2 text-[11px] sm:text-xs font-semibold whitespace-nowrap transition-all border-b-2 cursor-pointer ${
                 this._activeTab === 'dsa'
-                  ? 'border-cyan-400 text-cyan-300 bg-white/5'
+                  ? 'border-[var(--color-accent,#e59b3c)] text-[var(--color-accent,#e59b3c)] bg-[var(--color-accent,#e59b3c)]/10'
                   : 'border-transparent text-slate-400 hover:text-slate-200'
               }"
             >
@@ -269,7 +281,7 @@ export class LegalModal {
               type="button" data-action="set-legal-tab" data-tab="contact"
               class="px-2.5 sm:px-3 py-1.5 sm:py-2 text-[11px] sm:text-xs font-semibold whitespace-nowrap transition-all border-b-2 cursor-pointer ${
                 this._activeTab === 'contact'
-                  ? 'border-cyan-400 text-cyan-300 bg-white/5'
+                  ? 'border-[var(--color-accent,#e59b3c)] text-[var(--color-accent,#e59b3c)] bg-[var(--color-accent,#e59b3c)]/10'
                   : 'border-transparent text-slate-400 hover:text-slate-200'
               }"
             >
@@ -278,9 +290,9 @@ export class LegalModal {
           </div>
 
           <!-- Body Content -->
-          <div class="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 text-slate-300 text-xs leading-relaxed font-sans select-text">
+          <div class="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6 space-y-4 text-slate-300 text-xs leading-relaxed font-sans select-text break-words">
             <div class="flex items-center justify-between pb-3 border-b border-white/5">
-              <span class="text-xs font-mono text-cyan-400 uppercase tracking-wider">${this._activeTab.toUpperCase()} OVERVIEW</span>
+              <span class="text-xs font-mono text-[var(--color-accent,#e59b3c)] uppercase tracking-wider">${this._activeTab.toUpperCase()} OVERVIEW</span>
               <button
                 type="button" data-action="close-feature"
                 class="px-3 sm:px-4 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white font-medium transition-colors cursor-pointer shrink-0"
@@ -301,8 +313,8 @@ export class LegalModal {
       case 'about':
         return `
           <div class="space-y-4">
-            <div class="p-3.5 rounded-xl bg-cyan-950/30 border border-cyan-500/20 space-y-1.5">
-              <h4 class="font-bold text-sm text-cyan-300">What is UREfy?</h4>
+            <div class="p-3.5 rounded-xl bg-[var(--color-accent,#e59b3c)]/10 border border-[var(--color-accent,#e59b3c)]/20 space-y-1.5">
+              <h4 class="font-bold text-sm text-[var(--color-accent,#e59b3c)]">What is UREfy?</h4>
               <p class="text-slate-300">
                 UREfy is a social network where people can post, join communities, message privately, and own their identity. It uses decentralized identity, end-to-end encryption and privacy-preserving technology underneath.
               </p>
@@ -369,7 +381,7 @@ export class LegalModal {
             <p>Reports submitted through the notice mechanism are reviewed by compliance moderators within 24-48 hours. If content violates guidelines, it is withdrawn from the public feed and recorded in the D1 transparency ledger.</p>
 
             <h4 class="font-bold text-sm text-white">3. Right to Appeal (Art. 20 DSA)</h4>
-            <p>If you believe a moderation action (removal or restriction) was applied in error to your content, you may file an appeal to <code class="text-cyan-300">razvan@urefy.com</code> or <code class="text-cyan-300">razvan@urefy.com</code>, citing the content identifier.</p>
+            <p>If you believe a moderation action (removal or restriction) was applied in error to your content, you may file an appeal to <code class="text-[var(--color-accent,#e59b3c)]">contact@urefy.com</code>, citing the content identifier.</p>
           </div>
         `;
       case 'dsa':
@@ -381,7 +393,7 @@ export class LegalModal {
                 <span>Notice and Takedown Procedure (DSA Art. 16)</span>
               </h4>
               <p class="text-[11px] text-slate-400">
-                Under the EU Digital Services Act (DSA 2022/2065), any user or rights holder may report illegal or harmful content. Designated EU Single Point of Contact: <code class="text-cyan-300">razvan@urefy.com</code>.
+                Under the EU Digital Services Act (DSA 2022/2065), any user or rights holder may report illegal or harmful content. Designated EU Single Point of Contact: <code class="text-[var(--color-accent,#e59b3c)]">contact@urefy.com</code>.
               </p>
             </div>
 
@@ -414,7 +426,7 @@ export class LegalModal {
                     value="${this._targetPostId || ''}"
                     placeholder="E.g.: post-1 or file SHA-256 hash..."
                     required
-                    class="w-full bg-surface-raised border border-white/10 rounded-lg px-3 py-2 text-xs font-mono text-white placeholder-slate-600 focus:outline-none focus:border-cyan-400"
+                    class="w-full bg-surface-raised border border-white/10 rounded-lg px-3 py-2 text-xs font-mono text-white placeholder-slate-600 focus:outline-none focus:border-[var(--color-accent,#e59b3c)]"
                   />
                 </div>
 
@@ -422,7 +434,7 @@ export class LegalModal {
                   <label for="dsa-reason-select" class="block text-[11px] text-slate-400 mb-1">Reason for Notification (Legal Category) *</label>
                   <select
                     id="dsa-reason-select"
-                    class="w-full bg-surface-raised border border-white/10 rounded-lg px-3 py-2 text-xs font-sans text-white focus:outline-none focus:border-cyan-400"
+                    class="w-full bg-surface-raised border border-white/10 rounded-lg px-3 py-2 text-xs font-sans text-white focus:outline-none focus:border-[var(--color-accent,#e59b3c)]"
                   >
                     <option value="CSAM">1. Child Sexual Abuse Material (CSAM)</option>
                     <option value="TERRORISM">2. Terrorism / Violent Extremist Content</option>
@@ -440,7 +452,7 @@ export class LegalModal {
                     id="dsa-details"
                     rows="3"
                     placeholder="Describe the specific reasons why you consider this information to constitute illegal content..."
-                    class="w-full bg-surface-raised border border-white/10 rounded-lg px-3 py-2 text-xs font-sans text-white placeholder-slate-600 focus:outline-none focus:border-cyan-400"
+                    class="w-full bg-surface-raised border border-white/10 rounded-lg px-3 py-2 text-xs font-sans text-white placeholder-slate-600 focus:outline-none focus:border-[var(--color-accent,#e59b3c)]"
                   ></textarea>
                 </div>
 
@@ -450,7 +462,7 @@ export class LegalModal {
                     type="email"
                     id="dsa-reporter-email"
                     placeholder="name@example.com (if you wish to receive the moderation outcome)"
-                    class="w-full bg-surface-raised border border-white/10 rounded-lg px-3 py-2 text-xs font-sans text-white placeholder-slate-600 focus:outline-none focus:border-cyan-400"
+                    class="w-full bg-surface-raised border border-white/10 rounded-lg px-3 py-2 text-xs font-sans text-white placeholder-slate-600 focus:outline-none focus:border-[var(--color-accent,#e59b3c)]"
                   />
                 </div>
 
@@ -476,8 +488,8 @@ export class LegalModal {
       case 'contact':
         return `
           <div class="space-y-4">
-            <div class="p-3.5 rounded-xl bg-indigo-950/30 border border-indigo-500/20 space-y-1.5">
-              <h4 class="font-bold text-sm text-indigo-300">Single Points of Contact (SPOC)</h4>
+            <div class="p-3.5 rounded-xl bg-surface-raised border border-white/10 space-y-1.5">
+              <h4 class="font-bold text-sm text-[var(--color-accent,#e59b3c)]">Single Points of Contact (SPOC)</h4>
               <p class="text-slate-300">
                 In accordance with Article 11 (public authorities) and Article 12 (recipients of service) of Regulation (EU) 2022/2065 (DSA) and Directive 2000/31/EC on electronic commerce:
               </p>
@@ -490,8 +502,8 @@ export class LegalModal {
                   <span>For EU Member State Authorities & European Commission (Art. 11)</span>
                 </span>
                 <p class="text-[11px] text-slate-400">Designated point of contact for official communications:</p>
-                <div class="font-mono text-xs text-cyan-300 bg-black/40 p-2 rounded-lg border border-white/5 break-all">
-                  razvan@urefy.com
+                <div class="font-mono text-xs text-[var(--color-accent,#e59b3c)] bg-black/40 p-2 rounded-lg border border-white/5 break-all">
+                  contact@urefy.com
                 </div>
                 <p class="text-[10px] text-slate-500">Accepted communication languages: English, Romanian.</p>
               </div>
@@ -502,9 +514,8 @@ export class LegalModal {
                   <span>For Users & Service Recipients (Art. 12)</span>
                 </span>
                 <p class="text-[11px] text-slate-400">For assistance, appeals, and legal inquiries:</p>
-                <div class="font-mono text-xs text-cyan-300 bg-black/40 p-2 rounded-lg border border-white/5 break-all">
-                  razvan@urefy.com<br>
-                  <span class="text-slate-400 text-[10px]">Secondary contact: razvan@urefy.com</span>
+                <div class="font-mono text-xs text-[var(--color-accent,#e59b3c)] bg-black/40 p-2 rounded-lg border border-white/5 break-all">
+                  contact@urefy.com
                 </div>
                 <p class="text-[10px] text-slate-500">Average response time: 24 - 48 hours.</p>
               </div>

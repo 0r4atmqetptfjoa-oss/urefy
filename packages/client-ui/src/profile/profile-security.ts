@@ -29,7 +29,8 @@ export function renderProfileSecurityHTML(profile: UserProfileData): string {
         </div>
         <button
           type="button"
-          id="btn-settings-register-passkey" data-action="call-global" data-raw-click="if(window.webAuthnManager){ window.webAuthnManager.registerDevicePasskey(); }else{ if(window.clientStore) window.clientStore.showToast('Passkey registered on local hardware.', 'success'); }"
+          id="btn-settings-register-passkey"
+          data-action="settings-register-passkey"
           class="px-4 py-2 rounded-xl bg-surface-raised hover:bg-surface-overlay text-slate-200 border border-white/10 text-xs font-bold transition-all cursor-pointer"
         >
           Register Passkey
@@ -43,13 +44,25 @@ export function renderProfileSecurityHTML(profile: UserProfileData): string {
             <div class="text-xs font-bold text-white">BIP-39 Cryptographic Recovery Seed</div>
             <p class="text-[11px] text-slate-400">12-word master seed used to derive your ML-KEM-768 and Ed25519 identity</p>
           </div>
-          <button
-            type="button"
-            id="btn-settings-toggle-seed" data-action="call-global" data-raw-click="const el=document.getElementById('settings-seed-display'); if(el){ el.classList.toggle('blur-sm'); }"
-            class="px-3 py-1 rounded-xl bg-surface-raised hover:bg-surface-overlay text-slate-300 border border-white/10 text-xs transition-colors cursor-pointer"
-          >
-            Reveal / Hide Seed
-          </button>
+          <div class="flex items-center space-x-2">
+            <button
+              type="button"
+              id="btn-settings-toggle-seed"
+              data-action="settings-toggle-seed"
+              class="px-3 py-1 rounded-xl bg-surface-raised hover:bg-surface-overlay text-slate-300 border border-white/10 text-xs transition-colors cursor-pointer"
+            >
+              Reveal recovery phrase
+            </button>
+            <button
+              type="button"
+              id="btn-settings-paper-wallet"
+              data-action="open-feature"
+              data-feature="paper-wallet"
+              class="px-3 py-1 rounded-xl bg-surface-raised hover:bg-surface-overlay text-slate-300 border border-white/10 text-xs transition-colors cursor-pointer"
+            >
+              Paper Wallet
+            </button>
+          </div>
         </div>
         <div id="settings-seed-display" class="p-3 bg-black/40 border border-white/5 rounded-xl font-mono text-xs text-amber-400 select-all blur-sm transition-all duration-200 break-words">
           ${clientStore?.mnemonic || 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about'}
@@ -67,7 +80,8 @@ export function renderProfileSecurityHTML(profile: UserProfileData): string {
         </div>
         <button
           type="button"
-          id="btn-settings-open-social-guardians" data-action="call-global" data-raw-click="if(window.__aetheris_open_social_recovery) window.__aetheris_open_social_recovery();"
+          id="btn-settings-open-social-guardians"
+          data-action="settings-open-guardians"
           class="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all cursor-pointer shadow"
         >
           Configure Guardians

@@ -1,23 +1,30 @@
 /* UREfy context layer: the "why is this here, and where did it come from" language.
-   Shared by Messages (branches, message actions) and Vault (kept knowledge). */
+   Shared by Messages, community live rooms and Vault. The left rule denotes
+   provenance; it never implies verification or public availability. */
+
+:root {
+  --context-radius: 8px;
+  --context-space: 12px;
+}
 
 .context-button {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-height: 32px;
+  min-height: 36px;
   padding: 0 10px;
   border: 1px solid var(--premium-line);
-  border-radius: 9px;
+  border-radius: var(--context-radius);
   background: var(--bg-surface-base);
   color: var(--text-secondary);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
-  line-height: 1;
+  line-height: 1.4;
   cursor: pointer;
   transition: border-color .15s, color .15s, background .15s;
 }
 .context-button:hover { color: var(--text-primary); border-color: var(--premium-line-strong); }
+.context-button:active { background: var(--bg-surface-overlay); }
 .context-button:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
 .context-button[aria-pressed="true"] {
   color: var(--text-primary);
@@ -30,11 +37,11 @@
 .context-actions { display: flex; flex-wrap: wrap; gap: 5px; }
 .context-eyebrow {
   display: block;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: .12em;
   text-transform: uppercase;
-  color: var(--text-muted);
+  color: var(--text-secondary);
 }
 
 /* Branch provenance: shows what a branch was cut from, in place. */
@@ -48,7 +55,7 @@
   padding: 12px 14px;
   border: 1px solid var(--premium-line);
   border-left: 2px solid var(--color-accent-border);
-  border-radius: 12px;
+  border-radius: var(--context-radius);
   background: var(--bg-surface-base);
   font-size: 12px;
 }
@@ -57,6 +64,29 @@
 .context-trail p { margin: 6px 0 4px; color: var(--text-secondary); font-size: 11px; line-height: 1.6; }
 .context-trail small { color: var(--text-muted); font-size: 10px; }
 .context-trail .context-actions { align-self: center; }
+.context-help { margin: 0; font-size: 12px; line-height: 1.6; color: var(--text-secondary); }
+.context-quote-link { display: block; width: 100%; min-height: 44px; text-align: left; cursor: pointer; }
+.context-quote-link:hover { background: var(--bg-surface-overlay); }
+.context-quote-link:focus-visible,
+.context-search-result:focus-visible,
+.community-pillars button:focus-visible,
+[id^="context-comment-"]:focus,
+[id^="context-live-"]:focus,
+.dm-message:focus { outline: 2px solid var(--color-accent); outline-offset: 3px; }
+.context-search-results { border-top: 1px solid var(--premium-line); padding-top: var(--context-space); }
+.context-search-results h3 { padding: 0 10px; color: var(--text-secondary); font-size: 12px; }
+.context-search-result { display: flex; flex-direction: column; gap: 5px; width: 100%; min-width: 0; padding: var(--context-space); text-align: left; border-bottom: 1px solid var(--premium-line); border-radius: var(--context-radius); }
+.context-search-result:hover { background: var(--bg-surface-raised); }
+.context-search-result strong { font-size: 12px; color: var(--text-primary); }
+.context-search-result span { font-size: 12px; line-height: 1.5; color: var(--text-secondary); overflow-wrap: anywhere; }
+.context-search-result small { font-size: 11px; color: var(--text-secondary); }
+.community-context-heading { margin: 0; }
+.community-context-heading h3 { color: var(--text-primary); font-size: 16px; font-weight: 600; }
+.community-context-heading p { font-size: 12px; }
+.community-pillars { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid var(--premium-line); }
+.community-pillars button { min-height: 44px; border-radius: var(--context-radius) var(--context-radius) 0 0; background: transparent; box-shadow: none; color: var(--text-secondary); border-bottom: 2px solid transparent; }
+.community-pillars button[aria-pressed="true"] { color: var(--text-primary); border-bottom-color: var(--color-accent); background: var(--bg-surface-base); }
+.community-pillars button:hover { background: var(--bg-surface-raised); }
 
 .context-quote {
   margin: 0 0 7px;
@@ -69,13 +99,13 @@
   border-radius: 0 6px 6px 0;
 }
 
-.dm-message .context-actions { margin-top: 4px; padding: 0 2px; opacity: .55; transition: opacity .15s; }
+.dm-message .context-actions { margin-top: 4px; padding: 0 2px; }
 .dm-message:hover .context-actions,
 .dm-message:focus-within .context-actions { opacity: 1; }
 .message-reactions { position: relative; }
 .message-reactions > summary { list-style: none; }
 .message-reactions > summary::-webkit-details-marker { display: none; }
-.message-reactions > div { position: absolute; z-index: 20; bottom: calc(100% + 4px); left: 0; padding: 5px; border: 1px solid var(--premium-line); border-radius: 10px; background: var(--bg-surface-overlay); box-shadow: var(--premium-shadow-soft); }
+.message-reactions > div { position: absolute; z-index: 20; bottom: calc(100% + 4px); right: 0; width: max-content; max-width: 220px; padding: 5px; border: 1px solid var(--premium-line); border-radius: var(--context-radius); background: var(--bg-surface-overlay); box-shadow: var(--premium-shadow-soft); }
 
 /* Kept knowledge: encrypted, identity-scoped snapshots. */
 .knowledge-memory { display: flex; flex-direction: column; gap: 16px; }
@@ -86,18 +116,23 @@
 .memory-search input { min-height: 42px; padding: 0 13px; border: 1px solid var(--premium-line); border-radius: 11px; background: var(--bg-surface-base); color: var(--text-primary); font: inherit; font-size: 12px; letter-spacing: normal; text-transform: none; }
 .memory-search input:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
 
-#memory-items { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 13px; }
-.memory-item { display: flex; flex-direction: column; gap: 11px; padding: 16px; border: 1px solid var(--premium-line); border-radius: 15px; background: var(--bg-surface-base); }
+#memory-items { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 13px; }
+.memory-item { display: flex; flex-direction: column; gap: 12px; min-width: 0; padding: 16px; border: 1px solid var(--premium-line); border-left: 2px solid var(--color-accent-border); border-radius: var(--context-radius); background: var(--bg-surface-base); }
 .memory-item:hover { border-color: var(--premium-line-strong); }
 .memory-item header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
 .memory-item h3 { margin: 5px 0 0; color: var(--text-primary); font-size: 14px; font-weight: 600; line-height: 1.45; overflow-wrap: anywhere; }
 .memory-item time { flex-shrink: 0; color: var(--text-muted); font-size: 10px; }
 .memory-item details > summary { color: var(--color-accent); font-size: 11px; font-weight: 600; cursor: pointer; }
-.memory-text { margin: 9px 0 0; padding: 10px; border-radius: 9px; background: var(--bg-canvas); color: var(--text-secondary); font-size: 11px; line-height: 1.75; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 240px; overflow-y: auto; }
+.memory-text { margin: 9px 0 0; padding: 10px; border-radius: var(--context-radius); background: var(--bg-canvas); color: var(--text-primary); font-size: 13px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 320px; overflow-y: auto; }
 .memory-provenance > summary { color: var(--text-muted); font-weight: 500; }
 .memory-provenance p { margin: 8px 0 0; color: var(--text-secondary); font-size: 10px; line-height: 1.7; }
 .memory-provenance code { display: block; margin-top: 7px; padding: 6px 8px; border-radius: 7px; background: var(--bg-canvas); color: var(--text-muted); font-size: 10px; overflow-wrap: anywhere; }
 .memory-item .context-actions { margin-top: auto; padding-top: 4px; }
+.memory-item details > summary { min-height: 32px; display: list-item; align-content: center; font-size: 12px; }
+.memory-item details > summary:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+.memory-provenance p { font-size: 12px; }
+.memory-provenance .context-button { margin-top: 12px; }
+.conversation-list button[data-action="delete-dm-conversation"]:focus-visible { opacity: 1; }
 .memory-empty { grid-column: 1 / -1; padding: 30px 22px; border: 1px dashed var(--premium-line); border-radius: 15px; text-align: center; }
 .memory-empty h3 { margin: 0 0 6px; color: var(--text-primary); font-size: 14px; font-weight: 600; }
 .memory-empty p { margin: 0; color: var(--text-secondary); font-size: 12px; line-height: 1.7; }
@@ -105,9 +140,16 @@
 @media (max-width: 760px) {
   .context-button.dm-back { display: inline-flex; }
   .direct-messages-workspace:not(.has-active-conversation) .conversation-list { width: 100%; }
+  .direct-messages-workspace:not(.has-active-conversation) .conversation-pane { display: none; }
   .direct-messages-workspace.has-active-conversation .conversation-list { display: none; }
   .context-actions { gap: 4px; }
-  .context-button { min-height: 36px; }
+  .context-button { min-height: 44px; }
+  .memory-item details > summary { min-height: 44px; }
+  .conversation-list button[data-action="delete-dm-conversation"] { opacity: 1; min-width: 44px; min-height: 44px; }
+  .conversation-pane [data-action="dm-back"] { min-width: 44px; min-height: 44px; }
+  .conversation-pane [data-action="switch-dm-branch"],
+  .conversation-pane [data-action="create-dm-branch"] { min-height: 44px; }
+  .community-pillars button { padding: 8px 10px; }
   .context-trail { margin: 8px 10px 0; }
 }
 

@@ -16,6 +16,7 @@ test('dashboard displays persisted counts, refresh failures, and reports on desk
   });
   await page.route('**/api/report*', route => route.fulfill({ json: { reports: [] } }));
   await page.goto('/admin.html');
+  await page.getByText('Emergency Break-Glass & Dev Override', { exact: false }).click();
   await page.locator('#login-pin-input').fill('test-only-pin');
   await page.locator('#btn-login-submit').click();
   await expect(page.locator('[data-overview-metric="posts"]')).toContainText('123');

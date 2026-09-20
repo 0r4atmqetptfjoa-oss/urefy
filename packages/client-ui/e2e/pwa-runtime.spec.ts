@@ -12,8 +12,11 @@ test.beforeEach(async ({ page }) => {
 
 test('public metadata uses real PNG assets and shortcuts reach their workspace', async ({ page, request }) => {
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', 'https://urefy.com/');
-  await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', 'https://urefy.com/icon-512.png');
-  await expect(page.locator('link[rel="apple-touch-icon"]')).toHaveAttribute('href', '/icon-192.png');
+  await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', 'https://urefy.com/og-image.png');
+  const ogImage = await request.get('/og-image.png');
+  expect(ogImage.ok()).toBe(true);
+  expect((await ogImage.body()).subarray(0, 8).toString('hex')).toBe('89504e470d0a1a0a');
+  await expect(page.locator('link[rel="apple-touch-icon"]')).toHaveAttribute('href', '/icon-192.png?v=keystone-2026');
   const manifestResponse = await request.get('/manifest.json');
   expect(manifestResponse.ok()).toBe(true);
   const manifest = await manifestResponse.json();
@@ -24,8 +27,8 @@ test('public metadata uses real PNG assets and shortcuts reach their workspace',
     expect(bytes.subarray(0, 8).toString('hex')).toBe('89504e470d0a1a0a');
     expect(`${bytes.readUInt32BE(16)}x${bytes.readUInt32BE(20)}`).toBe(icon.sizes);
   }
-  const channels: Record<string, string> = { Feed: 'pulse-global', Messages: 'relays-general', Vault: 'vault-releases' };
-  expect(manifest.shortcuts).toHaveLength(3);
+  const channels: Record<string, string> = { 'Home Feed': 'pulse-global', Explore: 'explore', Communities: 'communities', Messages: 'relays-general' };
+  expect(manifest.shortcuts.map((shortcut: { name: string }) => shortcut.name)).toEqual(Object.keys(channels));
   for (const shortcut of manifest.shortcuts) {
     await page.goto(shortcut.url);
     await expect.poll(() => page.evaluate(() => (window as any).clientStore.activeChannelId)).toBe(channels[shortcut.name]);

@@ -19,6 +19,7 @@ export interface NotificationItem {
   createdAt: number; // Unix ms
   isRead: boolean;
   count?: number;
+  remote?: boolean;
 }
 
 // ─── Helpers ────────────────────────────────────────────────
@@ -75,6 +76,10 @@ class NotificationCenter {
   private _notifications: NotificationItem[] = [];
   private static readonly MAX_ITEMS = 50;
   private readonly STORAGE_KEY = 'urefy_notifications_v1';
+  private remoteUser = '';
+  private isSyncing = false;
+  private mutationPending = false;
+  public syncError = '';
 
   constructor() {
     this._loadFromStorage();
@@ -111,25 +116,7 @@ class NotificationCenter {
   }
 
   private _seedInitialNotifications(): void {
-    const now = Date.now();
-    this._notifications = [
-      {
-        id: generateId(),
-        type: 'reply',
-        title: 'Welcome to UREfy',
-        body: 'Your sovereign cryptographic identity is generated and securely held on this device.',
-        createdAt: now,
-        isRead: false,
-      },
-      {
-        id: generateId(),
-        type: 'download_complete',
-        title: 'Sovereign Knowledge Vault Ready',
-        body: 'Keep posts, discussion branches, and private notes directly in your encrypted device vault.',
-        createdAt: now - 60000,
-        isRead: false,
-      }
-    ];
+    this._notifications = [];
     this._saveToStorage();
   }
 
@@ -177,55 +164,58 @@ class NotificationCenter {
   }
 
   async syncFromApi(userId: string): Promise<void> {
-    if (!userId) return;
+    if (!userId || this.isSyncing || this.mutationPending) return;
+    this.isSyncing = true;
     try {
-      const resp = await fetch(`/api/notifications?userId=${encodeURIComponent(userId)}`);
-      if (resp.ok) {
-        const data = await resp.json() as { notifications?: Array<{
-          id: string;
-          type: string;
-          actor_name?: string;
-          preview_text?: string;
-          target_id?: string;
-          actor_id?: string;
-          created_at?: number;
-          is_read?: number | boolean;
-        }> };
-        if (Array.isArray(data.notifications)) {
-          for (const item of data.notifications) {
-            if (this._notifications.some(n => n.id === item.id)) continue;
-            if (item.actor_id && socialSafety.isBlocked(item.actor_id)) continue;
-            this._notifications.unshift({
-              id: item.id,
-              type: item.type as NotificationItem['type'],
-              title: item.actor_name || 'Notification',
-              body: item.preview_text || item.type,
-              postId: item.target_id,
-              fromFingerprint: item.actor_id,
-              createdAt: item.created_at || Date.now(),
-              isRead: Boolean(item.is_read),
-            });
-          }
-          this._notifications = this._notifications.slice(0, NotificationCenter.MAX_ITEMS);
-          this._refreshUI();
-        }
-      }
+      const { clientStore } = await import('./client-state.js');
+      const envelope = clientStore.createSignedEnvelope({ scope: 'urefy-notifications-v1', action: 'list' });
+      const resp = await fetch(`/api/notifications?userId=${encodeURIComponent(userId)}`, { headers: { 'X-Sovereign-Envelope': JSON.stringify(envelope) }, cache: 'no-store' });
+      const data = await resp.json();
+      if (!resp.ok || !data.success || !Array.isArray(data.notifications)) throw new Error('Notifications are unavailable. Open again to retry.');
+      if (clientStore.keypair.fingerprint !== userId || this.mutationPending) return;
+      this.remoteUser = userId;
+      const local = this._notifications.filter(item => !item.remote);
+      this._notifications = [...data.notifications.map((item: any) => ({
+        id: item.id, type: item.type, title: item.actorName || 'Notification', body: item.previewText || item.type.replaceAll('_', ' '),
+        postId: item.targetId, fromFingerprint: item.actorId, createdAt: item.createdAt, isRead: Boolean(item.isRead), remote: true,
+      })), ...local].sort((a, b) => b.createdAt - a.createdAt).slice(0, NotificationCenter.MAX_ITEMS);
+      this.syncError = '';
+      this._saveToStorage();
+      this._refreshUI();
     } catch {
-      // Offline fallback: keep memory notifications
-    }
+      this.syncError = 'Notifications are unavailable. Open again to retry.';
+    } finally { this.isSyncing = false; }
+  }
+
+  private persistReadChange(payload: Record<string, unknown>, method: 'PATCH' | 'DELETE', before: NotificationItem[]): void {
+    if (!this.remoteUser || this.mutationPending) return;
+    this.mutationPending = true;
+    void import('./client-state.js').then(async ({ clientStore }) => {
+      const response = await fetch('/api/notifications', { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(clientStore.createSignedEnvelope({ scope: 'urefy-notifications-v1', ...payload })) });
+      if (!response.ok) throw new Error('Notification changes could not be saved. Try again.');
+    }).catch(async error => {
+      this._notifications = before;
+      const { clientStore } = await import('./client-state.js');
+      clientStore.showToast(error.message, 'warning');
+    }).finally(() => { this.mutationPending = false; this._saveToStorage(); this._refreshUI(); });
   }
 
   markRead(id: string): void {
+    if (this.mutationPending) return;
+    const before = this._notifications.map(item => ({ ...item }));
     const notif = this._notifications.find(n => n.id === id);
     if (notif && !notif.isRead) {
       notif.isRead = true;
       this._saveToStorage();
       this._dispatchEvent('aetheris:notification:read', { id });
       this._refreshUI();
+      if (notif.remote) this.persistReadChange({ action: 'mark-read', id }, 'PATCH', before);
     }
   }
 
   markAllRead(): void {
+    if (this.mutationPending) return;
+    const before = this._notifications.map(item => ({ ...item }));
     let changed = false;
     for (const n of this._notifications) {
       if (!n.isRead) {
@@ -234,6 +224,7 @@ class NotificationCenter {
       }
     }
     if (changed) {
+      this.persistReadChange({ action: 'mark-read', markAll: true }, 'PATCH', before);
       this._saveToStorage();
       this._dispatchEvent('aetheris:notification:all_read', {});
       this._refreshUI();
@@ -241,6 +232,9 @@ class NotificationCenter {
   }
 
   clearAll(): void {
+    if (this.mutationPending) return;
+    const before = this._notifications.map(item => ({ ...item }));
+    this.persistReadChange({ action: 'clear', clearAll: true }, 'DELETE', before);
     this._notifications = [];
     this._saveToStorage();
     this._dispatchEvent('aetheris:notification:cleared', {});
@@ -408,10 +402,9 @@ class NotificationCenter {
     const timestamp = relativeTime(n.createdAt);
     const typeLabel = n.type.replace('_', ' ');
 
-    return `<div
-  class="${rowBg} px-4 py-3 flex items-start gap-3 hover:bg-surface-highlight cursor-pointer transition-colors group select-none"
-  data-notif-id="${n.id}" data-post-id="${n.postId || ''}" data-action="notif-open-item"
-  role="listitem"
+    return `<button type="button"
+  class="${rowBg} w-full text-left px-4 py-3 flex items-start gap-3 hover:bg-surface-highlight cursor-pointer transition-colors group select-none"
+  data-notif-id="${this._escapeHtml(n.id)}" data-post-id="${this._escapeHtml(n.postId || '')}" data-action="notif-open-item"
   aria-label="${this._escapeHtml(n.title)}"
 >
   <span class="w-8 h-8 rounded-xl bg-surface-raised flex items-center justify-center text-sm flex-shrink-0 ${iconColor} font-mono select-none" title="${typeLabel}">
@@ -424,7 +417,7 @@ class NotificationCenter {
     <p class="text-[10px] text-slate-500 mt-1 font-mono">${timestamp}</p>
   </div>
   ${unreadDot}
-</div>`.trim();
+</button>`.trim();
   }
 
   private _renderEmptyState(): string {

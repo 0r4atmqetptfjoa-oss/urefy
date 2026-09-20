@@ -10,7 +10,7 @@
  * 4. Synthetic state MUST permanently display '[Synthetic Simulation / Testbed]'.
  */
 
-import { isProductionBuild } from './admin-auth.js';
+import { isProductionBuild } from './env-check.js';
 import { isDemoModeEnabled } from './demo-mode.js';
 
 export const isSimulationModeEnabled = (): boolean => {

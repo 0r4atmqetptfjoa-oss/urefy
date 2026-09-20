@@ -50,6 +50,7 @@ describe('Phase 2: Unified Identity Architecture & Signed Request Envelope Proto
       expect(identity.capabilities).toEqual([
         'post:create',
         'post:vote',
+        'user:follow',
         'channel:create',
         'storage:upload',
         'storage:delete',

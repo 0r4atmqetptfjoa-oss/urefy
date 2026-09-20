@@ -11,6 +11,7 @@
 // ===========================================================================
 
 import { sha256 } from '@noble/hashes/sha256';
+import { hkdf } from '@noble/hashes/hkdf';
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 import { generateKeyPair, computeFingerprint, signMessage, verifySignature } from './ed25519.js';
 import { generateHybridKemKeyPair } from './post-quantum.js';
@@ -19,6 +20,7 @@ import { zeroize } from './security.js';
 export type IdentityCapability =
   | 'post:create'
   | 'post:vote'
+  | 'user:follow'
   | 'channel:create'
   | 'storage:upload'
   | 'storage:delete'
@@ -80,6 +82,7 @@ export const SOVEREIGN_IDENTITY_VERSION = 'v8';
 export const DEFAULT_SOVEREIGN_CAPABILITIES: IdentityCapability[] = [
   'post:create',
   'post:vote',
+  'user:follow',
   'channel:create',
   'storage:upload',
   'storage:delete',
@@ -447,3 +450,22 @@ export function zeroizeKeyPairSet(keySet: SovereignKeyPairSet): void {
   if (keySet.encryptionPrivateKey) zeroize(keySet.encryptionPrivateKey);
   if (keySet.pqPrivateKey) zeroize(keySet.pqPrivateKey);
 }
+
+/**
+ * Derives a deterministic 256-bit symmetric AES key for the sovereign Knowledge Vault.
+ * Uses HKDF-SHA256 with domain separation "urefy-vault-v1" from the master recovery seed.
+ *
+ * Invariants:
+ * 1. Never reuses the Ed25519 signing key as a symmetric encryption key.
+ * 2. Deterministic: the same recovery seed yields the exact same Vault key across all devices.
+ * 3. Domain separated: output is isolated from ML-KEM, Ed25519, or X25519 derivations.
+ */
+export function deriveVaultKey(masterSeed: Uint8Array, salt?: Uint8Array): Uint8Array {
+  if (!(masterSeed instanceof Uint8Array) || masterSeed.length < 16) {
+    throw new Error('Master seed must be a Uint8Array of at least 16 bytes');
+  }
+  const domainInfo = new TextEncoder().encode('urefy-vault-v1');
+  const actualSalt = salt || new Uint8Array(32);
+  return hkdf(sha256, masterSeed, actualSalt, domainInfo, 32);
+}
+
