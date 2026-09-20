@@ -2120,6 +2120,29 @@ export class ActionDispatcher {
         break;
       }
 
+      case 'select-dm-peer': {
+        const peer = el.getAttribute('data-peer');
+        if (peer) {
+          sovereignDM.activePeerFP = peer;
+          sovereignDM.replyToId = null;
+          clientStore.notifySync();
+        }
+        break;
+      }
+
+      case 'set-dm-filter': {
+        const group = (el.getAttribute('data-group') || 'all') as 'all' | 'direct' | 'communities';
+        setDMFilterGroup(group);
+        clientStore.notifySync();
+        break;
+      }
+
+      case 'toggle-dm-context': {
+        toggleDMContextDrawer();
+        clientStore.notifySync();
+        break;
+      }
+
       case 'dm-back': {
         sovereignDM.activePeerFP = null;
         sovereignDM.replyToId = null;
