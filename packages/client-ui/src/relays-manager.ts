@@ -54,6 +54,8 @@ export class RelaysManager {
       channels: [
         { id: 'relays-general', name: 'general', type: 'text', isEncrypted: true },
         { id: 'relays-dev', name: 'dev-core', type: 'text', isEncrypted: true },
+        { id: 'relays-questions', name: 'questions', type: 'text', isEncrypted: true },
+        { id: 'relays-off-topic', name: 'off-topic', type: 'text', isEncrypted: true },
         { id: 'relays-community', name: 'community', type: 'text', isEncrypted: true },
       ],
       members: ['genesis-core', 'c3dc28cb705e', 'a89104fa2211'],
@@ -78,8 +80,25 @@ export class RelaysManager {
       }
     }
 
-    // Migrate any legacy voice-radar channels in local storage to standard text community channel
+    // Ensure persistent community topics exist on global nexus
     let didMigrate = false;
+    const nexus = this.relays.find(r => r.id === 'relay-global-nexus');
+    if (nexus) {
+      const requiredChannels: RelayChannel[] = [
+        { id: 'relays-general', name: 'general', type: 'text', isEncrypted: true },
+        { id: 'relays-dev', name: 'dev-core', type: 'text', isEncrypted: true },
+        { id: 'relays-questions', name: 'questions', type: 'text', isEncrypted: true },
+        { id: 'relays-off-topic', name: 'off-topic', type: 'text', isEncrypted: true },
+      ];
+      for (const req of requiredChannels) {
+        if (!nexus.channels.some(ch => ch.id === req.id || ch.name === req.name)) {
+          nexus.channels.push(req);
+          didMigrate = true;
+        }
+      }
+    }
+
+    // Migrate any legacy voice-radar channels in local storage to standard text community channel
     for (const relay of this.relays) {
       for (const ch of relay.channels) {
         if (ch.id === 'voice-radar' || ch.name === 'voice-radar') {

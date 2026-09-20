@@ -22,6 +22,8 @@ import {
   openNewDMPicker,
   closeNewDMPicker,
   setDMSearchQuery,
+  setDMFilterGroup,
+  toggleDMContextDrawer,
   toggleDMEmojiPicker,
   toggleRelayEmojiPicker,
   closeEmojiPickers,
@@ -521,6 +523,32 @@ export class ActionDispatcher {
             }
           }
           this.invokeMethodPath(method, args);
+        }
+        break;
+      }
+
+      case 'open-settings': {
+        const subtab = el.dataset.subtab || el.dataset.tab;
+        sovereignRouter.navigateTo('settings');
+        if (typeof window !== 'undefined' && (window as any).settingsView) {
+          (window as any).settingsView.open(subtab as any);
+        } else {
+          import('../settings-view.js').then(({ settingsView }) => settingsView.open(subtab as any)).catch(() => {});
+        }
+        break;
+      }
+
+      case 'close-settings': {
+        if (typeof window !== 'undefined' && (window as any).settingsView) {
+          (window as any).settingsView.close();
+        }
+        break;
+      }
+
+      case 'set-settings-tab': {
+        const tab = el.dataset.settingsTab || el.dataset.tab;
+        if (tab && typeof window !== 'undefined' && (window as any).settingsView) {
+          (window as any).settingsView.setActiveTab(tab as any);
         }
         break;
       }
@@ -1214,6 +1242,22 @@ export class ActionDispatcher {
 
       case 'dm-back': {
         sovereignDM.activePeerFP = null;
+        toggleDMContextDrawer(false);
+        clientStore.notifySync();
+        break;
+      }
+
+      case 'set-dm-filter': {
+        const group = el.getAttribute('data-group') as any;
+        if (group) {
+          setDMFilterGroup(group);
+          clientStore.notifySync();
+        }
+        break;
+      }
+
+      case 'toggle-dm-context': {
+        toggleDMContextDrawer();
         clientStore.notifySync();
         break;
       }
@@ -2098,6 +2142,7 @@ export class ActionDispatcher {
       }
       case 'react-dm-message':
       case 'keep-dm-message':
+      case 'save-message-vault':
       case 'keep-dm-branch':
       case 'keep-post':
       case 'keep-post-vault':
@@ -2108,6 +2153,18 @@ export class ActionDispatcher {
         el.closest('.post-more-menu')?.remove();
         void import('../controllers/context-controller.js').then(module => module.handleContextAction(action, el))
           .catch(error => clientStore.showToast(error instanceof Error ? error.message : 'This action could not be completed', 'warning'));
+        break;
+      }
+
+      case 'copy-message-text': {
+        const text = el.dataset.text || '';
+        if (text && typeof navigator !== 'undefined' && navigator.clipboard) {
+          navigator.clipboard.writeText(text).then(() => {
+            clientStore.showToast('Copied to clipboard', 'info');
+          }).catch(() => {
+            clientStore.showToast('Could not copy to clipboard', 'warning');
+          });
+        }
         break;
       }
 
@@ -2221,13 +2278,20 @@ export class ActionDispatcher {
             targetRoute = 'messages';
           } else if (channel.startsWith('vault-')) {
             targetRoute = 'vault';
-          } else if (channel.startsWith('pulse-') || channel.startsWith('c/')) {
+          } else if (channel === 'pulse-global' || channel === 'feed' || channel === 'pulse') {
             targetRoute = 'feed';
           }
-          if (targetRoute && sovereignRouter.route !== targetRoute) {
+          if (targetRoute === 'feed') {
+            sovereignRouter.navigateHome();
+          } else if (targetRoute && sovereignRouter.route !== targetRoute) {
             sovereignRouter.navigateTo(targetRoute);
           }
         }
+        break;
+      }
+
+      case 'go-home': {
+        sovereignRouter.navigateHome();
         break;
       }
 
@@ -2237,7 +2301,7 @@ export class ActionDispatcher {
           if (mode === 'relays' || mode === 'messages') {
             sovereignRouter.navigateTo('messages');
           } else if (mode === 'pulse' || mode === 'feed') {
-            sovereignRouter.navigateTo('feed');
+            sovereignRouter.navigateHome();
           } else if (mode === 'vault') {
             sovereignRouter.navigateTo('vault');
           } else if (mode === 'explore') {

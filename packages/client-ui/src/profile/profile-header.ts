@@ -47,7 +47,7 @@ export function renderProfileHeaderHTML(profile: UserProfileData, isOwnProfile: 
             <button type="button" id="btn-share-profile" data-action="share-profile" data-handle="${escapeAttr(handle)}" class="secondary-icon-button" title="Share profile" aria-label="Share profile">${renderIcon('share', { size: 18 })}</button>
             ${isOwnProfile ? `
               <button type="button" id="btn-open-edit-profile" data-action="open-edit-profile" class="secondary-button">Edit profile</button>
-              <button type="button" id="btn-profile-settings" data-action="set-profile-tab" data-tab="settings" class="secondary-icon-button" title="Settings" aria-label="Settings">${renderIcon('settings', { size: 18 })}</button>
+              <button type="button" id="btn-profile-settings" data-action="open-settings" data-subtab="account" class="secondary-icon-button" title="Settings" aria-label="Settings">${renderIcon('settings', { size: 18 })}</button>
             ` : `
               <button type="button" data-action="open-dm" data-fingerprint="${profile.fingerprint}" class="secondary-icon-button" title="Message" aria-label="Message">${renderIcon('messages', { size: 18 })}</button>
               <button type="button" id="btn-toggle-follow" ${followPending ? 'disabled aria-busy="true"' : ''} aria-pressed="${isFollowing}" data-action="toggle-follow" data-fingerprint="${escapeAttr(profile.fingerprint)}" class="primary-button ${isFollowing ? 'is-following' : ''}">${isFollowing ? 'Following' : 'Follow'}</button>

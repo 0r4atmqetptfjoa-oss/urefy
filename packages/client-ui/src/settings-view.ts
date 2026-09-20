@@ -48,6 +48,69 @@ export interface SettingsSectionDefinition {
   description: string;
 }
 
+export const SETTINGS_CANONICAL_SECTIONS: SettingsSectionDefinition[] = [
+  {
+    id: 'account',
+    label: 'Account',
+    icon: '👤',
+    description: 'Profile name, bio, and handle',
+  },
+  {
+    id: 'security',
+    label: 'Security & Passkeys',
+    icon: '🔑',
+    description: 'Device passkeys, recovery phrase, and hardware keys',
+  },
+  {
+    id: 'privacy',
+    label: 'Privacy & Safety',
+    icon: '🛡️',
+    description: 'Visibility, trust thresholds, and simple/advanced mode',
+  },
+  {
+    id: 'notifications',
+    label: 'Notifications',
+    icon: '🔔',
+    description: 'Push alerts, mentions, and private sounds',
+  },
+  {
+    id: 'appearance',
+    label: 'Appearance & Themes',
+    icon: '🎨',
+    description: 'Theme switcher, OLED black mode, and typography',
+  },
+  {
+    id: 'messages',
+    label: 'Messages',
+    icon: '💬',
+    description: 'Direct messaging preferences, read receipts, and privacy',
+  },
+  {
+    id: 'network',
+    label: 'Network & WoT',
+    icon: '⚙️',
+    description: 'Web-of-Trust badges, demote low trust, and merit threshold',
+  },
+  {
+    id: 'storage',
+    label: 'Storage & Footprint',
+    icon: '📊',
+    description: 'Local storage audit, zero tracking, and efficiency',
+  },
+  {
+    id: 'data',
+    label: 'Data & Backup',
+    icon: '💾',
+    description: 'Encrypted AES-256-GCM backup, restore, and JSON export',
+  },
+  {
+    id: 'advanced',
+    label: 'Advanced & Diagnostics',
+    icon: '⚡',
+    description: 'Telemetry, 100% on-device error logs, and memory wipe',
+  },
+];
+
 export const SETTINGS_SECTIONS: SettingsSectionDefinition[] = [
   {
     id: 'appearance',
@@ -86,69 +149,21 @@ export const SETTINGS_SECTIONS: SettingsSectionDefinition[] = [
     description: 'Local error telemetry and zero-knowledge memory wipe',
   },
 ];
+export const SETTINGS_WORKSPACE_SECTIONS: SettingsSectionDefinition[] = SETTINGS_CANONICAL_SECTIONS;
 
-export const SETTINGS_WORKSPACE_SECTIONS: SettingsSectionDefinition[] = [
-  {
-    id: 'account',
-    label: 'Account',
-    icon: '👤',
-    description: 'Profile name, bio, and handle',
-  },
-  {
-    id: 'security',
-    label: 'Security',
-    icon: '🔑',
-    description: 'Passkeys, recovery phrase, and keys',
-  },
-  {
-    id: 'privacy',
-    label: 'Privacy',
-    icon: '🛡️',
-    description: 'Visibility, trust thresholds, and data protection',
-  },
-  {
-    id: 'notifications',
-    label: 'Notifications',
-    icon: '🔔',
-    description: 'Alerts, mentions, and push notifications',
-  },
-  {
-    id: 'appearance',
-    label: 'Appearance & Themes',
-    icon: '🎨',
-    description: 'Themes, dark/OLED mode, and typography',
-  },
-  {
-    id: 'messages',
-    label: 'Messages',
-    icon: '💬',
-    description: 'Direct messaging preferences and receipts',
-  },
-  {
-    id: 'network',
-    label: 'Network',
-    icon: '⚙️',
-    description: 'Peers, relay nodes, and mesh preferences',
-  },
-  {
-    id: 'storage',
-    label: 'Storage',
-    icon: '📊',
-    description: 'Local cache, footprint, and offline data',
-  },
-  {
-    id: 'data',
-    label: 'Data',
-    icon: '💾',
-    description: 'Encrypted backups and account export',
-  },
-  {
-    id: 'advanced',
-    label: 'Advanced',
-    icon: '⚡',
-    description: 'Diagnostics, telemetry, and developer options',
-  },
-];
+export function normalizeSettingsTab(tab?: string): SettingsTab {
+  if (!tab) return 'appearance';
+  const clean = tab.toLowerCase().trim();
+  if (clean === 'preferences') return 'network';
+  if (clean === 'footprint') return 'storage';
+  if (clean === 'backup') return 'data';
+  if (clean === 'telemetry') return 'advanced';
+  if (clean === 'messaging') return 'messages';
+  if (SETTINGS_CANONICAL_SECTIONS.some(s => s.id === clean)) {
+    return clean as SettingsTab;
+  }
+  return 'appearance';
+}
 
 // ─── SETTINGS VIEW CLASS ─────────────────────────────────────────────────────
 
@@ -181,9 +196,9 @@ export class SettingsView {
   public open(initialTab?: SettingsTab): void {
     this.isOpen = true;
     if (initialTab) {
-      if (SETTINGS_SECTIONS.some(s => s.id === initialTab) || SETTINGS_WORKSPACE_SECTIONS.some(s => s.id === initialTab)) {
-        this.activeTab = initialTab;
-      }
+      this.activeTab = initialTab;
+    } else if (!this.activeTab) {
+      this.activeTab = 'appearance';
     }
 
     if (typeof document !== 'undefined') {
@@ -256,8 +271,13 @@ export class SettingsView {
    * Switches the active settings tab and updates the modal view.
    */
   public setActiveTab(tab: SettingsTab): void {
-    if (!SETTINGS_SECTIONS.some(s => s.id === tab) && !SETTINGS_WORKSPACE_SECTIONS.some(s => s.id === tab)) return;
+    const valid = [
+      'account', 'security', 'privacy', 'notifications', 'appearance', 'messages', 'network', 'storage', 'data', 'advanced',
+      'preferences', 'footprint', 'backup', 'telemetry', 'messaging',
+    ].includes(tab);
+    if (!valid) return;
     this.activeTab = tab;
+    const normalized = normalizeSettingsTab(tab);
 
     if (this.isOpen && typeof document !== 'undefined') {
       const container = document.getElementById(this.MODAL_CONTAINER_ID);
@@ -269,7 +289,7 @@ export class SettingsView {
 
     if (typeof window !== 'undefined' && clientStore) {
       try {
-        clientStore.notify('SETTINGS_TAB_CHANGED', { tab });
+        clientStore.notify('SETTINGS_TAB_CHANGED', { tab: normalized });
       } catch (_) {}
     }
   }
@@ -278,14 +298,19 @@ export class SettingsView {
    * Generates the complete HTML string for the responsive settings modal.
    */
   public renderSettingsModal(): string {
-    const activeWorkspaceSec = SETTINGS_WORKSPACE_SECTIONS.find((s) => s.id === this.activeTab);
-    const sections = (activeWorkspaceSec && !SETTINGS_SECTIONS.some((s) => s.id === this.activeTab))
-      ? [...SETTINGS_SECTIONS, activeWorkspaceSec]
-      : SETTINGS_SECTIONS;
-    const tabsHTML = sections.map((sec) => {
-      const isSelected = this.activeTab === sec.id;
+    const activeTab = this.activeTab;
+    const normalized = normalizeSettingsTab(activeTab);
+    const legacyAliases: Record<string, string> = {
+      network: 'preferences',
+      storage: 'footprint',
+      data: 'backup',
+      advanced: 'telemetry',
+    };
+    const tabsHTML = SETTINGS_CANONICAL_SECTIONS.map((sec) => {
+      const isSelected = normalized === sec.id || activeTab === sec.id;
       const label = t(`settings.${sec.id}Title`, undefined, sec.label);
       const desc = t(`settings.${sec.id}Desc`, undefined, sec.description);
+      const alias = legacyAliases[sec.id];
       return `
         <button
           type="button"
@@ -295,17 +320,24 @@ export class SettingsView {
               ? 'bg-[var(--color-accent,#e59b3c)]/15 text-[var(--color-accent,#e59b3c)] border border-[var(--color-accent,#e59b3c)]/30 font-semibold shadow-xs'
               : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 border border-transparent'
           }"
+          aria-selected="${isSelected}"
         >
           <span class="text-base md:text-lg shrink-0 group-hover:scale-110 transition-transform">${sec.icon}</span>
           <div class="hidden sm:block min-w-0 flex-1">
             <div class="truncate ${isSelected ? 'text-[var(--color-accent,#e59b3c)] font-semibold' : 'text-slate-300'}">${label}</div>
             <div class="text-[10px] text-slate-500 truncate hidden md:block">${desc}</div>
           </div>
+          ${alias ? `<span class="hidden" data-settings-tab="${alias}"></span>` : ''}
         </button>
       `;
     }).join('');
 
-    const contentHTML = this.renderTabContent(this.activeTab);
+    const mobileOptionsHTML = SETTINGS_CANONICAL_SECTIONS.map((sec) => {
+      const isSelected = normalized === sec.id || activeTab === sec.id;
+      return `<option value="${sec.id}" ${isSelected ? 'selected' : ''}>${sec.icon} ${sec.label}</option>`;
+    }).join('');
+
+    const contentHTML = this.renderTabContent(normalized);
 
     return `
       <div
@@ -328,9 +360,9 @@ export class SettingsView {
               <div>
                 <h2 id="settings-modal-title" class="text-lg md:text-xl font-bold text-white tracking-wide flex items-center gap-2">
                   <span>⚙️ Sovereign Settings</span>
-                  <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[var(--color-accent,#e59b3c)]/15 text-[var(--color-accent,#e59b3c)] border border-[var(--color-accent,#e59b3c)]/30 font-semibold">PREFERENCES</span>
+                  <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[var(--color-accent,#e59b3c)]/15 text-[var(--color-accent,#e59b3c)] border border-[var(--color-accent,#e59b3c)]/30 font-semibold">CANONICAL</span>
                 </h2>
-                <p class="text-xs text-slate-400">Privacy, appearance, and account options</p>
+                <p class="text-xs text-slate-400">Security, privacy, appearance, and decentralized controls</p>
               </div>
             </div>
             <button
@@ -344,15 +376,36 @@ export class SettingsView {
             </button>
           </div>
 
-          <!-- BODY: TWO COLUMNS (desktop) / COLUMN WITH TOP TABS (mobile) -->
-          <div class="flex flex-col md:flex-row flex-1 overflow-hidden">
-            <!-- LEFT COLUMN / TOP BAR TABS -->
-            <nav class="w-full md:w-64 shrink-0 bg-surface-raised/30 border-b md:border-b-0 md:border-r border-white/10 p-3 md:p-4 flex md:flex-col gap-1.5 overflow-x-auto md:overflow-y-auto no-scrollbar">
+          <!-- MOBILE SECTION PICKER (Eliminates horizontal pill overflow) -->
+          <div class="md:hidden p-3 border-b border-white/10 bg-surface-raised/40 shrink-0">
+            <label for="mobile-settings-section-picker" class="sr-only">Settings Category</label>
+            <div class="relative">
+              <select
+                id="mobile-settings-section-picker"
+                data-action="select-mobile-settings-tab"
+                class="w-full bg-surface-base border border-white/15 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-white appearance-none cursor-pointer focus:outline-none focus:border-[var(--color-accent,#e59b3c)]"
+              >
+                ${mobileOptionsHTML}
+              </select>
+              <div class="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-xs text-slate-400">▾</div>
+            </div>
+          </div>
+
+          <!-- BODY: DESKTOP TWO-COLUMN / SCROLLABLE WITH STABLE GUTTER -->
+          <div class="flex flex-col md:flex-row flex-1 overflow-hidden min-h-0">
+            <!-- DESKTOP LEFT COLUMN -->
+            <nav
+              id="settings-nav-column"
+              class="hidden md:flex md:flex-col w-64 shrink-0 bg-surface-raised/30 border-r border-white/10 p-3 md:p-4 gap-1.5 overflow-y-auto"
+              style="scrollbar-gutter: stable; max-height: 100%;"
+              aria-label="Settings categories"
+              tabindex="0"
+            >
               ${tabsHTML}
             </nav>
 
             <!-- RIGHT CONTENT AREA -->
-            <main class="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 bg-surface-base/50" id="settings-tab-content">
+            <main class="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 bg-surface-base/50 min-h-0" id="settings-tab-content">
               ${contentHTML}
             </main>
           </div>
@@ -364,7 +417,7 @@ export class SettingsView {
               <span class="hidden sm:inline">Settings saved automatically</span>
               <span class="sm:hidden">Auto-saved</span>
             </div>
-            <div class="flex items-center space-3">
+            <div class="flex items-center space-x-3">
               <button
                 type="button"
                 id="btn-settings-save-done" data-action="close-settings"
@@ -384,8 +437,9 @@ export class SettingsView {
    * Generates the dedicated full-stage Settings workspace layout.
    */
   public renderDedicatedWorkspace(): string {
-    const tabsHTML = SETTINGS_WORKSPACE_SECTIONS.map((sec) => {
-      const isSelected = this.activeTab === sec.id;
+    const activeTab = this.activeTab;
+    const tabsHTML = SETTINGS_CANONICAL_SECTIONS.map((sec) => {
+      const isSelected = activeTab === sec.id;
       const label = t(`settings.${sec.id}Title`, undefined, sec.label);
       const desc = t(`settings.${sec.id}Desc`, undefined, sec.description);
       return `
@@ -407,7 +461,12 @@ export class SettingsView {
       `;
     }).join('');
 
-    const contentHTML = this.renderTabContent(this.activeTab);
+    const mobileOptionsHTML = SETTINGS_CANONICAL_SECTIONS.map((sec) => {
+      const isSelected = activeTab === sec.id;
+      return `<option value="${sec.id}" ${isSelected ? 'selected' : ''}>${sec.icon} ${sec.label}</option>`;
+    }).join('');
+
+    const contentHTML = this.renderTabContent(activeTab);
 
     return `
       <div class="flex-1 flex flex-col overflow-hidden bg-canvas">
@@ -417,11 +476,20 @@ export class SettingsView {
             <p>Preferences, appearance, and account options</p>
           </div>
         </header>
-        <div class="flex-1 flex flex-col md:flex-row overflow-hidden max-w-6xl w-full mx-auto p-4 md:p-6 gap-6">
-          <nav class="w-full md:w-64 shrink-0 space-y-1 overflow-x-auto md:overflow-y-auto no-scrollbar flex md:flex-col" aria-label="Settings categories">
+        <div class="md:hidden p-3 border-b border-white/10 bg-surface-raised/40 shrink-0">
+          <select
+            id="mobile-settings-section-picker"
+            data-action="select-mobile-settings-tab"
+            class="w-full bg-surface-base border border-white/15 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-white appearance-none cursor-pointer focus:outline-none focus:border-[var(--color-accent,#e59b3c)]"
+          >
+            ${mobileOptionsHTML}
+          </select>
+        </div>
+        <div class="flex-1 flex flex-col md:flex-row overflow-hidden max-w-6xl w-full mx-auto p-4 md:p-6 gap-6 min-h-0">
+          <nav id="settings-nav-column" class="hidden md:flex md:flex-col w-64 shrink-0 space-y-1 overflow-y-auto" style="scrollbar-gutter: stable; max-height: 100%;" aria-label="Settings categories">
             ${tabsHTML}
           </nav>
-          <main class="flex-1 bg-surface-base border border-white/5 rounded-2xl p-6 overflow-y-auto shadow-sm">
+          <main class="flex-1 bg-surface-base border border-white/5 rounded-2xl p-6 overflow-y-auto shadow-sm min-h-0">
             ${contentHTML}
           </main>
         </div>
@@ -665,24 +733,144 @@ export class SettingsView {
   }
 
   private renderMessagesTab(): string {
+    const readReceipts = typeof localStorage !== 'undefined'
+      ? (localStorage.getItem('urefy_msg_read_receipts') !== 'false')
+      : true;
+
+    const dmPermission = typeof localStorage !== 'undefined'
+      ? (localStorage.getItem('urefy_msg_dm_permission') || 'shared')
+      : 'shared';
+
+    const notifyLevel = typeof localStorage !== 'undefined'
+      ? (localStorage.getItem('urefy_msg_notify_level') || 'mentions')
+      : 'mentions';
+
+    const richPreviews = typeof localStorage !== 'undefined'
+      ? (localStorage.getItem('urefy_msg_rich_previews') !== 'false')
+      : true;
+
     return `
       <div class="space-y-6">
         <div class="border-b border-white/5 pb-4">
           <h2 class="text-base font-bold text-white flex items-center space-x-2">
             <span>💬</span>
-            <span>Messages</span>
+            <span>Messages &amp; Direct Communication</span>
           </h2>
-          <p class="text-xs text-slate-400 mt-0.5">Direct messaging preferences, encryption, and delivery</p>
+          <p class="text-xs text-slate-400 mt-0.5">End-to-end encrypted messaging, delivery receipts, and communication privacy</p>
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-          <div class="p-4 rounded-2xl bg-surface-raised border border-white/5 space-y-2">
-            <div class="text-xs font-bold text-white">End-to-End Encryption</div>
-            <p class="text-[11px] text-slate-400 leading-relaxed">Direct messages are end-to-end encrypted. Keys are stored strictly on your device.</p>
+
+        <!-- E2EE STATUS CARD -->
+        <div class="p-4 rounded-2xl bg-surface-raised border border-white/5 space-y-2">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+              <span class="text-base">🔒</span>
+              <span class="text-xs font-bold text-white">End-to-End Encryption (E2EE)</span>
+            </div>
+            <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-semibold">
+              ACTIVE · AES-256-GCM
+            </span>
           </div>
-          <div class="p-4 rounded-2xl bg-surface-raised border border-white/5 space-y-2">
-            <div class="text-xs font-bold text-white">Privacy Routing</div>
-            <p class="text-[11px] text-slate-400 leading-relaxed">Relay nodes route encrypted envelopes without inspecting message content.</p>
+          <p class="text-[11px] text-slate-400 leading-relaxed">
+            All 1-on-1 direct messages are sealed on your device with ECDH Curve25519 and authenticated AES-256-GCM before transmission over the mesh. Intermediate nodes and relay servers cannot read your communications.
+          </p>
+        </div>
+
+        <!-- READ RECEIPTS -->
+        <label class="flex items-center justify-between p-4 rounded-2xl bg-surface-raised border border-white/5 cursor-pointer hover:bg-surface-overlay transition-colors">
+          <div class="space-y-0.5 pr-4">
+            <span class="text-xs font-semibold text-white flex items-center gap-1.5">
+              <span>👁️</span>
+              <span>Send Read Receipts</span>
+            </span>
+            <p class="text-[11px] text-slate-400">
+              Let conversation contacts know when you have viewed their direct messages.
+            </p>
           </div>
+          <input
+            type="checkbox"
+            id="toggle-msg-read-receipts"
+            ${readReceipts ? 'checked' : ''}
+            class="w-4 h-4 rounded text-[var(--color-accent,#e59b3c)] focus:ring-0 cursor-pointer accent-[var(--color-accent,#e59b3c)]"
+          />
+        </label>
+
+        <!-- DM PERMISSIONS -->
+        <div class="p-4 rounded-2xl bg-surface-raised border border-white/5 space-y-3">
+          <div class="space-y-0.5">
+            <span class="text-xs font-semibold text-white flex items-center gap-1.5">
+              <span>🛡️</span>
+              <span>Direct Message Requests Permission</span>
+            </span>
+            <p class="text-[11px] text-slate-400">
+              Determine who is permitted to send you direct message invitations.
+            </p>
+          </div>
+          <select
+            id="select-msg-dm-permission"
+            class="w-full bg-surface-base border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white cursor-pointer focus:outline-none focus:border-[var(--color-accent,#e59b3c)] font-medium"
+          >
+            <option value="everyone" ${dmPermission === 'everyone' ? 'selected' : ''}>Everyone — Any sovereign identity can send you a message</option>
+            <option value="shared" ${dmPermission === 'shared' ? 'selected' : ''}>Shared Communities — Only peers sharing at least one community</option>
+            <option value="following" ${dmPermission === 'following' ? 'selected' : ''}>People I Follow — Only identities you have followed</option>
+            <option value="nobody" ${dmPermission === 'nobody' ? 'selected' : ''}>Nobody — Disallow incoming direct message requests</option>
+          </select>
+        </div>
+
+        <!-- NOTIFICATION LEVEL -->
+        <div class="p-4 rounded-2xl bg-surface-raised border border-white/5 space-y-3">
+          <div class="space-y-0.5">
+            <span class="text-xs font-semibold text-white flex items-center gap-1.5">
+              <span>🔔</span>
+              <span>Message Notifications Level</span>
+            </span>
+            <p class="text-[11px] text-slate-400">
+              Control which incoming messages trigger sound and desktop/push alerts.
+            </p>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+            <label class="p-3 rounded-xl border flex items-center space-x-2.5 cursor-pointer transition-all ${notifyLevel === 'all' ? 'bg-[var(--color-accent,#e59b3c)]/15 border-[var(--color-accent,#e59b3c)] text-white' : 'bg-surface-base border-white/5 text-slate-300'}">
+              <input type="radio" name="msg-notify-level" value="all" ${notifyLevel === 'all' ? 'checked' : ''} class="accent-[var(--color-accent,#e59b3c)]" />
+              <div class="text-xs font-medium">All Messages</div>
+            </label>
+            <label class="p-3 rounded-xl border flex items-center space-x-2.5 cursor-pointer transition-all ${notifyLevel === 'mentions' ? 'bg-[var(--color-accent,#e59b3c)]/15 border-[var(--color-accent,#e59b3c)] text-white' : 'bg-surface-base border-white/5 text-slate-300'}">
+              <input type="radio" name="msg-notify-level" value="mentions" ${notifyLevel === 'mentions' ? 'checked' : ''} class="accent-[var(--color-accent,#e59b3c)]" />
+              <div class="text-xs font-medium">Mentions &amp; DMs</div>
+            </label>
+            <label class="p-3 rounded-xl border flex items-center space-x-2.5 cursor-pointer transition-all ${notifyLevel === 'muted' ? 'bg-[var(--color-accent,#e59b3c)]/15 border-[var(--color-accent,#e59b3c)] text-white' : 'bg-surface-base border-white/5 text-slate-300'}">
+              <input type="radio" name="msg-notify-level" value="muted" ${notifyLevel === 'muted' ? 'checked' : ''} class="accent-[var(--color-accent,#e59b3c)]" />
+              <div class="text-xs font-medium">Muted</div>
+            </label>
+          </div>
+        </div>
+
+        <!-- RICH LINK PREVIEWS -->
+        <label class="flex items-center justify-between p-4 rounded-2xl bg-surface-raised border border-white/5 cursor-pointer hover:bg-surface-overlay transition-colors">
+          <div class="space-y-0.5 pr-4">
+            <span class="text-xs font-semibold text-white flex items-center gap-1.5">
+              <span>🖼️</span>
+              <span>Rich Media Previews</span>
+            </span>
+            <p class="text-[11px] text-slate-400">
+              Automatically render inline media and rich shared post cards inside conversations.
+            </p>
+          </div>
+          <input
+            type="checkbox"
+            id="toggle-msg-rich-previews"
+            ${richPreviews ? 'checked' : ''}
+            class="w-4 h-4 rounded text-[var(--color-accent,#e59b3c)] focus:ring-0 cursor-pointer accent-[var(--color-accent,#e59b3c)]"
+          />
+        </label>
+
+        <!-- VAULT INTEGRATION NOTE -->
+        <div class="p-4 rounded-2xl bg-surface-raised border border-white/5 space-y-2">
+          <div class="flex items-center space-x-2">
+            <span class="text-base">💾</span>
+            <span class="text-xs font-bold text-white">Encrypted Vault Preservation</span>
+          </div>
+          <p class="text-[11px] text-slate-400 leading-relaxed">
+            Messages saved to your Vault via the message hover action or context menu are cryptographically stored as zero-knowledge AES-256-GCM private notes on your local device. They are never transmitted unencrypted.
+          </p>
         </div>
       </div>
     `;
@@ -1033,6 +1221,41 @@ export class SettingsView {
   public attachEventListeners(root: HTMLElement | Document = document): void {
     if (typeof window === 'undefined') return;
 
+    // Auto-scroll active category button into view
+    const activeTabBtn = root.querySelector(`[data-settings-tab="${this.activeTab}"]`) as HTMLElement | null;
+    if (activeTabBtn) {
+      activeTabBtn.scrollIntoView({ block: 'nearest' });
+    }
+
+    // Mobile Section Picker
+    const mobilePicker = root.querySelector('#mobile-settings-section-picker') as HTMLSelectElement | null;
+    if (mobilePicker) {
+      mobilePicker.addEventListener('change', () => {
+        const targetTab = mobilePicker.value as SettingsTab;
+        if (targetTab) {
+          this.setActiveTab(targetTab);
+        }
+      });
+    }
+
+    // Keyboard navigation in nav column
+    const navColumn = root.querySelector('#settings-nav-column');
+    if (navColumn) {
+      navColumn.addEventListener('keydown', (e: any) => {
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+          e.preventDefault();
+          const currentIndex = SETTINGS_CANONICAL_SECTIONS.findIndex(s => s.id === this.activeTab);
+          if (currentIndex === -1) return;
+          const delta = e.key === 'ArrowDown' ? 1 : -1;
+          const nextIndex = (currentIndex + delta + SETTINGS_CANONICAL_SECTIONS.length) % SETTINGS_CANONICAL_SECTIONS.length;
+          const nextTab = SETTINGS_CANONICAL_SECTIONS[nextIndex].id;
+          this.setActiveTab(nextTab);
+          const nextBtn = root.querySelector(`[data-settings-tab="${nextTab}"]`) as HTMLElement | null;
+          if (nextBtn) nextBtn.focus();
+        }
+      });
+    }
+
     // Tab buttons
     const tabButtons = root.querySelectorAll('[data-settings-tab]');
     tabButtons.forEach(btn => {
@@ -1190,6 +1413,54 @@ export class SettingsView {
       });
     });
 
+    // Messages tab preferences
+    const msgReceiptsToggle = root.querySelector('#toggle-msg-read-receipts') as HTMLInputElement | null;
+    if (msgReceiptsToggle) {
+      msgReceiptsToggle.addEventListener('change', () => {
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem('urefy_msg_read_receipts', String(msgReceiptsToggle.checked));
+        }
+        if (typeof window !== 'undefined' && (window as any).clientStore) {
+          (window as any).clientStore.showToast('Read receipts updated', 'info');
+        }
+      });
+    }
+
+    const dmPermSelect = root.querySelector('#select-msg-dm-permission') as HTMLSelectElement | null;
+    if (dmPermSelect) {
+      dmPermSelect.addEventListener('change', () => {
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem('urefy_msg_dm_permission', dmPermSelect.value);
+        }
+        if (typeof window !== 'undefined' && (window as any).clientStore) {
+          (window as any).clientStore.showToast('Direct message permission updated', 'info');
+        }
+      });
+    }
+
+    const notifyRadios = root.querySelectorAll('input[name="msg-notify-level"]') as NodeListOf<HTMLInputElement>;
+    notifyRadios.forEach(radio => {
+      radio.addEventListener('change', () => {
+        if (radio.checked && typeof localStorage !== 'undefined') {
+          localStorage.setItem('urefy_msg_notify_level', radio.value);
+        }
+        if (typeof window !== 'undefined' && (window as any).clientStore) {
+          (window as any).clientStore.showToast('Notification preference saved', 'info');
+        }
+      });
+    });
+
+    const richPreviewsToggle = root.querySelector('#toggle-msg-rich-previews') as HTMLInputElement | null;
+    if (richPreviewsToggle) {
+      richPreviewsToggle.addEventListener('change', () => {
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem('urefy_msg_rich_previews', String(richPreviewsToggle.checked));
+        }
+        if (typeof window !== 'undefined' && (window as any).clientStore) {
+          (window as any).clientStore.showToast('Media preview preference saved', 'info');
+        }
+      });
+    }
   }
 }
 

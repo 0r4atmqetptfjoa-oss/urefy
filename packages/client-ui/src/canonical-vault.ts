@@ -494,6 +494,87 @@ export class CanonicalVaultEngine {
     }
   }
 
+  public isMessageSaved(messageId: string): boolean {
+    if (!this.state) return false;
+    const cleanId = messageId.replace(/^message:/, '');
+    return this.state.items.some(
+      i => !i.deleted && (i.id === `message:${cleanId}` || i.id === cleanId || i.source?.id === cleanId)
+    );
+  }
+
+  public async saveMessage(message: {
+    id: string;
+    content: string;
+    authorFingerprint?: string;
+    authorName?: string;
+    channelId?: string;
+    peer?: string;
+    createdAt?: number;
+  }): Promise<void> {
+    await this.init();
+    if (!this.state) return;
+
+    const cleanId = message.id.replace(/^message:/, '');
+    const canonicalId = `message:${cleanId}`;
+    const now = Date.now();
+    const existing = this.state.items.find(i => i.id === canonicalId || i.source?.id === cleanId);
+
+    if (existing) {
+      if (existing.baseVersion === undefined) existing.baseVersion = existing.version || 1;
+      existing.deleted = false;
+      existing.updatedAt = now;
+      existing.version = (existing.version || 1) + 1;
+    } else {
+      this.state.items.unshift({
+        id: canonicalId,
+        owner: this.state.owner,
+        type: 'note',
+        source: {
+          kind: 'message',
+          id: cleanId,
+          author: message.authorFingerprint || message.authorName || '',
+          channelId: message.channelId || '',
+          peer: message.peer || '',
+          createdAt: message.createdAt || now,
+        },
+        title: message.authorName ? `Message from ${message.authorName}` : 'Saved Message',
+        content: message.content || '',
+        tags: ['saved-message', message.channelId ? `channel:${message.channelId}` : 'direct-message'],
+        collectionId: 'saved-messages',
+        createdAt: now,
+        updatedAt: now,
+        version: 1,
+        baseVersion: 1,
+      });
+    }
+
+    this.state.syncVersion = (this.state.syncVersion || 1) + 1;
+    this.state.hasPendingSync = true;
+    await this.persistLocal();
+    this.scheduleSync(1000);
+    toastManager.success(t('toast.messageSavedToVault', undefined, 'Message saved to your encrypted Vault'), '🔒');
+  }
+
+  public async unsaveMessage(messageId: string): Promise<void> {
+    await this.init();
+    if (!this.state) return;
+
+    const cleanId = messageId.replace(/^message:/, '');
+    const item = this.state.items.find(i => i.id === `message:${cleanId}` || i.id === cleanId || i.source?.id === cleanId);
+
+    if (item) {
+      if (item.baseVersion === undefined) item.baseVersion = item.version || 1;
+      item.deleted = true;
+      item.updatedAt = Date.now();
+      item.version = (item.version || 1) + 1;
+      this.state.syncVersion = (this.state.syncVersion || 1) + 1;
+      this.state.hasPendingSync = true;
+      await this.persistLocal();
+      this.scheduleSync(1000);
+      toastManager.info(t('toast.messageRemovedFromVault', undefined, 'Message removed from Vault'), '🗑️');
+    }
+  }
+
   public getSavedPosts(): CanonicalVaultItem[] {
     if (!this.state) return [];
     return this.state.items.filter(i => !i.deleted && i.type === 'post');

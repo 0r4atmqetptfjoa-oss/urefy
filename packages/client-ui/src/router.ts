@@ -46,7 +46,112 @@ export class SovereignRouter {
     return this.currentRoute;
   }
 
+  /**
+   * Canonical Home Navigation Action.
+   * Invoked identically by the UREfy logo, the primary Home button, and mobile nav.
+   * Guarantees all overlays, post detail, modals, pickers, more menus, and body locks are destroyed,
+   * cleanly resetting state to Home feed without loops or stale overlays.
+   */
+  public navigateHome(options: { replace?: boolean } = {}): void {
+    // 1. Close post detail view immediately if open
+    if (postDetailView.isOpen()) {
+      postDetailView.closePost({ skipHistory: true });
+    }
+
+    // 2. Dismiss any open feature modals or transient overlays
+    if (typeof window !== 'undefined') {
+      const win = window as any;
+      if (win.modalManager && typeof win.modalManager.closeFeature === 'function') {
+        win.modalManager.closeFeature();
+      }
+      if (win.dialogModal && typeof win.dialogModal.close === 'function') {
+        win.dialogModal.close();
+      }
+      if (win.settingsView && win.settingsView.isOpen && typeof win.settingsView.close === 'function') {
+        win.settingsView.close();
+      }
+      if (win.mnemonicModal && typeof win.mnemonicModal.close === 'function') {
+        win.mnemonicModal.close();
+      }
+    }
+
+    // 3. Close drawers, pickers, menus and release body scroll lock
+    if (typeof document !== 'undefined') {
+      const backdrop = document.getElementById('mobile-drawer-backdrop');
+      if (backdrop) {
+        backdrop.classList.add('opacity-0', 'pointer-events-none');
+        backdrop.classList.remove('opacity-100');
+      }
+      const drawerPanel = backdrop?.nextElementSibling as HTMLElement | null;
+      if (drawerPanel) {
+        drawerPanel.classList.add('-translate-x-full');
+        drawerPanel.classList.remove('translate-x-0');
+      }
+
+      document.querySelectorAll('.reactions-picker-portal, .reaction-picker, [id$="emoji-popover"]').forEach(el => el.remove());
+
+      document.querySelectorAll('.post-options-dropdown, .rail-expanded-tools, .context-dropdown').forEach(el => {
+        el.classList.add('hidden');
+      });
+
+      document.querySelectorAll('[data-post-card].is-focused, [data-post-card].border-indigo-500').forEach(card => {
+        card.classList.remove('is-focused', 'border-indigo-500');
+      });
+
+      document.body.style.overflow = '';
+      document.body.classList.remove('overflow-hidden', 'modal-open');
+    }
+
+    // 4. Set canonical channel and route
+    this.currentRoute = 'feed';
+    clientStore.activeChannelId = 'pulse-global';
+
+    // 5. Update browser history cleanly to '/' without duplicate entries or navigation loops
+    this.isInternalNavigating = true;
+    try {
+      if (typeof window !== 'undefined' && window.location) {
+        const currentPath = window.location.pathname || '';
+        const currentHash = window.location.hash || '';
+        const isAlreadyCleanHome = (currentPath === '/' || currentPath === '') && (currentHash === '' || currentHash === '#feed');
+
+        if (!isAlreadyCleanHome) {
+          window.history.pushState(null, '', '/');
+        }
+      }
+
+      // 6. Update active navigation UI state
+      this.updateActiveNavIndicators('pulse');
+      this.notifyListeners();
+      clientStore.notifySync('ROUTE_CHANGED', { route: 'feed' });
+      clientStore.notifySync('CHANNEL_CHANGE', { channelId: 'pulse-global' });
+    } finally {
+      if (typeof queueMicrotask === 'function') {
+        queueMicrotask(() => { this.isInternalNavigating = false; });
+      } else {
+        setTimeout(() => { this.isInternalNavigating = false; }, 0);
+      }
+    }
+  }
+
+  public updateActiveNavIndicators(activeMode: string): void {
+    if (typeof document === 'undefined') return;
+    document.querySelectorAll('[data-nav-mode]').forEach(btn => {
+      const mode = btn.getAttribute('data-nav-mode');
+      const isActive = mode === activeMode || (activeMode === 'pulse' && mode === 'feed');
+      btn.setAttribute('aria-current', isActive ? 'page' : 'false');
+      if (isActive) {
+        btn.classList.add('is-active', 'nav-item-active');
+      } else {
+        btn.classList.remove('is-active', 'nav-item-active');
+      }
+    });
+  }
+
   public navigateTo(route: SovereignRoute, options: { replace?: boolean; subtab?: string } = {}): void {
+    if (route === 'feed' && !options.subtab) {
+      this.navigateHome(options);
+      return;
+    }
     // Close post detail view if open
     if (postDetailView.isOpen()) {
       postDetailView.closePost({ skipHistory: true });

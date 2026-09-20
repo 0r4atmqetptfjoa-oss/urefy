@@ -890,7 +890,7 @@ export function initApp(): void {
             <button type="button" id="btn-toggle-mobile-drawer" data-action="toggle-mobile-drawer" class="lg:hidden min-w-[44px] min-h-[44px] flex items-center justify-center p-2.5 rounded-xl bg-surface-raised border border-white/5 text-slate-300 hover:text-white cursor-pointer" title="Deschide meniu navigare" aria-label="Toggle Navigation Menu">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
             </button>
-            <button type="button" class="urefy-brand" data-action="join-channel" data-channel="pulse-global" aria-label="UREfy home">
+            <button type="button" class="urefy-brand" data-action="go-home" aria-label="UREfy home">
               <span class="urefy-brand__mark">${renderBrandLogoMark({ size: 24 })}</span>
               <span class="urefy-brand__word">URE<span>fy</span></span>
             </button>
@@ -1639,8 +1639,8 @@ function renderMobileDrawer(): string {
       <div class="fixed inset-y-0 left-0 w-80 max-w-[85vw] bg-surface-base border-r border-white/10 shadow-2xl flex flex-col justify-between z-10 transform transition-transform duration-300 ease-in-out ${isMobileDrawerOpen ? 'translate-x-0' : '-translate-x-full'}">
         <!-- DRAWER HEADER -->
         <div class="p-4 border-b border-white/10 flex items-center justify-between bg-surface-raised/60">
-          <div class="flex items-center space-x-3">
-            <div class="w-8 h-8 rounded-xl bg-surface-raised border border-white/10 flex items-center justify-center p-1 shadow-md overflow-hidden">
+          <button type="button" data-action="go-home" class="flex items-center space-x-3 text-left cursor-pointer group" aria-label="Go to Home">
+            <div class="w-8 h-8 rounded-xl bg-surface-raised border border-white/10 flex items-center justify-center p-1 shadow-md overflow-hidden group-hover:border-[var(--color-accent,#e59b3c)] transition-colors">
               ${renderBrandLogoMark({ size: 24, className: 'w-6 h-6 object-contain' })}
             </div>
             <div>
@@ -1649,7 +1649,7 @@ function renderMobileDrawer(): string {
               </div>
               <div class="text-[10px] text-slate-400">The social network you actually own</div>
             </div>
-          </div>
+          </button>
           <button type="button" id="btn-close-mobile-drawer" data-action="close-mobile-drawer" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-surface-raised cursor-pointer transition-colors" aria-label="Close navigation" title="Close Drawer">
             ${renderIcon('close', { size: 18 })}
           </button>
@@ -1746,7 +1746,7 @@ function renderMobileDrawer(): string {
               <span class="flex-1">Settings</span>
               <span class="text-[9px] px-1.5 py-0.2 rounded bg-[var(--color-accent,#e59b3c)]/20 text-[var(--color-accent,#e59b3c)] border border-[var(--color-accent,#e59b3c)]/40">CONFIG</span>
             </button>
-            <button type="button" id="drawer-btn-theme" data-action="open-theme" class="w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold text-amber-300 hover:text-white bg-amber-950/30 hover:bg-surface-raised border border-amber-500/30 transition-all flex items-center space-x-3 cursor-pointer">
+            <button type="button" id="drawer-btn-theme" data-action="open-settings" data-subtab="appearance" class="w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold text-amber-300 hover:text-white bg-amber-950/30 hover:bg-surface-raised border border-amber-500/30 transition-all flex items-center space-x-3 cursor-pointer">
               <span class="shrink-0 text-amber-400">${renderIcon('sliders', { size: 16 })}</span>
               <span class="flex-1">Display &amp; Theme</span>
               <span class="text-[9px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">THEME</span>
@@ -2664,13 +2664,22 @@ function updateCommandRailHighlight(index: number): void {
   // Dismiss quarantine alert
   document.getElementById('btn-dismiss-alert')?.addEventListener('click', () => clientStore.dismissQuarantineAlert(), { signal });
 
+  // Canonical Home Navigation (Logo and Home triggers)
+  document.querySelectorAll('[data-action="go-home"], .urefy-brand').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      isMobileDrawerOpen = false;
+      sovereignRouter.navigateHome();
+    }, { signal });
+  });
+
   // Primary Workspace Mode Navigation
   document.querySelectorAll('[data-nav-mode]').forEach(btn => {
     btn.addEventListener('click', () => {
       const mode = btn.getAttribute('data-nav-mode');
       isMobileDrawerOpen = false;
       if (mode === 'pulse' || mode === 'feed') {
-        sovereignRouter.navigateTo('feed');
+        sovereignRouter.navigateHome();
       } else if (mode === 'vault') {
         sovereignRouter.navigateTo('vault');
       } else if (mode === 'relays' || mode === 'messages') {

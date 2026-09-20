@@ -101,7 +101,7 @@ export class RailController {
         <button type="button" id="rail-btn-notifications" data-action="toggle-notifs">${renderIcon('bell', { size: 18 })}Notifications</button>
         <button type="button" id="rail-btn-bookmarks" data-action="toggle-bookmarks">${renderIcon('bookmark', { size: 18 })}Saved to Vault</button>
         <button type="button" data-action="open-settings" data-subtab="account" class="${isSettings ? 'is-active text-indigo-400 font-bold' : ''}">${renderIcon('settings', { size: 18 })}Settings</button>
-        <button type="button" id="rail-btn-theme" data-action="open-theme">${renderIcon('sliders', { size: 18 })}Display & Themes</button>
+        <button type="button" id="rail-btn-theme" data-action="open-settings" data-subtab="appearance">${renderIcon('sliders', { size: 18 })}Display & Themes</button>
         <button type="button" data-action="open-settings" data-subtab="privacy">${renderIcon('shield', { size: 18 })}Privacy & Safety</button>
         <button type="button" data-action="open-legal-modal" data-legal-tab="about">${renderIcon('info', { size: 18 })}Help & About</button>
       </div>

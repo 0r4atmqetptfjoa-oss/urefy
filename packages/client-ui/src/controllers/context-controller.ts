@@ -10,10 +10,10 @@ export async function handleContextAction(action: string, element: HTMLElement):
   const conversation = peer ? sovereignDM.getConversation(peer) : null;
   const message = conversation?.messages.find(item => item.id === element.dataset.messageId);
   if (action === 'react-dm-message' && message) await sovereignDM.reactToMessage(message.id, element.dataset.emoji || '');
-  else if ((action === 'keep-dm-message' || action === 'keep-dm-branch') && peer && conversation) {
+  else if ((action === 'keep-dm-message' || action === 'save-message-vault' || action === 'keep-dm-branch') && peer && conversation) {
     const branchId = sovereignDM.getActiveBranch();
     const branch = sovereignDM.getBranches(peer).find(item => item.id === branchId);
-    if (action === 'keep-dm-message' && !message) throw new Error('The source message is no longer available');
+    if ((action === 'keep-dm-message' || action === 'save-message-vault') && !message) throw new Error('The source message is no longer available');
     if (message?.deliveryStatus === 'failed' || message?.deliveryStatus === 'sending') throw new Error('Wait until this message is sent before keeping it');
     const selected = message ? [message] : conversation.messages.filter(item => !item.context?.reaction && branchOf(item) === branchId && item.deliveryStatus !== 'failed' && item.deliveryStatus !== 'sending');
     const source = branch && conversation.messages.find(item => item.id === branch.sourceMessageId);
@@ -24,7 +24,17 @@ export async function handleContextAction(action: string, element: HTMLElement):
       source: { kind: message ? 'message' : 'branch', id: message?.id || branchId, peer, branchId,
         author: message?.senderFP || branch?.createdBy || clientStore.keypair.fingerprint,
         createdAt: message?.timestamp || branch?.createdAt || Date.now() } });
-    clientStore.showToast('Kept in your encrypted Vault on this device.', 'success');
+    if (message) {
+      void canonicalVault.saveMessage({
+        id: message.id,
+        content: message.plaintext,
+        authorFingerprint: message.senderFP,
+        authorName: message.senderFP.substring(0, 10),
+        peer,
+        createdAt: message.timestamp,
+      });
+    }
+    clientStore.showToast('Saved to your encrypted Vault on this device.', 'success');
   } else if (action === 'keep-post' || action === 'keep-post-vault') {
     const post = clientStore.posts.find(item => item.id === element.dataset.postId);
     if (!post) throw new Error('The source post is not available');
@@ -49,7 +59,14 @@ export async function handleContextAction(action: string, element: HTMLElement):
     if (!source) throw new Error('The source message is no longer available');
     await knowledgeMemory.keep({ title: source.text.slice(0, 100) || 'Community message', text: source.text,
       source: { kind: 'message', id: source.id, channelId, author: source.authorFingerprint, createdAt: source.createdAt } });
-    clientStore.showToast('Community context kept privately in your Vault.', 'success');
+    void canonicalVault.saveMessage({
+      id: source.id,
+      content: source.text,
+      authorFingerprint: source.authorFingerprint,
+      channelId,
+      createdAt: source.createdAt,
+    });
+    clientStore.showToast('Community message saved to your encrypted Vault.', 'success');
   } else if (action === 'keep-note' || action === 'save-link') {
     const value = await sovereignDialog.prompt(action === 'save-link' ? 'Paste an http or https link. UREfy will not fetch it automatically.' : 'Write something you want to return to.', { title: action === 'save-link' ? 'Keep a link' : 'Private note' });
     if (!value?.trim()) return;
