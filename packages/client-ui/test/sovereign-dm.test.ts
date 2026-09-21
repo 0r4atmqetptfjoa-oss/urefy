@@ -107,7 +107,7 @@ describe('Sovereign E2EE Direct Messaging (SFrame / TreeKEM)', () => {
     // Encrypted payload must be non-empty string and adhere to SFrame format
     expect(typeof msg.encryptedPayload).toBe('string');
     expect(msg.encryptedPayload.length).toBeGreaterThan(0);
-    expect(JSON.parse(msg.encryptedPayload).payload.message.version).toBe(1);
+    expect(JSON.parse(msg.encryptedPayload).payload.message.version).toBe(2);
     expect(msg.encryptedPayload).not.toContain(text);
   });
 
@@ -139,7 +139,7 @@ describe('Sovereign E2EE Direct Messaging (SFrame / TreeKEM)', () => {
     expect(incoming.senderFP).toBe(peerFP);
     expect(incoming.receiverFP).toBe(myFP);
     expect(incoming.plaintext).toBe('Peer response acknowledged');
-    expect(JSON.parse(incoming.encryptedPayload).payload.message.version).toBe(1);
+    expect(JSON.parse(incoming.encryptedPayload).payload.message.version).toBe(2);
 
     const conv = dmManager.getConversation(peerFP);
     expect(conv?.messages.length).toBe(2);
@@ -198,7 +198,7 @@ describe('Sovereign E2EE Direct Messaging (SFrame / TreeKEM)', () => {
     dmManager.toggleCiphertext();
     expect(dmManager.showCiphertextToggle).toBe(true);
     const ciphertextModal = dmManager.renderDMModal(myFP);
-    expect(ciphertextModal).toContain('senderCopy');
+    expect(ciphertextModal).toContain('ratchetEnvelope');
   });
 
   it('9. Ramificatiile pastreaza provenienta, izoleaza mesajele si reactioneaza', async () => {

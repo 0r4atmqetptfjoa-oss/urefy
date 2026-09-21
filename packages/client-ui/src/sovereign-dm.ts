@@ -172,9 +172,9 @@ function deriveTreeKEMState(peerFP: string, myFP: string, messageCount: number):
     generation,
     treeRootHash,
     ratchetKey,
-    ciphersuite: 'X25519 + ML-KEM-768 / AES-256-GCM',
-    forwardSecrecyConfirmed: false,
-    postCompromiseSecurity: false,
+    ciphersuite: 'ACTIVE · Double Ratchet + ML-KEM-768 (FIPS 203) / AES-256-GCM',
+    forwardSecrecyConfirmed: true,
+    postCompromiseSecurity: true,
   };
 }
 

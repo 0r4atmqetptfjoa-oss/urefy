@@ -343,3 +343,142 @@ export async function ratchetDecrypt(session: DoubleRatchetSession, envelope: Ra
   return { session: newSession, plaintext };
 }
 
+export interface SerializedDoubleRatchetSession {
+  version: 1;
+  sessionId: string;
+  initiator: boolean;
+  epoch: number;
+  sendCount: number;
+  receiveCount: number;
+  previousSendCount: number;
+  currentPqCiphertext?: string;
+  rootKey: string;
+  sendingChainKey: string | null;
+  receivingChainKey: string | null;
+  DHSendingKeyPair: {
+    publicKey: string;
+    privateKey: string;
+    pqPublicKey: string;
+    pqPrivateKey: string;
+  };
+  DHReceivingPublicKey: string | null;
+  DHReceivingPqPublicKey: string | null;
+  skippedMessageKeys: Array<[string, string]>;
+}
+
+/**
+ * Serializes an in-memory DoubleRatchetSession into a persistent JSON string for encrypted storage.
+ */
+export function serializeDoubleRatchetSession(session: DoubleRatchetSession): string {
+  if (!session || typeof session !== 'object') {
+    throw new Error('Invalid DoubleRatchetSession to serialize');
+  }
+  const skippedList: Array<[string, string]> = [];
+  for (const [k, v] of session.skippedMessageKeys.entries()) {
+    skippedList.push([k, bytesToHex(v)]);
+  }
+
+  const serialized: SerializedDoubleRatchetSession = {
+    version: 1,
+    sessionId: session.sessionId,
+    initiator: session.initiator,
+    epoch: session.epoch,
+    sendCount: session.sendCount,
+    receiveCount: session.receiveCount,
+    previousSendCount: session.previousSendCount,
+    currentPqCiphertext: session.currentPqCiphertext,
+    rootKey: bytesToHex(session.rootKey),
+    sendingChainKey: session.sendingChainKey ? bytesToHex(session.sendingChainKey) : null,
+    receivingChainKey: session.receivingChainKey ? bytesToHex(session.receivingChainKey) : null,
+    DHSendingKeyPair: {
+      publicKey: bytesToHex(session.DHSendingKeyPair.publicKey),
+      privateKey: bytesToHex(session.DHSendingKeyPair.privateKey),
+      pqPublicKey: bytesToHex(session.DHSendingKeyPair.pqPublicKey),
+      pqPrivateKey: bytesToHex(session.DHSendingKeyPair.pqPrivateKey),
+    },
+    DHReceivingPublicKey: session.DHReceivingPublicKey ? bytesToHex(session.DHReceivingPublicKey) : null,
+    DHReceivingPqPublicKey: session.DHReceivingPqPublicKey ? bytesToHex(session.DHReceivingPqPublicKey) : null,
+    skippedMessageKeys: skippedList,
+  };
+
+  return JSON.stringify(serialized);
+}
+
+/**
+ * Deserializes and strictly validates a persistent JSON string into an in-memory DoubleRatchetSession.
+ */
+export function deserializeDoubleRatchetSession(json: string): DoubleRatchetSession {
+  if (typeof json !== 'string' || !json.trim()) {
+    throw new Error('Invalid serialized session JSON: string required');
+  }
+  const raw = JSON.parse(json) as SerializedDoubleRatchetSession;
+  if (!raw || typeof raw !== 'object' || raw.version !== 1) {
+    throw new Error('Unsupported or corrupted ratchet session format');
+  }
+
+  if (typeof raw.sessionId !== 'string' || !raw.sessionId || typeof raw.initiator !== 'boolean' ||
+      !Number.isSafeInteger(raw.sendCount) || raw.sendCount < 0 ||
+      !Number.isSafeInteger(raw.receiveCount) || raw.receiveCount < 0 ||
+      !Number.isSafeInteger(raw.previousSendCount) || raw.previousSendCount < 0 ||
+      !Number.isSafeInteger(raw.epoch) || raw.epoch < 0) {
+    throw new Error('Corrupted numeric or boolean fields in ratchet session');
+  }
+
+  if (!raw.rootKey || !/^[0-9a-f]{64}$/i.test(raw.rootKey)) {
+    throw new Error('Invalid rootKey in serialized session');
+  }
+
+  const kp = raw.DHSendingKeyPair;
+  if (!kp || !/^[0-9a-f]{64}$/i.test(kp.publicKey) || !/^[0-9a-f]{64}$/i.test(kp.privateKey) ||
+      !/^[0-9a-f]{2368}$/i.test(kp.pqPublicKey) || !/^[0-9a-f]{4800}$/i.test(kp.pqPrivateKey)) {
+    throw new Error('Invalid DHSendingKeyPair in serialized session');
+  }
+
+  if (raw.sendingChainKey !== null && (!raw.sendingChainKey || !/^[0-9a-f]{64}$/i.test(raw.sendingChainKey))) {
+    throw new Error('Invalid sendingChainKey in serialized session');
+  }
+  if (raw.receivingChainKey !== null && (!raw.receivingChainKey || !/^[0-9a-f]{64}$/i.test(raw.receivingChainKey))) {
+    throw new Error('Invalid receivingChainKey in serialized session');
+  }
+
+  if (raw.DHReceivingPublicKey !== null && (!raw.DHReceivingPublicKey || !/^[0-9a-f]{64}$/i.test(raw.DHReceivingPublicKey))) {
+    throw new Error('Invalid DHReceivingPublicKey in serialized session');
+  }
+  if (raw.DHReceivingPqPublicKey !== null && (!raw.DHReceivingPqPublicKey || !/^[0-9a-f]{2368}$/i.test(raw.DHReceivingPqPublicKey))) {
+    throw new Error('Invalid DHReceivingPqPublicKey in serialized session');
+  }
+
+  if (!Array.isArray(raw.skippedMessageKeys) || raw.skippedMessageKeys.length > MAX_TOTAL_SKIPPED_KEYS) {
+    throw new Error('Invalid or oversized skippedMessageKeys in serialized session');
+  }
+
+  const skippedMap = new Map<string, Uint8Array>();
+  for (const item of raw.skippedMessageKeys) {
+    if (!Array.isArray(item) || item.length !== 2 || typeof item[0] !== 'string' || !/^[0-9a-f]{64}$/i.test(item[1])) {
+      throw new Error('Corrupted skipped message key entry');
+    }
+    skippedMap.set(item[0], hexToBytes(item[1]));
+  }
+
+  return {
+    sessionId: raw.sessionId,
+    initiator: raw.initiator,
+    epoch: raw.epoch,
+    sendCount: raw.sendCount,
+    receiveCount: raw.receiveCount,
+    previousSendCount: raw.previousSendCount,
+    currentPqCiphertext: raw.currentPqCiphertext,
+    rootKey: hexToBytes(raw.rootKey),
+    sendingChainKey: raw.sendingChainKey ? hexToBytes(raw.sendingChainKey) : null,
+    receivingChainKey: raw.receivingChainKey ? hexToBytes(raw.receivingChainKey) : null,
+    DHSendingKeyPair: {
+      publicKey: hexToBytes(kp.publicKey),
+      privateKey: hexToBytes(kp.privateKey),
+      pqPublicKey: hexToBytes(kp.pqPublicKey),
+      pqPrivateKey: hexToBytes(kp.pqPrivateKey),
+    },
+    DHReceivingPublicKey: raw.DHReceivingPublicKey ? hexToBytes(raw.DHReceivingPublicKey) : null,
+    DHReceivingPqPublicKey: raw.DHReceivingPqPublicKey ? hexToBytes(raw.DHReceivingPqPublicKey) : null,
+    skippedMessageKeys: skippedMap,
+  };
+}

@@ -1,6 +1,26 @@
-import { canonicalizeJson, createSignedEnvelope, decryptDirectMessage, encryptDirectMessage, verifyDirectMessageRegistration, type DirectMessageKeyRegistration, type DirectMessageSendPayload, type SovereignIdentity, type SovereignKeyPairSet, type SovereignSignedEnvelope } from '@aetheris/core-crypto';
+import {
+  canonicalizeJson,
+  createSignedEnvelope,
+  decryptDirectMessage,
+  decryptRatchetedDirectMessage,
+  deserializeDoubleRatchetSession,
+  encryptRatchetedDirectMessage,
+  initiateReceiverDMSession,
+  initiateSenderDMSession,
+  serializeDoubleRatchetSession,
+  verifyDirectMessageRegistration,
+  type DirectMessageBootstrap,
+  type DirectMessageFrameV2,
+  type DirectMessageKeyRegistration,
+  type DirectMessageSendPayload,
+  type DoubleRatchetSession,
+  type SovereignIdentity,
+  type SovereignKeyPairSet,
+  type SovereignSignedEnvelope,
+} from '@aetheris/core-crypto';
 import type { DirectMessageAttachment } from './client-state.js';
 import { validateMessageContext, type MessageContext } from './conversation-context.js';
+import { secureStorage } from './secure-storage.js';
 
 export const MAX_PRIVATE_ATTACHMENT_BYTES = 128 * 1024;
 
@@ -47,11 +67,44 @@ function validateContent(content: PrivateMessageContent): void {
   }
 }
 
+class AsyncMutex {
+  private queue: Promise<void> = Promise.resolve();
+
+  public acquire<T>(fn: () => Promise<T>): Promise<T> {
+    const next = this.queue.then(fn, fn);
+    this.queue = next.then(() => {}, () => {});
+    return next;
+  }
+}
+
+const localLocks = new Map<string, AsyncMutex>();
+
+function getLocalLock(name: string): AsyncMutex {
+  let lock = localLocks.get(name);
+  if (!lock) {
+    lock = new AsyncMutex();
+    localLocks.set(name, lock);
+  }
+  return lock;
+}
+
+export async function withLock<T>(lockName: string, fn: () => Promise<T>): Promise<T> {
+  if (typeof navigator !== 'undefined' && navigator.locks?.request) {
+    return navigator.locks.request(lockName, () => fn());
+  }
+  return getLocalLock(lockName).acquire(fn);
+}
+
 export class DirectMessagingClient implements PrivateMessageTransport {
   private registeredKey = '';
-  private pendingSends = new Map<string, { content: string; payload: DirectMessageSendPayload }>();
+  private sentMessagesCache = new Map<string, PrivateMessageContent>();
+  private processedMessageIds = new Set<string>();
+  private pendingSends = new Map<string, { content: string; payload: DirectMessageSendPayload; nextSession: DoubleRatchetSession }>();
 
-  constructor(private readonly getKeys: () => Promise<SovereignKeyPairSet>, private readonly fetcher: typeof fetch = globalThis.fetch.bind(globalThis)) {}
+  constructor(
+    private readonly getKeys: () => Promise<SovereignKeyPairSet>,
+    private readonly fetcher: typeof fetch = globalThis.fetch.bind(globalThis)
+  ) {}
 
   public async owner(): Promise<SovereignIdentity> {
     return (await this.getKeys()).identity;
@@ -59,11 +112,16 @@ export class DirectMessagingClient implements PrivateMessageTransport {
 
   private async post(envelope: SovereignSignedEnvelope): Promise<any> {
     const response = await this.fetcher('/api/direct-messages', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(envelope), cache: 'no-store', signal: AbortSignal.timeout(15000),
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(envelope),
+      cache: 'no-store',
+      signal: AbortSignal.timeout(15000),
     });
     const result = await response.json().catch(() => null);
-    if (!response.ok || result?.success !== true) throw new Error(typeof result?.error === 'string' ? result.error : 'Private messaging service is unavailable');
+    if (!response.ok || result?.success !== true) {
+      throw new Error(typeof result?.error === 'string' ? result.error : 'Private messaging service is unavailable');
+    }
     return result;
   }
 
@@ -72,7 +130,9 @@ export class DirectMessagingClient implements PrivateMessageTransport {
     const key = canonicalizeJson(keys.identity);
     if (this.registeredKey !== key) {
       await this.post(createSignedEnvelope({ action: 'register', identity: keys.identity }, keys));
-      if (canonicalizeJson((await this.getKeys()).identity) !== key) throw new Error('Identity changed while enabling private messaging');
+      if (canonicalizeJson((await this.getKeys()).identity) !== key) {
+        throw new Error('Identity changed while enabling private messaging');
+      }
       this.registeredKey = key;
     }
     return keys.identity;
@@ -85,65 +145,276 @@ export class DirectMessagingClient implements PrivateMessageTransport {
     if (result?.success !== true) throw new Error(result?.error || 'Failed to update DM permission');
   }
 
+  private peerIdentityCache = new Map<string, SovereignIdentity & { dmPermission?: string }>();
+
   public async lookup(fingerprint: string): Promise<SovereignIdentity & { dmPermission?: string }> {
+    const cached = this.peerIdentityCache.get(fingerprint);
+    if (cached) return cached;
     await this.register();
     const result = await this.post(createSignedEnvelope({ action: 'lookup', fingerprint }, await this.getKeys()));
     const registration = result.registration as SovereignSignedEnvelope<DirectMessageKeyRegistration>;
-    if (!registration || !verifyDirectMessageRegistration(registration, fingerprint)) throw new Error('Recipient encryption keys could not be authenticated');
+    if (!registration || !verifyDirectMessageRegistration(registration, fingerprint)) {
+      throw new Error('Recipient encryption keys could not be authenticated');
+    }
     const identity = registration.payload.identity as SovereignIdentity & { dmPermission?: string };
     identity.dmPermission = result.dmPermission || 'everyone';
+    this.peerIdentityCache.set(fingerprint, identity);
     return identity;
+  }
+
+  private async loadRatchetSession(ownerFP: string, peerFP: string): Promise<DoubleRatchetSession | null> {
+    const key = `dm_ratchet_${ownerFP}_${peerFP}`;
+    const serialized = await secureStorage.getPrivateState<string>(key);
+    if (!serialized) return null;
+    try {
+      return deserializeDoubleRatchetSession(serialized);
+    } catch (err) {
+      console.warn(`[DirectMessagingClient] Corrupted ratchet session for ${peerFP}, will re-bootstrap:`, err);
+      return null;
+    }
+  }
+
+  private async saveRatchetSession(ownerFP: string, peerFP: string, session: DoubleRatchetSession): Promise<void> {
+    const key = `dm_ratchet_${ownerFP}_${peerFP}`;
+    const serialized = serializeDoubleRatchetSession(session);
+    await secureStorage.savePrivateState(key, serialized);
+  }
+
+  private cacheSentMessage(id: string, content: PrivateMessageContent): void {
+    if (this.sentMessagesCache.size > 500) {
+      const first = this.sentMessagesCache.keys().next().value;
+      if (first !== undefined) this.sentMessagesCache.delete(first);
+    }
+    this.sentMessagesCache.set(id, content);
   }
 
   public async send(recipient: string, content: PrivateMessageContent): Promise<PrivateMessageDelivery> {
     validateContent(content);
     await this.register();
     const keys = await this.getKeys();
-    const pendingKey = `${keys.identity.fingerprint}:${recipient}`;
-    const serialized = canonicalizeJson(content);
-    let pending = this.pendingSends.get(pendingKey);
-    if (!pending || pending.content !== serialized) {
-      const peer = await this.lookup(recipient);
-      if (peer.dmPermission === 'nobody') {
-        throw new Error('Recipient does not accept direct messages');
+    const ownerFP = keys.identity.fingerprint;
+    const lockName = `urefy_dm_ratchet_${ownerFP}_${recipient}`;
+
+    return await withLock(lockName, async () => {
+      const pendingKey = `${ownerFP}:${recipient}`;
+      const serialized = canonicalizeJson(content);
+      let pending = this.pendingSends.get(pendingKey);
+      let envelope: SovereignSignedEnvelope<DirectMessageSendPayload>;
+      let updatedSession: DoubleRatchetSession;
+
+      if (pending && pending.content === serialized) {
+        envelope = createSignedEnvelope(pending.payload, keys);
+        updatedSession = pending.nextSession;
+      } else {
+        const peer = await this.lookup(recipient);
+        if (peer.dmPermission === 'nobody') {
+          throw new Error('Recipient does not accept direct messages');
+        }
+        const { dmPermission: _perm, ...cleanPeer } = peer;
+
+        let session = await this.loadRatchetSession(ownerFP, recipient);
+        let bootstrap: DirectMessageBootstrap | undefined;
+
+        if (!session) {
+          const init = initiateSenderDMSession(keys, cleanPeer as SovereignIdentity);
+          session = init.session;
+          bootstrap = init.bootstrap;
+        }
+
+        const enc = await encryptRatchetedDirectMessage(
+          content,
+          session,
+          keys,
+          cleanPeer as SovereignIdentity,
+          bootstrap
+        );
+        envelope = enc.envelope;
+        updatedSession = enc.session;
+        this.pendingSends.set(pendingKey, {
+          content: serialized,
+          payload: envelope.payload,
+          nextSession: updatedSession,
+        });
       }
-      const { dmPermission: _perm, ...cleanPeer } = peer;
-      const encrypted = await encryptDirectMessage(content, keys, cleanPeer as SovereignIdentity);
-      pending = { content: serialized, payload: encrypted.payload };
-      this.pendingSends.set(pendingKey, pending);
-    }
-    if ((await this.getKeys()).identity.signingPublicKey !== keys.identity.signingPublicKey) throw new Error('Identity changed before the message was sent');
-    const envelope = createSignedEnvelope(pending.payload, keys);
-    const result = await this.post(envelope);
-    if (result.id !== envelope.payload.message.id || !Number.isSafeInteger(result.sequence)) throw new Error('Invalid private message receipt');
-    if (this.pendingSends.get(pendingKey)?.payload.message.id === result.id) this.pendingSends.delete(pendingKey);
-    return { id: result.id, sequence: result.sequence, createdAt: result.createdAt, sender: keys.identity.fingerprint, recipient, content, envelope };
+
+      if ((await this.getKeys()).identity.signingPublicKey !== keys.identity.signingPublicKey) {
+        throw new Error('Identity changed before the message was sent');
+      }
+
+      const result = await this.post(envelope);
+      if (result.id !== envelope.payload.message.id || !Number.isSafeInteger(result.sequence)) {
+        throw new Error('Invalid private message receipt');
+      }
+
+      await this.saveRatchetSession(ownerFP, recipient, updatedSession);
+      this.cacheSentMessage(result.id, content);
+      if (this.pendingSends.get(pendingKey)?.payload.message.id === result.id) {
+        this.pendingSends.delete(pendingKey);
+      }
+
+      return {
+        id: result.id,
+        sequence: result.sequence,
+        createdAt: result.createdAt,
+        sender: ownerFP,
+        recipient,
+        content,
+        envelope,
+      };
+    });
   }
 
   public async poll(after: number): Promise<PrivateInboxPage> {
     await this.register();
     const keys = await this.getKeys();
+    const ownerFP = keys.identity.fingerprint;
     const result = await this.post(createSignedEnvelope({ action: 'list', after }, keys));
-    if (!Array.isArray(result.messages) || !Number.isSafeInteger(result.nextCursor) || result.nextCursor < after) throw new Error('Invalid private inbox response');
+    if (!Array.isArray(result.messages) || !Number.isSafeInteger(result.nextCursor) || result.nextCursor < after) {
+      throw new Error('Invalid private inbox response');
+    }
+
     const messages: PrivateMessageDelivery[] = [];
     let rejected = 0;
+
     for (const record of result.messages) {
       try {
         const envelope = record.envelope as SovereignSignedEnvelope<DirectMessageSendPayload>;
-        const content = await decryptDirectMessage<PrivateMessageContent>(envelope, keys);
-        validateContent(content);
-        messages.push({ id: envelope.payload.message.id, sequence: record.sequence, createdAt: record.createdAt, sender: envelope.payload.message.sender, recipient: envelope.payload.message.recipient, content, envelope });
-      } catch { rejected++; }
+        const frame = envelope?.payload?.message;
+        if (!frame) {
+          rejected++;
+          continue;
+        }
+
+        const isSender = frame.sender === ownerFP;
+        const peerFP = isSender ? frame.recipient : frame.sender;
+
+        let content: PrivateMessageContent;
+
+        if (frame.version === 1) {
+          content = await decryptDirectMessage<PrivateMessageContent>(envelope, keys);
+          validateContent(content);
+        } else if (frame.version === 2) {
+          if (isSender) {
+            const cached = this.sentMessagesCache.get(frame.id);
+            if (cached) {
+              content = cached;
+            } else {
+              content = { text: '[Encrypted sent message]' };
+            }
+          } else {
+            if (this.processedMessageIds.has(frame.id)) {
+              continue;
+            }
+
+            const lockName = `urefy_dm_ratchet_${ownerFP}_${peerFP}`;
+            content = await withLock(lockName, async () => {
+              let session = await this.loadRatchetSession(ownerFP, peerFP);
+              const v2Frame = frame as DirectMessageFrameV2;
+
+              let dec: { body: PrivateMessageContent; session: DoubleRatchetSession };
+              if (session && !v2Frame.bootstrap) {
+                dec = await decryptRatchetedDirectMessage<PrivateMessageContent>(envelope, session, keys);
+              } else if (session && v2Frame.bootstrap) {
+                try {
+                  if (session.receiveCount > 0) {
+                    dec = await decryptRatchetedDirectMessage<PrivateMessageContent>(envelope, session, keys);
+                  } else {
+                    throw new Error('Fallback to bootstrap');
+                  }
+                } catch {
+                  const freshSession = initiateReceiverDMSession(keys, envelope.identity, v2Frame.bootstrap);
+                  dec = await decryptRatchetedDirectMessage<PrivateMessageContent>(envelope, freshSession, keys);
+                }
+              } else {
+                if (!v2Frame.bootstrap) {
+                  throw new Error(`Missing initial bootstrap for peer ${peerFP}`);
+                }
+                const freshSession = initiateReceiverDMSession(keys, envelope.identity, v2Frame.bootstrap);
+                dec = await decryptRatchetedDirectMessage<PrivateMessageContent>(envelope, freshSession, keys);
+              }
+
+              await this.saveRatchetSession(ownerFP, peerFP, dec.session);
+
+              if (this.processedMessageIds.size > 2000) {
+                const first = this.processedMessageIds.values().next().value;
+                if (first !== undefined) this.processedMessageIds.delete(first);
+              }
+              this.processedMessageIds.add(frame.id);
+              return dec.body;
+            });
+            validateContent(content);
+          }
+        } else {
+          rejected++;
+          continue;
+        }
+
+        messages.push({
+          id: frame.id,
+          sequence: record.sequence,
+          createdAt: record.createdAt,
+          sender: frame.sender,
+          recipient: frame.recipient,
+          content,
+          envelope,
+        });
+      } catch (err) {
+        rejected++;
+      }
     }
-    if ((await this.getKeys()).identity.signingPublicKey !== keys.identity.signingPublicKey) throw new Error('Identity changed while receiving messages');
+
+    if ((await this.getKeys()).identity.signingPublicKey !== keys.identity.signingPublicKey) {
+      throw new Error('Identity changed while receiving messages');
+    }
     return { messages, nextCursor: result.nextCursor, rejected };
   }
 
   public async decodeEnvelope(envelope: SovereignSignedEnvelope<DirectMessageSendPayload>): Promise<PrivateMessageDelivery> {
-    const content = await decryptDirectMessage<PrivateMessageContent>(envelope, await this.getKeys());
+    const keys = await this.getKeys();
+    const ownerFP = keys.identity.fingerprint;
+    const frame = envelope?.payload?.message;
+    if (!frame) throw new Error('Invalid message envelope');
+
+    const isSender = frame.sender === ownerFP;
+    const peerFP = isSender ? frame.recipient : frame.sender;
+    let content: PrivateMessageContent;
+
+    if (frame.version === 1) {
+      content = await decryptDirectMessage<PrivateMessageContent>(envelope, keys);
+    } else if (frame.version === 2) {
+      if (isSender) {
+        content = this.sentMessagesCache.get(frame.id) || { text: '[Encrypted sent message]' };
+      } else {
+        const lockName = `urefy_dm_ratchet_${ownerFP}_${peerFP}`;
+        content = await withLock(lockName, async () => {
+          let session = await this.loadRatchetSession(ownerFP, peerFP);
+          const v2Frame = frame as DirectMessageFrameV2;
+          let dec: { body: PrivateMessageContent; session: DoubleRatchetSession };
+          if (session && !v2Frame.bootstrap) {
+            dec = await decryptRatchetedDirectMessage<PrivateMessageContent>(envelope, session, keys);
+          } else {
+            if (!v2Frame.bootstrap) throw new Error('Cannot decode without active session or bootstrap');
+            const freshSession = initiateReceiverDMSession(keys, envelope.identity, v2Frame.bootstrap);
+            dec = await decryptRatchetedDirectMessage<PrivateMessageContent>(envelope, freshSession, keys);
+          }
+          await this.saveRatchetSession(ownerFP, peerFP, dec.session);
+          return dec.body;
+        });
+      }
+    } else {
+      throw new Error('Unsupported direct message frame version');
+    }
+
     validateContent(content);
     if (!Number.isFinite(envelope.timestamp)) throw new Error('Invalid message timestamp');
-    return { id: envelope.payload.message.id, sequence: 0, createdAt: envelope.timestamp,
-      sender: envelope.payload.message.sender, recipient: envelope.payload.message.recipient, content, envelope };
+    return {
+      id: frame.id,
+      sequence: 0,
+      createdAt: envelope.timestamp,
+      sender: frame.sender,
+      recipient: frame.recipient,
+      content,
+      envelope,
+    };
   }
 }
