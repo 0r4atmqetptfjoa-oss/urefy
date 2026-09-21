@@ -2194,7 +2194,7 @@ export class SovereignDMManager {
 
           <div class="p-2.5 rounded-xl bg-surface-raised border border-white/10 text-[10px] text-slate-400 leading-relaxed space-y-1.5">
             <div>📡 <strong class="text-slate-200">Delivery Semantics:</strong> Active Device Unicast. Outgoing DMs are encrypted specifically for the peer's active device session. Non-target devices of the same identity receive envelopes but safely skip decryption without corrupting local ratchet state.</div>
-            <div>🔐 <strong class="text-slate-200">Device Revocation Boundary:</strong> Revoking a device blocks its device ID from participating in DM relays and invalidates its active session. Revocation does NOT protect against compromise of your 12-word root recovery phrase (as any holder of the root private key can generate and register new device IDs). If your root phrase is compromised, rotate to a new sovereign identity.</div>
+            <div>🔐 <strong class="text-slate-200">Device Revocation Boundary:</strong> Revoking a device blocks its registered UREfy device credential and terminates its active session. Revocation does NOT protect against compromise of your 12-word recovery phrase or sovereign root private key. If your recovery phrase or root key was compromised, rotate to a new sovereign identity.</div>
           </div>
 
           <div class="pt-2 flex gap-2">

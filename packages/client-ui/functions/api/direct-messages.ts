@@ -1,4 +1,11 @@
-import { canonicalizeJson, validateDirectMessageFrame, verifyDirectMessageRegistration, type DirectMessageFrame, type SovereignSignedEnvelope } from '@aetheris/core-crypto';
+import {
+  canonicalizeJson,
+  validateDirectMessageFrame,
+  verifyDirectMessageRegistration,
+  verifyDeviceCertificate,
+  type DirectMessageFrame,
+  type SovereignSignedEnvelope
+} from '@aetheris/core-crypto';
 import { requireSignedEnvelope } from './_auth.js';
 import { getD1Database, type Env } from './_db.js';
 
@@ -105,38 +112,93 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
     }
 
     if (payload.action === 'register-device') {
-      const deviceId = payload.deviceId;
+      let deviceId = payload.deviceId;
       if (typeof deviceId !== 'string' || !/^[a-zA-Z0-9_-]{4,64}$/.test(deviceId)) {
         return json({ success: false, error: 'Invalid device ID' }, 400);
       }
       const label = typeof payload.deviceLabel === 'string' ? payload.deviceLabel.slice(0, 100) : 'Browser Device';
+      let devicePublicKey = typeof payload.devicePublicKey === 'string' && /^[0-9a-fA-F]{64}$/.test(payload.devicePublicKey)
+        ? payload.devicePublicKey.toLowerCase()
+        : '';
+      let certificateJson: string | null = null;
+
+      // Validate Root-Signed Device Certificate if provided
+      if (payload.certificate && payload.certificateSignature) {
+        const cert = payload.certificate;
+        const certSig = payload.certificateSignature;
+        if (!verifyDeviceCertificate(cert, certSig, auth.publicKey)) {
+          return json({ success: false, error: 'Invalid root-signed device certificate' }, 400);
+        }
+        if (cert.identityFingerprint !== fingerprint) {
+          return json({ success: false, error: 'Certificate identity fingerprint mismatch' }, 403);
+        }
+        deviceId = cert.deviceId;
+        devicePublicKey = cert.devicePublicKey.toLowerCase();
+        certificateJson = JSON.stringify(cert);
+      }
+
       await database.prepare(`
         CREATE TABLE IF NOT EXISTS dm_devices (
           fingerprint TEXT NOT NULL,
           device_id TEXT NOT NULL,
+          device_public_key TEXT NOT NULL DEFAULT '',
           device_label TEXT,
           registration_json TEXT NOT NULL,
+          certificate_json TEXT,
           status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'revoked')),
           created_at INTEGER NOT NULL,
           updated_at INTEGER NOT NULL,
           PRIMARY KEY (fingerprint, device_id)
         )
       `).run();
-      const existing = await database.prepare('SELECT status FROM dm_devices WHERE fingerprint = ? AND device_id = ?')
+      try { await database.prepare(`ALTER TABLE dm_devices ADD COLUMN device_public_key TEXT NOT NULL DEFAULT ''`).run(); } catch (_) {}
+      try { await database.prepare(`ALTER TABLE dm_devices ADD COLUMN certificate_json TEXT`).run(); } catch (_) {}
+
+      // Check if device ID is already revoked
+      const existingId = await database.prepare('SELECT status FROM dm_devices WHERE fingerprint = ? AND device_id = ?')
         .bind(fingerprint, deviceId).first<{ status: string }>();
-      if (existing?.status === 'revoked') {
+      if (existingId?.status === 'revoked') {
         return json({ success: false, error: 'This device ID has been revoked and cannot be registered' }, 403);
       }
+
+      // Check if device public key is already revoked under ANY device ID for this identity
+      if (devicePublicKey) {
+        const existingKey = await database.prepare(
+          'SELECT device_id FROM dm_devices WHERE fingerprint = ? AND device_public_key = ? AND status = "revoked"'
+        ).bind(fingerprint, devicePublicKey).first<{ device_id: string }>();
+        if (existingKey) {
+          return json({ success: false, error: 'This device key has been revoked and cannot be re-registered under a new device ID' }, 403);
+        }
+      }
+
+      // Rate limit: max 5 device registrations per minute per identity
+      const recentRegs = await database.prepare(
+        'SELECT count(*) as count FROM dm_devices WHERE fingerprint = ? AND created_at > ?'
+      ).bind(fingerprint, Date.now() - 60000).first<{ count: number }>();
+      if ((recentRegs?.count ?? 0) >= 5) {
+        return json({ success: false, error: 'Device registration rate limit exceeded. Please wait a moment.' }, 429);
+      }
+
+      // Active device count limit: max 10 active devices per sovereign identity
+      const activeCount = await database.prepare(
+        'SELECT count(*) as count FROM dm_devices WHERE fingerprint = ? AND status = "active" AND device_id != ?'
+      ).bind(fingerprint, deviceId).first<{ count: number }>();
+      if ((activeCount?.count ?? 0) >= 10) {
+        return json({ success: false, error: 'Maximum active device limit (10) reached for this sovereign identity' }, 400);
+      }
+
       await database.prepare(`
-        INSERT INTO dm_devices (fingerprint, device_id, device_label, registration_json, status, created_at, updated_at)
-        VALUES (?, ?, ?, ?, 'active', ?, ?)
+        INSERT INTO dm_devices (fingerprint, device_id, device_public_key, device_label, registration_json, certificate_json, status, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, 'active', ?, ?)
         ON CONFLICT(fingerprint, device_id) DO UPDATE SET
+          device_public_key = excluded.device_public_key,
           device_label = excluded.device_label,
           registration_json = excluded.registration_json,
+          certificate_json = excluded.certificate_json,
           status = 'active',
           updated_at = excluded.updated_at
-      `).bind(fingerprint, deviceId, label, JSON.stringify(envelope), Date.now(), Date.now()).run();
-      return json({ success: true, deviceId, status: 'active' });
+      `).bind(fingerprint, deviceId, devicePublicKey, label, JSON.stringify(envelope), certificateJson, Date.now(), Date.now()).run();
+      return json({ success: true, deviceId, devicePublicKey, status: 'active' });
     }
 
     if (payload.action === 'revoke-device') {
@@ -149,18 +211,22 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
           CREATE TABLE IF NOT EXISTS dm_devices (
             fingerprint TEXT NOT NULL,
             device_id TEXT NOT NULL,
+            device_public_key TEXT NOT NULL DEFAULT '',
             device_label TEXT,
             registration_json TEXT NOT NULL,
+            certificate_json TEXT,
             status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'revoked')),
             created_at INTEGER NOT NULL,
             updated_at INTEGER NOT NULL,
             PRIMARY KEY (fingerprint, device_id)
           )
         `).run();
+        try { await database.prepare(`ALTER TABLE dm_devices ADD COLUMN device_public_key TEXT NOT NULL DEFAULT ''`).run(); } catch (_) {}
+        try { await database.prepare(`ALTER TABLE dm_devices ADD COLUMN certificate_json TEXT`).run(); } catch (_) {}
         await database.prepare(`
           UPDATE dm_devices SET status = 'revoked', updated_at = ?
-          WHERE fingerprint = ? AND device_id = ?
-        `).bind(Date.now(), fingerprint, deviceId).run();
+          WHERE fingerprint = ? AND (device_id = ? OR (device_public_key = ? AND device_public_key != ''))
+        `).bind(Date.now(), fingerprint, deviceId, payload.devicePublicKey || '').run();
       } catch (_) {}
       return json({ success: true, deviceId, status: 'revoked' });
     }
@@ -174,22 +240,27 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
           CREATE TABLE IF NOT EXISTS dm_devices (
             fingerprint TEXT NOT NULL,
             device_id TEXT NOT NULL,
+            device_public_key TEXT NOT NULL DEFAULT '',
             device_label TEXT,
             registration_json TEXT NOT NULL,
+            certificate_json TEXT,
             status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'revoked')),
             created_at INTEGER NOT NULL,
             updated_at INTEGER NOT NULL,
             PRIMARY KEY (fingerprint, device_id)
           )
         `).run();
+        try { await database.prepare(`ALTER TABLE dm_devices ADD COLUMN device_public_key TEXT NOT NULL DEFAULT ''`).run(); } catch (_) {}
+        try { await database.prepare(`ALTER TABLE dm_devices ADD COLUMN certificate_json TEXT`).run(); } catch (_) {}
         const rows = await database.prepare(`
-          SELECT device_id, device_label, status, created_at, updated_at
+          SELECT device_id, device_public_key, device_label, status, created_at, updated_at
           FROM dm_devices WHERE fingerprint = ? ORDER BY created_at ASC
-        `).bind(targetFP).all<{ device_id: string; device_label: string; status: string; created_at: number; updated_at: number }>();
+        `).bind(targetFP).all<{ device_id: string; device_public_key: string; device_label: string; status: string; created_at: number; updated_at: number }>();
         return json({
           success: true,
           devices: rows.results.map(r => ({
             deviceId: r.device_id,
+            devicePublicKey: r.device_public_key,
             label: r.device_label,
             status: r.status,
             createdAt: r.created_at,
@@ -206,15 +277,17 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
       if (freeze?.value === 'true') return json({ success: false, error: 'Messaging is temporarily paused by administration' }, 503);
       const message = payload.message as DirectMessageFrame;
       if (!validateDirectMessageFrame(message) || message.sender !== fingerprint || message.senderPublicKey !== auth.publicKey ||
-          Object.keys(payload).some(key => key !== 'action' && key !== 'message')) {
+          Object.keys(payload).some(key => key !== 'action' && key !== 'message' && key !== 'deviceId' && key !== 'devicePublicKey')) {
         return json({ success: false, error: 'A valid signed encrypted message is required' }, 400);
       }
 
-      if (message.senderDeviceId) {
+      const senderDevId = message.senderDeviceId || payload.deviceId;
+      const senderDevKey = payload.devicePublicKey;
+      if (senderDevId || senderDevKey) {
         try {
           const senderDev = await database.prepare(
-            'SELECT status FROM dm_devices WHERE fingerprint = ? AND device_id = ?'
-          ).bind(fingerprint, message.senderDeviceId).first<{ status: string }>();
+            'SELECT status, device_public_key FROM dm_devices WHERE fingerprint = ? AND (device_id = ? OR (device_public_key = ? AND device_public_key != ""))'
+          ).bind(fingerprint, senderDevId || '', senderDevKey || '').first<{ status: string; device_public_key: string }>();
           if (senderDev?.status === 'revoked') {
             return json({ success: false, error: 'Sender device has been revoked and cannot send messages' }, 403);
           }
@@ -265,7 +338,35 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
       return json({ success: true, id: stored.id, sequence: stored.sequence, createdAt: stored.created_at }, inserted.meta?.changes === 1 ? 201 : 200);
     }
 
+    if (payload.action === 'read-receipt') {
+      const callerDevId = payload.deviceId || payload.senderDeviceId;
+      const callerDevKey = payload.devicePublicKey;
+      if (callerDevId || callerDevKey) {
+        try {
+          const devRow = await database.prepare(
+            'SELECT status, device_public_key FROM dm_devices WHERE fingerprint = ? AND (device_id = ? OR (device_public_key = ? AND device_public_key != ""))'
+          ).bind(fingerprint, callerDevId || '', callerDevKey || '').first<{ status: string; device_public_key: string }>();
+          if (devRow?.status === 'revoked') {
+            return json({ success: false, error: 'Device has been revoked and cannot send read receipts' }, 403);
+          }
+        } catch (_) {}
+      }
+      return json({ success: true, count: Array.isArray(payload.messageIds) ? payload.messageIds.length : 0 });
+    }
+
     if (payload.action === 'list') {
+      const callerDevId = payload.deviceId || payload.senderDeviceId;
+      const callerDevKey = payload.devicePublicKey;
+      if (callerDevId || callerDevKey) {
+        try {
+          const devRow = await database.prepare(
+            'SELECT status, device_public_key FROM dm_devices WHERE fingerprint = ? AND (device_id = ? OR (device_public_key = ? AND device_public_key != ""))'
+          ).bind(fingerprint, callerDevId || '', callerDevKey || '').first<{ status: string; device_public_key: string }>();
+          if (devRow?.status === 'revoked') {
+            return json({ success: false, error: 'Device has been revoked and cannot poll messages' }, 403);
+          }
+        } catch (_) {}
+      }
       const after = payload.after ?? 0;
       if (!Number.isSafeInteger(after) || after < 0) return json({ success: false, error: 'Invalid message cursor' }, 400);
       const rows = await database.prepare(`SELECT * FROM direct_messages WHERE sequence > ? AND (sender_fingerprint = ? OR recipient_fingerprint = ?) ORDER BY sequence ASC LIMIT 100`)

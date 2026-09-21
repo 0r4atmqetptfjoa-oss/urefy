@@ -17,6 +17,10 @@ import {
   type SovereignIdentity,
   type SovereignKeyPairSet,
   type SovereignSignedEnvelope,
+  generateDeviceKeypair,
+  issueDeviceCertificate,
+  type DeviceKeypair,
+  type DeviceCertificate,
 } from '@aetheris/core-crypto';
 import type { DirectMessageAttachment } from './client-state.js';
 import { validateMessageContext, type MessageContext } from './conversation-context.js';
@@ -55,6 +59,8 @@ export interface PrivateMessageTransport {
   setPermission?(policy: 'everyone' | 'following' | 'shared' | 'nobody'): Promise<void>;
   lookup?(fingerprint: string): Promise<SovereignIdentity & { dmPermission?: string }>;
   getDeviceId?(): Promise<string>;
+  getDeviceKeypair?(): Promise<DeviceKeypair>;
+  sendReadReceipt?(recipient: string, messageIds: string[]): Promise<any>;
   setActivePeerDevice?(peerFP: string, peerDeviceId: string): Promise<void>;
   getActivePeerDevice?(peerFP: string): Promise<string | null>;
   registerDevice?(label?: string): Promise<{ deviceId: string; status: string }>;
@@ -169,21 +175,28 @@ export class DirectMessagingClient implements PrivateMessageTransport {
   }
 
   private cachedDeviceId: string | null = null;
+  private cachedDeviceKeypair: DeviceKeypair | null = null;
+
+  public async getDeviceKeypair(): Promise<DeviceKeypair> {
+    if (this.cachedDeviceKeypair) return this.cachedDeviceKeypair;
+    const stored = await secureStorage.getPrivateState<DeviceKeypair>('dm_local_device_keypair');
+    if (stored && stored.deviceId && stored.publicKeyHex && stored.privateKeyHex) {
+      this.cachedDeviceKeypair = stored;
+      this.cachedDeviceId = stored.deviceId;
+      return stored;
+    }
+    const legacyDevId = await secureStorage.getPrivateState<string>('dm_local_device_id');
+    const kp = generateDeviceKeypair(legacyDevId || undefined);
+    await secureStorage.savePrivateState('dm_local_device_keypair', kp);
+    await secureStorage.savePrivateState('dm_local_device_id', kp.deviceId);
+    this.cachedDeviceKeypair = kp;
+    this.cachedDeviceId = kp.deviceId;
+    return kp;
+  }
 
   public async getDeviceId(): Promise<string> {
-    if (this.cachedDeviceId) return this.cachedDeviceId;
-    let stored = await secureStorage.getPrivateState<string>('dm_local_device_id');
-    if (!stored || typeof stored !== 'string' || stored.length < 8) {
-      const randBytes = crypto.getRandomValues(new Uint8Array(8));
-      let hex = '';
-      for (let i = 0; i < randBytes.length; i++) {
-        hex += randBytes[i].toString(16).padStart(2, '0');
-      }
-      stored = `dev_${hex}`;
-      await secureStorage.savePrivateState('dm_local_device_id', stored);
-    }
-    this.cachedDeviceId = stored;
-    return stored;
+    const kp = await this.getDeviceKeypair();
+    return kp.deviceId;
   }
 
   private getRatchetStorageKey(ownerFP: string, peerFP: string, peerDeviceId?: string): string {
@@ -238,11 +251,12 @@ export class DirectMessagingClient implements PrivateMessageTransport {
     await this.register();
     const keys = await this.getKeys();
     const ownerFP = keys.identity.fingerprint;
-    const localDeviceId = await this.getDeviceId();
+    const devKp = await this.getDeviceKeypair();
+    const localDeviceId = devKp.deviceId;
     const lockName = `urefy_dm_ratchet_${ownerFP}_${recipient}`;
 
     return await withLock(lockName, async () => {
-      const activePeerDeviceId = await secureStorage.getPrivateState<string>(`dm_active_device_${ownerFP}_${recipient}`);
+      const activePeerDeviceId = await this.getActivePeerDevice(recipient);
       const pendingKey = `${ownerFP}:${recipient}:${activePeerDeviceId || 'default'}`;
       const serialized = canonicalizeJson(content);
       let pending = this.pendingSends.get(pendingKey);
@@ -279,7 +293,11 @@ export class DirectMessagingClient implements PrivateMessageTransport {
             recipientDeviceId: activePeerDeviceId || undefined,
           }
         );
-        envelope = enc.envelope;
+        envelope = createSignedEnvelope({
+          ...enc.envelope.payload,
+          deviceId: localDeviceId,
+          devicePublicKey: devKp.publicKeyHex,
+        }, keys);
         updatedSession = enc.session;
         this.pendingSends.set(pendingKey, {
           content: serialized,
@@ -321,8 +339,14 @@ export class DirectMessagingClient implements PrivateMessageTransport {
     await this.register();
     const keys = await this.getKeys();
     const ownerFP = keys.identity.fingerprint;
-    const localDevId = await this.getDeviceId();
-    const result = await this.post(createSignedEnvelope({ action: 'list', after }, keys));
+    const devKp = await this.getDeviceKeypair();
+    const localDevId = devKp.deviceId;
+    const result = await this.post(createSignedEnvelope({
+      action: 'list',
+      after,
+      deviceId: devKp.deviceId,
+      devicePublicKey: devKp.publicKeyHex,
+    }, keys));
     if (!Array.isArray(result.messages) || !Number.isSafeInteger(result.nextCursor) || result.nextCursor < after) {
       throw new Error('Invalid private inbox response');
     }
@@ -495,16 +519,25 @@ export class DirectMessagingClient implements PrivateMessageTransport {
     };
   }
 
-  public async registerDevice(label?: string): Promise<{ deviceId: string; status: string }> {
+  public async registerDevice(label?: string): Promise<{ deviceId: string; status: string; devicePublicKey?: string }> {
     const keys = await this.getKeys();
-    const deviceId = await this.getDeviceId();
+    const devKp = await this.getDeviceKeypair();
+    const { certificate, signature } = issueDeviceCertificate(
+      keys,
+      devKp.deviceId,
+      devKp.publicKeyHex,
+      label || 'Web Browser'
+    );
     const result = await this.post(createSignedEnvelope({
       action: 'register-device',
-      deviceId,
+      deviceId: devKp.deviceId,
+      devicePublicKey: devKp.publicKeyHex,
       deviceLabel: label || 'Web Browser',
+      certificate,
+      certificateSignature: signature,
       timestamp: Date.now(),
     }, keys));
-    return { deviceId, status: result?.status || 'active' };
+    return { deviceId: devKp.deviceId, devicePublicKey: devKp.publicKeyHex, status: result?.status || 'active' };
   }
 
   public async revokeDevice(deviceId: string): Promise<boolean> {
@@ -517,7 +550,20 @@ export class DirectMessagingClient implements PrivateMessageTransport {
     return result?.success === true;
   }
 
-  public async listDevices(fingerprint?: string): Promise<Array<{ deviceId: string; status: string; label?: string; createdAt: number }>> {
+  public async sendReadReceipt(recipient: string, messageIds: string[]): Promise<any> {
+    const keys = await this.getKeys();
+    const devKp = await this.getDeviceKeypair();
+    return await this.post(createSignedEnvelope({
+      action: 'read-receipt',
+      recipient,
+      messageIds,
+      deviceId: devKp.deviceId,
+      devicePublicKey: devKp.publicKeyHex,
+      timestamp: Date.now(),
+    }, keys));
+  }
+
+  public async listDevices(fingerprint?: string): Promise<Array<{ deviceId: string; devicePublicKey?: string; status: string; label?: string; createdAt: number }>> {
     const keys = await this.getKeys();
     const targetFP = fingerprint || keys.identity.fingerprint;
     const result = await this.post(createSignedEnvelope({
@@ -534,6 +580,22 @@ export class DirectMessagingClient implements PrivateMessageTransport {
 
   public async getActivePeerDevice(peerFP: string): Promise<string | null> {
     const keys = await this.getKeys();
-    return (await secureStorage.getPrivateState<string>(`dm_active_device_${keys.identity.fingerprint}_${peerFP}`)) ?? null;
+    const active = (await secureStorage.getPrivateState<string>(`dm_active_device_${keys.identity.fingerprint}_${peerFP}`)) ?? null;
+    if (!active) return null;
+    try {
+      const devices = await this.listDevices(peerFP);
+      const activeDev = devices.find(d => d.deviceId === active);
+      if (activeDev && activeDev.status === 'revoked') {
+        const replacement = devices.find(d => d.status === 'active');
+        if (replacement) {
+          await this.setActivePeerDevice(peerFP, replacement.deviceId);
+          return replacement.deviceId;
+        } else {
+          await secureStorage.savePrivateState(`dm_active_device_${keys.identity.fingerprint}_${peerFP}`, null);
+          return null;
+        }
+      }
+    } catch (_) {}
+    return active;
   }
 }

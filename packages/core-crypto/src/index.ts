@@ -28,3 +28,4 @@ export * from './mls-group.js';
 export * from './nonce-guard-persistent.js';
 export * from './double-ratchet.js';
 export * from './safety-number.js';
+export * from './device-auth.js';
