@@ -1706,6 +1706,12 @@ export class HybridComposer {
    */
   public async broadcastPublication(): Promise<boolean> {
     try {
+      if (clientStore.isRateLimited()) {
+        const remaining = clientStore.getRateLimitRemainingSeconds();
+        clientStore.showToast(`Network is busy. Please wait ${remaining}s before publishing. Your draft is preserved.`, 'warning');
+        return false;
+      }
+
       const epoch = Math.floor(Date.now() / 100000).toString();
       const authorFp = clientStore.keypair?.fingerprint || 'genesis-core';
       const keypair = clientStore.keypair;

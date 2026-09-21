@@ -10,6 +10,11 @@ export async function publishComment(postId: string, text: string, parentId?: st
   const response = await fetch('/api/comments', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(envelope) });
   const data = await response.json().catch(() => null);
   if (!response.ok || !data?.success || typeof data.comment?.id !== 'string' || data.comment.postId !== postId || data.comment.authorId !== owner) {
+    if (response.status === 429) {
+      const retryAfter = response.headers.get('Retry-After') || data?.retryAfterSeconds || 60;
+      clientStore.setRateLimitCooldown(Number(retryAfter));
+      throw new Error(`Rate limit reached. Please wait ${retryAfter} seconds before trying again. Your reply draft is preserved.`);
+    }
     throw new Error(data?.error || 'Your reply was not confirmed. Your draft is still here.');
   }
   if (clientStore.keypair.fingerprint !== owner) return;

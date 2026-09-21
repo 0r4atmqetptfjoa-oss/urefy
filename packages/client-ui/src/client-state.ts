@@ -717,10 +717,14 @@ export class AetherisClientStore {
             pulseActionsEngine.syncInteractions(this.posts.map((p) => p.id), this.keypair?.fingerprint);
           }
         }
+      } else if (res.status === 429) {
+        const retryAfter = res.headers.get('Retry-After');
+        if (retryAfter) this.setRateLimitCooldown(parseInt(retryAfter, 10) || 60);
+        console.warn('[FeedSync] Edge rate limit (429) encountered. Preserving local feed content intact.');
       }
     } catch (err: any) {
       if (err?.name === 'AbortError') return;
-      // Offline / local mesh fallback
+      // Offline / local mesh fallback: preserve local feed
     }
 
     // 4b. Sync Communities from /api/communities
@@ -810,10 +814,44 @@ export class AetherisClientStore {
     }
   }
 
+  public rateLimitCooldownUntil: number = 0;
+  private lastToastTime: Record<string, number> = {};
+
+  public setRateLimitCooldown(seconds: number): void {
+    const cooldownMs = Math.max(1, seconds) * 1000;
+    this.rateLimitCooldownUntil = Math.max(this.rateLimitCooldownUntil, Date.now() + cooldownMs);
+    this.notify('RATE_LIMIT_COOLDOWN', { remainingSeconds: this.getRateLimitRemainingSeconds() });
+  }
+
+  public getRateLimitRemainingSeconds(): number {
+    const remMs = this.rateLimitCooldownUntil - Date.now();
+    return remMs > 0 ? Math.ceil(remMs / 1000) : 0;
+  }
+
+  public isRateLimited(): boolean {
+    return Date.now() < this.rateLimitCooldownUntil;
+  }
+
   public showToast(message: string, type: 'info' | 'success' | 'warning' = 'info'): void {
-    const id = `toast-${Date.now()}`;
-    this.toasts.push({ id, message, type });
-    this.notify('TOAST', { id, message, type });
+    let normalizedMessage = message;
+    if (message.includes('429') || message.includes('Too Many Requests') || message.includes('Edge rate limit exceeded')) {
+      const remaining = this.getRateLimitRemainingSeconds();
+      normalizedMessage = remaining > 0
+        ? `Network is busy. Please try again in ${remaining}s.`
+        : 'Network is busy. Please try again in a few seconds.';
+      type = 'warning';
+    }
+
+    const now = Date.now();
+    const lastTime = this.lastToastTime[normalizedMessage] || 0;
+    if (now - lastTime < 3000) {
+      return; // Deduplicate identical toasts within 3s window to prevent toast storm
+    }
+    this.lastToastTime[normalizedMessage] = now;
+
+    const id = `toast-${now}`;
+    this.toasts.push({ id, message: normalizedMessage, type });
+    this.notify('TOAST', { id, message: normalizedMessage, type });
     setTimeout(() => {
       this.toasts = this.toasts.filter((t) => t.id !== id);
       this.notify('TOAST');
@@ -962,7 +1000,14 @@ export class AetherisClientStore {
       const envelope = this.createSignedEnvelope({ action: 'create', ...publication });
       const response = await fetch('/api/posts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(envelope) });
       const data = await response.json().catch(() => null);
-      if (!response.ok || !data?.success || !data.post) throw new Error(data?.error || 'Publication was not confirmed. Your draft is kept on this device.');
+      if (!response.ok || !data?.success || !data.post) {
+        if (response.status === 429) {
+          const retryAfter = response.headers.get('Retry-After') || data?.retryAfterSeconds || 60;
+          this.setRateLimitCooldown(Number(retryAfter));
+          throw new Error(`Rate limit reached. Please wait ${retryAfter} seconds before trying again. Your draft is kept on this device.`);
+        }
+        throw new Error(data?.error || 'Publication was not confirmed. Your draft is kept on this device.');
+      }
       Object.assign(post, data.post);
       delete post.deliveryStatus; delete post.deliveryError;
       await this.saveUnsentPosts();

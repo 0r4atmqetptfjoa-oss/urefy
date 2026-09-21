@@ -26,6 +26,11 @@ export async function persistInteraction(
   });
   const data = await response.json().catch(() => null);
   if (!response.ok || data?.success !== true || typeof data.active !== 'boolean' || !Number.isFinite(data.newCount)) {
+    if (response.status === 429) {
+      const retryAfter = response.headers.get('Retry-After') || data?.retryAfterSeconds || 60;
+      clientStore.setRateLimitCooldown(Number(retryAfter));
+      throw new Error(`Rate limit reached. Please wait ${retryAfter} seconds before reacting again.`);
+    }
     throw new Error(data?.error || 'Could not save this action. Check your connection and try again.');
   }
   return data;

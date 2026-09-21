@@ -134,6 +134,10 @@ export class DirectMessagingClient implements PrivateMessageTransport {
     });
     const result = await response.json().catch(() => null);
     if (!response.ok || result?.success !== true) {
+      if (response.status === 429) {
+        const retryAfter = response.headers.get('Retry-After') || result?.retryAfterSeconds || 60;
+        throw new Error(`Rate limit reached. Please wait ${retryAfter} seconds before sending another private message.`);
+      }
       throw new Error(typeof result?.error === 'string' ? result.error : 'Private messaging service is unavailable');
     }
     return result;

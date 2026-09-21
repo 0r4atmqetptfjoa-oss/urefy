@@ -187,20 +187,35 @@ async function runTier(concurrency, maxTotalUsers = concurrency) {
   const percentiles = computePercentiles(latencies);
 
   const count429 = allRequests.filter((r) => r.is429).length;
-  const count4xx = allRequests.filter((r) => r.is4xx).length;
+  const count404 = allRequests.filter((r) => r.status === 404).length;
+  const count400 = allRequests.filter((r) => r.status === 400).length;
+  const count401 = allRequests.filter((r) => r.status === 401).length;
+  const count403 = allRequests.filter((r) => r.status === 403).length;
+  const count409 = allRequests.filter((r) => r.status === 409).length;
+  const count413 = allRequests.filter((r) => r.status === 413).length;
+  const count415 = allRequests.filter((r) => r.status === 415).length;
+  const countOther4xx = allRequests.filter((r) => r.is4xx && ![404, 400, 401, 403, 409, 413, 415].includes(r.status)).length;
+  const countNon429_4xx = allRequests.filter((r) => r.is4xx).length;
   const count5xx = allRequests.filter((r) => r.is5xx).length;
   const countTimeout = allRequests.filter((r) => r.timeout).length;
   const countSuccess = allRequests.filter((r) => r.ok).length;
 
+  const sumTerminal = countSuccess + count429 + countNon429_4xx + count5xx + countTimeout;
+  if (sumTerminal !== totalReqs) {
+    throw new Error(`[ACCOUNTING INVARIANT FAILED] sumTerminal (${sumTerminal}) !== totalReqs (${totalReqs})`);
+  }
+
   const pct429 = Number(((count429 / totalReqs) * 100).toFixed(2));
-  const pct4xx = Number(((count4xx / totalReqs) * 100).toFixed(2));
+  const pctNon429_4xx = Number(((countNon429_4xx / totalReqs) * 100).toFixed(2));
+  const pct4xxTotal = Number((((count429 + countNon429_4xx) / totalReqs) * 100).toFixed(2));
   const pct5xx = Number(((count5xx / totalReqs) * 100).toFixed(2));
   const pctTimeout = Number(((countTimeout / totalReqs) * 100).toFixed(2));
   const pctSuccess = Number(((countSuccess / totalReqs) * 100).toFixed(2));
 
   console.log(`  ✓ Concurrency N=${concurrency}: ${totalReqs} requests in ${durationSec.toFixed(2)}s (${rps} RPS)`);
   console.log(`    Latencies: p50: ${percentiles.p50}ms | p90: ${percentiles.p90}ms | p95: ${percentiles.p95}ms | p99: ${percentiles.p99}ms`);
-  console.log(`    Outcome: 2xx Success: ${pctSuccess}% | 429 RateLimit: ${pct429}% | 4xx: ${pct4xx}% | 5xx: ${pct5xx}% | Timeouts: ${pctTimeout}%\n`);
+  console.log(`    Accounting: 2xx Success: ${countSuccess} (${pctSuccess}%) | 429 RateLimit: ${count429} (${pct429}%) | 404 Missing: ${count404} | 5xx: ${count5xx} | Timeouts: ${countTimeout}`);
+  console.log(`    [Invariant Verified] attempted (${totalReqs}) === sumTerminal (${sumTerminal})\n`);
 
   return {
     concurrency,
@@ -211,11 +226,28 @@ async function runTier(concurrency, maxTotalUsers = concurrency) {
     p90: percentiles.p90,
     p95: percentiles.p95,
     p99: percentiles.p99,
+    pctSuccess,
     pct429,
-    pct4xx,
+    pctNon429_4xx,
+    pct4xxTotal,
     pct5xx,
     pctTimeout,
-    pctSuccess,
+    counts: {
+      total: totalReqs,
+      success2xx: countSuccess,
+      rateLimited429: count429,
+      notFound404: count404,
+      badRequest400: count400,
+      unauthorized401: count401,
+      forbidden403: count403,
+      conflict409: count409,
+      payloadTooLarge413: count413,
+      unsupportedMedia415: count415,
+      otherNon429_4xx: countOther4xx,
+      server5xx: count5xx,
+      timeouts: countTimeout,
+    },
+    invariantPassed: sumTerminal === totalReqs,
   };
 }
 
