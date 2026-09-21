@@ -201,10 +201,10 @@ export function evaluateRateLimit(
   pathname = ''
 ): { allowed: boolean; limit: number; remaining: number; reset: number; retryAfter?: number } {
   const isMutation = ['POST', 'PUT', 'DELETE', 'PATCH'].includes(method.toUpperCase());
-  const isVaultSync = pathname.startsWith('/api/vault-sync');
-  // Bad bots get much tighter limits; vault sync gets dedicated burst headroom for multi-item sync
-  const limit = isBadBot ? 10 : isVaultSync ? 180 : isMutation ? 60 : 120;
-  const burstCapacity = isBadBot ? 3 : isVaultSync ? 60 : isMutation ? 30 : 40;
+  const isHighThroughput = pathname.startsWith('/api/vault-sync') || pathname.startsWith('/api/direct-messages');
+  // Bad bots get much tighter limits; vault sync and DMs get dedicated burst headroom for active multi-message messaging
+  const limit = isBadBot ? 10 : isHighThroughput ? 240 : isMutation ? 60 : 120;
+  const burstCapacity = isBadBot ? 3 : isHighThroughput ? 80 : isMutation ? 30 : 40;
   const windowMs = 60000;
   const refillRate = limit / 60;
 

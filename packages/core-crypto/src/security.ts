@@ -39,7 +39,13 @@ export function constantTimeHexEqual(hexA: string, hexB: string): boolean {
 }
 
 /**
- * Securely overwrites a buffer with zeros to purge sensitive key material from memory.
+ * Performs best-effort explicit zeroization of application-owned buffers to reduce the lifetime
+ * of sensitive key material in memory.
+ *
+ * Note: In JavaScript runtime environments (V8, WebCrypto, browser engines), physical memory
+ * erasure cannot be guaranteed due to garbage collector movements, string immutability,
+ * and heap compaction. This helper explicitly zeroes out mutable TypedArrays and ArrayBuffers
+ * immediately when their cryptographic lifecycle ends.
  */
 export function zeroize(buffer: Uint8Array | ArrayBuffer | number[]): void {
   if (buffer instanceof Uint8Array) {

@@ -1595,7 +1595,7 @@ export class SovereignDMManager {
                   title="View TreeKEM Epoch and Key Ratchet Status"
                 >
                   <span class="w-1.5 h-1.5 rounded-full bg-signal"></span>
-                  <span>TreeKEM SFrame</span>
+                  <span>Double Ratchet</span>
                   <span class="text-slate-400 font-normal">#ep${treeKEM.epoch}</span>
                 </button>
                 <span class="text-slate-600">•</span>
@@ -2065,8 +2065,8 @@ export class SovereignDMManager {
       <div class="absolute inset-x-0 top-16 bottom-0 z-40 bg-surface-base/98 backdrop-blur-md p-4 flex flex-col overflow-y-auto animate-in slide-in-from-top-2 duration-150 border-b border-white/10 font-mono text-xs">
         <div class="flex items-center justify-between mb-3 border-b border-white/10 pb-2">
           <div class="flex items-center gap-2">
-            <span class="text-cyphr text-sm">🌳</span>
-            <span class="font-bold text-slate-100">TreeKEM Protocol Diagnostics</span>
+            <span class="text-cyphr text-sm">⚡</span>
+            <span class="font-bold text-slate-100">Double Ratchet Protocol Diagnostics</span>
           </div>
           <button
             type="button" data-action="call-global" data-raw-click="window.__aetherisDM && window.__aetherisDM.toggleTreeKEMDrawer()"
@@ -2077,6 +2077,10 @@ export class SovereignDMManager {
         </div>
 
         <div class="space-y-3 text-slate-300">
+          <div class="p-2.5 rounded-xl bg-surface-raised border border-white/10 text-[10px] text-slate-400 leading-relaxed">
+            ℹ️ <strong class="text-slate-200">Protocol Scope:</strong> 1:1 Direct Messages operate over <strong>Double Ratchet + Hybrid ML-KEM-768 Bootstrap</strong>. TreeKEM (RFC 9420) is an MLS group key agreement mechanism reserved for multi-party group channels and does not govern peer-to-peer DMs.
+          </div>
+
           <div class="bg-surface-raised p-2.5 rounded-xl border border-white/5">
             <div class="text-[10px] text-slate-400 uppercase">Active Cipher Suite</div>
             <div class="text-cyphr text-[11px] font-bold mt-0.5 break-all">${treeKEM.ciphersuite}</div>
@@ -2084,28 +2088,28 @@ export class SovereignDMManager {
 
           <div class="grid grid-cols-2 gap-2">
             <div class="bg-surface-raised p-2.5 rounded-xl border border-white/5">
-              <div class="text-[10px] text-slate-400 uppercase">Tree Epoch</div>
+              <div class="text-[10px] text-slate-400 uppercase">Ratchet Turn / Epoch</div>
               <div class="text-signal text-sm font-bold mt-0.5">#${treeKEM.epoch}</div>
             </div>
             <div class="bg-surface-raised p-2.5 rounded-xl border border-white/5">
-              <div class="text-[10px] text-slate-400 uppercase">Ratchet Generation</div>
-              <div class="text-aether text-sm font-bold mt-0.5">Gen ${treeKEM.generation}</div>
+              <div class="text-[10px] text-slate-400 uppercase">Chain Message Counter</div>
+              <div class="text-aether text-sm font-bold mt-0.5">Msg ${treeKEM.generation}</div>
             </div>
           </div>
 
           <div class="bg-surface-raised p-2.5 rounded-xl border border-white/5">
-            <div class="text-[10px] text-slate-400 uppercase">Tree Root Merkle Hash</div>
+            <div class="text-[10px] text-slate-400 uppercase">Session Root Commitment</div>
             <div class="text-slate-200 text-[11px] font-bold mt-0.5">${treeKEM.treeRootHash}</div>
           </div>
 
           <div class="bg-surface-raised p-2.5 rounded-xl border border-white/5">
-            <div class="text-[10px] text-slate-400 uppercase">Current Ratchet Ephemeral Key</div>
+            <div class="text-[10px] text-slate-400 uppercase">Active Ephemeral DH Key</div>
             <div class="text-amber text-[11px] font-bold mt-0.5">${treeKEM.ratchetKey}</div>
           </div>
 
           <div class="p-2.5 rounded-xl bg-signal/10 border border-signal/30 text-signal text-[11px] flex items-center gap-2">
             <span>🛡️</span>
-            <span>Forward Secrecy & Post-Compromise Security Verified</span>
+            <span>Forward Secrecy & Post-Compromise Security Active (Internally Verified)</span>
           </div>
 
           <div class="pt-2 flex gap-2">

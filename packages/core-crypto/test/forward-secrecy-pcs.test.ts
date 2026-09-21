@@ -10,7 +10,7 @@ import {
 } from '../src/index.js';
 
 describe('Forward Secrecy & Post-Compromise Security Verification', () => {
-  it('proves Forward Secrecy: Compromising state at M4 cannot decrypt past messages M1-M3', async () => {
+  it('verifies Forward Secrecy via dedicated test: Compromising state at M4 cannot decrypt past messages M1-M3', async () => {
     const aliceKp = generateHybridKemKeyPair();
     const bobKp = generateHybridKemKeyPair();
     const sharedSecret = crypto.getRandomValues(new Uint8Array(32));
@@ -63,7 +63,7 @@ describe('Forward Secrecy & Post-Compromise Security Verification', () => {
     await expect(ratchetDecrypt(attackerAlice, m2.envelope)).rejects.toThrow();
   });
 
-  it('proves Post-Compromise Security (PCS): State compromise heals after DH ratchet step', async () => {
+  it('verifies Post-Compromise Security (PCS) via dedicated test: State compromise heals after DH ratchet step', async () => {
     const aliceKp = generateHybridKemKeyPair();
     const bobKp = generateHybridKemKeyPair();
     const sharedSecret = crypto.getRandomValues(new Uint8Array(32));

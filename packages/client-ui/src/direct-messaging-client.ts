@@ -168,8 +168,8 @@ export class DirectMessagingClient implements PrivateMessageTransport {
     if (!serialized) return null;
     try {
       return deserializeDoubleRatchetSession(serialized);
-    } catch (err) {
-      console.warn(`[DirectMessagingClient] Corrupted ratchet session for ${peerFP}, will re-bootstrap:`, err);
+    } catch {
+      console.warn(`[DirectMessagingClient] Corrupted ratchet session for ${peerFP}, will re-bootstrap`);
       return null;
     }
   }
@@ -241,12 +241,16 @@ export class DirectMessagingClient implements PrivateMessageTransport {
         throw new Error('Identity changed before the message was sent');
       }
 
+      // Save updated ratchet state BEFORE network dispatch so that even if the browser process
+      // crashes or is interrupted during/after dispatch, the previous chain key and message counter
+      // can NEVER be reused to encrypt a different payload with the same key.
+      await this.saveRatchetSession(ownerFP, recipient, updatedSession);
+
       const result = await this.post(envelope);
       if (result.id !== envelope.payload.message.id || !Number.isSafeInteger(result.sequence)) {
         throw new Error('Invalid private message receipt');
       }
 
-      await this.saveRatchetSession(ownerFP, recipient, updatedSession);
       this.cacheSentMessage(result.id, content);
       if (this.pendingSends.get(pendingKey)?.payload.message.id === result.id) {
         this.pendingSends.delete(pendingKey);
