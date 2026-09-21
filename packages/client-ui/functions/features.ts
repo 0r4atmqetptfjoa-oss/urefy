@@ -42,7 +42,7 @@ export async function onRequestGet(context: {
       offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
       featureList: [
         'Sovereign Ed25519 Cryptographic Identity',
-        'Double Ratchet E2EE with ML-KEM-768 Post-Quantum Encapsulation',
+        'Hybrid Post-Quantum E2EE (ML-KEM-768 + X25519)',
         'Decentralized Community Hubs & Discussion Feeds',
         'Zero Advertising & Zero Surveillance Analytics',
         'Hardware WebAuthn FIDO2 Passkey Integration',
@@ -67,7 +67,7 @@ export async function onRequestGet(context: {
 
         <article style="background: rgba(255,255,255,0.03); padding: 20px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
           <h2 style="color: #38bdf8; font-size: 20px; margin-top: 0;">2. Post-Quantum End-to-End Encryption</h2>
-          <p>Direct messages use the Signal Double Ratchet protocol combined with NIST-standardized ML-KEM-768 (Kyber) and AES-256-GCM. Your messages are cryptographically secured against future quantum computers.</p>
+          <p>Direct messages use Hybrid Post-Quantum E2EE combining ML-KEM-768 (FIPS 203) key encapsulation with X25519 ECDH, HKDF-SHA256, and AES-256-GCM. Your messages are cryptographically secured against future quantum computers.</p>
         </article>
 
         <article style="background: rgba(255,255,255,0.03); padding: 20px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">

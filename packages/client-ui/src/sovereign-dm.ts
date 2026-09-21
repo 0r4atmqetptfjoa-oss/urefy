@@ -2151,13 +2151,17 @@ export class SovereignDMManager {
         </div>
 
         <div class="text-[11px] text-slate-300 space-y-3 font-sans">
-          <p>
-            Compare this 30-digit cryptographic fingerprint with <span class="font-mono text-cyphr font-bold">node_${escapeHtml(peerFP.slice(0, 8))}</span> out-of-band to verify zero man-in-the-middle tampering.
+          <p class="leading-relaxed">
+            Compare this UREfy Safety Number out-of-band with <span class="font-mono text-cyphr font-bold">node_${escapeHtml(peerFP.slice(0, 8))}</span> to confirm cryptographic identity keys and verify zero relay tampering.
           </p>
 
-          <!-- 6-Group Safety Number Display -->
+          <p class="text-[10px] text-slate-400 leading-relaxed bg-surface-raised/60 p-2.5 rounded-xl border border-white/5">
+            ℹ️ <strong>User Confirmation Only:</strong> Marking this code as verified is your personal manual confirmation recorded solely in your local device storage. It does not imply server verification, network certification, or third-party attestation.
+          </p>
+
+          <!-- 12-Group Safety Number Display -->
           <div class="p-3.5 rounded-xl bg-surface-raised border ${status === 'changed' ? 'border-rose-500/50 bg-rose-950/20' : 'border-amber/30'} text-center">
-            <div class="text-[10px] text-slate-400 uppercase font-mono mb-2">Ed25519 Joint Safety Key</div>
+            <div class="text-[10px] text-slate-400 uppercase font-mono mb-2">UREfy Safety Number</div>
             <div class="font-mono text-sm md:text-base font-extrabold text-amber tracking-wider select-all leading-relaxed">
               ${escapeHtml(safetyNumber)}
             </div>

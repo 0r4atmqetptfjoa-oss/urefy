@@ -74,7 +74,7 @@ export async function onRequestGet(context: {
         <h2 style="color: #38bdf8; font-size: 22px;">Core Pillars</h2>
         <ul style="padding-left: 20px;">
           <li><strong>Cryptographic Sovereign Identity:</strong> Client-side Ed25519 and X25519 key generation. Your private key stays in your local browser vault.</li>
-          <li><strong>Post-Quantum E2EE Messaging:</strong> Private chats protected by Signal Double Ratchet combined with ML-KEM-768 (Kyber) encapsulation and AES-256-GCM.</li>
+          <li><strong>Post-Quantum E2EE Messaging:</strong> Private chats protected by Hybrid Post-Quantum E2EE combining ML-KEM-768 (FIPS 203) with X25519 ECDH, HKDF-SHA256, and AES-256-GCM.</li>
           <li><strong>Zero Tracking &amp; Zero Ads:</strong> No third-party tracking scripts, no behavioral ad profiling, and no surveillance capitalism.</li>
           <li><strong>Open Communities:</strong> Community-governed discussion spaces for technology, PC gaming, Linux, open source, and local AI.</li>
         </ul>

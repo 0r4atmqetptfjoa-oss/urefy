@@ -767,11 +767,11 @@ export class SettingsView {
               <span class="text-xs font-bold text-white">End-to-End Encryption (E2EE)</span>
             </div>
             <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-semibold">
-              ACTIVE · NIST ML-KEM-768 + X25519
+              ACTIVE · ML-KEM-768 (FIPS 203) + X25519
             </span>
           </div>
           <p class="text-[11px] text-slate-400 leading-relaxed">
-            All 1-on-1 direct messages are sealed with NIST FIPS 203 ML-KEM-768 post-quantum KEM combined with X25519 ECDH, HKDF-SHA256 key derivation, and authenticated AES-256-GCM. Outgoing envelopes are signed with sovereign Ed25519 keys. Relay community channels use authenticated envelopes. Encrypted Vault notes use local zero-knowledge AES-256-GCM decoupled from transport.
+            All 1-on-1 direct messages are sealed with Hybrid post-quantum E2EE — ML-KEM-768 (FIPS 203) + X25519, HKDF-SHA256 key derivation, and authenticated AES-256-GCM. Outgoing envelopes are signed with sovereign Ed25519 keys. Relay community channels use authenticated envelopes. Encrypted Vault notes use local zero-knowledge AES-256-GCM decoupled from transport.
           </p>
         </div>
 

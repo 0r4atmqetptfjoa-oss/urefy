@@ -27,7 +27,7 @@
    Unlike engagement-bait algorithmic feeds, UREfy organizes discourse into topic-driven sovereign communities with community-governed moderation, Merit reputation, and multi-reaction voting (🔥, 🚀, 💡, ❤️, 🛡️, ⚡, 🎯, 🤔).
 
 4. **Post-Quantum End-to-End Encryption:**
-   Direct messages and private channels utilize Signal-grade Double Ratchet with ML-KEM-768 hybrid key encapsulation, guaranteeing forward secrecy and post-quantum resistance.
+   Direct messages utilize Hybrid Post-Quantum E2EE combining ML-KEM-768 (FIPS 203) with X25519, HKDF-SHA256, and AES-256-GCM, guaranteeing post-quantum resistance.
 
 5. **Local Device Vault:**
    Encrypted document storage and seed phrase backup secured via hardware WebAuthn passkeys and non-extractable client keys.
@@ -68,7 +68,7 @@ No. Account creation is instantaneous and handled entirely client-side through c
 UREfy uses a transparent Merit system combined with user emoji reactions (🔥 Fire, 🚀 Launch, 💡 Insight, 🎯 Precise, etc.) and chronological streams. There are no opaque algorithmic black boxes designed to generate outrage.
 
 ### Are direct messages private on UREfy?
-Yes. All direct messages are end-to-end encrypted (E2EE) using Double Ratchet forward secrecy and post-quantum hybrid KEM. Relays and servers only see encrypted ciphertexts with sealed sender headers.
+Yes. All direct messages are end-to-end encrypted (E2EE) using Hybrid Post-Quantum E2EE (ML-KEM-768 + X25519) and AES-256-GCM. Relays and servers only see encrypted ciphertexts with dual sealed copies.
 
 ### Can posts include media like YouTube videos?
 Yes. UREfy supports rich media including embeddable YouTube videos, images, code snippets, polls, and interactive threads.

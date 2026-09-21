@@ -25,7 +25,7 @@ export async function onRequestGet(context: {
 
   const title = 'Security & Cryptographic Architecture Whitepaper — UREfy';
   const description =
-    'Technical security architecture of UREfy: Ed25519 signatures, X25519 Diffie-Hellman, ML-KEM-768 post-quantum KEM, Double Ratchet, and AES-256-GCM authenticated encryption.';
+    'Technical security architecture of UREfy: Ed25519 signatures, X25519 Diffie-Hellman, ML-KEM-768 post-quantum KEM, and AES-256-GCM authenticated encryption.';
 
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -74,7 +74,7 @@ export async function onRequestGet(context: {
         <ul style="padding-left: 20px;">
           <li>Private messages cannot be decrypted because relay nodes never observe private keys or plaintext.</li>
           <li>Sealed Sender envelopes ensure the relay routes based only on ephemeral recipient identifiers, decoupling sender metadata.</li>
-          <li>Ratchet steps update conversation keys after every message, providing immediate compromise recovery.</li>
+          <li>Dual sealed copies with per-message ephemeral X25519 + ML-KEM-768 encapsulation ensure independent keys for every message.</li>
         </ul>
       </section>
 

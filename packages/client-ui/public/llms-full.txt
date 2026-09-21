@@ -17,7 +17,7 @@ UREfy (Unified Relay Enclave framework for You) is a next-generation consumer so
 
 ### 2. Encryption & Messaging Protocols
 - **Key Exchange:** X25519 Elliptic Curve Diffie-Hellman (ECDH) hybridized with ML-KEM-768 (CRYSTALS-Kyber) for quantum resistance.
-- **Direct Messaging:** Double Ratchet protocol delivering per-message forward secrecy and break-in recovery.
+- **Direct Messaging:** Hybrid Post-Quantum E2EE (ML-KEM-768 + X25519) with per-message ephemeral key encapsulation and AES-256-GCM.
 - **Symmetric Cipher:** Authenticated Encryption with Associated Data (AEAD) using AES-256-GCM.
 - **Sealed Sender:** The sender's identity is encrypted inside the inner payload envelope, preventing relay servers from mapping social graphs or analyzing who communicates with whom.
 
