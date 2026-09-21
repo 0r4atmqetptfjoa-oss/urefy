@@ -376,6 +376,24 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
       const recipient = await database.prepare('SELECT * FROM dm_identities WHERE fingerprint = ?').bind(message.recipient).first<IdentityRow>();
       if (!recipient || recipient.signing_public_key !== message.recipientPublicKey) return json({ success: false, error: 'Recipient key is unavailable or has changed' }, 409);
 
+      // Check user_blocks table: Sender cannot message recipient if either party has blocked the other
+      try {
+        await database.prepare(`
+          CREATE TABLE IF NOT EXISTS user_blocks (
+            blocker_id TEXT NOT NULL,
+            blocked_id TEXT NOT NULL,
+            created_at INTEGER NOT NULL,
+            PRIMARY KEY (blocker_id, blocked_id)
+          )
+        `).run();
+        const isBlocked = await database.prepare(
+          'SELECT 1 FROM user_blocks WHERE (blocker_id = ? AND blocked_id = ?) OR (blocker_id = ? AND blocked_id = ?) LIMIT 1'
+        ).bind(message.recipient, fingerprint, fingerprint, message.recipient).first();
+        if (isBlocked) {
+          return json({ success: false, error: 'Cannot send direct message to this recipient' }, 403);
+        }
+      } catch (_) {}
+
       let recipientPolicy = 'everyone';
       try {
         await database.prepare(`CREATE TABLE IF NOT EXISTS dm_permissions (fingerprint TEXT PRIMARY KEY, permission TEXT NOT NULL, updated_at INTEGER NOT NULL)`).run();

@@ -85,6 +85,37 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
       return createD1UnavailableResponse();
     }
 
+    if (db) {
+      await db.prepare(`
+        CREATE TABLE IF NOT EXISTS reports (
+          id TEXT PRIMARY KEY,
+          target_type TEXT NOT NULL,
+          target_id TEXT NOT NULL,
+          reason_category TEXT NOT NULL,
+          details TEXT,
+          reporter_id TEXT NOT NULL,
+          community_id TEXT,
+          status TEXT NOT NULL DEFAULT 'pending',
+          action_taken TEXT,
+          moderator_id TEXT,
+          created_at INTEGER NOT NULL,
+          reviewed_at INTEGER
+        )
+      `).run();
+      await db.prepare(`
+        CREATE TABLE IF NOT EXISTS community_moderation_logs (
+          id TEXT PRIMARY KEY,
+          community_id TEXT NOT NULL,
+          moderator_id TEXT NOT NULL,
+          action TEXT NOT NULL,
+          target_type TEXT NOT NULL,
+          target_id TEXT NOT NULL,
+          reason TEXT,
+          created_at INTEGER NOT NULL
+        )
+      `).run();
+    }
+
     const authorized = await isAuthorizedModerator(db, communityId, moderatorId, adminCheck.authorized);
     if (!authorized) {
       return new Response(
@@ -202,6 +233,75 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
       }
     }
 
+    // Handle community member report submissions (does not require moderator role)
+    if (action === 'report') {
+      if (!communityId || !targetId) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'communityId and targetId are required' }),
+          { status: 400, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
+        );
+      }
+      const reporterId = moderatorId || context.request.headers.get('X-User-Fingerprint') || 'anonymous';
+      const reasonCategory = (body.reasonCategory || body.reason || 'spam').trim();
+      const details = (body.details || '').trim();
+      const reportId = `rep_${Date.now()}_${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID().slice(0, 8) : Date.now().toString(36)}`;
+      const now = Date.now();
+
+      const db = getD1Database(context.env);
+      const isProd = isProductionEnv(context.env);
+
+      if (!db && isProd) {
+        return createD1UnavailableResponse();
+      }
+
+      if (db) {
+        await db.prepare(`
+          CREATE TABLE IF NOT EXISTS reports (
+            id TEXT PRIMARY KEY,
+            target_type TEXT NOT NULL,
+            target_id TEXT NOT NULL,
+            reason_category TEXT NOT NULL,
+            details TEXT,
+            reporter_id TEXT NOT NULL,
+            community_id TEXT,
+            status TEXT NOT NULL DEFAULT 'pending',
+            action_taken TEXT,
+            moderator_id TEXT,
+            created_at INTEGER NOT NULL,
+            reviewed_at INTEGER
+          )
+        `).run();
+
+        // Duplicate report suppression
+        const existing = await db.prepare(
+          "SELECT id FROM reports WHERE community_id = ? AND target_id = ? AND reporter_id = ? AND status = 'pending' LIMIT 1"
+        ).bind(communityId, targetId, reporterId).first<{ id: string }>();
+
+        if (existing) {
+          return new Response(
+            JSON.stringify({ success: true, reportId: existing.id, duplicate: true, status: 'pending' }),
+            { status: 200, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
+          );
+        }
+
+        await db.prepare(`
+          INSERT INTO reports (id, target_type, target_id, reason_category, details, reporter_id, community_id, status, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?)
+        `).bind(reportId, targetType, targetId, reasonCategory, details || null, reporterId, communityId, now).run();
+      } else {
+        const existing = globalSocialReportsStore.find(r => r.communityId === communityId && r.targetId === targetId && r.reporterId === reporterId && r.status === 'pending');
+        if (existing) {
+          return new Response(JSON.stringify({ success: true, reportId: existing.id, duplicate: true, status: 'pending' }), { status: 200, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } });
+        }
+        globalSocialReportsStore.unshift({ id: reportId, targetType, targetId, reasonCategory, details, reporterId, communityId, status: 'pending', createdAt: now });
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, reportId, communityId, status: 'pending' }),
+        { status: 201, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
+      );
+    }
+
     const validActions = [
       'pin_post', 'unpin_post', 'remove_post',
       'lock_thread', 'unlock_thread', 'ban_user',
@@ -210,7 +310,7 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
 
     if (!validActions.includes(action)) {
       return new Response(
-        JSON.stringify({ success: false, error: `Invalid action. Supported: ${validActions.join(', ')}` }),
+        JSON.stringify({ success: false, error: `Invalid action. Supported: ${validActions.join(', ')}, report` }),
         { status: 400, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
       );
     }

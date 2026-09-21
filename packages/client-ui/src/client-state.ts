@@ -249,6 +249,10 @@ export class AetherisClientStore {
     // Persist securely to Encrypted Vault and purge any legacy plaintext in localStorage
     this.identityPersistence = secureStorage.saveIdentity(this.mnemonic, seed, this.keypair.fingerprint, this.sovereignIdentity);
     void this.identityPersistence.catch(() => this.showToast('Encrypted identity could not be saved. Keep a recovery backup.', 'warning'));
+    void import('./social-safety.js').then(({ socialSafety }) => {
+      socialSafety.setActiveFingerprint(this.keypair.fingerprint);
+      void socialSafety.syncSafetyLists();
+    }).catch(() => {});
 
     if (typeof localStorage !== 'undefined') {
       const savedUiMode = localStorage.getItem('aetheris_ui_mode');
@@ -1716,6 +1720,10 @@ export class AetherisClientStore {
     void this.identityPersistence.then(() => {
       if (this.keypair.fingerprint !== restoredFingerprint) return;
       this.showToast('Identity restored and saved in the encrypted vault.', 'success');
+      void import('./social-safety.js').then(({ socialSafety }) => {
+        socialSafety.setActiveFingerprint(restoredFingerprint);
+        void socialSafety.syncSafetyLists();
+      }).catch(() => {});
       this.connect();
       this.notify('IDENTITY_RESTORED', { fingerprint: restoredFingerprint });
     }).catch(() => {});

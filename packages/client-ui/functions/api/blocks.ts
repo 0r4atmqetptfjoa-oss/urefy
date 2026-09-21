@@ -56,6 +56,22 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
     let mutedUsers: string[] = [];
 
     if (db) {
+      await db.prepare(`
+        CREATE TABLE IF NOT EXISTS user_blocks (
+          blocker_id TEXT NOT NULL,
+          blocked_id TEXT NOT NULL,
+          created_at INTEGER NOT NULL,
+          PRIMARY KEY (blocker_id, blocked_id)
+        )
+      `).run();
+      await db.prepare(`
+        CREATE TABLE IF NOT EXISTS user_mutes (
+          muter_id TEXT NOT NULL,
+          muted_id TEXT NOT NULL,
+          created_at INTEGER NOT NULL,
+          PRIMARY KEY (muter_id, muted_id)
+        )
+      `).run();
       const blockRes = await db
         .prepare('SELECT blocked_id FROM user_blocks WHERE blocker_id = ?')
         .bind(userId)
@@ -109,8 +125,8 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
     }
 
     let action = (body.action || '').trim().toLowerCase();
-    let userId = (body.userId || body.blockerId || '').trim();
-    let targetId = (body.targetId || body.blockedId || '').trim();
+    let userId = (body.userId || body.blockerId || body.muterId || context.request.headers.get('X-User-Fingerprint') || '').trim();
+    let targetId = (body.targetId || body.blockedId || body.mutedId || body.targetUserId || '').trim();
 
     // Check signed envelope
     if (body.envelope && typeof body.envelope === 'object') {
@@ -119,7 +135,7 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
         userId = auth.fingerprint || userId;
         const payload = (auth.payload || {}) as any;
         action = (payload.action || action).trim().toLowerCase();
-        targetId = (payload.targetId || targetId).trim();
+        targetId = (payload.targetId || payload.targetUserId || payload.blockedId || payload.mutedId || targetId).trim();
       }
     }
 
@@ -149,6 +165,24 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
 
     if (!db && isProd) {
       return createD1UnavailableResponse();
+    }
+    if (db) {
+      await db.prepare(`
+        CREATE TABLE IF NOT EXISTS user_blocks (
+          blocker_id TEXT NOT NULL,
+          blocked_id TEXT NOT NULL,
+          created_at INTEGER NOT NULL,
+          PRIMARY KEY (blocker_id, blocked_id)
+        )
+      `).run();
+      await db.prepare(`
+        CREATE TABLE IF NOT EXISTS user_mutes (
+          muter_id TEXT NOT NULL,
+          muted_id TEXT NOT NULL,
+          created_at INTEGER NOT NULL,
+          PRIMARY KEY (muter_id, muted_id)
+        )
+      `).run();
     }
 
     const now = Date.now();

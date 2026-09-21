@@ -87,6 +87,17 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
       }));
 
       if (comments.length > 0) {
+        if (userFingerprint) {
+          try {
+            const blocksRes = await db.prepare('SELECT blocked_id FROM user_blocks WHERE blocker_id = ?').bind(userFingerprint).all<{ blocked_id: string }>();
+            const mutesRes = await db.prepare('SELECT muted_id FROM user_mutes WHERE muter_id = ?').bind(userFingerprint).all<{ muted_id: string }>();
+            const blockedSet = new Set((blocksRes.results || []).map(r => r.blocked_id));
+            const mutedSet = new Set((mutesRes.results || []).map(r => r.muted_id));
+            if (blockedSet.size > 0 || mutedSet.size > 0) {
+              comments = comments.filter(c => !blockedSet.has(c.authorId) && !mutedSet.has(c.authorId));
+            }
+          } catch (_) {}
+        }
         const commentIds = comments.map(c => c.id);
         const placeholders = commentIds.map(() => '?').join(',');
 
@@ -221,9 +232,21 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
     }
 
     if (db) {
-      const post = await db.prepare("SELECT id FROM posts WHERE id = ? AND status IN ('published', 'pinned')").bind(postId).first();
+      const post = await db.prepare("SELECT id, author_id FROM posts WHERE id = ? AND status IN ('published', 'pinned')").bind(postId).first<{ id: string; author_id: string }>();
       if (!post) return failure('Discussion not found', 404);
       if (parentId && !await db.prepare('SELECT id FROM comments WHERE id = ? AND post_id = ?').bind(parentId, postId).first()) return failure('Reply source is not in this discussion', 400);
+
+      // Enforce user safety block check
+      if (post.author_id) {
+        try {
+          await db.prepare('CREATE TABLE IF NOT EXISTS user_blocks (blocker_id TEXT NOT NULL, blocked_id TEXT NOT NULL, created_at INTEGER NOT NULL, PRIMARY KEY (blocker_id, blocked_id))').run();
+          const isBlocked = await db.prepare(
+            'SELECT 1 FROM user_blocks WHERE (blocker_id = ? AND blocked_id = ?) OR (blocker_id = ? AND blocked_id = ?) LIMIT 1'
+          ).bind(post.author_id, authorId, authorId, post.author_id).first();
+          if (isBlocked) return failure('Cannot comment on this discussion due to user safety blocks', 403);
+        } catch (_) {}
+      }
+
       const role = await db.prepare('SELECT role, is_quarantined FROM user_roles WHERE fingerprint = ?').bind(authorId).first<{ role: string; is_quarantined: number }>();
       if (role?.is_quarantined) return failure('This account cannot post comments', 403);
       if (role?.role) authorRole = role.role;

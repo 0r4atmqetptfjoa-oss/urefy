@@ -26,10 +26,21 @@ const STORAGE_KEYS = {
 export class SocialSafetyEngine {
   private blockedUsers: Set<string> = new Set();
   private mutedUsers: Set<string> = new Set();
+  private activeFingerprint = '';
   private isInitialized = false;
 
   constructor() {
     this.loadFromStorage();
+  }
+
+  public setActiveFingerprint(fp: string): void {
+    if (typeof fp === 'string' && fp.trim()) {
+      this.activeFingerprint = fp.trim();
+    }
+  }
+
+  public getActiveFingerprint(): string {
+    return this.activeFingerprint;
   }
 
   private loadFromStorage(): void {
@@ -104,10 +115,12 @@ export class SocialSafetyEngine {
 
     // Sync to backend edge API
     try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (this.activeFingerprint) headers['X-User-Fingerprint'] = this.activeFingerprint;
       await fetch('/api/blocks', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'block', targetUserId: userId }),
+        headers,
+        body: JSON.stringify({ action: 'block', targetUserId: userId, targetId: userId, userId: this.activeFingerprint }),
       });
     } catch {
       // Offline fallback: locally blocked immediately
@@ -124,10 +137,12 @@ export class SocialSafetyEngine {
       this.dispatchEvent('aetheris:social:unblocked', { userId });
 
       try {
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (this.activeFingerprint) headers['X-User-Fingerprint'] = this.activeFingerprint;
         await fetch('/api/blocks', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'unblock', targetUserId: userId }),
+          headers,
+          body: JSON.stringify({ action: 'unblock', targetUserId: userId, targetId: userId, userId: this.activeFingerprint }),
         });
       } catch {
         // Offline fallback
@@ -143,10 +158,12 @@ export class SocialSafetyEngine {
     this.dispatchEvent('aetheris:social:muted', { userId });
 
     try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (this.activeFingerprint) headers['X-User-Fingerprint'] = this.activeFingerprint;
       await fetch('/api/blocks', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'mute', targetUserId: userId }),
+        headers,
+        body: JSON.stringify({ action: 'mute', targetUserId: userId, targetId: userId, userId: this.activeFingerprint }),
       });
     } catch {
       // Offline fallback
@@ -163,10 +180,12 @@ export class SocialSafetyEngine {
       this.dispatchEvent('aetheris:social:unmuted', { userId });
 
       try {
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (this.activeFingerprint) headers['X-User-Fingerprint'] = this.activeFingerprint;
         await fetch('/api/blocks', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'unmute', targetUserId: userId }),
+          headers,
+          body: JSON.stringify({ action: 'unmute', targetUserId: userId, targetId: userId, userId: this.activeFingerprint }),
         });
       } catch {
         // Offline fallback
@@ -179,9 +198,11 @@ export class SocialSafetyEngine {
     if (!report || !report.targetId || !report.reasonCategory) return false;
 
     try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (this.activeFingerprint) headers['X-User-Fingerprint'] = this.activeFingerprint;
       const resp = await fetch('/api/moderation', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           action: 'report',
           targetType: report.targetType,
@@ -189,6 +210,7 @@ export class SocialSafetyEngine {
           reasonCategory: report.reasonCategory,
           details: report.details || '',
           communityId: report.communityId,
+          moderatorId: this.activeFingerprint,
         }),
       });
       return resp.ok;
@@ -200,7 +222,10 @@ export class SocialSafetyEngine {
 
   public async syncSafetyLists(): Promise<void> {
     try {
-      const resp = await fetch('/api/blocks');
+      const url = this.activeFingerprint ? `/api/blocks?userId=${encodeURIComponent(this.activeFingerprint)}` : '/api/blocks';
+      const headers: Record<string, string> = {};
+      if (this.activeFingerprint) headers['X-User-Fingerprint'] = this.activeFingerprint;
+      const resp = await fetch(url, { headers });
       if (resp.ok) {
         const data = await resp.json() as { blockedUsers?: string[]; mutedUsers?: string[] };
         if (Array.isArray(data.blockedUsers)) {
@@ -224,3 +249,6 @@ export class SocialSafetyEngine {
 }
 
 export const socialSafety = new SocialSafetyEngine();
+if (typeof window !== 'undefined') {
+  (window as any).socialSafety = socialSafety;
+}

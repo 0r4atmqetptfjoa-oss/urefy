@@ -104,12 +104,14 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
     const rawOffset = parseInt(url.searchParams.get('offset') || '0', 10);
     const offset = Number.isFinite(rawOffset) && rawOffset >= 0 ? rawOffset : 0;
 
+    const userFingerprint = (url.searchParams.get('userFingerprint') || context.request.headers.get('X-User-Fingerprint') || '').trim();
+
     const db = getD1Database(context.env);
     const kv = getKVStore(context.env);
 
-    // 1. Try KV Cache for fast edge read if sorting hot without custom filters
+    // 1. Try KV Cache for fast edge read if sorting hot without custom filters and not personalized
     const cacheKey = `posts:${channelId || 'all'}:${flair || 'all'}:${sort}:${limit}:${offset}`;
-    if (kv) {
+    if (kv && !userFingerprint) {
       try {
         const cached = await kv.get<{ success: boolean; count: number; posts: EdgePost[] }>(cacheKey, 'json');
         if (cached && Array.isArray(cached.posts)) {
@@ -161,6 +163,17 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
 
         if (results && results.length > 0) {
           posts = results.map(parseD1PostRow);
+          if (userFingerprint) {
+            try {
+              const blocks = await db.prepare('SELECT blocked_id FROM user_blocks WHERE blocker_id = ?').bind(userFingerprint).all<{ blocked_id: string }>();
+              const mutes = await db.prepare('SELECT muted_id FROM user_mutes WHERE muter_id = ?').bind(userFingerprint).all<{ muted_id: string }>();
+              const blockedSet = new Set((blocks.results || []).map(r => r.blocked_id));
+              const mutedSet = new Set((mutes.results || []).map(r => r.muted_id));
+              if (blockedSet.size > 0 || mutedSet.size > 0) {
+                posts = posts.filter(p => !blockedSet.has(p.authorFingerprint) && !mutedSet.has(p.authorFingerprint));
+              }
+            } catch (_) {}
+          }
         } else if (isProd) {
           posts = [];
         } else {
@@ -220,7 +233,7 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
     };
 
     // Store in KV cache with short TTL
-    if (kv) {
+    if (kv && !userFingerprint) {
       try {
         await kv.put(cacheKey, JSON.stringify(payload), { expirationTtl: 30 });
       } catch (_) {}

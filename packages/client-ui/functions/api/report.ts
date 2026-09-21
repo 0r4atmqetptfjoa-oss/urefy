@@ -93,6 +93,45 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
 
     if (db) {
       try {
+        await db.prepare(`
+          CREATE TABLE IF NOT EXISTS dsa_reports (
+            id TEXT PRIMARY KEY,
+            target_id TEXT NOT NULL,
+            target_type TEXT NOT NULL,
+            reason TEXT NOT NULL,
+            details TEXT,
+            reporter_fingerprint TEXT NOT NULL,
+            reporter_email TEXT,
+            status TEXT NOT NULL DEFAULT 'pending',
+            created_at INTEGER NOT NULL,
+            reviewed_at INTEGER,
+            resolution_notes TEXT
+          )
+        `).run();
+
+        // Duplicate report suppression: check if same reporter has an active pending report on this target
+        if (reporterFingerprint && reporterFingerprint !== 'anonymous') {
+          const existingPending = await db.prepare(
+            "SELECT id FROM dsa_reports WHERE target_id = ? AND reporter_fingerprint = ? AND status = 'pending' LIMIT 1"
+          ).bind(targetId, reporterFingerprint).first<{ id: string }>();
+
+          if (existingPending) {
+            return new Response(
+              JSON.stringify({
+                success: true,
+                reportId: existingPending.id,
+                targetId,
+                status: 'pending',
+                duplicate: true,
+                message: 'A report for this content is already pending review from your identity.',
+                legalNotice: 'Sesizarea dvs. anterioară este deja în curs de examinare conform Articolului 16 din Regulamentul (UE) 2022/2065.',
+                createdAt: now,
+              }),
+              { status: 200, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
+            );
+          }
+        }
+
         await db
           .prepare(
             `INSERT INTO dsa_reports (
