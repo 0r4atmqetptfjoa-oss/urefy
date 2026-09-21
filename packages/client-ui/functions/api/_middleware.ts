@@ -429,9 +429,35 @@ export const onRequest: PagesFunction = async (context) => {
     );
   }
 
-  // ── 6. Execute route handler ──────────────────────────────────────────────
+  // ── 6. Request Correlation ID & Execution ────────────────────────────────
+  const requestId =
+    req.headers.get('cf-ray') ||
+    req.headers.get('x-request-id') ||
+    ('req_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8));
+
   const startMs = Date.now();
-  const response = await context.next();
+  let response: Response;
+  try {
+    response = await context.next();
+  } catch (edgeErr: any) {
+    console.error(`[EdgeUnhandledError:${requestId}]`, edgeErr?.message || edgeErr);
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: `Something went wrong. Reference: ${requestId}`,
+        requestId,
+      }),
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Request-Id': requestId,
+          ...corsHeaders,
+          ...SECURITY_HEADERS,
+        },
+      }
+    );
+  }
 
   // WebSocket upgrades pass through
   if (response.status === 101) return response;
@@ -485,6 +511,7 @@ export const onRequest: PagesFunction = async (context) => {
   newHeaders.set('X-RateLimit-Limit', String(rl.limit));
   newHeaders.set('X-RateLimit-Remaining', String(rl.remaining));
   newHeaders.set('X-RateLimit-Reset', String(rl.reset));
+  newHeaders.set('X-Request-Id', requestId);
   // Performance telemetry
   newHeaders.set('X-Response-Duration-Ms', String(durationMs));
   newHeaders.set('Server-Timing', `edge;dur=${durationMs};desc="Cloudflare Edge Worker"`);

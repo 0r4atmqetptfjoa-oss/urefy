@@ -1,0 +1,907 @@
+<USER_REQUEST>
+UREfy — PASS 8.1
+BETA READINESS EVIDENCE CLOSURE
+REAL LOAD, MODERATION OPS, OBSERVABILITY & CLAIM TRUTH
+
+LIVE TARGET:
+https://urefy.com
+
+IMPORTANT:
+
+PASS 8 introduced and verified important beta-safety protections.
+
+DO NOT TOUCH FROZEN DM CRYPTO.
+
+DO NOT REDESIGN THE PRODUCT.
+
+DO NOT ADD MAJOR FEATURES.
+
+This pass exists because PASS 8 claims:
+
+"all 71 requirements verified"
+
+but its final production matrix currently reports only:
+
+17 / 17 checks
+
+and its load evidence includes only:
+
+N = 25 edge read requests
+
+That is not sufficient evidence for a 100–1,000 user beta claim.
+
+==================================================
+1. CORRECT COVERAGE ACCOUNTING
+==================================================
+
+Build an explicit mapping:
+
+PASS 8 requirement number
+→ implementation
+→ verification method
+→ production/staging evidence
+→ result
+
+Cover ALL 71 original PASS 8 requirements.
+
+Use:
+
+PASS
+PARTIAL
+NOT TESTED
+NOT APPLICABLE
+
+Do not convert untested requirements into PASS.
+
+==================================================
+2. 71-REQUIREMENT MATRIX
+==================================================
+
+Final report must contain exactly one row for every original PASS 8 requirement.
+
+No grouping five requirements under one generic check unless one test genuinely proves all of them.
+
+==================================================
+3. PRODUCTION VS STAGING
+==================================================
+
+Clearly distinguish:
+
+LIVE PRODUCTION SMOKE
+
+from:
+
+CONTROLLED LOAD TEST ENVIRONMENT
+
+Do not run destructive load against public production.
+
+==================================================
+4. REAL CONCURRENCY TEST
+==================================================
+
+Perform safe load testing using production-equivalent infrastructure.
+
+Test realistic concurrent clients:
+
+100
+250
+500
+1000
+
+For read-heavy traffic.
+
+Measure:
+
+requests/sec
+p50
+p95
+p99
+failure rate
+429 rate
+5xx rate
+
+==================================================
+5. WEBSOCKET CONCURRENCY
+==================================================
+
+Test:
+
+100
+250
+500
+1000
+
+concurrent WebSocket clients where safe.
+
+Measure:
+
+successful connection rate
+connection setup latency
+message delivery latency
+disconnects
+memory/DO pressure
+errors
+
+==================================================
+6. RECONNECT STORM
+==================================================
+
+Connect a large QA client population.
+
+Disconnect simultaneously.
+
+Reconnect with client retry logic.
+
+Verify:
+
+exponential backoff
+jitter
+no synchronized thundering herd
+no endless reconnect loops
+
+==================================================
+7. D1 READ CONTENTION
+==================================================
+
+Exercise high-frequency reads:
+
+feed
+comments
+community
+notifications
+search
+
+Capture:
+
+latency
+errors
+query count
+slowest query
+
+==================================================
+8. D1 WRITE CONTENTION
+==================================================
+
+Controlled concurrent writes:
+
+likes
+reactions
+comments
+follows
+reports
+
+Look for:
+
+SQLITE_BUSY
+lost updates
+duplicate rows
+race-condition inflation
+
+==================================================
+9. CHAT BURST
+==================================================
+
+Simulate realistic community chat bursts.
+
+Examples:
+
+50 users
+100 users
+250 users
+
+sending within a short interval.
+
+Verify:
+
+ordering
+no duplicates
+rate limiting
+relay stability
+
+==================================================
+10. DM RATE ABUSE
+==================================================
+
+Do NOT modify crypto.
+
+Only verify surrounding abuse limits.
+
+One device attempts rapid DM dispatch.
+
+Check:
+
+rate limit
+Retry-After
+recipient protection
+no CPU amplification
+
+==================================================
+11. UPLOAD CONCURRENCY
+==================================================
+
+Controlled environment:
+
+parallel images/files within valid limits.
+
+Test:
+
+10
+25
+50
+
+simultaneous uploads.
+
+Measure:
+
+success
+failure cleanup
+R2 orphaning
+metadata consistency
+
+==================================================
+12. R2 QUOTA ENFORCEMENT
+==================================================
+
+Document actual production limits:
+
+per-file limit
+per-user limit
+allowed MIME
+image/video limits
+total personal quota
+
+If a quota does not exist:
+
+mark GAP.
+
+==================================================
+13. STORAGE COST GUARD
+==================================================
+
+One abusive identity must not be able to generate unbounded R2 storage cost.
+
+Test server-side enforcement.
+
+Client-only size checks do NOT count.
+
+==================================================
+14. MODERATION QUEUE END-TO-END
+==================================================
+
+USER A reports USER B content.
+
+MODERATOR opens queue.
+
+Verify:
+
+report appears
+target context correct
+reporter context appropriate
+reason correct
+timestamp correct
+status = new/pending
+
+==================================================
+15. REPORT LIFECYCLE
+==================================================
+
+Physically perform:
+
+New
+→ Reviewing
+→ Resolved
+
+and separately:
+
+New
+→ Dismissed
+
+Refresh between stages.
+
+State must persist.
+
+==================================================
+16. MODERATOR REMOVE CONTENT
+==================================================
+
+Moderator removes disposable QA post.
+
+Verify:
+
+feed exclusion
+search exclusion
+profile/community exclusion where intended
+direct URL removed state
+audit record
+
+==================================================
+17. RESTORE CONTENT
+==================================================
+
+If restore exists:
+
+restore the QA item.
+
+Verify authoritative state.
+
+If restore does NOT exist:
+
+mark limitation honestly.
+
+==================================================
+18. COMMUNITY MODERATOR IDOR
+==================================================
+
+Moderator of Community A attempts:
+
+remove post
+pin
+ban
+other moderation mutation
+
+inside Community B.
+
+Expected:
+
+403.
+
+==================================================
+19. GLOBAL ADMIN SEPARATION
+==================================================
+
+Community moderator must not gain global admin authority.
+
+Direct API attempts:
+
+403.
+
+==================================================
+20. MODERATION AUDIT LOG
+==================================================
+
+For each meaningful moderation action capture:
+
+actor
+target
+action
+timestamp
+reason/status
+
+No silent destructive moderation.
+
+==================================================
+21. REPORT PRIVACY
+==================================================
+
+Normal reported user must NOT automatically see reporter identity where product policy does not require it.
+
+Inspect API payloads.
+
+==================================================
+22. REPORT FLOOD
+==================================================
+
+Existing duplicate suppression is good.
+
+Now test:
+
+same reporter → same target repeatedly
+many targets
+rapid unique reports
+
+Rate-limit abusive reporters without blocking legitimate reporting.
+
+==================================================
+23. MASS REPORT REALITY
+==================================================
+
+Create multiple QA reporters.
+
+Report one target.
+
+Verify:
+
+reports do NOT automatically delete/ban solely because count increases
+
+unless explicit documented automated policy exists.
+
+==================================================
+24. BLOCK END-TO-END
+==================================================
+
+A blocks B.
+
+Physically verify B disappears or is restricted appropriately from:
+
+DM
+new replies
+feed recommendations
+profile suggestions
+notifications
+search where policy requires
+community interactions where appropriate
+
+Document exact semantics.
+
+==================================================
+25. MUTE VS BLOCK
+==================================================
+
+Verify these are genuinely different.
+
+Mute must not accidentally enforce block-level server restrictions.
+
+==================================================
+26. MESSAGE REQUESTS
+==================================================
+
+Unknown user sends allowed DM request.
+
+Verify:
+
+request drawer
+accept
+decline
+
+State persists.
+
+Declined sender must not repeatedly create disruptive requests without appropriate throttling.
+
+==================================================
+27. NOTIFICATION FLOOD
+==================================================
+
+Generate:
+
+many likes
+many reactions
+many replies
+many mentions
+
+Verify:
+
+rate protection
+aggregation where implemented
+no 100-toast storm
+
+==================================================
+28. SEARCH LOAD
+==================================================
+
+Test rapid:
+
+short queries
+long query
+emoji
+special characters
+no-result terms
+
+Measure latency.
+
+Protect against unbounded scans.
+
+==================================================
+29. QUERY PLAN AUDIT
+==================================================
+
+For hot D1 queries identify indexes used.
+
+At minimum inspect:
+
+feed
+comments
+notifications
+reports
+blocks
+communities
+search
+DM metadata
+
+Flag obvious full-table scans on high-frequency routes.
+
+==================================================
+30. N+1 AUDIT
+==================================================
+
+Measure number of backend/database operations for:
+
+one feed page
+community page
+profile
+search result page
+
+Do not accept hundreds of per-item queries.
+
+==================================================
+31. ACTIVITYPUB ABUSE
+==================================================
+
+Test inbound federation boundary:
+
+bad signature
+duplicate activity
+oversized body
+malformed JSON
+untrusted actor
+SSRF-like actor URL
+burst ingress
+
+All fail safely.
+
+==================================================
+32. ACTIVITYPUB RATE LIMIT
+==================================================
+
+Simulate one noisy remote instance.
+
+Protect local resources.
+
+==================================================
+33. CSP REALITY
+==================================================
+
+Report exact LIVE CSP header.
+
+Do not merely say:
+
+Strict CSP.
+
+Identify whether it contains:
+
+unsafe-inline
+unsafe-eval
+wildcards
+data:
+blob:
+
+and explain why each exception exists.
+
+==================================================
+34. XSS REGRESSION
+==================================================
+
+Submit inert QA payload strings through:
+
+post
+comment
+profile
+community
+DM
+community chat
+
+No execution.
+
+==================================================
+35. OBSERVABILITY INVENTORY
+==================================================
+
+For:
+
+Workers
+D1
+R2
+Durable Objects
+WebSockets
+ActivityPub
+moderation
+
+document:
+
+what is logged
+what metric exists
+where failure is visible
+whether alerting exists
+
+==================================================
+36. REQUEST CORRELATION
+==================================================
+
+Trigger a controlled server error.
+
+Verify it has a request/correlation ID usable to trace logs.
+
+User may see:
+
+"Something went wrong · Reference ABC..."
+
+but not internals.
+
+==================================================
+37. SECRET-SAFE LOGGING
+==================================================
+
+Search production logging code for accidental logging of:
+
+mnemonic
+private keys
+device private key
+DM plaintext
+Vault plaintext
+ratchet state
+
+Zero occurrences.
+
+==================================================
+38. PII / PRIVACY LOGGING
+==================================================
+
+Document what user identifiers appear in logs.
+
+Minimize unnecessary retention.
+
+==================================================
+39. ALERTABILITY
+==================================================
+
+Can operators detect:
+
+spike in 5xx
+D1 errors
+R2 upload failures
+WebSocket failure spike
+federation failure spike
+
+If there is logging but no alert mechanism:
+
+mark PARTIAL.
+
+==================================================
+40. ERROR BOUNDARY
+==================================================
+
+Break one QA request in:
+
+Home
+Messages
+Vault
+Community
+Settings
+
+Application shell remains usable.
+
+==================================================
+41. 429 UX
+==================================================
+
+When rate limited:
+
+do not show raw HTTP error.
+
+Display understandable retry state.
+
+Respect Retry-After.
+
+==================================================
+42. SERVICE WORKER DEPLOY TEST
+==================================================
+
+Open old production build.
+
+Deploy new QA build/environment.
+
+Test stale client behavior.
+
+No:
+
+chunk mismatch
+blank screen
+infinite reload
+
+==================================================
+43. MODERATED CONTENT CACHE
+==================================================
+
+Remove QA content.
+
+Ensure service worker/browser cache does not continue presenting it indefinitely as active content.
+
+==================================================
+44. BOT USER-AGENT LIMIT IS NOT BOT PROTECTION
+==================================================
+
+PASS 8 tested bad-bot User-Agent throttling.
+
+This is useful but trivially spoofable.
+
+Do NOT describe it as bot prevention.
+
+Real abuse defense must rely mainly on:
+
+identity/device limits
+IP/network signals where appropriate
+per-action limits
+behavioral cost
+server authorization
+
+==================================================
+45. RATE LIMIT DIMENSIONS
+==================================================
+
+For every important mutation report whether limiter keys on:
+
+IP
+identity fingerprint
+device
+endpoint/action
+combination
+
+Avoid a single simplistic dimension.
+
+==================================================
+46. RATE LIMIT DISTRIBUTED REALITY
+==================================================
+
+If rate counters exist only in Worker process memory:
+
+document that they are not globally authoritative.
+
+Use appropriate Cloudflare/Durable/D1 mechanisms where strong global enforcement is required.
+
+==================================================
+47. FAIL-OPEN TEST
+==================================================
+
+If rate-limit backend fails:
+
+what happens?
+
+For sensitive high-cost operations prefer safe bounded behavior.
+
+Document policy.
+
+==================================================
+48. DSA WORDING
+==================================================
+
+Do not claim complete:
+
+"DSA compliance"
+
+solely because a report flow implements Article 16-like structured notice fields.
+
+Use truthful wording such as:
+
+"DSA Article 16 notice workflow"
+
+unless complete legal compliance has been separately reviewed.
+
+==================================================
+49. RETENTION REALITY
+==================================================
+
+Document current actual retention behavior for:
+
+reports
+moderation audit records
+deleted posts
+server logs
+revoked devices
+DM ciphertext
+
+Do not invent policy.
+
+==================================================
+50. COST TEST
+==================================================
+
+From measured load identify likely first cost pressure:
+
+Workers requests
+D1 reads
+D1 writes
+Durable Object/WebSocket
+R2 storage
+R2 operations
+
+Do NOT invent billing prices.
+
+==================================================
+51. 1,000-USER MODEL
+==================================================
+
+Using measured tests, create a conservative scenario:
+
+1,000 registered users
+X simultaneously online
+X feed refreshes/min
+X chat messages/min
+X uploads/day
+
+Report bottleneck assumptions.
+
+Do not call it capacity certification.
+
+==================================================
+52. BUNDLE
+==================================================
+
+Current baseline:
+
+579.96 KiB gzip
+
+Hard ceiling:
+
+600 KiB.
+
+Keep admin/moderation/load tooling out of startup bundle.
+
+==================================================
+53. 17 VS 71 CORRECTION
+==================================================
+
+Final report must explicitly explain why PASS 8 said:
+
+17 / 17
+
+while claiming all 71 requirements.
+
+Correct any misleading statement.
+
+==================================================
+54. FINAL BETA MATRIX
+==================================================
+
+Return all 71 original requirements with:
+
+VERIFIED LIVE
+VERIFIED CONTROLLED
+PARTIAL
+NOT TESTED
+N/A
+
+==================================================
+55. FIVE REAL RISKS
+==================================================
+
+Answer again:
+
+"If 1,000 real users arrive tomorrow, what are the five most likely failures?"
+
+But this time base it on actual concurrency and operational evidence.
+
+==================================================
+56. NO FALSE CERTIFICATION
+==================================================
+
+Do not say:
+
+100% beta safe
+1,000 users guaranteed
+DSA compliant
+bot proof
+DDoS proof
+production capacity certified
+
+Use evidence-bound language.
+
+==================================================
+57. STOP CONDITION
+==================================================
+
+PASS 8.1 IS COMPLETE WHEN:
+
+ALL 71 REQUIREMENTS ARE ACCOUNTED FOR.
+
+REAL CONCURRENT LOAD HAS BEEN MEASURED.
+
+WEBSOCKET RECONNECT STORM HAS BEEN TESTED.
+
+D1 WRITE CONTENTION HAS BEEN TESTED.
+
+MODERATION LIFECYCLE WORKS END-TO-END.
+
+OBSERVABILITY CAN ACTUALLY SURFACE FAILURES.
+
+RATE LIMITING IS NOT BASED ONLY ON SPOOFABLE USER-AGENT DATA.
+
+AND THE FINAL REPORT DISTINGUISHES:
+
+SMOKE TESTING
+FROM
+LOAD TESTING
+FROM
+CAPACITY GUARANTEES.
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-09-21T16:38:57+03:00.
+</ADDITIONAL_METADATA>

@@ -1,0 +1,1028 @@
+<USER_REQUEST>
+UREfy — PASS 8
+BETA READINESS
+SPAM, ABUSE, MODERATION, RATE LIMITING, OBSERVABILITY & LOAD
+
+LIVE TARGET:
+https://urefy.com
+
+IMPORTANT BASELINE:
+
+The Direct Messaging cryptographic architecture is FROZEN.
+
+DO NOT MODIFY:
+
+Double Ratchet
+ML-KEM-768 bootstrap
+X25519
+AES-GCM message protection
+Safety Numbers
+Device Authority architecture
+Device Certificates
+DM wire protocol
+
+unless a reproducible security defect is discovered.
+
+PASS 8 is about operating UREfy with REAL USERS.
+
+==================================================
+1. PRIMARY QUESTION
+==================================================
+
+If 100–1,000 real users arrive tomorrow:
+
+Can UREfy survive:
+
+spam
+bots
+harassment
+mass posting
+report abuse
+notification flooding
+DM abuse
+community abuse
+rate spikes
+moderation workload
+backend errors
+
+without becoming unusable?
+
+==================================================
+2. ABUSE THREAT MODEL
+==================================================
+
+Inventory abuse surfaces:
+
+account/identity creation
+post creation
+comments
+replies
+reactions
+Awards
+follows
+community creation
+community joins
+community chat
+DM requests
+notifications
+reports
+search
+uploads
+ActivityPub ingress
+ActivityPub outbound
+Vault-related network APIs
+governance
+
+For each classify:
+
+rate limited?
+authenticated?
+signed?
+moderatable?
+blockable?
+observable?
+
+==================================================
+3. RATE LIMIT INVENTORY
+==================================================
+
+Document EVERY production rate limit.
+
+Return:
+
+endpoint/action
+identity limit
+IP/network limit if used
+device limit
+time window
+burst limit
+HTTP response
+Retry-After behavior
+
+Do not invent limits that do not exist.
+
+==================================================
+4. POST SPAM
+==================================================
+
+Use QA identity.
+
+Attempt rapid posting.
+
+Test:
+
+10
+50
+100
+
+safe QA submissions where environment permits.
+
+Expected:
+
+reasonable throttling
+no duplicate writes
+no backend crash
+
+Do not flood public production feeds with garbage.
+
+Use isolated/test-tagged content and clean it afterwards.
+
+==================================================
+5. COMMENT SPAM
+==================================================
+
+Rapid comments/replies.
+
+Verify:
+
+rate limits
+duplicate prevention
+thread integrity
+
+==================================================
+6. REACTION / LIKE ABUSE
+==================================================
+
+Rapid toggle:
+
+Like
+Reaction
+Merit
+
+No count inflation.
+
+No race-condition duplicate rows.
+
+==================================================
+7. FOLLOW ABUSE
+==================================================
+
+Rapid follow/unfollow.
+
+No notification storm.
+
+No database amplification.
+
+==================================================
+8. COMMUNITY CREATION ABUSE
+==================================================
+
+Attempt multiple community creations.
+
+Test:
+
+duplicate slug
+near-duplicate names
+rapid creation
+invalid payload
+
+Protect namespace without blocking legitimate users unnecessarily.
+
+==================================================
+9. COMMUNITY CHAT FLOOD
+==================================================
+
+Simulate message burst.
+
+Verify:
+
+WebSocket relay stability
+rate limiting
+ordering
+moderator usability
+
+==================================================
+10. DM ABUSE
+==================================================
+
+Test:
+
+stranger DM
+blocked user DM
+Nobody permission
+rapid request creation
+rapid messaging
+
+DM privacy settings must remain server-enforced.
+
+==================================================
+11. MESSAGE REQUEST EXPERIENCE
+==================================================
+
+If strangers can contact users:
+
+create a clean Message Requests flow.
+
+Do not dump unknown senders directly into normal inbox.
+
+If current architecture intentionally works differently:
+
+document it honestly.
+
+==================================================
+12. BLOCK
+==================================================
+
+Physically test block across:
+
+feed
+profile
+comments
+DM
+community
+notifications
+search/recommendations
+
+Define exact behavior.
+
+Blocked user must not repeatedly reappear through recommendations.
+
+==================================================
+13. MUTE
+==================================================
+
+Test mute separately from block.
+
+Mute should be reversible and less severe.
+
+==================================================
+14. REPORT FLOW
+==================================================
+
+Report:
+
+post
+comment
+profile
+DM
+community message
+community
+
+where appropriate.
+
+A Report button that only shows a toast is NOT sufficient.
+
+==================================================
+15. REPORT DATA
+==================================================
+
+A real report needs authoritative storage.
+
+Document fields such as:
+
+report id
+reporter
+target type
+target id
+reason
+optional details
+timestamp
+status
+
+Avoid unnecessary sensitive plaintext.
+
+==================================================
+16. REPORT DUPLICATES
+==================================================
+
+One user should not generate unlimited duplicate reports against the same target.
+
+==================================================
+17. REPORT ABUSE
+==================================================
+
+A malicious reporter must not automatically:
+
+hide
+delete
+ban
+
+content merely by mass-reporting it.
+
+Reports are signals, not verdicts.
+
+==================================================
+18. MODERATION QUEUE
+==================================================
+
+Audit Admin / Moderation tooling.
+
+Moderator should be able to see:
+
+new
+reviewing
+resolved
+dismissed
+
+reports.
+
+==================================================
+19. MODERATOR CONTEXT
+==================================================
+
+For a report show enough context:
+
+reported item
+author
+community
+reason
+timestamp
+relevant surrounding content
+
+Do not expose unrelated private information.
+
+==================================================
+20. MODERATION ACTIONS
+==================================================
+
+Audit actual available actions.
+
+Possible real actions:
+
+dismiss report
+remove content
+restore content
+warn
+mute
+suspend
+community-specific moderation
+
+Only expose actions backed by real enforcement.
+
+==================================================
+21. AUDIT LOG
+==================================================
+
+Important moderation actions should have an audit trail.
+
+Who
+what
+when
+reason
+
+Prevent silent moderator actions where practical.
+
+==================================================
+22. OWN COMMUNITY MODERATION
+==================================================
+
+Community moderators must only moderate communities they are authorized for.
+
+Test IDOR:
+
+Moderator A attempts moderation mutation in Community B.
+
+Expected:
+
+403.
+
+==================================================
+23. GLOBAL ADMIN
+==================================================
+
+Global admin privileges must be distinct from community moderator rights.
+
+==================================================
+24. DELETED CONTENT
+==================================================
+
+After moderator removal:
+
+feed disappears
+direct URL reflects correct removed/deleted state
+search excludes it
+recommendations exclude it
+
+Preserve required moderation/audit evidence privately.
+
+==================================================
+25. HARASSMENT LOOP
+==================================================
+
+Scenario:
+
+A blocks B.
+
+B tries:
+
+follow
+DM
+mention
+reply
+new identity if practical
+
+Document what UREfy can and cannot prevent.
+
+Do not claim Sybil resistance unless real.
+
+==================================================
+26. NOTIFICATION ABUSE
+==================================================
+
+One malicious account repeatedly:
+
+mentions
+replies
+follows/reacts
+
+Protect user from notification flooding.
+
+==================================================
+27. NOTIFICATION AGGREGATION
+==================================================
+
+Where useful aggregate:
+
+20 likes
+
+rather than producing 20 disruptive alerts.
+
+Do not fake counts.
+
+==================================================
+28. UPLOAD ABUSE
+==================================================
+
+Audit:
+
+maximum file size
+image size
+video size
+MIME validation
+extension mismatch
+malformed files
+storage quotas
+
+==================================================
+29. R2 COST GUARDRAILS
+==================================================
+
+UREfy must not allow one user to consume uncontrolled storage.
+
+Document:
+
+per-file maximum
+per-user quota
+community quota if relevant
+total storage guardrails
+
+==================================================
+30. MALICIOUS FILES
+==================================================
+
+Browser must not execute uploaded HTML/SVG/script content in dangerous origin context.
+
+Verify safe Content-Type / Content-Disposition / sanitization policy.
+
+==================================================
+31. URL SAFETY
+==================================================
+
+Test posts/messages containing:
+
+javascript:
+data:
+file:
+localhost URLs
+private-network URLs
+redirect chains
+
+No unsafe navigation or SSRF regression.
+
+==================================================
+32. XSS
+==================================================
+
+Safely submit strings such as:
+
+<script>alert(1)</script>
+
+HTML event handlers
+
+malformed Markdown
+
+SVG payload-like text
+
+across:
+
+post
+comment
+profile
+community
+DM
+chat
+
+They must render inert.
+
+==================================================
+33. CSP
+==================================================
+
+Audit live Content-Security-Policy.
+
+Ensure current app architecture does not require unsafe relaxations unnecessarily.
+
+==================================================
+34. OBSERVABILITY
+==================================================
+
+A production beta requires knowing when it breaks.
+
+Inventory existing:
+
+structured logs
+error logs
+request IDs
+latency metrics
+WebSocket metrics
+D1 failures
+R2 failures
+federation failures
+
+==================================================
+35. NO SECRET LOGGING
+==================================================
+
+Logs must not contain:
+
+mnemonic
+private keys
+DM plaintext
+Vault plaintext
+ratchet state
+device private keys
+
+==================================================
+36. ERROR CORRELATION
+==================================================
+
+Generate request/correlation ID where useful so a user-visible failure can be traced without exposing private content.
+
+==================================================
+37. CLIENT ERROR BOUNDARY
+==================================================
+
+A failing feature must not destroy the entire application shell.
+
+Test controlled failures in:
+
+Feed
+Messages
+Vault
+Community
+Settings
+
+==================================================
+38. USER-FACING ERROR COPY
+==================================================
+
+No raw:
+
+stack traces
+D1 errors
+SQL
+Cloudflare internals
+crypto internals
+
+in consumer UI.
+
+==================================================
+39. D1 LOAD
+==================================================
+
+Identify hottest queries:
+
+feed
+comments
+notifications
+messages
+communities
+search
+reports
+
+Inspect indexing.
+
+No obvious full-table scans on high-frequency routes.
+
+==================================================
+40. N+1 AUDIT
+==================================================
+
+Feed should not require dozens/hundreds of sequential D1 queries per page.
+
+Profile/community/search similarly.
+
+==================================================
+41. WEBSOCKET LOAD
+==================================================
+
+Simulate realistic concurrent connections against staging/test-compatible infrastructure where possible.
+
+Measure:
+
+100
+250
+500
+1000
+
+connections.
+
+Do not harm production availability.
+
+==================================================
+42. WEBSOCKET RECONNECT STORM
+==================================================
+
+Simulate many clients losing connection and reconnecting together.
+
+Use:
+
+jitter
+backoff
+
+Avoid thundering herd.
+
+==================================================
+43. HTTP LOAD
+==================================================
+
+Load-test safe read endpoints.
+
+Measure:
+
+p50
+p95
+p99
+error rate
+
+Do not perform destructive denial-of-service testing against public production.
+
+==================================================
+44. WRITE LOAD
+==================================================
+
+Use controlled/staging environment for meaningful write load if production testing would pollute data.
+
+Clearly distinguish:
+
+production smoke
+staging/load test
+
+==================================================
+45. D1 CONTENTION
+==================================================
+
+Test concurrent:
+
+Like
+comment
+follow
+notification writes
+
+Look for:
+
+SQLITE_BUSY
+locking
+lost updates
+
+==================================================
+46. R2 LOAD
+==================================================
+
+Test parallel uploads within safe QA limits.
+
+No orphaned objects after failed metadata write.
+
+==================================================
+47. TRANSACTIONAL CONSISTENCY
+==================================================
+
+Look for states such as:
+
+R2 object exists but DB missing
+
+DB attachment exists but R2 upload failed
+
+Provide cleanup/reconciliation.
+
+==================================================
+48. SERVICE WORKER UNDER DEPLOY
+==================================================
+
+Deploy new version while QA clients have previous application open.
+
+Verify:
+
+old/new chunks don't mix into broken app
+
+Provide controlled refresh/update behavior.
+
+==================================================
+49. CACHE INVALIDATION
+==================================================
+
+Ensure deleted/moderated/private content is not indefinitely served from stale application caches.
+
+==================================================
+50. FEDERATION ABUSE
+==================================================
+
+ActivityPub inbox is an untrusted external boundary.
+
+Test:
+
+invalid signature
+oversized activity
+malformed JSON
+unknown actor
+SSRF URLs
+rapid remote delivery
+duplicate activity
+
+==================================================
+51. FEDERATION RATE LIMIT
+==================================================
+
+One remote instance must not overwhelm UREfy inbox processing.
+
+==================================================
+52. SEARCH ABUSE
+==================================================
+
+Test:
+
+very long query
+rapid query
+special characters
+wildcards
+emoji
+
+No expensive unbounded scanning.
+
+==================================================
+53. PRIVACY / BLOCK SEARCH
+==================================================
+
+Search must respect:
+
+blocked
+deleted
+private
+muted
+
+content policies.
+
+==================================================
+54. ACCOUNT / IDENTITY CREATION FLOOD
+==================================================
+
+Because identity creation is client-side, document what server resources an unlimited number of new identities can consume.
+
+Protect:
+
+registration
+posting
+DM
+uploads
+community creation
+
+rather than relying solely on account creation friction.
+
+==================================================
+55. SYBIL REALITY
+==================================================
+
+Do not claim strong Sybil prevention unless implemented.
+
+Document existing defenses truthfully.
+
+==================================================
+56. GOVERNANCE ABUSE
+==================================================
+
+Audit:
+
+proposal spam
+vote replay
+duplicate voting
+eligibility
+nullifier abuse
+
+Do not regress existing governance.
+
+==================================================
+57. ADMIN SECURITY
+==================================================
+
+Admin UI route alone is not authorization.
+
+Attempt direct mutation without admin credentials.
+
+Expected:
+
+403.
+
+==================================================
+58. MODERATION ACCESSIBILITY
+==================================================
+
+Moderators need efficient keyboard/mobile workflows.
+
+Do not make moderation desktop-only if communities may be managed from phones.
+
+==================================================
+59. USER APPEALS / FEEDBACK
+==================================================
+
+If content can be removed/suspended:
+
+at minimum provide clear reason/status.
+
+If formal appeals are not implemented yet:
+
+document beta limitation.
+
+==================================================
+60. BLOCK/MUTE DATA PERSISTENCE
+==================================================
+
+Refresh.
+
+Second session where applicable.
+
+Rules remain applied.
+
+==================================================
+61. DATA RETENTION
+==================================================
+
+Document retention for:
+
+reports
+deleted posts
+DM ciphertext
+device records
+revoked devices
+logs
+
+Do not invent legal policy.
+
+Report current code reality.
+
+==================================================
+62. LOAD TEST RESULTS
+==================================================
+
+Final report should provide:
+
+Scenario
+Concurrency
+Requests/messages
+p50
+p95
+p99
+failure rate
+bottleneck
+result
+
+==================================================
+63. COST RISK
+==================================================
+
+Estimate which resource will become expensive first:
+
+D1 reads
+D1 writes
+R2 storage
+R2 egress
+Workers requests
+Durable Objects
+WebSocket duration
+
+Use measured usage where available.
+
+Do not fabricate Cloudflare billing numbers.
+
+==================================================
+64. BUNDLE
+==================================================
+
+Frozen baseline:
+
+577.05 KiB gzip.
+
+PASS 8 should not materially increase startup JS.
+
+Moderation/admin tooling should lazy-load.
+
+Hard maximum:
+
+600 KiB gzip.
+
+==================================================
+65. REGRESSION
+==================================================
+
+Re-run critical:
+
+identity
+posts
+comments
+communities
+DM
+Vault
+Settings
+mobile navigation
+themes
+governance
+
+No need to modify frozen crypto.
+
+==================================================
+66. FINAL REPORT — ABUSE MATRIX
+==================================================
+
+Return:
+
+Surface
+Attack
+Defense
+Edge-enforced?
+Rate-limited?
+Moderator-visible?
+Residual risk
+Status
+
+==================================================
+67. FINAL REPORT — MODERATION MATRIX
+==================================================
+
+Return:
+
+Content type
+Reportable?
+Blockable?
+Removable?
+Audited?
+Community mod?
+Global admin?
+Production verified?
+
+==================================================
+68. FINAL REPORT — OBSERVABILITY MATRIX
+==================================================
+
+Return:
+
+Subsystem
+Error signal
+Metric/log
+Secret-safe?
+Alertable?
+Current gap
+
+==================================================
+69. P0/P1 FIXES
+==================================================
+
+Fix discovered launch blockers.
+
+Do not perform broad architecture rewrites.
+
+==================================================
+70. REQUIRED FINAL ANSWER
+==================================================
+
+Answer:
+
+"If UREfy opens to 1,000 users tomorrow, what are the five most likely operational or abuse failures?"
+
+Base the answer on actual measured/tested evidence.
+
+==================================================
+71. STOP CONDITION
+==================================================
+
+PASS 8 IS COMPLETE WHEN:
+
+SPAM CANNOT TRIVIALLY DESTROY FEEDS OR CHAT.
+
+DM ABUSE IS CONTROLLED BY REAL PERMISSIONS.
+
+BLOCK / MUTE / REPORT ARE REAL.
+
+MODERATION ACTIONS ARE AUTHORIZED SERVER-SIDE.
+
+UPLOAD COST HAS GUARDRAILS.
+
+OBSERVABILITY EXISTS WITHOUT LEAKING PRIVATE CONTENT.
+
+COMMON ERROR STATES FAIL SOFT.
+
+REALISTIC LOAD HAS BEEN MEASURED SAFELY.
+
+AND NO KNOWN P0/P1 BETA BLOCKER REMAINS.
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-09-21T15:09:35+03:00.
+</ADDITIONAL_METADATA>
