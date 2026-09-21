@@ -19,8 +19,10 @@ import {
   type SovereignSignedEnvelope,
   generateDeviceKeypair,
   issueDeviceCertificate,
+  createDeviceSignedEnvelope,
   type DeviceKeypair,
   type DeviceCertificate,
+  type DeviceSignedEnvelope,
 } from '@aetheris/core-crypto';
 import type { DirectMessageAttachment } from './client-state.js';
 import { validateMessageContext, type MessageContext } from './conversation-context.js';
@@ -122,7 +124,7 @@ export class DirectMessagingClient implements PrivateMessageTransport {
     return (await this.getKeys()).identity;
   }
 
-  private async post(envelope: SovereignSignedEnvelope): Promise<any> {
+  private async post(envelope: SovereignSignedEnvelope | DeviceSignedEnvelope): Promise<any> {
     const response = await this.fetcher('/api/direct-messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -146,6 +148,7 @@ export class DirectMessagingClient implements PrivateMessageTransport {
         throw new Error('Identity changed while enabling private messaging');
       }
       this.registeredKey = key;
+      await this.registerDevice();
     }
     return keys.identity;
   }
@@ -260,11 +263,11 @@ export class DirectMessagingClient implements PrivateMessageTransport {
       const pendingKey = `${ownerFP}:${recipient}:${activePeerDeviceId || 'default'}`;
       const serialized = canonicalizeJson(content);
       let pending = this.pendingSends.get(pendingKey);
-      let envelope: SovereignSignedEnvelope<DirectMessageSendPayload>;
+      let envelope: DeviceSignedEnvelope<any>;
       let updatedSession: DoubleRatchetSession;
 
       if (pending && pending.content === serialized) {
-        envelope = createSignedEnvelope(pending.payload, keys);
+        envelope = createDeviceSignedEnvelope(pending.payload, devKp, ownerFP);
         updatedSession = pending.nextSession;
       } else {
         const peer = await this.lookup(recipient);
@@ -293,11 +296,13 @@ export class DirectMessagingClient implements PrivateMessageTransport {
             recipientDeviceId: activePeerDeviceId || undefined,
           }
         );
-        envelope = createSignedEnvelope({
-          ...enc.envelope.payload,
+        envelope = createDeviceSignedEnvelope({
+          action: 'send',
+          message: enc.envelope.payload.message,
           deviceId: localDeviceId,
           devicePublicKey: devKp.publicKeyHex,
-        }, keys);
+          storedEnvelope: enc.envelope,
+        }, devKp, ownerFP);
         updatedSession = enc.session;
         this.pendingSends.set(pendingKey, {
           content: serialized,
@@ -341,12 +346,12 @@ export class DirectMessagingClient implements PrivateMessageTransport {
     const ownerFP = keys.identity.fingerprint;
     const devKp = await this.getDeviceKeypair();
     const localDevId = devKp.deviceId;
-    const result = await this.post(createSignedEnvelope({
+    const result = await this.post(createDeviceSignedEnvelope({
       action: 'list',
       after,
       deviceId: devKp.deviceId,
       devicePublicKey: devKp.publicKeyHex,
-    }, keys));
+    }, devKp, ownerFP));
     if (!Array.isArray(result.messages) || !Number.isSafeInteger(result.nextCursor) || result.nextCursor < after) {
       throw new Error('Invalid private inbox response');
     }
@@ -552,15 +557,16 @@ export class DirectMessagingClient implements PrivateMessageTransport {
 
   public async sendReadReceipt(recipient: string, messageIds: string[]): Promise<any> {
     const keys = await this.getKeys();
+    const ownerFP = keys.identity.fingerprint;
     const devKp = await this.getDeviceKeypair();
-    return await this.post(createSignedEnvelope({
+    return await this.post(createDeviceSignedEnvelope({
       action: 'read-receipt',
       recipient,
       messageIds,
       deviceId: devKp.deviceId,
       devicePublicKey: devKp.publicKeyHex,
       timestamp: Date.now(),
-    }, keys));
+    }, devKp, ownerFP));
   }
 
   public async listDevices(fingerprint?: string): Promise<Array<{ deviceId: string; devicePublicKey?: string; status: string; label?: string; createdAt: number }>> {
