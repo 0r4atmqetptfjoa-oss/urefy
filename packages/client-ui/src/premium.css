@@ -2011,4 +2011,47 @@ article[data-post-card-id] {
   }
 }
 
+/* PASS 9: consumer profile setup is an explicit, compact state. */
+.profile-setup-callout {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 18px;
+  border: 1px solid color-mix(in srgb, var(--color-accent, #e59b3c) 38%, transparent);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--color-accent, #e59b3c) 10%, var(--bg-surface-base));
+}
+.profile-setup-callout > div { min-width: 0; }
+.profile-setup-callout span { display: block; color: var(--color-accent, #e59b3c); font-size: 10px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+.profile-setup-callout strong { display: block; margin-top: 2px; color: var(--text-primary); font-size: 16px; }
+.profile-setup-callout p { margin-top: 3px; color: var(--text-secondary); font-size: 12px; line-height: 1.45; }
+@media (max-width: 640px) {
+  .profile-setup-callout { align-items: stretch; flex-direction: column; }
+  .profile-setup-callout .primary-button { min-height: 44px; }
+}
 
+@media (max-width: 430px) {
+  .mobile-bottom-nav button,
+  .social-post__actions button,
+  .post-detail-actions button,
+  .comment-actions button,
+  .btn-comment-merit,
+  .btn-comment-reply,
+  .btn-comment-like,
+  .btn-comment-more,
+  .media-controls button,
+  [data-action="open-compose"],
+  [data-action="toggle-composer"],
+  [data-action="submit-post"],
+  [data-action="submit-reply"] {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  select,
+  input[type="search"],
+  .composer-community-select {
+    min-height: 44px;
+  }
+}

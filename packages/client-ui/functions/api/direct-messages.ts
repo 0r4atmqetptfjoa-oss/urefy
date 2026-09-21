@@ -357,11 +357,12 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
           Object.keys(payload).some(key => key !== 'action' && key !== 'message' && key !== 'deviceId' && key !== 'devicePublicKey' && key !== 'storedEnvelope')) {
         return json({ success: false, error: 'A valid signed encrypted message is required' }, 400);
       }
-      if (isDeviceAuth && message.senderDeviceId && callerDeviceId && message.senderDeviceId !== callerDeviceId) {
+      const messageSenderDeviceId = 'senderDeviceId' in message ? message.senderDeviceId : undefined;
+      if (isDeviceAuth && messageSenderDeviceId && callerDeviceId && messageSenderDeviceId !== callerDeviceId) {
         return json({ success: false, error: 'Sender device ID mismatch' }, 403);
       }
 
-      const senderDevId = message.senderDeviceId || payload.deviceId || callerDeviceId;
+      const senderDevId = messageSenderDeviceId || payload.deviceId || callerDeviceId;
       const senderDevKey = payload.devicePublicKey || callerDevicePublicKey;
       if (senderDevId || senderDevKey) {
         try {

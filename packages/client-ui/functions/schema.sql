@@ -555,4 +555,16 @@ CREATE TABLE IF NOT EXISTS dm_devices (
 
 CREATE INDEX IF NOT EXISTS idx_dm_devices_fingerprint_status ON dm_devices(fingerprint, status);
 
+-- ===========================================================================
+-- 35. SYNTHETIC FIXTURE REGISTRY (closed beta / load test isolation)
+-- ===========================================================================
+CREATE TABLE IF NOT EXISTS synthetic_fixtures (
+    resource_type TEXT NOT NULL CHECK(resource_type IN ('community', 'post', 'comment')),
+    resource_id TEXT NOT NULL,
+    environment TEXT NOT NULL DEFAULT 'test' CHECK(environment = 'test'),
+    cleanup_run_id TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    PRIMARY KEY (resource_type, resource_id)
+);
 
+CREATE INDEX IF NOT EXISTS idx_synthetic_fixtures_cleanup ON synthetic_fixtures(cleanup_run_id, resource_type);

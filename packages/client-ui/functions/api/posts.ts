@@ -5,8 +5,6 @@
 // ===========================================================================
 
 import {
-  Env,
-  EdgePost,
   getD1Database,
   getKVStore,
   getR2Bucket,
@@ -16,10 +14,12 @@ import {
   isProductionEnv,
   createD1UnavailableResponse,
 } from './_db.js';
+import type { Env, EdgePost } from './_db.js';
 import { requireAdmin, requireSignedEnvelope } from './_auth.js';
 import { dispatchOutboundPostFederation } from './federation.js';
+import { ensureSyntheticFixturesTable, parseSyntheticFixtureMetadata, registerSyntheticFixture } from './_synthetic.js';
 
-export { EdgePost };
+export type { EdgePost };
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -72,6 +72,9 @@ export function parseD1PostRow(row: any): EdgePost {
     channelId: row.channel_id ?? row.channelId ?? 'pulse-global',
     authorFingerprint: row.author_id ?? row.author_fingerprint ?? row.authorFingerprint ?? 'anon-peer',
     authorRole: row.author_role ?? row.authorRole ?? 'MEMBER',
+    authorDisplayName: row.author_display_name ?? row.authorDisplayName ?? undefined,
+    authorHandle: row.author_handle ?? row.authorHandle ?? undefined,
+    authorAvatarUrl: row.author_avatar_url ?? row.authorAvatarUrl ?? undefined,
     title: row.title,
     content: row.content,
     flair: row.flair || 'TECH DISCUSSION',
@@ -108,9 +111,10 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
 
     const db = getD1Database(context.env);
     const kv = getKVStore(context.env);
+    if (db) await ensureSyntheticFixturesTable(db).catch(() => {});
 
     // 1. Try KV Cache for fast edge read if sorting hot without custom filters and not personalized
-    const cacheKey = `posts:${channelId || 'all'}:${flair || 'all'}:${sort}:${limit}:${offset}`;
+    const cacheKey = `posts:v2:${channelId || 'all'}:${flair || 'all'}:${sort}:${limit}:${offset}`;
     if (kv && !userFingerprint) {
       try {
         const cached = await kv.get<{ success: boolean; count: number; posts: EdgePost[] }>(cacheKey, 'json');
@@ -133,26 +137,32 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
     // 2. Query Cloudflare D1 Database if binding available
     if (db) {
       try {
-        let query = "SELECT * FROM posts WHERE (status IN ('published', 'pinned', 'locked') OR status IS NULL) AND (status != 'shadowbanned' OR status IS NULL)";
+        let query = `SELECT posts.*, profiles.display_name AS author_display_name,
+          profiles.handle AS author_handle, profiles.avatar_url AS author_avatar_url
+          FROM posts
+          LEFT JOIN user_profiles profiles ON profiles.user_id = posts.author_id
+          WHERE (posts.status IN ('published', 'pinned', 'locked') OR posts.status IS NULL)
+          AND (posts.status != 'shadowbanned' OR posts.status IS NULL)
+          AND NOT EXISTS (SELECT 1 FROM synthetic_fixtures sf WHERE sf.resource_type = 'post' AND sf.resource_id = posts.id)`;
         const params: any[] = [];
 
         if (channelId && channelId !== 'all') {
-          query += ' AND channel_id = ?';
+          query += ' AND posts.channel_id = ?';
           params.push(channelId);
         }
 
         if (flair && flair !== 'all') {
-          query += ' AND flair = ?';
+          query += ' AND posts.flair = ?';
           params.push(flair);
         }
 
         if (sort === 'new' || sort === 'chrono') {
-          query += ' ORDER BY created_at DESC';
+          query += ' ORDER BY posts.created_at DESC';
         } else if (sort === 'top') {
-          query += ' ORDER BY merit_votes DESC, created_at DESC';
+          query += ' ORDER BY posts.merit_votes DESC, posts.created_at DESC';
         } else {
           // Hot ranking SQLite approximation
-          query += ' ORDER BY (merit_votes + (boost_count * 2) + (reply_count * 1.5)) DESC, created_at DESC';
+          query += ' ORDER BY (posts.merit_votes + (posts.boost_count * 2) + (posts.reply_count * 1.5)) DESC, posts.created_at DESC';
         }
 
         query += ' LIMIT ? OFFSET ?';
@@ -743,6 +753,8 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
       }
     }
 
+    const syntheticMetadata = parseSyntheticFixtureMetadata(body);
+
     const randSuffix = typeof crypto !== 'undefined' && crypto.randomUUID
       ? crypto.randomUUID().replace(/-/g, '').substring(0, 8)
       : Date.now().toString(36);
@@ -770,6 +782,7 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
       quotedPost: body.quotedPost !== undefined ? body.quotedPost : existingPost?.quotedPost,
       createdAt: existingPost ? existingPost.createdAt : (body.createdAt || body.created_at || Date.now()),
       isExpanded: false,
+      ...(syntheticMetadata || {}),
     };
 
     // Strict input validation
@@ -856,13 +869,17 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
               { status: 500, headers: { 'Content-Type': 'application/json' } }
             );
           }
+          if (syntheticMetadata) {
+            await ensureSyntheticFixturesTable(db);
+            await registerSyntheticFixture(db, 'post', newPost.id, syntheticMetadata);
+          }
         }
 
         // Invalidate KV cache
         if (kv) {
           try {
-            await kv.delete('posts:all:all:hot:50:0');
-            await kv.delete(`posts:${newPost.channelId}:all:hot:50:0`);
+            await kv.delete('posts:v2:all:all:hot:50:0');
+            await kv.delete(`posts:v2:${newPost.channelId}:all:hot:50:0`);
           } catch (_) {}
         }
       } catch (dbErr: any) {

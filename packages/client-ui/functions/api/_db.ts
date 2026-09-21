@@ -92,6 +92,7 @@ export interface Env {
   R2?: R2Bucket;
   VAULT_BUCKET?: R2Bucket;
   STORAGE_BUCKET?: R2Bucket;
+  ENVIRONMENT?: string;
   [key: string]: any;
 }
 
@@ -124,6 +125,9 @@ export interface EdgePost {
   channelId: string;
   authorFingerprint: string;
   authorRole: string;
+  authorDisplayName?: string;
+  authorHandle?: string;
+  authorAvatarUrl?: string;
   title: string;
   content: string;
   flair: 'VERIFIED RELEASE' | 'SECURITY ADVISORY' | 'TECH DISCUSSION' | 'MICRO-PULSE' | 'ASK COMMUNITY' | string;
@@ -155,6 +159,9 @@ export interface EdgePost {
   };
   createdAt: number;
   isExpanded: boolean;
+  syntheticTest?: boolean;
+  environment?: 'test';
+  cleanupRunId?: string;
 }
 
 export interface EdgeVote {
@@ -281,6 +288,9 @@ export interface EdgeCommunity {
   rulesJson?: string;
   memberCount: number;
   createdAt: number;
+  syntheticTest?: boolean;
+  environment?: 'test';
+  cleanupRunId?: string;
 }
 
 export interface EdgeCommunityMember {
@@ -331,6 +341,9 @@ export interface EdgeComment {
   parentId?: string;
   authorId: string;
   authorRole: string;
+  authorDisplayName?: string;
+  authorHandle?: string;
+  authorAvatarUrl?: string;
   content: string;
   meritVotes: number;
   userVote?: number;
@@ -338,6 +351,9 @@ export interface EdgeComment {
   userLiked?: boolean;
   awards?: Array<{ awardId: string; count: number }>;
   createdAt: number;
+  syntheticTest?: boolean;
+  environment?: 'test';
+  cleanupRunId?: string;
 }
 
 // ─── INITIAL IN-MEMORY SEEDS (CLEAN RUNTIME DEFAULTS) ────────────────────────

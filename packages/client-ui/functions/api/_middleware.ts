@@ -20,7 +20,7 @@ export type PagesFunction<
   Data extends Record<string, unknown> = Record<string, unknown>
 > = (context: EventContext<Env, Params, Data>) => Response | Promise<Response>;
 
-import { isProductionEnv } from './_db.js';
+import { isProductionEnv, type Env } from './_db.js';
 
 // ─── SENSITIVE ROUTES & PERMITTED ORIGINS ────────────────────────────────────
 export const SENSITIVE_ROUTES = ['/api/admin', '/api/storage', '/api/push', '/api/cron-backup', '/api/webauthn'];
@@ -312,7 +312,7 @@ function getEdgeHeaders(req: Request): Record<string, string> {
 }
 
 // ─── MIDDLEWARE ENTRY POINT ───────────────────────────────────────────────────
-export const onRequest: PagesFunction = async (context) => {
+export const onRequest: PagesFunction<Env> = async (context) => {
   const req = context.request;
   const method = req.method;
   const url = new URL(req.url);

@@ -5,6 +5,7 @@ import { clientStore, ClientPost } from './client-state.js';
 import { flairFilter } from './flair-filter.js';
 import { sovereignCircleEngine } from './sovereign-circle.js';
 import { profileView } from './profile-view.js';
+import { presentPublicIdentity } from './public-identity.js';
 import { feedControlsEngine } from './feed-controls.js';
 import { hashtagExplorer } from './hashtag-explorer.js';
 import { renderPulseEmptyState, renderPulseFeedSkeleton, renderFollowingEmptyState } from './empty-states.js';
@@ -256,9 +257,12 @@ export function renderPulseWorkspace(): string {
 export function renderPulsePostCard(post: ClientPost): string {
   const circle = sovereignCircleEngine.findCircle(post.channelId);
   const circleName = circle ? `c/${circle.name}` : (post.channelId.startsWith('c/') ? post.channelId : 'c/technology');
-  const profile = profileView.getProfile(post.authorFingerprint);
-  const authorName = profile?.name || profile?.handle || `Member ${post.authorFingerprint.substring(0, 5)}`;
-  const authorHandle = profile?.handle ? `@${profile.handle.replace(/^@/, '')}` : `@${post.authorFingerprint.substring(0, 8)}`;
+  const profile = post.authorDisplayName || post.authorHandle
+    ? { ...profileView.getProfile(post.authorFingerprint), name: post.authorDisplayName || '', handle: post.authorHandle || '', avatar: post.authorAvatarUrl || '' }
+    : profileView.getProfile(post.authorFingerprint);
+  const publicIdentity = presentPublicIdentity(profile, post.authorFingerprint, post.authorFingerprint === clientStore.keypair.fingerprint);
+  const authorName = publicIdentity.displayName;
+  const authorHandle = publicIdentity.handleLabel;
   const role = roleLabel(post.authorRole);
   const comments = threadManager.getRootCommentsForPost(post.id);
 
@@ -267,7 +271,7 @@ export function renderPulsePostCard(post: ClientPost): string {
   let repostAttribution = '';
   if (reposterFP && reposterFP !== post.authorFingerprint) {
     const repProfile = profileView.getProfile(reposterFP);
-    const repName = repProfile?.name || repProfile?.handle || `@${reposterFP.substring(0, 8)}`;
+    const repName = presentPublicIdentity(repProfile, reposterFP, reposterFP === clientStore.keypair.fingerprint).displayName;
     repostAttribution = `
       <div class="repost-attribution-pill flex items-center space-x-1.5 text-xs text-slate-400 font-sans mb-2 pl-0.5">
         ${renderIcon('repost', { size: 14, className: 'text-emerald-400 shrink-0' })}

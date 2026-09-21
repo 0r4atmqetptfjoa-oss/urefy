@@ -15,6 +15,7 @@ import {
   EdgeCommunityMember,
 } from './_db.js';
 import { requireSignedEnvelope } from './_auth.js';
+import { ensureSyntheticFixturesTable, parseSyntheticFixtureMetadata, registerSyntheticFixture } from './_synthetic.js';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -49,6 +50,7 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
     if (!db && isProd) {
       return createD1UnavailableResponse();
     }
+    if (db) await ensureSyntheticFixturesTable(db).catch(() => {});
 
     if (id) {
       let comm: any = null;
@@ -58,7 +60,12 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
 
       if (db) {
         comm = await db
-          .prepare('SELECT * FROM communities WHERE id = ? OR name = ? LIMIT 1')
+          .prepare(`SELECT communities.*, sf.environment AS synthetic_environment,
+                    sf.cleanup_run_id AS synthetic_cleanup_run_id
+                    FROM communities
+                    LEFT JOIN synthetic_fixtures sf
+                      ON sf.resource_type = 'community' AND sf.resource_id = communities.id
+                    WHERE communities.id = ? OR communities.name = ? LIMIT 1`)
           .bind(id, id)
           .first();
 
@@ -130,6 +137,9 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
             isMember: Boolean(userRole),
             userRole,
             createdAt: Number(comm.created_at || comm.createdAt),
+            syntheticTest: Boolean(comm.synthetic_cleanup_run_id || comm.syntheticTest),
+            environment: comm.synthetic_environment || comm.environment,
+            cleanupRunId: comm.synthetic_cleanup_run_id || comm.cleanupRunId,
           },
         }),
         { status: 200, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
@@ -139,10 +149,12 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
     // List communities
     let communities: any[] = [];
     if (db) {
-      let query = 'SELECT communities.*, EXISTS(SELECT 1 FROM community_members WHERE community_id = communities.id AND user_id = ?) AS is_member FROM communities';
+      let query = `SELECT communities.*, EXISTS(SELECT 1 FROM community_members WHERE community_id = communities.id AND user_id = ?) AS is_member
+        FROM communities
+        WHERE NOT EXISTS (SELECT 1 FROM synthetic_fixtures sf WHERE sf.resource_type = 'community' AND sf.resource_id = communities.id)`;
       const params: any[] = [userId];
       if (category) {
-        query += ' WHERE category = ?';
+        query += ' AND category = ?';
         params.push(category);
       }
       query += ' ORDER BY member_count DESC, created_at ASC';
@@ -170,7 +182,7 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
         };
       });
     } else {
-      let list = globalCommunitiesStore;
+      let list = globalCommunitiesStore.filter(c => !c.syntheticTest);
       if (category) {
         list = list.filter(c => c.category.toLowerCase() === category.toLowerCase());
       }
@@ -313,6 +325,7 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
       const banner = (body.banner || 'linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%)').trim();
       const primaryColor = (body.primaryColor || '#6366f1').trim();
       const rules = Array.isArray(body.rules) ? body.rules : [];
+      const syntheticMetadata = parseSyntheticFixtureMetadata(body);
 
       if (!name || name.length < 3 || name.length > 30) {
         return new Response(
@@ -352,6 +365,10 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
             'INSERT INTO community_members (community_id, user_id, role, joined_at) VALUES (?, ?, ?, ?)'
           ).bind(newId, userId, 'admin', now),
         ]);
+        if (syntheticMetadata) {
+          await ensureSyntheticFixturesTable(db);
+          await registerSyntheticFixture(db, 'community', newId, syntheticMetadata);
+        }
       } else {
         const existing = globalCommunitiesStore.find(c => c.name === name || c.id === newId);
         if (existing) {
@@ -374,6 +391,7 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
           rulesJson: JSON.stringify(rules),
           memberCount: 1,
           createdAt: now,
+          ...(syntheticMetadata || {}),
         };
         globalCommunitiesStore.push(newComm);
         globalCommunityMembersStore.push({ communityId: newId, userId, role: 'admin', joinedAt: now });
@@ -397,6 +415,7 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
             memberCount: 1,
             userRole: 'admin',
             createdAt: now,
+            ...(syntheticMetadata || {}),
           },
         }),
         { status: 201, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }

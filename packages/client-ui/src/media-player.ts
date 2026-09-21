@@ -80,6 +80,15 @@ export class ObsidianMediaPlayer {
   public initPosterFadeouts(): void {
     if (typeof document === 'undefined') return;
     document.querySelectorAll<HTMLElement>('.video-container').forEach(container => {
+      const thumbnail = container.querySelector<HTMLImageElement>('[data-video-thumbnail]');
+      const thumbnailFallback = container.querySelector<HTMLElement>('[data-video-thumbnail-fallback]');
+      if (thumbnail && thumbnailFallback && !thumbnail.dataset.fallbackBound) {
+        thumbnail.dataset.fallbackBound = 'true';
+        thumbnail.addEventListener('error', () => {
+          thumbnail.hidden = true;
+          thumbnailFallback.hidden = false;
+        }, { once: true });
+      }
       const poster = container.querySelector<HTMLElement>('.media-poster-layer');
       if (poster) {
         poster.addEventListener('click', (e) => {
@@ -218,8 +227,14 @@ export class ObsidianMediaPlayer {
                 src="${finalPoster}" 
                 alt="Video poster thumbnail" 
                 class="w-full h-full object-cover" 
+                data-video-thumbnail
                 loading="lazy"
               />
+              <div data-video-thumbnail-fallback hidden class="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-black flex flex-col items-center justify-center gap-2 px-6 text-center">
+                <span class="text-3xl" aria-hidden="true">▶</span>
+                <strong class="text-sm text-white">Video preview unavailable</strong>
+                <span class="text-xs text-slate-300">Open the original video or press play to continue.</span>
+              </div>
               <div class="absolute inset-0 bg-black/30 flex items-center justify-center">
                 <div class="w-14 h-14 rounded-full bg-black/70 backdrop-blur-md border border-white/20 flex items-center justify-center text-white text-xl shadow-xl transition-transform group-hover:scale-110">
                   ▶

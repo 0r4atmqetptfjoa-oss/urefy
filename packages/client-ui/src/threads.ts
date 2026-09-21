@@ -3,12 +3,16 @@ import { markdownRenderer } from './markdown-renderer.js';
 import { t } from './i18n.js';
 import { isDemoModeEnabled } from './demo-mode.js';
 import { socialSafety } from './social-safety.js';
+import { presentPublicIdentity } from './public-identity.js';
 
 export interface ThreadComment {
   id: string;
   postId?: string;
   authorFingerprint: string;
   authorRole?: string;
+  authorDisplayName?: string;
+  authorHandle?: string;
+  authorAvatarUrl?: string;
   content: string;
   createdAt: number;
   depth: number;
@@ -231,6 +235,9 @@ export class ThreadManager {
           id: ec.id,
           postId: ec.postId || postId,
           authorFingerprint: ec.authorId || 'anon',
+          authorDisplayName: ec.authorDisplayName,
+          authorHandle: ec.authorHandle,
+          authorAvatarUrl: ec.authorAvatarUrl,
           authorRole: ec.authorRole || 'MEMBER',
           content: ec.content || '',
           createdAt: Number(ec.createdAt) || Date.now(),
@@ -451,8 +458,11 @@ export class ThreadManager {
     const profile = (typeof window !== 'undefined' && (window as any).profileView)
       ? (window as any).profileView.getProfile(c.authorFingerprint)
       : null;
-    const authorName = profile?.name || (c.authorFingerprint.startsWith('fp_') ? c.authorFingerprint.slice(3).replace(/_/g, ' ') : `Member ${c.authorFingerprint.substring(0, 6)}`);
-    const authorHandle = profile?.handle ? `@${profile.handle.replace(/^@/, '')}` : `@${c.authorFingerprint.substring(0, 8)}`;
+    const publicIdentity = presentPublicIdentity(c.authorDisplayName || c.authorHandle
+      ? { ...profile, name: c.authorDisplayName || '', handle: c.authorHandle || '', avatar: c.authorAvatarUrl || '' }
+      : profile, c.authorFingerprint, Boolean(isMe));
+    const authorName = publicIdentity.displayName;
+    const authorHandle = publicIdentity.handleLabel;
     const authorAvatar = profile?.avatar;
 
     if (socialSafety.isBlocked(c.authorFingerprint)) {

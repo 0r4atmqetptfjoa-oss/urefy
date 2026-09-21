@@ -128,21 +128,14 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
     }
 
     if (!profile) {
-      // Return synthetic default view for valid fingerprint if not yet configured
+      // Return an explicit setup state. Never manufacture a social name or handle
+      // from a technical fingerprint.
       if (userId) {
         return new Response(
           JSON.stringify({
             success: true,
-            profile: {
-              userId,
-              displayName: `User ${userId.slice(0, 8)}`,
-              handle: `user_${userId.slice(0, 8)}`,
-              bio: '',
-              avatarUrl: '',
-              bannerUrl: '',
-              createdAt: 0,
-              updatedAt: 0,
-            },
+            profile: null,
+            needsSetup: true,
             stats: {
               followersCount,
               followingCount,

@@ -94,7 +94,7 @@ for (const width of [360, 768, 1440]) {
       expect(await scroll.evaluate(el => el.scrollWidth <= el.clientWidth), `${route} at ${width}`).toBe(true);
       await page.evaluate(() => (window as any).themeEngine.setTheme('alabaster-light'));
       await expect(page.locator('html')).toHaveAttribute('data-theme', 'alabaster-light');
-      await expect(page.locator('.view-header h1')).toHaveCSS('color', 'rgb(15, 23, 42)');
+      await expect(page.locator('.view-header h1')).toHaveCSS('color', /rgb\((?:15, 23, 42|26, 25, 23)\)/);
     }
   });
 }

@@ -617,7 +617,7 @@ export class SovereignDMManager {
     });
 
     // Cache authenticated signing keys from envelope or message frame
-    if (delivery.envelope?.identity?.fingerprint && delivery.envelope?.identity?.signingPublicKey) {
+    if ('identity' in delivery.envelope && delivery.envelope.identity?.fingerprint && delivery.envelope.identity?.signingPublicKey) {
       this.peerPublicKeys.set(delivery.envelope.identity.fingerprint, delivery.envelope.identity.signingPublicKey.toLowerCase());
     }
     const msgFrame = delivery.envelope?.payload?.message as any;

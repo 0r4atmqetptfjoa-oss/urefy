@@ -5,6 +5,7 @@
 // ===========================================================================
 
 import { Env, getD1Database } from './api/_db.js';
+import { ensureSyntheticFixturesTable } from './api/_synthetic.js';
 
 export async function onRequestGet(context: {
   request: Request;
@@ -18,11 +19,13 @@ export async function onRequestGet(context: {
   const db = getD1Database(env);
   if (db) {
     try {
+      await ensureSyntheticFixturesTable(db).catch(() => {});
       const rows = await db
         .prepare(
           `SELECT id, created_at, flair
            FROM posts
            WHERE (status IN ('published', 'pinned', 'locked') OR status IS NULL)
+             AND NOT EXISTS (SELECT 1 FROM synthetic_fixtures sf WHERE sf.resource_type = 'post' AND sf.resource_id = posts.id)
            ORDER BY created_at DESC
            LIMIT 50000`
         )

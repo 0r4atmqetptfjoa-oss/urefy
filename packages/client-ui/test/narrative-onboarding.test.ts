@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { OnboardingWizard } from '../src/onboarding.js';
 import { i18n } from '../src/i18n.js';
 import { AetherisClientStore } from '../src/client-state.js';
+import { profileView } from '../src/profile-view.js';
 
 class LocalStorageMock implements Storage {
   private store: Map<string, string> = new Map();
@@ -50,7 +51,8 @@ if (typeof (globalThis as any).window === 'undefined') {
 describe('Ticket 2.1: Narrative 4-Step User Onboarding Flow', () => {
   beforeEach(() => {
     mockStorage.clear();
-    vi.clearAllMocks();
+    vi.restoreAllMocks();
+    vi.spyOn(profileView, 'saveProfile').mockResolvedValue(true);
   });
 
   it('1. should automatically trigger onboarding for first-time visitors', () => {
@@ -110,9 +112,11 @@ describe('Ticket 2.1: Narrative 4-Step User Onboarding Flow', () => {
     expect(wizard.renderWizardModal()).toBe('');
   });
 
-  it('5. should progress smoothly through all 4 steps and complete', () => {
+  it('5. should progress smoothly through all 4 steps and complete', async () => {
     const wizard = new OnboardingWizard();
     expect(wizard.currentStep).toBe(0);
+    wizard.updateDisplayName('Beta Tester');
+    wizard.updateHandle('beta_tester');
 
     wizard.next();
     expect(wizard.currentStep).toBe(1);
@@ -124,15 +128,17 @@ describe('Ticket 2.1: Narrative 4-Step User Onboarding Flow', () => {
     expect(wizard.currentStep).toBe(3);
 
     // Finishing on step 3 persists to storage
-    wizard.finish();
+    await wizard.finish();
     expect(wizard.isOpen).toBe(false);
     expect(wizard.isCompleted).toBe(true);
     expect(mockStorage.getItem('aetheris_onboarding_completed')).toBe('true');
   });
 
-  it('6. should allow skipping and persist completion', () => {
+  it('6. should allow skipping and persist completion', async () => {
     const wizard = new OnboardingWizard();
-    wizard.skip();
+    wizard.updateDisplayName('Beta Tester');
+    wizard.updateHandle('beta_tester');
+    await wizard.skip();
     expect(wizard.isOpen).toBe(false);
     expect(wizard.isCompleted).toBe(true);
     expect(mockStorage.getItem('aetheris_onboarding_completed')).toBe('true');

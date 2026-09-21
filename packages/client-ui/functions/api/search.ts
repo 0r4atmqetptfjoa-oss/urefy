@@ -14,6 +14,7 @@ import {
   globalCommunitiesStore,
   globalBlocksStore,
 } from './_db.js';
+import { ensureSyntheticFixturesTable } from './_synthetic.js';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -62,6 +63,7 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
     if (!db && isProd) {
       return createD1UnavailableResponse();
     }
+    if (db) await ensureSyntheticFixturesTable(db).catch(() => {});
 
     const searchPattern = `%${query}%`;
     const searchToken = query.toLowerCase();
@@ -90,6 +92,7 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
             `SELECT id, channel_id, author_id, author_role, title, content, flair, merit_votes, reply_count, created_at
              FROM posts
              WHERE (title LIKE ? OR content LIKE ? OR flair LIKE ?) AND status != 'archived'
+               AND NOT EXISTS (SELECT 1 FROM synthetic_fixtures sf WHERE sf.resource_type = 'post' AND sf.resource_id = posts.id)
              ORDER BY merit_votes DESC, created_at DESC
              LIMIT ?`
           )
@@ -113,6 +116,7 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
           }));
       } else {
         posts = globalPostsStore
+          .filter(p => !p.syntheticTest)
           .filter(
             p =>
               !blockedSet.has(p.authorFingerprint) &&
@@ -189,6 +193,7 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
             `SELECT id, name, display_name, description, category, icon, primary_color, member_count
              FROM communities
              WHERE (name LIKE ? OR display_name LIKE ? OR description LIKE ? OR category LIKE ?)
+               AND NOT EXISTS (SELECT 1 FROM synthetic_fixtures sf WHERE sf.resource_type = 'community' AND sf.resource_id = communities.id)
              ORDER BY member_count DESC
              LIMIT ?`
           )
@@ -207,6 +212,7 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
         }));
       } else {
         communities = globalCommunitiesStore
+          .filter(c => !c.syntheticTest)
           .filter(
             c =>
               c.name?.toLowerCase().includes(searchToken) ||

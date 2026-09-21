@@ -23,6 +23,7 @@ import { profileView } from './profile-view.js';
 import { feedPersonalization, type ContentSignal } from './feed-personalization.js';
 import { renderAvatar } from './ui/avatar-generator.js';
 import { mobileFlowEngine } from './mobile-flow.js';
+import { presentPublicIdentity } from './public-identity.js';
 import { t } from './i18n.js';
 
 export type StreamType = 'for-you' | 'following' | 'latest';
@@ -419,8 +420,9 @@ export class FeedControlsEngine {
     const circleName = matchedCircle ? `c/${matchedCircle.name}` : (p.channelId.startsWith('c/') ? p.channelId : 'c/technology');
     const store = (typeof window !== 'undefined' ? (window as any).clientStore : null) || clientStore;
     const authorProfile = profileView.getProfile(p.authorFingerprint);
-    const authorName = authorProfile?.name || `Node ${p.authorFingerprint.substring(0, 6)}`;
-    const authorHandle = authorProfile?.handle ? `@${authorProfile.handle.replace(/^@/, '')}` : `@${p.authorFingerprint.substring(0, 8)}`;
+    const authorIdentity = presentPublicIdentity(p.authorDisplayName || p.authorHandle ? { ...authorProfile, name: p.authorDisplayName || '', handle: p.authorHandle || '' } : authorProfile, p.authorFingerprint, p.authorFingerprint === store.keypair?.fingerprint);
+    const authorName = authorIdentity.displayName;
+    const authorHandle = authorIdentity.handleLabel;
     const authorScore = zkReputation.getScoreForFingerprint(p.authorFingerprint);
     const isDemoted = store?.demoteLowTrustPosts && (store?.minFeedTrustThreshold || 0) > 0 && authorScore < store.minFeedTrustThreshold;
     const demoteClass = isDemoted ? 'opacity-70' : '';
@@ -500,8 +502,9 @@ export class FeedControlsEngine {
     const circleName = matchedCircle ? `c/${matchedCircle.name}` : (p.channelId.startsWith('c/') ? p.channelId : 'c/technology');
     const store = (typeof window !== 'undefined' ? (window as any).clientStore : null) || clientStore;
     const authorProfile = profileView.getProfile(p.authorFingerprint);
-    const authorName = authorProfile?.name || `Node ${p.authorFingerprint.substring(0, 6)}`;
-    const authorHandle = authorProfile?.handle ? `@${authorProfile.handle.replace(/^@/, '')}` : `@${p.authorFingerprint.substring(0, 8)}`;
+    const authorIdentity = presentPublicIdentity(p.authorDisplayName || p.authorHandle ? { ...authorProfile, name: p.authorDisplayName || '', handle: p.authorHandle || '' } : authorProfile, p.authorFingerprint, p.authorFingerprint === store.keypair?.fingerprint);
+    const authorName = authorIdentity.displayName;
+    const authorHandle = authorIdentity.handleLabel;
     const authorScore = zkReputation.getScoreForFingerprint(p.authorFingerprint);
     const isDemoted = store?.demoteLowTrustPosts && (store?.minFeedTrustThreshold || 0) > 0 && authorScore < store.minFeedTrustThreshold;
     const demoteClass = isDemoted ? 'opacity-70' : '';
@@ -626,8 +629,9 @@ export class FeedControlsEngine {
     const circleName = matchedCircle ? `c/${matchedCircle.name}` : (p.channelId.startsWith('c/') ? p.channelId : 'c/technology');
     const store = (typeof window !== 'undefined' ? (window as any).clientStore : null) || clientStore;
     const authorProfile = profileView.getProfile(p.authorFingerprint);
-    const authorName = authorProfile?.name || `Node ${p.authorFingerprint.substring(0, 6)}`;
-    const authorHandle = authorProfile?.handle ? `@${authorProfile.handle.replace(/^@/, '')}` : `@${p.authorFingerprint.substring(0, 8)}`;
+    const authorIdentity = presentPublicIdentity(p.authorDisplayName || p.authorHandle ? { ...authorProfile, name: p.authorDisplayName || '', handle: p.authorHandle || '' } : authorProfile, p.authorFingerprint, p.authorFingerprint === store.keypair?.fingerprint);
+    const authorName = authorIdentity.displayName;
+    const authorHandle = authorIdentity.handleLabel;
     const authorScore = zkReputation.getScoreForFingerprint(p.authorFingerprint);
     const isDemoted = store?.demoteLowTrustPosts && (store?.minFeedTrustThreshold || 0) > 0 && authorScore < store.minFeedTrustThreshold;
     const demoteClass = isDemoted ? 'opacity-70' : '';

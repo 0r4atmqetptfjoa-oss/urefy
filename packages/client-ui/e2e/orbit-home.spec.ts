@@ -32,6 +32,14 @@ test('empty workspace has useful actions without simulated social proof', async 
   await expect(page.locator('#since-you-were-away-card')).toHaveCount(0);
   await expect(page.locator('.orbit-signal')).toHaveCount(0);
   await expect(page.locator('.horizon')).toHaveCount(0);
+  await page.evaluate(() => {
+    const store = (window as any).clientStore;
+    if (store) {
+      store.posts = [];
+      store.isSyncing = false;
+      store.notifySync();
+    }
+  });
   await page.getByRole('button', { name: 'Explore UREfy', exact: true }).click();
   await expect(page.locator('.explore-workspace')).toBeVisible();
 });

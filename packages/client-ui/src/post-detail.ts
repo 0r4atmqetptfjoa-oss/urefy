@@ -6,6 +6,7 @@ import { t } from './i18n.js';
 import { profileView } from './profile-view.js';
 import { obsidianMediaPlayer } from './media-player.js';
 import { reactionsEngine, bindReactionBarEvents } from './reactions.js';
+import { presentPublicIdentity } from './public-identity.js';
 
 export interface PostAttachment {
   fileName: string;
@@ -25,6 +26,9 @@ export interface QuotedPost {
   id: string;
   authorFingerprint: string;
   authorRole: string;
+  authorDisplayName?: string;
+  authorHandle?: string;
+  authorAvatarUrl?: string;
   title: string;
   content: string;
 }
@@ -56,6 +60,9 @@ export interface DetailComment {
   id: string;
   authorFingerprint: string;
   authorRole?: string;
+  authorDisplayName?: string;
+  authorHandle?: string;
+  authorAvatarUrl?: string;
   content: string;
   createdAt: number;
   depth: number;
@@ -701,8 +708,11 @@ export class PostDetailView {
   ): string {
     const postId = post.id || '';
     const authorProfile = profileView.getProfile(post.authorFingerprint || '');
-    const authorName = authorProfile?.name || `Member ${post.authorFingerprint?.substring(0, 6) || ''}`;
-    const authorHandle = authorProfile?.handle ? `@${authorProfile.handle.replace(/^@/, '')}` : `@${post.authorFingerprint?.substring(0, 8) || 'peer'}`;
+    const postIdentity = presentPublicIdentity(post.authorDisplayName || post.authorHandle
+      ? { ...authorProfile, name: post.authorDisplayName || '', handle: post.authorHandle || '', avatar: post.authorAvatarUrl || '' }
+      : authorProfile, post.authorFingerprint || '', post.authorFingerprint === clientStore.keypair.fingerprint);
+    const authorName = postIdentity.displayName;
+    const authorHandle = postIdentity.handleLabel;
     const authorAvatar = authorProfile?.avatar;
 
     return `
@@ -955,8 +965,11 @@ export class PostDetailView {
     ` : '';
 
     const authorProfile = profileView.getProfile(c.authorFingerprint || '');
-    const authorName = authorProfile?.name || (c.authorFingerprint?.startsWith('fp_') ? c.authorFingerprint.slice(3).replace(/_/g, ' ') : `Member ${c.authorFingerprint?.substring(0, 6) || ''}`);
-    const authorHandle = authorProfile?.handle ? `@${authorProfile.handle.replace(/^@/, '')}` : `@${c.authorFingerprint?.substring(0, 8) || 'peer'}`;
+    const commentIdentity = presentPublicIdentity(c.authorDisplayName || c.authorHandle
+      ? { ...authorProfile, name: c.authorDisplayName || '', handle: c.authorHandle || '', avatar: c.authorAvatarUrl || '' }
+      : authorProfile, c.authorFingerprint || '', Boolean(isMe));
+    const authorName = commentIdentity.displayName;
+    const authorHandle = commentIdentity.handleLabel;
     const authorAvatar = authorProfile?.avatar;
 
     return `

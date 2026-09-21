@@ -11,6 +11,7 @@ import { obsidianMediaPlayer } from '../media-player.js';
 import { markdownRenderer } from '../markdown-renderer.js';
 import { sovereignCircleEngine } from '../sovereign-circle.js';
 import { profileView } from './profile-view.js';
+import { presentPublicIdentity } from '../public-identity.js';
 
 export function filterProfilePosts(allPosts: ClientPost[], activeTab: ProfileTab, targetFp: string): ClientPost[] {
   if (activeTab === 'pulses') {
@@ -168,10 +169,11 @@ export function renderProfileTimelinePostsHTML(
   return `
     <div class="space-y-4">
       ${posts.map(p => {
-        const authorAlias = p.authorFingerprint.substring(0, 8);
         const authorProfile = profileView.getProfile(p.authorFingerprint);
-        const authorDisplayName = authorProfile?.name || (p.authorRole ? `${p.authorRole} (${authorAlias})` : authorAlias);
-        const authorHandle = authorProfile?.handle ? `@${authorProfile.handle.replace(/^@/, '')}` : `@${authorAlias}`;
+        const authorIdentity = presentPublicIdentity(p.authorDisplayName || p.authorHandle ? { ...authorProfile, name: p.authorDisplayName || '', handle: p.authorHandle || '' } : authorProfile, p.authorFingerprint, p.authorFingerprint === clientStore.keypair.fingerprint);
+        const authorDisplayName = authorIdentity.displayName;
+        const authorHandle = authorIdentity.handleLabel;
+        const authorAlias = p.authorFingerprint.substring(0, 8);
         const timeFormatted = new Date(p.createdAt || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         const isPinned = currentProfile?.pinnedPostId === p.id;
         const isRepost = p.authorFingerprint !== targetFp;

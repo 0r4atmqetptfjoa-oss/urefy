@@ -80,6 +80,28 @@ describe('production product integrity against canonical D1 schema', () => {
     data = await (await communities({ request: new Request(`https://urefy.com/api/communities?userId=${alice.identity.fingerprint}`), env: env() })).json();
     expect(data.communities[0]).toMatchObject({ isMember: false, membersCount: 0 });
   });
+  it('keeps marked synthetic communities out of public discovery while preserving direct audit access', async () => {
+    const payload = {
+      scope: 'urefy-community-v1',
+      action: 'create',
+      name: 'pass9-fixture',
+      displayName: 'PASS 9 Fixture',
+      description: 'Deterministic closed beta fixture',
+      syntheticTest: true,
+      environment: 'test',
+      cleanupRunId: 'pass9-completion-20260921',
+    };
+    expect((await community({ request: request('communities', payload), env: env() })).status).toBe(201);
+    const listing = await (await communities({ request: new Request('https://urefy.com/api/communities'), env: env() })).json();
+    expect(listing.communities.map((item: any) => item.id)).not.toContain('c-pass9-fixture');
+    const direct = await (await communities({ request: new Request('https://urefy.com/api/communities?id=c-pass9-fixture'), env: env() })).json();
+    expect(direct.community).toMatchObject({
+      id: 'c-pass9-fixture',
+      syntheticTest: true,
+      environment: 'test',
+      cleanupRunId: 'pass9-completion-20260921',
+    });
+  });
   it('keeps notifications private and read/delete operations owner-scoped', async () => {
     expect((await notifications({ request: new Request(`https://urefy.com/api/notifications?userId=${alice.identity.fingerprint}`), env: env() })).status).toBe(401);
     const read = (who = alice) => new Request(`https://urefy.com/api/notifications?userId=${alice.identity.fingerprint}`, { headers: { 'X-Sovereign-Envelope': JSON.stringify(createSignedEnvelope({ scope: 'urefy-notifications-v1', action: 'list' }, who)) } });

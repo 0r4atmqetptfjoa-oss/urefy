@@ -87,6 +87,9 @@ export interface ClientPost {
   channelId: string;
   authorFingerprint: string;
   authorRole: string;
+  authorDisplayName?: string;
+  authorHandle?: string;
+  authorAvatarUrl?: string;
   title: string;
   content: string;
   flair: 'VERIFIED RELEASE' | 'SECURITY ADVISORY' | 'TECH DISCUSSION' | 'MICRO-PULSE' | 'ASK COMMUNITY';

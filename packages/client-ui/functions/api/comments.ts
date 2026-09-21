@@ -14,6 +14,7 @@ import {
   EdgeComment,
 } from './_db.js';
 import { requireAdmin, requireSignedEnvelope } from './_auth.js';
+import { ensureSyntheticFixturesTable, parseSyntheticFixtureMetadata, registerSyntheticFixture } from './_synthetic.js';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -71,7 +72,11 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
       else if (sort === 'old') orderBy = 'created_at ASC';
 
       const res = await db
-        .prepare(`SELECT * FROM comments WHERE post_id = ? ORDER BY ${orderBy} LIMIT 200`)
+        .prepare(`SELECT comments.*, p.display_name AS author_display_name,
+                  p.handle AS author_handle, p.avatar_url AS author_avatar_url
+                  FROM comments
+                  LEFT JOIN user_profiles p ON p.user_id = comments.author_id
+                  WHERE comments.post_id = ? ORDER BY ${orderBy} LIMIT 200`)
         .bind(postId)
         .all<any>();
 
@@ -81,6 +86,9 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
         parentId: r.parent_id || undefined,
         authorId: r.author_id,
         authorRole: r.author_role || 'MEMBER',
+        authorDisplayName: r.author_display_name || undefined,
+        authorHandle: r.author_handle || undefined,
+        authorAvatarUrl: r.author_avatar_url || undefined,
         content: r.content,
         meritVotes: Number(r.merit_votes) || 0,
         createdAt: Number(r.created_at),
@@ -207,6 +215,7 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
     const parentId = payload.parentId;
     const authorId = auth.fingerprint!;
     const content = typeof payload.content === 'string' ? payload.content.trim() : '';
+    const syntheticMetadata = parseSyntheticFixtureMetadata(payload);
     // Roles are assigned by the server, never by a self-asserted request field.
     let authorRole = 'MEMBER';
 
@@ -268,6 +277,7 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
       content,
       meritVotes: 0,
       createdAt: now,
+      ...(syntheticMetadata || {}),
     };
 
     if (db) {
@@ -278,6 +288,10 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
         ).bind(commentId, postId, parentId || null, authorId, authorRole, content, now),
         db.prepare('UPDATE posts SET reply_count = (SELECT COUNT(*) FROM comments WHERE post_id = ?) WHERE id = ?').bind(postId, postId),
       ]);
+      if (syntheticMetadata) {
+        await ensureSyntheticFixturesTable(db);
+        await registerSyntheticFixture(db, 'comment', commentId, syntheticMetadata);
+      }
 
       try {
       // Trigger notification to target recipient (post author or parent comment author)
@@ -299,8 +313,9 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
       }
 
       if (recipientId) {
+        const actorProfile = await db.prepare('SELECT display_name FROM user_profiles WHERE user_id = ?').bind(authorId).first<{ display_name: string }>();
         const notifId = `notif_${Date.now()}_${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID().slice(0, 8) : Date.now().toString(36)}`;
-        await storeNotification(db, { id: notifId, userId: recipientId, actorId: authorId, actorName: authorId.slice(0, 10), type: notifType, targetId: postId, targetType: 'post', previewText: content.slice(0, 100), createdAt: now });
+        await storeNotification(db, { id: notifId, userId: recipientId, actorId: authorId, actorName: actorProfile?.display_name || 'Profile not set up', type: notifType, targetId: postId, targetType: 'post', previewText: content.slice(0, 100), createdAt: now });
       }
       } catch (error) {
         // The comment has committed. Do not turn a notification outage into a

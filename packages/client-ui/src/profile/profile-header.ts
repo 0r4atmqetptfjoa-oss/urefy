@@ -4,6 +4,7 @@ import { UserProfileData, formatFederatedHandle } from './types.js';
 import { renderIcon } from '../ui/icons.js';
 import { renderAvatar } from '../ui/avatar-generator.js';
 import { markdownRenderer } from '../markdown-renderer.js';
+import { presentPublicIdentity } from '../public-identity.js';
 
 function escapeAttr(value: string | undefined | null): string {
   return String(value || '')
@@ -22,14 +23,14 @@ function humanRole(role: UserProfileData['role']): string {
 }
 
 export function renderProfileHeaderHTML(profile: UserProfileData, isOwnProfile: boolean, isFollowing: boolean, isEditModalOpen: boolean, followPending = false): string {
-  const handle = profile.handle ? profile.handle.replace(/^@/, '') : profile.fingerprint.substring(0, 10);
-  const isGeneratedProfile = /^Sovereign Node\b/i.test(profile.name) || /^Peer node participating\b/i.test(profile.bio || '');
-  const displayName = isGeneratedProfile ? 'UREfy member' : profile.name;
-  const displayHandle = isGeneratedProfile ? 'New to UREfy' : `@${handle}`;
-  const displayBio = isGeneratedProfile ? 'Here to share, connect, and join good conversations.' : profile.bio;
+  const identity = presentPublicIdentity(profile, profile.fingerprint, isOwnProfile);
+  const handle = profile.handle ? profile.handle.replace(/^@/, '') : '';
+  const displayName = identity.displayName;
+  const displayHandle = identity.handleLabel;
+  const displayBio = identity.needsSetup ? (isOwnProfile ? 'Set up your public identity before posting, following or messaging.' : '') : profile.bio;
   const displayLocation = profile.location === 'Decentralized P2P' ? '' : profile.location;
   const role = humanRole(profile.role);
-  const fedIdentifier = profile.handle ? profile.handle.replace(/^@/, '') : (profile.fingerprint.length > 12 ? profile.fingerprint.substring(0, 12) : profile.fingerprint);
+  const fedIdentifier = profile.handle ? profile.handle.replace(/^@/, '') : profile.fingerprint;
   const federatedHandle = formatFederatedHandle(fedIdentifier);
 
   return `
@@ -67,12 +68,13 @@ export function renderProfileHeaderHTML(profile: UserProfileData, isOwnProfile: 
             <summary class="cursor-pointer text-slate-400 hover:text-slate-200 flex items-center justify-between select-none py-1">
               <span class="flex items-center space-x-1.5 font-medium">
                 <span>🌐</span>
-                <span>Federation & protocol details</span>
+                <span>Technical identity details</span>
               </span>
               <span class="text-[10px] text-indigo-400 group-open:rotate-180 transition-transform">▼</span>
             </summary>
             <div class="federated-handle-bar flex flex-wrap items-center gap-2 mt-2 pt-1">
               <span class="federated-handle font-mono text-slate-400 bg-white/5 px-2 py-0.5 rounded border border-white/10" data-federated-handle="${escapeAttr(federatedHandle)}">${escapeAttr(federatedHandle)}</span>
+              <span class="font-mono text-[10px] text-slate-500 break-all" data-technical-fingerprint>${escapeAttr(profile.fingerprint)}</span>
               <button type="button" class="btn-copy-federated-handle text-indigo-400 hover:text-indigo-300 text-xs px-2 py-0.5 rounded bg-indigo-500/10 hover:bg-indigo-500/20 transition-colors cursor-pointer" data-copy-handle="${escapeAttr(federatedHandle)}">Copy Federated Handle</button>
               <a href="/.well-known/aetheris-node" class="activitypub-badge inline-flex items-center text-[11px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full hover:underline" data-activitypub-badge="true">
                 <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1.5"></span>

@@ -89,6 +89,8 @@ export class OnboardingWizard {
   public isCompleted: boolean = false;
   public seedSavedConfirmed: boolean = false;
   public selectedInterests: Set<string> = new Set<string>();
+  public displayName: string = '';
+  public handle: string = '';
 
   public readonly STORAGE_KEY = 'aetheris_onboarding_completed';
   private readonly LEGACY_STORAGE_KEY = 'aetheris_onboarding_done';
@@ -140,6 +142,10 @@ export class OnboardingWizard {
    * Advances to next step or finishes on the final step (4 steps: 0, 1, 2, 3)
    */
   public next(): void {
+    if (this.currentStep === 0 && (!this.displayName.trim() || !/^[a-zA-Z0-9_]{3,30}$/.test(this.handle.replace(/^@/, '').trim()))) {
+      clientStore.showToast('Choose a display name and an @handle before continuing.', 'warning');
+      return;
+    }
     if (this.currentStep < 3) {
       this.currentStep++;
       this.syncUI();
@@ -220,6 +226,13 @@ export class OnboardingWizard {
    * Skips onboarding
    */
   public async skip(): Promise<void> {
+    const cleanHandle = this.handle.replace(/^@/, '').trim();
+    if (!this.displayName.trim() || !/^[a-zA-Z0-9_]{3,30}$/.test(cleanHandle)) {
+      this.currentStep = 0;
+      this.syncUI();
+      clientStore.showToast('Choose your public name and @handle before leaving setup.', 'warning');
+      return;
+    }
     if (this.currentStep === 3) {
       const warningText = i18n.t(
         'onboardingNarrative.step4Warning',
@@ -234,6 +247,12 @@ export class OnboardingWizard {
       if (!proceed) return;
     }
 
+    const saved = await profileView.saveProfile(clientStore.keypair.fingerprint, {
+      name: this.displayName.trim(),
+      handle: cleanHandle.toLowerCase(),
+      role: 'MEMBER',
+    });
+    if (!saved) return;
     this.isOpen = false;
     this.isCompleted = true;
     if (typeof window !== 'undefined' && window.localStorage) {
@@ -248,7 +267,20 @@ export class OnboardingWizard {
   /**
    * Finishes wizard successfully and enters the feed
    */
-  public finish(): void {
+  public async finish(): Promise<void> {
+    const cleanHandle = this.handle.replace(/^@/, '').trim().toLowerCase();
+    if (!this.displayName.trim() || !/^[a-zA-Z0-9_]{3,30}$/.test(cleanHandle)) {
+      this.currentStep = 0;
+      this.syncUI();
+      clientStore.showToast('Finish your public profile before entering UREfy.', 'warning');
+      return;
+    }
+    const saved = await profileView.saveProfile(clientStore.keypair.fingerprint, {
+      name: this.displayName.trim(),
+      handle: cleanHandle,
+      role: 'MEMBER',
+    });
+    if (!saved) return;
     this.isOpen = false;
     this.isCompleted = true;
     const storage = (typeof window !== 'undefined' && window.localStorage) ? window.localStorage : (typeof localStorage !== 'undefined' ? localStorage : null);
@@ -368,6 +400,24 @@ export class OnboardingWizard {
     }
   }
 
+  public updateDisplayName(value: string): void {
+    this.displayName = value.slice(0, 60);
+    this.updateIdentityPreview();
+  }
+
+  public updateHandle(value: string): void {
+    this.handle = value.replace(/^@/, '').replace(/[^a-zA-Z0-9_]/g, '').slice(0, 30);
+    this.updateIdentityPreview();
+  }
+
+  private updateIdentityPreview(): void {
+    if (typeof document === 'undefined') return;
+    const name = document.getElementById('onboarding-identity-preview-name');
+    const handle = document.getElementById('onboarding-identity-preview-handle');
+    if (name) name.textContent = this.displayName.trim() || 'Your display name';
+    if (handle) handle.textContent = this.handle.trim() ? `@${this.handle}` : '@your_handle';
+  }
+
   private getActiveMnemonic(): string {
     const store = (typeof window !== 'undefined' ? (window as any).clientStore : null) || clientStore;
     if (store?.mnemonic && store.mnemonic.trim().length > 0) {
@@ -456,10 +506,22 @@ export class OnboardingWizard {
             <div class="w-8 h-8 rounded-lg bg-surface-raised border border-white/10 flex items-center justify-center text-sm shrink-0">🌐</div>
             <div class="min-w-0 flex-1">
               <div class="text-xs font-bold text-white">Portable Identity</div>
-              <p class="text-[11px] text-slate-400 leading-normal">Move between devices anytime with your 12-word recovery phrase or passkey.</p>
+              <p class="text-[11px] text-slate-400 leading-normal">Recover on another device with your 12-word recovery phrase. A passkey can unlock this device, but it does not replace your recovery phrase.</p>
             </div>
           </div>
         </div>
+
+        <section class="rounded-2xl border border-white/10 bg-surface-base p-4 space-y-3" aria-labelledby="public-profile-setup-title">
+          <div><h4 id="public-profile-setup-title" class="text-sm font-bold text-white">Choose your public identity</h4><p class="text-[11px] text-slate-400">Your cryptographic fingerprint stays in technical details. People will see this name and handle.</p></div>
+          <div class="grid sm:grid-cols-2 gap-3">
+            <label class="text-[11px] text-slate-300"><span class="block mb-1">Display name</span><input id="onboarding-display-name" data-input="call-global" data-global-method="onboardingWizard.updateDisplayName" value="${this.displayName}" maxlength="60" autocomplete="name" class="w-full rounded-xl bg-surface-raised border border-white/10 px-3 py-2 text-sm text-white" placeholder="Alex Miller" /></label>
+            <label class="text-[11px] text-slate-300"><span class="block mb-1">Handle</span><div class="flex items-center rounded-xl bg-surface-raised border border-white/10 px-3"><span class="text-slate-500">@</span><input id="onboarding-handle" data-input="call-global" data-global-method="onboardingWizard.updateHandle" value="${this.handle}" maxlength="30" pattern="[a-zA-Z0-9_]{3,30}" autocomplete="username" class="min-w-0 flex-1 bg-transparent px-1 py-2 text-sm text-white outline-none" placeholder="alex_m" /></div></label>
+          </div>
+          <div class="rounded-xl border border-[var(--color-accent,#e59b3c)]/30 bg-[var(--color-accent,#e59b3c)]/10 p-3 flex items-center gap-3">
+            <div class="w-10 h-10 rounded-full bg-surface-raised flex items-center justify-center" aria-hidden="true">👤</div>
+            <div><span class="block text-[10px] uppercase tracking-wider text-slate-400">This is how other people will see you.</span><strong id="onboarding-identity-preview-name" class="block text-sm text-white">${this.displayName || 'Your display name'}</strong><span id="onboarding-identity-preview-handle" class="text-xs text-slate-300">${this.handle ? `@${this.handle}` : '@your_handle'}</span></div>
+          </div>
+        </section>
 
         <div class="p-3 rounded-xl bg-surface-base/40 border border-white/5 flex items-center justify-between text-xs">
           <span class="text-slate-400">Account status</span>
@@ -857,6 +919,7 @@ export class OnboardingWizard {
     const activeStep = steps[this.currentStep] || steps[0];
     const isFirst = this.currentStep === 0;
     const isLast = this.currentStep === steps.length - 1;
+    const hasPublicIdentity = Boolean(this.displayName.trim() && /^[a-zA-Z0-9_]{3,30}$/.test(this.handle.replace(/^@/, '').trim()));
 
     const skipText = i18n.t('onboardingNarrative.skip', undefined, 'Skip');
     const continueText = i18n.t('onboardingNarrative.continue', undefined, 'Continue');
@@ -884,9 +947,10 @@ export class OnboardingWizard {
                 id="btn-skip-onboarding"
                 data-action="call-global"
                 data-global-method="onboardingWizard.skip"
-                class="px-2.5 py-1 text-xs font-mono text-slate-400 hover:text-white rounded bg-surface-overlay hover:bg-surface-highlight transition-all border border-white/5 cursor-pointer"
+                ${hasPublicIdentity ? '' : 'disabled aria-disabled="true" title="Choose your public name and handle first"'}
+                class="px-2.5 py-1 text-xs font-mono text-slate-400 hover:text-white rounded bg-surface-overlay hover:bg-surface-highlight transition-all border border-white/5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                ${skipText} ✕
+                ${hasPublicIdentity ? skipText : 'Set name first'} ✕
               </button>
             </div>
           </div>

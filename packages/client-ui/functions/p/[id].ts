@@ -6,6 +6,7 @@ import { seoError } from '../_seo-response.js';
 // ===========================================================================
 
 import { Env, getD1Database, getKVStore } from '../api/_db.js';
+import { ensureSyntheticFixturesTable } from '../api/_synthetic.js';
 import { injectPostSeo, SeoPostData } from '../_seo.js';
 
 export async function onRequestGet(context: {
@@ -42,6 +43,7 @@ export async function onRequestGet(context: {
   if (!db) return seoError(503);
   if (db) {
     try {
+      await ensureSyntheticFixturesTable(db).catch(() => {});
       const row = await db
         .prepare(
           `SELECT p.id, p.title, p.content, p.flair, p.author_id, p.created_at,
@@ -49,7 +51,8 @@ export async function onRequestGet(context: {
                   u.display_name, u.handle
            FROM posts p
            LEFT JOIN user_profiles u ON p.author_id = u.user_id
-           WHERE p.id = ?`
+           WHERE p.id = ?
+             AND NOT EXISTS (SELECT 1 FROM synthetic_fixtures sf WHERE sf.resource_type = 'post' AND sf.resource_id = p.id)`
         )
         .bind(postId)
         .first<any>();

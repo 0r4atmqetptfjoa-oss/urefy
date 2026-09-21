@@ -43,7 +43,7 @@ export interface PrivateMessageDelivery {
   sender: string;
   recipient: string;
   content: PrivateMessageContent;
-  envelope: SovereignSignedEnvelope<DirectMessageSendPayload>;
+  envelope: SovereignSignedEnvelope<DirectMessageSendPayload> | DeviceSignedEnvelope<any>;
 }
 
 export interface PrivateInboxPage {

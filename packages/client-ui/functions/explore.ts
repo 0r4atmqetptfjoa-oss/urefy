@@ -1,4 +1,5 @@
 import { getD1Database, type Env } from './api/_db.js';
+import { ensureSyntheticFixturesTable } from './api/_synthetic.js';
 import { escapeHtml, injectStaticPageSeo } from './_seo.js';
 import { seoError } from './_seo-response.js';
 import { postPath, profilePath, communityPath } from '../src/public-urls.js';
@@ -8,9 +9,10 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
   const db = getD1Database(env);
   if (!db) return seoError(503);
   try {
+    await ensureSyntheticFixturesTable(db).catch(() => {});
     const [posts, communities, profiles] = await Promise.all([
-      db.prepare("SELECT id, title FROM posts WHERE status IN ('published','pinned','locked') OR status IS NULL ORDER BY created_at DESC LIMIT 20").all<any>(),
-      db.prepare('SELECT id, name, description FROM communities ORDER BY name LIMIT 30').all<any>(),
+      db.prepare("SELECT id, title FROM posts WHERE (status IN ('published','pinned','locked') OR status IS NULL) AND NOT EXISTS (SELECT 1 FROM synthetic_fixtures sf WHERE sf.resource_type = 'post' AND sf.resource_id = posts.id) ORDER BY created_at DESC LIMIT 20").all<any>(),
+      db.prepare("SELECT id, name, description FROM communities WHERE NOT EXISTS (SELECT 1 FROM synthetic_fixtures sf WHERE sf.resource_type = 'community' AND sf.resource_id = communities.id) ORDER BY name LIMIT 30").all<any>(),
       db.prepare('SELECT user_id, display_name, handle FROM user_profiles ORDER BY updated_at DESC LIMIT 12').all<any>(),
     ]);
     const origin = new URL(request.url).origin;

@@ -2,31 +2,6 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <script>
-      (function() {
-        try {
-          var raw = localStorage.getItem('aetheris_theme_pref') || localStorage.getItem('aetheris_theme');
-          var t = 'obsidian-cyber';
-          if (raw) {
-            try { var parsed = JSON.parse(raw) || {}; t = parsed.themeId || parsed.activeThemeId || t; }
-            catch(e) { t = raw; }
-          }
-          var isLight = (t === 'alabaster-light' || t === 'light');
-          var d = document.documentElement;
-          d.setAttribute('data-theme', t);
-          d.style.colorScheme = isLight ? 'light' : 'dark';
-          if (isLight) {
-            d.classList.remove('dark');
-            d.classList.add('light');
-            d.style.backgroundColor = '#f6f5f2';
-          } else {
-            d.classList.add('dark');
-            d.classList.remove('light');
-            d.style.backgroundColor = '#090a0f';
-          }
-        } catch(e) {}
-      })();
-    </script>
     <script src="/theme-boot.js"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
     

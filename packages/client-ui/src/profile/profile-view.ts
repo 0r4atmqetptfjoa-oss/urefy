@@ -12,6 +12,7 @@ import { renderProfileSettingsHTML, renderSettingsCategoryContentHTML } from './
 import { ClientPost, clientStore } from '../client-state.js';
 import { isDemoModeEnabled } from '../demo-mode.js';
 import { SOVEREIGN_PERSONAS } from './seed-profiles-data.js';
+import { presentPublicIdentity } from '../public-identity.js';
 
 export class ProfileView {
   public activeTab: ProfileTab = 'pulses';
@@ -84,8 +85,8 @@ export class ProfileView {
         } catch (_) {}
       }
       const known = (typeof clientStore !== 'undefined' ? clientStore.members?.find((m: any) => m.fingerprint === fp) : null) as any;
-      const name = known?.name || (fp === 'genesis-core' ? 'Genesis Protocol Archon' : fp === 'c3dc28cb705e' ? 'Elena Rostova' : fp === 'a89104fa2211' ? 'David Chen' : fp === 'f40019bc88a2' ? 'Maya Patel' : fp === '9b22a011cd44' ? 'Samira Khan' : `Member ${fp.length > 8 ? fp.substring(0, 6) : fp}`);
-      const handle = known?.handle?.replace(/^@/, '') || (fp === 'genesis-core' ? 'genesis-core' : fp === 'c3dc28cb705e' ? 'elena_r' : fp === 'a89104fa2211' ? 'david_c' : fp === 'f40019bc88a2' ? 'maya_p' : fp === '9b22a011cd44' ? 'samira' : (fp.length > 8 ? fp.substring(0, 8) : fp));
+      const name = known?.name || (fp === 'genesis-core' ? 'Genesis Protocol Archon' : fp === 'c3dc28cb705e' ? 'Elena Rostova' : fp === 'a89104fa2211' ? 'David Chen' : fp === 'f40019bc88a2' ? 'Maya Patel' : fp === '9b22a011cd44' ? 'Samira Khan' : 'Profile not set up');
+      const handle = known?.handle?.replace(/^@/, '') || (fp === 'genesis-core' ? 'genesis-core' : fp === 'c3dc28cb705e' ? 'elena_r' : fp === 'a89104fa2211' ? 'david_c' : fp === 'f40019bc88a2' ? 'maya_p' : fp === '9b22a011cd44' ? 'samira' : '');
       this.profileData.set(fp, {
         fingerprint: fp,
         name,
@@ -162,7 +163,12 @@ export class ProfileView {
     try {
       const response = await fetch(`/api/profiles?userId=${encodeURIComponent(fp)}`);
       const data = await response.json();
-      if (!response.ok || !data.success || !data.profile || this.savingProfiles.has(fp)) return;
+      if (!response.ok || !data.success || this.savingProfiles.has(fp)) return;
+      if (!data.profile) {
+        Object.assign(this.getProfile(fp), data.stats || {});
+        clientStore.notify();
+        return;
+      }
       const p = data.profile;
       if (p.updatedAt) this.updateProfile(fp, { name: p.displayName, handle: p.handle, bio: p.bio || '', avatar: p.avatarUrl || '', banner: p.bannerUrl || '', website: p.website || '', location: p.location || '', ...data.stats });
       else Object.assign(this.getProfile(fp), data.stats || {});
@@ -274,11 +280,17 @@ export class ProfileView {
     const profile = this.getProfile(target);
     const isOwnProfile = target === currentUserFp;
     const isFollowing = this.isFollowing(target);
+    const publicIdentity = presentPublicIdentity(profile, target, isOwnProfile);
 
     return `
       <div id="sovereign-profile-container" class="flex-1 w-full h-full min-h-0 overflow-y-auto overflow-x-hidden p-3 sm:p-4 md:p-6 pb-28 lg:pb-12 scroll-smooth">
         <div class="max-w-4xl mx-auto space-y-6">
           <!-- 1. HERO HEADER -->
+          ${publicIdentity.needsSetup && isOwnProfile ? `
+            <section class="profile-setup-callout" role="status">
+              <div><span>Public identity</span><strong>Choose how people see you</strong><p>Add a display name, an @handle and an optional photo before you join conversations.</p></div>
+              <button type="button" data-action="open-edit-profile" class="primary-button">Set up profile</button>
+            </section>` : ''}
           ${renderProfileHeaderHTML(profile, isOwnProfile, isFollowing, false, this.pendingFollows.has(target))}
 
           <!-- 2. TIMELINE TABS BAR -->

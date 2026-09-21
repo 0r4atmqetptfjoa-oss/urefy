@@ -5,6 +5,7 @@ import { sovereignDialog } from '../src/dialog-modal.js';
 import { commandRailV2 } from '../src/command-rail-v2.js';
 import { clientStore } from '../src/client-state.js';
 import { mobileTabBar } from '../src/mobile-tab-bar.js';
+import { profileView } from '../src/profile-view.js';
 
 class LocalStorageMock implements Storage {
   private store: Map<string, string> = new Map();
@@ -22,6 +23,8 @@ const mockStorage = new LocalStorageMock();
 describe('End-to-End Sovereign User Journeys (Unified Flows & Non-Technical UX)', () => {
   beforeEach(() => {
     mockStorage.clear();
+    vi.restoreAllMocks();
+    vi.spyOn(profileView, 'saveProfile').mockResolvedValue(true);
     clientStore.activeChannelId = 'pulse-global';
   });
 
@@ -37,8 +40,10 @@ describe('End-to-End Sovereign User Journeys (Unified Flows & Non-Technical UX)'
       expect(sovereignOnboarding.shouldShow()).toBe(false);
     });
 
-    it('should complete narrative wizard steps and persist completion flag to localStorage', () => {
+    it('should complete narrative wizard steps and persist completion flag to localStorage', async () => {
       onboardingWizard.start();
+      onboardingWizard.updateDisplayName('Journey Tester');
+      onboardingWizard.updateHandle('journey_tester');
       expect(onboardingWizard.currentStep).toBe(0);
 
       // Step 0 -> Step 1
@@ -50,7 +55,7 @@ describe('End-to-End Sovereign User Journeys (Unified Flows & Non-Technical UX)'
       expect(onboardingWizard.currentStep).toBe(2);
 
       // Finish wizard
-      onboardingWizard.finish();
+      await onboardingWizard.finish();
       expect(onboardingWizard.isCompleted).toBe(true);
       expect(mockStorage.getItem('aetheris_onboarding_completed')).toBe('true');
 
