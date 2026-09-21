@@ -19,6 +19,7 @@ import {
   Field,
   verifyStoredSignedEnvelope,
   validateDirectMessageFrame,
+  computeSafetyNumber,
 } from '@aetheris/core-crypto';
 import { encodeSteganography, decodeSteganography } from './steganography.js';
 import { isLocalDev } from './env-check.js';
@@ -229,30 +230,12 @@ function simulateDecrypt(encryptedPayload: string, myFP: string, peerFP: string)
   return plaintext;
 }
 
-/**
- * Computes deterministic Safety Number (Safety Verification code) between two fingerprints.
- */
-function computeSafetyNumber(fp1: string, fp2: string): string {
-  const sorted = [fp1, fp2].sort();
-  const h1 = fnv1a32(sorted[0] + ':safety:' + sorted[1]);
-  const h2 = fnv1a32(sorted[1] + ':tree:' + sorted[0]);
-  const h3 = fnv1a32(sorted[0] + ':sframe:' + sorted[1]);
-  const h4 = fnv1a32(sorted[1] + ':mls:' + sorted[0]);
-  
-  const g1 = (h1 % 90000 + 10000).toString();
-  const g2 = (h2 % 90000 + 10000).toString();
-  const g3 = (h3 % 90000 + 10000).toString();
-  const g4 = (h4 % 90000 + 10000).toString();
-  const g5 = ((h1 ^ h3) % 90000 + 10000).toString();
-  const g6 = ((h2 ^ h4) % 90000 + 10000).toString();
-  
-  return `${g1} ${g2} ${g3} ${g4} ${g5} ${g6}`;
-}
 
 // ─── SovereignDMManager Class ─────────────────────────────────────────────────
 
 export class SovereignDMManager {
   public conversations: Map<string, DMConversation> = new Map();
+  public acceptedRequests: Set<string> = new Set();
   public activePeerFP: string | null = null;
   public isOpen: boolean = false;
 
@@ -274,8 +257,51 @@ export class SovereignDMManager {
   public pendingAttachment: DirectMessageAttachment | null = null;
   public isEmojiPickerOpen: boolean = false;
   public activeDrawerTab: 'inbox' | 'requests' = 'inbox';
-  public acceptedRequests: Set<string> = new Set();
+  public peerPublicKeys: Map<string, string> = new Map();
   private peerTyping: Map<string, number> = new Map();
+
+  /**
+   * Resolve an authenticated Ed25519 signing public key for a sovereign fingerprint or public key.
+   */
+  public getSigningKeyForFingerprint(target: string): string | null {
+    if (!target) return null;
+    if (/^[0-9a-fA-F]{64}$/.test(target)) return target.toLowerCase();
+    const cached = this.peerPublicKeys.get(target);
+    if (cached && /^[0-9a-fA-F]{64}$/.test(cached)) return cached.toLowerCase();
+
+    if (typeof window !== 'undefined') {
+      const storeIdentity = (window as any).clientStore?.sovereignIdentity;
+      if (storeIdentity?.fingerprint === target && /^[0-9a-fA-F]{64}$/.test(storeIdentity.signingPublicKey)) {
+        return storeIdentity.signingPublicKey.toLowerCase();
+      }
+    }
+
+    const conv = this.conversations.get(target);
+    if (conv) {
+      for (let i = conv.messages.length - 1; i >= 0; i--) {
+        try {
+          const envelope = JSON.parse(conv.messages[i].encryptedPayload);
+          const frame = envelope?.payload?.message;
+          if (frame?.sender === target && /^[0-9a-fA-F]{64}$/.test(frame.senderPublicKey)) {
+            const k = frame.senderPublicKey.toLowerCase();
+            this.peerPublicKeys.set(target, k);
+            return k;
+          }
+          if (frame?.recipient === target && /^[0-9a-fA-F]{64}$/.test(frame.recipientPublicKey)) {
+            const k = frame.recipientPublicKey.toLowerCase();
+            this.peerPublicKeys.set(target, k);
+            return k;
+          }
+          if (envelope?.identity?.fingerprint === target && /^[0-9a-fA-F]{64}$/.test(envelope.identity.signingPublicKey)) {
+            const k = envelope.identity.signingPublicKey.toLowerCase();
+            this.peerPublicKeys.set(target, k);
+            return k;
+          }
+        } catch (_) {}
+      }
+    }
+    return null;
+  }
 
   public setPeerTyping(peerFP: string): void {
     this.peerTyping.set(peerFP, Date.now());
@@ -589,6 +615,19 @@ export class SovereignDMManager {
       context: delivery.content.context,
       deliveryStatus: isMine ? 'sent' : 'received',
     });
+
+    // Cache authenticated signing keys from envelope or message frame
+    if (delivery.envelope?.identity?.fingerprint && delivery.envelope?.identity?.signingPublicKey) {
+      this.peerPublicKeys.set(delivery.envelope.identity.fingerprint, delivery.envelope.identity.signingPublicKey.toLowerCase());
+    }
+    const msgFrame = delivery.envelope?.payload?.message as any;
+    if (msgFrame?.sender && msgFrame?.senderPublicKey) {
+      this.peerPublicKeys.set(msgFrame.sender, msgFrame.senderPublicKey.toLowerCase());
+    }
+    if (msgFrame?.recipient && msgFrame?.recipientPublicKey) {
+      this.peerPublicKeys.set(msgFrame.recipient, msgFrame.recipientPublicKey.toLowerCase());
+    }
+
     conversation.lastMessageAt = Math.max(conversation.lastMessageAt, delivery.createdAt);
     if (!isRead) {
       conversation.unreadCount++;
@@ -808,6 +847,17 @@ export class SovereignDMManager {
 
     this._saveToStorage();
     this._dispatchEvent('aetheris:dm:opened', { peerFP });
+
+    // Pre-cache peer signing key via lookup if available
+    if (this.transport && typeof (this.transport as any).lookup === 'function' && !this.peerPublicKeys.has(peerFP)) {
+      void (this.transport as any).lookup(peerFP).then((peer: any) => {
+        if (peer?.signingPublicKey && /^[0-9a-fA-F]{64}$/.test(peer.signingPublicKey)) {
+          this.peerPublicKeys.set(peerFP, peer.signingPublicKey.toLowerCase());
+          this.syncDOM();
+        }
+      }).catch(() => {});
+    }
+
     this.syncDOM();
     void this.startLiveSync();
   }
@@ -1305,23 +1355,26 @@ export class SovereignDMManager {
 
   /**
    * Get deterministic Safety Number verification code between two peers.
+   * Fails closed: returns null if either authenticated Ed25519 public key is unavailable.
    */
-  public getSafetyNumber(fpA: string, fpB: string): string {
-    const conversation = this.conversations.get(fpA) ?? this.conversations.get(fpB);
-    for (let index = (conversation?.messages.length ?? 0) - 1; index >= 0; index--) {
-      try {
-        const envelope = JSON.parse(conversation!.messages[index].encryptedPayload);
-        const frame = envelope.payload?.message;
-        if (!verifyStoredSignedEnvelope(envelope) || !validateDirectMessageFrame(frame)) continue;
-        if (![frame.sender, frame.recipient].includes(fpA) || ![frame.sender, frame.recipient].includes(fpB)) continue;
-        const keys = [frame.senderPublicKey, frame.recipientPublicKey].sort().join(':');
-        return Field.hashToField(`UREFY_DM_SAFETY_V1:${keys}`).toString().padStart(76, '0').slice(0, 60).match(/.{5}/g)!.join(' ');
-      } catch {}
+  public getSafetyNumber(fpA: string, fpB?: string): string | null {
+    if (!fpA) return null;
+    const myFP = fpB || this.ownerFingerprint || (typeof window !== 'undefined' ? (window as any).clientStore?.sovereignIdentity?.fingerprint : '');
+    const peerFP = (fpB && fpA === myFP) ? fpB : fpA;
+    const selfFP = (fpB && fpA === myFP) ? fpA : myFP;
+
+    const keyA = this.getSigningKeyForFingerprint(peerFP);
+    const keyB = this.getSigningKeyForFingerprint(selfFP);
+
+    if (!keyA || !keyB) {
+      return null;
     }
-    if (fpA && fpB) {
-      return computeSafetyNumber(fpA, fpB);
+
+    try {
+      return computeSafetyNumber(keyA, keyB);
+    } catch {
+      return null;
     }
-    return '00000 00000 00000 00000 00000 00000';
   }
 
   /**
@@ -1336,7 +1389,7 @@ export class SovereignDMManager {
       const entry = map[peerFP];
       if (!entry || !entry.safetyNumber) return 'unverified';
       const current = this.getSafetyNumber(peerFP, this.ownerFingerprint);
-      if (entry.safetyNumber === current) return 'verified';
+      if (current && entry.safetyNumber === current) return 'verified';
       return 'changed';
     } catch {
       return 'unverified';
@@ -1348,10 +1401,16 @@ export class SovereignDMManager {
    */
   public markSafetyNumberVerified(peerFP: string): void {
     if (typeof localStorage === 'undefined' || !this.ownerFingerprint) return;
+    const current = this.getSafetyNumber(peerFP, this.ownerFingerprint);
+    if (!current) {
+      if (typeof window !== 'undefined' && (window as any).clientStore?.showToast) {
+        (window as any).clientStore.showToast('Verification code unavailable — cannot verify without authenticated public keys', 'warning');
+      }
+      return;
+    }
     try {
       const raw = localStorage.getItem('urefy_verified_safety_numbers') || '{}';
       const map = JSON.parse(raw);
-      const current = this.getSafetyNumber(peerFP, this.ownerFingerprint);
       map[peerFP] = {
         safetyNumber: current,
         verifiedAt: Date.now(),
@@ -2133,6 +2192,11 @@ export class SovereignDMManager {
             <span>Forward Secrecy & Post-Compromise Security Active (Internally Verified)</span>
           </div>
 
+          <div class="p-2.5 rounded-xl bg-surface-raised border border-white/10 text-[10px] text-slate-400 leading-relaxed space-y-1.5">
+            <div>📡 <strong class="text-slate-200">Delivery Semantics:</strong> Active Device Unicast. Outgoing DMs are encrypted specifically for the peer's active device session. Non-target devices of the same identity receive envelopes but safely skip decryption without corrupting local ratchet state.</div>
+            <div>🔐 <strong class="text-slate-200">Device Revocation Boundary:</strong> Revoking a device blocks its device ID from participating in DM relays and invalidates its active session. Revocation does NOT protect against compromise of your 12-word root recovery phrase (as any holder of the root private key can generate and register new device IDs). If your root phrase is compromised, rotate to a new sovereign identity.</div>
+          </div>
+
           <div class="pt-2 flex gap-2">
             <button
               type="button" data-action="call-global" data-global-method="__aetherisDM.copyTranscript" data-global-args='${escapeHtml(JSON.stringify([peerFP]))}'
@@ -2188,7 +2252,7 @@ export class SovereignDMManager {
           <div class="p-3.5 rounded-xl bg-surface-raised border ${status === 'changed' ? 'border-rose-500/50 bg-rose-950/20' : 'border-amber/30'} text-center">
             <div class="text-[10px] text-slate-400 uppercase font-mono mb-2">UREfy Safety Number</div>
             <div class="font-mono text-sm md:text-base font-extrabold text-amber tracking-wider select-all leading-relaxed">
-              ${escapeHtml(safetyNumber)}
+              ${escapeHtml(safetyNumber || 'Verification code unavailable')}
             </div>
           </div>
 
@@ -2203,7 +2267,15 @@ export class SovereignDMManager {
             </div>
           </div>
 
-          ${status === 'verified' ? `
+          ${!safetyNumber ? `
+            <button
+              type="button" disabled
+              class="w-full py-2.5 rounded-xl bg-surface-raised/50 border border-white/5 text-slate-500 font-bold text-xs uppercase tracking-wider cursor-not-allowed opacity-60"
+              title="Verification code unavailable: authenticated identity keys are required before marking verified"
+            >
+              Mark as Verified
+            </button>
+          ` : status === 'verified' ? `
             <div class="flex gap-2">
               <button
                 type="button" data-action="unmark-safety-verified" data-peer="${escapeHtml(peerFP)}"

@@ -122,6 +122,11 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
           PRIMARY KEY (fingerprint, device_id)
         )
       `).run();
+      const existing = await database.prepare('SELECT status FROM dm_devices WHERE fingerprint = ? AND device_id = ?')
+        .bind(fingerprint, deviceId).first<{ status: string }>();
+      if (existing?.status === 'revoked') {
+        return json({ success: false, error: 'This device ID has been revoked and cannot be registered' }, 403);
+      }
       await database.prepare(`
         INSERT INTO dm_devices (fingerprint, device_id, device_label, registration_json, status, created_at, updated_at)
         VALUES (?, ?, ?, ?, 'active', ?, ?)
@@ -140,6 +145,18 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
         return json({ success: false, error: 'Invalid device ID' }, 400);
       }
       try {
+        await database.prepare(`
+          CREATE TABLE IF NOT EXISTS dm_devices (
+            fingerprint TEXT NOT NULL,
+            device_id TEXT NOT NULL,
+            device_label TEXT,
+            registration_json TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'revoked')),
+            created_at INTEGER NOT NULL,
+            updated_at INTEGER NOT NULL,
+            PRIMARY KEY (fingerprint, device_id)
+          )
+        `).run();
         await database.prepare(`
           UPDATE dm_devices SET status = 'revoked', updated_at = ?
           WHERE fingerprint = ? AND device_id = ?
@@ -191,6 +208,17 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
       if (!validateDirectMessageFrame(message) || message.sender !== fingerprint || message.senderPublicKey !== auth.publicKey ||
           Object.keys(payload).some(key => key !== 'action' && key !== 'message')) {
         return json({ success: false, error: 'A valid signed encrypted message is required' }, 400);
+      }
+
+      if (message.senderDeviceId) {
+        try {
+          const senderDev = await database.prepare(
+            'SELECT status FROM dm_devices WHERE fingerprint = ? AND device_id = ?'
+          ).bind(fingerprint, message.senderDeviceId).first<{ status: string }>();
+          if (senderDev?.status === 'revoked') {
+            return json({ success: false, error: 'Sender device has been revoked and cannot send messages' }, 403);
+          }
+        } catch (_) {}
       }
       const recipient = await database.prepare('SELECT * FROM dm_identities WHERE fingerprint = ?').bind(message.recipient).first<IdentityRow>();
       if (!recipient || recipient.signing_public_key !== message.recipientPublicKey) return json({ success: false, error: 'Recipient key is unavailable or has changed' }, 409);
