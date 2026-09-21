@@ -104,6 +104,86 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
       return json({ success: true, registration: JSON.parse(recipient.registration_json), dmPermission });
     }
 
+    if (payload.action === 'register-device') {
+      const deviceId = payload.deviceId;
+      if (typeof deviceId !== 'string' || !/^[a-zA-Z0-9_-]{4,64}$/.test(deviceId)) {
+        return json({ success: false, error: 'Invalid device ID' }, 400);
+      }
+      const label = typeof payload.deviceLabel === 'string' ? payload.deviceLabel.slice(0, 100) : 'Browser Device';
+      await database.prepare(`
+        CREATE TABLE IF NOT EXISTS dm_devices (
+          fingerprint TEXT NOT NULL,
+          device_id TEXT NOT NULL,
+          device_label TEXT,
+          registration_json TEXT NOT NULL,
+          status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'revoked')),
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL,
+          PRIMARY KEY (fingerprint, device_id)
+        )
+      `).run();
+      await database.prepare(`
+        INSERT INTO dm_devices (fingerprint, device_id, device_label, registration_json, status, created_at, updated_at)
+        VALUES (?, ?, ?, ?, 'active', ?, ?)
+        ON CONFLICT(fingerprint, device_id) DO UPDATE SET
+          device_label = excluded.device_label,
+          registration_json = excluded.registration_json,
+          status = 'active',
+          updated_at = excluded.updated_at
+      `).bind(fingerprint, deviceId, label, JSON.stringify(envelope), Date.now(), Date.now()).run();
+      return json({ success: true, deviceId, status: 'active' });
+    }
+
+    if (payload.action === 'revoke-device') {
+      const deviceId = payload.deviceId;
+      if (typeof deviceId !== 'string' || !/^[a-zA-Z0-9_-]{4,64}$/.test(deviceId)) {
+        return json({ success: false, error: 'Invalid device ID' }, 400);
+      }
+      try {
+        await database.prepare(`
+          UPDATE dm_devices SET status = 'revoked', updated_at = ?
+          WHERE fingerprint = ? AND device_id = ?
+        `).bind(Date.now(), fingerprint, deviceId).run();
+      } catch (_) {}
+      return json({ success: true, deviceId, status: 'revoked' });
+    }
+
+    if (payload.action === 'list-devices') {
+      const targetFP = typeof payload.fingerprint === 'string' && /^[0-9a-f]{16}$/i.test(payload.fingerprint)
+        ? payload.fingerprint
+        : fingerprint;
+      try {
+        await database.prepare(`
+          CREATE TABLE IF NOT EXISTS dm_devices (
+            fingerprint TEXT NOT NULL,
+            device_id TEXT NOT NULL,
+            device_label TEXT,
+            registration_json TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'revoked')),
+            created_at INTEGER NOT NULL,
+            updated_at INTEGER NOT NULL,
+            PRIMARY KEY (fingerprint, device_id)
+          )
+        `).run();
+        const rows = await database.prepare(`
+          SELECT device_id, device_label, status, created_at, updated_at
+          FROM dm_devices WHERE fingerprint = ? ORDER BY created_at ASC
+        `).bind(targetFP).all<{ device_id: string; device_label: string; status: string; created_at: number; updated_at: number }>();
+        return json({
+          success: true,
+          devices: rows.results.map(r => ({
+            deviceId: r.device_id,
+            label: r.device_label,
+            status: r.status,
+            createdAt: r.created_at,
+            updatedAt: r.updated_at,
+          })),
+        });
+      } catch (_) {
+        return json({ success: true, devices: [] });
+      }
+    }
+
     if (payload.action === 'send') {
       const freeze = await database.prepare('SELECT value FROM system_config WHERE key = ?').bind('emergencyFreeze').first<{ value: string }>();
       if (freeze?.value === 'true') return json({ success: false, error: 'Messaging is temporarily paused by administration' }, 503);

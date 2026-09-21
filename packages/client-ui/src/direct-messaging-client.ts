@@ -54,6 +54,12 @@ export interface PrivateMessageTransport {
   decodeEnvelope(envelope: SovereignSignedEnvelope<DirectMessageSendPayload>): Promise<PrivateMessageDelivery>;
   setPermission?(policy: 'everyone' | 'following' | 'shared' | 'nobody'): Promise<void>;
   lookup?(fingerprint: string): Promise<SovereignIdentity & { dmPermission?: string }>;
+  getDeviceId?(): Promise<string>;
+  setActivePeerDevice?(peerFP: string, peerDeviceId: string): Promise<void>;
+  getActivePeerDevice?(peerFP: string): Promise<string | null>;
+  registerDevice?(label?: string): Promise<{ deviceId: string; status: string }>;
+  revokeDevice?(deviceId: string): Promise<boolean>;
+  listDevices?(fingerprint?: string): Promise<Array<{ deviceId: string; status: string; label?: string; createdAt: number }>>;
 }
 
 function validateContent(content: PrivateMessageContent): void {
@@ -162,22 +168,61 @@ export class DirectMessagingClient implements PrivateMessageTransport {
     return identity;
   }
 
-  private async loadRatchetSession(ownerFP: string, peerFP: string): Promise<DoubleRatchetSession | null> {
-    const key = `dm_ratchet_${ownerFP}_${peerFP}`;
-    const serialized = await secureStorage.getPrivateState<string>(key);
+  private cachedDeviceId: string | null = null;
+
+  public async getDeviceId(): Promise<string> {
+    if (this.cachedDeviceId) return this.cachedDeviceId;
+    let stored = await secureStorage.getPrivateState<string>('dm_local_device_id');
+    if (!stored || typeof stored !== 'string' || stored.length < 8) {
+      const randBytes = crypto.getRandomValues(new Uint8Array(8));
+      let hex = '';
+      for (let i = 0; i < randBytes.length; i++) {
+        hex += randBytes[i].toString(16).padStart(2, '0');
+      }
+      stored = `dev_${hex}`;
+      await secureStorage.savePrivateState('dm_local_device_id', stored);
+    }
+    this.cachedDeviceId = stored;
+    return stored;
+  }
+
+  private getRatchetStorageKey(ownerFP: string, peerFP: string, peerDeviceId?: string): string {
+    if (peerDeviceId && peerDeviceId !== 'default') {
+      return `dm_ratchet_${ownerFP}_${peerFP}_${peerDeviceId}`;
+    }
+    return `dm_ratchet_${ownerFP}_${peerFP}`;
+  }
+
+  private async loadRatchetSession(ownerFP: string, peerFP: string, peerDeviceId?: string): Promise<DoubleRatchetSession | null> {
+    if (peerDeviceId && peerDeviceId !== 'default') {
+      const devKey = `dm_ratchet_${ownerFP}_${peerFP}_${peerDeviceId}`;
+      const serialized = await secureStorage.getPrivateState<string>(devKey);
+      if (serialized) {
+        try {
+          return deserializeDoubleRatchetSession(serialized);
+        } catch {
+          console.warn(`[DirectMessagingClient] Corrupted ratchet session for ${peerFP}:${peerDeviceId}`);
+        }
+      }
+    }
+    const fallbackKey = `dm_ratchet_${ownerFP}_${peerFP}`;
+    const serialized = await secureStorage.getPrivateState<string>(fallbackKey);
     if (!serialized) return null;
     try {
       return deserializeDoubleRatchetSession(serialized);
     } catch {
-      console.warn(`[DirectMessagingClient] Corrupted ratchet session for ${peerFP}, will re-bootstrap`);
+      console.warn(`[DirectMessagingClient] Corrupted ratchet session for ${peerFP}`);
       return null;
     }
   }
 
-  private async saveRatchetSession(ownerFP: string, peerFP: string, session: DoubleRatchetSession): Promise<void> {
-    const key = `dm_ratchet_${ownerFP}_${peerFP}`;
+  private async saveRatchetSession(ownerFP: string, peerFP: string, session: DoubleRatchetSession, peerDeviceId?: string): Promise<void> {
+    const key = this.getRatchetStorageKey(ownerFP, peerFP, peerDeviceId);
     const serialized = serializeDoubleRatchetSession(session);
     await secureStorage.savePrivateState(key, serialized);
+    if (peerDeviceId && peerDeviceId !== 'default') {
+      await secureStorage.savePrivateState(`dm_active_device_${ownerFP}_${peerFP}`, peerDeviceId);
+    }
   }
 
   private cacheSentMessage(id: string, content: PrivateMessageContent): void {
@@ -193,10 +238,12 @@ export class DirectMessagingClient implements PrivateMessageTransport {
     await this.register();
     const keys = await this.getKeys();
     const ownerFP = keys.identity.fingerprint;
+    const localDeviceId = await this.getDeviceId();
     const lockName = `urefy_dm_ratchet_${ownerFP}_${recipient}`;
 
     return await withLock(lockName, async () => {
-      const pendingKey = `${ownerFP}:${recipient}`;
+      const activePeerDeviceId = await secureStorage.getPrivateState<string>(`dm_active_device_${ownerFP}_${recipient}`);
+      const pendingKey = `${ownerFP}:${recipient}:${activePeerDeviceId || 'default'}`;
       const serialized = canonicalizeJson(content);
       let pending = this.pendingSends.get(pendingKey);
       let envelope: SovereignSignedEnvelope<DirectMessageSendPayload>;
@@ -212,7 +259,7 @@ export class DirectMessagingClient implements PrivateMessageTransport {
         }
         const { dmPermission: _perm, ...cleanPeer } = peer;
 
-        let session = await this.loadRatchetSession(ownerFP, recipient);
+        let session = await this.loadRatchetSession(ownerFP, recipient, activePeerDeviceId || undefined);
         let bootstrap: DirectMessageBootstrap | undefined;
 
         if (!session) {
@@ -226,7 +273,11 @@ export class DirectMessagingClient implements PrivateMessageTransport {
           session,
           keys,
           cleanPeer as SovereignIdentity,
-          bootstrap
+          bootstrap,
+          {
+            senderDeviceId: localDeviceId,
+            recipientDeviceId: activePeerDeviceId || undefined,
+          }
         );
         envelope = enc.envelope;
         updatedSession = enc.session;
@@ -241,10 +292,8 @@ export class DirectMessagingClient implements PrivateMessageTransport {
         throw new Error('Identity changed before the message was sent');
       }
 
-      // Save updated ratchet state BEFORE network dispatch so that even if the browser process
-      // crashes or is interrupted during/after dispatch, the previous chain key and message counter
-      // can NEVER be reused to encrypt a different payload with the same key.
-      await this.saveRatchetSession(ownerFP, recipient, updatedSession);
+      // Save updated ratchet state BEFORE network dispatch
+      await this.saveRatchetSession(ownerFP, recipient, updatedSession, activePeerDeviceId || undefined);
 
       const result = await this.post(envelope);
       if (result.id !== envelope.payload.message.id || !Number.isSafeInteger(result.sequence)) {
@@ -272,6 +321,7 @@ export class DirectMessagingClient implements PrivateMessageTransport {
     await this.register();
     const keys = await this.getKeys();
     const ownerFP = keys.identity.fingerprint;
+    const localDevId = await this.getDeviceId();
     const result = await this.post(createSignedEnvelope({ action: 'list', after }, keys));
     if (!Array.isArray(result.messages) || !Number.isSafeInteger(result.nextCursor) || result.nextCursor < after) {
       throw new Error('Invalid private inbox response');
@@ -298,6 +348,7 @@ export class DirectMessagingClient implements PrivateMessageTransport {
           content = await decryptDirectMessage<PrivateMessageContent>(envelope, keys);
           validateContent(content);
         } else if (frame.version === 2) {
+          const v2Frame = frame as DirectMessageFrameV2;
           if (isSender) {
             const cached = this.sentMessagesCache.get(frame.id);
             if (cached) {
@@ -310,10 +361,26 @@ export class DirectMessagingClient implements PrivateMessageTransport {
               continue;
             }
 
-            const lockName = `urefy_dm_ratchet_${ownerFP}_${peerFP}`;
+            // If the message is explicitly targeted to another device of this identity, skip gracefully
+            if (v2Frame.recipientDeviceId && v2Frame.recipientDeviceId !== localDevId) {
+              content = { text: '[Message delivered to another device of this identity]' };
+              messages.push({
+                id: frame.id,
+                sequence: record.sequence,
+                createdAt: record.createdAt,
+                sender: frame.sender,
+                recipient: frame.recipient,
+                content,
+                envelope,
+              });
+              continue;
+            }
+
+            const peerDeviceId = v2Frame.senderDeviceId || (v2Frame.ratchetEnvelope?.sessionId ? `sess_${v2Frame.ratchetEnvelope.sessionId.slice(0, 16)}` : 'default');
+            const lockName = `urefy_dm_ratchet_${ownerFP}_${peerFP}_${peerDeviceId}`;
+
             content = await withLock(lockName, async () => {
-              let session = await this.loadRatchetSession(ownerFP, peerFP);
-              const v2Frame = frame as DirectMessageFrameV2;
+              let session = await this.loadRatchetSession(ownerFP, peerFP, peerDeviceId);
 
               let dec: { body: PrivateMessageContent; session: DoubleRatchetSession };
               if (session && !v2Frame.bootstrap) {
@@ -331,13 +398,13 @@ export class DirectMessagingClient implements PrivateMessageTransport {
                 }
               } else {
                 if (!v2Frame.bootstrap) {
-                  throw new Error(`Missing initial bootstrap for peer ${peerFP}`);
+                  throw new Error(`Missing initial bootstrap for peer ${peerFP}:${peerDeviceId}`);
                 }
                 const freshSession = initiateReceiverDMSession(keys, envelope.identity, v2Frame.bootstrap);
                 dec = await decryptRatchetedDirectMessage<PrivateMessageContent>(envelope, freshSession, keys);
               }
 
-              await this.saveRatchetSession(ownerFP, peerFP, dec.session);
+              await this.saveRatchetSession(ownerFP, peerFP, dec.session, peerDeviceId);
 
               if (this.processedMessageIds.size > 2000) {
                 const first = this.processedMessageIds.values().next().value;
@@ -376,6 +443,7 @@ export class DirectMessagingClient implements PrivateMessageTransport {
   public async decodeEnvelope(envelope: SovereignSignedEnvelope<DirectMessageSendPayload>): Promise<PrivateMessageDelivery> {
     const keys = await this.getKeys();
     const ownerFP = keys.identity.fingerprint;
+    const localDevId = await this.getDeviceId();
     const frame = envelope?.payload?.message;
     if (!frame) throw new Error('Invalid message envelope');
 
@@ -386,24 +454,29 @@ export class DirectMessagingClient implements PrivateMessageTransport {
     if (frame.version === 1) {
       content = await decryptDirectMessage<PrivateMessageContent>(envelope, keys);
     } else if (frame.version === 2) {
+      const v2Frame = frame as DirectMessageFrameV2;
       if (isSender) {
         content = this.sentMessagesCache.get(frame.id) || { text: '[Encrypted sent message]' };
       } else {
-        const lockName = `urefy_dm_ratchet_${ownerFP}_${peerFP}`;
-        content = await withLock(lockName, async () => {
-          let session = await this.loadRatchetSession(ownerFP, peerFP);
-          const v2Frame = frame as DirectMessageFrameV2;
-          let dec: { body: PrivateMessageContent; session: DoubleRatchetSession };
-          if (session && !v2Frame.bootstrap) {
-            dec = await decryptRatchetedDirectMessage<PrivateMessageContent>(envelope, session, keys);
-          } else {
-            if (!v2Frame.bootstrap) throw new Error('Cannot decode without active session or bootstrap');
-            const freshSession = initiateReceiverDMSession(keys, envelope.identity, v2Frame.bootstrap);
-            dec = await decryptRatchetedDirectMessage<PrivateMessageContent>(envelope, freshSession, keys);
-          }
-          await this.saveRatchetSession(ownerFP, peerFP, dec.session);
-          return dec.body;
-        });
+        if (v2Frame.recipientDeviceId && v2Frame.recipientDeviceId !== localDevId) {
+          content = { text: '[Message delivered to another device of this identity]' };
+        } else {
+          const peerDeviceId = v2Frame.senderDeviceId || (v2Frame.ratchetEnvelope?.sessionId ? `sess_${v2Frame.ratchetEnvelope.sessionId.slice(0, 16)}` : 'default');
+          const lockName = `urefy_dm_ratchet_${ownerFP}_${peerFP}_${peerDeviceId}`;
+          content = await withLock(lockName, async () => {
+            let session = await this.loadRatchetSession(ownerFP, peerFP, peerDeviceId);
+            let dec: { body: PrivateMessageContent; session: DoubleRatchetSession };
+            if (session && !v2Frame.bootstrap) {
+              dec = await decryptRatchetedDirectMessage<PrivateMessageContent>(envelope, session, keys);
+            } else {
+              if (!v2Frame.bootstrap) throw new Error('Cannot decode without active session or bootstrap');
+              const freshSession = initiateReceiverDMSession(keys, envelope.identity, v2Frame.bootstrap);
+              dec = await decryptRatchetedDirectMessage<PrivateMessageContent>(envelope, freshSession, keys);
+            }
+            await this.saveRatchetSession(ownerFP, peerFP, dec.session, peerDeviceId);
+            return dec.body;
+          });
+        }
       }
     } else {
       throw new Error('Unsupported direct message frame version');
@@ -420,5 +493,47 @@ export class DirectMessagingClient implements PrivateMessageTransport {
       content,
       envelope,
     };
+  }
+
+  public async registerDevice(label?: string): Promise<{ deviceId: string; status: string }> {
+    const keys = await this.getKeys();
+    const deviceId = await this.getDeviceId();
+    const result = await this.post(createSignedEnvelope({
+      action: 'register-device',
+      deviceId,
+      deviceLabel: label || 'Web Browser',
+      timestamp: Date.now(),
+    }, keys));
+    return { deviceId, status: result?.status || 'active' };
+  }
+
+  public async revokeDevice(deviceId: string): Promise<boolean> {
+    const keys = await this.getKeys();
+    const result = await this.post(createSignedEnvelope({
+      action: 'revoke-device',
+      deviceId,
+      timestamp: Date.now(),
+    }, keys));
+    return result?.success === true;
+  }
+
+  public async listDevices(fingerprint?: string): Promise<Array<{ deviceId: string; status: string; label?: string; createdAt: number }>> {
+    const keys = await this.getKeys();
+    const targetFP = fingerprint || keys.identity.fingerprint;
+    const result = await this.post(createSignedEnvelope({
+      action: 'list-devices',
+      fingerprint: targetFP,
+    }, keys));
+    return Array.isArray(result?.devices) ? result.devices : [];
+  }
+
+  public async setActivePeerDevice(peerFP: string, peerDeviceId: string): Promise<void> {
+    const keys = await this.getKeys();
+    await secureStorage.savePrivateState(`dm_active_device_${keys.identity.fingerprint}_${peerFP}`, peerDeviceId);
+  }
+
+  public async getActivePeerDevice(peerFP: string): Promise<string | null> {
+    const keys = await this.getKeys();
+    return (await secureStorage.getPrivateState<string>(`dm_active_device_${keys.identity.fingerprint}_${peerFP}`)) ?? null;
   }
 }

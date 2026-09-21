@@ -789,3 +789,7 @@ export class SecureStorageEngine {
 
 // Global Singleton Export
 export const secureStorage = new SecureStorageEngine();
+
+if (typeof window !== 'undefined') {
+  (window as any).secureStorage = secureStorage;
+}

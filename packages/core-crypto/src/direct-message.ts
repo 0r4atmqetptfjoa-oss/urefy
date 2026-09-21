@@ -42,6 +42,8 @@ export interface DirectMessageFrameV2 {
   recipientPublicKey: string;
   ratchetEnvelope: RatchetEncryptedEnvelope;
   bootstrap?: DirectMessageBootstrap;
+  senderDeviceId?: string;
+  recipientDeviceId?: string;
 }
 
 export type DirectMessageFrame = DirectMessageFrameV1 | DirectMessageFrameV2;
@@ -93,8 +95,14 @@ export function validateDirectMessageFrame(frame: DirectMessageFrame): boolean {
     }
 
     if (frame.version === 2) {
-      const allowedKeys = ['version', 'id', 'sender', 'recipient', 'senderPublicKey', 'recipientPublicKey', 'ratchetEnvelope', 'bootstrap'];
+      const allowedKeys = ['version', 'id', 'sender', 'recipient', 'senderPublicKey', 'recipientPublicKey', 'ratchetEnvelope', 'bootstrap', 'senderDeviceId', 'recipientDeviceId'];
       if (Object.keys(frame).some(key => !allowedKeys.includes(key))) return false;
+      if (frame.senderDeviceId !== undefined) {
+        if (typeof frame.senderDeviceId !== 'string' || !/^[a-zA-Z0-9_-]{4,64}$/.test(frame.senderDeviceId)) return false;
+      }
+      if (frame.recipientDeviceId !== undefined) {
+        if (typeof frame.recipientDeviceId !== 'string' || !/^[a-zA-Z0-9_-]{4,64}$/.test(frame.recipientDeviceId)) return false;
+      }
       const env = frame.ratchetEnvelope;
       if (!env || typeof env !== 'object') return false;
       const envKeys = ['version', 'sessionId', 'senderDHPublicKey', 'senderPqCiphertext', 'messageIndex', 'previousChainLength', 'ciphertext', 'iv', 'tag'];
@@ -219,7 +227,8 @@ export async function encryptRatchetedDirectMessage<T>(
   session: DoubleRatchetSession,
   sender: SovereignKeyPairSet,
   recipient: SovereignIdentity,
-  bootstrap?: DirectMessageBootstrap
+  bootstrap?: DirectMessageBootstrap,
+  options?: { senderDeviceId?: string; recipientDeviceId?: string }
 ): Promise<{
   envelope: SovereignSignedEnvelope<DirectMessageSendPayload>;
   session: DoubleRatchetSession;
@@ -244,6 +253,8 @@ export async function encryptRatchetedDirectMessage<T>(
     recipientPublicKey: recipient.signingPublicKey,
     ratchetEnvelope,
     ...(bootstrap ? { bootstrap } : {}),
+    ...(options?.senderDeviceId ? { senderDeviceId: options.senderDeviceId } : {}),
+    ...(options?.recipientDeviceId ? { recipientDeviceId: options.recipientDeviceId } : {}),
   };
 
   const envelope = createSignedEnvelope<DirectMessageSendPayload>({ action: 'send', message }, sender);

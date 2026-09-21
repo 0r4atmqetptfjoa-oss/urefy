@@ -58,15 +58,21 @@ export interface DMConversation {
   activeBranchId?: string;
 }
 
-export interface TreeKEMState {
+export interface RatchetDiagnosticsState {
+  ratchetTurn: number;
+  chainIndex: number;
+  sessionRootHash: string;
+  activeRatchetKey: string;
+  ciphersuite: string;
+  forwardSecrecyConfirmed: boolean;
+  postCompromiseSecurity: boolean;
   epoch: number;
   generation: number;
   treeRootHash: string;
   ratchetKey: string;
-  ciphersuite: string;
-  forwardSecrecyConfirmed: boolean;
-  postCompromiseSecurity: boolean;
 }
+
+export type TreeKEMState = RatchetDiagnosticsState;
 
 export interface PeerMetadata {
   fingerprint: string;
@@ -153,30 +159,36 @@ function formatRelativeTime(ts: number): string {
 }
 
 /**
- * Derives dynamic TreeKEM state parameters for a peer conversation.
+ * Derives dynamic Double Ratchet diagnostics parameters for a peer conversation.
  */
-function deriveTreeKEMState(peerFP: string, myFP: string, messageCount: number): TreeKEMState {
+function deriveRatchetDiagnostics(peerFP: string, myFP: string, messageCount: number): RatchetDiagnosticsState {
   const seed = fnv1a32(`${peerFP}:${myFP}`);
-  const epoch = Math.floor(messageCount / 4) + 1;
-  const generation = messageCount % 4;
+  const ratchetTurn = Math.floor(messageCount / 4) + 1;
+  const chainIndex = messageCount % 4;
   
-  // Deterministic hex hash for tree root and ratchet key
-  const rootSeed = (seed + epoch * 0x45d9f3b) >>> 0;
-  const ratchetSeed = (rootSeed ^ (generation * 0x119de1f)) >>> 0;
+  // Deterministic hex hash for session root commitment and active ratchet key
+  const rootSeed = (seed + ratchetTurn * 0x45d9f3b) >>> 0;
+  const ratchetSeed = (rootSeed ^ (chainIndex * 0x119de1f)) >>> 0;
   
-  const treeRootHash = '0x' + rootSeed.toString(16).padStart(8, '0') + ((rootSeed * 31) >>> 0).toString(16).padStart(8, '0');
-  const ratchetKey = 'rk_' + ratchetSeed.toString(16).padStart(8, '0') + ((ratchetSeed * 17) >>> 0).toString(16).padStart(8, '0');
+  const sessionRootHash = '0x' + rootSeed.toString(16).padStart(8, '0') + ((rootSeed * 31) >>> 0).toString(16).padStart(8, '0');
+  const activeRatchetKey = 'rk_' + ratchetSeed.toString(16).padStart(8, '0') + ((ratchetSeed * 17) >>> 0).toString(16).padStart(8, '0');
 
   return {
-    epoch,
-    generation,
-    treeRootHash,
-    ratchetKey,
+    ratchetTurn,
+    chainIndex,
+    sessionRootHash,
+    activeRatchetKey,
     ciphersuite: 'ACTIVE · Double Ratchet + ML-KEM-768 (FIPS 203) / AES-256-GCM',
     forwardSecrecyConfirmed: true,
     postCompromiseSecurity: true,
+    epoch: ratchetTurn,
+    generation: chainIndex,
+    treeRootHash: sessionRootHash,
+    ratchetKey: activeRatchetKey,
   };
 }
+
+const deriveTreeKEMState = deriveRatchetDiagnostics;
 
 /**
  * Simulates TreeKEM SFrame authenticated encryption with ratchet evolution.
@@ -1442,12 +1454,16 @@ export class SovereignDMManager {
   }
 
   /**
-   * Toggle TreeKEM Cryptographic Status Drawer.
+   * Toggle Double Ratchet Status Drawer.
    */
-  public toggleTreeKEMDrawer(): void {
+  public toggleRatchetDrawer(): void {
     this.isTreeKEMDrawerOpen = !this.isTreeKEMDrawerOpen;
     this.isSafetyModalOpen = false;
     this.syncDOM();
+  }
+
+  public toggleTreeKEMDrawer(): void {
+    this.toggleRatchetDrawer();
   }
 
   /**
@@ -1490,7 +1506,7 @@ export class SovereignDMManager {
         data-sovereign-dm-trigger="${safeFP}"
         data-peer-role="${safeRole}" data-action="call-global" data-raw-click="window.__aetherisDM && window.__aetherisDM.openDM('${safeFP}', '${safeRole}')"
         class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-surface-overlay text-cyphr hover:bg-cyphr/20 hover:text-white border border-cyphr/30 hover:border-cyphr transition-all duration-150 shadow-sm cursor-pointer focus:outline-none focus:ring-1 focus:ring-cyphr"
-        title="Open Private E2EE TreeKEM Channel with ${safeFP}"
+        title="Open Private E2EE Channel with ${safeFP}"
       >
         <span>${escapeHtml(label)}</span>
         <span class="w-1.5 h-1.5 rounded-full bg-signal animate-pulse"></span>
@@ -1510,7 +1526,7 @@ export class SovereignDMManager {
           type="button" data-action="call-global" data-raw-click="window.__aetherisDM && window.__aetherisDM.toggleDM()"
           class="relative flex items-center justify-center w-12 h-12 rounded-full bg-surface-raised border border-cyphr/40 shadow-2xl hover:scale-105 active:scale-95 transition-all duration-200 group text-cyphr hover:border-cyphr hover:shadow-[0_0_20px_rgba(0,229,255,0.4)] cursor-pointer"
           aria-label="Toggle Sovereign E2EE Direct Messages"
-          title="Sovereign E2EE DMs (TreeKEM SFrame)"
+          title="Sovereign E2EE DMs (Double Ratchet)"
         >
           <svg class="w-6 h-6 transform group-hover:-translate-y-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -1546,7 +1562,8 @@ export class SovereignDMManager {
       lastMessageAt: Date.now(),
     };
 
-    const treeKEM = deriveTreeKEMState(activeFP, myFP, conv.messages.length);
+    const diagnostics = deriveRatchetDiagnostics(activeFP, myFP, conv.messages.length);
+    const treeKEM = diagnostics;
     const peerGradient = generateDeterministicGradient(activeFP);
 
     return `
@@ -1587,16 +1604,16 @@ export class SovereignDMManager {
                 </span>
               </div>
 
-              <!-- TreeKEM SFrame Badge Trigger -->
+              <!-- Double Ratchet Diagnostics Badge Trigger -->
               <div class="flex items-center gap-1.5 mt-0.5">
                 <button
-                  type="button" data-action="call-global" data-raw-click="window.__aetherisDM && window.__aetherisDM.toggleTreeKEMDrawer()"
+                  type="button" data-action="call-global" data-raw-click="window.__aetherisDM && window.__aetherisDM.toggleRatchetDrawer()"
                   class="inline-flex items-center gap-1 text-[10px] font-mono text-signal hover:text-cyphr transition-colors cursor-pointer"
-                  title="View TreeKEM Epoch and Key Ratchet Status"
+                  title="View Double Ratchet Status and Diagnostics"
                 >
                   <span class="w-1.5 h-1.5 rounded-full bg-signal"></span>
                   <span>Double Ratchet</span>
-                  <span class="text-slate-400 font-normal">#ep${treeKEM.epoch}</span>
+                  <span class="text-slate-400 font-normal">#turn${diagnostics.ratchetTurn}</span>
                 </button>
                 <span class="text-slate-600">•</span>
                 <button
@@ -1684,7 +1701,7 @@ export class SovereignDMManager {
                   End-to-End Encrypted Sovereign Channel
                 </span>
                 <span class="text-slate-400 mt-0.5">
-                  Protected by TreeKEM MLS v2.4 + SFrame with continuous key ratcheting. No third-party relay can decrypt frames.
+                  Protected by Sovereign Double Ratchet + Hybrid ML-KEM-768 Bootstrap with continuous key ratcheting. No third-party relay can decrypt frames.
                 </span>
               </div>
             </div>
@@ -2053,13 +2070,17 @@ export class SovereignDMManager {
     `;
   }
 
-  /**
-   * Render TreeKEM Epoch Inspector Drawer.
-   */
   public renderTreeKEMInspector(peerFP: string): string {
+    return this.renderRatchetInspector(peerFP);
+  }
+
+  /**
+   * Render Double Ratchet Diagnostics Drawer.
+   */
+  public renderRatchetInspector(peerFP: string): string {
     const conv = this.conversations.get(peerFP);
     const msgCount = conv ? conv.messages.length : 0;
-    const treeKEM = deriveTreeKEMState(peerFP, 'me_local_node_0x9f4e', msgCount);
+    const diagnostics = deriveRatchetDiagnostics(peerFP, 'me_local_node_0x9f4e', msgCount);
 
     return `
       <div class="absolute inset-x-0 top-16 bottom-0 z-40 bg-surface-base/98 backdrop-blur-md p-4 flex flex-col overflow-y-auto animate-in slide-in-from-top-2 duration-150 border-b border-white/10 font-mono text-xs">
@@ -2069,7 +2090,7 @@ export class SovereignDMManager {
             <span class="font-bold text-slate-100">Double Ratchet Protocol Diagnostics</span>
           </div>
           <button
-            type="button" data-action="call-global" data-raw-click="window.__aetherisDM && window.__aetherisDM.toggleTreeKEMDrawer()"
+            type="button" data-action="call-global" data-raw-click="window.__aetherisDM && window.__aetherisDM.toggleRatchetDrawer()"
             class="text-slate-400 hover:text-slate-200"
           >
             ✕ Close
@@ -2083,28 +2104,28 @@ export class SovereignDMManager {
 
           <div class="bg-surface-raised p-2.5 rounded-xl border border-white/5">
             <div class="text-[10px] text-slate-400 uppercase">Active Cipher Suite</div>
-            <div class="text-cyphr text-[11px] font-bold mt-0.5 break-all">${treeKEM.ciphersuite}</div>
+            <div class="text-cyphr text-[11px] font-bold mt-0.5 break-all">${diagnostics.ciphersuite}</div>
           </div>
 
           <div class="grid grid-cols-2 gap-2">
             <div class="bg-surface-raised p-2.5 rounded-xl border border-white/5">
-              <div class="text-[10px] text-slate-400 uppercase">Ratchet Turn / Epoch</div>
-              <div class="text-signal text-sm font-bold mt-0.5">#${treeKEM.epoch}</div>
+              <div class="text-[10px] text-slate-400 uppercase">Ratchet Turn</div>
+              <div class="text-signal text-sm font-bold mt-0.5">#${diagnostics.ratchetTurn}</div>
             </div>
             <div class="bg-surface-raised p-2.5 rounded-xl border border-white/5">
               <div class="text-[10px] text-slate-400 uppercase">Chain Message Counter</div>
-              <div class="text-aether text-sm font-bold mt-0.5">Msg ${treeKEM.generation}</div>
+              <div class="text-aether text-sm font-bold mt-0.5">Msg ${diagnostics.chainIndex}</div>
             </div>
           </div>
 
           <div class="bg-surface-raised p-2.5 rounded-xl border border-white/5">
             <div class="text-[10px] text-slate-400 uppercase">Session Root Commitment</div>
-            <div class="text-slate-200 text-[11px] font-bold mt-0.5">${treeKEM.treeRootHash}</div>
+            <div class="text-slate-200 text-[11px] font-bold mt-0.5">${diagnostics.sessionRootHash}</div>
           </div>
 
           <div class="bg-surface-raised p-2.5 rounded-xl border border-white/5">
             <div class="text-[10px] text-slate-400 uppercase">Active Ephemeral DH Key</div>
-            <div class="text-amber text-[11px] font-bold mt-0.5">${treeKEM.ratchetKey}</div>
+            <div class="text-amber text-[11px] font-bold mt-0.5">${diagnostics.activeRatchetKey}</div>
           </div>
 
           <div class="p-2.5 rounded-xl bg-signal/10 border border-signal/30 text-signal text-[11px] flex items-center gap-2">
