@@ -319,7 +319,17 @@ export const onRequest: PagesFunction = async (context) => {
   const now = Date.now();
 
   // ── 0. Canonical domain redirect — pages.dev → urefy.com ─────────────────
-  if (url.hostname.endsWith('.pages.dev') || url.hostname === 'pages.dev') {
+  // QA environments (qa.*, preview deployments, X-QA-Environment: 1, or WebSocket upgrades)
+  // must NEVER be 301-redirected, preserving isolated QA load testing and RFC 6455 handshakes.
+  const isQaEnv =
+    url.hostname.startsWith('qa.') ||
+    url.searchParams.get('qa') === '1' ||
+    req.headers.get('X-QA-Environment') === '1' ||
+    context.env?.ENVIRONMENT === 'staging' ||
+    context.env?.ENVIRONMENT === 'qa';
+  const isWebSocketUpgrade = req.headers.get('Upgrade')?.toLowerCase() === 'websocket';
+
+  if (!isQaEnv && !isWebSocketUpgrade && (url.hostname === 'aetheris-omni-sphere.pages.dev' || (url.hostname.endsWith('.pages.dev') && !url.hostname.startsWith('qa-') && !url.hostname.startsWith('qa.')))) {
     const redirectUrl = new URL(req.url);
     redirectUrl.hostname = 'urefy.com';
     redirectUrl.protocol = 'https:';
@@ -440,7 +450,37 @@ export const onRequest: PagesFunction = async (context) => {
   try {
     response = await context.next();
   } catch (edgeErr: any) {
-    console.error(`[EdgeUnhandledError:${requestId}]`, edgeErr?.message || edgeErr);
+    const errorMsg = edgeErr?.message || String(edgeErr);
+    console.error(`[EdgeUnhandledError:${requestId}]`, errorMsg);
+
+    // Graceful handling for Cloudflare D1 daily query allowance exhaustion
+    const isD1DailyLimit =
+      errorMsg.includes('daily limit') ||
+      errorMsg.includes('D1_ERROR: query rejected') ||
+      (errorMsg.includes('D1') && errorMsg.includes('limit'));
+
+    if (isD1DailyLimit) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Daily database query allowance reached on the sovereign edge. UREfy is operating in read-only preservation mode until reset at 00:00 UTC.',
+          code: 'D1_DAILY_LIMIT_EXCEEDED',
+          retryAfterUtc: '00:00:00Z',
+          requestId,
+        }),
+        {
+          status: 503,
+          headers: {
+            'Content-Type': 'application/json',
+            'Retry-After': '3600',
+            'X-Request-Id': requestId,
+            ...corsHeaders,
+            ...SECURITY_HEADERS,
+          },
+        }
+      );
+    }
+
     return new Response(
       JSON.stringify({
         success: false,

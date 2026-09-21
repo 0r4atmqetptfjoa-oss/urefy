@@ -653,6 +653,30 @@ export async function onRequestPost(context: {
         ? crypto.randomUUID().slice(0, 8)
         : Array.from(crypto.getRandomValues(new Uint8Array(4)), b => b.toString(16).padStart(2, '0')).join('');
       const reservationId = `resv_${now}_${randHex}`;
+
+      // Authoritative atomic allocation in D1 across all Cloudflare isolates
+      if (getD1Database(context.env)) {
+        try {
+          const allocated = await allocateStorage(context.env, reservationId, author, byteSize);
+          if (!allocated) {
+            return new Response(
+              JSON.stringify({
+                success: false,
+                error: 'Account or platform storage quota reached. Remove files before uploading more.',
+              }),
+              { status: 507, headers: { 'Content-Type': 'application/json', ...STORAGE_CORS_HEADERS } }
+            );
+          }
+        } catch (allocErr: any) {
+          if (isProductionEnv(context.env)) {
+            return new Response(
+              JSON.stringify({ success: false, error: 'Storage accounting is unavailable. Reservation failed.' }),
+              { status: 503, headers: { 'Content-Type': 'application/json', ...STORAGE_CORS_HEADERS } }
+            );
+          }
+        }
+      }
+
       activeStorageReservations.set(reservationId, {
         id: reservationId,
         author,
@@ -680,6 +704,11 @@ export async function onRequestPost(context: {
       const reservationId = (body?.reservationId || url.searchParams.get('reservationId') || '').trim();
       if (reservationId) {
         activeStorageReservations.delete(reservationId);
+        if (getD1Database(context.env)) {
+          try {
+            await releaseStorage(context.env, reservationId);
+          } catch (_) {}
+        }
       }
       return new Response(
         JSON.stringify({ success: true, released: true, reservationId }),
