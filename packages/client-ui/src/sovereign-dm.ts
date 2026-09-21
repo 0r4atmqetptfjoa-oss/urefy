@@ -40,6 +40,8 @@ export interface DirectMessage {
   plaintext: string;
   timestamp: number;
   isRead: boolean;
+  isPeerRead?: boolean;
+  peerReadAt?: number;
   attachment?: DirectMessageAttachment;
   deliveryStatus?: 'sending' | 'sent' | 'received' | 'failed' | 'local-only';
   context?: MessageContext;
@@ -472,6 +474,10 @@ export class SovereignDMManager {
         await secureStorage.savePrivateState('legacy-dm-history', JSON.parse(legacy));
         localStorage.removeItem(this.storageKey);
       }
+      const perm = localStorage.getItem('urefy_msg_dm_permission') as any;
+      if (perm && ['everyone', 'following', 'shared', 'nobody'].includes(perm)) {
+        void this.setDMPermission(perm).catch(() => {});
+      }
     }
   }
 
@@ -536,6 +542,26 @@ export class SovereignDMManager {
       conversation = { peerFingerprint: peer, peerRole: 'MEMBER', messages: [], unreadCount: 0, lastMessageAt: 0, isRequest };
       this.conversations.set(peer, conversation);
     }
+
+    // Process incoming read receipts
+    const readReceipt = delivery.content.context?.readReceipt;
+    if (readReceipt && Array.isArray(readReceipt.messageIds)) {
+      let updated = false;
+      for (const targetId of readReceipt.messageIds) {
+        const target = conversation.messages.find(m => m.id === targetId);
+        if (target) {
+          target.isPeerRead = true;
+          target.peerReadAt = readReceipt.readAt || Date.now();
+          updated = true;
+        }
+      }
+      if (updated) {
+        this._saveToStorage();
+        this.syncDOM();
+      }
+      return;
+    }
+
     if (conversation.messages.some(message => message.id === delivery.id)) return;
     const branch = delivery.content.context?.branch;
     if (branch) {
@@ -552,7 +578,21 @@ export class SovereignDMManager {
       deliveryStatus: isMine ? 'sent' : 'received',
     });
     conversation.lastMessageAt = Math.max(conversation.lastMessageAt, delivery.createdAt);
-    if (!isRead) conversation.unreadCount++;
+    if (!isRead) {
+      conversation.unreadCount++;
+      const notifyLevel = typeof localStorage !== 'undefined' ? (localStorage.getItem('urefy_msg_notify_level') || 'mentions') : 'mentions';
+      if (notifyLevel !== 'muted' && !isMine && !delivery.content.context?.reaction && !delivery.content.context?.readReceipt) {
+        sovereignWebPush.triggerDMNotification(delivery.sender, delivery.content.text).catch(() => {});
+        if (typeof window !== 'undefined' && (window as any).clientStore?.showToast) {
+          const senderName = delivery.sender === 'genesis-core' ? 'Genesis Protocol Archon' : (delivery.sender.length > 8 ? `Member ${delivery.sender.substring(0, 6)}` : delivery.sender);
+          (window as any).clientStore.showToast(`New message from ${senderName}`, 'info');
+        }
+      }
+    } else if (!isMine && !delivery.content.context?.reaction && !delivery.content.context?.readReceipt) {
+      if (typeof localStorage !== 'undefined' && localStorage.getItem('urefy_msg_read_receipts') !== 'false') {
+        void this.transport.send(peer, { text: '', context: { readReceipt: { messageIds: [delivery.id], readAt: Date.now() } } }).catch(() => {});
+      }
+    }
   }
 
   public getActiveBranch(peer = this.activePeerFP): string {
@@ -1196,21 +1236,31 @@ export class SovereignDMManager {
     if (!conv) return;
 
     let hasChanges = false;
+    const readReceiptsEnabled = typeof localStorage !== 'undefined' && localStorage.getItem('urefy_msg_read_receipts') !== 'false';
+    const newlyReadIds: string[] = [];
 
     for (const msg of conv.messages) {
       if (!msg.isRead && branchOf(msg) === (conv.activeBranchId || 'main')) {
         msg.isRead = true;
         hasChanges = true;
-        try {
-          zkDeliveryManager.emitDeliveryProof(msg.id);
-          (window as any).transparencyMode?.recordMessageJourney(msg.id, msg.plaintext, msg.senderFP, peerFP, 'inbound');
-        } catch (_) {}
+        if (msg.senderFP !== this.ownerFingerprint) {
+          newlyReadIds.push(msg.id);
+        }
+        if (readReceiptsEnabled) {
+          try {
+            zkDeliveryManager.emitDeliveryProof(msg.id);
+            (window as any).transparencyMode?.recordMessageJourney(msg.id, msg.plaintext, msg.senderFP, peerFP, 'inbound');
+          } catch (_) {}
+        }
       }
     }
 
     conv.unreadCount = conv.messages.filter(message => !message.isRead && !message.context?.reaction).length;
 
     if (hasChanges) {
+      if (readReceiptsEnabled && newlyReadIds.length > 0) {
+        void this.transport.send(peerFP, { text: '', context: { readReceipt: { messageIds: newlyReadIds, readAt: Date.now() } } }).catch(() => {});
+      }
       this._saveToStorage();
       this._dispatchEvent('aetheris:dm:marked_read', { peerFP });
     }
@@ -1256,7 +1306,79 @@ export class SovereignDMManager {
         return Field.hashToField(`UREFY_DM_SAFETY_V1:${keys}`).toString().padStart(76, '0').slice(0, 60).match(/.{5}/g)!.join(' ');
       } catch {}
     }
-    return 'No verified message yet';
+    if (fpA && fpB) {
+      return computeSafetyNumber(fpA, fpB);
+    }
+    return '00000 00000 00000 00000 00000 00000';
+  }
+
+  /**
+   * Check verification status of peer Safety Number.
+   */
+  public getSafetyVerificationStatus(peerFP: string): 'unverified' | 'verified' | 'changed' {
+    if (typeof localStorage === 'undefined' || !this.ownerFingerprint) return 'unverified';
+    try {
+      const raw = localStorage.getItem('urefy_verified_safety_numbers');
+      if (!raw) return 'unverified';
+      const map = JSON.parse(raw);
+      const entry = map[peerFP];
+      if (!entry || !entry.safetyNumber) return 'unverified';
+      const current = this.getSafetyNumber(peerFP, this.ownerFingerprint);
+      if (entry.safetyNumber === current) return 'verified';
+      return 'changed';
+    } catch {
+      return 'unverified';
+    }
+  }
+
+  /**
+   * Mark peer Safety Number as verified.
+   */
+  public markSafetyNumberVerified(peerFP: string): void {
+    if (typeof localStorage === 'undefined' || !this.ownerFingerprint) return;
+    try {
+      const raw = localStorage.getItem('urefy_verified_safety_numbers') || '{}';
+      const map = JSON.parse(raw);
+      const current = this.getSafetyNumber(peerFP, this.ownerFingerprint);
+      map[peerFP] = {
+        safetyNumber: current,
+        verifiedAt: Date.now(),
+      };
+      localStorage.setItem('urefy_verified_safety_numbers', JSON.stringify(map));
+      this.syncDOM();
+      if (typeof window !== 'undefined' && (window as any).clientStore?.showToast) {
+        (window as any).clientStore.showToast('Safety number confirmed! Session marked as Verified.', 'success');
+      }
+    } catch (_) {}
+  }
+
+  /**
+   * Unmark peer Safety Number verification.
+   */
+  public unmarkSafetyNumberVerified(peerFP: string): void {
+    if (typeof localStorage === 'undefined') return;
+    try {
+      const raw = localStorage.getItem('urefy_verified_safety_numbers') || '{}';
+      const map = JSON.parse(raw);
+      delete map[peerFP];
+      localStorage.setItem('urefy_verified_safety_numbers', JSON.stringify(map));
+      this.syncDOM();
+      if (typeof window !== 'undefined' && (window as any).clientStore?.showToast) {
+        (window as any).clientStore.showToast('Safety verification reset.', 'info');
+      }
+    } catch (_) {}
+  }
+
+  /**
+   * Update Direct Message request permission preference.
+   */
+  public async setDMPermission(policy: 'everyone' | 'following' | 'shared' | 'nobody'): Promise<void> {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('urefy_msg_dm_permission', policy);
+    }
+    if (this.transport && typeof (this.transport as any).setPermission === 'function') {
+      await (this.transport as any).setPermission(policy);
+    }
   }
 
   /**
@@ -2010,16 +2132,19 @@ export class SovereignDMManager {
    */
   public renderSafetyNumberModal(peerFP: string, myFP: string): string {
     const safetyNumber = this.getSafetyNumber(peerFP, myFP);
+    const status = this.getSafetyVerificationStatus(peerFP);
     return `
       <div class="absolute inset-x-0 top-16 bottom-0 z-40 bg-surface-base/98 backdrop-blur-md p-4 flex flex-col overflow-y-auto animate-in slide-in-from-top-2 duration-150 border-b border-white/10 font-mono text-xs">
         <div class="flex items-center justify-between mb-3 border-b border-white/10 pb-2">
           <div class="flex items-center gap-2">
             <span class="text-amber text-sm">🛡️</span>
             <span class="font-bold text-slate-100">Verify Safety Number</span>
+            ${status === 'verified' ? '<span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-sans font-bold">✓ Verified</span>' : ''}
+            ${status === 'changed' ? '<span class="px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40 text-[10px] font-sans font-bold animate-pulse">⚠️ Key Changed</span>' : ''}
           </div>
           <button
-            type="button" data-action="call-global" data-raw-click="window.__aetherisDM && window.__aetherisDM.toggleSafetyModal()"
-            class="text-slate-400 hover:text-slate-200"
+            type="button" data-action="toggle-dm-safety"
+            class="text-slate-400 hover:text-slate-200 cursor-pointer"
           >
             ✕ Close
           </button>
@@ -2031,7 +2156,7 @@ export class SovereignDMManager {
           </p>
 
           <!-- 6-Group Safety Number Display -->
-          <div class="p-3.5 rounded-xl bg-surface-raised border border-amber/30 text-center">
+          <div class="p-3.5 rounded-xl bg-surface-raised border ${status === 'changed' ? 'border-rose-500/50 bg-rose-950/20' : 'border-amber/30'} text-center">
             <div class="text-[10px] text-slate-400 uppercase font-mono mb-2">Ed25519 Joint Safety Key</div>
             <div class="font-mono text-sm md:text-base font-extrabold text-amber tracking-wider select-all leading-relaxed">
               ${escapeHtml(safetyNumber)}
@@ -2049,12 +2174,29 @@ export class SovereignDMManager {
             </div>
           </div>
 
-          <button
-            type="button" data-action="call-global" data-raw-click="if(window.clientStore) window.clientStore.showToast('Safety numbers confirmed! Session marked as Verified.', 'success'); window.__aetherisDM.toggleSafetyModal();"
-            class="w-full py-2.5 rounded-xl bg-gradient-to-r from-signal/80 to-emerald-600 hover:from-signal hover:to-emerald-500 text-canvas font-bold text-xs uppercase tracking-wider shadow-lg transition-all cursor-pointer"
-          >
-            Mark as Verified
-          </button>
+          ${status === 'verified' ? `
+            <div class="flex gap-2">
+              <button
+                type="button" data-action="unmark-safety-verified" data-peer="${escapeHtml(peerFP)}"
+                class="flex-1 py-2.5 rounded-xl bg-surface-raised hover:bg-surface-overlay text-slate-300 hover:text-white border border-white/10 font-bold text-xs uppercase tracking-wider transition-all cursor-pointer"
+              >
+                Reset Verification
+              </button>
+              <button
+                type="button" data-action="toggle-dm-safety"
+                class="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs uppercase tracking-wider transition-all cursor-pointer"
+              >
+                Done
+              </button>
+            </div>
+          ` : `
+            <button
+              type="button" data-action="mark-safety-verified" data-peer="${escapeHtml(peerFP)}"
+              class="w-full py-2.5 rounded-xl bg-gradient-to-r from-signal/80 to-emerald-600 hover:from-signal hover:to-emerald-500 text-canvas font-bold text-xs uppercase tracking-wider shadow-lg transition-all cursor-pointer"
+            >
+              Mark as Verified
+            </button>
+          `}
         </div>
       </div>
     `;

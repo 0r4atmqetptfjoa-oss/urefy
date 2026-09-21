@@ -767,11 +767,11 @@ export class SettingsView {
               <span class="text-xs font-bold text-white">End-to-End Encryption (E2EE)</span>
             </div>
             <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-semibold">
-              ACTIVE · AES-256-GCM
+              ACTIVE · NIST ML-KEM-768 + X25519
             </span>
           </div>
           <p class="text-[11px] text-slate-400 leading-relaxed">
-            All 1-on-1 direct messages are sealed on your device with ECDH Curve25519 and authenticated AES-256-GCM before transmission over the mesh. Intermediate nodes and relay servers cannot read your communications.
+            All 1-on-1 direct messages are sealed with NIST FIPS 203 ML-KEM-768 post-quantum KEM combined with X25519 ECDH, HKDF-SHA256 key derivation, and authenticated AES-256-GCM. Outgoing envelopes are signed with sovereign Ed25519 keys. Relay community channels use authenticated envelopes. Encrypted Vault notes use local zero-knowledge AES-256-GCM decoupled from transport.
           </p>
         </div>
 
@@ -1429,8 +1429,12 @@ export class SettingsView {
     const dmPermSelect = root.querySelector('#select-msg-dm-permission') as HTMLSelectElement | null;
     if (dmPermSelect) {
       dmPermSelect.addEventListener('change', () => {
+        const val = dmPermSelect.value as any;
         if (typeof localStorage !== 'undefined') {
-          localStorage.setItem('urefy_msg_dm_permission', dmPermSelect.value);
+          localStorage.setItem('urefy_msg_dm_permission', val);
+        }
+        if (typeof window !== 'undefined' && (window as any).__aetherisDM?.setDMPermission) {
+          void (window as any).__aetherisDM.setDMPermission(val).catch(() => {});
         }
         if (typeof window !== 'undefined' && (window as any).clientStore) {
           (window as any).clientStore.showToast('Direct message permission updated', 'info');

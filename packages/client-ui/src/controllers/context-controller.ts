@@ -35,6 +35,12 @@ export async function handleContextAction(action: string, element: HTMLElement):
       });
     }
     clientStore.showToast('Saved to your encrypted Vault on this device.', 'success');
+  } else if (action === 'unsave-message-vault') {
+    const msgId = element.dataset.messageId;
+    if (msgId) {
+      await canonicalVault.unsaveMessage(msgId);
+      clientStore.showToast('Message removed from Vault.', 'info');
+    }
   } else if (action === 'keep-post' || action === 'keep-post-vault') {
     const post = clientStore.posts.find(item => item.id === element.dataset.postId);
     if (!post) throw new Error('The source post is not available');

@@ -308,6 +308,9 @@ export function resolveHumanDisplayName(fp: string, isMine?: boolean): { name: s
 
 export function renderSharedPostCard(text: string): string {
   if (!text) return '';
+  if (typeof localStorage !== 'undefined' && localStorage.getItem('urefy_msg_rich_previews') === 'false') {
+    return '';
+  }
   const match = text.match(/(?:urefy\.com\/p\/|\/p\/|post:)([a-zA-Z0-9_-]+)/);
   if (!match) return '';
   const postId = match[1];
@@ -320,6 +323,14 @@ export function renderSharedPostCard(text: string): string {
           <span class="font-medium text-slate-300">Shared Post</span>
         </div>
         <button type="button" data-action="open-post" data-post-id="${escapeHtml(postId)}" class="text-[var(--color-accent,#e59b3c)] hover:underline font-bold cursor-pointer">View Post →</button>
+      </div>
+    `;
+  }
+  if (post.status === 'deleted' || post.status === 'tombstone') {
+    return `
+      <div class="mt-2.5 p-3 rounded-2xl bg-surface-raised/40 border border-white/5 flex items-center space-x-2 text-xs text-slate-500 italic">
+        <span>🗑️</span>
+        <span>This shared post has been deleted.</span>
       </div>
     `;
   }
@@ -803,7 +814,7 @@ export function renderMessageItem(m: ClientMessage, prevMsg?: ClientMessage): st
         <div class="message-actions-bar opacity-0 group-hover/msg-row:opacity-100 focus-within:opacity-100 transition-opacity flex items-center space-x-1 absolute right-2 top-1 bg-surface-base/90 border border-white/10 rounded-lg px-1.5 py-0.5 shadow-sm">
           <button type="button" class="px-1.5 py-0.5 rounded hover:bg-white/10 text-xs cursor-pointer" title="React with emoji" data-action="toggle-relay-emoji">😊</button>
           <button type="button" class="px-1.5 py-0.5 rounded hover:bg-white/10 text-xs cursor-pointer text-slate-400 hover:text-white" title="Reply" data-action="reply-relay-message" data-message-id="${escapeHtml(m.id)}">↩</button>
-          <button type="button" class="px-1.5 py-0.5 rounded hover:bg-white/10 text-xs cursor-pointer text-slate-400 hover:text-white" title="Save to Vault" data-action="keep-live-message" data-message-id="${escapeHtml(m.id)}">🔒</button>
+          <button type="button" class="px-1.5 py-0.5 rounded hover:bg-white/10 text-xs cursor-pointer ${canonicalVault.isMessageSaved(m.id) ? 'text-[var(--color-accent,#e59b3c)] font-bold' : 'text-slate-400 hover:text-white'}" title="${canonicalVault.isMessageSaved(m.id) ? 'Remove from Vault' : 'Save to Vault'}" data-action="${canonicalVault.isMessageSaved(m.id) ? 'unsave-message-vault' : 'keep-live-message'}" data-message-id="${escapeHtml(m.id)}">${canonicalVault.isMessageSaved(m.id) ? '💾' : '🔒'}</button>
           <button type="button" class="px-1.5 py-0.5 rounded hover:bg-white/10 text-xs cursor-pointer text-slate-400 hover:text-white" title="Copy text" data-action="copy-message-text" data-text="${escapeAttr(m.text || '')}">📋</button>
         </div>
       </div>
@@ -832,7 +843,7 @@ export function renderMessageItem(m: ClientMessage, prevMsg?: ClientMessage): st
       <div class="message-actions-bar opacity-0 group-hover/msg-row:opacity-100 focus-within:opacity-100 transition-opacity flex items-center space-x-1 absolute right-2 top-2 bg-surface-base/90 border border-white/10 rounded-lg px-1.5 py-0.5 shadow-sm">
         <button type="button" class="px-1.5 py-0.5 rounded hover:bg-white/10 text-xs cursor-pointer" title="React with emoji" data-action="toggle-relay-emoji">😊</button>
         <button type="button" class="px-1.5 py-0.5 rounded hover:bg-white/10 text-xs cursor-pointer text-slate-400 hover:text-white" title="Reply" data-action="reply-relay-message" data-message-id="${escapeHtml(m.id)}">↩</button>
-        <button type="button" class="px-1.5 py-0.5 rounded hover:bg-white/10 text-xs cursor-pointer text-slate-400 hover:text-white" title="Save to Vault" data-action="keep-live-message" data-message-id="${escapeHtml(m.id)}">🔒</button>
+        <button type="button" class="px-1.5 py-0.5 rounded hover:bg-white/10 text-xs cursor-pointer ${canonicalVault.isMessageSaved(m.id) ? 'text-[var(--color-accent,#e59b3c)] font-bold' : 'text-slate-400 hover:text-white'}" title="${canonicalVault.isMessageSaved(m.id) ? 'Remove from Vault' : 'Save to Vault'}" data-action="${canonicalVault.isMessageSaved(m.id) ? 'unsave-message-vault' : 'keep-live-message'}" data-message-id="${escapeHtml(m.id)}">${canonicalVault.isMessageSaved(m.id) ? '💾' : '🔒'}</button>
         <button type="button" class="px-1.5 py-0.5 rounded hover:bg-white/10 text-xs cursor-pointer text-slate-400 hover:text-white" title="Copy text" data-action="copy-message-text" data-text="${escapeAttr(m.text || '')}">📋</button>
       </div>
     </div>
@@ -1090,16 +1101,16 @@ export function renderDirectMessagesWorkspace(): string {
                 <div class="flex items-center space-x-2"><span class="text-[var(--color-accent,#e59b3c)] font-bold">#</span><span>general</span></div>
                 <span class="text-[10px] text-slate-500 font-mono">Channel</span>
               </button>
+              <button type="button" data-action="join-channel" data-channel="relays-announcements" class="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold hover:bg-surface-raised text-slate-200 flex items-center justify-between transition-colors cursor-pointer">
+                <div class="flex items-center space-x-2"><span class="text-[var(--color-accent,#e59b3c)] font-bold">#</span><span>announcements</span></div>
+                <span class="text-[10px] text-slate-500 font-mono">Channel</span>
+              </button>
               <button type="button" data-action="join-channel" data-channel="relays-dev" class="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold hover:bg-surface-raised text-slate-200 flex items-center justify-between transition-colors cursor-pointer">
-                <div class="flex items-center space-x-2"><span class="text-[var(--color-accent,#e59b3c)] font-bold">#</span><span>development</span></div>
+                <div class="flex items-center space-x-2"><span class="text-[var(--color-accent,#e59b3c)] font-bold">#</span><span>dev</span></div>
                 <span class="text-[10px] text-slate-500 font-mono">Channel</span>
               </button>
-              <button type="button" data-action="join-channel" data-channel="relays-questions" class="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold hover:bg-surface-raised text-slate-200 flex items-center justify-between transition-colors cursor-pointer">
-                <div class="flex items-center space-x-2"><span class="text-[var(--color-accent,#e59b3c)] font-bold">#</span><span>questions</span></div>
-                <span class="text-[10px] text-slate-500 font-mono">Channel</span>
-              </button>
-              <button type="button" data-action="join-channel" data-channel="relays-off-topic" class="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold hover:bg-surface-raised text-slate-200 flex items-center justify-between transition-colors cursor-pointer">
-                <div class="flex items-center space-x-2"><span class="text-[var(--color-accent,#e59b3c)] font-bold">#</span><span>off-topic</span></div>
+              <button type="button" data-action="join-channel" data-channel="relays-random" class="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold hover:bg-surface-raised text-slate-200 flex items-center justify-between transition-colors cursor-pointer">
+                <div class="flex items-center space-x-2"><span class="text-[var(--color-accent,#e59b3c)] font-bold">#</span><span>random</span></div>
                 <span class="text-[10px] text-slate-500 font-mono">Channel</span>
               </button>
             </div>
@@ -1190,9 +1201,9 @@ export function renderDirectMessagesWorkspace(): string {
               <div class="grid grid-cols-2 gap-2 text-left py-2 border-y border-white/5">
                 <div class="p-2.5 rounded-xl bg-surface-raised/40 border border-white/5 space-y-1">
                   <div class="text-[11px] font-bold text-slate-200 flex items-center gap-1.5">
-                    <span class="text-emerald-400">🔒</span> Pure E2EE
+                    <span class="text-emerald-400">🔒</span> Hybrid PQC E2EE
                   </div>
-                  <p class="text-[10px] text-slate-400 leading-tight">Double-ratchet encryption with client-side keypairs.</p>
+                  <p class="text-[10px] text-slate-400 leading-tight">NIST ML-KEM-768 + X25519 with AES-256-GCM.</p>
                 </div>
                 <div class="p-2.5 rounded-xl bg-surface-raised/40 border border-white/5 space-y-1">
                   <div class="text-[11px] font-bold text-slate-200 flex items-center gap-1.5">
@@ -1245,8 +1256,8 @@ export function renderDirectMessagesWorkspace(): string {
                   ` : `
                     <span class="flex items-center gap-1 text-emerald-400 font-medium">
                       <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                      <span class="hidden sm:inline">End-to-end encrypted</span>
-                      <span class="sm:hidden">E2EE</span>
+                      <span class="hidden sm:inline">Hybrid Post-Quantum E2EE (ML-KEM-768 + X25519)</span>
+                      <span class="sm:hidden">ML-KEM-768</span>
                     </span>
                   `}
                 </div>
@@ -1432,11 +1443,14 @@ export function renderDirectMessagesWorkspace(): string {
               const showDateSep = idx === 0 || !isSameCalendarDay(msg.timestamp, messages[idx - 1].timestamp);
               const timeStr = formatTime(msg.timestamp);
               const senderInfo = isMine ? { name: 'You', handle: '@me' } : resolveHumanDisplayName(activeConv.peerFingerprint);
+              const readReceiptsEnabled = typeof localStorage !== 'undefined' && localStorage.getItem('urefy_msg_read_receipts') !== 'false';
               let statusHtml = '<span class="text-emerald-400 flex items-center gap-0.5"><span>✓</span><span>Encrypted</span></span>';
               if (msg.deliveryStatus === 'sending') {
                 statusHtml = '<span class="text-amber-400 flex items-center gap-1 animate-pulse"><span>⏳</span><span>Sending...</span></span>';
               } else if (msg.deliveryStatus === 'failed') {
                 statusHtml = `<span class="text-rose-400 flex items-center gap-1 font-semibold"><span>⚠️ Failed</span><button type="button" data-action="retry-send-dm" data-message-id="${msg.id}" class="underline text-rose-300 hover:text-white cursor-pointer ml-1">Retry</button></span>`;
+              } else if (msg.isPeerRead && readReceiptsEnabled) {
+                statusHtml = '<span class="text-cyan-400 flex items-center gap-0.5 font-semibold" title="Read by recipient"><span>✓✓</span><span>Read</span></span>';
               } else if (msg.deliveryStatus === 'sent') {
                 statusHtml = '<span class="text-emerald-400 flex items-center gap-0.5"><span>✓</span><span>Sent</span></span>';
               }
@@ -1499,7 +1513,10 @@ export function renderDirectMessagesWorkspace(): string {
                     <div class="context-actions opacity-0 group-hover/msg-row:opacity-100 focus-within:opacity-100 transition-opacity mt-1 flex items-center gap-1" aria-label="Message actions">
                       <button type="button" class="context-button" data-action="reply-dm-message" data-message-id="${escapeHtml(msg.id)}">Reply</button>
                       <button type="button" class="context-button" data-action="create-dm-branch" data-peer="${escapeHtml(activeConv.peerFingerprint)}" data-message-id="${escapeHtml(msg.id)}">Branch</button>
-                      <button type="button" class="context-button" data-action="save-message-vault" data-message-id="${escapeHtml(msg.id)}" title="Save to encrypted Vault">🔒 Vault</button>
+                      ${canonicalVault.isMessageSaved(msg.id)
+                        ? `<button type="button" class="context-button text-[var(--color-accent,#e59b3c)] font-semibold" data-action="unsave-message-vault" data-message-id="${escapeHtml(msg.id)}" title="Remove from encrypted Vault">💾 Saved</button>`
+                        : `<button type="button" class="context-button" data-action="save-message-vault" data-message-id="${escapeHtml(msg.id)}" title="Save to encrypted Vault">🔒 Vault</button>`
+                      }
                       <button type="button" class="context-button" data-action="copy-message-text" data-text="${escapeAttr(msg.plaintext || '')}" title="Copy text">📋 Copy</button>
                       <details class="message-reactions"><summary class="context-button" aria-label="React to message">React</summary><div class="context-actions">${MESSAGE_REACTIONS.map(emoji => `<button type="button" class="context-button" data-action="react-dm-message" data-message-id="${escapeHtml(msg.id)}" data-emoji="${emoji}" aria-label="React ${emoji}">${emoji}</button>`).join('')}</div></details>
                     </div>
@@ -1616,10 +1633,10 @@ export function renderDirectMessagesWorkspace(): string {
           <div class="p-3.5 rounded-2xl bg-surface-raised/40 border border-white/5 space-y-2">
             <div class="flex items-center space-x-2 text-xs font-bold text-emerald-400">
               <span>🔒</span>
-              <span>End-to-End Encrypted (AES-256-GCM)</span>
+              <span>Hybrid Post-Quantum E2EE (ML-KEM-768 + X25519)</span>
             </div>
             <p class="text-[11px] text-slate-400 leading-relaxed">
-              Messages and attachments in this thread are cryptographically sealed. Neither servers nor relays have access to the conversation contents.
+              Direct messages are encapsulated with NIST FIPS 203 ML-KEM-768 and X25519, sealed with AES-256-GCM, and signed via sovereign Ed25519 envelopes. Community channels run authenticated envelopes; Vault notes use local zero-knowledge AES-256-GCM.
             </p>
           </div>
 
@@ -1627,17 +1644,31 @@ export function renderDirectMessagesWorkspace(): string {
             <div class="text-[10px] font-bold uppercase tracking-wider text-slate-500 px-1">
               Safety & Verification
             </div>
-            <button 
-              type="button" 
-              data-action="open-dm-safety" 
-              class="w-full text-left p-2.5 rounded-xl bg-surface-raised/60 hover:bg-surface-raised text-xs text-slate-300 hover:text-white border border-white/5 flex items-center space-x-2.5 transition-colors cursor-pointer"
-            >
-              <span>🛡️</span>
-              <div class="flex flex-col">
-                <span class="font-semibold">Verify Safety Numbers</span>
-                <span class="text-[10px] text-slate-400">Confirm cryptographic fingerprints</span>
-              </div>
-            </button>
+            ${(() => {
+              const safetyStatus = sovereignDM.getSafetyVerificationStatus(activeConv.peerFingerprint);
+              let badgeHtml = '<span class="text-[10px] font-semibold text-slate-400 bg-surface-base border border-white/10 px-2 py-0.5 rounded-md">Not Verified</span>';
+              if (safetyStatus === 'verified') {
+                badgeHtml = '<span class="text-[10px] font-semibold text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 rounded-md">✓ Verified Manually</span>';
+              } else if (safetyStatus === 'changed') {
+                badgeHtml = '<span class="text-[10px] font-semibold text-rose-400 bg-rose-500/20 border border-rose-500/40 px-2 py-0.5 rounded-md animate-pulse">⚠️ Safety Number Changed</span>';
+              }
+              return `
+                <button 
+                  type="button" 
+                  data-action="open-dm-safety" 
+                  class="w-full text-left p-2.5 rounded-xl bg-surface-raised/60 hover:bg-surface-raised text-xs text-slate-300 hover:text-white border border-white/5 flex items-center justify-between transition-colors cursor-pointer"
+                >
+                  <div class="flex items-center space-x-2.5">
+                    <span>🛡️</span>
+                    <div class="flex flex-col">
+                      <span class="font-semibold">Verify Safety Numbers</span>
+                      <span class="text-[10px] text-slate-400">Confirm cryptographic fingerprints</span>
+                    </div>
+                  </div>
+                  <div>${badgeHtml}</div>
+                </button>
+              `;
+            })()}
           </div>
 
           <div class="space-y-1.5 pt-2 border-t border-white/5">

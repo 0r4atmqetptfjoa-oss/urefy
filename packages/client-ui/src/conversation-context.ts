@@ -12,6 +12,7 @@ export interface MessageContext {
   branch?: ConversationBranch;
   replyToId?: string;
   reaction?: { messageId: string; emoji: string; active: boolean };
+  readReceipt?: { messageIds: string[]; readAt: number };
 }
 
 export const MESSAGE_REACTIONS = ['👍', '❤️', '✅', '🤔'] as const;
@@ -28,6 +29,9 @@ export function validateMessageContext(context: MessageContext): void {
   const reaction = context.reaction;
   if (reaction && (!identifier(reaction.messageId) || !MESSAGE_REACTIONS.includes(reaction.emoji as typeof MESSAGE_REACTIONS[number]) ||
     typeof reaction.active !== 'boolean')) throw new Error('Invalid message reaction');
+  const readReceipt = context.readReceipt;
+  if (readReceipt && (!Array.isArray(readReceipt.messageIds) || !readReceipt.messageIds.every(identifier) ||
+    !Number.isSafeInteger(readReceipt.readAt) || readReceipt.readAt < 0)) throw new Error('Invalid read receipt context');
 }
 
 export function branchOf(message: { context?: MessageContext }): string {

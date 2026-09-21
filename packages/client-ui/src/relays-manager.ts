@@ -53,7 +53,9 @@ export class RelaysManager {
       inviteCode: 'NEXUS-01',
       channels: [
         { id: 'relays-general', name: 'general', type: 'text', isEncrypted: true },
-        { id: 'relays-dev', name: 'dev-core', type: 'text', isEncrypted: true },
+        { id: 'relays-announcements', name: 'announcements', type: 'text', isEncrypted: true },
+        { id: 'relays-dev', name: 'dev', type: 'text', isEncrypted: true },
+        { id: 'relays-random', name: 'random', type: 'text', isEncrypted: true },
         { id: 'relays-questions', name: 'questions', type: 'text', isEncrypted: true },
         { id: 'relays-off-topic', name: 'off-topic', type: 'text', isEncrypted: true },
         { id: 'relays-community', name: 'community', type: 'text', isEncrypted: true },
@@ -86,7 +88,9 @@ export class RelaysManager {
     if (nexus) {
       const requiredChannels: RelayChannel[] = [
         { id: 'relays-general', name: 'general', type: 'text', isEncrypted: true },
-        { id: 'relays-dev', name: 'dev-core', type: 'text', isEncrypted: true },
+        { id: 'relays-announcements', name: 'announcements', type: 'text', isEncrypted: true },
+        { id: 'relays-dev', name: 'dev', type: 'text', isEncrypted: true },
+        { id: 'relays-random', name: 'random', type: 'text', isEncrypted: true },
         { id: 'relays-questions', name: 'questions', type: 'text', isEncrypted: true },
         { id: 'relays-off-topic', name: 'off-topic', type: 'text', isEncrypted: true },
       ];

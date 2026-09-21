@@ -32,6 +32,8 @@ export interface PrivateMessageTransport {
   send(recipient: string, content: PrivateMessageContent): Promise<PrivateMessageDelivery>;
   poll(after: number): Promise<PrivateInboxPage>;
   decodeEnvelope(envelope: SovereignSignedEnvelope<DirectMessageSendPayload>): Promise<PrivateMessageDelivery>;
+  setPermission?(policy: 'everyone' | 'following' | 'shared' | 'nobody'): Promise<void>;
+  lookup?(fingerprint: string): Promise<SovereignIdentity & { dmPermission?: string }>;
 }
 
 function validateContent(content: PrivateMessageContent): void {
@@ -76,12 +78,21 @@ export class DirectMessagingClient implements PrivateMessageTransport {
     return keys.identity;
   }
 
-  public async lookup(fingerprint: string): Promise<SovereignIdentity> {
+  public async setPermission(policy: 'everyone' | 'following' | 'shared' | 'nobody'): Promise<void> {
+    await this.register();
+    const keys = await this.getKeys();
+    const result = await this.post(createSignedEnvelope({ action: 'set-permission', dmPermission: policy }, keys));
+    if (result?.success !== true) throw new Error(result?.error || 'Failed to update DM permission');
+  }
+
+  public async lookup(fingerprint: string): Promise<SovereignIdentity & { dmPermission?: string }> {
     await this.register();
     const result = await this.post(createSignedEnvelope({ action: 'lookup', fingerprint }, await this.getKeys()));
     const registration = result.registration as SovereignSignedEnvelope<DirectMessageKeyRegistration>;
     if (!registration || !verifyDirectMessageRegistration(registration, fingerprint)) throw new Error('Recipient encryption keys could not be authenticated');
-    return registration.payload.identity;
+    const identity = registration.payload.identity as SovereignIdentity & { dmPermission?: string };
+    identity.dmPermission = result.dmPermission || 'everyone';
+    return identity;
   }
 
   public async send(recipient: string, content: PrivateMessageContent): Promise<PrivateMessageDelivery> {
@@ -93,7 +104,11 @@ export class DirectMessagingClient implements PrivateMessageTransport {
     let pending = this.pendingSends.get(pendingKey);
     if (!pending || pending.content !== serialized) {
       const peer = await this.lookup(recipient);
-      const encrypted = await encryptDirectMessage(content, keys, peer);
+      if (peer.dmPermission === 'nobody') {
+        throw new Error('Recipient does not accept direct messages');
+      }
+      const { dmPermission: _perm, ...cleanPeer } = peer;
+      const encrypted = await encryptDirectMessage(content, keys, cleanPeer as SovereignIdentity);
       pending = { content: serialized, payload: encrypted.payload };
       this.pendingSends.set(pendingKey, pending);
     }

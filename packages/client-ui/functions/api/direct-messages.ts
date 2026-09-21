@@ -71,11 +71,37 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
     const owner = await database.prepare('SELECT * FROM dm_identities WHERE fingerprint = ?').bind(fingerprint).first<IdentityRow>();
     if (owner?.signing_public_key !== auth.publicKey) return json({ success: false, error: 'Register the current messaging identity first' }, 403);
 
+    if (payload.action === 'set-permission') {
+      const perm = payload.dmPermission;
+      if (!['everyone', 'following', 'shared', 'nobody'].includes(perm)) {
+        return json({ success: false, error: 'Invalid DM permission setting' }, 400);
+      }
+      await database.prepare(`
+        CREATE TABLE IF NOT EXISTS dm_permissions (
+          fingerprint TEXT PRIMARY KEY,
+          permission TEXT NOT NULL,
+          updated_at INTEGER NOT NULL
+        )
+      `).run();
+      await database.prepare(`
+        INSERT INTO dm_permissions (fingerprint, permission, updated_at)
+        VALUES (?, ?, ?)
+        ON CONFLICT(fingerprint) DO UPDATE SET permission = excluded.permission, updated_at = excluded.updated_at
+      `).bind(fingerprint, perm, Date.now()).run();
+      return json({ success: true, dmPermission: perm });
+    }
+
     if (payload.action === 'lookup') {
       if (!/^[0-9a-f]{16}$/i.test(payload.fingerprint ?? '')) return json({ success: false, error: 'Invalid recipient fingerprint' }, 400);
       const recipient = await database.prepare('SELECT * FROM dm_identities WHERE fingerprint = ?').bind(payload.fingerprint).first<IdentityRow>();
       if (!recipient) return json({ success: false, error: 'The recipient has not enabled private messaging yet' }, 404);
-      return json({ success: true, registration: JSON.parse(recipient.registration_json) });
+      let dmPermission = 'everyone';
+      try {
+        await database.prepare(`CREATE TABLE IF NOT EXISTS dm_permissions (fingerprint TEXT PRIMARY KEY, permission TEXT NOT NULL, updated_at INTEGER NOT NULL)`).run();
+        const permRow = await database.prepare('SELECT permission FROM dm_permissions WHERE fingerprint = ?').bind(payload.fingerprint).first<{ permission: string }>();
+        if (permRow?.permission) dmPermission = permRow.permission;
+      } catch (_) {}
+      return json({ success: true, registration: JSON.parse(recipient.registration_json), dmPermission });
     }
 
     if (payload.action === 'send') {
@@ -88,6 +114,38 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
       }
       const recipient = await database.prepare('SELECT * FROM dm_identities WHERE fingerprint = ?').bind(message.recipient).first<IdentityRow>();
       if (!recipient || recipient.signing_public_key !== message.recipientPublicKey) return json({ success: false, error: 'Recipient key is unavailable or has changed' }, 409);
+
+      let recipientPolicy = 'everyone';
+      try {
+        await database.prepare(`CREATE TABLE IF NOT EXISTS dm_permissions (fingerprint TEXT PRIMARY KEY, permission TEXT NOT NULL, updated_at INTEGER NOT NULL)`).run();
+        const permRow = await database.prepare('SELECT permission FROM dm_permissions WHERE fingerprint = ?').bind(message.recipient).first<{ permission: string }>();
+        if (permRow?.permission) recipientPolicy = permRow.permission;
+      } catch (_) {}
+
+      if (recipientPolicy === 'nobody') {
+        return json({ success: false, error: 'Recipient does not accept direct messages' }, 403);
+      }
+
+      if (recipientPolicy === 'following') {
+        const isFollow = await database.prepare(
+          'SELECT 1 FROM follows WHERE follower_id = ? AND following_id = ?'
+        ).bind(message.recipient, fingerprint).first();
+        if (!isFollow) {
+          return json({ success: false, error: 'Recipient only accepts messages from people they follow' }, 403);
+        }
+      }
+
+      if (recipientPolicy === 'shared') {
+        const shared = await database.prepare(`
+          SELECT 1 FROM community_members cm1
+          JOIN community_members cm2 ON cm1.community_id = cm2.community_id
+          WHERE cm1.user_id = ? AND cm2.user_id = ?
+          LIMIT 1
+        `).bind(fingerprint, message.recipient).first();
+        if (!shared) {
+          return json({ success: false, error: 'Recipient only accepts messages from shared community members' }, 403);
+        }
+      }
       const serialized = JSON.stringify({ ...(envelope.version === 2 ? { version: 2 } : {}), payload, signature: envelope.signature, nonce: envelope.nonce, timestamp: envelope.timestamp, identity: auth.identity });
       const inserted = await database.prepare(`INSERT OR IGNORE INTO direct_messages (id, sender_fingerprint, recipient_fingerprint, envelope_json, created_at) VALUES (?, ?, ?, ?, ?)`)
         .bind(message.id, fingerprint, message.recipient, serialized, Date.now()).run();

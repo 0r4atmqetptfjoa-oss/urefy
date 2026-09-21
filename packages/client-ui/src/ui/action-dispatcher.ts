@@ -17,48 +17,39 @@ import { i18n } from '../i18n.js';
 import { hybridComposer } from '../composer-hybrid.js';
 import { sovereignCircleEngine } from '../sovereign-circle.js';
 import { sovereignDM } from '../sovereign-dm.js';
-import {
-  setActiveMessagesTab,
-  openNewDMPicker,
-  closeNewDMPicker,
-  setDMSearchQuery,
-  setDMFilterGroup,
-  toggleDMContextDrawer,
-  toggleDMEmojiPicker,
-  toggleRelayEmojiPicker,
-  closeEmojiPickers,
-  handleFileAttachment,
-  getMessageDraft,
-  setMessageDraft,
-  captureMessageSelection,
-  insertMessageEmoji,
-  restoreMessageSelection,
-  toggleCatchMeUp,
-  setActiveBranch,
-  createBranchForPeer,
-  toggleOutcomePicker,
-  insertOutcomeTemplate,
-  setChatEmojiCategory,
-  setChatEmojiSearchQuery,
-} from '../messages-view.js';
+let _mv: typeof import('../messages-view.js') | null = null;
+function getMV(): Promise<typeof import('../messages-view.js')> {
+  if (_mv) return Promise.resolve(_mv);
+  if (typeof window !== 'undefined' && (window as any).__aetherisMessagesView) {
+    _mv = (window as any).__aetherisMessagesView;
+    return Promise.resolve(_mv!);
+  }
+  return import('../messages-view.js').then(m => {
+    _mv = m;
+    if (typeof window !== 'undefined') (window as any).__aetherisMessagesView = m;
+    return m;
+  });
+}
+
+let _vv: typeof import('../vault-view.js') | null = null;
+function getVV(): Promise<typeof import('../vault-view.js')> {
+  if (_vv) return Promise.resolve(_vv);
+  if (typeof window !== 'undefined' && (window as any).__aetherisVaultView) {
+    _vv = (window as any).__aetherisVaultView;
+    return Promise.resolve(_vv!);
+  }
+  return import('../vault-view.js').then(v => {
+    _vv = v;
+    if (typeof window !== 'undefined') (window as any).__aetherisVaultView = v;
+    return v;
+  });
+}
+
 import { exploreView } from '../explore-view.js';
 import { communityView } from '../community-view.js';
 import { replaceEmoticons } from '../chat-rich-embed.js';
 import { setWorkspaceLayout } from '../workspace-layout.js';
 import { sovereignWebPush } from '../web-push.js';
-import {
-  setActiveVaultCategory,
-  openNewCollectionModal,
-  closeNewCollectionModal,
-  createVaultCollection,
-  deleteVaultCollection,
-  setSelectedVaultCollection,
-  startUploadSimulation,
-  cancelUploadSimulation,
-  exportKnowledgePack,
-  importKnowledgePack,
-  setVaultSearchQuery,
-} from '../vault-view.js';
 import { sovereignMnemonicModal } from '../mnemonic-modal.js';
 import { dismissSinceYouWereAwayCard, submitQuickPost } from '../feed-view.js';
 import { reportModalManager } from '../report-modal.js';
@@ -342,8 +333,8 @@ export class ActionDispatcher {
 
     const captureSelection = (event: Event) => {
       const input = event.target as HTMLInputElement | null;
-      if (input?.id === 'input-message') captureMessageSelection('relay', input, true);
-      else if (input?.id === 'input-dm-message') captureMessageSelection('dm', input, true);
+      if (input?.id === 'input-message') void getMV().then(m => m.captureMessageSelection('relay', input, true));
+      else if (input?.id === 'input-dm-message') void getMV().then(m => m.captureMessageSelection('dm', input, true));
     };
     document.addEventListener('select', captureSelection, true);
     document.addEventListener('focusout', captureSelection, true);
@@ -353,7 +344,7 @@ export class ActionDispatcher {
       const action = (event.target as Element).closest<HTMLElement>('[data-action]')?.dataset.action;
       if (action === 'toggle-relay-emoji' || action === 'toggle-dm-emoji') {
         const target = action === 'toggle-dm-emoji' ? 'dm' : 'relay';
-        captureMessageSelection(target, document.getElementById(target === 'dm' ? 'input-dm-message' : 'input-message') as HTMLInputElement | null);
+        void getMV().then(m => m.captureMessageSelection(target, document.getElementById(target === 'dm' ? 'input-dm-message' : 'input-message') as HTMLInputElement | null));
         event.preventDefault();
       } else if (action === 'insert-relay-emoji' || action === 'insert-dm-emoji') {
         event.preventDefault();
@@ -1175,7 +1166,7 @@ export class ActionDispatcher {
         const role = el.getAttribute('data-peer-role') || el.getAttribute('data-role') || 'MEMBER';
         if (fp) {
           sovereignDM.openDM(fp, role);
-          setActiveMessagesTab('dm');
+          void getMV().then(m => m.setActiveMessagesTab('dm'));
           sovereignRouter.navigateTo('messages');
         }
         break;
@@ -1184,21 +1175,37 @@ export class ActionDispatcher {
       case 'switch-messages-tab': {
         const tab = el.getAttribute('data-tab') as 'relays' | 'dm';
         if (tab) {
-          setActiveMessagesTab(tab);
-          clientStore.notifySync();
+          void getMV().then(m => {
+            m.setActiveMessagesTab(tab);
+            clientStore.notifySync();
+          });
         }
         break;
       }
 
+      case 'join-channel': {
+        const channel = el.getAttribute('data-channel') || 'relays-general';
+        clientStore.activeChannelId = channel;
+        void getMV().then(m => {
+          m.setActiveMessagesTab('relays');
+          clientStore.notifySync();
+        });
+        break;
+      }
+
       case 'new-dm-conversation': {
-        openNewDMPicker();
-        clientStore.notifySync();
+        void getMV().then(m => {
+          m.openNewDMPicker();
+          clientStore.notifySync();
+        });
         break;
       }
 
       case 'close-new-dm': {
-        closeNewDMPicker();
-        clientStore.notifySync();
+        void getMV().then(m => {
+          m.closeNewDMPicker();
+          clientStore.notifySync();
+        });
         break;
       }
 
@@ -1206,10 +1213,12 @@ export class ActionDispatcher {
         const peer = el.getAttribute('data-peer');
         const role = el.getAttribute('data-role') || 'MEMBER';
         if (peer) {
-          closeNewDMPicker();
-          sovereignDM.openDM(peer, role);
-          setActiveMessagesTab('dm');
-          clientStore.notifySync();
+          void getMV().then(m => {
+            m.closeNewDMPicker();
+            sovereignDM.openDM(peer, role);
+            m.setActiveMessagesTab('dm');
+            clientStore.notifySync();
+          });
         }
         break;
       }
@@ -1218,10 +1227,12 @@ export class ActionDispatcher {
         const input = document.getElementById('input-new-dm-peer') as HTMLInputElement | null;
         if (input && input.value.trim()) {
           const peer = input.value.trim().toLowerCase().replace(/^0x/, '');
-          closeNewDMPicker();
-          sovereignDM.openDM(peer, 'MEMBER');
-          setActiveMessagesTab('dm');
-          clientStore.notifySync();
+          void getMV().then(m => {
+            m.closeNewDMPicker();
+            sovereignDM.openDM(peer, 'MEMBER');
+            m.setActiveMessagesTab('dm');
+            clientStore.notifySync();
+          });
         }
         break;
       }
@@ -1242,23 +1253,29 @@ export class ActionDispatcher {
 
       case 'dm-back': {
         sovereignDM.activePeerFP = null;
-        toggleDMContextDrawer(false);
-        clientStore.notifySync();
+        void getMV().then(m => {
+          m.toggleDMContextDrawer(false);
+          clientStore.notifySync();
+        });
         break;
       }
 
       case 'set-dm-filter': {
         const group = el.getAttribute('data-group') as any;
         if (group) {
-          setDMFilterGroup(group);
-          clientStore.notifySync();
+          void getMV().then(m => {
+            m.setDMFilterGroup(group);
+            clientStore.notifySync();
+          });
         }
         break;
       }
 
       case 'toggle-dm-context': {
-        toggleDMContextDrawer();
-        clientStore.notifySync();
+        void getMV().then(m => {
+          m.toggleDMContextDrawer();
+          clientStore.notifySync();
+        });
         break;
       }
 
@@ -1336,8 +1353,27 @@ export class ActionDispatcher {
         break;
       }
 
-      case 'open-dm-safety': {
+      case 'open-dm-safety':
+      case 'toggle-dm-safety': {
         sovereignDM.toggleSafetyModal();
+        break;
+      }
+
+      case 'mark-safety-verified': {
+        const peer = el.getAttribute('data-peer') || sovereignDM.activePeerFP;
+        if (peer) {
+          sovereignDM.markSafetyNumberVerified(peer);
+          clientStore.notifySync();
+        }
+        break;
+      }
+
+      case 'unmark-safety-verified': {
+        const peer = el.getAttribute('data-peer') || sovereignDM.activePeerFP;
+        if (peer) {
+          sovereignDM.unmarkSafetyNumberVerified(peer);
+          clientStore.notifySync();
+        }
         break;
       }
 
@@ -2052,63 +2088,71 @@ export class ActionDispatcher {
 
       case 'switch-vault-tab': {
         const tab = el.getAttribute('data-vault-tab') || 'recent';
-        setActiveVaultCategory(tab);
-        clientStore.notifySync();
+        void getVV().then(v => {
+          v.setActiveVaultCategory(tab);
+          clientStore.notifySync();
+        });
         break;
       }
 
       case 'open-new-collection-modal': {
-        openNewCollectionModal();
+        void getVV().then(v => v.openNewCollectionModal());
         break;
       }
 
       case 'close-new-collection-modal': {
         if (el.id.includes('backdrop') && event.target !== el) break;
-        closeNewCollectionModal();
+        void getVV().then(v => v.closeNewCollectionModal());
         break;
       }
 
       case 'select-vault-collection': {
         const colId = el.getAttribute('data-collection-id');
         if (colId) {
-          setSelectedVaultCollection(colId);
-          clientStore.notifySync();
+          void getVV().then(v => {
+            v.setSelectedVaultCollection(colId);
+            clientStore.notifySync();
+          });
         }
         break;
       }
 
       case 'clear-vault-collection': {
-        setSelectedVaultCollection(null);
-        clientStore.notifySync();
+        void getVV().then(v => {
+          v.setSelectedVaultCollection(null);
+          clientStore.notifySync();
+        });
         break;
       }
 
       case 'delete-vault-collection': {
         const colId = el.getAttribute('data-collection-id');
         if (colId) {
-          deleteVaultCollection(colId);
-          clientStore.notifySync();
+          void getVV().then(v => {
+            v.deleteVaultCollection(colId);
+            clientStore.notifySync();
+          });
         }
         break;
       }
 
       case 'simulate-vault-upload': {
-        startUploadSimulation('urefy-reproducible-core-v3.bin', 33554432);
+        void getVV().then(v => v.startUploadSimulation('urefy-reproducible-core-v3.bin', 33554432));
         break;
       }
 
       case 'cancel-upload-sim': {
-        cancelUploadSimulation();
+        void getVV().then(v => v.cancelUploadSimulation());
         break;
       }
 
       case 'export-vaultpack': {
-        exportKnowledgePack();
+        void getVV().then(v => v.exportKnowledgePack());
         break;
       }
 
       case 'import-vaultpack': {
-        importKnowledgePack();
+        void getVV().then(v => v.importKnowledgePack());
         break;
       }
 
@@ -2132,14 +2176,18 @@ export class ActionDispatcher {
 
       case 'set-dm-filter': {
         const group = (el.getAttribute('data-group') || 'all') as 'all' | 'direct' | 'communities';
-        setDMFilterGroup(group);
-        clientStore.notifySync();
+        void getMV().then(m => {
+          m.setDMFilterGroup(group);
+          clientStore.notifySync();
+        });
         break;
       }
 
       case 'toggle-dm-context': {
-        toggleDMContextDrawer();
-        clientStore.notifySync();
+        void getMV().then(m => {
+          m.toggleDMContextDrawer();
+          clientStore.notifySync();
+        });
         break;
       }
 
@@ -2166,6 +2214,7 @@ export class ActionDispatcher {
       case 'react-dm-message':
       case 'keep-dm-message':
       case 'save-message-vault':
+      case 'unsave-message-vault':
       case 'keep-dm-branch':
       case 'keep-post':
       case 'keep-post-vault':
@@ -2201,15 +2250,19 @@ export class ActionDispatcher {
       }
 
       case 'toggle-catch-me-up': {
-        toggleCatchMeUp();
-        clientStore.notifySync();
+        void getMV().then(m => {
+          m.toggleCatchMeUp();
+          clientStore.notifySync();
+        });
         break;
       }
 
       case 'switch-dm-branch': {
         const branch = el.getAttribute('data-branch') || 'main';
-        setActiveBranch(branch);
-        clientStore.notifySync();
+        void getMV().then(m => {
+          m.setActiveBranch(branch);
+          clientStore.notifySync();
+        });
         break;
       }
 
@@ -2218,7 +2271,8 @@ export class ActionDispatcher {
         if (peerFP) {
           sovereignDialog.prompt('Give this part of the conversation a name. It stays private with the same person.', { title: 'Branch with context', placeholder: 'e.g. Weekend plans' }).then(async (branchName) => {
             if (branchName && branchName.trim()) {
-              await createBranchForPeer(peerFP, branchName.trim(), el.getAttribute('data-message-id') || undefined);
+              const m = await getMV();
+              await m.createBranchForPeer(peerFP, branchName.trim(), el.getAttribute('data-message-id') || undefined);
               clientStore.notifySync();
             }
           }).catch(error => clientStore.showToast(error instanceof Error ? error.message : 'Branch could not be saved', 'warning'));
@@ -2227,16 +2281,20 @@ export class ActionDispatcher {
       }
 
       case 'toggle-outcome-picker': {
-        toggleOutcomePicker();
-        clientStore.notifySync();
+        void getMV().then(m => {
+          m.toggleOutcomePicker();
+          clientStore.notifySync();
+        });
         break;
       }
 
       case 'insert-outcome-template': {
-        const template = el.getAttribute('data-template');
+        const template = el.getAttribute('data-template') as 'decision' | 'task' | 'question' | 'poll';
         if (template) {
-          insertOutcomeTemplate(template);
-          clientStore.notifySync();
+          void getMV().then(m => {
+            m.insertOutcomeTemplate(template);
+            clientStore.notifySync();
+          });
         }
         break;
       }
@@ -2809,37 +2867,47 @@ export class ActionDispatcher {
       }
 
       case 'toggle-dm-emoji': {
-        toggleDMEmojiPicker();
-        clientStore.notifySync();
-        requestAnimationFrame(() => restoreMessageSelection('dm'));
+        void getMV().then(m => {
+          m.toggleDMEmojiPicker();
+          clientStore.notifySync();
+          requestAnimationFrame(() => m.restoreMessageSelection('dm'));
+        });
         break;
       }
 
       case 'toggle-relay-emoji': {
-        toggleRelayEmojiPicker();
-        clientStore.notifySync();
-        requestAnimationFrame(() => restoreMessageSelection('relay'));
+        void getMV().then(m => {
+          m.toggleRelayEmojiPicker();
+          clientStore.notifySync();
+          requestAnimationFrame(() => m.restoreMessageSelection('relay'));
+        });
         break;
       }
 
       case 'close-emoji-pickers': {
-        closeEmojiPickers();
-        clientStore.notifySync();
+        void getMV().then(m => {
+          m.closeEmojiPickers();
+          clientStore.notifySync();
+        });
         break;
       }
 
       case 'select-chat-emoji-category': {
         const cat = el.getAttribute('data-category');
         if (cat) {
-          setChatEmojiCategory(cat);
-          clientStore.notifySync();
+          void getMV().then(m => {
+            m.setChatEmojiCategory(cat);
+            clientStore.notifySync();
+          });
         }
         break;
       }
 
       case 'clear-chat-emoji-search': {
-        setChatEmojiSearchQuery('');
-        clientStore.notifySync();
+        void getMV().then(m => {
+          m.setChatEmojiSearchQuery('');
+          clientStore.notifySync();
+        });
         break;
       }
 
@@ -2849,7 +2917,7 @@ export class ActionDispatcher {
           const input = document.getElementById('input-dm-message') as HTMLInputElement | null;
           if (input) {
             input.value = prompt;
-            setMessageDraft('dm', prompt);
+            void getMV().then(m => m.setMessageDraft('dm', prompt));
             input.focus();
             clientStore.notifySync();
           }
@@ -2859,25 +2927,29 @@ export class ActionDispatcher {
 
       case 'insert-dm-emoji': {
         const emoji = el.getAttribute('data-emoji');
-        if (emoji) {
-          insertMessageEmoji('dm', emoji);
-          restoreMessageSelection('dm');
-        }
-        toggleDMEmojiPicker(false);
-        clientStore.notifySync();
-        requestAnimationFrame(() => restoreMessageSelection('dm'));
+        void getMV().then(m => {
+          if (emoji) {
+            m.insertMessageEmoji('dm', emoji);
+            m.restoreMessageSelection('dm');
+          }
+          m.toggleDMEmojiPicker(false);
+          clientStore.notifySync();
+          requestAnimationFrame(() => m.restoreMessageSelection('dm'));
+        });
         break;
       }
 
       case 'insert-relay-emoji': {
         const emoji = el.getAttribute('data-emoji');
-        if (emoji) {
-          insertMessageEmoji('relay', emoji);
-          restoreMessageSelection('relay');
-        }
-        toggleRelayEmojiPicker(false);
-        clientStore.notifySync();
-        requestAnimationFrame(() => restoreMessageSelection('relay'));
+        void getMV().then(m => {
+          if (emoji) {
+            m.insertMessageEmoji('relay', emoji);
+            m.restoreMessageSelection('relay');
+          }
+          m.toggleRelayEmojiPicker(false);
+          clientStore.notifySync();
+          requestAnimationFrame(() => m.restoreMessageSelection('relay'));
+        });
         break;
       }
 
@@ -2941,7 +3013,7 @@ export class ActionDispatcher {
     if (action === 'dm-file-attached' || el.id === 'input-dm-attachment-file') {
       const fileInput = el as HTMLInputElement;
       if (fileInput.files && fileInput.files[0]) {
-        handleFileAttachment(fileInput.files[0], 'dm');
+        void getMV().then(m => m.handleFileAttachment(fileInput.files![0], 'dm'));
         fileInput.value = '';
       }
       return;
@@ -2949,7 +3021,7 @@ export class ActionDispatcher {
     if (action === 'relay-file-attached' || el.id === 'input-relay-attachment-file') {
       const fileInput = el as HTMLInputElement;
       if (fileInput.files && fileInput.files[0]) {
-        handleFileAttachment(fileInput.files[0], 'relay');
+        void getMV().then(m => m.handleFileAttachment(fileInput.files![0], 'relay'));
         fileInput.value = '';
       }
       return;
@@ -3090,26 +3162,32 @@ export class ActionDispatcher {
         updatedInput.setSelectionRange(updatedInput.value.length, updatedInput.value.length);
       }
     } else if (action === 'search-dm-peers') {
-      setDMSearchQuery(el.value);
-      clientStore.notifySync();
+      void getMV().then(m => {
+        m.setDMSearchQuery(el.value);
+        clientStore.notifySync();
+      });
     } else if (action === 'search-chat-emojis') {
-      setChatEmojiSearchQuery(el.value);
-      clientStore.notifySync();
-      const updatedInput = document.getElementById(el.id) as HTMLInputElement | null;
-      if (updatedInput) {
-        updatedInput.focus({ preventScroll: true });
-        updatedInput.setSelectionRange(updatedInput.value.length, updatedInput.value.length);
-      }
+      void getMV().then(m => {
+        m.setChatEmojiSearchQuery(el.value);
+        clientStore.notifySync();
+        const updatedInput = document.getElementById(el.id) as HTMLInputElement | null;
+        if (updatedInput) {
+          updatedInput.focus({ preventScroll: true });
+          updatedInput.setSelectionRange(updatedInput.value.length, updatedInput.value.length);
+        }
+      });
     } else if (action === 'search-vault' || el.id === 'input-vault-search') {
-      setVaultSearchQuery(el.value);
-      clientStore.notifySync();
+      void getVV().then(v => {
+        v.setVaultSearchQuery(el.value);
+        clientStore.notifySync();
+      });
     } else if (action === 'update-dm-draft') {
-      captureMessageSelection('dm', el as HTMLInputElement);
+      void getMV().then(m => m.captureMessageSelection('dm', el as HTMLInputElement));
       if (sovereignDM.activePeerFP) {
         sovereignDM.notifyTyping(sovereignDM.activePeerFP);
       }
     } else if (action === 'update-relay-draft') {
-      captureMessageSelection('relay', el as HTMLInputElement);
+      void getMV().then(m => m.captureMessageSelection('relay', el as HTMLInputElement));
     } else if (action === 'mnemonic-validate-restore') {
       const statusSpan = document.getElementById('restore-validation-status');
       if (statusSpan) {
@@ -3175,12 +3253,14 @@ export class ActionDispatcher {
       if (text || att) {
         const myFP = clientStore.keypair?.fingerprint || 'me_local_node_0x9f4e';
         sovereignDM.sendMessage(text, myFP, att || undefined).then(() => {
-          if (getMessageDraft('dm') === submittedDraft && sovereignDM.getPendingAttachment() === att) {
-            setMessageDraft('dm', '');
-            const currentInput = document.getElementById('input-dm-message') as HTMLInputElement | null;
-            if (currentInput) currentInput.value = '';
-            sovereignDM.setPendingAttachment(null);
-          }
+          void getMV().then(m => {
+            if (m.getMessageDraft('dm') === submittedDraft && sovereignDM.getPendingAttachment() === att) {
+              m.setMessageDraft('dm', '');
+              const currentInput = document.getElementById('input-dm-message') as HTMLInputElement | null;
+              if (currentInput) currentInput.value = '';
+              sovereignDM.setPendingAttachment(null);
+            }
+          });
           clientStore.notifySync();
           setTimeout(() => {
             const container = document.getElementById('dm-thread-messages');
@@ -3198,7 +3278,7 @@ export class ActionDispatcher {
       const att = clientStore.pendingRelayAttachment;
       if (text || att) {
         clientStore.sendMessage(text, undefined, att || undefined);
-        setMessageDraft('relay', '');
+        void getMV().then(m => m.setMessageDraft('relay', ''));
         if (input) {
           input.value = '';
           input.focus({ preventScroll: true });
@@ -3217,8 +3297,10 @@ export class ActionDispatcher {
       const name = nameInput?.value?.trim() || '';
       const desc = descInput?.value?.trim() || '';
       if (name) {
-        createVaultCollection(name, desc);
-        closeNewCollectionModal();
+        void getVV().then(v => {
+          v.createVaultCollection(name, desc);
+          v.closeNewCollectionModal();
+        });
       }
     } else if (action === 'submit-community-live-chat') {
       event.preventDefault();

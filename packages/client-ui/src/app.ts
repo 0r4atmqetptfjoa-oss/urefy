@@ -89,12 +89,40 @@ function renderTransparencyHeaderToggle(): string {
     </button>
   `;
 }
-import { renderRelaysWorkspace, renderMessageItem } from './messages-view.js';
-import { renderVaultWorkspace, renderVaultReleaseCard } from './vault-view.js';
+let _messagesViewModule: typeof import('./messages-view.js') | null = null;
+let _vaultViewModule: typeof import('./vault-view.js') | null = null;
+
+function renderRelaysWorkspace(): string {
+  if (_messagesViewModule) return _messagesViewModule.renderRelaysWorkspace();
+  void import('./messages-view.js').then(m => {
+    _messagesViewModule = m;
+    clientStore.notifySync();
+  });
+  return `
+    <div class="flex-1 flex flex-col items-center justify-center bg-canvas p-8 text-slate-400 space-y-3" role="status" aria-live="polite">
+      <div class="w-8 h-8 rounded-full border-2 border-[var(--color-accent,#e59b3c)] border-t-transparent animate-spin"></div>
+      <p class="text-xs font-mono">Opening sovereign messages…</p>
+    </div>
+  `;
+}
+
+function renderVaultWorkspace(): string {
+  if (_vaultViewModule) return _vaultViewModule.renderVaultWorkspace();
+  void import('./vault-view.js').then(m => {
+    _vaultViewModule = m;
+    clientStore.notifySync();
+  });
+  return `
+    <div class="flex-1 flex flex-col items-center justify-center bg-canvas p-8 text-slate-400 space-y-3" role="status" aria-live="polite">
+      <div class="w-8 h-8 rounded-full border-2 border-[var(--color-accent,#e59b3c)] border-t-transparent animate-spin"></div>
+      <p class="text-xs font-mono">Opening sovereign vault…</p>
+    </div>
+  `;
+}
+
 import { renderPulseWorkspace, renderPulsePostCard, renderInlineQuickComposer, renderPostCard, quickPostDraft } from './feed-view.js';
 import { PRIMARY_NAV_ITEMS, ADVANCED_TOOLS_ITEMS, renderNavIcon } from './nav-config.js';
 import { renderIcon, renderBrandLogoMark } from './ui/icons.js';
-import { captureMessageSelection, restoreMessageSelection, getMessageDraft } from './messages-view.js';
 import { contextualSidebar, hasContextualSidebar } from './sidebar.js';
 import { modalManager, buildModalRootHTML as orchestrateModalRootHTML } from './modal-manager.js';
 import { settingsView } from './settings-view.js';
@@ -1149,6 +1177,25 @@ export function initApp(): void {
         await publishComment(postId, commentText.trim(), parentId);
       });
       return;
+    }
+
+    const appMessageSelections: Record<string, { start: number; end: number }> = {};
+    function captureMessageSelection(targetType: 'dm' | 'relay', input: HTMLInputElement | null): void {
+      if (!input || !input.isConnected) return;
+      if (typeof document !== 'undefined' && document.activeElement && document.activeElement !== input) return;
+      appMessageSelections[targetType] = {
+        start: input.selectionStart ?? input.value.length,
+        end: input.selectionEnd ?? input.value.length,
+      };
+    }
+    function restoreMessageSelection(targetType: 'dm' | 'relay', focus = false): void {
+      const input = document.getElementById(targetType === 'dm' ? 'input-dm-message' : 'input-message') as HTMLInputElement | null;
+      const sel = appMessageSelections[targetType];
+      if (!input || !sel) return;
+      try {
+        if (focus) input.focus({ preventScroll: true });
+        input.setSelectionRange(sel.start, sel.end);
+      } catch (_) {}
     }
 
     errorBoundary.wrapRender(() => {

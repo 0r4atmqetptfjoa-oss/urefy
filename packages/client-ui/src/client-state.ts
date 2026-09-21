@@ -82,6 +82,7 @@ export interface ClientNanopublication {
 export interface ClientPost {
   deliveryStatus?: 'sending' | 'failed';
   deliveryError?: string;
+  status?: 'published' | 'draft' | 'archived' | 'pinned' | 'deleted' | 'tombstone' | 'locked';
   id: string;
   channelId: string;
   authorFingerprint: string;
