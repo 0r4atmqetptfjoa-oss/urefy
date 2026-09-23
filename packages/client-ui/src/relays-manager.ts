@@ -517,12 +517,12 @@ export class RelaysManager {
           <div>
             <div class="flex items-center space-x-2">
               <h2 class="text-sm font-bold text-white tracking-tight">${this._escapeHtml(displayName)}</h2>
-              <span class="text-[10px] px-1.5 py-0.2 rounded bg-surface-raised text-slate-300 border border-white/10">Private</span>
+              <span class="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 font-medium">Public Channel</span>
             </div>
-            <div class="text-[11px] text-slate-400 font-mono flex items-center space-x-1.5">
+            <div class="text-[11px] text-slate-400 font-sans flex items-center space-x-1.5">
               <span># ${activeChannelName}</span>
               <span>•</span>
-              <span>${isGlobal ? 'Community chat' : `${relay.members.length} members`}</span>
+              <span>${isGlobal ? 'Open community discussion · Authenticated mesh dispatch' : `${relay.members.length} members · Open channel`}</span>
             </div>
           </div>
         </div>

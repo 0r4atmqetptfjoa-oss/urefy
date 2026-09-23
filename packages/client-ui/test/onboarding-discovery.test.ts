@@ -49,8 +49,8 @@ describe('PASS 6: Onboarding & Discovery Integration', () => {
     vi.clearAllMocks();
   });
 
-  it('1. should provide 10 curated interests covering major topics', () => {
-    expect(ONBOARDING_INTERESTS.length).toBe(10);
+  it('1. should provide curated interests covering major topics', () => {
+    expect(ONBOARDING_INTERESTS.length).toBeGreaterThanOrEqual(10);
     const tech = ONBOARDING_INTERESTS.find(i => i.id === 'tech');
     const gaming = ONBOARDING_INTERESTS.find(i => i.id === 'gaming');
     const ai = ONBOARDING_INTERESTS.find(i => i.id === 'ai');

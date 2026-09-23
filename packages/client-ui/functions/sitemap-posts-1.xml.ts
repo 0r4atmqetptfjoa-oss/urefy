@@ -25,6 +25,7 @@ export async function onRequestGet(context: {
           `SELECT id, created_at, flair
            FROM posts
            WHERE (status IN ('published', 'pinned', 'locked') OR status IS NULL)
+             AND (audience = 'public' OR audience IS NULL)
              AND NOT EXISTS (SELECT 1 FROM synthetic_fixtures sf WHERE sf.resource_type = 'post' AND sf.resource_id = posts.id)
            ORDER BY created_at DESC
            LIMIT 50000`

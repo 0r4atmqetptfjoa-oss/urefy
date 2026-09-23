@@ -63,7 +63,6 @@ import { homeDiscoveryEngine } from '../home-discovery.js';
 import { hashtagExplorer } from '../hashtag-explorer.js';
 import { mobileFlowEngine } from '../mobile-flow.js';
 import { shareToMessagesModal } from '../share-to-messages-modal.js';
-import { whyThisPostModal } from '../why-this-post-modal.js';
 import { obsidianMediaPlayer } from '../media-player.js';
 
 function withWallet(action: (wallet: typeof import('../wallet-bridge.js').walletBridge) => unknown): void {
@@ -489,7 +488,7 @@ export class ActionDispatcher {
 
         // 2. Check for data-global-method
         const method = el.getAttribute('data-global-method');
-        const argsRaw = el.getAttribute('data-global-args');
+        const argsRaw = el.getAttribute('data-global-args') || el.getAttribute('data-global-arg');
 
         if (method === 'if' && argsRaw) {
           try {
@@ -790,7 +789,9 @@ export class ActionDispatcher {
         event.stopPropagation();
         const postId = el.getAttribute('data-post-id') || '';
         if (postId) {
-          whyThisPostModal.open(postId);
+          void import('../why-this-post-modal.js').then(({ whyThisPostModal }) => {
+            whyThisPostModal.open(postId);
+          });
           el.closest('.post-more-menu')?.remove();
         }
         break;

@@ -46,15 +46,19 @@ describe('End-to-End Sovereign User Journeys (Unified Flows & Non-Technical UX)'
       onboardingWizard.updateHandle('journey_tester');
       expect(onboardingWizard.currentStep).toBe(0);
 
-      // Step 0 -> Step 1
-      onboardingWizard.next();
+      // Step 0 -> Step 1 (Profile)
+      await onboardingWizard.next();
       expect(onboardingWizard.currentStep).toBe(1);
 
-      // Step 1 -> Step 2
-      onboardingWizard.next();
+      // Step 1 -> Step 2 (Interests)
+      onboardingWizard.toggleInterest('tech');
+      onboardingWizard.toggleInterest('gaming');
+      onboardingWizard.toggleInterest('privacy');
+      await onboardingWizard.next();
       expect(onboardingWizard.currentStep).toBe(2);
 
       // Finish wizard
+      onboardingWizard.toggleSeedConfirmation(true);
       await onboardingWizard.finish();
       expect(onboardingWizard.isCompleted).toBe(true);
       expect(mockStorage.getItem('aetheris_onboarding_completed')).toBe('true');

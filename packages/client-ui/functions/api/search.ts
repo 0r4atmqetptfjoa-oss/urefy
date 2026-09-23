@@ -13,13 +13,14 @@ import {
   globalProfilesStore,
   globalCommunitiesStore,
   globalBlocksStore,
+  globalFacetsStore,
 } from './_db.js';
 import { ensureSyntheticFixturesTable } from './_synthetic.js';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-User-Fingerprint',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-User-Fingerprint, X-Facet-Id',
 };
 
 export async function onRequestOptions(): Promise<Response> {
@@ -89,11 +90,14 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
       if (db) {
         const postRes = await db
           .prepare(
-            `SELECT id, channel_id, author_id, author_role, title, content, flair, merit_votes, reply_count, created_at
-             FROM posts
-             WHERE (title LIKE ? OR content LIKE ? OR flair LIKE ?) AND status != 'archived'
-               AND NOT EXISTS (SELECT 1 FROM synthetic_fixtures sf WHERE sf.resource_type = 'post' AND sf.resource_id = posts.id)
-             ORDER BY merit_votes DESC, created_at DESC
+            `SELECT p.id, p.channel_id, p.author_id, p.author_role, p.title, p.content, p.flair, p.merit_votes, p.reply_count, p.created_at, p.facet_id, p.audience,
+                    f.is_publicly_linked as facet_is_publicly_linked, f.handle as facet_handle, f.display_name as facet_display_name, f.avatar_url as facet_avatar_url
+             FROM posts p
+             LEFT JOIN facets f ON p.facet_id = f.id
+             WHERE (p.title LIKE ? OR p.content LIKE ? OR p.flair LIKE ?) AND p.status != 'archived'
+               AND (p.audience = 'public' OR p.audience IS NULL)
+               AND NOT EXISTS (SELECT 1 FROM synthetic_fixtures sf WHERE sf.resource_type = 'post' AND sf.resource_id = p.id)
+             ORDER BY p.merit_votes DESC, p.created_at DESC
              LIMIT ?`
           )
           .bind(searchPattern, searchPattern, searchPattern, limit * 2)
@@ -102,21 +106,31 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
         posts = (postRes.results || [])
           .filter(p => !blockedSet.has(p.author_id))
           .slice(0, limit)
-          .map(p => ({
-            id: p.id,
-            channelId: p.channel_id,
-            authorFingerprint: p.author_id,
-            authorRole: p.author_role,
-            title: p.title,
-            content: p.content.slice(0, 300),
-            flair: p.flair,
-            meritVotes: Number(p.merit_votes) || 0,
-            replyCount: Number(p.reply_count) || 0,
-            createdAt: Number(p.created_at),
-          }));
+          .map(p => {
+            const isLinked = p.facet_is_publicly_linked === 1 || p.facet_is_publicly_linked === true;
+            const authorFingerprint = (p.facet_id && !isLinked) ? p.facet_id : p.author_id;
+            return {
+              id: p.id,
+              channelId: p.channel_id,
+              authorFingerprint,
+              authorRole: p.author_role,
+              title: p.title,
+              content: p.content.slice(0, 300),
+              flair: p.flair,
+              meritVotes: Number(p.merit_votes) || 0,
+              replyCount: Number(p.reply_count) || 0,
+              createdAt: Number(p.created_at),
+              facetId: p.facet_id || undefined,
+              facetHandle: p.facet_handle || undefined,
+              facetDisplayName: p.facet_display_name || undefined,
+              facetAvatarUrl: p.facet_avatar_url || undefined,
+              audience: p.audience || 'public',
+            };
+          });
       } else {
         posts = globalPostsStore
           .filter(p => !p.syntheticTest)
+          .filter(p => !p.audience || p.audience === 'public')
           .filter(
             p =>
               !blockedSet.has(p.authorFingerprint) &&
@@ -125,18 +139,28 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
                p.flair?.toLowerCase().includes(searchToken))
           )
           .slice(0, limit)
-          .map(p => ({
-            id: p.id,
-            channelId: p.channelId,
-            authorFingerprint: p.authorFingerprint,
-            authorRole: p.authorRole,
-            title: p.title,
-            content: p.content.slice(0, 300),
-            flair: p.flair,
-            meritVotes: p.meritVotes,
-            replyCount: p.replyCount,
-            createdAt: p.createdAt,
-          }));
+          .map(p => {
+            const facet = p.facetId ? globalFacetsStore.find(f => f.id === p.facetId) : undefined;
+            const isLinked = facet?.isPubliclyLinked === true;
+            const authorFingerprint = (p.facetId && !isLinked) ? p.facetId : p.authorFingerprint;
+            return {
+              id: p.id,
+              channelId: p.channelId,
+              authorFingerprint,
+              authorRole: p.authorRole,
+              title: p.title,
+              content: p.content.slice(0, 300),
+              flair: p.flair,
+              meritVotes: p.meritVotes,
+              replyCount: p.replyCount,
+              createdAt: p.createdAt,
+              facetId: p.facetId,
+              facetHandle: facet?.handle,
+              facetDisplayName: facet?.displayName,
+              facetAvatarUrl: facet?.avatarUrl,
+              audience: p.audience || 'public',
+            };
+          });
       }
     }
 
@@ -147,15 +171,14 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
           .prepare(
             `SELECT user_id, display_name, handle, bio, avatar_url, location
              FROM user_profiles
-             WHERE (display_name LIKE ? OR handle LIKE ? OR user_id LIKE ?)
+             WHERE (display_name LIKE ? OR handle LIKE ?)
              LIMIT ?`
           )
-          .bind(searchPattern, searchPattern, searchPattern, limit * 2)
+          .bind(searchPattern, searchPattern, limit * 2)
           .all<any>();
 
-        people = (peopleRes.results || [])
+        let dbPeople = (peopleRes.results || [])
           .filter(p => !blockedSet.has(p.user_id))
-          .slice(0, limit)
           .map(p => ({
             userId: p.user_id,
             displayName: p.display_name,
@@ -164,16 +187,52 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
             avatarUrl: p.avatar_url,
             location: p.location,
           }));
+
+        // Search public active facets (never search by opaque facet id or root fingerprint)
+        const facetRes = await db
+          .prepare(
+            `SELECT id, handle, display_name, bio, avatar_url, is_publicly_linked, owner_fingerprint
+             FROM facets
+             WHERE (visibility = 'public' OR visibility IS NULL)
+               AND (status = 'active' OR status IS NULL)
+               AND (display_name LIKE ? OR handle LIKE ?)
+             LIMIT ?`
+          )
+          .bind(searchPattern, searchPattern, limit * 2)
+          .all<any>();
+
+        const dbFacets = (facetRes.results || [])
+          .filter(f => !blockedSet.has(f.owner_fingerprint))
+          .map(f => {
+            const isLinked = f.is_publicly_linked === 1 || f.is_publicly_linked === true;
+            return {
+              userId: isLinked ? f.owner_fingerprint : f.id,
+              facetId: f.id,
+              displayName: f.display_name,
+              handle: f.handle,
+              bio: f.bio,
+              avatarUrl: f.avatar_url,
+              location: undefined as string | undefined,
+              isPubliclyLinked: isLinked,
+            };
+          });
+
+        const seenHandles = new Set(dbPeople.map(p => (p.handle || '').toLowerCase()));
+        for (const f of dbFacets) {
+          if (f.handle && !seenHandles.has(f.handle.toLowerCase())) {
+            dbPeople.push(f);
+            seenHandles.add(f.handle.toLowerCase());
+          }
+        }
+        people = dbPeople.slice(0, limit);
       } else {
-        people = globalProfilesStore
+        let memPeople = globalProfilesStore
           .filter(
             p =>
               !blockedSet.has(p.userId) &&
               (p.displayName?.toLowerCase().includes(searchToken) ||
-               p.handle?.toLowerCase().includes(searchToken) ||
-               p.userId?.toLowerCase().includes(searchToken))
+               p.handle?.toLowerCase().includes(searchToken))
           )
-          .slice(0, limit)
           .map(p => ({
             userId: p.userId,
             displayName: p.displayName,
@@ -182,6 +241,34 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
             avatarUrl: p.avatarUrl,
             location: p.location,
           }));
+
+        const memFacets = globalFacetsStore
+          .filter(f => (f.visibility === 'public' || !f.visibility) && (f.status === 'active' || !f.status))
+          .filter(f => !blockedSet.has(f.ownerFingerprint))
+          .filter(
+            f =>
+              f.displayName?.toLowerCase().includes(searchToken) ||
+              f.handle?.toLowerCase().includes(searchToken)
+          )
+          .map(f => ({
+            userId: f.isPubliclyLinked ? f.ownerFingerprint : f.id,
+            facetId: f.id,
+            displayName: f.displayName,
+            handle: f.handle,
+            bio: f.bio,
+            avatarUrl: f.avatarUrl,
+            location: undefined as string | undefined,
+            isPubliclyLinked: f.isPubliclyLinked,
+          }));
+
+        const seenHandles = new Set(memPeople.map(p => (p.handle || '').toLowerCase()));
+        for (const f of memFacets) {
+          if (f.handle && !seenHandles.has(f.handle.toLowerCase())) {
+            memPeople.push(f);
+            seenHandles.add(f.handle.toLowerCase());
+          }
+        }
+        people = memPeople.slice(0, limit);
       }
     }
 

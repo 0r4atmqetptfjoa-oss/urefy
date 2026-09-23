@@ -11,6 +11,8 @@ import {
   createD1UnavailableResponse,
   globalCommunitiesStore,
   globalCommunityMembersStore,
+  globalFacetsStore,
+  globalFacetMembersStore,
   EdgeCommunity,
   EdgeCommunityMember,
 } from './_db.js';
@@ -43,6 +45,7 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
     const id = (url.searchParams.get('id') || '').trim();
     const category = (url.searchParams.get('category') || '').trim();
     const userId = (url.searchParams.get('userId') || '').trim();
+    const facetId = (url.searchParams.get('facetId') || '').trim();
 
     const db = getD1Database(context.env);
     const isProd = isProductionEnv(context.env);
@@ -82,7 +85,10 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
             .all<{ user_id: string }>();
           moderators = (modsRes.results || []).map(r => r.user_id);
 
-          if (userId) {
+          if (facetId) {
+            const fRow = await db.prepare('SELECT role FROM facet_community_memberships WHERE community_id = ? AND facet_id = ?').bind(comm.id, facetId).first<{ role: string }>();
+            if (fRow) userRole = fRow.role;
+          } else if (userId) {
             const memberRow = await db
               .prepare('SELECT role FROM community_members WHERE community_id = ? AND user_id = ?')
               .bind(comm.id, userId)
@@ -97,7 +103,10 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
           moderators = globalCommunityMembersStore
             .filter(m => m.communityId === comm.id && ['moderator', 'admin'].includes(m.role))
             .map(m => m.userId);
-          if (userId) {
+          if (facetId) {
+            const fm = globalFacetMembersStore.find(m => m.communityId === comm.id && m.facetId === facetId);
+            if (fm) userRole = fm.role;
+          } else if (userId) {
             const m = globalCommunityMembersStore.find(m => m.communityId === comm.id && m.userId === userId);
             userRole = m ? m.role : null;
           }
@@ -251,6 +260,55 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
     if (action === 'join' || action === 'leave') {
       const exists = db ? await db.prepare('SELECT id FROM communities WHERE id = ?').bind(communityId).first() : globalCommunitiesStore.find(c => c.id === communityId);
       if (!exists) return Response.json({ success: false, error: 'Community not found' }, { status: 404 });
+    }
+
+    const facetId = typeof body.facetId === 'string' ? body.facetId.trim() : '';
+
+    if (facetId) {
+      // Verify caller (userId) owns facetId
+      let facetRecord: any = null;
+      if (db) {
+        facetRecord = await db.prepare('SELECT owner_fingerprint FROM facets WHERE id = ?').bind(facetId).first();
+      } else {
+        facetRecord = globalFacetsStore.find(f => f.id === facetId);
+      }
+      const owner = facetRecord?.owner_fingerprint || facetRecord?.ownerFingerprint;
+      if (!facetRecord || (owner && owner !== userId)) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'You do not own the specified Facet' }),
+          { status: 403, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
+        );
+      }
+
+      if (action === 'join') {
+        if (db) {
+          await db.prepare(
+            'INSERT OR IGNORE INTO facet_community_memberships (community_id, facet_id, role, joined_at) VALUES (?, ?, ?, ?)'
+          ).bind(communityId, facetId, 'member', now).run();
+        } else {
+          const exists = globalFacetMembersStore.some(m => m.communityId === communityId && m.facetId === facetId);
+          if (!exists) {
+            globalFacetMembersStore.push({ communityId, facetId, role: 'member', joinedAt: now });
+          }
+        }
+        return new Response(
+          JSON.stringify({ success: true, action: 'join', communityId, facetId, isMember: true }),
+          { status: 200, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
+        );
+      }
+
+      if (action === 'leave') {
+        if (db) {
+          await db.prepare('DELETE FROM facet_community_memberships WHERE community_id = ? AND facet_id = ?').bind(communityId, facetId).run();
+        } else {
+          const idx = globalFacetMembersStore.findIndex(m => m.communityId === communityId && m.facetId === facetId);
+          if (idx >= 0) globalFacetMembersStore.splice(idx, 1);
+        }
+        return new Response(
+          JSON.stringify({ success: true, action: 'leave', communityId, facetId, isMember: false }),
+          { status: 200, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
+        );
+      }
     }
 
     if (action === 'join') {

@@ -159,6 +159,8 @@ export interface EdgePost {
   };
   createdAt: number;
   isExpanded: boolean;
+  facetId?: string;
+  audience?: 'public' | 'community' | 'followers';
   syntheticTest?: boolean;
   environment?: 'test';
   cleanupRunId?: string;
@@ -351,9 +353,38 @@ export interface EdgeComment {
   userLiked?: boolean;
   awards?: Array<{ awardId: string; count: number }>;
   createdAt: number;
+  facetId?: string;
   syntheticTest?: boolean;
   environment?: 'test';
   cleanupRunId?: string;
+}
+
+export interface EdgeFacet {
+  id: string;
+  ownerFingerprint: string;
+  handle: string;
+  displayName: string;
+  avatarUrl?: string;
+  bio?: string;
+  visibility: 'public' | 'contextual' | 'unlisted';
+  status?: 'active' | 'deactivated' | 'deleted';
+  isDefault: boolean;
+  isPubliclyLinked: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface EdgeFacetFollow {
+  followerFacetId: string;
+  followingFacetId: string;
+  createdAt: number;
+}
+
+export interface EdgeFacetCommunityMembership {
+  communityId: string;
+  facetId: string;
+  role: 'member' | 'moderator' | 'admin';
+  joinedAt: number;
 }
 
 // ─── INITIAL IN-MEMORY SEEDS (CLEAN RUNTIME DEFAULTS) ────────────────────────
@@ -399,6 +430,9 @@ export const globalCommunityModLogsStore: EdgeCommunityModLog[] = [];
 export const globalSocialReportsStore: EdgeSocialReport[] = [];
 export const globalMessageRequestsStore: EdgeMessageRequest[] = [];
 export const globalCommentsStore: EdgeComment[] = [];
+export const globalFacetsStore: EdgeFacet[] = [];
+export const globalFacetFollowsStore: EdgeFacetFollow[] = [];
+export const globalFacetMembersStore: EdgeFacetCommunityMembership[] = [];
 
 // Server start epoch for uptime calculation
 export const EDGE_START_TIME = Date.now();

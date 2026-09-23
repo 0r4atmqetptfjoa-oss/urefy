@@ -11,6 +11,11 @@ import {
   createD1UnavailableResponse,
   globalCommentsStore,
   globalPostsStore,
+  globalFacetsStore,
+  globalFacetFollowsStore,
+  globalFacetMembersStore,
+  globalFollowsStore,
+  globalCommunityMembersStore,
   EdgeComment,
 } from './_db.js';
 import { requireAdmin, requireSignedEnvelope } from './_auth.js';
@@ -19,7 +24,7 @@ import { ensureSyntheticFixturesTable, parseSyntheticFixtureMetadata, registerSy
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-User-Fingerprint',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-User-Fingerprint, X-Facet-Id',
 };
 
 const failure = (error: string, status: number) => new Response(JSON.stringify({ success: false, error }), {
@@ -46,6 +51,7 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
     const postId = (url.searchParams.get('postId') || '').trim();
     const sort = (url.searchParams.get('sort') || 'best').trim().toLowerCase();
     const userFingerprint = (url.searchParams.get('userFingerprint') || context.request.headers.get('X-User-Fingerprint') || '').trim();
+    const callerFacetId = (url.searchParams.get('facetId') || context.request.headers.get('X-Facet-Id') || '').trim();
 
     if (!validId(postId)) {
       return new Response(
@@ -64,35 +70,108 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
     let comments: EdgeComment[] = [];
 
     if (db) {
-      const post = await db.prepare("SELECT id FROM posts WHERE id = ? AND status IN ('published', 'pinned')").bind(postId).first();
+      const post = await db.prepare("SELECT id, channel_id, author_id, audience, facet_id FROM posts WHERE id = ? AND status IN ('published', 'pinned')").bind(postId).first<any>();
       if (!post) return failure('Discussion not found', 404);
+
+      // Check audience authorization
+      const isOwner = Boolean(
+        (userFingerprint && userFingerprint === post.author_id) ||
+        (callerFacetId && callerFacetId === post.facet_id)
+      );
+      if (post.audience && post.audience !== 'public' && !isOwner) {
+        let authorized = false;
+        if (post.audience === 'community') {
+          if (callerFacetId) {
+            const memberCheck = await db.prepare(
+              'SELECT 1 FROM facet_community_memberships WHERE community_id = ? AND facet_id = ? LIMIT 1'
+            ).bind(post.channel_id, callerFacetId).first();
+            authorized = Boolean(memberCheck);
+          } else if (userFingerprint) {
+            const memberCheck = await db.prepare(
+              `SELECT 1 FROM facet_community_memberships fcm JOIN facets f ON f.id = fcm.facet_id WHERE fcm.community_id = ? AND f.owner_fingerprint = ?
+               UNION SELECT 1 FROM community_members WHERE community_id = ? AND user_id = ? LIMIT 1`
+            ).bind(post.channel_id, userFingerprint, post.channel_id, userFingerprint).first();
+            authorized = Boolean(memberCheck);
+          }
+        } else if (post.audience === 'followers') {
+          if (callerFacetId) {
+            const followCheck = await db.prepare(
+              'SELECT 1 FROM facet_follows WHERE following_facet_id = ? AND follower_facet_id = ? LIMIT 1'
+            ).bind(post.facet_id, callerFacetId).first();
+            authorized = Boolean(followCheck);
+          } else if (userFingerprint) {
+            const followCheck = await db.prepare(
+              `SELECT 1 FROM facet_follows ff JOIN facets f ON f.id = ff.follower_facet_id WHERE ff.following_facet_id = ? AND f.owner_fingerprint = ?
+               UNION SELECT 1 FROM follows WHERE following_id = ? AND follower_id = ? LIMIT 1`
+            ).bind(post.facet_id, userFingerprint, post.author_id, userFingerprint).first();
+            authorized = Boolean(followCheck);
+          }
+        }
+        if (!authorized) return failure('Discussion not found', 404);
+      }
+
       let orderBy = 'merit_votes DESC, created_at DESC';
       if (sort === 'top') orderBy = 'merit_votes DESC';
       else if (sort === 'new') orderBy = 'created_at DESC';
       else if (sort === 'old') orderBy = 'created_at ASC';
 
       const res = await db
-        .prepare(`SELECT comments.*, p.display_name AS author_display_name,
-                  p.handle AS author_handle, p.avatar_url AS author_avatar_url
+        .prepare(`SELECT comments.*,
+                  CASE
+                    WHEN comments.facet_id IS NOT NULL THEN (
+                      CASE
+                        WHEN facets.status = 'deleted' THEN '[Deleted Context]'
+                        ELSE COALESCE(facets.display_name, '[Deleted Context]')
+                      END
+                    )
+                    ELSE p.display_name
+                  END AS author_display_name,
+                  CASE
+                    WHEN comments.facet_id IS NOT NULL THEN (
+                      CASE
+                        WHEN facets.status = 'deleted' THEN NULL
+                        ELSE facets.handle
+                      END
+                    )
+                    ELSE p.handle
+                  END AS author_handle,
+                  CASE
+                    WHEN comments.facet_id IS NOT NULL THEN (
+                      CASE
+                        WHEN facets.status = 'deleted' THEN NULL
+                        ELSE facets.avatar_url
+                      END
+                    )
+                    ELSE p.avatar_url
+                  END AS author_avatar_url,
+                  facets.is_publicly_linked AS facet_is_publicly_linked,
+                  facets.status AS facet_status
                   FROM comments
+                  LEFT JOIN facets ON facets.id = comments.facet_id
                   LEFT JOIN user_profiles p ON p.user_id = comments.author_id
                   WHERE comments.post_id = ? ORDER BY ${orderBy} LIMIT 200`)
         .bind(postId)
         .all<any>();
 
-      comments = (res.results || []).map(r => ({
-        id: r.id,
-        postId: r.post_id,
-        parentId: r.parent_id || undefined,
-        authorId: r.author_id,
-        authorRole: r.author_role || 'MEMBER',
-        authorDisplayName: r.author_display_name || undefined,
-        authorHandle: r.author_handle || undefined,
-        authorAvatarUrl: r.author_avatar_url || undefined,
-        content: r.content,
-        meritVotes: Number(r.merit_votes) || 0,
-        createdAt: Number(r.created_at),
-      }));
+      comments = (res.results || []).map(r => {
+        const isCommentOwner = Boolean(userFingerprint && userFingerprint === r.author_id);
+        const isPubliclyLinked = r.facet_is_publicly_linked === 1;
+        const authorId = (!isCommentOwner && !isPubliclyLinked && r.facet_id) ? r.facet_id : r.author_id;
+        return {
+          id: r.id,
+          postId: r.post_id,
+          parentId: r.parent_id || undefined,
+          authorId,
+          authorRole: r.author_role || 'MEMBER',
+          authorDisplayName: r.author_display_name || undefined,
+          authorHandle: r.author_handle || undefined,
+          authorAvatarUrl: r.author_avatar_url || undefined,
+          content: r.content,
+          meritVotes: Number(r.merit_votes) || 0,
+          createdAt: Number(r.created_at),
+          facetId: r.facet_id || undefined,
+        };
+      });
 
       if (comments.length > 0) {
         if (userFingerprint) {
@@ -169,12 +248,75 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
         }
       }
     } else {
+      const post = globalPostsStore.find(p => p.id === postId && (!p.status || ['published', 'pinned'].includes(p.status)));
+      if (!post) return failure('Discussion not found', 404);
+      const isOwner = Boolean(
+        (userFingerprint && userFingerprint === post.authorFingerprint) ||
+        (callerFacetId && callerFacetId === post.facetId)
+      );
+      if (post.audience && post.audience !== 'public' && !isOwner) {
+        let authorized = false;
+        if (post.audience === 'community') {
+          if (callerFacetId) {
+            authorized = globalFacetMembersStore.some(m => m.communityId === post.channelId && m.facetId === callerFacetId);
+          } else if (userFingerprint) {
+            authorized = globalFacetMembersStore.some(m => {
+              if (m.communityId !== post.channelId) return false;
+              const f = globalFacetsStore.find(fac => fac.id === m.facetId);
+              return f && f.ownerFingerprint === userFingerprint;
+            }) || globalCommunityMembersStore.some(m => m.communityId === post.channelId && m.userId === userFingerprint);
+          }
+        } else if (post.audience === 'followers') {
+          if (callerFacetId) {
+            authorized = globalFacetFollowsStore.some(ff => ff.followingFacetId === post.facetId && ff.followerFacetId === callerFacetId);
+          } else if (userFingerprint) {
+            authorized = globalFacetFollowsStore.some(ff => {
+              if (ff.followingFacetId !== post.facetId) return false;
+              const f = globalFacetsStore.find(fac => fac.id === ff.followerFacetId);
+              return f && f.ownerFingerprint === userFingerprint;
+            }) || globalFollowsStore.some(f => f.followingId === post.authorFingerprint && f.followerId === userFingerprint);
+          }
+        }
+        if (!authorized) return failure('Discussion not found', 404);
+      }
+
       let list = globalCommentsStore.filter(c => c.postId === postId);
       if (sort === 'new') list = list.sort((a, b) => b.createdAt - a.createdAt);
       else if (sort === 'old') list = list.sort((a, b) => a.createdAt - b.createdAt);
       else list = list.sort((a, b) => b.meritVotes - a.meritVotes || b.createdAt - a.createdAt);
-      comments = list;
+      comments = list.map(c => {
+        const facet = c.facetId ? globalFacetsStore.find(f => f.id === c.facetId) : null;
+        const isCommentOwner = Boolean(userFingerprint && userFingerprint === c.authorId);
+        let authorDisplayName = c.authorDisplayName;
+        let authorHandle = c.authorHandle;
+        let authorAvatarUrl = c.authorAvatarUrl;
+        let authorId = c.authorId;
+
+        if (c.facetId) {
+          if (!facet || facet.status === 'deleted') {
+            authorDisplayName = '[Deleted Context]';
+            authorHandle = undefined;
+            authorAvatarUrl = undefined;
+          } else {
+            authorDisplayName = facet.displayName || '[Deleted Context]';
+            authorHandle = facet.handle;
+            authorAvatarUrl = facet.avatarUrl;
+          }
+          if (!isCommentOwner && (!facet || !facet.isPubliclyLinked)) {
+            authorId = c.facetId;
+          }
+        }
+        return {
+          ...c,
+          authorDisplayName,
+          authorHandle,
+          authorAvatarUrl,
+          authorId,
+        };
+      });
     }
+
+    const isPrivate = Boolean(userFingerprint || callerFacetId);
 
     return new Response(
       JSON.stringify({
@@ -183,7 +325,17 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
         count: comments.length,
         comments,
       }),
-      { status: 200, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': isPrivate
+            ? 'private, no-cache, no-store, must-revalidate'
+            : 'public, max-age=5, stale-while-revalidate=15',
+          'Vary': 'Accept, Authorization, X-User-Fingerprint, X-Facet-Id',
+          ...CORS_HEADERS,
+        },
+      }
     );
   } catch (err: any) {
     return new Response(
@@ -240,9 +392,12 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
       return createD1UnavailableResponse();
     }
 
+    let postRecord: { id: string; author_id: string; channel_id: string; audience?: string; facet_id?: string } | null = null;
+
     if (db) {
-      const post = await db.prepare("SELECT id, author_id FROM posts WHERE id = ? AND status IN ('published', 'pinned')").bind(postId).first<{ id: string; author_id: string }>();
+      const post = await db.prepare("SELECT id, author_id, channel_id, audience, facet_id FROM posts WHERE id = ? AND status IN ('published', 'pinned')").bind(postId).first<any>();
       if (!post) return failure('Discussion not found', 404);
+      postRecord = post;
       if (parentId && !await db.prepare('SELECT id FROM comments WHERE id = ? AND post_id = ?').bind(parentId, postId).first()) return failure('Reply source is not in this discussion', 400);
 
       // Enforce user safety block check
@@ -262,7 +417,119 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
     } else {
       const post = globalPostsStore.find(post => post.id === postId && (!post.status || ['published', 'pinned'].includes(post.status)));
       if (!post) return failure('Discussion not found', 404);
+      postRecord = {
+        id: post.id,
+        author_id: post.authorFingerprint,
+        channel_id: post.channelId,
+        audience: post.audience,
+        facet_id: post.facetId,
+      };
       if (parentId && !globalCommentsStore.some(comment => comment.id === parentId && comment.postId === postId)) return failure('Reply source is not in this discussion', 400);
+    }
+
+    // Resolve and verify facet
+    let requestedFacetId = typeof payload.facetId === 'string' ? payload.facetId.trim() : '';
+    let authorDisplayName: string | undefined;
+    let authorHandle: string | undefined;
+    let authorAvatarUrl: string | undefined;
+
+    if (requestedFacetId) {
+      let facetRecord: any = null;
+      if (db) {
+        facetRecord = await db.prepare(
+          'SELECT id, owner_fingerprint, handle, display_name, avatar_url, status FROM facets WHERE id = ?'
+        ).bind(requestedFacetId).first();
+      } else {
+        facetRecord = globalFacetsStore.find(f => f.id === requestedFacetId);
+      }
+
+      const facetOwner = facetRecord?.owner_fingerprint || facetRecord?.ownerFingerprint;
+      if (!facetRecord || (facetOwner && facetOwner !== authorId)) {
+        return failure('You do not own the specified Facet', 403);
+      }
+
+      const facetStatus = facetRecord.status || 'active';
+      if (facetStatus === 'deleted' || facetStatus === 'deactivated') {
+        return failure('Cannot comment using an inactive or deleted Facet', 403);
+      }
+
+      authorDisplayName = facetRecord.display_name ?? facetRecord.displayName;
+      authorHandle = facetRecord.handle;
+      authorAvatarUrl = facetRecord.avatar_url ?? facetRecord.avatarUrl;
+    } else {
+      let defaultFacet: any = null;
+      if (db) {
+        defaultFacet = await db.prepare(
+          'SELECT id, handle, display_name, avatar_url, status FROM facets WHERE owner_fingerprint = ? AND is_default = 1'
+        ).bind(authorId).first();
+      } else {
+        defaultFacet = globalFacetsStore.find(f => f.ownerFingerprint === authorId && f.isDefault);
+      }
+      if (defaultFacet) {
+        requestedFacetId = defaultFacet.id;
+        authorDisplayName = defaultFacet.display_name ?? defaultFacet.displayName;
+        authorHandle = defaultFacet.handle;
+        authorAvatarUrl = defaultFacet.avatar_url ?? defaultFacet.avatarUrl;
+      }
+    }
+
+    // Cross-facet authorization: commenter facet must independently qualify for parent post audience
+    if (postRecord) {
+      const postAudience = postRecord.audience || 'public';
+      const postAuthorId = postRecord.author_id;
+      const postChannelId = postRecord.channel_id;
+      const postFacetId = postRecord.facet_id;
+
+      if (postAudience !== 'public' && postAuthorId !== authorId && (!postFacetId || postFacetId !== requestedFacetId)) {
+        let authorized = false;
+        if (postAudience === 'community') {
+          if (requestedFacetId) {
+            if (db) {
+              const mCheck = await db.prepare(
+                'SELECT 1 FROM facet_community_memberships WHERE community_id = ? AND facet_id = ? LIMIT 1'
+              ).bind(postChannelId, requestedFacetId).first();
+              authorized = Boolean(mCheck);
+            } else {
+              authorized = globalFacetMembersStore.some(m => m.communityId === postChannelId && m.facetId === requestedFacetId);
+            }
+          } else {
+            if (db) {
+              const mCheck = await db.prepare(
+                'SELECT 1 FROM community_members WHERE community_id = ? AND user_id = ? LIMIT 1'
+              ).bind(postChannelId, authorId).first();
+              authorized = Boolean(mCheck);
+            } else {
+              authorized = globalCommunityMembersStore.some(m => m.communityId === postChannelId && m.userId === authorId);
+            }
+          }
+          if (!authorized) {
+            return failure(`Facet is not an authorized member of community ${postChannelId}`, 403);
+          }
+        } else if (postAudience === 'followers') {
+          if (requestedFacetId) {
+            if (db) {
+              const fCheck = await db.prepare(
+                'SELECT 1 FROM facet_follows WHERE following_facet_id = ? AND follower_facet_id = ? LIMIT 1'
+              ).bind(postFacetId, requestedFacetId).first();
+              authorized = Boolean(fCheck);
+            } else {
+              authorized = globalFacetFollowsStore.some(ff => ff.followingFacetId === postFacetId && ff.followerFacetId === requestedFacetId);
+            }
+          } else {
+            if (db) {
+              const fCheck = await db.prepare(
+                'SELECT 1 FROM follows WHERE following_id = ? AND follower_id = ? LIMIT 1'
+              ).bind(postAuthorId, authorId).first();
+              authorized = Boolean(fCheck);
+            } else {
+              authorized = globalFollowsStore.some(f => f.followingId === postAuthorId && f.followerId === authorId);
+            }
+          }
+          if (!authorized) {
+            return failure('Only followers of this context can comment on this post', 403);
+          }
+        }
+      }
     }
 
     const commentId = `comm_${Date.now()}_${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID().slice(0, 8) : Date.now().toString(36)}`;
@@ -274,6 +541,10 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
       parentId,
       authorId,
       authorRole,
+      authorDisplayName,
+      authorHandle,
+      authorAvatarUrl,
+      facetId: requestedFacetId || undefined,
       content,
       meritVotes: 0,
       createdAt: now,
@@ -283,9 +554,9 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
     if (db) {
       await db.batch([
         db.prepare(
-          `INSERT INTO comments (id, post_id, parent_id, author_id, author_role, content, merit_votes, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, 0, ?)`
-        ).bind(commentId, postId, parentId || null, authorId, authorRole, content, now),
+          `INSERT INTO comments (id, post_id, parent_id, author_id, author_role, content, merit_votes, created_at, facet_id)
+           VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)`
+        ).bind(commentId, postId, parentId || null, authorId, authorRole, content, now, newComment.facetId || null),
         db.prepare('UPDATE posts SET reply_count = (SELECT COUNT(*) FROM comments WHERE post_id = ?) WHERE id = ?').bind(postId, postId),
       ]);
       if (syntheticMetadata) {

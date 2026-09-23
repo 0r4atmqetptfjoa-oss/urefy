@@ -79,6 +79,19 @@ export interface ClientNanopublication {
   createdAt: number;
 }
 
+export interface ClientFacet {
+  id: string;
+  handle: string;
+  displayName: string;
+  avatarUrl?: string;
+  bio?: string;
+  visibility: 'public' | 'contextual' | 'unlisted';
+  isDefault: boolean;
+  isPubliclyLinked: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
 export interface ClientPost {
   deliveryStatus?: 'sending' | 'failed';
   deliveryError?: string;
@@ -98,6 +111,11 @@ export interface ClientPost {
   replyCount: number;
   boostCount: number;
   userBoosted?: boolean;
+  facetId?: string;
+  facetHandle?: string;
+  facetDisplayName?: string;
+  facetAvatarUrl?: string;
+  audience?: 'public' | 'community' | 'followers';
   attachment?: {
     fileName: string;
     sha256: string;
@@ -180,6 +198,8 @@ export class AetherisClientStore {
   public messages: Map<string, ClientMessage[]> = new Map();
   public nanopublications: ClientNanopublication[] = [];
   public posts: ClientPost[] = [];
+  public facets: ClientFacet[] = [];
+  public activeFacetId: string | null = null;
   public members: CommunityMember[] = [];
   public toasts: ToastItem[] = [];
   public activeQuarantineAlert: QuarantineEvent | null = null;
@@ -387,6 +407,53 @@ export class AetherisClientStore {
 
   public loadDemoData(): void {
     this._populateDemoPostsAndMembers();
+  }
+
+  public getActiveFacet(): ClientFacet | null {
+    if (!this.activeFacetId && this.facets.length > 0) {
+      const def = this.facets.find(f => f.isDefault) || this.facets[0];
+      return def || null;
+    }
+    return this.facets.find(f => f.id === this.activeFacetId) || (this.facets[0] || null);
+  }
+
+  public setActiveFacet(facetId: string): void {
+    const found = this.facets.find(f => f.id === facetId);
+    if (found) {
+      this.activeFacetId = found.id;
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('urefy_active_facet_id', found.id);
+      }
+      void import('./feed-personalization.js').then(({ feedPersonalization }) => {
+        feedPersonalization.setFacetContext(found.id);
+      }).catch(() => {});
+      this.notify('facet:changed', found);
+    }
+  }
+
+  public async fetchFacets(): Promise<ClientFacet[]> {
+    try {
+      const res = await fetch(`/api/facets?userFingerprint=${encodeURIComponent(this.keypair.fingerprint)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.facets)) {
+          this.facets = data.facets;
+          const savedActive = typeof localStorage !== 'undefined' ? localStorage.getItem('urefy_active_facet_id') : null;
+          if (savedActive && this.facets.some(f => f.id === savedActive)) {
+            this.activeFacetId = savedActive;
+          } else {
+            const def = this.facets.find(f => f.isDefault) || this.facets[0];
+            this.activeFacetId = def?.id || null;
+          }
+          void import('./feed-personalization.js').then(({ feedPersonalization }) => {
+            feedPersonalization.setFacetContext(this.activeFacetId);
+          }).catch(() => {});
+          this.notify('facets:updated', this.facets);
+          return this.facets;
+        }
+      }
+    } catch {}
+    return this.facets;
   }
 
   private seedInitialPostsAndMembers(): void {
@@ -688,6 +755,9 @@ export class AetherisClientStore {
       // Offline / local mesh fallback
     }
 
+    // 3b. Sync Sovereign Facets from /api/facets
+    void this.fetchFacets();
+
     // 4. Sync Posts from /api/posts
     try {
       const res = await fetch('/api/posts?limit=100', { signal });
@@ -944,6 +1014,7 @@ export class AetherisClientStore {
     const randSuffix = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
       ? crypto.randomUUID().substring(0, 8)
       : Date.now().toString(36);
+    const facet = (post.facetId ? this.facets.find(f => f.id === post.facetId) : null) || this.getActiveFacet();
     const newPost: ClientPost = {
       id: `post-${Date.now()}-${randSuffix}`,
       channelId: post.channelId || this.activeChannelId,
@@ -963,6 +1034,11 @@ export class AetherisClientStore {
       quotedPost: post.quotedPost,
       createdAt: Date.now(),
       isExpanded: false,
+      facetId: post.facetId || facet?.id || undefined,
+      facetHandle: post.facetHandle || facet?.handle || undefined,
+      facetDisplayName: post.facetDisplayName || facet?.displayName || undefined,
+      facetAvatarUrl: post.facetAvatarUrl || facet?.avatarUrl || undefined,
+      audience: post.audience || 'public',
     };
     this.posts.unshift(newPost);
     localSearchIndex.indexPost(newPost);

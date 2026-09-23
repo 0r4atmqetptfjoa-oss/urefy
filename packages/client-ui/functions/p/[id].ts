@@ -21,10 +21,14 @@ export async function onRequestGet(context: {
   try { postId = params.id ? decodeURIComponent(params.id).trim() : ''; } catch { return seoError(404); }
 
   // 1. Fetch the static base HTML from Cloudflare Pages Assets
-  let baseResponse: Response;
+  let baseResponse: Response | null = null;
   try {
-    baseResponse = await (env as any)?.ASSETS?.fetch(new URL('/', request.url));
-  } catch (_) {
+    if ((env as any)?.ASSETS?.fetch) {
+      baseResponse = await (env as any).ASSETS.fetch(new URL('/', request.url));
+    }
+  } catch (_) {}
+
+  if (!baseResponse) {
     baseResponse = new Response('<!DOCTYPE html><html><head><title>UREfy</title></head><body><div id="app"></div></body></html>', {
       headers: { 'Content-Type': 'text/html; charset=utf-8' },
     });
@@ -47,9 +51,28 @@ export async function onRequestGet(context: {
       const row = await db
         .prepare(
           `SELECT p.id, p.title, p.content, p.flair, p.author_id, p.created_at,
-                  p.merit_votes, p.reply_count, p.images_json, p.status,
-                  u.display_name, u.handle
+                  p.merit_votes, p.reply_count, p.images_json, p.status, p.audience, p.facet_id,
+                  f.is_publicly_linked, f.status AS facet_status,
+                  CASE
+                    WHEN p.facet_id IS NOT NULL THEN (
+                      CASE
+                        WHEN f.status = 'deleted' THEN '[Deleted Context]'
+                        ELSE COALESCE(f.display_name, '[Deleted Context]')
+                      END
+                    )
+                    ELSE u.display_name
+                  END AS display_name,
+                  CASE
+                    WHEN p.facet_id IS NOT NULL THEN (
+                      CASE
+                        WHEN f.status = 'deleted' THEN NULL
+                        ELSE f.handle
+                      END
+                    )
+                    ELSE u.handle
+                  END AS handle
            FROM posts p
+           LEFT JOIN facets f ON p.facet_id = f.id
            LEFT JOIN user_profiles u ON p.author_id = u.user_id
            WHERE p.id = ?
              AND NOT EXISTS (SELECT 1 FROM synthetic_fixtures sf WHERE sf.resource_type = 'post' AND sf.resource_id = p.id)`
@@ -58,6 +81,7 @@ export async function onRequestGet(context: {
         .first<any>();
 
       if (row) {
+        if (row.audience && row.audience !== 'public') return seoError(404);
         if (row.status && !['published', 'pinned', 'locked', 'deleted'].includes(row.status)) return seoError(404);
         // Handle permanently deleted post -> HTTP 410 Gone
         if (row.status === 'deleted') {
@@ -71,12 +95,15 @@ export async function onRequestGet(context: {
           });
         }
 
+        const isLinked = row.is_publicly_linked === 1 || row.is_publicly_linked === true;
+        const authorId = (row.facet_id && !isLinked) ? row.facet_id : row.author_id;
+
         post = {
           id: row.id,
           title: row.title,
           content: row.content,
           flair: row.flair,
-          authorId: row.author_id,
+          authorId,
           authorName: row.display_name,
           authorHandle: row.handle,
           createdAt: Number(row.created_at) || Date.now(),
@@ -91,8 +118,28 @@ export async function onRequestGet(context: {
         try {
           const commentRows = await db
             .prepare(
-              `SELECT c.id, c.author_id, c.content, c.created_at, c.merit_votes, u.display_name, u.handle
+              `SELECT c.id, c.author_id, c.content, c.created_at, c.merit_votes, c.facet_id,
+                      f.is_publicly_linked, f.status AS facet_status,
+                      CASE
+                        WHEN c.facet_id IS NOT NULL THEN (
+                          CASE
+                            WHEN f.status = 'deleted' THEN '[Deleted Context]'
+                            ELSE COALESCE(f.display_name, '[Deleted Context]')
+                          END
+                        )
+                        ELSE u.display_name
+                      END AS display_name,
+                      CASE
+                        WHEN c.facet_id IS NOT NULL THEN (
+                          CASE
+                            WHEN f.status = 'deleted' THEN NULL
+                            ELSE f.handle
+                          END
+                        )
+                        ELSE u.handle
+                      END AS handle
                FROM comments c
+               LEFT JOIN facets f ON c.facet_id = f.id
                LEFT JOIN user_profiles u ON c.author_id = u.user_id
                WHERE c.post_id = ?
                ORDER BY c.merit_votes DESC, c.created_at ASC
@@ -102,15 +149,18 @@ export async function onRequestGet(context: {
             .all<any>();
 
           if (commentRows?.results) {
-            post.comments = commentRows.results.map((c: any) => ({
-              id: c.id,
-              authorId: c.author_id,
-              authorName: c.display_name,
-              authorHandle: c.handle,
-              content: c.content,
-              createdAt: Number(c.created_at) || Date.now(),
-              upvotes: Number(c.merit_votes) || 0,
-            }));
+            post.comments = commentRows.results.map((c: any) => {
+              const cLinked = c.is_publicly_linked === 1 || c.is_publicly_linked === true;
+              return {
+                id: c.id,
+                authorId: (c.facet_id && !cLinked) ? c.facet_id : c.author_id,
+                authorName: c.display_name,
+                authorHandle: c.handle,
+                content: c.content,
+                createdAt: Number(c.created_at) || Date.now(),
+                upvotes: Number(c.merit_votes) || 0,
+              };
+            });
           }
         } catch (_) {}
 

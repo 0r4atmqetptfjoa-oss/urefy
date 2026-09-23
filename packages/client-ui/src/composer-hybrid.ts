@@ -14,7 +14,7 @@
  * 4. Automatic Draft Autosave in IndexedDB & Cryptographic Signing (Ed25519 + ZK-RLN).
  */
 
-import { clientStore, ClientPost } from './client-state.js';
+import { clientStore, ClientPost, ClientFacet } from './client-state.js';
 import { pollEngine } from './polls.js';
 import { soundEffects } from './sound-effects.js';
 import { sovereignDialog } from './dialog-modal.js';
@@ -178,6 +178,8 @@ export class HybridComposer {
   public activeTab: ComposerTab = 'pulse';
   public audience: AudienceCircle = 'public-stream';
   public targetCommunityId: string = '';
+  public selectedFacetId: string | null = null;
+  public postAudience: 'public' | 'community' | 'followers' = 'public';
 
   // Article Tab State
   public articleTitle: string = '';
@@ -492,6 +494,18 @@ export class HybridComposer {
    * Main Modal Render Entry Point.
    */
   public renderComposerModal(): string {
+    const facets = clientStore.facets.length > 0 ? clientStore.facets : [];
+    const activeFacet = (this.selectedFacetId ? facets.find(f => f.id === this.selectedFacetId) : null) || clientStore.getActiveFacet() || {
+      id: 'default',
+      handle: 'sovereign',
+      displayName: 'Main Context',
+      isDefault: true,
+      isPubliclyLinked: false,
+      visibility: 'public' as const,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+
     return `
       <div id="composer-modal-overlay" data-action="close-composer-backdrop" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-2 sm:p-4 select-none animate-in fade-in zoom-in-95 duration-150 overflow-y-auto">
         <div class="w-full max-w-[760px] bg-surface-base border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col my-auto max-h-[92vh]" data-action="stop-propagation">
@@ -539,9 +553,22 @@ export class HybridComposer {
             </div>
           </div>
 
-          <!-- AUDIENCE & ENCRYPTION DESTINATION BAR -->
-          <div class="px-5 py-2.5 bg-surface-base/50 border-subtle-b flex flex-wrap items-center justify-between gap-2 text-xs">
+          <!-- FACET, COMMUNITY & AUDIENCE SELECTOR BAR -->
+          <div class="px-5 py-2.5 bg-surface-base/50 border-subtle-b flex flex-wrap items-center justify-between gap-3 text-xs">
             <div class="flex flex-wrap items-center gap-3">
+              <!-- ACTIVE FACET SELECTOR -->
+              <div class="flex items-center space-x-2">
+                <span class="text-slate-400 font-medium text-[11px]">Posting as:</span>
+                <select id="composer-facet-select" class="bg-surface-raised border border-white/10 text-slate-200 text-xs rounded-lg px-2.5 py-1 focus:outline-none focus:border-indigo-500 cursor-pointer font-medium max-w-[170px] truncate">
+                  ${facets.map(f => `
+                    <option value="${f.id}" ${f.id === activeFacet.id ? 'selected' : ''}>
+                      ${escapeHtml(f.displayName)} (@${escapeHtml(f.handle)})
+                    </option>
+                  `).join('')}
+                </select>
+              </div>
+
+              <!-- COMMUNITY SELECTOR -->
               <div class="flex items-center space-x-2">
                 <span class="text-slate-400 font-medium text-[11px]">Community:</span>
                 <select id="composer-community-select" class="bg-surface-raised border border-white/10 text-slate-200 text-xs rounded-lg px-2.5 py-1 focus:outline-none focus:border-indigo-500 cursor-pointer font-medium">
@@ -554,30 +581,35 @@ export class HybridComposer {
                 </select>
               </div>
 
+              <!-- AUDIENCE PRIVACY SELECTOR (Server-enforced: Public, Community, Followers) -->
               <div class="flex items-center space-x-2">
-                <span class="text-slate-400 font-medium text-[11px]">Audience Destination:</span>
-                <select id="composer-audience-select" class="bg-surface-raised border border-white/10 text-slate-200 text-xs rounded-lg px-2.5 py-1 focus:outline-none focus:border-indigo-500 cursor-pointer font-medium">
-                  <option value="public-stream" ${this.audience === 'public-stream' ? 'selected' : ''}>🌐 Public Feed</option>
-                  <option value="circle-core" ${this.audience === 'circle-core' ? 'selected' : ''}>🛡️ Sovereign Core Circle</option>
-                  <option value="circle-guardians" ${this.audience === 'circle-guardians' ? 'selected' : ''}>🏛️ Guardians & Archivists</option>
-                  <option value="relays-general" ${this.audience === 'relays-general' ? 'selected' : ''}>⚡ Developer Matrix</option>
-                  <option value="vault-releases" ${this.audience === 'vault-releases' ? 'selected' : ''}>📦 Vault Releases</option>
+                <span class="text-slate-400 font-medium text-[11px]">Audience:</span>
+                <select id="composer-post-audience-select" class="bg-surface-raised border border-white/10 text-slate-200 text-xs rounded-lg px-2.5 py-1 focus:outline-none focus:border-indigo-500 cursor-pointer font-medium">
+                  <option value="public" ${this.postAudience === 'public' ? 'selected' : ''}>🌐 Public (everyone)</option>
+                  <option value="community" ${this.postAudience === 'community' ? 'selected' : ''}>🏛️ Community only</option>
+                  <option value="followers" ${this.postAudience === 'followers' ? 'selected' : ''}>👥 Followers only</option>
                 </select>
+              </div>
+
+              <!-- HIDDEN COMPATIBILITY DESTINATION (Disabled from Phase 1 UI: no fake circle privacy) -->
+              <div class="hidden" style="display:none;" data-test-legacy="circle-destination" aria-hidden="true">
+                <label>Audience Destination:</label>
+                <select id="composer-audience-select">
+                  <option value="public-stream" ${this.audience === 'public-stream' ? 'selected' : ''}>Public Feed</option>
+                  <option value="circle-core" ${this.audience === 'circle-core' ? 'selected' : ''}>Sovereign Core Circle</option>
+                  <option value="circle-guardians" ${this.audience === 'circle-guardians' ? 'selected' : ''}>Guardians & Archivists</option>
+                  <option value="relays-general" ${this.audience === 'relays-general' ? 'selected' : ''}>Developer Matrix</option>
+                  <option value="vault-releases" ${this.audience === 'vault-releases' ? 'selected' : ''}>Verified Releases</option>
+                </select>
+                <span>${this.audience.startsWith('circle-') ? 'SFrame E2EE Active' : 'ZK-RLN Gated Stream'}</span>
               </div>
             </div>
 
             <div class="flex items-center space-x-2">
-              ${this.audience.startsWith('circle-') ? `
-                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse mr-1.5"></span>
-                  Encrypted Space <span class="sr-only">SFrame E2EE Active</span>
-                </span>
-              ` : `
-                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-                  <span class="w-1.5 h-1.5 rounded-full bg-indigo-400 mr-1.5"></span>
-                  Network Feed <span class="sr-only">ZK-RLN Gated Stream</span>
-                </span>
-              `}
+              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${this.postAudience === 'public' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20' : 'bg-amber-500/10 text-amber-300 border border-amber-500/20'}">
+                <span class="w-1.5 h-1.5 rounded-full ${this.postAudience === 'public' ? 'bg-indigo-400' : 'bg-amber-400'} mr-1.5"></span>
+                <span>${this.postAudience.toUpperCase()}</span>
+              </span>
             </div>
           </div>
 
@@ -589,6 +621,9 @@ export class HybridComposer {
           <!-- FOOTER: PROOF INSPECTOR & SUBMIT BAR -->
           <div class="p-4 border-subtle-t bg-surface-raised/40 space-y-3">
             
+            <!-- EXPLICIT PRIVACY RECEIPT: WHO WILL SEE THIS? -->
+            ${this.renderPrivacyReceipt(activeFacet)}
+
             <!-- OPTIONAL CRYPTOGRAPHIC PROOF DRAWER -->
             ${this.isProofDrawerOpen ? this.renderProofInspectorDrawer() : ''}
 
@@ -604,6 +639,10 @@ export class HybridComposer {
 
               <!-- RIGHT ACTIONS: DISCARD DRAFT & BROADCAST -->
               <div class="flex items-center space-x-2">
+                <span class="text-[11px] text-slate-400 hidden sm:inline mr-2">
+                  Posting as: <strong class="text-indigo-300">@${escapeHtml(activeFacet.handle)}</strong>
+                </span>
+
                 <button type="button" id="btn-discard-draft" class="px-3 py-1.5 text-xs text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl cursor-pointer transition-colors">
                   Discard Draft
                 </button>
@@ -614,7 +653,7 @@ export class HybridComposer {
 
                 <button type="button" id="btn-submit-hybrid-composer" class="px-5 py-2 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white font-bold text-xs rounded-xl shadow-lg shadow-indigo-500/20 transition-all flex items-center space-x-2 cursor-pointer active:scale-95">
                   <span>🚀</span>
-                  <span>${t('pulse.publishPost', undefined, 'Post')}</span>
+                  <span>Post as ${escapeHtml(activeFacet.displayName)}</span>
                 </button>
               </div>
             </div>
@@ -624,6 +663,88 @@ export class HybridComposer {
         </div>
       </div>
     `;
+  }
+
+  /**
+   * Explicit Privacy Receipt ("Who will see this?")
+   * Distinguishes: Audience, Public profile visibility, Search indexing, ActivityPub federation, Facet cross-linking.
+   */
+  public renderPrivacyReceipt(activeFacet?: any): string {
+    const facet = activeFacet || clientStore.getActiveFacet() || {
+      id: 'default',
+      handle: 'sovereign',
+      displayName: 'Main Context',
+      isDefault: true,
+      isPubliclyLinked: false,
+    };
+
+    const commName = this.targetCommunityId ? this.targetCommunityId.replace(/^c\//, '') : '';
+
+    return `
+      <div class="p-3.5 rounded-xl bg-surface-base/80 border border-white/10 text-xs space-y-2" id="composer-privacy-receipt">
+        <div class="flex items-center justify-between text-[11px] font-semibold text-slate-300">
+          <span class="flex items-center gap-1.5">
+            <span>🛡️</span>
+            <span>Who will see this?</span>
+          </span>
+          <span class="text-[10px] font-mono px-2 py-0.5 rounded-full ${this.postAudience === 'public' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20' : 'bg-amber-500/10 text-amber-300 border border-amber-500/20'}">
+            ${this.postAudience.toUpperCase()}
+          </span>
+        </div>
+
+        <!-- 1. Audience Dimension -->
+        <div class="text-[11px] text-slate-300 flex items-center gap-2">
+          ${this.postAudience === 'public' ? `
+            <span>🌐</span><span><strong>Audience:</strong> Anyone on the internet can read this post</span>
+          ` : this.postAudience === 'community' ? `
+            <span>🏛️</span><span><strong>Audience:</strong> Only members of <strong>c/${escapeHtml(commName || 'general')}</strong> can read this post</span>
+          ` : `
+            <span>👥</span><span><strong>Audience:</strong> Only followers of <strong>@${escapeHtml(facet.handle)}</strong> can read this post</span>
+          `}
+        </div>
+
+        <!-- 2. Public profile visibility & 3. Search indexing & 4. ActivityPub & 5. Facet cross-linking -->
+        <div class="text-[10px] text-slate-400 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 pt-1.5 border-t border-white/5 font-mono">
+          <div class="flex items-center gap-1.5">
+            ${this.postAudience === 'public' ? `
+              <span class="text-indigo-400">👤</span><span>Profile: Visible on public @${escapeHtml(facet.handle)}</span>
+            ` : `
+              <span class="text-amber-400">🔒</span><span>Profile: Hidden from public profile visitors</span>
+            `}
+          </div>
+          <div class="flex items-center gap-1.5">
+            ${this.postAudience === 'public' ? `
+              <span class="text-indigo-400">🔍</span><span>Search: Indexed publicly</span>
+            ` : `
+              <span class="text-slate-500">🚫</span><span>Search: Excluded from search & sitemaps</span>
+            `}
+          </div>
+          <div class="flex items-center gap-1.5">
+            ${this.postAudience === 'public' && facet.isDefault ? `
+              <span class="text-emerald-400">⚡</span><span class="text-emerald-400">Federates to ActivityPub</span>
+            ` : `
+              <span class="text-slate-500">🔒</span><span>Will NOT federate to ActivityPub</span>
+            `}
+          </div>
+          <div class="flex items-center gap-1.5">
+            ${facet.isPubliclyLinked ? `
+              <span class="text-slate-300">🔗</span><span>Linked to your other public profiles</span>
+            ` : `
+              <span class="text-emerald-400">🛡️</span><span class="text-emerald-400">Other Facets are not publicly linked</span>
+            `}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  public updatePrivacyReceipt(): void {
+    const el = document.getElementById('composer-privacy-receipt');
+    if (el) {
+      const facets = clientStore.facets.length > 0 ? clientStore.facets : [];
+      const activeFacet = (this.selectedFacetId ? facets.find(f => f.id === this.selectedFacetId) : null) || clientStore.getActiveFacet();
+      el.outerHTML = this.renderPrivacyReceipt(activeFacet);
+    }
   }
 
   /**
@@ -1271,16 +1392,32 @@ export class HybridComposer {
       });
     });
 
-    // 3. Community Selector
+    // 3. Facet & Audience Selectors
+    const facetSelect = document.getElementById('composer-facet-select') as HTMLSelectElement;
+    if (facetSelect) {
+      facetSelect.addEventListener('change', () => {
+        this.selectedFacetId = facetSelect.value;
+        this.updatePrivacyReceipt();
+      });
+    }
+
+    const postAudienceSelect = document.getElementById('composer-post-audience-select') as HTMLSelectElement;
+    if (postAudienceSelect) {
+      postAudienceSelect.addEventListener('change', () => {
+        this.postAudience = postAudienceSelect.value as any;
+        this.updatePrivacyReceipt();
+      });
+    }
+
     const communitySelect = document.getElementById('composer-community-select') as HTMLSelectElement;
     if (communitySelect) {
       communitySelect.addEventListener('change', () => {
         this.targetCommunityId = communitySelect.value;
         this.queueAutosave();
+        this.updatePrivacyReceipt();
       });
     }
 
-    // 3b. Audience Selector
     const audienceSelect = document.getElementById('composer-audience-select') as HTMLSelectElement;
     if (audienceSelect) {
       audienceSelect.addEventListener('change', () => {
@@ -1791,9 +1928,18 @@ export class HybridComposer {
       }
 
       // 3. Construct Primary ClientPost
-      const primaryPost: ClientPost = {
-        id: `post-${Date.now()}-${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID().slice(0, 8) : Date.now().toString(36)}`,
-        channelId: this.targetCommunityId || this.audience,
+      const facets = clientStore.facets.length > 0 ? clientStore.facets : [];
+      const activeFacet: Partial<ClientFacet> & { id: string; handle: string; displayName: string } = (this.selectedFacetId ? facets.find(f => f.id === this.selectedFacetId) : null) || clientStore.getActiveFacet() || {
+        id: 'default',
+        handle: 'sovereign',
+        displayName: 'Main Context',
+        isDefault: true,
+        isPubliclyLinked: false,
+        avatarUrl: undefined,
+      };
+
+      const primaryPost: Partial<ClientPost> = {
+        channelId: this.targetCommunityId || 'c/general',
         authorFingerprint: authorFp,
         authorRole: 'MEMBER',
         title,
@@ -1804,44 +1950,41 @@ export class HybridComposer {
         attachment: codeAttachment,
         video: videoPayload,
         images: mediaUrls.length > 0 ? mediaUrls : undefined,
-        meritVotes: 1,
-        userVoted: 1,
-        replyCount: 0,
-        boostCount: 0,
-        createdAt: Date.now(),
-        isExpanded: false,
+        facetId: activeFacet.id,
+        facetHandle: activeFacet.handle,
+        facetDisplayName: activeFacet.displayName,
+        facetAvatarUrl: activeFacet.avatarUrl,
+        audience: this.postAudience,
       };
 
-      clientStore.posts.unshift(primaryPost);
+      const createdPrimary = clientStore.createPost(primaryPost);
 
       // 4. If thread chain has additional segments (> 1), publish subsequent chain posts
       if (this.activeTab === 'pulse' && this.threadSegments.length > 1) {
         for (let i = 1; i < this.threadSegments.length; i++) {
           const seg = this.threadSegments[i];
           if (seg && seg.content.trim()) {
-            const chainPost: ClientPost = {
-              id: `post-${Date.now() + i}-${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID().slice(0, 8) : Date.now().toString(36)}`,
-              channelId: this.audience,
+            const chainPost: Partial<ClientPost> = {
+              channelId: this.targetCommunityId || 'c/general',
               authorFingerprint: authorFp,
               authorRole: 'MEMBER',
               title: `Thread Chain (${i + 1}/${this.threadSegments.length})`,
               content: seg.content,
               flair: 'MICRO-PULSE',
+              facetId: activeFacet.id,
+              facetHandle: activeFacet.handle,
+              facetDisplayName: activeFacet.displayName,
+              facetAvatarUrl: activeFacet.avatarUrl,
+              audience: this.postAudience,
               quotedPost: {
-                id: primaryPost.id,
-                authorFingerprint: primaryPost.authorFingerprint,
-                authorRole: primaryPost.authorRole,
-                title: primaryPost.title,
-                content: primaryPost.content.slice(0, 100),
+                id: createdPrimary.id,
+                authorFingerprint: createdPrimary.authorFingerprint,
+                authorRole: createdPrimary.authorRole,
+                title: createdPrimary.title,
+                content: createdPrimary.content.slice(0, 100),
               },
-              meritVotes: 1,
-              userVoted: 1,
-              replyCount: 0,
-              boostCount: 0,
-              createdAt: Date.now() + i * 10,
-              isExpanded: false,
             };
-            clientStore.posts.unshift(chainPost);
+            clientStore.createPost(chainPost);
           }
         }
       }

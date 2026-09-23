@@ -10,6 +10,11 @@ import {
   getD1Database,
   getKVStore,
   globalPostsStore,
+  globalFacetsStore,
+  globalFacetFollowsStore,
+  globalFacetMembersStore,
+  globalFollowsStore,
+  globalCommunityMembersStore,
   isProductionEnv,
   createD1UnavailableResponse,
 } from '../_db.js';
@@ -19,7 +24,7 @@ import { requireAdmin, requireSignedEnvelope } from '../_auth.js';
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-User-Fingerprint',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-User-Fingerprint, X-Facet-Id',
 };
 
 function escapeHtml(text: string): string {
@@ -85,14 +90,48 @@ export async function onRequestGet(context: {
     }
 
     // 2. Query D1 Database if not in KV
+    let d1Row: any = null;
     if (!post && db) {
       try {
         const stmt = db.prepare(
-          "SELECT * FROM posts WHERE id = ? AND status IN ('published', 'pinned')"
+          `SELECT posts.*,
+            CASE
+              WHEN posts.facet_id IS NOT NULL THEN (
+                CASE
+                  WHEN facets.status = 'deleted' THEN '[Deleted Context]'
+                  ELSE COALESCE(facets.display_name, '[Deleted Context]')
+                END
+              )
+              ELSE profiles.display_name
+            END AS author_display_name,
+            CASE
+              WHEN posts.facet_id IS NOT NULL THEN (
+                CASE
+                  WHEN facets.status = 'deleted' THEN NULL
+                  ELSE facets.handle
+                END
+              )
+              ELSE profiles.handle
+            END AS author_handle,
+            CASE
+              WHEN posts.facet_id IS NOT NULL THEN (
+                CASE
+                  WHEN facets.status = 'deleted' THEN NULL
+                  ELSE facets.avatar_url
+                END
+              )
+              ELSE profiles.avatar_url
+            END AS author_avatar_url,
+            facets.is_publicly_linked AS facet_is_publicly_linked,
+            facets.status AS facet_status
+           FROM posts
+           LEFT JOIN facets ON facets.id = posts.facet_id
+           LEFT JOIN user_profiles profiles ON profiles.user_id = posts.author_id
+           WHERE posts.id = ? AND posts.status IN ('published', 'pinned')`
         ).bind(postId);
-        const row = await stmt.first<any>();
-        if (row) {
-          post = parseD1PostRow(row);
+        d1Row = await stmt.first<any>();
+        if (d1Row) {
+          post = parseD1PostRow(d1Row);
         }
       } catch (dbError: any) {
         if (isProd) {
@@ -122,17 +161,127 @@ export async function onRequestGet(context: {
       );
     }
 
-    // Cache in KV for 60s
-    if (kv) {
-      try {
-        await kv.put(cacheKey, JSON.stringify(post), { expirationTtl: 60 });
-      } catch (_) {}
-    }
-
     const ua = context.request.headers.get('User-Agent') || '';
     const acceptHeader = context.request.headers.get('Accept') || '';
     const isCrawler = SOCIAL_CRAWLER_REGEX.test(ua);
     const isDirectBrowserVisit = acceptHeader.includes('text/html') && !acceptHeader.includes('application/json');
+
+    const callerFingerprint = (context.request.headers.get('X-User-Fingerprint') || '').trim();
+    const callerFacetId = (url.searchParams.get('facetId') || context.request.headers.get('X-Facet-Id') || '').trim();
+    const isOwner = Boolean(
+      (callerFingerprint && callerFingerprint === post.authorFingerprint) ||
+      (callerFacetId && callerFacetId === post.facetId)
+    );
+
+    // Enforce Audience Privacy
+    if (post.audience && post.audience !== 'public') {
+      // 1. Social Crawlers and Direct Browser HTML visits: zero private leaks!
+      if (isCrawler || isDirectBrowserVisit) {
+        return new Response('404 Not Found', { status: 404, headers: { 'Content-Type': 'text/plain' } });
+      }
+
+      // 2. Unauthenticated caller cannot see non-public posts
+      if (!callerFingerprint && !callerFacetId) {
+        return new Response(
+          JSON.stringify({ success: false, error: `Post not found: ${postId}` }),
+          { status: 404, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
+        );
+      }
+
+      // 3. Authenticated viewer authorization check
+      if (!isOwner) {
+        let authorized = false;
+        if (post.audience === 'community') {
+          if (callerFacetId) {
+            if (db) {
+              const memberCheck = await db.prepare(
+                'SELECT 1 FROM facet_community_memberships WHERE community_id = ? AND facet_id = ? LIMIT 1'
+              ).bind(post.channelId, callerFacetId).first();
+              authorized = Boolean(memberCheck);
+            } else {
+              authorized = globalFacetMembersStore.some(m => m.communityId === post.channelId && m.facetId === callerFacetId);
+            }
+          } else {
+            if (db) {
+              const memberCheck = await db.prepare(
+                `SELECT 1 FROM facet_community_memberships fcm
+                 JOIN facets f ON f.id = fcm.facet_id
+                 WHERE fcm.community_id = ? AND f.owner_fingerprint = ?
+                 UNION
+                 SELECT 1 FROM community_members WHERE community_id = ? AND user_id = ? LIMIT 1`
+              ).bind(post.channelId, callerFingerprint, post.channelId, callerFingerprint).first();
+              authorized = Boolean(memberCheck);
+            } else {
+              authorized = globalFacetMembersStore.some(m => {
+                if (m.communityId !== post.channelId) return false;
+                const f = globalFacetsStore.find(fac => fac.id === m.facetId);
+                return f && f.ownerFingerprint === callerFingerprint;
+              }) || globalCommunityMembersStore.some(m => m.communityId === post.channelId && m.userId === callerFingerprint);
+            }
+          }
+        } else if (post.audience === 'followers') {
+          if (callerFacetId) {
+            if (db) {
+              const followCheck = await db.prepare(
+                'SELECT 1 FROM facet_follows WHERE following_facet_id = ? AND follower_facet_id = ? LIMIT 1'
+              ).bind(post.facetId, callerFacetId).first();
+              authorized = Boolean(followCheck);
+            } else {
+              authorized = globalFacetFollowsStore.some(ff => ff.followingFacetId === post.facetId && ff.followerFacetId === callerFacetId);
+            }
+          } else {
+            if (db) {
+              const followCheck = await db.prepare(
+                `SELECT 1 FROM facet_follows ff
+                 JOIN facets f ON f.id = ff.follower_facet_id
+                 WHERE ff.following_facet_id = ? AND f.owner_fingerprint = ?
+                 UNION
+                 SELECT 1 FROM follows WHERE following_id = ? AND follower_id = ? LIMIT 1`
+              ).bind(post.facetId, callerFingerprint, post.authorFingerprint, callerFingerprint).first();
+              authorized = Boolean(followCheck);
+            } else {
+              authorized = globalFacetFollowsStore.some(ff => {
+                if (ff.followingFacetId !== post.facetId) return false;
+                const f = globalFacetsStore.find(fac => fac.id === ff.followerFacetId);
+                return f && f.ownerFingerprint === callerFingerprint;
+              }) || globalFollowsStore.some(f => f.followingId === post.authorFingerprint && f.followerId === callerFingerprint);
+            }
+          }
+        }
+
+        if (!authorized) {
+          return new Response(
+            JSON.stringify({ success: false, error: `Post not found: ${postId}` }),
+            { status: 404, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
+          );
+        }
+      }
+    }
+
+    // Public unlinkability sanitization
+    const sanitizedPost = { ...post };
+    if (sanitizedPost.facetId) {
+      const facet = globalFacetsStore.find(f => f.id === sanitizedPost.facetId);
+      if (d1Row?.facet_status === 'deleted' || facet?.status === 'deleted') {
+        sanitizedPost.authorDisplayName = '[Deleted Context]';
+        sanitizedPost.authorHandle = undefined;
+        sanitizedPost.authorAvatarUrl = undefined;
+      }
+    }
+    if (!isOwner) {
+      const isPubliclyLinked = (d1Row && d1Row.facet_is_publicly_linked === 1) ||
+        Boolean(globalFacetsStore.find(f => f.id === post!.facetId)?.isPubliclyLinked);
+      if (!isPubliclyLinked && sanitizedPost.facetId) {
+        sanitizedPost.authorFingerprint = sanitizedPost.facetId;
+      }
+    }
+
+    // Cache in KV for 60s (strictly public posts only)
+    if (kv && (!post.audience || post.audience === 'public')) {
+      try {
+        await kv.put(cacheKey, JSON.stringify(sanitizedPost), { expirationTtl: 60 });
+      } catch (_) {}
+    }
 
     // 4. Return Server-Rendered OpenGraph HTML for crawlers and direct browser visits
     if (isCrawler || isDirectBrowserVisit) {
@@ -231,17 +380,23 @@ export async function onRequestGet(context: {
     }
 
     // 5. Default: Return standard JSON EdgePost for client API fetches
+    const isPrivate = Boolean(
+      (post.audience && post.audience !== 'public') || callerFingerprint || callerFacetId
+    );
     return new Response(
       JSON.stringify({
         success: true,
-        post,
+        post: sanitizedPost,
       }),
       {
         status: 200,
         headers: {
           'Content-Type': 'application/json',
-          'Cache-Control': 'public, max-age=15, stale-while-revalidate=30',
-          'ETag': `W/"post-${post.id}-${post.createdAt}"`,
+          'Cache-Control': isPrivate
+            ? 'private, no-cache, no-store, must-revalidate'
+            : 'public, max-age=15, stale-while-revalidate=30',
+          'Vary': 'Accept, Authorization, X-User-Fingerprint, X-Facet-Id',
+          'ETag': `W/"post-${sanitizedPost.id}-${sanitizedPost.createdAt}"`,
           ...CORS_HEADERS,
         },
       }

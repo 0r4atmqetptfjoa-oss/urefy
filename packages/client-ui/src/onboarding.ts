@@ -1,12 +1,13 @@
 /**
  * @file onboarding.ts
  * @package @aetheris/client-ui
- * @description Narrative 4-Stage Progressive User Onboarding Flow for UREfy:
- *   Stage 0: Your Identity Belongs to You (Sovereign device-bound identity, no email/phone/password)
- *   Stage 1: Choose Your Interests (10 curated topics tailoring the cold-start feed)
- *   Stage 2: Discover Communities & People (1-click Join & Follow recommended creators/spaces)
- *   Stage 3: Save Your Recovery Key (12-Word BIP-39 Mnemonic Backup & Enter UREfy)
- * 100% functional, self-contained implementation with i18n support and zero external telemetry.
+ * @description Consumer-friendly, mobile-first 3-stage onboarding flow for UREfy:
+ *   Stage 1: Profile (Name, @handle, live preview, server-side validation & persistence)
+ *   Stage 2: Interests (12 curated topics, minimum 3, instant feed personalization)
+ *   Stage 3: Recovery (12-word master recovery phrase with anti-shoulder-surfing mask)
+ *
+ * 100% functional, self-contained implementation with authoritative state machine,
+ * refresh resilience, full keyboard accessibility, and zero external telemetry.
  */
 
 import './window-augmentation.js';
@@ -17,6 +18,12 @@ import { sovereignDialog } from './dialog-modal.js';
 import { sovereignCircleEngine } from './sovereign-circle.js';
 import { profileView } from './profile-view.js';
 import { feedPersonalization } from './feed-personalization.js';
+
+export type OnboardingStage =
+  | 'PROFILE_REQUIRED'
+  | 'INTERESTS_REQUIRED'
+  | 'RECOVERY_REQUIRED'
+  | 'ONBOARDING_COMPLETE';
 
 export interface OnboardingStep {
   stepIndex: number;
@@ -54,27 +61,29 @@ export interface StarterCreator {
 }
 
 export const ONBOARDING_INTERESTS: CuratedInterest[] = [
-  { id: 'tech', name: 'Technology', emoji: '🚀', tag: '#Technology', description: 'Computing, devices & innovations' },
-  { id: 'ai', name: 'Artificial Intelligence', emoji: '🤖', tag: '#ArtificialIntelligence', description: 'Local LLMs, neural models & ZK-AI' },
-  { id: 'gaming', name: 'Gaming', emoji: '🎮', tag: '#Gaming', description: 'Game engines, indie titles & speedruns' },
-  { id: 'dev', name: 'Software & Dev', emoji: '💻', tag: '#Software', description: 'TypeScript, Rust, web & open protocols' },
-  { id: 'privacy', name: 'Privacy & Security', emoji: '🛡️', tag: '#Privacy', description: 'Zero-knowledge, E2EE & digital sovereignty' },
-  { id: 'science', name: 'Science & Cosmos', emoji: '🔬', tag: '#Science', description: 'Physics, biology, aerospace & research' },
-  { id: 'creative', name: 'Creative Arts', emoji: '🎨', tag: '#Creative', description: 'Design, generative graphics & typography' },
-  { id: 'entertainment', name: 'Movies & Media', emoji: '🍿', tag: '#Entertainment', description: 'Cinema, media culture & community reviews' },
-  { id: 'hardware', name: 'Hardware & Gear', emoji: '⚙️', tag: '#Hardware', description: 'Silicon, SBCs, electronics & homelabs' },
-  { id: 'opensource', name: 'Open Source', emoji: '🌐', tag: '#OpenSource', description: 'Decentralized software, FOSS & public goods' },
+  { id: 'tech', name: 'Technology', emoji: '🚀', tag: '#Technology', description: 'Computing, devices & frontier tech' },
+  { id: 'ai', name: 'Artificial Intelligence', emoji: '🤖', tag: '#ArtificialIntelligence', description: 'Machine learning, autonomous models & local LLMs' },
+  { id: 'gaming', name: 'Gaming', emoji: '🎮', tag: '#Gaming', description: 'Game engines, indie titles & esports' },
+  { id: 'science', name: 'Science', emoji: '🔬', tag: '#Science', description: 'Cosmos, physics, biology & research' },
+  { id: 'art', name: 'Art', emoji: '🎨', tag: '#Art', description: 'Visual design, generative art & aesthetics' },
+  { id: 'photography', name: 'Photography', emoji: '📷', tag: '#Photography', description: 'Street, landscape, cameras & capture' },
+  { id: 'music', name: 'Music', emoji: '🎵', tag: '#Music', description: 'Production, audio, instruments & artists' },
+  { id: 'movies', name: 'Movies', emoji: '🍿', tag: '#Movies', description: 'Cinema, series, critiques & storytelling' },
+  { id: 'books', name: 'Books', emoji: '📚', tag: '#Books', description: 'Literature, philosophy, essays & writing' },
+  { id: 'travel', name: 'Travel', emoji: '🌍', tag: '#Travel', description: 'Exploration, cities, outdoors & geography' },
+  { id: 'local', name: 'Local', emoji: '🏙️', tag: '#Local', description: 'Community life, civic projects & places' },
+  { id: 'dev', name: 'Programming', emoji: '💻', tag: '#Programming', description: 'TypeScript, Rust, web & open protocols' },
+  { id: 'privacy', name: 'Privacy', emoji: '🛡️', tag: '#Privacy', description: 'Digital sovereignty, cryptography & freedom' },
 ];
 
+// Preserved for backwards compatibility with existing empty-states and tests
 export const STARTER_COMMUNITIES: StarterCommunity[] = [
   { id: 'technology', name: 'Technology', handle: 'c/technology', topic: 'tech', emoji: '🚀', badgeColor: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30', description: 'Discussions on computing, hardware & frontier tech.', members: 1420 },
-  { id: 'ai', name: 'Artificial Intelligence', handle: 'c/ai', topic: 'ai', emoji: '🤖', badgeColor: 'bg-purple-500/10 text-purple-400 border-purple-500/30', description: 'Machine learning, autonomous models & ZK-AI.', members: 980 },
   { id: 'gaming', name: 'Gaming', handle: 'c/gaming', topic: 'gaming', emoji: '🎮', badgeColor: 'bg-amber-500/10 text-amber-400 border-amber-500/30', description: 'Indie game development, engines & speedruns.', members: 1150 },
   { id: 'privacy', name: 'Privacy & Security', handle: 'c/privacy', topic: 'privacy', emoji: '🛡️', badgeColor: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30', description: 'Zero-knowledge proofs, encryption & sovereign rights.', members: 1640 },
   { id: 'developers', name: 'Developers', handle: 'c/developers', topic: 'dev', emoji: '💻', badgeColor: 'bg-sky-500/10 text-sky-400 border-sky-500/30', description: 'Architecture, clean code & decentralized systems.', members: 1310 },
   { id: 'science', name: 'Science', handle: 'c/science', topic: 'science', emoji: '🔬', badgeColor: 'bg-rose-500/10 text-rose-400 border-rose-500/30', description: 'Physics, biology, cosmos & peer review.', members: 760 },
-  { id: 'design', name: 'Creative Design', handle: 'c/design', topic: 'creative', emoji: '🎨', badgeColor: 'bg-fuchsia-500/10 text-fuchsia-400 border-fuchsia-500/30', description: 'Visual design, generative artwork & UI aesthetics.', members: 620 },
-  { id: 'general', name: 'General Lounge', handle: 'c/general', topic: 'opensource', emoji: '🌐', badgeColor: 'bg-slate-500/10 text-slate-300 border-slate-500/30', description: 'Open town square, introductions & daily conversations.', members: 2180 },
+  { id: 'general', name: 'General Lounge', handle: 'c/general', topic: 'general', emoji: '🌐', badgeColor: 'bg-slate-500/10 text-slate-300 border-slate-500/30', description: 'Open town square, introductions & daily conversations.', members: 2180 },
 ];
 
 export const STARTER_CREATORS: StarterCreator[] = [
@@ -84,44 +93,36 @@ export const STARTER_CREATORS: StarterCreator[] = [
 ];
 
 export class OnboardingWizard {
-  public currentStep: number = 0;
+  public stage: OnboardingStage = 'PROFILE_REQUIRED';
+  public currentStep: number = 0; // 0: Profile, 1: Interests, 2: Recovery
   public isOpen: boolean = false;
   public isCompleted: boolean = false;
+  public isLegacyProfileSetup: boolean = false;
   public seedSavedConfirmed: boolean = false;
+  public seedRevealed: boolean = false;
   public selectedInterests: Set<string> = new Set<string>();
   public displayName: string = '';
   public handle: string = '';
+  public avatar: string = '';
+  public isSaving: boolean = false;
+  public saveError: string = '';
+  public handleCheckState: 'idle' | 'checking' | 'available' | 'taken' | 'invalid' = 'idle';
+  public handleCheckMessage: string = '';
+  public showTechDetails: boolean = false;
 
+  public readonly STAGE_STORAGE_KEY = 'urefy_onboarding_stage';
   public readonly STORAGE_KEY = 'aetheris_onboarding_completed';
   private readonly LEGACY_STORAGE_KEY = 'aetheris_onboarding_done';
+  private readonly V4_STORAGE_KEY = 'aetheris_onboarding_completed_v4';
   private readonly INTERESTS_STORAGE_KEY = 'urefy_user_interests';
+  private readonly PROFILE_DRAFT_KEY = 'urefy_onboarding_profile_draft';
+
+  private checkHandleTimer: any = null;
 
   constructor() {
-    if (typeof window !== 'undefined' && window.localStorage) {
-      const stored = window.localStorage.getItem(this.STORAGE_KEY) || window.localStorage.getItem(this.LEGACY_STORAGE_KEY);
-      const restored = window.localStorage.getItem('aetheris_identity_restored') === 'true';
-      this.isCompleted = stored === 'true' || restored;
+    this.hydrateFromStorage();
 
-      // Hydrate saved interests
-      try {
-        const rawInterests = window.localStorage.getItem(this.INTERESTS_STORAGE_KEY);
-        if (rawInterests) {
-          const parsed = JSON.parse(rawInterests);
-          if (Array.isArray(parsed)) {
-            this.selectedInterests = new Set(parsed);
-          }
-        }
-      } catch {}
-    } else {
-      this.isCompleted = false;
-    }
-
-    // Automatically trigger onboarding for new users
-    if (!this.isCompleted) {
-      this.isOpen = true;
-    }
-
-    // Global window registration for inline HTML triggers
+    // Global registrations
     if (typeof window !== 'undefined') {
       (window as any).onboardingWizard = this;
     }
@@ -129,29 +130,255 @@ export class OnboardingWizard {
   }
 
   /**
+   * Authoritative hydration from localStorage with refresh resilience
+   */
+  public hydrateFromStorage(): void {
+    const storage = typeof window !== 'undefined' ? window.localStorage : (typeof localStorage !== 'undefined' ? localStorage : null);
+    if (!storage) {
+      this.isCompleted = false;
+      this.isOpen = true;
+      this.stage = 'PROFILE_REQUIRED';
+      this.currentStep = 0;
+      return;
+    }
+
+    const legacyCompleted =
+      storage.getItem(this.STORAGE_KEY) === 'true' ||
+      storage.getItem(this.LEGACY_STORAGE_KEY) === 'true' ||
+      storage.getItem(this.V4_STORAGE_KEY) === 'true';
+    const restored = storage.getItem('aetheris_identity_restored') === 'true';
+    const storedStage = storage.getItem(this.STAGE_STORAGE_KEY) as OnboardingStage | null;
+
+    // Hydrate interests
+    try {
+      const rawInterests = storage.getItem(this.INTERESTS_STORAGE_KEY);
+      if (rawInterests) {
+        const parsed = JSON.parse(rawInterests);
+        if (Array.isArray(parsed)) {
+          this.selectedInterests = new Set(parsed);
+        }
+      }
+    } catch {}
+
+    // Hydrate profile draft or active profile
+    const fp = this.getActiveFingerprint();
+    const cachedProfile = storage.getItem(`aetheris_profile_${fp}`);
+    let hasAuthoritativeProfile = false;
+    if (cachedProfile) {
+      try {
+        const p = JSON.parse(cachedProfile);
+        if (p?.name?.trim() && p?.handle?.trim() && !p.name.includes('not set up')) {
+          this.displayName = p.name;
+          this.handle = p.handle.replace(/^@/, '');
+          hasAuthoritativeProfile = true;
+        }
+      } catch {}
+    }
+
+    if (!hasAuthoritativeProfile) {
+      const draft = storage.getItem(this.PROFILE_DRAFT_KEY);
+      if (draft) {
+        try {
+          const d = JSON.parse(draft);
+          if (d.displayName) this.displayName = d.displayName;
+          if (d.handle) this.handle = d.handle;
+        } catch {}
+      }
+    }
+
+    // Determine state
+    if (storedStage === 'ONBOARDING_COMPLETE' || legacyCompleted || restored) {
+      this.isCompleted = true;
+      this.isOpen = false;
+      this.stage = 'ONBOARDING_COMPLETE';
+      return;
+    }
+
+    // New user with partial progress
+    this.isCompleted = false;
+    this.isOpen = true;
+    if (storedStage === 'INTERESTS_REQUIRED') {
+      this.stage = 'INTERESTS_REQUIRED';
+      this.currentStep = 1;
+    } else if (storedStage === 'RECOVERY_REQUIRED') {
+      this.stage = 'RECOVERY_REQUIRED';
+      this.currentStep = 2;
+    } else {
+      this.stage = 'PROFILE_REQUIRED';
+      this.currentStep = 0;
+    }
+  }
+
+  /**
+   * Minimal profile setup flow for legacy users who already completed sovereign identity
+   * but lack a public profile (name & handle).
+   */
+  public startProfileSetupOnly(): void {
+    this.isLegacyProfileSetup = true;
+    this.currentStep = 0;
+    this.stage = 'PROFILE_REQUIRED';
+    this.isOpen = true;
+    this.saveError = '';
+    this.syncUI();
+  }
+
+  private persistStage(): void {
+    const storage = typeof window !== 'undefined' ? window.localStorage : (typeof localStorage !== 'undefined' ? localStorage : null);
+    if (storage) {
+      storage.setItem(this.STAGE_STORAGE_KEY, this.stage);
+    }
+  }
+
+  private persistProfileDraft(): void {
+    const storage = typeof window !== 'undefined' ? window.localStorage : (typeof localStorage !== 'undefined' ? localStorage : null);
+    if (storage) {
+      storage.setItem(
+        this.PROFILE_DRAFT_KEY,
+        JSON.stringify({ displayName: this.displayName, handle: this.handle })
+      );
+    }
+  }
+
+  private persistInterests(): void {
+    const storage = typeof window !== 'undefined' ? window.localStorage : (typeof localStorage !== 'undefined' ? localStorage : null);
+    if (storage) {
+      storage.setItem(this.INTERESTS_STORAGE_KEY, JSON.stringify(Array.from(this.selectedInterests)));
+    }
+  }
+
+  /**
    * Opens onboarding modal from step 0
    */
   public start(): void {
     this.currentStep = 0;
+    this.stage = 'PROFILE_REQUIRED';
     this.isOpen = true;
     this.seedSavedConfirmed = false;
+    this.seedRevealed = false;
+    this.saveError = '';
+    this.persistStage();
     this.syncUI();
   }
 
   /**
-   * Advances to next step or finishes on the final step (4 steps: 0, 1, 2, 3)
+   * Main forward action for Continue buttons
    */
-  public next(): void {
-    if (this.currentStep === 0 && (!this.displayName.trim() || !/^[a-zA-Z0-9_]{3,30}$/.test(this.handle.replace(/^@/, '').trim()))) {
-      clientStore.showToast('Choose a display name and an @handle before continuing.', 'warning');
+  public async next(): Promise<void> {
+    if (this.currentStep === 0) {
+      await this.submitStep1();
       return;
     }
-    if (this.currentStep < 3) {
-      this.currentStep++;
-      this.syncUI();
-    } else {
-      this.finish();
+    if (this.currentStep === 1) {
+      this.submitStep2();
+      return;
     }
+    if (this.currentStep === 2) {
+      await this.finish();
+      return;
+    }
+  }
+
+  /**
+   * Step 1 Submit & Authoritative Server Save
+   */
+  public async submitStep1(): Promise<boolean> {
+    if (this.isSaving) return false;
+    this.saveError = '';
+
+    const cleanName = this.displayName.trim();
+    const cleanHandle = this.handle.trim().toLowerCase();
+
+    if (!cleanName || cleanName.length > 60) {
+      this.saveError = 'Please enter a display name (1–60 characters).';
+      this.syncUI();
+      return false;
+    }
+
+    if (!cleanHandle || !/^[a-z0-9_]{3,30}$/.test(cleanHandle)) {
+      this.saveError = 'Please choose a handle using 3–30 letters, numbers, and underscores.';
+      this.syncUI();
+      return false;
+    }
+
+    if (this.handleCheckState === 'taken') {
+      this.saveError = `@${cleanHandle} is already taken. Please choose another handle.`;
+      this.syncUI();
+      return false;
+    }
+
+    this.isSaving = true;
+    this.syncUI();
+
+    try {
+      const fp = this.getActiveFingerprint();
+      const saved = await profileView.saveProfile(fp, {
+        name: cleanName,
+        handle: cleanHandle,
+        avatar: this.avatar || undefined,
+        role: 'MEMBER',
+      });
+
+      if (!saved) {
+        this.isSaving = false;
+        this.saveError = "Couldn't save your profile. Please check your connection and try again.";
+        this.syncUI();
+        return false;
+      }
+
+      this.isSaving = false;
+      this.saveError = '';
+
+      if (this.isLegacyProfileSetup) {
+        await this.finish();
+        return true;
+      }
+
+      this.stage = 'INTERESTS_REQUIRED';
+      this.currentStep = 1;
+      this.persistStage();
+      this.syncUI();
+      return true;
+    } catch (err: any) {
+      this.isSaving = false;
+      this.saveError = err?.message || "Couldn't save your profile. Try again.";
+      this.syncUI();
+      return false;
+    }
+  }
+
+  /**
+   * Step 2 Submit
+   */
+  public submitStep2(): boolean {
+    if (this.selectedInterests.size < 3) {
+      this.saveError = 'Please choose at least 3 topics to tailor your feed (or tap Choose for me later).';
+      this.syncUI();
+      return false;
+    }
+    this.saveError = '';
+    this.stage = 'RECOVERY_REQUIRED';
+    this.currentStep = 2;
+    this.persistStage();
+    this.syncUI();
+    return true;
+  }
+
+  /**
+   * "Choose for me later" fallback for interests
+   */
+  public chooseInterestsLater(): void {
+    const defaults = ['tech', 'privacy', 'science'];
+    for (const d of defaults) {
+      this.selectedInterests.add(d);
+      const item = ONBOARDING_INTERESTS.find((i) => i.id === d);
+      if (item) feedPersonalization.setManualInterest(item.tag, 100);
+    }
+    this.persistInterests();
+    this.saveError = '';
+    this.stage = 'RECOVERY_REQUIRED';
+    this.currentStep = 2;
+    this.persistStage();
+    this.syncUI();
   }
 
   /**
@@ -160,12 +387,16 @@ export class OnboardingWizard {
   public previous(): void {
     if (this.currentStep > 0) {
       this.currentStep--;
+      if (this.currentStep === 0) this.stage = 'PROFILE_REQUIRED';
+      else if (this.currentStep === 1) this.stage = 'INTERESTS_REQUIRED';
+      this.saveError = '';
+      this.persistStage();
       this.syncUI();
     }
   }
 
   /**
-   * Toggles interest selection and immediately updates feed personalization
+   * Toggles interest selection
    */
   public toggleInterest(interestId: string): void {
     const item = ONBOARDING_INTERESTS.find((i) => i.id === interestId);
@@ -179,130 +410,118 @@ export class OnboardingWizard {
       feedPersonalization.setManualInterest(item.tag, 100);
     }
 
-    if (typeof window !== 'undefined' && window.localStorage) {
-      window.localStorage.setItem(this.INTERESTS_STORAGE_KEY, JSON.stringify(Array.from(this.selectedInterests)));
+    this.persistInterests();
+    this.saveError = '';
+    this.syncUI();
+  }
+
+  /**
+   * Updates display name with validation
+   */
+  public updateDisplayName(value: string): void {
+    this.displayName = value.slice(0, 60);
+    this.saveError = '';
+    this.persistProfileDraft();
+    this.syncUI();
+  }
+
+  /**
+   * Updates handle with canonical lowercase normalization & debounced availability check
+   */
+  public updateHandle(value: string): void {
+    const clean = value.replace(/^@/, '').toLowerCase().trim();
+    this.handle = clean;
+    this.saveError = '';
+    this.persistProfileDraft();
+
+    if (this.checkHandleTimer) {
+      clearTimeout(this.checkHandleTimer);
+      this.checkHandleTimer = null;
     }
 
-    this.syncUI();
-  }
-
-  /**
-   * 1-Click Join / Leave Starter Community
-   */
-  public toggleJoinCommunity(communityId: string): void {
-    try {
-      sovereignCircleEngine.toggleJoin(communityId);
-    } catch {}
-    this.syncUI();
-  }
-
-  /**
-   * 1-Click Follow / Unfollow Starter Creator
-   */
-  public toggleFollowCreator(fingerprint: string): void {
-    try {
-      profileView.toggleFollow(fingerprint);
-    } catch {}
-    this.syncUI();
-  }
-
-  /**
-   * Joins all recommended starter communities
-   */
-  public joinAllRecommended(): void {
-    for (const c of STARTER_COMMUNITIES) {
-      const circle = sovereignCircleEngine.findCircle(c.id);
-      if (circle && !circle.isJoined) {
-        try {
-          sovereignCircleEngine.toggleJoin(c.id);
-        } catch {}
-      }
-    }
-    clientStore.showToast('Joined all recommended starter communities!', 'success');
-    this.syncUI();
-  }
-
-  /**
-   * Skips onboarding
-   */
-  public async skip(): Promise<void> {
-    const cleanHandle = this.handle.replace(/^@/, '').trim();
-    if (!this.displayName.trim() || !/^[a-zA-Z0-9_]{3,30}$/.test(cleanHandle)) {
-      this.currentStep = 0;
+    if (!clean) {
+      this.handleCheckState = 'idle';
+      this.handleCheckMessage = '';
       this.syncUI();
-      clientStore.showToast('Choose your public name and @handle before leaving setup.', 'warning');
       return;
     }
-    if (this.currentStep === 3) {
-      const warningText = i18n.t(
-        'onboardingNarrative.step4Warning',
-        undefined,
-        'This 12-word phrase is the only way to recover your account. UREfy never holds your keys.'
-      );
-      const proceed = await sovereignDialog.confirm(`${warningText}\n\nAre you sure you want to skip without saving?`, {
-        title: 'Skip Key Backup',
-        confirmText: 'Skip Anyway',
-        destructive: true,
-      });
-      if (!proceed) return;
-    }
 
-    const saved = await profileView.saveProfile(clientStore.keypair.fingerprint, {
-      name: this.displayName.trim(),
-      handle: cleanHandle.toLowerCase(),
-      role: 'MEMBER',
-    });
-    if (!saved) return;
-    this.isOpen = false;
-    this.isCompleted = true;
-    if (typeof window !== 'undefined' && window.localStorage) {
-      window.localStorage.setItem(this.STORAGE_KEY, 'true');
-      window.localStorage.setItem(this.LEGACY_STORAGE_KEY, 'true');
-      window.localStorage.setItem('aetheris_onboarding_completed_v4', 'true');
-    }
-    this.syncUI();
-    this.triggerFeedRefresh();
-  }
-
-  /**
-   * Finishes wizard successfully and enters the feed
-   */
-  public async finish(): Promise<void> {
-    const cleanHandle = this.handle.replace(/^@/, '').trim().toLowerCase();
-    if (!this.displayName.trim() || !/^[a-zA-Z0-9_]{3,30}$/.test(cleanHandle)) {
-      this.currentStep = 0;
+    if (!/^[a-z0-9_]+$/.test(clean)) {
+      this.handleCheckState = 'invalid';
+      this.handleCheckMessage = 'Use letters, numbers and underscores';
       this.syncUI();
-      clientStore.showToast('Finish your public profile before entering UREfy.', 'warning');
       return;
     }
-    const saved = await profileView.saveProfile(clientStore.keypair.fingerprint, {
-      name: this.displayName.trim(),
-      handle: cleanHandle,
-      role: 'MEMBER',
-    });
-    if (!saved) return;
-    this.isOpen = false;
-    this.isCompleted = true;
-    const storage = (typeof window !== 'undefined' && window.localStorage) ? window.localStorage : (typeof localStorage !== 'undefined' ? localStorage : null);
-    if (storage) {
-      storage.setItem(this.STORAGE_KEY, 'true');
-      storage.setItem(this.LEGACY_STORAGE_KEY, 'true');
-      storage.setItem('aetheris_onboarding_completed_v4', 'true');
-    }
-    this.syncUI();
-    this.triggerFeedRefresh();
-  }
 
-  private triggerFeedRefresh(): void {
-    if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+    if (clean.length < 3 || clean.length > 30) {
+      this.handleCheckState = 'invalid';
+      this.handleCheckMessage = 'Must be between 3 and 30 characters';
+      this.syncUI();
+      return;
+    }
+
+    this.handleCheckState = 'checking';
+    this.handleCheckMessage = 'Checking availability...';
+    this.syncUI();
+
+    this.checkHandleTimer = setTimeout(async () => {
       try {
-        window.dispatchEvent(new CustomEvent('aetheris:onboarding:completed'));
-        window.dispatchEvent(new CustomEvent('aetheris:feed-refresh'));
-      } catch {}
-    }
-    if (clientStore && typeof clientStore.notify === 'function') {
-      clientStore.notify('FEED_CHANGE');
-    }
+        const res = await fetch(`/api/profiles?handle=${encodeURIComponent(clean)}`);
+        if (this.handle !== clean) return;
+        if (res.status === 404) {
+          this.handleCheckState = 'available';
+          this.handleCheckMessage = `✓ @${clean} is available`;
+        } else if (res.ok) {
+          const data = (await res.json().catch(() => null)) as any;
+          const myFp = this.getActiveFingerprint();
+          if (data?.profile && data.profile.userId !== myFp) {
+            this.handleCheckState = 'taken';
+            this.handleCheckMessage = `@${clean} is already taken`;
+          } else {
+            this.handleCheckState = 'available';
+            this.handleCheckMessage = `✓ @${clean} is available`;
+          }
+        } else {
+          this.handleCheckState = 'available';
+          this.handleCheckMessage = `✓ @${clean} is available`;
+        }
+      } catch (_) {
+        if (this.handle === clean) {
+          this.handleCheckState = 'available';
+          this.handleCheckMessage = `✓ @${clean} is available`;
+        }
+      }
+      this.syncUI();
+    }, 250);
+  }
+
+  /**
+   * Helper check if Step 1 inputs are valid for Continue button
+   */
+  public isStep1Valid(): boolean {
+    const cleanName = this.displayName.trim();
+    const cleanHandle = this.handle.trim().toLowerCase();
+    return (
+      cleanName.length >= 1 &&
+      cleanName.length <= 60 &&
+      /^[a-z0-9_]{3,30}$/.test(cleanHandle) &&
+      this.handleCheckState !== 'taken' &&
+      this.handleCheckState !== 'invalid' &&
+      !this.isSaving
+    );
+  }
+
+  public canSkip(): boolean {
+    // Only allow skipping if display name and handle have already been saved
+    return this.currentStep > 0 || this.isStep1Valid();
+  }
+
+  /**
+   * Toggle seed phrase reveal/blur
+   */
+  public toggleRevealSeed(): void {
+    this.seedRevealed = !this.seedRevealed;
+    this.syncUI();
   }
 
   /**
@@ -313,19 +532,22 @@ export class OnboardingWizard {
     if (!mnemonic) return;
 
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
-      navigator.clipboard.writeText(mnemonic).then(() => {
-        this.seedSavedConfirmed = true;
-        this.syncUI();
-        const copyBtn = document.getElementById('btn-copy-seed-words');
-        if (copyBtn) {
-          copyBtn.innerHTML = '<span>✓</span><span>Copied!</span>';
-          setTimeout(() => {
-            if (copyBtn) copyBtn.innerHTML = '<span>📋</span><span>Copy Words</span>';
-          }, 2500);
-        }
-      }).catch(() => {
-        this.fallbackCopyText(mnemonic);
-      });
+      navigator.clipboard
+        .writeText(mnemonic)
+        .then(() => {
+          this.seedSavedConfirmed = true;
+          this.syncUI();
+          const copyBtn = document.getElementById('btn-copy-seed-words');
+          if (copyBtn) {
+            copyBtn.innerHTML = '<span>✓</span><span>Copied!</span>';
+            setTimeout(() => {
+              if (copyBtn) copyBtn.innerHTML = '<span>📋</span><span>Copy recovery phrase</span>';
+            }, 2500);
+          }
+        })
+        .catch(() => {
+          this.fallbackCopyText(mnemonic);
+        });
     } else {
       this.fallbackCopyText(mnemonic);
     }
@@ -390,32 +612,158 @@ export class OnboardingWizard {
 
   public toggleSeedConfirmation(checked: boolean): void {
     this.seedSavedConfirmed = checked;
-    const btn = document.getElementById('btn-onboarding-finish');
-    if (btn) {
-      if (checked) {
-        btn.classList.remove('opacity-50', 'pointer-events-none');
-      } else {
-        btn.classList.add('opacity-50', 'pointer-events-none');
+    this.syncUI();
+  }
+
+  public toggleTechDetails(): void {
+    this.showTechDetails = !this.showTechDetails;
+    this.syncUI();
+  }
+
+  /**
+   * Legacy & empty-states stub methods to prevent undefined errors
+   */
+  public toggleJoinCommunity(communityId: string): void {
+    try {
+      sovereignCircleEngine.toggleJoin(communityId);
+    } catch {}
+    this.syncUI();
+  }
+
+  public toggleFollowCreator(fingerprint: string): void {
+    try {
+      profileView.toggleFollow(fingerprint);
+    } catch {}
+    this.syncUI();
+  }
+
+  public joinAllRecommended(): void {
+    for (const c of STARTER_COMMUNITIES) {
+      const circle = sovereignCircleEngine.findCircle(c.id);
+      if (circle && !circle.isJoined) {
+        try {
+          sovereignCircleEngine.toggleJoin(c.id);
+        } catch {}
       }
+    }
+    clientStore.showToast('Joined starter communities', 'success');
+    this.syncUI();
+  }
+
+  /**
+   * Skips onboarding
+   */
+  public async skip(): Promise<void> {
+    const cleanHandle = this.handle.replace(/^@/, '').trim().toLowerCase();
+    const cleanName = this.displayName.trim();
+
+    if (!cleanName || !/^[a-z0-9_]{3,30}$/.test(cleanHandle)) {
+      this.currentStep = 0;
+      this.stage = 'PROFILE_REQUIRED';
+      this.saveError = 'Choose your display name and @handle before leaving setup.';
+      this.syncUI();
+      return;
+    }
+
+    if (this.currentStep === 2) {
+      const warningText = i18n.t(
+        'onboardingNarrative.step4Warning',
+        undefined,
+        'This 12-word phrase is the only way to recover your account if you change devices.'
+      );
+      const proceed = await sovereignDialog.confirm(
+        `${warningText}\n\nAre you sure you want to skip without saving your recovery phrase?`,
+        {
+          title: 'Skip Key Backup',
+          confirmText: 'Skip Anyway',
+          destructive: true,
+        }
+      );
+      if (!proceed) return;
+    }
+
+    await this.finish();
+  }
+
+  /**
+   * Finishes wizard successfully and enters the feed
+   */
+  public async finish(): Promise<void> {
+    const cleanName = this.displayName.trim();
+    const cleanHandle = this.handle.trim().toLowerCase();
+
+    if (!cleanName || !/^[a-z0-9_]{3,30}$/.test(cleanHandle)) {
+      this.currentStep = 0;
+      this.stage = 'PROFILE_REQUIRED';
+      this.saveError = 'Choose your public name and @handle before entering UREfy.';
+      this.syncUI();
+      return;
+    }
+
+    const fp = this.getActiveFingerprint();
+    const profile = profileView.getProfile(fp);
+    if (!profile.name || !profile.handle || profile.name !== cleanName || profile.handle !== cleanHandle) {
+      const saved = await profileView.saveProfile(fp, {
+        name: cleanName,
+        handle: cleanHandle,
+        avatar: this.avatar || undefined,
+        role: 'MEMBER',
+      });
+      if (!saved) {
+        this.saveError = "Couldn't save your profile before entering. Please try again.";
+        this.syncUI();
+        return;
+      }
+    }
+
+    this.isOpen = false;
+    this.isCompleted = true;
+    this.stage = 'ONBOARDING_COMPLETE';
+
+    const storage = typeof window !== 'undefined' ? window.localStorage : (typeof localStorage !== 'undefined' ? localStorage : null);
+    if (storage) {
+      storage.setItem(this.STAGE_STORAGE_KEY, 'ONBOARDING_COMPLETE');
+      storage.setItem(this.STORAGE_KEY, 'true');
+      storage.setItem(this.LEGACY_STORAGE_KEY, 'true');
+      storage.setItem(this.V4_STORAGE_KEY, 'true');
+      storage.removeItem(this.PROFILE_DRAFT_KEY);
+    }
+
+    if (typeof document !== 'undefined') {
+      document.body.classList.remove('overflow-hidden');
+      const overlay = document.getElementById('aetheris-onboarding-overlay');
+      if (overlay) {
+        overlay.classList.add('fade-out');
+        setTimeout(() => overlay.remove(), 150);
+      }
+    }
+
+    this.syncUI();
+    this.triggerFeedRefresh();
+
+    if (typeof window !== 'undefined' && window.location) {
+      if ((window.location.hash || '').startsWith('#onboarding')) {
+        window.history?.replaceState(null, '', window.location.pathname || '/');
+      }
+      setTimeout(() => {
+        const mainEl = document.getElementById('main-feed') || document.querySelector('main') || document.getElementById('app');
+        if (mainEl && typeof (mainEl as HTMLElement).focus === 'function') {
+          (mainEl as HTMLElement).focus();
+        }
+      }, 100);
     }
   }
 
-  public updateDisplayName(value: string): void {
-    this.displayName = value.slice(0, 60);
-    this.updateIdentityPreview();
-  }
-
-  public updateHandle(value: string): void {
-    this.handle = value.replace(/^@/, '').replace(/[^a-zA-Z0-9_]/g, '').slice(0, 30);
-    this.updateIdentityPreview();
-  }
-
-  private updateIdentityPreview(): void {
-    if (typeof document === 'undefined') return;
-    const name = document.getElementById('onboarding-identity-preview-name');
-    const handle = document.getElementById('onboarding-identity-preview-handle');
-    if (name) name.textContent = this.displayName.trim() || 'Your display name';
-    if (handle) handle.textContent = this.handle.trim() ? `@${this.handle}` : '@your_handle';
+  private triggerFeedRefresh(): void {
+    if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+      try {
+        window.dispatchEvent(new CustomEvent('aetheris:onboarding:completed'));
+        window.dispatchEvent(new CustomEvent('aetheris:feed-refresh'));
+      } catch {}
+    }
+    if (clientStore && typeof clientStore.notify === 'function') {
+      clientStore.notify('FEED_CHANGE');
+    }
   }
 
   private getActiveMnemonic(): string {
@@ -450,383 +798,362 @@ export class OnboardingWizard {
   }
 
   // =========================================================================
-  // 4 STAGES DEFINITION
+  // 3-STAGE NARRATIVE DEFINITIONS
   // =========================================================================
 
   /**
-   * Step 0: 🌱 Identitatea ta îți aparține / Your Identity Belongs to You
+   * Step 1: Profile (Name, @handle, live preview)
    */
-  private renderStep1Identity(myFingerprint: string): string {
-    const title = i18n.t('onboardingNarrative.step1Title', undefined, 'Your Identity Belongs to You');
-    const subtitle = i18n.t('onboardingNarrative.step1Subtitle', undefined, 'Self-sovereignty from the very first second');
-    const body = i18n.t(
-      'onboardingNarrative.step1Body',
-      undefined,
-      'Create a private identity in seconds. No email, phone number, or password is required, and your account stays under your control.'
-    );
+  private renderStep1Profile(): string {
+    const title = 'Create your UREfy profile';
+    const subtitle = 'This is how other people will see you.';
+    const cleanHandle = this.handle.trim();
+    const cleanName = this.displayName.trim();
 
     return `
-      <div class="space-y-5 animate-in fade-in slide-in-from-right-4 duration-300">
+      <div class="space-y-5 animate-in fade-in duration-200">
         <!-- Step Header -->
-        <div class="flex items-start space-x-4 border-b border-white/5 pb-4">
-          <div class="w-12 h-12 rounded-2xl bg-[var(--color-accent,#e59b3c)]/10 border border-[var(--color-accent,#e59b3c)]/30 flex items-center justify-center text-[var(--color-accent,#e59b3c)] text-2xl shrink-0">
-            🌱
+        <div class="flex items-start space-x-3.5 border-b border-white/5 pb-3">
+          <div class="w-10 h-10 rounded-xl bg-[var(--color-accent,#e89e38)]/10 border border-[var(--color-accent,#e89e38)]/30 flex items-center justify-center text-[var(--color-accent,#e89e38)] text-xl shrink-0">
+            👤
           </div>
-          <div class="space-y-1">
-            <div class="flex items-center space-x-2">
-              <h3 class="text-xl font-bold text-white tracking-wide">${title}</h3>
-              <span class="text-[10px] px-2.5 py-0.5 rounded-full bg-white/5 text-slate-300 border border-white/10 font-medium">Private by design</span>
-            </div>
+          <div class="space-y-0.5">
+            <h3 class="text-lg font-bold text-white tracking-wide">${title}</h3>
             <p class="text-xs text-slate-400 font-sans">${subtitle}</p>
           </div>
         </div>
 
-        <!-- Narrative Explanation -->
-        <p class="text-sm text-slate-200 leading-relaxed bg-surface-base/60 p-4 rounded-xl border border-white/5 font-sans">
-          ${body}
-        </p>
+        <!-- Public Profile Form -->
+        <form id="onboarding-profile-form" onsubmit="event.preventDefault(); window.onboardingWizard && window.onboardingWizard.next();" class="space-y-4">
+          <div class="space-y-3">
+            <div>
+              <label for="onboarding-display-name" class="block text-xs font-medium text-slate-300 mb-1.5">
+                Display name <span class="text-rose-400">*</span>
+              </label>
+              <input
+                id="onboarding-display-name"
+                type="text"
+                data-input="call-global"
+                data-global-method="onboardingWizard.updateDisplayName"
+                value="${this.escapeHtml(this.displayName)}"
+                maxlength="60"
+                autocomplete="name"
+                placeholder="Your name"
+                class="w-full rounded-xl bg-surface-raised border border-white/10 px-3.5 py-2.5 text-sm text-white placeholder:text-slate-500 placeholder:italic focus:border-[var(--color-accent,#e89e38)] focus:ring-1 focus:ring-[var(--color-accent,#e89e38)] outline-none transition-all"
+                onfocus="this.scrollIntoView({ behavior: 'smooth', block: 'center' })"
+              />
+            </div>
 
-        <!-- 3 Pillars of Identity Flat Rows -->
-        <div class="space-y-2">
-          <div class="p-3 rounded-xl bg-surface-base border border-white/5 flex items-center gap-3.5">
-            <div class="w-8 h-8 rounded-lg bg-surface-raised border border-white/10 flex items-center justify-center text-sm shrink-0">🛡️</div>
-            <div class="min-w-0 flex-1">
-              <div class="text-xs font-bold text-white">No password or phone needed</div>
-              <p class="text-[11px] text-slate-400 leading-normal">Your browser holds your cryptographic keys safely on this device.</p>
+            <div>
+              <label for="onboarding-handle" class="block text-xs font-medium text-slate-300 mb-1.5">
+                Handle <span class="text-rose-400">*</span>
+              </label>
+              <div class="flex items-center rounded-xl bg-surface-raised border border-white/10 px-3.5 py-0.5 focus-within:border-[var(--color-accent,#e89e38)] focus-within:ring-1 focus-within:ring-[var(--color-accent,#e89e38)] transition-all">
+                <span class="text-slate-500 font-mono text-sm select-none">@</span>
+                <input
+                  id="onboarding-handle"
+                  type="text"
+                  data-input="call-global"
+                  data-global-method="onboardingWizard.updateHandle"
+                  value="${this.escapeHtml(this.handle)}"
+                  maxlength="30"
+                  pattern="[a-zA-Z0-9_]{3,30}"
+                  autocomplete="username"
+                  placeholder="yourname"
+                  class="min-w-0 flex-1 bg-transparent px-1.5 py-2 text-sm text-white font-mono placeholder:text-slate-500 placeholder:italic outline-none"
+                  onfocus="this.scrollIntoView({ behavior: 'smooth', block: 'center' })"
+                />
+              </div>
+
+              <!-- Handle inline validation & availability -->
+              <div class="mt-1.5 min-h-[18px]">
+                ${
+                  this.handleCheckState === 'checking'
+                    ? `<span class="text-[11px] text-slate-400 flex items-center gap-1 font-sans"><svg class="animate-spin h-3 w-3 text-slate-400" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> Checking availability...</span>`
+                    : this.handleCheckState === 'available'
+                      ? `<span class="text-[11px] text-emerald-400 font-mono font-medium">${this.escapeHtml(this.handleCheckMessage)}</span>`
+                      : this.handleCheckState === 'taken'
+                        ? `<span class="text-[11px] text-rose-400 font-mono font-medium">${this.escapeHtml(this.handleCheckMessage)}</span>`
+                        : this.handleCheckState === 'invalid'
+                          ? `<span class="text-[11px] text-amber-300 font-sans">${this.escapeHtml(this.handleCheckMessage)}</span>`
+                          : `<span class="text-[11px] text-slate-500 font-sans">Use 3–30 letters, numbers, and underscores</span>`
+                }
+              </div>
             </div>
           </div>
-          <div class="p-3 rounded-xl bg-surface-base border border-white/5 flex items-center gap-3.5">
-            <div class="w-8 h-8 rounded-lg bg-surface-raised border border-white/10 flex items-center justify-center text-sm shrink-0">🔒</div>
+
+          <!-- Live Profile Preview Card -->
+          <div class="rounded-xl border border-white/10 bg-surface-base/80 p-3 flex items-center gap-3 shadow-inner">
+            <div class="w-11 h-11 rounded-full bg-[var(--color-accent,#e89e38)]/15 border border-[var(--color-accent,#e89e38)]/30 flex items-center justify-center text-[var(--color-accent,#e89e38)] font-bold text-sm shrink-0 select-none">
+              ${cleanName ? cleanName.charAt(0).toUpperCase() : '👤'}
+            </div>
             <div class="min-w-0 flex-1">
-              <div class="text-xs font-bold text-white">Encrypted &amp; Tracker-Free</div>
-              <p class="text-[11px] text-slate-400 leading-normal">Your posts and private messages are encrypted client-side. Zero corporate profiling.</p>
+              <span class="block text-[9px] uppercase tracking-wider text-slate-400 font-mono">Live profile preview</span>
+              <strong id="onboarding-identity-preview-name" class="block text-sm truncate ${cleanName ? 'text-white' : 'text-slate-500 italic font-normal'}">
+                ${cleanName ? this.escapeHtml(cleanName) : 'Your display name'}
+              </strong>
+              <span id="onboarding-identity-preview-handle" class="block text-xs font-mono truncate ${cleanHandle ? 'text-[var(--color-accent,#e89e38)]' : 'text-slate-500 italic'}">
+                ${cleanHandle ? `@${this.escapeHtml(cleanHandle)}` : '@yourname'}
+              </span>
             </div>
           </div>
-          <div class="p-3 rounded-xl bg-surface-base border border-white/5 flex items-center gap-3.5">
-            <div class="w-8 h-8 rounded-lg bg-surface-raised border border-white/10 flex items-center justify-center text-sm shrink-0">🌐</div>
-            <div class="min-w-0 flex-1">
-              <div class="text-xs font-bold text-white">Portable Identity</div>
-              <p class="text-[11px] text-slate-400 leading-normal">Recover on another device with your 12-word recovery phrase. A passkey can unlock this device, but it does not replace your recovery phrase.</p>
+
+          <!-- Inline Error if Save Failed -->
+          ${
+            this.saveError
+              ? `
+            <div class="p-3 rounded-xl bg-rose-950/40 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2" role="alert" aria-live="polite">
+              <span class="text-sm shrink-0">⚠️</span>
+              <span class="font-sans leading-relaxed">${this.escapeHtml(this.saveError)}</span>
             </div>
+          `
+              : ''
+          }
+        </form>
+
+        <!-- Human Benefits Flat Rows (Zero Jargon) -->
+        <div class="space-y-1.5 pt-1">
+          <div class="px-3 py-2 rounded-lg bg-white/[0.02] border border-white/5 flex items-center gap-3">
+            <span class="text-sm">🛡️</span>
+            <span class="text-xs text-slate-300">No email, phone number, or password required.</span>
+          </div>
+          <div class="px-3 py-2 rounded-lg bg-white/[0.02] border border-white/5 flex items-center gap-3">
+            <span class="text-sm">🔑</span>
+            <span class="text-xs text-slate-300">You own your identity — no corporate account locks.</span>
+          </div>
+          <div class="px-3 py-2 rounded-lg bg-white/[0.02] border border-white/5 flex items-center gap-3">
+            <span class="text-sm">🔒</span>
+            <span class="text-xs text-slate-300">Private by design — encrypted device storage.</span>
           </div>
         </div>
 
-        <section class="rounded-2xl border border-white/10 bg-surface-base p-4 space-y-3" aria-labelledby="public-profile-setup-title">
-          <div><h4 id="public-profile-setup-title" class="text-sm font-bold text-white">Choose your public identity</h4><p class="text-[11px] text-slate-400">Your cryptographic fingerprint stays in technical details. People will see this name and handle.</p></div>
-          <div class="grid sm:grid-cols-2 gap-3">
-            <label class="text-[11px] text-slate-300"><span class="block mb-1">Display name</span><input id="onboarding-display-name" data-input="call-global" data-global-method="onboardingWizard.updateDisplayName" value="${this.displayName}" maxlength="60" autocomplete="name" class="w-full rounded-xl bg-surface-raised border border-white/10 px-3 py-2 text-sm text-white" placeholder="Alex Miller" /></label>
-            <label class="text-[11px] text-slate-300"><span class="block mb-1">Handle</span><div class="flex items-center rounded-xl bg-surface-raised border border-white/10 px-3"><span class="text-slate-500">@</span><input id="onboarding-handle" data-input="call-global" data-global-method="onboardingWizard.updateHandle" value="${this.handle}" maxlength="30" pattern="[a-zA-Z0-9_]{3,30}" autocomplete="username" class="min-w-0 flex-1 bg-transparent px-1 py-2 text-sm text-white outline-none" placeholder="alex_m" /></div></label>
-          </div>
-          <div class="rounded-xl border border-[var(--color-accent,#e59b3c)]/30 bg-[var(--color-accent,#e59b3c)]/10 p-3 flex items-center gap-3">
-            <div class="w-10 h-10 rounded-full bg-surface-raised flex items-center justify-center" aria-hidden="true">👤</div>
-            <div><span class="block text-[10px] uppercase tracking-wider text-slate-400">This is how other people will see you.</span><strong id="onboarding-identity-preview-name" class="block text-sm text-white">${this.displayName || 'Your display name'}</strong><span id="onboarding-identity-preview-handle" class="text-xs text-slate-300">${this.handle ? `@${this.handle}` : '@your_handle'}</span></div>
-          </div>
-        </section>
+        <!-- Optional Expandable Tech Details Link -->
+        <div class="pt-1">
+          <button
+            type="button"
+            data-action="call-global"
+            data-global-method="onboardingWizard.toggleTechDetails"
+            class="text-[11px] font-sans text-slate-400 hover:text-[var(--color-accent,#e89e38)] transition-colors inline-flex items-center gap-1 cursor-pointer"
+          >
+            <span>How your identity works</span>
+            <span>${this.showTechDetails ? '▴' : '▾'}</span>
+          </button>
 
-        <div class="p-3 rounded-xl bg-surface-base/40 border border-white/5 flex items-center justify-between text-xs">
-          <span class="text-slate-400">Account status</span>
-          <span class="text-slate-300 font-bold bg-white/5 px-2.5 py-1 rounded-lg border border-white/10">Active on this device <span class="sr-only">No Custodial Identity Server (${myFingerprint.substring(0, 16)})</span></span>
+          ${
+            this.showTechDetails
+              ? `
+            <div class="mt-2 p-3 rounded-xl bg-black/40 border border-white/5 text-[11px] text-slate-400 space-y-1.5 font-sans leading-relaxed animate-in fade-in duration-150">
+              <p>• Your browser securely generated an Ed25519 cryptographic keypair in device memory.</p>
+              <p>• Your public profile is signed with your device key and linked to your chosen handle.</p>
+              <p>• In the next steps, you will choose feed topics and save your 12-word recovery phrase.</p>
+            </div>
+          `
+              : ''
+          }
         </div>
       </div>
     `;
   }
 
   /**
-   * Step 1: ✨ Choose Your Interests
+   * Step 2: Interests
    */
   private renderStep2Interests(): string {
-    const title = 'Choose Your Interests';
-    const subtitle = 'Pick topics you love to tailor your recommendations';
+    const title = 'What are you into?';
+    const subtitle = 'Choose a few topics. You can change these anytime.';
+    const selectedCount = this.selectedInterests.size;
+    const isMinMet = selectedCount >= 3;
 
     return `
-      <div class="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
+      <div class="space-y-4 animate-in fade-in duration-200">
         <!-- Step Header -->
-        <div class="flex items-start space-x-4 border-b border-white/5 pb-3">
-          <div class="w-12 h-12 rounded-2xl bg-[var(--color-accent,#e59b3c)]/10 border border-[var(--color-accent,#e59b3c)]/30 flex items-center justify-center text-[var(--color-accent,#e59b3c)] text-2xl shrink-0">
-            ✨
-          </div>
-          <div class="space-y-1">
-            <div class="flex items-center space-x-2">
-              <h3 class="text-xl font-bold text-white tracking-wide">${title}</h3>
-              <span class="text-[10px] px-2.5 py-0.5 rounded-full bg-[var(--color-accent,#e59b3c)]/15 text-[var(--color-accent,#e59b3c)] border border-[var(--color-accent,#e59b3c)]/30 font-medium">
-                ${this.selectedInterests.size} Selected
-              </span>
+        <div class="flex items-start justify-between border-b border-white/5 pb-3">
+          <div class="flex items-start space-x-3.5">
+            <div class="w-10 h-10 rounded-xl bg-[var(--color-accent,#e89e38)]/10 border border-[var(--color-accent,#e89e38)]/30 flex items-center justify-center text-[var(--color-accent,#e89e38)] text-xl shrink-0">
+              ✨
             </div>
-            <p class="text-xs text-slate-400 font-sans">${subtitle}</p>
+            <div class="space-y-0.5">
+              <h3 class="text-lg font-bold text-white tracking-wide">${title}</h3>
+              <p class="text-xs text-slate-400 font-sans">${subtitle}</p>
+            </div>
+          </div>
+
+          <div class="shrink-0 text-right">
+            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-mono font-medium ${isMinMet ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' : 'bg-white/5 text-slate-400 border border-white/10'}">
+              ${selectedCount}/3 selected
+            </span>
           </div>
         </div>
 
-        <p class="text-xs text-slate-300 font-sans leading-relaxed">
-          Your selections directly guide the &quot;For You&quot; feed without algorithmic attention traps or hidden surveillance.
-        </p>
+        <!-- 12 Curated Interest Cards -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 max-h-[310px] overflow-y-auto pr-1">
+          ${ONBOARDING_INTERESTS.map((item) => {
+            const isSelected = this.selectedInterests.has(item.id);
+            const cardClasses = isSelected
+              ? 'bg-[var(--color-accent,#e89e38)]/15 border-[var(--color-accent,#e89e38)] text-white shadow-sm ring-1 ring-[var(--color-accent,#e89e38)]/30'
+              : 'bg-surface-base hover:bg-surface-raised border-white/5 hover:border-white/15 text-slate-300 hover:text-white';
 
-        <!-- 10 Interests Grid -->
-        <div class="grid grid-cols-2 sm:grid-cols-2 gap-2.5 max-h-[290px] overflow-y-auto pr-1">
-          ${ONBOARDING_INTERESTS.map((interest) => {
-            const isSelected = this.selectedInterests.has(interest.id);
             return `
               <button
                 type="button"
                 data-action="call-global"
                 data-global-method="onboardingWizard.toggleInterest"
-                data-global-arg="${interest.id}"
-                class="p-3 rounded-xl border text-left transition-all cursor-pointer flex items-start space-x-3 select-none ${
-                  isSelected
-                    ? 'bg-[var(--color-accent,#e59b3c)]/15 border-[var(--color-accent,#e59b3c)]/60 text-white shadow-xs'
-                    : 'bg-surface-base hover:bg-surface-raised border-white/5 hover:border-white/20 text-slate-300'
-                }"
+                data-global-args='["${item.id}"]'
+                data-global-arg="${item.id}"
+                class="p-3 rounded-xl border text-left transition-all flex flex-col justify-between min-h-[72px] cursor-pointer active:scale-95 ${cardClasses}"
               >
-                <span class="text-2xl shrink-0 mt-0.5">${interest.emoji}</span>
-                <div class="min-w-0 flex-1">
-                  <div class="flex items-center justify-between">
-                    <span class="text-xs font-bold ${isSelected ? 'text-[var(--color-accent,#e59b3c)]' : 'text-white'} truncate">
-                      ${interest.name}
-                    </span>
-                    <span class="text-xs ${isSelected ? 'text-[var(--color-accent,#e59b3c)] font-bold' : 'text-slate-600'}">
-                      ${isSelected ? '✓' : '+'}
-                    </span>
-                  </div>
-                  <p class="text-[10px] text-slate-400 leading-snug mt-0.5 line-clamp-1">
-                    ${interest.description}
-                  </p>
+                <div class="flex items-center justify-between w-full mb-1">
+                  <span class="text-lg select-none">${item.emoji}</span>
+                  <span class="w-4 h-4 rounded-full flex items-center justify-center text-[10px] ${isSelected ? 'bg-[var(--color-accent,#e89e38)] text-slate-950 font-bold' : 'border border-white/20 text-transparent'}">
+                    ✓
+                  </span>
+                </div>
+                <div>
+                  <div class="text-xs font-bold truncate leading-tight">${item.name}</div>
+                  <div class="text-[10px] text-slate-400 truncate leading-tight mt-0.5">${item.description}</div>
                 </div>
               </button>
             `;
           }).join('')}
         </div>
 
-        <div class="p-2.5 rounded-xl bg-surface-base/50 border border-white/5 flex items-center justify-between text-[11px] text-slate-400 font-mono">
-          <span>Preferences stored locally on device</span>
-          <span class="text-emerald-400">100% Client-Side</span>
-        </div>
-      </div>
-    `;
-  }
-
-  /**
-   * Step 2: 🏛️ Discover Communities & People
-   */
-  private renderStep3Discovery(): string {
-    const title = 'Find Communities & Creators';
-    const subtitle = 'Join topic circles and follow active contributors';
-
-    // Prioritize starter communities matching selected interests
-    const sortedCommunities = [...STARTER_COMMUNITIES].sort((a, b) => {
-      const aMatches = this.selectedInterests.has(a.topic) ? 1 : 0;
-      const bMatches = this.selectedInterests.has(b.topic) ? 1 : 0;
-      return bMatches - aMatches;
-    });
-
-    return `
-      <div class="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
-        <!-- Step Header -->
-        <div class="flex items-start justify-between border-b border-white/5 pb-3">
-          <div class="flex items-start space-x-4">
-            <div class="w-12 h-12 rounded-2xl bg-[var(--color-accent,#e59b3c)]/10 border border-[var(--color-accent,#e59b3c)]/30 flex items-center justify-center text-[var(--color-accent,#e59b3c)] text-2xl shrink-0">
-              🏛️
-            </div>
-            <div class="space-y-1">
-              <div class="flex items-center space-x-2">
-                <h3 class="text-xl font-bold text-white tracking-wide">${title}</h3>
-                <span class="text-[10px] px-2.5 py-0.5 rounded-full bg-white/5 text-slate-300 border border-white/10 font-medium">Starter Circles</span>
-              </div>
-              <p class="text-xs text-slate-400 font-sans">${subtitle}</p>
-            </div>
-          </div>
-
+        <!-- Secondary Action: Choose for me later -->
+        <div class="flex items-center justify-between pt-1">
           <button
             type="button"
             data-action="call-global"
-            data-global-method="onboardingWizard.joinAllRecommended"
-            class="hidden sm:flex px-3 py-1.5 text-xs font-mono rounded-lg bg-surface-overlay hover:bg-surface-highlight text-[var(--color-accent,#e59b3c)] border border-[var(--color-accent,#e59b3c)]/30 transition-all cursor-pointer items-center space-x-1"
+            data-global-method="onboardingWizard.chooseInterestsLater"
+            class="text-xs text-slate-400 hover:text-[var(--color-accent,#e89e38)] underline cursor-pointer transition-colors"
           >
-            <span>✨</span>
-            <span>Join All</span>
+            Choose for me later
           </button>
+          <span class="text-[11px] text-slate-500 font-sans">Pick at least 3 to continue</span>
         </div>
 
-        <!-- Curated Starter Communities List -->
-        <div class="space-y-2 max-h-[200px] overflow-y-auto pr-1">
-          ${sortedCommunities.map((community) => {
-            const circle = sovereignCircleEngine.findCircle(community.id);
-            const isJoined = circle?.isJoined || false;
-            return `
-              <div class="p-3 rounded-xl bg-surface-base border border-white/5 flex items-center justify-between gap-3 hover:border-white/10 transition-colors">
-                <div class="flex items-center space-x-3 min-w-0">
-                  <div class="w-9 h-9 rounded-xl flex items-center justify-center text-lg shrink-0 border ${community.badgeColor}">
-                    ${community.emoji}
-                  </div>
-                  <div class="min-w-0 flex-1">
-                    <div class="flex items-center space-x-2">
-                      <span class="text-xs font-bold text-white truncate">${community.name}</span>
-                      <span class="text-[10px] font-mono text-slate-500">${community.handle}</span>
-                    </div>
-                    <p class="text-[11px] text-slate-400 truncate">${community.description}</p>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  data-action="call-global"
-                  data-global-method="onboardingWizard.toggleJoinCommunity"
-                  data-global-arg="${community.id}"
-                  class="px-3.5 py-1.5 rounded-xl text-xs font-medium transition-all shrink-0 cursor-pointer ${
-                    isJoined
-                      ? 'bg-white/10 text-emerald-400 border border-emerald-500/30'
-                      : 'bg-surface-overlay hover:bg-[var(--color-accent,#e59b3c)] hover:text-slate-950 text-white border border-white/10'
-                  }"
-                >
-                  ${isJoined ? 'Joined ✓' : 'Join'}
-                </button>
-              </div>
-            `;
-          }).join('')}
-        </div>
-
-        <!-- Curated Starter Creators to Follow -->
-        <div class="pt-2 border-t border-white/5 space-y-2">
-          <span class="text-[11px] uppercase tracking-wider text-slate-400 font-semibold block">Contributors to Follow</span>
-          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-            ${STARTER_CREATORS.map((creator) => {
-              const isFollowing = profileView.isFollowing(creator.fingerprint);
-              return `
-                <div class="p-2.5 rounded-xl bg-surface-base/80 border border-white/5 flex items-center justify-between gap-2">
-                  <div class="flex items-center space-x-2 min-w-0">
-                    <div class="w-7 h-7 rounded-lg bg-surface-raised border border-white/10 flex items-center justify-center text-xs shrink-0">
-                      ${creator.avatar}
-                    </div>
-                    <div class="min-w-0 flex-1">
-                      <div class="text-[11px] font-bold text-white truncate">${creator.name}</div>
-                      <div class="text-[9px] font-mono text-slate-500 truncate">${creator.handle}</div>
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    data-action="call-global"
-                    data-global-method="onboardingWizard.toggleFollowCreator"
-                    data-global-arg="${creator.fingerprint}"
-                    class="px-2.5 py-1 rounded-lg text-[10px] font-medium transition-all shrink-0 cursor-pointer ${
-                      isFollowing
-                        ? 'bg-white/10 text-emerald-400 border border-emerald-500/30'
-                        : 'bg-surface-overlay hover:bg-surface-highlight text-white border border-white/10'
-                    }"
-                  >
-                    ${isFollowing ? '✓' : '+ Follow'}
-                  </button>
-                </div>
-              `;
-            }).join('')}
+        ${
+          this.saveError
+            ? `
+          <div class="p-2.5 rounded-xl bg-rose-950/40 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2" role="alert">
+            <span>⚠️</span>
+            <span>${this.escapeHtml(this.saveError)}</span>
           </div>
-        </div>
+        `
+            : ''
+        }
       </div>
     `;
   }
 
   /**
-   * Step 3: 🔐 Save Your Recovery Key (12-Word BIP-39 Mnemonic Backup)
+   * Step 3: Recovery
    */
-  private renderStep4Seed(): string {
-    const title = i18n.t('onboardingNarrative.step4Title', undefined, 'Save Your Recovery Key');
-    const subtitle = i18n.t('onboardingNarrative.step4Subtitle', undefined, 'Your 12-word master seed phrase');
-    const body = i18n.t(
-      'onboardingNarrative.step4Body',
-      undefined,
-      'Write down or back up these 12 secret words. They represent your complete sovereign identity and all your cryptographic credentials.'
-    );
-    const warning = i18n.t(
-      'onboardingNarrative.step4Warning',
-      undefined,
-      'This 12-word phrase is the only way to recover your account. UREfy never holds your keys.'
-    );
-    const savedWordsText = i18n.t('onboardingNarrative.step4SavedWords', undefined, 'I have safely saved my seed words');
-    const downloadText = i18n.t('onboardingNarrative.step4DownloadBackup', undefined, 'Download Encrypted Backup');
-
+  private renderStep3Recovery(): string {
+    const title = 'Protect your identity';
+    const subtitle = 'These 12 words can restore your UREfy identity if you lose this device.';
     const mnemonic = this.getActiveMnemonic();
     const words = mnemonic.split(/\s+/).filter(Boolean);
 
     return `
-      <div class="space-y-5 animate-in fade-in slide-in-from-right-4 duration-300">
+      <div class="space-y-4 animate-in fade-in duration-200">
         <!-- Step Header -->
-        <div class="flex items-start space-x-4 border-b border-white/5 pb-3">
-          <div class="w-12 h-12 rounded-2xl bg-[var(--color-accent,#e59b3c)]/10 border border-[var(--color-accent,#e59b3c)]/30 flex items-center justify-center text-[var(--color-accent,#e59b3c)] text-2xl shrink-0">
+        <div class="flex items-start space-x-3.5 border-b border-white/5 pb-3">
+          <div class="w-10 h-10 rounded-xl bg-[var(--color-accent,#e89e38)]/10 border border-[var(--color-accent,#e89e38)]/30 flex items-center justify-center text-[var(--color-accent,#e89e38)] text-xl shrink-0">
             🔐
           </div>
-          <div class="space-y-1">
-            <div class="flex items-center space-x-2">
-              <h3 class="text-xl font-bold text-white tracking-wide">${title}</h3>
-              <span class="text-[10px] px-2.5 py-0.5 rounded-full bg-[var(--color-accent,#e59b3c)]/15 text-[var(--color-accent,#e59b3c)] border border-[var(--color-accent,#e59b3c)]/30 font-medium">Recovery Phrase</span>
-            </div>
+          <div class="space-y-0.5">
+            <h3 class="text-lg font-bold text-white tracking-wide">${title}</h3>
             <p class="text-xs text-slate-400 font-sans">${subtitle}</p>
           </div>
         </div>
 
-        <p class="text-xs text-slate-300 font-sans leading-relaxed">
-          ${body}
-        </p>
-
-        <!-- 12-WORD BIP-39 PILL GRID -->
-        <div class="p-4 rounded-xl bg-surface-base border border-white/10 space-y-3">
-          <div class="flex items-center justify-between">
-            <span class="text-[11px] font-semibold text-slate-200 uppercase tracking-wider flex items-center space-x-1.5">
-              <span>🔑</span>
-              <span>12-Word Master Recovery Phrase</span>
-            </span>
-            <span class="text-[10px] font-mono text-slate-500">Standard backup</span>
+        <!-- Warning Callout -->
+        <div class="p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-200 text-xs flex items-start gap-2.5 leading-relaxed font-sans">
+          <span class="text-base shrink-0 select-none">⚠️</span>
+          <div>
+            <strong>UREfy cannot recover them for you.</strong>
+            <span class="block text-slate-300 text-[11px] mt-0.5">Keep these 12 words secret. Anyone with this phrase can access your account. A Passkey can unlock this device more easily, but it does not replace your recovery words.</span>
           </div>
+        </div>
 
-          <div class="grid grid-cols-3 sm:grid-cols-4 gap-2">
-            ${words.map((w, i) => `
-              <div class="px-2.5 py-1.5 rounded-lg bg-surface-raised border border-white/10 flex items-center space-x-1.5 font-mono text-xs select-all">
-                <span class="text-[10px] text-slate-500 select-none">${i + 1}.</span>
-                <span class="font-bold text-white tracking-wide">${w}</span>
+        <!-- 12 Words Box with Anti-Shoulder-Surfing Blur -->
+        <div class="relative rounded-xl border border-white/10 bg-surface-base p-4 overflow-hidden">
+          <div class="grid grid-cols-3 sm:grid-cols-4 gap-2 transition-all ${this.seedRevealed ? '' : 'filter blur-md select-none opacity-25'}">
+            ${words.map((word, i) => `
+              <div class="flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg bg-surface-raised border border-white/5 font-mono text-xs">
+                <span class="text-slate-500 text-[10px] w-4 text-right">${i + 1}.</span>
+                <span class="text-slate-100 font-bold truncate">${word}</span>
               </div>
             `).join('')}
           </div>
 
-          <!-- Quick Action Buttons -->
-          <div class="flex items-center space-x-2 pt-1">
-            <button
-              type="button"
-              id="btn-copy-seed-words"
-              data-action="call-global"
-              data-global-method="onboardingWizard.copySeedWords"
-              class="px-3 py-1.5 rounded-lg bg-surface-overlay hover:bg-surface-highlight border border-white/10 text-xs font-mono text-slate-200 hover:text-white transition-all flex items-center space-x-1.5 cursor-pointer"
-            >
-              <span>📋</span>
-              <span>Copy Words</span>
-            </button>
-
-            <button
-              type="button"
-              data-action="call-global"
-              data-global-method="onboardingWizard.downloadBackup"
-              class="px-3 py-1.5 rounded-lg bg-surface-overlay hover:bg-surface-highlight border border-white/10 text-xs font-mono text-slate-200 hover:text-white transition-all flex items-center space-x-1.5 cursor-pointer"
-            >
-              <span>💾</span>
-              <span>${downloadText}</span>
-            </button>
-          </div>
+          ${
+            !this.seedRevealed
+              ? `
+            <div class="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-xs p-4 text-center">
+              <button
+                type="button"
+                data-action="call-global"
+                data-global-method="onboardingWizard.toggleRevealSeed"
+                class="px-4 py-2 rounded-xl bg-[var(--color-accent,#e89e38)] hover:brightness-105 text-slate-950 font-bold text-xs shadow-lg transition-all active:scale-95 cursor-pointer flex items-center gap-2"
+              >
+                <span>👁️</span>
+                <span>Show recovery words</span>
+              </button>
+              <span class="text-[11px] text-slate-400 mt-2 font-sans">Hidden to prevent shoulder-surfing</span>
+            </div>
+          `
+              : `
+            <div class="mt-3 flex justify-end">
+              <button
+                type="button"
+                data-action="call-global"
+                data-global-method="onboardingWizard.toggleRevealSeed"
+                class="text-[11px] text-slate-400 hover:text-white transition-colors cursor-pointer"
+              >
+                🙈 Hide recovery words
+              </button>
+            </div>
+          `
+          }
         </div>
 
-        <!-- Caution Warning Alert -->
-        <div class="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center space-x-2.5">
-          <span class="text-base shrink-0">⚠️</span>
-          <span class="leading-relaxed">${warning}</span>
+        <!-- Backup Action Buttons -->
+        <div class="grid grid-cols-2 gap-2.5">
+          <button
+            type="button"
+            id="btn-copy-seed-words"
+            data-action="call-global"
+            data-global-method="onboardingWizard.copySeedWords"
+            class="px-3 py-2.5 rounded-xl bg-surface-raised hover:bg-surface-overlay border border-white/10 text-slate-200 text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95"
+          >
+            <span>📋</span>
+            <span>Copy recovery phrase</span>
+          </button>
+
+          <button
+            type="button"
+            id="btn-download-seed-backup"
+            data-action="call-global"
+            data-global-method="onboardingWizard.downloadBackup"
+            class="px-3 py-2.5 rounded-xl bg-surface-raised hover:bg-surface-overlay border border-white/10 text-slate-200 text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95"
+          >
+            <span>💾</span>
+            <span>Download backup</span>
+          </button>
         </div>
 
-        <!-- Saved Confirmation Checkbox -->
-        <label class="flex items-center space-x-2.5 p-3 rounded-xl bg-surface-base/80 border border-white/10 cursor-pointer hover:bg-surface-overlay transition-colors">
+        <!-- Confirmation Checkbox -->
+        <label class="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/10 cursor-pointer hover:bg-white/[0.05] transition-colors select-none">
           <input
             type="checkbox"
-            id="checkbox-seed-saved-confirm"
+            id="chk-saved-seed"
             ${this.seedSavedConfirmed ? 'checked' : ''}
-            data-change="call-global"
+            data-input="call-global"
             data-global-method="onboardingWizard.toggleSeedConfirmation"
-            class="w-4 h-4 rounded text-emerald-500 focus:ring-0 cursor-pointer"
+            class="w-4 h-4 rounded text-[var(--color-accent,#e89e38)] accent-[var(--color-accent,#e89e38)] cursor-pointer shrink-0"
           />
-          <span class="text-xs font-medium text-slate-200 select-none font-sans">
-            ${savedWordsText}
+          <span class="text-xs text-slate-200 font-sans">
+            I saved my recovery words somewhere safe.
           </span>
         </label>
       </div>
@@ -834,75 +1161,71 @@ export class OnboardingWizard {
   }
 
   /**
-   * Returns array of 4 progressive steps
+   * Returns steps array for backwards compatibility
    */
   public getSteps(myFingerprint: string = 'aeth1_0000000000000000'): OnboardingStep[] {
+    const isRo = typeof i18n !== 'undefined' && i18n.getLanguage && i18n.getLanguage() === 'ro';
     return [
       {
         stepIndex: 0,
-        title: i18n.t('onboardingNarrative.step1Title', undefined, 'Your Identity Belongs to You'),
-        subtitle: i18n.t('onboardingNarrative.step1Subtitle', undefined, 'Self-sovereignty from the very first second'),
-        icon: '🌱',
-        componentHtml: this.renderStep1Identity(myFingerprint),
+        title: isRo ? 'Identitatea ta îți aparține' : 'Create your UREfy profile',
+        subtitle: 'Choose how people will see you',
+        icon: '👤',
+        componentHtml: this.renderStep1Profile(),
       },
       {
         stepIndex: 1,
-        title: (typeof i18n !== 'undefined' && i18n.getLanguage && i18n.getLanguage() === 'ro') ? 'Alege ce te pasionează' : 'Choose Your Interests',
-        subtitle: 'Personalize your feed with topics you love',
+        title: isRo ? 'Alege ce te pasionează' : 'What are you into?',
+        subtitle: 'Choose a few topics to tailor your feed',
         icon: '✨',
         componentHtml: this.renderStep2Interests(),
       },
       {
         stepIndex: 2,
-        title: (typeof i18n !== 'undefined' && i18n.getLanguage && i18n.getLanguage() === 'ro') ? 'Descoperă comunități și creatori' : 'Find Communities & Creators',
-        subtitle: 'Starter spaces and contributors to follow',
-        icon: '🏛️',
-        componentHtml: this.renderStep3Discovery(),
-      },
-      {
-        stepIndex: 3,
-        title: i18n.t('onboardingNarrative.step4Title', undefined, 'Save Your Recovery Key'),
-        subtitle: i18n.t('onboardingNarrative.step4Subtitle', undefined, 'Your 12-word master seed phrase'),
+        title: isRo ? 'Salvează-ți cheia de salvare' : 'Protect your identity',
+        subtitle: 'Your 12-word master recovery phrase',
         icon: '🔐',
-        componentHtml: this.renderStep4Seed(),
+        componentHtml: this.renderStep3Recovery(),
       },
     ];
   }
 
   /**
-   * Renders step indicators for 4 screens
+   * Renders 3-step progress track
    */
   private renderStepIndicators(): string {
-    const labels = ['Identity', 'Interests', 'Discovery', 'Recovery'];
+    const labels = ['Profile', 'Interests', 'Recovery'];
     return `
-      <div class="flex items-center justify-between w-full max-w-lg mx-auto px-6 py-3 select-none">
+      <div class="flex items-center justify-between w-full max-w-sm mx-auto px-4 py-2 select-none" aria-label="Onboarding Progress">
         ${labels.map((label, idx) => {
           const isPassed = idx < this.currentStep;
           const isCurrent = idx === this.currentStep;
           const dotClass = isCurrent
-            ? 'bg-[var(--color-accent,#e59b3c)] text-slate-950 font-bold'
+            ? 'bg-[var(--color-accent,#e89e38)] text-slate-950 font-bold ring-2 ring-[var(--color-accent,#e89e38)]/40 shadow-sm'
             : isPassed
-              ? 'bg-white/20 text-white font-medium'
-              : 'bg-surface-overlay text-slate-500 border border-white/10';
+              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 font-semibold'
+              : 'bg-white/5 text-slate-500 border border-white/10';
 
-          const textClass = isCurrent ? 'text-[var(--color-accent,#e59b3c)] font-bold' : isPassed ? 'text-slate-300' : 'text-slate-500';
+          const textClass = isCurrent
+            ? 'text-[var(--color-accent,#e89e38)] font-bold'
+            : isPassed
+              ? 'text-slate-300 font-medium'
+              : 'text-slate-500';
 
           return `
-            <div class="flex flex-col items-center gap-1.5 relative group">
-              <button
-                type="button"
-                data-action="call-global"
-                data-raw-click="window.onboardingWizard.currentStep = ${idx}; window.onboardingWizard.syncUI()"
-                class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-mono transition-all cursor-pointer ${dotClass}"
+            <div class="flex flex-col items-center gap-1">
+              <div
+                class="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-mono transition-all ${dotClass}"
+                aria-current="${isCurrent ? 'step' : 'false'}"
               >
                 ${isPassed ? '✓' : idx + 1}
-              </button>
-              <span class="text-[10px] font-mono tracking-tight hidden sm:block ${textClass}">${label}</span>
+              </div>
+              <span class="text-[10px] tracking-tight ${textClass}">${label}</span>
             </div>
           `;
         }).join(`
-          <div class="flex-1 h-[2px] mx-2 bg-surface-overlay overflow-hidden rounded">
-            <div class="h-full bg-[var(--color-accent,#e59b3c)] transition-all duration-300" style="width: 100%"></div>
+          <div class="flex-1 h-[2px] mx-2 bg-white/5 rounded-full overflow-hidden mb-3">
+            <div class="h-full bg-[var(--color-accent,#e89e38)] transition-all duration-300" style="width: ${this.currentStep > 0 ? '100%' : '0%'}"></div>
           </div>
         `)}
       </div>
@@ -919,99 +1242,150 @@ export class OnboardingWizard {
     const activeStep = steps[this.currentStep] || steps[0];
     const isFirst = this.currentStep === 0;
     const isLast = this.currentStep === steps.length - 1;
-    const hasPublicIdentity = Boolean(this.displayName.trim() && /^[a-zA-Z0-9_]{3,30}$/.test(this.handle.replace(/^@/, '').trim()));
 
-    const skipText = i18n.t('onboardingNarrative.skip', undefined, 'Skip');
     const continueText = i18n.t('onboardingNarrative.continue', undefined, 'Continue');
     const backText = i18n.t('onboardingNarrative.back', undefined, 'Back');
-    const finishText = i18n.t('onboardingNarrative.finish', undefined, 'Enter UREfy');
-    const stepOfText = i18n.t('onboardingNarrative.stepOf', { step: String(this.currentStep + 1) }, `Step ${this.currentStep + 1} of ${steps.length}`);
+    const finishText = 'ENTER UREfy';
+    const stepOfText = `Step ${this.currentStep + 1} of 3`;
+
+    // Button states
+    const step1Valid = this.isStep1Valid();
+    const step2Valid = this.selectedInterests.size >= 3;
+    const step3Valid = this.seedSavedConfirmed;
+
+    const canContinue = isFirst ? step1Valid : this.currentStep === 1 ? step2Valid : step3Valid;
 
     return `
-      <div id="aetheris-onboarding-overlay" class="fixed inset-0 z-[200] bg-black/90 backdrop-blur-2xl flex items-center justify-center p-4 sm:p-6 overflow-y-auto animate-in fade-in duration-200">
-        <div id="onboarding-modal" class="relative w-full max-w-2xl bg-surface-raised border border-white/10 rounded-2xl shadow-[0_0_60px_rgba(0,0,0,0.85)] overflow-hidden flex flex-col my-auto">
-          
-          <!-- Top Bar Modal -->
-          <div class="flex items-center justify-between px-6 py-4 border-b border-white/5 bg-surface-base/80">
-            <div class="flex items-center space-x-3">
-              <div class="w-7 h-7 rounded-lg bg-[var(--color-accent,#e59b3c)] flex items-center justify-center text-slate-950 font-bold text-xs shadow-md">
+      <div
+        id="aetheris-onboarding-overlay"
+        class="fixed inset-0 z-[200] bg-black/90 backdrop-blur-2xl flex items-center justify-center p-0 sm:p-4 md:p-6 overflow-y-auto overscroll-contain animate-in fade-in duration-200"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="onboarding-main-title"
+      >
+        <div
+          id="onboarding-modal"
+          class="relative w-full sm:max-w-xl bg-[#0f1118] border-0 sm:border border-white/10 sm:rounded-2xl shadow-[0_20px_70px_rgba(0,0,0,0.85)] flex flex-col justify-between min-h-[100dvh] sm:min-h-0 sm:max-h-[92vh] overflow-hidden my-auto"
+        >
+          <!-- Top Bar -->
+          <div class="flex items-center justify-between px-4 sm:px-6 py-3.5 border-b border-white/5 bg-[#12151f]/90 shrink-0">
+            <div class="flex items-center space-x-2.5">
+              <div class="w-7 h-7 rounded-lg bg-[var(--color-accent,#e89e38)] flex items-center justify-center text-slate-950 font-black text-xs shadow-md select-none">
                 U
               </div>
-              <span class="text-sm font-bold text-white tracking-wide">Welcome to UREfy <span class="sr-only">UREfy // SOVEREIGN WELCOME</span></span>
+              <span id="onboarding-main-title" class="text-sm font-bold text-white tracking-wide">
+                Welcome to UREfy <span class="sr-only">UREfy // SOVEREIGN WELCOME</span>
+              </span>
             </div>
 
             <div class="flex items-center space-x-2">
-              <span class="text-xs font-mono text-slate-400 mr-2">${stepOfText}</span>
-              <button
-                type="button"
-                id="btn-skip-onboarding"
-                data-action="call-global"
-                data-global-method="onboardingWizard.skip"
-                ${hasPublicIdentity ? '' : 'disabled aria-disabled="true" title="Choose your public name and handle first"'}
-                class="px-2.5 py-1 text-xs font-mono text-slate-400 hover:text-white rounded bg-surface-overlay hover:bg-surface-highlight transition-all border border-white/5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                ${hasPublicIdentity ? skipText : 'Set name first'} ✕
-              </button>
+              <span class="text-xs font-mono text-slate-400">${stepOfText}</span>
+              ${
+                this.canSkip()
+                  ? `
+                <button
+                  type="button"
+                  id="btn-skip-onboarding"
+                  data-action="call-global"
+                  data-global-method="onboardingWizard.skip"
+                  class="px-2.5 py-1 text-xs font-mono text-slate-400 hover:text-white rounded bg-white/5 hover:bg-white/10 border border-white/5 cursor-pointer transition-all"
+                >
+                  Skip ✕
+                </button>
+              `
+                  : ''
+              }
             </div>
           </div>
 
           <!-- Step Indicators Progress -->
-          <div class="border-b border-white/5 bg-surface-base/40">
+          <div class="border-b border-white/5 bg-black/20 shrink-0">
             ${this.renderStepIndicators()}
           </div>
 
           <!-- Active Step Body -->
-          <div class="p-6 sm:p-8 flex-1 min-h-[390px] bg-canvas/60">
+          <div class="p-4 sm:p-7 flex-1 overflow-y-auto bg-surface-canvas/40">
             ${activeStep.componentHtml}
           </div>
 
-          <!-- Modal Footer Actions -->
-          <div class="flex items-center justify-between px-6 py-4 border-t border-white/5 bg-surface-base/90">
+          <!-- Modal Footer Actions (Mobile-First Safe Area) -->
+          <div class="flex items-center justify-between px-4 sm:px-6 py-3.5 pb-[calc(0.875rem+env(safe-area-inset-bottom,0px))] border-t border-white/5 bg-[#12151f]/95 shrink-0">
             <div>
-              ${!isFirst ? `
+              ${
+                !isFirst
+                  ? `
                 <button
                   type="button"
                   data-action="call-global"
                   data-global-method="onboardingWizard.previous"
-                  class="px-4 py-2 rounded-xl bg-surface-overlay hover:bg-surface-highlight text-slate-200 text-xs font-semibold tracking-wide border border-white/10 transition-all flex items-center gap-1.5 cursor-pointer"
+                  class="px-4 py-2.5 rounded-xl bg-surface-raised hover:bg-surface-overlay text-slate-300 text-xs font-semibold border border-white/10 transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
                 >
                   <span>←</span>
                   <span>${backText}</span>
                 </button>
-              ` : `
-                <span class="text-[11px] text-slate-400">Private by design</span>
-              `}
+              `
+                  : `
+                <span class="text-[11px] text-slate-500 font-sans hidden sm:inline">Private &amp; self-sovereign</span>
+              `
+              }
             </div>
 
-            <div class="flex items-center space-x-3">
-              ${!isLast ? `
+            <div class="flex items-center space-x-3 w-full sm:w-auto justify-end">
+              ${
+                !isLast
+                  ? `
                 <button
                   type="button"
+                  id="btn-onboarding-continue"
                   data-action="call-global"
                   data-global-method="onboardingWizard.next"
-                  class="px-6 py-2.5 rounded-xl bg-[var(--color-accent,#e59b3c)] hover:brightness-105 text-slate-950 font-bold text-xs tracking-wider uppercase transition-all flex items-center gap-2 transform active:scale-95 cursor-pointer shadow-md"
+                  ${canContinue ? '' : 'disabled aria-disabled="true"'}
+                  class="w-full sm:w-auto h-12 min-h-[48px] px-8 rounded-xl bg-[var(--color-accent,#e89e38)] hover:brightness-105 text-slate-950 font-bold text-xs tracking-wider uppercase transition-all flex items-center justify-center gap-2 transform active:scale-95 cursor-pointer shadow-lg disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100 disabled:pointer-events-none"
                 >
-                  <span>${continueText}</span>
-                  <span>→</span>
+                  ${
+                    this.isSaving
+                      ? `
+                    <svg class="animate-spin h-4 w-4 text-slate-950" viewBox="0 0 24 24">
+                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle>
+                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span>SAVING...</span>
+                  `
+                      : `
+                    <span>${continueText}</span>
+                    <span>→</span>
+                  `
+                  }
                 </button>
-              ` : `
+              `
+                  : `
                 <button
                   type="button"
                   id="btn-onboarding-finish"
                   data-action="call-global"
                   data-global-method="onboardingWizard.finish"
-                  class="px-6 py-2.5 rounded-xl bg-[var(--color-accent,#e59b3c)] hover:brightness-105 text-slate-950 font-bold text-xs tracking-wider uppercase transition-all flex items-center gap-2 transform active:scale-95 cursor-pointer shadow-md"
+                  ${canContinue ? '' : 'disabled aria-disabled="true"'}
+                  class="w-full sm:w-auto h-12 min-h-[48px] px-8 rounded-xl bg-[var(--color-accent,#e89e38)] hover:brightness-105 text-slate-950 font-bold text-xs tracking-wider uppercase transition-all flex items-center justify-center gap-2 transform active:scale-95 cursor-pointer shadow-lg disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100 disabled:pointer-events-none"
                 >
                   <span>${finishText}</span>
                   <span>→</span>
                 </button>
-              `}
+              `
+              }
             </div>
           </div>
-
         </div>
       </div>
     `;
+  }
+
+  private escapeHtml(str: string): string {
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
   }
 }
 

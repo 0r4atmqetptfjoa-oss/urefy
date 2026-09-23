@@ -24,7 +24,18 @@ CREATE TABLE IF NOT EXISTS posts_new (
     is_expanded INTEGER NOT NULL DEFAULT 0
 );
 
-INSERT INTO posts_new SELECT * FROM posts;
+INSERT INTO posts_new (
+    id, channel_id, author_id, author_role, title, content, flair,
+    merit_votes, user_voted, reply_count, boost_count,
+    attachment_json, video_json, images_json, poll_id,
+    quoted_post_json, status, created_at, is_expanded
+)
+SELECT
+    id, channel_id, author_id, author_role, title, content, flair,
+    merit_votes, user_voted, reply_count, boost_count,
+    attachment_json, video_json, images_json, poll_id,
+    quoted_post_json, status, created_at, is_expanded
+FROM posts;
 DROP TABLE posts;
 ALTER TABLE posts_new RENAME TO posts;
 

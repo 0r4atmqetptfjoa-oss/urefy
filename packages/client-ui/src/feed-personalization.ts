@@ -82,6 +82,7 @@ const STORAGE_KEYS = {
   CONTENT_SIGNALS: 'aetheris_feed_content_signals_v1',
   MUTED_AUTHORS: 'aetheris_feed_muted_authors_v1',
   MUTED_TAGS: 'aetheris_feed_muted_tags_v1',
+  NOT_INTERESTED: 'aetheris_feed_not_interested_v1',
 } as const;
 
 // Interaction type base weight multipliers
@@ -190,6 +191,7 @@ const SEED_INTERACTIONS: UserInteraction[] = [
 // ---------------------------------------------------------------------------
 
 export class FeedPersonalizationEngine {
+  public currentFacetId: string | null = null;
   public userHistory: UserInteraction[] = [];
   public contentSignals: Map<string, ContentSignal> = new Map();
   public topicInterests: Map<string, number> = new Map();
@@ -201,6 +203,7 @@ export class FeedPersonalizationEngine {
   public manualOverrides: Map<string, number> = new Map();
   public mutedAuthors: Set<string> = new Set();
   public mutedTags: Set<string> = new Set();
+  public notInterestedPosts: Set<string> = new Set();
 
   private cachedScores: Map<string, PersonalizationScore> = new Map();
   private isDirty: boolean = true;
@@ -208,6 +211,57 @@ export class FeedPersonalizationEngine {
 
   constructor() {
     this.initializeState();
+  }
+
+  // ─── Facet Scoping & Storage Helpers ─────────────────────────────────────
+
+  public getStorageKey(baseKey: string, facetId?: string | null): string {
+    const targetFacetId = facetId !== undefined ? facetId : this.currentFacetId;
+    if (!targetFacetId) return baseKey;
+    return `${baseKey}_facet_${targetFacetId}`;
+  }
+
+  public setFacetContext(facetId: string | null): void {
+    if (this.currentFacetId === facetId) return;
+    this.currentFacetId = facetId;
+    this.loadFromStorage();
+    this.cachedScores.clear();
+    this.isDirty = true;
+    this.computeTopicInterests();
+  }
+
+  public resetFacetPreferences(facetId?: string | null): void {
+    const targetFacetId = facetId !== undefined ? facetId : this.currentFacetId;
+    if (typeof localStorage !== 'undefined') {
+      try {
+        localStorage.removeItem(this.getStorageKey(STORAGE_KEYS.USER_HISTORY, targetFacetId));
+        localStorage.removeItem(this.getStorageKey(STORAGE_KEYS.MANUAL_INTERESTS, targetFacetId));
+        localStorage.removeItem(this.getStorageKey(STORAGE_KEYS.MUTED_AUTHORS, targetFacetId));
+        localStorage.removeItem(this.getStorageKey(STORAGE_KEYS.MUTED_TAGS, targetFacetId));
+        localStorage.removeItem(this.getStorageKey(STORAGE_KEYS.NOT_INTERESTED, targetFacetId));
+      } catch {}
+    }
+
+    if (targetFacetId === this.currentFacetId) {
+      this.userHistory = [];
+      this.manualOverrides.clear();
+      this.mutedAuthors.clear();
+      this.mutedTags.clear();
+      this.notInterestedPosts.clear();
+      this.cachedScores.clear();
+      this.seedDefaultsIfEmpty();
+      this.isDirty = true;
+      this.computeTopicInterests();
+    }
+  }
+
+  public markNotInterested(postId: string): void {
+    if (!postId) return;
+    this.notInterestedPosts.add(postId);
+    this.recordInteraction(postId, 'skip', 500);
+    this.cachedScores.clear();
+    this.isDirty = true;
+    this.saveToStorage();
   }
 
   // ─── Initialization & Persistence ─────────────────────────────────────────
@@ -222,8 +276,14 @@ export class FeedPersonalizationEngine {
     if (typeof localStorage === 'undefined') return;
 
     try {
-      // 1. User History
-      const rawHistory = localStorage.getItem(STORAGE_KEYS.USER_HISTORY);
+      this.userHistory = [];
+      this.manualOverrides.clear();
+      this.mutedAuthors.clear();
+      this.mutedTags.clear();
+      this.notInterestedPosts.clear();
+
+      // 1. User History (scoped)
+      const rawHistory = localStorage.getItem(this.getStorageKey(STORAGE_KEYS.USER_HISTORY));
       if (rawHistory) {
         const parsed = JSON.parse(rawHistory);
         if (Array.isArray(parsed)) {
@@ -231,8 +291,8 @@ export class FeedPersonalizationEngine {
         }
       }
 
-      // 2. Manual Topic Overrides
-      const rawManual = localStorage.getItem(STORAGE_KEYS.MANUAL_INTERESTS);
+      // 2. Manual Topic Overrides (scoped)
+      const rawManual = localStorage.getItem(this.getStorageKey(STORAGE_KEYS.MANUAL_INTERESTS));
       if (rawManual) {
         const parsed = JSON.parse(rawManual);
         if (parsed && typeof parsed === 'object') {
@@ -244,7 +304,7 @@ export class FeedPersonalizationEngine {
         }
       }
 
-      // 3. Content Signals Catalog
+      // 3. Content Signals Catalog (global metadata cache)
       const rawSignals = localStorage.getItem(STORAGE_KEYS.CONTENT_SIGNALS);
       if (rawSignals) {
         const parsed = JSON.parse(rawSignals);
@@ -257,8 +317,8 @@ export class FeedPersonalizationEngine {
         }
       }
 
-      // 4. Muted entities
-      const rawMutedAuthors = localStorage.getItem(STORAGE_KEYS.MUTED_AUTHORS);
+      // 4. Muted entities (scoped)
+      const rawMutedAuthors = localStorage.getItem(this.getStorageKey(STORAGE_KEYS.MUTED_AUTHORS));
       if (rawMutedAuthors) {
         const parsed = JSON.parse(rawMutedAuthors);
         if (Array.isArray(parsed)) {
@@ -266,11 +326,20 @@ export class FeedPersonalizationEngine {
         }
       }
 
-      const rawMutedTags = localStorage.getItem(STORAGE_KEYS.MUTED_TAGS);
+      const rawMutedTags = localStorage.getItem(this.getStorageKey(STORAGE_KEYS.MUTED_TAGS));
       if (rawMutedTags) {
         const parsed = JSON.parse(rawMutedTags);
         if (Array.isArray(parsed)) {
           this.mutedTags = new Set(parsed);
+        }
+      }
+
+      // 5. Not Interested Posts (scoped)
+      const rawNotInterested = localStorage.getItem(this.getStorageKey(STORAGE_KEYS.NOT_INTERESTED));
+      if (rawNotInterested) {
+        const parsed = JSON.parse(rawNotInterested);
+        if (Array.isArray(parsed)) {
+          this.notInterestedPosts = new Set(parsed);
         }
       }
     } catch {
@@ -283,7 +352,7 @@ export class FeedPersonalizationEngine {
 
     try {
       localStorage.setItem(
-        STORAGE_KEYS.USER_HISTORY,
+        this.getStorageKey(STORAGE_KEYS.USER_HISTORY),
         JSON.stringify(this.userHistory.slice(-this.maxHistoryLength))
       );
 
@@ -291,13 +360,14 @@ export class FeedPersonalizationEngine {
       for (const [k, v] of this.manualOverrides.entries()) {
         manualObj[k] = v;
       }
-      localStorage.setItem(STORAGE_KEYS.MANUAL_INTERESTS, JSON.stringify(manualObj));
+      localStorage.setItem(this.getStorageKey(STORAGE_KEYS.MANUAL_INTERESTS), JSON.stringify(manualObj));
 
       const signalsArray = Array.from(this.contentSignals.values()).slice(-500);
       localStorage.setItem(STORAGE_KEYS.CONTENT_SIGNALS, JSON.stringify(signalsArray));
 
-      localStorage.setItem(STORAGE_KEYS.MUTED_AUTHORS, JSON.stringify(Array.from(this.mutedAuthors)));
-      localStorage.setItem(STORAGE_KEYS.MUTED_TAGS, JSON.stringify(Array.from(this.mutedTags)));
+      localStorage.setItem(this.getStorageKey(STORAGE_KEYS.MUTED_AUTHORS), JSON.stringify(Array.from(this.mutedAuthors)));
+      localStorage.setItem(this.getStorageKey(STORAGE_KEYS.MUTED_TAGS), JSON.stringify(Array.from(this.mutedTags)));
+      localStorage.setItem(this.getStorageKey(STORAGE_KEYS.NOT_INTERESTED), JSON.stringify(Array.from(this.notInterestedPosts)));
     } catch {
       // Storage quota exceeded or private mode restriction
     }
@@ -523,7 +593,18 @@ export class FeedPersonalizationEngine {
       this.contentSignals.set(signal.postId, signal);
     }
 
-    // 0. Check for Muted tags or authors
+    // 0. Check for Not Interested posts or Muted authors
+    if (this.notInterestedPosts.has(signal.postId)) {
+      const result: PersonalizationScore = {
+        postId: signal.postId,
+        relevanceScore: 0,
+        reasons: ['🚫 Marked as not interested for this facet'],
+        breakdown: { topicScore: 0, authorScore: 0, meritScore: 0, freshnessScore: 0, viewPenalty: 100 },
+      };
+      this.cachedScores.set(signal.postId, result);
+      return result;
+    }
+
     if (this.mutedAuthors.has(signal.authorFP)) {
       const result: PersonalizationScore = {
         postId: signal.postId,
@@ -660,13 +741,21 @@ export class FeedPersonalizationEngine {
     let communityBoost = 0;
     if (signal.channelId && this.isCommunityJoined(signal.channelId)) {
       communityBoost = 25;
-      reasons.unshift(`🏛️ From c/${signal.channelId} (community you joined)`);
+      if (this.currentFacetId) {
+        reasons.unshift(`🏛️ From c/${signal.channelId} (community joined by your active facet)`);
+      } else {
+        reasons.unshift(`🏛️ From c/${signal.channelId} (community you joined)`);
+      }
     }
 
     let followingBoost = 0;
     if (signal.authorFP && this.isAuthorFollowed(signal.authorFP)) {
       followingBoost = 25;
-      reasons.unshift(`👤 From a creator you follow`);
+      if (this.currentFacetId) {
+        reasons.unshift(`👤 From an author followed by your active facet`);
+      } else {
+        reasons.unshift(`👤 From a creator you follow`);
+      }
     }
 
     // ── 8. Weighted Composite Score Formulation ─────────────────────────────
@@ -856,7 +945,17 @@ export class FeedPersonalizationEngine {
 
   public isCommunityJoined(channelId: string): boolean {
     if (!channelId) return false;
+    const cleanChan = channelId.replace(/^c\//, '');
     try {
+      if (this.currentFacetId && typeof localStorage !== 'undefined') {
+        const raw = localStorage.getItem(`urefy_facet_communities_${this.currentFacetId}`);
+        if (raw) {
+          const list = JSON.parse(raw);
+          if (Array.isArray(list) && (list.includes(cleanChan) || list.includes(channelId) || list.includes(`c/${cleanChan}`))) {
+            return true;
+          }
+        }
+      }
       const g = (globalThis as any);
       if (g.sovereignCircleEngine && typeof g.sovereignCircleEngine.findCircle === 'function') {
         const c = g.sovereignCircleEngine.findCircle(channelId);
@@ -870,7 +969,7 @@ export class FeedPersonalizationEngine {
         const raw = localStorage.getItem('aetheris_sovereign_circles_joined');
         if (raw) {
           const parsed = JSON.parse(raw);
-          if (parsed && (parsed[channelId] === true || parsed[channelId.replace(/^c\//, '')] === true || parsed[`c/${channelId}`] === true)) {
+          if (parsed && (parsed[channelId] === true || parsed[cleanChan] === true || parsed[`c/${cleanChan}`] === true)) {
             return true;
           }
         }
@@ -882,6 +981,13 @@ export class FeedPersonalizationEngine {
   public isAuthorFollowed(authorFP: string): boolean {
     if (!authorFP) return false;
     try {
+      if (this.currentFacetId && typeof localStorage !== 'undefined') {
+        const raw = localStorage.getItem(`urefy_facet_follows_${this.currentFacetId}`);
+        if (raw) {
+          const list = JSON.parse(raw);
+          if (Array.isArray(list) && list.includes(authorFP)) return true;
+        }
+      }
       const g = (globalThis as any);
       if (g.profileView && typeof g.profileView.isFollowing === 'function') {
         if (g.profileView.isFollowing(authorFP)) return true;

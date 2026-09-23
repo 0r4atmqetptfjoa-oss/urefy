@@ -20,18 +20,21 @@
 
 :root {
   color-scheme: dark;
-  --color-accent: #e59b3c;
-  --color-accent-glow: rgba(229, 155, 60, 0.15);
-  --color-accent-border: rgba(229, 155, 60, 0.35);
-  --color-accent-secondary: #d97706;
-  --bg-canvas: #0c0906;
-  --bg-surface-base: #14110d;
-  --bg-surface-raised: #1c1813;
-  --bg-surface-overlay: #27221b;
-  --text-primary: #f5f4f0;
-  --text-secondary: #a39e93;
-  --text-muted: #746f66;
-  --border-color: rgba(255, 255, 255, 0.08);
+  --color-accent: #e89e38;
+  --color-accent-glow: rgba(232, 158, 56, 0.22);
+  --color-accent-border: rgba(232, 158, 56, 0.45);
+  --color-accent-secondary: #c27020;
+  --color-sage: #3ecf8e;
+  --color-iris: #818cf8;
+  --bg-canvas: #08090d;
+  --bg-surface-base: #0f1219;
+  --bg-surface-raised: #161a24;
+  --bg-surface-overlay: #222838;
+  --bg-surface-highlight: #2a3246;
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --border-color: rgba(255, 255, 255, 0.07);
   --font-size-base: 14px;
   --font-family-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   --font-family-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;

@@ -130,6 +130,7 @@ import { communityView } from './community-view.js';
 import { rapidOnboarding } from './rapid-onboarding.js';
 import { actionDispatcher } from './ui/action-dispatcher.js';
 import { renderHeaderPrimaryNav, renderHeaderTools, renderBroadcastBanner as renderHeaderBroadcastBanner } from './header.js';
+import { facetSwitcher } from './facet-switcher.js';
 import { railController } from './controllers/rail-controller.js';
 import { navigationController } from './controllers/navigation-controller.js';
 import { renderWorkspaceLayoutControls } from './workspace-layout.js';
@@ -1240,6 +1241,7 @@ export function initApp(): void {
       patchEl('broadcast-root', renderBroadcastBanner());
       patchEl('header-primary-nav', renderHeaderPrimaryNav());
       patchEl('header-tools-root', renderHeaderToolsRoot());
+      facetSwitcher.bindEvents();
       patchEl('left-rail-scroll', renderLeftRailContent());
       patchEl('main-stage', renderMainStage());
       patchEl('right-rail-scroll', renderRightRailContent());
@@ -1396,7 +1398,7 @@ export function initApp(): void {
 function renderToasts(): string {
   if (clientStore.toasts.length === 0) return '';
   return `
-    <div class="fixed top-4 right-4 z-50 flex flex-col space-y-2 pointer-events-none">
+    <div class="fixed top-4 right-4 z-[10002] flex flex-col space-y-2 pointer-events-none">
       ${clientStore.toasts.map(t => `
         <div class="px-4 py-2.5 rounded-lg text-xs font-medium shadow-2xl flex items-center space-x-2 border transition-all animate-in fade-in slide-in-from-top-2 duration-150 ${t.type === 'success' ? 'bg-surface-overlay text-signal border-signal/40' : t.type === 'warning' ? 'bg-surface-overlay text-amber border-amber/40' : 'bg-surface-overlay text-cyphr border-cyphr/40'}">
           <span>${t.type === 'success' ? '✅' : t.type === 'warning' ? '⚠️' : 'ℹ️'}</span>
@@ -2943,6 +2945,7 @@ function updateCommandRailHighlight(index: number): void {
 
   // Sovereign Federated Mesh Widget Event Handlers
   import('./node-federation.js').then(m => m.nodeFederationEngine.bindEvents());
+  facetSwitcher.bindEvents();
 
   // Profile View Handlers
   document.querySelectorAll('.btn-profile-tab').forEach(btn => {

@@ -11,6 +11,11 @@ import {
   globalPostsStore,
   globalVotesStore,
   globalSpentNullifiers,
+  globalFacetsStore,
+  globalFacetFollowsStore,
+  globalFacetMembersStore,
+  globalFollowsStore,
+  globalCommunityMembersStore,
   isProductionEnv,
   createD1UnavailableResponse,
 } from './_db.js';
@@ -24,7 +29,7 @@ export type { EdgePost };
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-User-Fingerprint',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-User-Fingerprint, X-Facet-Id',
 };
 
 /**
@@ -90,6 +95,8 @@ export function parseD1PostRow(row: any): EdgePost {
     quotedPost,
     createdAt,
     isExpanded,
+    facetId: row.facet_id ?? row.facetId ?? undefined,
+    audience: row.audience ?? 'public',
   };
 }
 
@@ -108,6 +115,7 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
     const offset = Number.isFinite(rawOffset) && rawOffset >= 0 ? rawOffset : 0;
 
     const userFingerprint = (url.searchParams.get('userFingerprint') || context.request.headers.get('X-User-Fingerprint') || '').trim();
+    const callerFacetId = (url.searchParams.get('facetId') || context.request.headers.get('X-Facet-Id') || '').trim();
 
     const db = getD1Database(context.env);
     const kv = getKVStore(context.env);
@@ -115,7 +123,7 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
 
     // 1. Try KV Cache for fast edge read if sorting hot without custom filters and not personalized
     const cacheKey = `posts:v2:${channelId || 'all'}:${flair || 'all'}:${sort}:${limit}:${offset}`;
-    if (kv && !userFingerprint) {
+    if (kv && !userFingerprint && !callerFacetId) {
       try {
         const cached = await kv.get<{ success: boolean; count: number; posts: EdgePost[] }>(cacheKey, 'json');
         if (cached && Array.isArray(cached.posts)) {
@@ -125,6 +133,7 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
               'Content-Type': 'application/json',
               'X-Edge-Cache': 'HIT',
               'Cache-Control': 'public, max-age=15, stale-while-revalidate=30',
+              'Vary': 'Accept, Authorization, X-User-Fingerprint, X-Facet-Id',
             },
           });
         }
@@ -137,14 +146,74 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
     // 2. Query Cloudflare D1 Database if binding available
     if (db) {
       try {
-        let query = `SELECT posts.*, profiles.display_name AS author_display_name,
-          profiles.handle AS author_handle, profiles.avatar_url AS author_avatar_url
+        let query = `SELECT posts.*,
+          CASE
+            WHEN posts.facet_id IS NOT NULL THEN (
+              CASE
+                WHEN facets.status = 'deleted' THEN '[Deleted Context]'
+                ELSE COALESCE(facets.display_name, '[Deleted Context]')
+              END
+            )
+            ELSE profiles.display_name
+          END AS author_display_name,
+          CASE
+            WHEN posts.facet_id IS NOT NULL THEN (
+              CASE
+                WHEN facets.status = 'deleted' THEN NULL
+                ELSE facets.handle
+              END
+            )
+            ELSE profiles.handle
+          END AS author_handle,
+          CASE
+            WHEN posts.facet_id IS NOT NULL THEN (
+              CASE
+                WHEN facets.status = 'deleted' THEN NULL
+                ELSE facets.avatar_url
+              END
+            )
+            ELSE profiles.avatar_url
+          END AS author_avatar_url,
+          facets.is_publicly_linked AS facet_is_publicly_linked
           FROM posts
+          LEFT JOIN facets ON facets.id = posts.facet_id
           LEFT JOIN user_profiles profiles ON profiles.user_id = posts.author_id
           WHERE (posts.status IN ('published', 'pinned', 'locked') OR posts.status IS NULL)
           AND (posts.status != 'shadowbanned' OR posts.status IS NULL)
           AND NOT EXISTS (SELECT 1 FROM synthetic_fixtures sf WHERE sf.resource_type = 'post' AND sf.resource_id = posts.id)`;
         const params: any[] = [];
+
+        // Audience privacy filter
+        if (!userFingerprint && !callerFacetId) {
+          query += " AND (posts.audience = 'public' OR posts.audience IS NULL)";
+        } else if (callerFacetId) {
+          query += ` AND (
+            posts.audience = 'public' OR posts.audience IS NULL
+            OR posts.author_id = ?
+            OR posts.facet_id = ?
+            OR (posts.audience = 'community' AND EXISTS (
+                 SELECT 1 FROM facet_community_memberships fcm WHERE fcm.community_id = posts.channel_id AND fcm.facet_id = ?
+               ))
+            OR (posts.audience = 'followers' AND EXISTS (
+                 SELECT 1 FROM facet_follows ff WHERE ff.following_facet_id = posts.facet_id AND ff.follower_facet_id = ?
+               ))
+          )`;
+          params.push(userFingerprint || callerFacetId, callerFacetId, callerFacetId, callerFacetId);
+        } else {
+          query += ` AND (
+            posts.audience = 'public' OR posts.audience IS NULL
+            OR posts.author_id = ?
+            OR (posts.audience = 'community' AND (
+                 EXISTS (SELECT 1 FROM facet_community_memberships fcm JOIN facets f ON f.id = fcm.facet_id WHERE fcm.community_id = posts.channel_id AND f.owner_fingerprint = ?)
+                 OR EXISTS (SELECT 1 FROM community_members cm WHERE cm.community_id = posts.channel_id AND cm.user_id = ?)
+               ))
+            OR (posts.audience = 'followers' AND (
+                 EXISTS (SELECT 1 FROM facet_follows ff JOIN facets f ON f.id = ff.follower_facet_id WHERE ff.following_facet_id = posts.facet_id AND f.owner_fingerprint = ?)
+                 OR EXISTS (SELECT 1 FROM follows fws WHERE fws.following_id = posts.author_id AND fws.follower_id = ?)
+               ))
+          )`;
+          params.push(userFingerprint, userFingerprint, userFingerprint, userFingerprint, userFingerprint);
+        }
 
         if (channelId && channelId !== 'all') {
           query += ' AND posts.channel_id = ?';
@@ -172,7 +241,15 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
         const { results } = await stmt.all<any>();
 
         if (results && results.length > 0) {
-          posts = results.map(parseD1PostRow);
+          posts = results.map(row => {
+            const p = parseD1PostRow(row);
+            const isOwner = Boolean(userFingerprint && userFingerprint === p.authorFingerprint);
+            const isPubliclyLinked = row.facet_is_publicly_linked === 1;
+            if (!isOwner && !isPubliclyLinked && p.facetId) {
+              p.authorFingerprint = p.facetId;
+            }
+            return p;
+          });
           if (userFingerprint) {
             try {
               const blocks = await db.prepare('SELECT blocked_id FROM user_blocks WHERE blocker_id = ?').bind(userFingerprint).all<{ blocked_id: string }>();
@@ -189,6 +266,9 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
         } else {
           // If D1 is empty on initial migration in dev/test, fallback to in-memory seed posts
           let fallback = [...globalPostsStore];
+          if (!userFingerprint && !callerFacetId) {
+            fallback = fallback.filter(p => !p.audience || p.audience === 'public');
+          }
           if (channelId && channelId !== 'all') {
             fallback = fallback.filter((p) => p.channelId === channelId);
           }
@@ -212,6 +292,77 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
     } else {
       // 3. In-Memory Edge Store Fallback (Strictly Dev / Test only)
       let result = [...globalPostsStore];
+
+      // Audience privacy filter in-memory
+      if (!userFingerprint && !callerFacetId) {
+        result = result.filter(p => !p.audience || p.audience === 'public');
+      } else if (callerFacetId) {
+        result = result.filter(p => {
+          if (!p.audience || p.audience === 'public') return true;
+          if (p.facetId === callerFacetId || (userFingerprint && p.authorFingerprint === userFingerprint)) return true;
+          if (p.audience === 'community') {
+            return globalFacetMembersStore.some(m => m.communityId === p.channelId && m.facetId === callerFacetId);
+          }
+          if (p.audience === 'followers') {
+            return globalFacetFollowsStore.some(ff => ff.followingFacetId === p.facetId && ff.followerFacetId === callerFacetId);
+          }
+          return false;
+        });
+      } else {
+        result = result.filter(p => {
+          if (!p.audience || p.audience === 'public') return true;
+          if (p.authorFingerprint === userFingerprint) return true;
+          if (p.audience === 'community') {
+            const isMember = globalFacetMembersStore.some(m => {
+              if (m.communityId !== p.channelId) return false;
+              const f = globalFacetsStore.find(fac => fac.id === m.facetId);
+              return f && f.ownerFingerprint === userFingerprint;
+            }) || globalCommunityMembersStore.some(m => m.communityId === p.channelId && m.userId === userFingerprint);
+            return isMember;
+          }
+          if (p.audience === 'followers') {
+            const isFollower = globalFacetFollowsStore.some(ff => {
+              if (ff.followingFacetId !== p.facetId) return false;
+              const f = globalFacetsStore.find(fac => fac.id === ff.followerFacetId);
+              return f && f.ownerFingerprint === userFingerprint;
+            }) || globalFollowsStore.some(f => f.followingId === p.authorFingerprint && f.followerId === userFingerprint);
+            return isFollower;
+          }
+          return false;
+        });
+      }
+
+      // Attribution & public unlinkability in-memory
+      result = result.map(p => {
+        const facet = p.facetId ? globalFacetsStore.find(f => f.id === p.facetId) : null;
+        const isOwner = Boolean(userFingerprint && userFingerprint === p.authorFingerprint);
+        let authorDisplayName = p.authorDisplayName;
+        let authorHandle = p.authorHandle;
+        let authorAvatarUrl = p.authorAvatarUrl;
+        let authorFingerprint = p.authorFingerprint;
+
+        if (p.facetId) {
+          if (!facet || facet.status === 'deleted') {
+            authorDisplayName = '[Deleted Context]';
+            authorHandle = undefined;
+            authorAvatarUrl = undefined;
+          } else {
+            authorDisplayName = facet.displayName || '[Deleted Context]';
+            authorHandle = facet.handle;
+            authorAvatarUrl = facet.avatarUrl;
+          }
+          if (!isOwner && (!facet || !facet.isPubliclyLinked)) {
+            authorFingerprint = p.facetId;
+          }
+        }
+        return {
+          ...p,
+          authorDisplayName,
+          authorHandle,
+          authorAvatarUrl,
+          authorFingerprint,
+        };
+      });
 
       if (channelId && channelId !== 'all') {
         result = result.filter((p) => p.channelId === channelId);
@@ -242,8 +393,12 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
       posts,
     };
 
-    // Store in KV cache with short TTL
-    if (kv && !userFingerprint) {
+    const isPrivateOrAuthed = Boolean(
+      userFingerprint || callerFacetId || posts.some(p => p.audience && p.audience !== 'public')
+    );
+
+    // Store in KV cache with short TTL (strictly public unauthenticated only)
+    if (kv && !isPrivateOrAuthed) {
       try {
         await kv.put(cacheKey, JSON.stringify(payload), { expirationTtl: 30 });
       } catch (_) {}
@@ -256,7 +411,10 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
       status: 200,
       headers: {
         'Content-Type': 'application/json',
-        'Cache-Control': 'public, max-age=5, stale-while-revalidate=15',
+        'Cache-Control': isPrivateOrAuthed
+          ? 'private, no-cache, no-store, must-revalidate'
+          : 'public, max-age=5, stale-while-revalidate=15',
+        'Vary': 'Accept, Authorization, X-User-Fingerprint, X-Facet-Id',
         'ETag': etag,
         'X-Edge-Storage': db ? 'Cloudflare-D1' : 'Edge-Isolate-Memory',
       },
@@ -755,6 +913,81 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
 
     const syntheticMetadata = parseSyntheticFixtureMetadata(body);
 
+    // Resolve audience & facet
+    const rawAudience = String(body.audience || 'public').trim().toLowerCase();
+    const audience: 'public' | 'community' | 'followers' =
+      ['public', 'community', 'followers'].includes(rawAudience) ? (rawAudience as any) : 'public';
+
+    let requestedFacetId = typeof body.facetId === 'string' ? body.facetId.trim() : '';
+    let authorDisplayName = typeof body.authorDisplayName === 'string' ? body.authorDisplayName : undefined;
+    let authorHandle = typeof body.authorHandle === 'string' ? body.authorHandle : undefined;
+    let authorAvatarUrl = typeof body.authorAvatarUrl === 'string' ? body.authorAvatarUrl : undefined;
+    let isDefaultFacet = false;
+
+    if (requestedFacetId) {
+      let facetRecord: any = null;
+      try {
+        if (db) {
+          const stmt = db.prepare(
+            'SELECT id, owner_fingerprint, handle, display_name, avatar_url, is_default, status FROM facets WHERE id = ?'
+          ).bind(requestedFacetId);
+          if (typeof stmt?.first === 'function') {
+            facetRecord = await stmt.first();
+          }
+        } else {
+          facetRecord = globalFacetsStore.find(f => f.id === requestedFacetId);
+        }
+      } catch {
+        facetRecord = globalFacetsStore.find(f => f.id === requestedFacetId);
+      }
+
+      const facetOwner = facetRecord?.owner_fingerprint || facetRecord?.ownerFingerprint;
+      if (!facetRecord || (facetOwner && facetOwner !== authorFingerprint && !adminCheck.authorized)) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'You do not own the specified Facet' }),
+          { status: 403, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const facetStatus = facetRecord.status || 'active';
+      if (facetStatus === 'deleted' || facetStatus === 'deactivated') {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Cannot post using an inactive or deleted Facet' }),
+          { status: 403, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+
+      isDefaultFacet = Boolean(facetRecord.is_default ?? facetRecord.isDefault);
+      authorDisplayName = facetRecord.display_name ?? facetRecord.displayName ?? authorDisplayName;
+      authorHandle = facetRecord.handle ?? authorHandle;
+      authorAvatarUrl = facetRecord.avatar_url ?? facetRecord.avatarUrl ?? authorAvatarUrl;
+    } else {
+      let defaultFacet: any = null;
+      try {
+        if (db) {
+          const stmt = db.prepare(
+            'SELECT id, is_default, handle, display_name, avatar_url FROM facets WHERE owner_fingerprint = ? AND is_default = 1'
+          ).bind(authorFingerprint);
+          if (typeof stmt?.first === 'function') {
+            defaultFacet = await stmt.first();
+          }
+        } else {
+          defaultFacet = globalFacetsStore.find(f => f.ownerFingerprint === authorFingerprint && f.isDefault);
+        }
+      } catch {
+        defaultFacet = globalFacetsStore.find(f => f.ownerFingerprint === authorFingerprint && f.isDefault);
+      }
+      if (defaultFacet) {
+        requestedFacetId = defaultFacet.id;
+        isDefaultFacet = true;
+        authorDisplayName = defaultFacet.display_name ?? defaultFacet.displayName ?? authorDisplayName;
+        authorHandle = defaultFacet.handle ?? authorHandle;
+        authorAvatarUrl = defaultFacet.avatar_url ?? defaultFacet.avatarUrl ?? authorAvatarUrl;
+      } else {
+        isDefaultFacet = true;
+      }
+    }
+
     const randSuffix = typeof crypto !== 'undefined' && crypto.randomUUID
       ? crypto.randomUUID().replace(/-/g, '').substring(0, 8)
       : Date.now().toString(36);
@@ -765,6 +998,11 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
       channelId: body.channelId || existingPost?.channelId || 'pulse-global',
       authorFingerprint: existingPost ? existingPost.authorFingerprint : authorFingerprint,
       authorRole,
+      authorDisplayName: authorDisplayName || existingPost?.authorDisplayName,
+      authorHandle: authorHandle || existingPost?.authorHandle,
+      authorAvatarUrl: authorAvatarUrl || existingPost?.authorAvatarUrl,
+      facetId: requestedFacetId || existingPost?.facetId,
+      audience: audience || existingPost?.audience || 'public',
       title: body.title !== undefined ? body.title : (existingPost?.title || 'Sovereign Pulse'),
       content: body.content !== undefined ? body.content : (existingPost?.content || ''),
       flair: body.flair || existingPost?.flair || (body.title ? 'TECH DISCUSSION' : 'MICRO-PULSE'),
@@ -793,6 +1031,37 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
       );
     }
 
+    // Cross-facet community authorization: facet must independently belong to community
+    if (newPost.audience === 'community') {
+      let isMember = false;
+      if (newPost.facetId) {
+        if (db) {
+          const mCheck = await db.prepare(
+            'SELECT 1 FROM facet_community_memberships WHERE community_id = ? AND facet_id = ?'
+          ).bind(newPost.channelId, newPost.facetId).first();
+          isMember = Boolean(mCheck);
+        } else {
+          isMember = globalFacetMembersStore.some(m => m.communityId === newPost.channelId && m.facetId === newPost.facetId);
+        }
+      } else {
+        if (db) {
+          const mCheck = await db.prepare(
+            'SELECT 1 FROM community_members WHERE community_id = ? AND user_id = ?'
+          ).bind(newPost.channelId, newPost.authorFingerprint).first();
+          isMember = Boolean(mCheck);
+        } else {
+          isMember = globalCommunityMembersStore.some(m => m.communityId === newPost.channelId && m.userId === newPost.authorFingerprint);
+        }
+      }
+
+      if (!isMember && !adminCheck.authorized) {
+        return new Response(
+          JSON.stringify({ success: false, error: `Facet is not an authorized member of community ${newPost.channelId}` }),
+          { status: 403, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
     // Store in Cloudflare D1 if available (Explicit UPDATE vs explicit INSERT)
     if (db) {
       try {
@@ -802,7 +1071,7 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
               `UPDATE posts SET
                 channel_id = ?, author_role = ?, title = ?, content = ?, flair = ?,
                 attachment_json = ?, video_json = ?, images_json = ?, poll_id = ?,
-                quoted_post_json = ?, status = ?
+                quoted_post_json = ?, status = ?, facet_id = ?, audience = ?
               WHERE id = ? AND (author_id = ? OR ? = 1)`
             )
             .bind(
@@ -817,6 +1086,8 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
               newPost.pollId || null,
               newPost.quotedPost ? JSON.stringify(newPost.quotedPost) : null,
               newPost.status || 'published',
+              newPost.facetId || null,
+              newPost.audience || 'public',
               newPost.id,
               authorFingerprint,
               adminCheck.authorized ? 1 : 0
@@ -837,8 +1108,9 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
                 id, channel_id, author_id, author_role, title, content, flair,
                 merit_votes, user_voted, reply_count, boost_count,
                 attachment_json, video_json, images_json, poll_id,
-                quoted_post_json, status, created_at, is_expanded
-              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+                quoted_post_json, status, created_at, is_expanded,
+                facet_id, audience
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
             )
             .bind(
               newPost.id,
@@ -859,7 +1131,9 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
               newPost.quotedPost ? JSON.stringify(newPost.quotedPost) : null,
               newPost.status || 'published',
               newPost.createdAt,
-              newPost.isExpanded ? 1 : 0
+              newPost.isExpanded ? 1 : 0,
+              newPost.facetId || null,
+              newPost.audience || 'public'
             );
 
           const runResult = await insertStmt.run();
@@ -915,7 +1189,8 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
     }
 
     // Trigger outbound ActivityPub federation asynchronously
-    if (newPost.status === 'published') {
+    // Strict privacy rule: ONLY public posts from the default public facet participate in ActivityPub federation!
+    if (newPost.status === 'published' && (!newPost.audience || newPost.audience === 'public') && isDefaultFacet) {
       try {
         const origin = new URL(context.request.url).origin;
         const federationPromise = dispatchOutboundPostFederation(context.env, newPost, origin);

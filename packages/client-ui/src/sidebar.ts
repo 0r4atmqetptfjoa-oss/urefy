@@ -43,6 +43,14 @@ export class ContextualSidebar {
     const communities = sovereignCircleEngine.getAllCircles().slice(0, 4);
     return `
       <div class="context-stack" data-sidebar-context="feed">
+        <div class="sovereign-matrix-status pb-3 mb-1 border-b border-white/5 flex items-center justify-between text-xs select-none">
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span class="font-mono text-slate-300 text-[11px] font-semibold tracking-wider">SOVEREIGN STATE</span>
+          </div>
+          <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Local Vault Ready</span>
+        </div>
+
         <section class="context-card">
           <div class="context-card__header"><h2>In the conversation</h2><a href="/explore" data-public-link>Explore</a></div>
           ${topics.length ? `<div class="context-list">${topics.map((topic, index) => `
@@ -80,11 +88,14 @@ export class ContextualSidebar {
       <div class="context-stack" data-sidebar-context="messages">
         <section class="context-card context-card--secure">
           <span class="security-mark">${renderIcon('lock', { size: 18 })}</span>
-          <div><h2>Choose your audience</h2><p>Direct messages are end-to-end encrypted. Community chat is shared with the community.</p></div>
+          <div>
+            <h2>Privacy Boundaries</h2>
+            <p>Direct 1:1 messages are end-to-end encrypted on-device. Community chat channels are public to all participants.</p>
+          </div>
         </section>
         <section class="context-card">
-          <div class="context-card__header"><h2>Conversation</h2></div>
-          <button type="button" data-action="open-settings" data-subtab="privacy" class="context-action">${renderIcon('shield', { size: 17 })}<span>Privacy & safety</span></button>
+          <div class="context-card__header"><h2>Conversation Safety</h2></div>
+          <button type="button" data-action="open-settings" data-subtab="privacy" class="context-action">${renderIcon('shield', { size: 17 })}<span>Privacy & safety settings</span></button>
         </section>
       </div>`;
   }

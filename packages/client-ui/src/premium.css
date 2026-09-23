@@ -4,43 +4,47 @@
  */
 
 :root {
-  --color-accent: #e59b3c !important;
-  --color-accent-glow: rgba(229, 155, 60, 0.2) !important;
-  --color-accent-border: rgba(229, 155, 60, 0.42) !important;
-  --color-accent-secondary: #d97706 !important;
-  --bg-canvas: #0c0906;
-  --bg-surface-base: #14110d;
-  --bg-surface-raised: #1c1813;
-  --bg-surface-overlay: #27221b;
-  --bg-surface-highlight: #332d24;
-  --text-primary: #f5f4f0;
-  --text-secondary: #a39e93;
-  --text-muted: #746f66;
-  --border-color: rgba(255, 255, 255, 0.08);
-  --premium-line: rgba(255, 255, 255, 0.08);
-  --premium-line-strong: rgba(229, 155, 60, 0.42);
-  --premium-glass: color-mix(in srgb, var(--bg-surface-base) 88%, transparent);
-  --premium-shadow: 0 18px 48px rgba(0, 0, 0, 0.28);
-  --premium-shadow-soft: 0 8px 30px rgba(0, 0, 0, 0.18);
-  --premium-radius: 12px;
+  --color-accent: #e89e38 !important;
+  --color-accent-glow: rgba(232, 158, 56, 0.22) !important;
+  --color-accent-border: rgba(232, 158, 56, 0.45) !important;
+  --color-accent-secondary: #c27020 !important;
+  --color-sage: #3ecf8e;
+  --color-iris: #818cf8;
+  --bg-canvas: #08090d;
+  --bg-surface-base: #0f1219;
+  --bg-surface-raised: #161a24;
+  --bg-surface-overlay: #222838;
+  --bg-surface-highlight: #2a3246;
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --border-color: rgba(255, 255, 255, 0.07);
+  --premium-line: rgba(255, 255, 255, 0.07);
+  --premium-line-strong: rgba(232, 158, 56, 0.45);
+  --premium-glass: color-mix(in srgb, var(--bg-surface-base) 92%, transparent);
+  --premium-shadow: 0 18px 48px rgba(0, 0, 0, 0.38);
+  --premium-shadow-soft: 0 8px 30px rgba(0, 0, 0, 0.22);
+  --premium-radius: 14px;
 }
 
 html:not([data-theme]),
 html[data-theme="default"],
 html[data-theme="keystone-amber"],
 html[data-theme="solar-amber"] {
-  --color-accent: #e59b3c !important;
-  --color-accent-glow: rgba(229, 155, 60, 0.25) !important;
-  --color-accent-border: rgba(229, 155, 60, 0.42) !important;
-  --color-accent-secondary: #d97706 !important;
-  --bg-canvas: #0c0906;
-  --bg-surface-base: #14110d;
-  --bg-surface-raised: #1c1813;
-  --bg-surface-overlay: #27221b;
-  --bg-surface-highlight: #332d24;
-  --text-primary: #f5f4f0;
-  --text-secondary: #a39e93;
-  --text-muted: #746f66;
+  --color-accent: #e89e38 !important;
+  --color-accent-glow: rgba(232, 158, 56, 0.22) !important;
+  --color-accent-border: rgba(232, 158, 56, 0.45) !important;
+  --color-accent-secondary: #c27020 !important;
+  --color-sage: #3ecf8e;
+  --color-iris: #818cf8;
+  --bg-canvas: #08090d;
+  --bg-surface-base: #0f1219;
+  --bg-surface-raised: #161a24;
+  --bg-surface-overlay: #222838;
+  --bg-surface-highlight: #2a3246;
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
 }
 
 html[data-theme="obsidian-cyber"] {

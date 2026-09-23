@@ -804,7 +804,7 @@ export function renderMessageItem(m: ClientMessage, prevMsg?: ClientMessage): st
   if (isGrouped) {
     return `
       ${dateSepHtml}
-      <div class="message-row message-row--subsequent group/msg-row relative relay-message pl-12 pr-3 py-1 rounded-xl hover:bg-surface-raised/40 transition-colors max-w-full overflow-hidden ${m.isMine ? 'bg-[var(--color-accent,#e59b3c)]/5' : ''}">
+      <div class="message-row message-row--subsequent group/msg-row relative relay-message pl-12 pr-3 py-1 rounded-xl hover:bg-surface-raised/40 transition-colors max-w-full overflow-hidden ${m.isMine ? 'bg-[var(--color-accent,#e89e38)]/5' : ''}">
         <span class="message-timestamp-hover absolute left-2 top-1.5 text-[11px] text-slate-400 font-mono opacity-0 group-hover/msg-row:opacity-100 transition-opacity select-none">${time}</span>
         <div class="message-body text-[15px] sm:text-[16px] text-slate-100 select-text leading-[1.6] break-words [overflow-wrap:anywhere] min-w-0">
           ${m.text ? `<div class="whitespace-pre-wrap">${processChatMessageContent(m.text)}</div>` : ''}
@@ -814,7 +814,7 @@ export function renderMessageItem(m: ClientMessage, prevMsg?: ClientMessage): st
         <div class="message-actions-bar opacity-0 group-hover/msg-row:opacity-100 focus-within:opacity-100 transition-opacity flex items-center space-x-1 absolute right-2 top-1 bg-surface-base/90 border border-white/10 rounded-lg px-1.5 py-0.5 shadow-sm">
           <button type="button" class="px-1.5 py-0.5 rounded hover:bg-white/10 text-xs cursor-pointer" title="React with emoji" data-action="toggle-relay-emoji">😊</button>
           <button type="button" class="px-1.5 py-0.5 rounded hover:bg-white/10 text-xs cursor-pointer text-slate-400 hover:text-white" title="Reply" data-action="reply-relay-message" data-message-id="${escapeHtml(m.id)}">↩</button>
-          <button type="button" class="px-1.5 py-0.5 rounded hover:bg-white/10 text-xs cursor-pointer ${canonicalVault.isMessageSaved(m.id) ? 'text-[var(--color-accent,#e59b3c)] font-bold' : 'text-slate-400 hover:text-white'}" title="${canonicalVault.isMessageSaved(m.id) ? 'Remove from Vault' : 'Save to Vault'}" data-action="${canonicalVault.isMessageSaved(m.id) ? 'unsave-message-vault' : 'keep-live-message'}" data-message-id="${escapeHtml(m.id)}">${canonicalVault.isMessageSaved(m.id) ? '💾' : '🔒'}</button>
+          <button type="button" class="px-1.5 py-0.5 rounded hover:bg-white/10 text-xs cursor-pointer ${canonicalVault.isMessageSaved(m.id) ? 'text-[var(--color-accent,#e89e38)] font-bold' : 'text-slate-400 hover:text-white'}" title="${canonicalVault.isMessageSaved(m.id) ? 'Remove from Vault' : 'Save to Vault'}" data-action="${canonicalVault.isMessageSaved(m.id) ? 'unsave-message-vault' : 'keep-live-message'}" data-message-id="${escapeHtml(m.id)}">${canonicalVault.isMessageSaved(m.id) ? '💾' : '🔒'}</button>
           <button type="button" class="px-1.5 py-0.5 rounded hover:bg-white/10 text-xs cursor-pointer text-slate-400 hover:text-white" title="Copy text" data-action="copy-message-text" data-text="${escapeAttr(m.text || '')}">📋</button>
         </div>
       </div>
@@ -823,15 +823,15 @@ export function renderMessageItem(m: ClientMessage, prevMsg?: ClientMessage): st
 
   return `
     ${dateSepHtml}
-    <div class="message-row group/msg-row relative relay-message px-3 py-2.5 rounded-xl hover:bg-surface-raised/40 space-y-1.5 max-w-full overflow-hidden transition-colors mt-2.5 ${m.isMine ? 'bg-[var(--color-accent,#e59b3c)]/5 border border-[var(--color-accent,#e59b3c)]/15' : ''}">
+    <div class="message-row group/msg-row relative relay-message px-3 py-2.5 rounded-xl hover:bg-surface-raised/40 space-y-1.5 max-w-full overflow-hidden transition-colors mt-2.5 ${m.isMine ? 'bg-[var(--color-accent,#e89e38)]/5 border border-[var(--color-accent,#e89e38)]/15' : ''}">
       <div class="flex items-center justify-between gap-2 mb-1 w-full flex-wrap">
         <div class="flex items-center gap-2.5 flex-wrap min-w-0">
           <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500/25 to-amber-600/25 border border-amber-500/30 flex items-center justify-center text-xs font-bold text-amber-200 shadow-sm shrink-0">
             ${author.name.substring(0, 2).toUpperCase()}
           </div>
-          <span class="text-[13px] sm:text-[14px] font-bold ${m.isMine ? 'text-[var(--color-accent,#e59b3c)]' : 'text-slate-100'}">${escapeHtml(author.name)}</span>
+          <span class="text-[13px] sm:text-[14px] font-bold ${m.isMine ? 'text-[var(--color-accent,#e89e38)]' : 'text-slate-100'}">${escapeHtml(author.name)}</span>
           <span class="text-[11px] text-slate-400 font-mono">${escapeHtml(author.handle)}</span>
-          ${m.isMine ? '<span class="text-[10px] font-semibold bg-[var(--color-accent,#e59b3c)]/15 text-[var(--color-accent,#e59b3c)] border border-[var(--color-accent,#e59b3c)]/30 px-1.5 py-0.2 rounded-md">You</span>' : ''}
+          ${m.isMine ? '<span class="text-[10px] font-semibold bg-[var(--color-accent,#e89e38)]/15 text-[var(--color-accent,#e89e38)] border border-[var(--color-accent,#e89e38)]/30 px-1.5 py-0.2 rounded-md">You</span>' : ''}
         </div>
         <span class="text-[11px] text-slate-400 font-mono">${time}</span>
       </div>
@@ -843,7 +843,7 @@ export function renderMessageItem(m: ClientMessage, prevMsg?: ClientMessage): st
       <div class="message-actions-bar opacity-0 group-hover/msg-row:opacity-100 focus-within:opacity-100 transition-opacity flex items-center space-x-1 absolute right-2 top-2 bg-surface-base/90 border border-white/10 rounded-lg px-1.5 py-0.5 shadow-sm">
         <button type="button" class="px-1.5 py-0.5 rounded hover:bg-white/10 text-xs cursor-pointer" title="React with emoji" data-action="toggle-relay-emoji">😊</button>
         <button type="button" class="px-1.5 py-0.5 rounded hover:bg-white/10 text-xs cursor-pointer text-slate-400 hover:text-white" title="Reply" data-action="reply-relay-message" data-message-id="${escapeHtml(m.id)}">↩</button>
-        <button type="button" class="px-1.5 py-0.5 rounded hover:bg-white/10 text-xs cursor-pointer ${canonicalVault.isMessageSaved(m.id) ? 'text-[var(--color-accent,#e59b3c)] font-bold' : 'text-slate-400 hover:text-white'}" title="${canonicalVault.isMessageSaved(m.id) ? 'Remove from Vault' : 'Save to Vault'}" data-action="${canonicalVault.isMessageSaved(m.id) ? 'unsave-message-vault' : 'keep-live-message'}" data-message-id="${escapeHtml(m.id)}">${canonicalVault.isMessageSaved(m.id) ? '💾' : '🔒'}</button>
+        <button type="button" class="px-1.5 py-0.5 rounded hover:bg-white/10 text-xs cursor-pointer ${canonicalVault.isMessageSaved(m.id) ? 'text-[var(--color-accent,#e89e38)] font-bold' : 'text-slate-400 hover:text-white'}" title="${canonicalVault.isMessageSaved(m.id) ? 'Remove from Vault' : 'Save to Vault'}" data-action="${canonicalVault.isMessageSaved(m.id) ? 'unsave-message-vault' : 'keep-live-message'}" data-message-id="${escapeHtml(m.id)}">${canonicalVault.isMessageSaved(m.id) ? '💾' : '🔒'}</button>
         <button type="button" class="px-1.5 py-0.5 rounded hover:bg-white/10 text-xs cursor-pointer text-slate-400 hover:text-white" title="Copy text" data-action="copy-message-text" data-text="${escapeAttr(m.text || '')}">📋</button>
       </div>
     </div>
@@ -867,7 +867,7 @@ export function renderMessagesTabHeader(): string {
           aria-pressed="${activeMessagesTab === 'relays'}"
           class="px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center space-x-2 transition-all cursor-pointer ${
             activeMessagesTab === 'relays'
-              ? 'bg-[var(--color-accent,#e59b3c)] text-slate-950 font-bold shadow-sm'
+              ? 'bg-[var(--color-accent,#e89e38)] text-slate-950 font-bold shadow-sm'
               : 'bg-surface-raised/60 hover:bg-surface-raised text-slate-300 border border-white/5'
           }"
         >
@@ -881,7 +881,7 @@ export function renderMessagesTabHeader(): string {
           aria-pressed="${activeMessagesTab === 'dm'}"
           class="px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center space-x-2 transition-all cursor-pointer ${
             activeMessagesTab === 'dm'
-              ? 'bg-[var(--color-accent,#e59b3c)] text-slate-950 font-bold shadow-sm'
+              ? 'bg-[var(--color-accent,#e89e38)] text-slate-950 font-bold shadow-sm'
               : 'bg-surface-raised/60 hover:bg-surface-raised text-slate-300 border border-white/5'
           }"
         >
@@ -1195,7 +1195,7 @@ export function renderDirectMessagesWorkspace(): string {
               <div class="space-y-1.5">
                 <h3 class="text-base font-bold text-white tracking-wide">Direct & Private Messages</h3>
                 <p class="text-xs text-slate-400 leading-relaxed">
-                  End-to-end encrypted conversations stored only on your devices. No plaintext, no message surveillance, and zero server logging.
+                  Private · End-to-end encrypted conversations stored only on your devices. No plaintext and no message surveillance.
                 </p>
               </div>
               <div class="grid grid-cols-2 gap-2 text-left py-2 border-y border-white/5">
@@ -1249,15 +1249,15 @@ export function renderDirectMessagesWorkspace(): string {
                 </div>
                 <div class="flex items-center space-x-2 mt-0.5 text-[10px] text-slate-400">
                   ${sovereignDM.isPeerTyping(activeConv.peerFingerprint) ? `
-                    <span class="flex items-center space-x-1 text-indigo-400 font-semibold animate-pulse">
+                    <span class="flex items-center space-x-1 text-[var(--color-accent,#e89e38)] font-semibold animate-pulse">
                       <span>✍️</span>
                       <span>typing...</span>
                     </span>
                   ` : `
-                    <span class="flex items-center gap-1 text-emerald-400 font-medium">
+                    <span class="flex items-center gap-1.5 text-emerald-400 font-medium" title="Direct session encrypted on-device with NIST FIPS 203 ML-KEM-768 + X25519">
                       <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                      <span class="hidden sm:inline">Hybrid Post-Quantum E2EE (ML-KEM-768 + X25519)</span>
-                      <span class="sm:hidden">ML-KEM-768</span>
+                      <span class="hidden sm:inline">Private · End-to-end encrypted</span>
+                      <span class="sm:hidden">End-to-end encrypted</span>
                     </span>
                   `}
                 </div>
@@ -1480,10 +1480,10 @@ export function renderDirectMessagesWorkspace(): string {
                   ` : ''}
 
                   <div class="relative group/bubble flex items-center gap-2 ${isMine ? 'flex-row-reverse' : 'flex-row'}">
-                    <div class="max-w-[85%] md:max-w-lg rounded-2xl p-3.5 shadow-sm text-[15px] sm:text-[16px] leading-[1.6] select-text break-words break-all [overflow-wrap:anywhere] min-w-0 overflow-hidden ${
+                    <div class="max-w-[85%] md:max-w-lg rounded-2xl p-3.5 sm:p-4 shadow-sm text-[15px] sm:text-[15.5px] leading-[1.6] select-text break-words break-all [overflow-wrap:anywhere] min-w-0 overflow-hidden ${
                       isMine 
-                        ? 'bg-[var(--color-accent,#e59b3c)]/15 border border-[var(--color-accent,#e59b3c)]/30 text-slate-100 rounded-br-sm' 
-                        : 'bg-surface-raised text-slate-100 border border-white/5 rounded-bl-sm'
+                        ? 'bg-gradient-to-br from-[var(--color-accent,#e89e38)]/18 to-[var(--color-accent-secondary,#c27020)]/10 border border-[var(--color-accent,#e89e38)]/35 text-slate-100 rounded-2xl rounded-br-xs' 
+                        : 'bg-surface-raised/95 text-slate-100 border border-white/8 rounded-2xl rounded-bl-xs'
                     }">
                       ${sovereignDM.showCiphertextToggle ? `
                         <div class="font-mono text-[10px] text-emerald-400 bg-black/40 p-2 rounded-lg border border-emerald-500/30 break-all space-y-1">
@@ -1514,7 +1514,7 @@ export function renderDirectMessagesWorkspace(): string {
                       <button type="button" class="context-button" data-action="reply-dm-message" data-message-id="${escapeHtml(msg.id)}">Reply</button>
                       <button type="button" class="context-button" data-action="create-dm-branch" data-peer="${escapeHtml(activeConv.peerFingerprint)}" data-message-id="${escapeHtml(msg.id)}">Branch</button>
                       ${canonicalVault.isMessageSaved(msg.id)
-                        ? `<button type="button" class="context-button text-[var(--color-accent,#e59b3c)] font-semibold" data-action="unsave-message-vault" data-message-id="${escapeHtml(msg.id)}" title="Remove from encrypted Vault">💾 Saved</button>`
+                        ? `<button type="button" class="context-button text-[var(--color-accent,#e89e38)] font-semibold" data-action="unsave-message-vault" data-message-id="${escapeHtml(msg.id)}" title="Remove from encrypted Vault">💾 Saved</button>`
                         : `<button type="button" class="context-button" data-action="save-message-vault" data-message-id="${escapeHtml(msg.id)}" title="Save to encrypted Vault">🔒 Vault</button>`
                       }
                       <button type="button" class="context-button" data-action="copy-message-text" data-text="${escapeAttr(msg.plaintext || '')}" title="Copy text">📋 Copy</button>
@@ -1526,7 +1526,7 @@ export function renderDirectMessagesWorkspace(): string {
             }).join('')}
             ${sovereignDM.isPeerTyping(activeConv.peerFingerprint) ? `
               <div class="flex items-center space-x-2 text-xs text-slate-400 italic bg-surface-raised/40 px-3 py-1.5 rounded-2xl w-fit border border-white/5 animate-pulse">
-                <span class="w-1.5 h-1.5 rounded-full bg-[var(--color-accent,#e59b3c)]"></span>
+                <span class="w-1.5 h-1.5 rounded-full bg-[var(--color-accent,#e89e38)]"></span>
                 <span>${escapeHtml(resolvePeerName(activeConv.peerFingerprint))} is typing...</span>
               </div>
             ` : ''}

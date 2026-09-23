@@ -11,6 +11,8 @@ import {
   createD1UnavailableResponse,
   globalBlocksStore,
   globalMutesStore,
+  globalFacetsStore,
+  globalFacetFollowsStore,
   EdgeBlock,
   EdgeMute,
 } from './_db.js';
@@ -129,8 +131,8 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
     let targetId = (body.targetId || body.blockedId || body.mutedId || body.targetUserId || '').trim();
 
     // Check signed envelope
-    if (body.envelope && typeof body.envelope === 'object') {
-      const auth = await requireSignedEnvelope(context, body.envelope);
+    if ((body.envelope && typeof body.envelope === 'object') || body.signature) {
+      const auth = await requireSignedEnvelope(context, body.envelope || body);
       if (auth.authorized) {
         userId = auth.fingerprint || userId;
         const payload = (auth.payload || {}) as any;
@@ -139,9 +141,9 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
       }
     }
 
-    if (!['block', 'unblock', 'mute', 'unmute'].includes(action)) {
+    if (!['block', 'unblock', 'mute', 'unmute', 'block-person', 'block-facet'].includes(action)) {
       return new Response(
-        JSON.stringify({ success: false, error: 'Invalid action. Must be block, unblock, mute, or unmute' }),
+        JSON.stringify({ success: false, error: 'Invalid action. Must be block, unblock, mute, unmute, block-person, or block-facet' }),
         { status: 400, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
       );
     }
@@ -187,30 +189,55 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
 
     const now = Date.now();
 
-    if (action === 'block') {
+    // Resolve person vs facet
+    let resolvedTargetId = targetId;
+    if (action === 'block-person' || action === 'block' || (body.blockScope === 'person')) {
       if (db) {
-        // Also remove any active follows in either direction
+        const fRow = await db.prepare('SELECT owner_fingerprint FROM facets WHERE id = ?').bind(targetId).first<{ owner_fingerprint: string }>();
+        if (fRow && fRow.owner_fingerprint) resolvedTargetId = fRow.owner_fingerprint;
+      } else {
+        const fMem = globalFacetsStore.find(f => f.id === targetId);
+        if (fMem) resolvedTargetId = fMem.ownerFingerprint;
+      }
+    }
+
+    if (action === 'block' || action === 'block-person' || action === 'block-facet') {
+      if (db) {
         await db.batch([
-          db.prepare('INSERT OR REPLACE INTO user_blocks (blocker_id, blocked_id, created_at) VALUES (?, ?, ?)').bind(userId, targetId, now),
-          db.prepare('DELETE FROM follows WHERE (follower_id = ? AND following_id = ?) OR (follower_id = ? AND following_id = ?)').bind(userId, targetId, targetId, userId),
+          db.prepare('INSERT OR REPLACE INTO user_blocks (blocker_id, blocked_id, created_at) VALUES (?, ?, ?)').bind(userId, resolvedTargetId, now),
+          db.prepare('DELETE FROM follows WHERE (follower_id = ? AND following_id = ?) OR (follower_id = ? AND following_id = ?)').bind(userId, resolvedTargetId, resolvedTargetId, userId),
+          db.prepare(`DELETE FROM facet_follows WHERE
+            (follower_facet_id IN (SELECT id FROM facets WHERE owner_fingerprint = ?) AND following_facet_id IN (SELECT id FROM facets WHERE owner_fingerprint = ?))
+            OR (follower_facet_id IN (SELECT id FROM facets WHERE owner_fingerprint = ?) AND following_facet_id IN (SELECT id FROM facets WHERE owner_fingerprint = ?))
+          `).bind(userId, resolvedTargetId, resolvedTargetId, userId),
         ]);
       } else {
-        const existing = globalBlocksStore.findIndex(b => b.blockerId === userId && b.blockedId === targetId);
+        const existing = globalBlocksStore.findIndex(b => b.blockerId === userId && b.blockedId === resolvedTargetId);
         if (existing < 0) {
-          globalBlocksStore.push({ blockerId: userId, blockedId: targetId, createdAt: now });
+          globalBlocksStore.push({ blockerId: userId, blockedId: resolvedTargetId, createdAt: now });
+        }
+        // Remove facet_follows
+        const userFacetIds = new Set(globalFacetsStore.filter(f => f.ownerFingerprint === userId).map(f => f.id));
+        const targetFacetIds = new Set(globalFacetsStore.filter(f => f.ownerFingerprint === resolvedTargetId || f.id === resolvedTargetId).map(f => f.id));
+        for (let i = globalFacetFollowsStore.length - 1; i >= 0; i--) {
+          const ff = globalFacetFollowsStore[i];
+          if ((userFacetIds.has(ff.followerFacetId) && targetFacetIds.has(ff.followingFacetId)) ||
+              (targetFacetIds.has(ff.followerFacetId) && userFacetIds.has(ff.followingFacetId))) {
+            globalFacetFollowsStore.splice(i, 1);
+          }
         }
       }
       return new Response(
-        JSON.stringify({ success: true, action: 'block', userId, targetId }),
+        JSON.stringify({ success: true, action: 'block', userId, targetId, resolvedTargetId }),
         { status: 200, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
       );
     }
 
     if (action === 'unblock') {
       if (db) {
-        await db.prepare('DELETE FROM user_blocks WHERE blocker_id = ? AND blocked_id = ?').bind(userId, targetId).run();
+        await db.prepare('DELETE FROM user_blocks WHERE blocker_id = ? AND (blocked_id = ? OR blocked_id = ?)').bind(userId, targetId, resolvedTargetId).run();
       } else {
-        const idx = globalBlocksStore.findIndex(b => b.blockerId === userId && b.blockedId === targetId);
+        const idx = globalBlocksStore.findIndex(b => b.blockerId === userId && (b.blockedId === targetId || b.blockedId === resolvedTargetId));
         if (idx >= 0) globalBlocksStore.splice(idx, 1);
       }
       return new Response(

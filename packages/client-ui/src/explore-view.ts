@@ -172,8 +172,12 @@ export class ExploreView {
     return `
       <div class="explore-workspace">
         <header class="view-header view-header--search">
-          <div><h1>Explore</h1><p>Find people, communities and conversations.</p></div>
-          <label class="explore-search">${renderIcon('search', { size: 19 })}<input type="search" id="explore-search-input" aria-label="Search UREfy" placeholder="Search UREfy" value="${escapeHtml(this.searchQuery)}" autocomplete="off" />${this.searchQuery ? `<button type="button" id="btn-clear-explore-search" aria-label="Clear search">${renderIcon('close', { size: 16 })}</button>` : ''}</label>
+          <div>
+            <span class="text-[10px] font-bold uppercase tracking-wider text-[var(--color-accent,#e89e38)]">Atlas of Sovereign Spaces</span>
+            <h1>Explore</h1>
+            <p>Discover autonomous communities, verified minds, and open conversations.</p>
+          </div>
+          <label class="explore-search">${renderIcon('search', { size: 19 })}<input type="search" id="explore-search-input" aria-label="Search UREfy" placeholder="Search topics, people or communities..." value="${escapeHtml(this.searchQuery)}" autocomplete="off" />${this.searchQuery ? `<button type="button" id="btn-clear-explore-search" aria-label="Clear search">${renderIcon('close', { size: 16 })}</button>` : ''}</label>
         </header>
 
         <div class="explore-category-bar" role="tablist" aria-label="Explore categories">

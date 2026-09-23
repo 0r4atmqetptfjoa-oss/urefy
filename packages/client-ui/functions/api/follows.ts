@@ -10,6 +10,8 @@ import {
   isProductionEnv,
   createD1UnavailableResponse,
   globalFollowsStore,
+  globalFacetsStore,
+  globalFacetFollowsStore,
   EdgeFollow,
 } from './_db.js';
 import { requireAdmin, requireSignedEnvelope } from './_auth.js';
@@ -17,7 +19,7 @@ import { requireAdmin, requireSignedEnvelope } from './_auth.js';
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-User-Fingerprint',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-User-Fingerprint, X-Facet-Id',
 };
 
 export async function onRequestOptions(): Promise<Response> {
@@ -49,6 +51,35 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
       return createD1UnavailableResponse();
     }
 
+    const facetId = (url.searchParams.get('facetId') || '').trim();
+    const followerFacetId = (url.searchParams.get('followerFacetId') || '').trim();
+    const followingFacetId = (url.searchParams.get('followingFacetId') || '').trim();
+
+    // Direct pairwise facet follow check: /api/follows?followerFacetId=A&followingFacetId=B
+    if (followerFacetId && followingFacetId) {
+      let isFollowing = false;
+      if (db) {
+        const stmt = db.prepare(
+          'SELECT 1 FROM facet_follows WHERE follower_facet_id = ? AND following_facet_id = ? LIMIT 1'
+        ).bind(followerFacetId, followingFacetId);
+        const row = await stmt.first();
+        isFollowing = Boolean(row);
+      } else {
+        isFollowing = globalFacetFollowsStore.some(
+          f => f.followerFacetId === followerFacetId && f.followingFacetId === followingFacetId
+        );
+      }
+      return new Response(
+        JSON.stringify({
+          success: true,
+          followerFacetId,
+          followingFacetId,
+          isFollowing,
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
+      );
+    }
+
     // Direct pairwise follow check: /api/follows?followerId=A&followingId=B
     if (queryFollowerId && queryFollowingId) {
       let isFollowing = false;
@@ -69,6 +100,33 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
           followerId: queryFollowerId,
           followingId: queryFollowingId,
           isFollowing,
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
+      );
+    }
+
+    // Query follows for a specific Facet: /api/follows?facetId=...
+    if (facetId) {
+      let following: string[] = [];
+      let followers: string[] = [];
+      if (db) {
+        const fingRes = await db.prepare('SELECT following_facet_id FROM facet_follows WHERE follower_facet_id = ? ORDER BY created_at DESC LIMIT 200').bind(facetId).all<any>();
+        following = (fingRes.results || []).map(r => r.following_facet_id);
+
+        const fersRes = await db.prepare('SELECT follower_facet_id FROM facet_follows WHERE following_facet_id = ? ORDER BY created_at DESC LIMIT 200').bind(facetId).all<any>();
+        followers = (fersRes.results || []).map(r => r.follower_facet_id);
+      } else {
+        following = globalFacetFollowsStore.filter(f => f.followerFacetId === facetId).map(f => f.followingFacetId);
+        followers = globalFacetFollowsStore.filter(f => f.followingFacetId === facetId).map(f => f.followerFacetId);
+      }
+      return new Response(
+        JSON.stringify({
+          success: true,
+          facetId,
+          following,
+          followers,
+          followingCount: following.length,
+          followersCount: followers.length,
         }),
         { status: 200, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
       );
@@ -179,8 +237,8 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
     }
 
     const body = rawBody?.payload && typeof rawBody.payload === 'object' ? rawBody.payload : rawBody;
-    const followingId = String(body?.followingId || body?.targetId || '').trim();
-    let followerId = String(body?.followerId || '').trim();
+    const followingId = String(body?.followingFacetId || body?.followingId || body?.targetId || '').trim();
+    let followerId = String(body?.followerFacetId || body?.followerId || '').trim();
     const action = String(body?.action || 'toggle').trim().toLowerCase();
 
     if (!followingId) {
@@ -189,6 +247,8 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
         { status: 400, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
       );
     }
+
+    let callerFingerprint = followerId;
 
     // Verify authentication in production or if signed envelope is provided
     const isProd = isProductionEnv(context.env);
@@ -207,12 +267,13 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
             );
           }
         } else {
+          callerFingerprint = auth.fingerprint || callerFingerprint;
           followerId = auth.fingerprint || followerId;
         }
       }
     }
 
-    if (!followerId) {
+    if (!followerId && !callerFingerprint) {
       return new Response(
         JSON.stringify({ success: false, error: 'followerId is required' }),
         { status: 400, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
@@ -232,6 +293,151 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
     }
 
     const now = Date.now();
+
+    const followerFacetId = String(body?.followerFacetId || (followerId.startsWith('facet-') ? followerId : '')).trim();
+    const followingFacetId = String(body?.followingFacetId || (followingId.startsWith('facet-') ? followingId : '')).trim();
+
+    if (followerFacetId && followingFacetId) {
+      if (followerFacetId === followingFacetId) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Cannot follow the same Facet' }),
+          { status: 400, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
+        );
+      }
+
+      // Verify that caller owns followerFacetId and target exists
+      let facetRecord: any = null;
+      let targetFacetRecord: any = null;
+      try {
+        if (db) {
+          facetRecord = await db.prepare('SELECT owner_fingerprint, status FROM facets WHERE id = ?').bind(followerFacetId).first();
+          targetFacetRecord = await db.prepare('SELECT owner_fingerprint, status FROM facets WHERE id = ?').bind(followingFacetId).first();
+        } else {
+          facetRecord = globalFacetsStore.find(f => f.id === followerFacetId);
+          targetFacetRecord = globalFacetsStore.find(f => f.id === followingFacetId);
+        }
+      } catch {
+        facetRecord = globalFacetsStore.find(f => f.id === followerFacetId);
+        targetFacetRecord = globalFacetsStore.find(f => f.id === followingFacetId);
+      }
+
+      if (!targetFacetRecord || targetFacetRecord.status === 'deleted' || targetFacetRecord.status === 'deactivated') {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Target Facet not found or is no longer active' }),
+          { status: 404, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
+        );
+      }
+
+      const followerOwner = facetRecord?.owner_fingerprint || facetRecord?.ownerFingerprint;
+      const targetOwner = targetFacetRecord?.owner_fingerprint || targetFacetRecord?.ownerFingerprint;
+
+      if (!facetRecord || (followerOwner && followerOwner !== callerFingerprint)) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'You do not own the specified follower Facet' }),
+          { status: 403, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
+        );
+      }
+
+      if (facetRecord.status === 'deleted' || facetRecord.status === 'deactivated') {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Cannot follow using an inactive or deleted Facet' }),
+          { status: 403, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
+        );
+      }
+
+      if (followerOwner && targetOwner && followerOwner === targetOwner) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Cannot follow your own Facet or identity' }),
+          { status: 400, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
+        );
+      }
+
+      // Root identity block check: Person B cannot follow Person A across new facets
+      if (followerOwner && targetOwner && db) {
+        try {
+          await db.prepare('CREATE TABLE IF NOT EXISTS user_blocks (blocker_id TEXT NOT NULL, blocked_id TEXT NOT NULL, created_at INTEGER NOT NULL, PRIMARY KEY (blocker_id, blocked_id))').run();
+          const isBlocked = await db.prepare(
+            'SELECT 1 FROM user_blocks WHERE (blocker_id = ? AND blocked_id = ?) OR (blocker_id = ? AND blocked_id = ?) LIMIT 1'
+          ).bind(followerOwner, targetOwner, targetOwner, followerOwner).first();
+          if (isBlocked) {
+            return new Response(
+              JSON.stringify({ success: false, error: 'Cannot follow this user due to privacy blocks' }),
+              { status: 403, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
+            );
+          }
+        } catch (_) {}
+      }
+
+      let isFacetFollowing = false;
+      if (db) {
+        const existing = await db.prepare(
+          'SELECT 1 FROM facet_follows WHERE follower_facet_id = ? AND following_facet_id = ? LIMIT 1'
+        ).bind(followerFacetId, followingFacetId).first();
+        isFacetFollowing = Boolean(existing);
+      } else {
+        isFacetFollowing = globalFacetFollowsStore.some(
+          f => f.followerFacetId === followerFacetId && f.followingFacetId === followingFacetId
+        );
+      }
+
+      let shouldFollowFacet = false;
+      if (action === 'follow') shouldFollowFacet = true;
+      else if (action === 'unfollow') shouldFollowFacet = false;
+      else shouldFollowFacet = !isFacetFollowing;
+
+      if (shouldFollowFacet) {
+        if (db) {
+          await db.prepare(
+            'INSERT OR REPLACE INTO facet_follows (follower_facet_id, following_facet_id, created_at) VALUES (?, ?, ?)'
+          ).bind(followerFacetId, followingFacetId, now).run();
+        }
+        const idx = globalFacetFollowsStore.findIndex(
+          f => f.followerFacetId === followerFacetId && f.followingFacetId === followingFacetId
+        );
+        if (idx < 0) {
+          globalFacetFollowsStore.push({ followerFacetId, followingFacetId, createdAt: now });
+        }
+      } else {
+        if (db) {
+          await db.prepare(
+            'DELETE FROM facet_follows WHERE follower_facet_id = ? AND following_facet_id = ?'
+          ).bind(followerFacetId, followingFacetId).run();
+        }
+        const idx = globalFacetFollowsStore.findIndex(
+          f => f.followerFacetId === followerFacetId && f.followingFacetId === followingFacetId
+        );
+        if (idx >= 0) {
+          globalFacetFollowsStore.splice(idx, 1);
+        }
+      }
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          followerFacetId,
+          followingFacetId,
+          isFollowing: shouldFollowFacet,
+          action: shouldFollowFacet ? 'follow' : 'unfollow',
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
+      );
+    }
+
+    if (followerId && followingId && db) {
+      try {
+        await db.prepare('CREATE TABLE IF NOT EXISTS user_blocks (blocker_id TEXT NOT NULL, blocked_id TEXT NOT NULL, created_at INTEGER NOT NULL, PRIMARY KEY (blocker_id, blocked_id))').run();
+        const isBlocked = await db.prepare(
+          'SELECT 1 FROM user_blocks WHERE (blocker_id = ? AND blocked_id = ?) OR (blocker_id = ? AND blocked_id = ?) LIMIT 1'
+        ).bind(followerId, followingId, followingId, followerId).first();
+        if (isBlocked) {
+          return new Response(
+            JSON.stringify({ success: false, error: 'Cannot follow this user due to privacy blocks' }),
+            { status: 403, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
+          );
+        }
+      } catch (_) {}
+    }
+
     let currentlyFollowing = false;
 
     if (db) {

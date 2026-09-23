@@ -211,6 +211,22 @@ export class WhyThisPostModal {
 
             <button
               type="button"
+              data-action="why-not-interested"
+              data-post-id="${escapeHtml(post.id)}"
+              class="w-full p-2.5 rounded-xl bg-surface-raised hover:bg-surface-overlay border border-white/5 transition-colors text-left flex items-center justify-between cursor-pointer group"
+            >
+              <div class="flex items-center gap-2.5">
+                <span class="text-rose-400 group-hover:text-rose-300">${renderIcon('eyeOff', { size: 16 })}</span>
+                <div>
+                  <div class="text-xs font-medium text-slate-200 group-hover:text-white">Not interested</div>
+                  <div class="text-[10px] text-slate-500">Hide this post and exclude from active facet recommendations</div>
+                </div>
+              </div>
+              <span class="text-slate-500 text-xs">→</span>
+            </button>
+
+            <button
+              type="button"
               data-action="why-mute-author"
               data-author-fp="${escapeHtml(post.authorFingerprint)}"
               class="w-full p-2.5 rounded-xl bg-surface-raised hover:bg-surface-overlay border border-white/5 transition-colors text-left flex items-center justify-between cursor-pointer group"
@@ -284,6 +300,14 @@ export class WhyThisPostModal {
       const action = actionEl.getAttribute('data-action');
       if (action === 'close-why-modal') {
         this.close();
+      } else if (action === 'why-not-interested') {
+        const postId = actionEl.getAttribute('data-post-id') || '';
+        if (postId) {
+          feedPersonalization.markNotInterested(postId);
+          clientStore.showToast('Post hidden and marked not interested for this context', 'info');
+          clientStore.notifySync();
+          this.close();
+        }
       } else if (action === 'why-less-like-this') {
         const postId = actionEl.getAttribute('data-post-id') || '';
         if (postId) {

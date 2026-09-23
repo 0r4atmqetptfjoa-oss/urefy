@@ -114,8 +114,8 @@ export function renderInlineQuickComposer(): string {
     <section class="quick-composer" aria-label="Create a post">
       ${renderAvatar(profileView.getProfile(clientStore.keypair.fingerprint)?.avatar, clientStore.keypair.fingerprint, { size: 42, className: 'quick-composer__avatar' })}
       <div class="quick-composer__body">
-        <textarea id="inline-composer-textarea" rows="2" placeholder="What's on your mind?" aria-label="Post text">${escapeHtml(quickPostDraft.content)}</textarea>
-        <input type="text" id="inline-composer-title" placeholder="Add a title" class="hidden" aria-label="Post title" />
+        <textarea id="inline-composer-textarea" rows="2" placeholder="Share a dispatch or start a discussion..." aria-label="Post text">${escapeHtml(quickPostDraft.content)}</textarea>
+        <input type="text" id="inline-composer-title" placeholder="Add a title (optional)" class="hidden" aria-label="Post title" />
         <div class="quick-composer__footer">
           <div class="composer-tools">
             <button id="btn-inline-attach-media" data-action="open-composer-media" type="button" aria-label="Add media">${renderIcon('image', { size: 18 })}<span>Media</span></button>

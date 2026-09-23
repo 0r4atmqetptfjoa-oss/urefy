@@ -130,28 +130,34 @@ export function renderVaultReleasesEmptyState(options?: EmptyStateOptions): stri
  * 4. Empty state for Live Relays when no relays are connected or channel has no messages
  */
 export function renderRelaysEmptyState(options?: EmptyStateOptions): string {
-  const title = options?.title || t('emptyState.relaysTitle', undefined, 'No servers connected or messages');
-  const desc = options?.description || t('emptyState.relaysDesc', undefined, 'Not connected to any live server or this channel has no messages yet. Connect a server or send the first E2EE encrypted message.');
+  const title = options?.title || t('emptyState.relaysTitle', undefined, 'Channel has no messages yet');
+  const desc = options?.description || t('emptyState.relaysDesc', undefined, 'This community channel is quiet. Be the first to start an open discussion or share an insight with the members.');
   const actionText = options?.actionText || t('emptyState.relaysAction', undefined, 'Send the first message');
-  const connectText = 'Join a chat';
+  const connectText = 'Browse channels';
   const actionId = options?.actionId || 'btn-empty-relays-chat';
 
   return `
-    <div id="empty-state-relays" class="empty-state-card flex flex-col items-center justify-center text-center p-8 sm:p-12 my-6 rounded-2xl border border-dashed border-white/10 bg-surface-base/60 backdrop-blur-none max-w-lg mx-auto select-none animate-in fade-in duration-300">
-      <div class="w-16 h-16 rounded-2xl bg-cyan-950/40 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shadow-[0_0_20px_rgba(0,229,255,0.15)] mb-4">
-        ${renderIcon('messages', { size: 30, strokeWidth: 1.75, class: 'text-cyan-400' })}
+    <div id="empty-state-relays" class="empty-state-card flex flex-col items-center justify-center text-center p-8 sm:p-12 my-6 rounded-2xl border border-white/5 bg-surface-base/80 backdrop-blur-none max-w-lg mx-auto select-none animate-in fade-in duration-300 shadow-md space-y-4">
+      <div class="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-[var(--color-accent,#e89e38)] shadow-[0_0_20px_rgba(232,158,56,0.15)] mx-auto">
+        ${renderIcon('messages', { size: 30, strokeWidth: 1.75, class: 'text-[var(--color-accent,#e89e38)]' })}
       </div>
-      <h3 class="text-base font-bold text-white mb-2 tracking-wide font-sans">
-        ${title}
-      </h3>
-      <p class="text-xs text-slate-300 leading-relaxed max-w-sm mb-6 font-sans">
-        ${desc}
-      </p>
-      <div class="flex items-center space-x-3 flex-wrap justify-center gap-y-2">
+      <div>
+        <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-xs text-cyan-300 font-medium mb-3 whitespace-nowrap">
+          <span class="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
+          <span>Public Community Channel</span>
+        </div>
+        <h3 class="text-lg font-bold text-white mb-2 tracking-wide font-sans">
+          ${title}
+        </h3>
+        <p class="text-sm text-slate-300 leading-relaxed max-w-sm mx-auto font-sans">
+          ${desc}
+        </p>
+      </div>
+      <div class="flex items-center space-x-3 flex-wrap justify-center gap-y-2 pt-2">
         <button
           type="button"
           id="${actionId}" data-action="call-global" data-raw-click="const inp=document.getElementById('input-message');if(inp){inp.focus();}else{const form=document.getElementById('form-send-message');if(form)form.scrollIntoView();}"
-          class="px-5 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black font-bold text-xs shadow-lg shadow-cyan-500/20 transition-all hover:scale-105 cursor-pointer flex items-center space-x-2"
+          class="px-5 py-2.5 rounded-xl bg-[var(--color-accent,#e89e38)] hover:brightness-105 text-slate-950 font-bold text-xs shadow-md shadow-amber-500/15 transition-all hover:scale-102 cursor-pointer flex items-center space-x-2 active:scale-95"
           data-empty-action="relays-message"
         >
           ${renderIcon('send', { size: 14, strokeWidth: 2.5 })}
@@ -160,7 +166,7 @@ export function renderRelaysEmptyState(options?: EmptyStateOptions): string {
         <button
           type="button"
           id="btn-empty-add-relay" data-action="call-global" data-raw-click="if(window.__aetheris_open_relay_invite){window.__aetheris_open_relay_invite();}else{const btn=document.getElementById('btn-add-relay-server');if(btn)btn.click();}"
-          class="px-4 py-2.5 rounded-xl bg-surface-raised hover:bg-surface-overlay text-slate-200 hover:text-white border border-white/10 text-xs font-semibold transition-all cursor-pointer flex items-center space-x-2"
+          class="px-4 py-2.5 rounded-xl bg-surface-raised hover:bg-surface-elevated text-slate-200 hover:text-white border border-white/10 text-xs font-semibold transition-all cursor-pointer flex items-center space-x-2"
           data-empty-action="add-relay"
         >
           ${renderIcon('radio', { size: 14, strokeWidth: 2 })}

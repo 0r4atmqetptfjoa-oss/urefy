@@ -90,12 +90,12 @@ export class CommunityView {
               id="input-community-live-msg"
               aria-label="Message this community"
               placeholder="Message c/${escapeHtml(circle.name)}..."
-              class="flex-1 bg-surface-base border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[var(--color-accent,#e59b3c)] min-h-[44px]"
+              class="flex-1 bg-surface-base border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[var(--color-accent,#e89e38)] min-h-[44px]"
               autocomplete="off"
             />
             <button
               type="submit"
-              class="min-h-[44px] px-4 py-2 bg-[var(--color-accent,#e59b3c)] hover:brightness-105 text-slate-950 text-xs font-bold rounded-xl transition-all cursor-pointer shadow-sm flex items-center space-x-1"
+              class="min-h-[44px] px-4 py-2 bg-[var(--color-accent,#e89e38)] hover:brightness-105 text-slate-950 text-xs font-bold rounded-xl transition-all cursor-pointer shadow-sm flex items-center space-x-1"
             >
               <span>Send</span>
             </button>
@@ -121,7 +121,7 @@ export class CommunityView {
             type="button"
             data-action="open-composer"
             data-channel="${circle.channelId}"
-            class="px-3 py-1.5 rounded-xl bg-[var(--color-accent,#e59b3c)] hover:brightness-105 text-slate-950 text-xs font-bold transition-all shadow-sm flex items-center space-x-1 cursor-pointer"
+            class="px-3 py-1.5 rounded-xl bg-[var(--color-accent,#e89e38)] hover:brightness-105 text-slate-950 text-xs font-bold transition-all shadow-sm flex items-center space-x-1 cursor-pointer"
           >
             <span>+</span>
             <span>Add Resource</span>
@@ -233,7 +233,7 @@ export class CommunityView {
         <div class="max-w-6xl mx-auto w-full px-4 sm:px-6 -mt-12 sm:-mt-16 relative z-10 mb-6">
           <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-4 border-b border-white/10">
             <div class="flex items-end space-x-4">
-              <div class="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-surface-base border-4 border-canvas shadow-2xl flex items-center justify-center shrink-0" style="color: ${circle.primaryColor || 'var(--color-accent,#e59b3c)'};">
+              <div class="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-surface-base border-4 border-canvas shadow-2xl flex items-center justify-center shrink-0" style="color: ${circle.primaryColor || 'var(--color-accent,#e89e38)'};">
                 ${circle.icon && !circle.icon.includes('🏛️') ? circle.icon : renderIcon('users', { size: 36, strokeWidth: 1.75 })}
               </div>
               <div class="space-y-1 pb-1">
@@ -272,7 +272,7 @@ export class CommunityView {
                 type="button"
                 data-action="open-composer"
                 data-channel="${circle.channelId}"
-                class="min-h-[44px] px-4 py-2.5 rounded-xl bg-[var(--color-accent,#e59b3c)] hover:brightness-110 text-slate-950 text-xs font-bold transition-all shadow-md flex items-center space-x-1.5 cursor-pointer"
+                class="min-h-[44px] px-4 py-2.5 rounded-xl bg-[var(--color-accent,#e89e38)] hover:brightness-110 text-slate-950 text-xs font-bold transition-all shadow-md flex items-center space-x-1.5 cursor-pointer"
               >
                 ${renderIcon('plus', { size: 14 })}
                 <span>New Post</span>

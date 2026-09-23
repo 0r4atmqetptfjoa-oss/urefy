@@ -8,6 +8,7 @@ import { pwaService } from './pwa-service.js';
 import { notificationCenter } from './notifications.js';
 import { i18n } from './i18n.js';
 import { renderIcon } from './ui/icons.js';
+import { facetSwitcher } from './facet-switcher.js';
 
 function escapeHtml(text: string): string {
   return String(text)
@@ -62,6 +63,8 @@ export function renderBroadcastBanner(): string {
 
 export function renderHeaderTools(options: HeaderToolsOptions): string {
   return `
+    ${facetSwitcher.render()}
+
     <button type="button" id="btn-pwa-install" data-action="pwa-install" class="${pwaService.isInstallable && !pwaService.isInstalled ? 'hidden sm:inline-flex' : 'hidden'} header-install-button" title="${i18n.t('common.install', undefined, 'Install UREfy')}">
       ${renderIcon('download', { size: 17 })}
       <span>${i18n.t('common.install', undefined, 'Install')}</span>

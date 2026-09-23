@@ -21,6 +21,7 @@ describe('UREfy — D1 SQLite Migrations Verification', () => {
       '0007_direct_messages.sql',
       '0008_governance.sql',
       '0009_admin_rbac_and_retention.sql',
+      '0017_sovereign_facets_and_audience.sql',
     ]));
 
     // Apply migrations in order
@@ -56,6 +57,9 @@ describe('UREfy — D1 SQLite Migrations Verification', () => {
       'votes',
       'webauthn_challenges',
       'webauthn_credentials',
+      'facets',
+      'facet_follows',
+      'facet_community_memberships',
     ];
 
     for (const table of expectedTables) {

@@ -1266,12 +1266,17 @@ export async function dispatchOutboundPostFederation(
     createdAt?: number;
     status?: string;
     channelId?: string;
+    audience?: string;
+    facetId?: string;
   },
   origin: string = 'https://urefy.com',
   options?: { allowLocalDev?: boolean }
 ): Promise<{ dispatched: number; successful: number; failed: number }> {
-  // Only federate published public posts (not private, deleted, or drafts)
+  // Only federate published public posts (not private, deleted, community, followers, or drafts)
   if (post.status && post.status !== 'published') {
+    return { dispatched: 0, successful: 0, failed: 0 };
+  }
+  if (post.audience && post.audience !== 'public') {
     return { dispatched: 0, successful: 0, failed: 0 };
   }
 
