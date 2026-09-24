@@ -24,6 +24,7 @@ import { mobileFlowEngine } from './mobile-flow.js';
 import { countPostsSince } from './home-signals.js';
 import { renderWorkspaceLayoutControls } from './workspace-layout.js';
 import { isDemoModeEnabled } from './demo-mode.js';
+import { privacyLens } from './privacy-lens.js';
 
 function escapeHtml(text: string): string {
   return String(text || '')
@@ -110,27 +111,45 @@ export function submitQuickPost(): void {
 
 export function renderInlineQuickComposer(): string {
   const circles = sovereignCircleEngine.getAllCircles();
+  const activeFacet = clientStore.getActiveFacet() || {
+    displayName: 'Main Context',
+    handle: 'sovereign',
+    avatarUrl: '',
+  };
   return `
     <section class="quick-composer" aria-label="Create a post">
-      ${renderAvatar(profileView.getProfile(clientStore.keypair.fingerprint)?.avatar, clientStore.keypair.fingerprint, { size: 42, className: 'quick-composer__avatar' })}
-      <div class="quick-composer__body">
-        <textarea id="inline-composer-textarea" rows="2" placeholder="Share a dispatch or start a discussion..." aria-label="Post text">${escapeHtml(quickPostDraft.content)}</textarea>
-        <input type="text" id="inline-composer-title" placeholder="Add a title (optional)" class="hidden" aria-label="Post title" />
-        <div class="quick-composer__footer">
-          <div class="composer-tools">
-            <button id="btn-inline-attach-media" data-action="open-composer-media" type="button" aria-label="Add media">${renderIcon('image', { size: 18 })}<span>Media</span></button>
-            <button id="btn-inline-attach-poll" type="button" aria-label="Add poll">${renderIcon('activity', { size: 18 })}<span>Poll</span></button>
-            <button id="btn-inline-open-full" type="button" aria-label="Open full composer">${renderIcon('more', { size: 18 })}<span>More</span></button>
-            <button id="btn-mode-quick-pulse" type="button" class="hidden" aria-hidden="true">Post</button>
-            <button id="btn-mode-quick-article" type="button" class="hidden" aria-hidden="true">Article</button>
-            <button id="btn-inline-attach-binary" type="button" class="hidden" aria-hidden="true">File</button>
+      <div class="flex items-center justify-between text-xs pb-2 mb-2 border-b border-white/5 text-slate-400">
+        <div class="flex items-center gap-2">
+          <span class="text-[11px]">Posting as</span>
+          <div class="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-surface-base border border-white/10 text-white font-medium">
+            <span class="w-1.5 h-1.5 rounded-full bg-[var(--color-accent,#e89e38)]"></span>
+            <span>${escapeHtml(activeFacet.displayName)}</span>
+            <span class="text-slate-400 text-[10px] font-mono">@${escapeHtml(activeFacet.handle)}</span>
           </div>
-          <div class="composer-submit-row">
-            <select id="inline-composer-hub" aria-label="Choose community">
-              ${circles.map(circle => `<option value="${circle.channelId}" ${circle.channelId === (quickPostDraft.channelId || clientStore.activeChannelId) ? 'selected' : ''}>c/${escapeHtml(circle.name)}</option>`).join('')}
-            </select>
-            <span id="inline-char-ring-container" class="composer-count">${omniComposer.renderCircularCountdownRing(0, 280)}</span>
-            <button id="btn-inline-broadcast" data-action="submit-quick-post" type="button" class="primary-button">Post</button>
+        </div>
+        ${privacyLens.renderCompact({ audience: 'public', interactive: false })}
+      </div>
+      <div class="flex gap-3">
+        ${renderAvatar(profileView.getProfile(clientStore.keypair.fingerprint)?.avatar, clientStore.keypair.fingerprint, { size: 40, className: 'quick-composer__avatar shrink-0 w-10 h-10 rounded-xl' })}
+        <div class="quick-composer__body flex-1 min-w-0">
+          <textarea id="inline-composer-textarea" rows="2" placeholder="Share a dispatch or start a discussion..." aria-label="Post text">${escapeHtml(quickPostDraft.content)}</textarea>
+          <input type="text" id="inline-composer-title" placeholder="Add a title (optional)" class="hidden" aria-label="Post title" />
+          <div class="quick-composer__footer">
+            <div class="composer-tools">
+              <button id="btn-inline-attach-media" data-action="open-composer-media" type="button" aria-label="Add media">${renderIcon('image', { size: 17 })}<span>Media</span></button>
+              <button id="btn-inline-attach-poll" type="button" aria-label="Add poll">${renderIcon('activity', { size: 17 })}<span>Poll</span></button>
+              <button id="btn-inline-open-full" type="button" aria-label="Open full composer">${renderIcon('more', { size: 17 })}<span>More</span></button>
+              <button id="btn-mode-quick-pulse" type="button" class="hidden" aria-hidden="true">Post</button>
+              <button id="btn-mode-quick-article" type="button" class="hidden" aria-hidden="true">Article</button>
+              <button id="btn-inline-attach-binary" type="button" class="hidden" aria-hidden="true">File</button>
+            </div>
+            <div class="composer-submit-row">
+              <select id="inline-composer-hub" aria-label="Choose community">
+                ${circles.map(circle => `<option value="${circle.channelId}" ${circle.channelId === (quickPostDraft.channelId || clientStore.activeChannelId) ? 'selected' : ''}>c/${escapeHtml(circle.name)}</option>`).join('')}
+              </select>
+              <span id="inline-char-ring-container" class="composer-count">${omniComposer.renderCircularCountdownRing(0, 280)}</span>
+              <button id="btn-inline-broadcast" data-action="submit-quick-post" type="button" class="primary-button">Post</button>
+            </div>
           </div>
         </div>
       </div>
@@ -198,7 +217,7 @@ export function renderPulseWorkspace(): string {
   const isFlow = mobileFlowEngine.getMode() === 'flow';
 
   const classicStreamHtml = `
-    <div class="post-stream" aria-live="polite">
+    <div class="river-stream" aria-live="polite">
       ${clientStore.isSyncing && posts.length === 0
         ? renderPulseFeedSkeleton(3)
         : posts.length === 0
@@ -280,7 +299,7 @@ export function renderPulsePostCard(post: ClientPost): string {
     `;
   }
 
-  // Media detection & Reddit-style layout ordering
+  // Media detection
   const detectedVideo = obsidianMediaPlayer.extractVideo(post.content);
   const videoHtml = post.video
     ? obsidianMediaPlayer.renderVideoCard(post.id, post.video.src, post.video.poster)
@@ -290,7 +309,7 @@ export function renderPulsePostCard(post: ClientPost): string {
     : '';
   const hasMedia = Boolean(videoHtml || imagesHtml);
 
-  // Clean raw standalone video URL from content if video player was embedded
+  // Content clean-up
   let displayContent = post.content || '';
   if (detectedVideo && !post.video) {
     displayContent = displayContent
@@ -300,24 +319,47 @@ export function renderPulsePostCard(post: ClientPost): string {
       .trim();
   }
 
-  // Reddit-style post clamping thresholds:
-  // - Text-only: clamped to ~220px preview if length > 280 chars or >= 4 linebreaks
-  // - Media posts: clamped to ~80px preview if length > 120 chars or >= 2 linebreaks
   const isClamped = hasMedia
     ? (displayContent.length > 120 || (displayContent.match(/\n/g) || []).length >= 2)
     : (displayContent.length > 280 || (displayContent.match(/\n/g) || []).length >= 4);
 
+  // Restrained Content Grammar
+  const replyCount = post.replyCount ?? 0;
+  const isStarter = Boolean(post.title && post.title !== post.content.substring(0, 50) && replyCount < 3);
+  const isDeepDiscussion = replyCount >= 3;
+  const isCommunity = Boolean(circle && !isStarter);
+
+  let grammarClass = 'post-grammar--standard';
+  if (isDeepDiscussion) grammarClass = 'post-grammar--deep-discussion';
+  else if (isStarter) grammarClass = 'post-grammar--starter';
+  else if (hasMedia) grammarClass = 'post-grammar--media';
+  else if (isCommunity) grammarClass = 'post-grammar--community-discussion';
+
   return `
-    <article class="social-post cursor-pointer" data-post-card-id="${post.id}" data-action="open-post-detail" data-post-id="${post.id}">
-      <div class="social-post__avatar" data-author-profile="${post.authorFingerprint}">${renderAvatar(profile?.avatar, post.authorFingerprint, { size: 42, className: 'w-10 h-10' })}</div>
-      <div class="social-post__content">
+    <article class="river-item ${grammarClass} cursor-pointer" data-post-card-id="${post.id}" data-action="open-post-detail" data-post-id="${post.id}">
+      <div class="river-anchor">
+        <div class="social-post__avatar" data-author-profile="${post.authorFingerprint}">
+          ${renderAvatar(profile?.avatar, post.authorFingerprint, { size: 40, className: 'w-10 h-10 rounded-xl' })}
+        </div>
+        <span class="river-node-dot" aria-hidden="true"></span>
+      </div>
+      <div class="social-post__content min-w-0">
         ${repostAttribution}
-        <header class="social-post__header">
-          <a href="${profilePath(post.authorFingerprint)}" data-public-link class="social-post__author"><strong>${escapeHtml(authorName)}</strong><span>${escapeHtml(authorHandle)}</span><span class="sr-only">${escapeHtml(post.authorFingerprint.substring(0, 8))}</span></a>
-          ${role ? `<span class="role-badge">${role}</span>` : ''}
-          <span class="social-post__separator">·</span>
-          <a href="${postPath(post.id)}" data-public-link aria-label="Open post"><time datetime="${new Date(post.createdAt).toISOString()}">${relativeTime(post.createdAt)}</time></a>
-          <a href="${communityPath(circleName)}" data-public-link class="social-post__community">${escapeHtml(circleName)}</a>
+        <header class="social-post__header flex items-center justify-between gap-2 flex-wrap mb-1">
+          <div class="flex items-center gap-1.5 min-w-0 flex-wrap">
+            <a href="${profilePath(post.authorFingerprint)}" data-public-link class="social-post__author font-semibold text-slate-200">
+              <strong>${escapeHtml(authorName)}</strong>
+              <span class="text-slate-400 font-mono text-xs">${escapeHtml(authorHandle)}</span>
+              <span class="sr-only">${escapeHtml(post.authorFingerprint.substring(0, 8))}</span>
+            </a>
+            ${role ? `<span class="role-badge">${role}</span>` : ''}
+            <span class="social-post__separator text-slate-500">·</span>
+            <a href="${postPath(post.id)}" data-public-link aria-label="Open post" class="text-xs text-slate-400 hover:text-white"><time datetime="${new Date(post.createdAt).toISOString()}">${relativeTime(post.createdAt)}</time></a>
+            <a href="${communityPath(circleName)}" data-public-link class="social-post__community text-xs text-[var(--color-accent,#e89e38)] hover:underline">${escapeHtml(circleName)}</a>
+          </div>
+          <div class="flex items-center shrink-0">
+            ${privacyLens.renderCompact({ audience: post.audience || 'public', postId: post.id, channelName: circle?.name, facetHandle: post.facetHandle || authorHandle })}
+          </div>
         </header>
 
         ${post.content.startsWith('> [ 🔗 Evolved from') || post.content.startsWith('> Evolved from Live Chat') ? `
@@ -332,7 +374,7 @@ export function renderPulsePostCard(post: ClientPost): string {
         ${imagesHtml}
         ${displayContent ? `
           <div class="social-post__body-wrapper ${hasMedia ? 'has-media' : 'text-only'} ${isClamped ? 'is-clamped' : ''}">
-            <div data-action="open-post-detail" data-post-id="${post.id}" class="social-post__body cursor-pointer">${markdownRenderer.renderMarkdown(displayContent)}</div>
+            <div data-action="open-post-detail" data-post-id="${post.id}" class="social-post__body cursor-pointer text-[15px] sm:text-base leading-relaxed text-slate-200">${markdownRenderer.renderMarkdown(displayContent)}</div>
             ${isClamped ? `
               <button type="button" data-action="open-post-detail" data-post-id="${escapeHtml(post.id)}" class="social-post__see-more" aria-label="Read full post">
                 <span>Read full post</span>
@@ -341,6 +383,14 @@ export function renderPulsePostCard(post: ClientPost): string {
             ` : ''}
           </div>
         ` : ''}
+
+        ${replyCount > 0 ? `
+          <div class="river-branch-marker" title="${replyCount} active responses">
+            <span>↳</span>
+            <span>${replyCount} ${replyCount === 1 ? 'reply in river' : 'replies continuing in river'}</span>
+          </div>
+        ` : ''}
+
         ${post.pollId ? pollEngine.renderPollCard(post.pollId, clientStore.keypair.fingerprint) : ''}
         ${post.quotedPost ? `<button type="button" data-open-detail="${post.quotedPost.id}" class="quoted-post"><span>${escapeHtml(post.quotedPost.title || 'Quoted post')}</span><p>${escapeHtml(post.quotedPost.content)}</p></button>` : ''}
         ${!post.deliveryStatus ? `<div class="reaction-row" data-action="stop-propagation">${reactionsEngine.renderReactionBar(post.id, clientStore.keypair.fingerprint)}</div>` : ''}

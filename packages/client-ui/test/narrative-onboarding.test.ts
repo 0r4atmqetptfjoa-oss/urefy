@@ -145,10 +145,18 @@ describe('Ticket 2.1: Modern 3-Stage User Onboarding Flow', () => {
     expect(mockStorage.getItem('aetheris_onboarding_completed')).toBe('true');
   });
 
-  it('6. should allow skipping and persist completion when valid', async () => {
+  it('6. should enforce mandatory recovery seed backup and prevent skipping to complete without confirmation', async () => {
     const wizard = new OnboardingWizard();
     wizard.updateDisplayName('Beta Tester');
     wizard.updateHandle('beta_tester');
+    await wizard.skip();
+    // Cannot exit setup without completing recovery seed confirmation
+    expect(wizard.isOpen).toBe(true);
+    expect(wizard.isCompleted).toBe(false);
+
+    // Confirming seed on recovery step completes setup
+    wizard.currentStep = 2;
+    wizard.toggleSeedConfirmation(true);
     await wizard.skip();
     expect(wizard.isOpen).toBe(false);
     expect(wizard.isCompleted).toBe(true);

@@ -1,9 +1,13 @@
 import { communityPath } from './public-urls.js';
 /** Consumer contextual rail. Everything shown here supports the active social task. */
 
-import { clientStore } from './client-state.js';
+import { clientStore, ClientPost } from './client-state.js';
 import { sovereignCircleEngine } from './sovereign-circle.js';
 import { renderIcon } from './ui/icons.js';
+import { postDetailView } from './post-detail.js';
+import { threadManager } from './threads.js';
+import { profileView } from './profile-view.js';
+import { privacyLens } from './privacy-lens.js';
 
 function escapeHtml(value: string): string {
   return String(value || '')
@@ -12,6 +16,433 @@ function escapeHtml(value: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+function getActiveDiscussions(): ClientPost[] {
+  return [...clientStore.posts]
+    .sort((a, b) => ((b.replyCount || 0) * 2 + (b.meritVotes || 0)) - ((a.replyCount || 0) * 2 + (a.meritVotes || 0)))
+    .slice(0, 4);
+}
+
+function formatRelative(timestamp: number): string {
+  const diff = Math.max(0, Date.now() - timestamp);
+  const minutes = Math.floor(diff / 60000);
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
+
+export class ContextualSidebar {
+  public renderSidebarContent(activeMode: string): string {
+    if (activeMode === 'post-detail' || postDetailView.isOpen()) {
+      const activePost = clientStore.posts.find(p => p.id === postDetailView.activePostId);
+      if (activePost) return this.renderPostDetailSidebar(activePost);
+    }
+    if (activeMode.startsWith('relay') || activeMode.startsWith('dm-') || activeMode === 'messages') return this.renderMessagesSidebar();
+    if (activeMode.startsWith('profile')) return this.renderProfileSidebar();
+    if (activeMode === 'explore') return this.renderExploreSidebar();
+    if (activeMode === 'communities' || activeMode.startsWith('c/')) return this.renderCommunitiesSidebar(activeMode);
+    if (activeMode.startsWith('vault')) return this.renderVaultSidebar();
+    return this.renderFeedSidebar();
+  }
+
+  private renderFeedSidebar(): string {
+    const discussions = getActiveDiscussions();
+    const communities = sovereignCircleEngine.getAllCircles().slice(0, 4);
+
+    return `
+      <div class="context-rail" data-sidebar-context="feed">
+        <!-- 1. ACTIVE CONVERSATIONS WITH MOMENTUM -->
+        <section class="context-rail__section">
+          <div class="flex items-center justify-between">
+            <span class="context-rail__title">Active Discussions</span>
+            <a href="/explore" data-public-link class="text-[11px] text-[var(--color-accent,#e89e38)] hover:underline font-medium">Explore</a>
+          </div>
+          ${discussions.length ? `
+            <div class="space-y-2 mt-1">
+              ${discussions.map(post => {
+                const author = profileView.getProfile(post.authorFingerprint);
+                const authorName = author?.name || post.authorDisplayName || post.authorHandle || `@${post.authorFingerprint.slice(0, 8)}`;
+                return `
+                  <button type="button" data-open-detail="${escapeHtml(post.id)}" class="w-full text-left p-2.5 rounded-xl bg-surface-raised/40 hover:bg-surface-raised border border-white/5 hover:border-white/10 transition-all cursor-pointer group">
+                    <div class="text-xs font-semibold text-slate-200 group-hover:text-[var(--color-accent,#e89e38)] transition-colors line-clamp-2 leading-snug">
+                      ${escapeHtml(post.title || post.content.slice(0, 70))}
+                    </div>
+                    <div class="flex items-center justify-between text-[10px] text-slate-400 font-mono mt-1.5 pt-1 border-t border-white/5">
+                      <span class="truncate max-w-[120px] text-slate-300">${escapeHtml(authorName)}</span>
+                      <div class="flex items-center gap-2 shrink-0">
+                        <span>💬 ${post.replyCount || 0}</span>
+                        <span>★ ${post.meritVotes || 0}</span>
+                      </div>
+                    </div>
+                  </button>
+                `;
+              }).join('')}
+            </div>
+          ` : `
+            <div class="p-4 rounded-xl bg-surface-raised/30 border border-dashed border-white/5 text-center text-xs text-slate-400">
+              Conversations will appear as they begin on the open network.
+            </div>
+          `}
+        </section>
+
+        <!-- 2. RELEVANT LIVING SPACES -->
+        <section class="context-rail__section">
+          <div class="flex items-center justify-between">
+            <h3 class="context-rail__title text-xs font-bold text-slate-300">Sovereign Communities</h3>
+            <div class="flex items-center space-x-2">
+              <a href="/communities" data-public-link class="text-[11px] text-[var(--color-accent,#e89e38)] hover:underline font-medium">Directory</a>
+              <button type="button" data-action="open-create-circle" class="text-[11px] text-slate-300 hover:text-white font-medium cursor-pointer">+ Create</button>
+            </div>
+          </div>
+          <div class="space-y-2 mt-1">
+            ${communities.map(circle => `
+              <div class="p-2.5 rounded-xl bg-surface-raised/40 border border-white/5 hover:border-white/10 flex items-center justify-between gap-2 transition-all">
+                <a href="${communityPath(circle.name)}" data-public-link class="flex items-center gap-2.5 min-w-0 flex-1 group">
+                  <span class="w-8 h-8 rounded-lg bg-surface-base border border-white/10 flex items-center justify-center text-sm shrink-0">
+                    ${circle.icon || renderIcon('users', { size: 16 })}
+                  </span>
+                  <div class="min-w-0">
+                    <div class="text-xs font-bold text-slate-200 group-hover:text-[var(--color-accent,#e89e38)] truncate transition-colors">
+                      c/${escapeHtml(circle.name)}
+                    </div>
+                    <div class="text-[10px] text-slate-400 font-mono">
+                      ${(circle.membersCount || 0).toLocaleString()} members
+                    </div>
+                  </div>
+                </a>
+                <button type="button" class="compact-join-button ${circle.isJoined ? 'is-joined' : ''} shrink-0 text-xs py-1 px-2.5" data-action="toggle-join-circle" data-circle-id="${circle.id}">
+                  ${circle.isJoined ? 'Joined' : 'Join'}
+                </button>
+              </div>
+            `).join('')}
+          </div>
+        </section>
+
+        <!-- 3. QUIET PRIVACY ASSURANCE -->
+        <section class="context-rail__section pt-2 border-t border-white/5">
+          <div class="flex items-start gap-2.5 text-[11px] text-slate-400 leading-relaxed">
+            <span class="text-[var(--color-accent,#e89e38)] shrink-0 mt-0.5">${renderIcon('shield', { size: 14 })}</span>
+            <span>Your feed is compiled directly on this device. No ads, tracking, or platform surveillance.</span>
+          </div>
+        </section>
+      </div>`;
+  }
+
+  private renderPostDetailSidebar(post: ClientPost): string {
+    const rootComments = threadManager.getRootCommentsForPost(post.id);
+    const authorProfile = profileView.getProfile(post.authorFingerprint);
+    const authorName = authorProfile?.name || post.authorDisplayName || post.authorHandle || `@${post.authorFingerprint.slice(0, 8)}`;
+    
+    // Collect distinct participants (author + comment authors)
+    const participantFPs = new Set<string>([post.authorFingerprint]);
+    for (const c of rootComments) {
+      if (c.authorFingerprint) participantFPs.add(c.authorFingerprint);
+    }
+    const participants = Array.from(participantFPs).slice(0, 6).map(fp => {
+      const p = profileView.getProfile(fp);
+      return {
+        fp,
+        name: p?.name || `@${fp.slice(0, 8)}`,
+        avatar: p?.avatar,
+        isOP: fp === post.authorFingerprint,
+      };
+    });
+
+    const isCommunity = Boolean(post.channelId && post.channelId.startsWith('c/'));
+    const communityName = isCommunity ? post.channelId.replace(/^c\//, '') : '';
+    const audience = post.audience || (post.channelId?.startsWith('vault-') ? 'followers' : isCommunity ? 'community' : 'public');
+
+    return `
+      <div class="context-rail" data-sidebar-context="post-detail">
+        <!-- 1. DISCUSSION PARTICIPANTS -->
+        <section class="context-rail__section">
+          <span class="context-rail__title">Thread Participants (${participants.length})</span>
+          <div class="flex flex-wrap gap-1.5 mt-1">
+            ${participants.map(part => `
+              <div class="context-rail__participant-chip">
+                ${part.avatar ? `
+                  <img src="${escapeHtml(part.avatar)}" alt="${escapeHtml(part.name)}" class="w-4 h-4 rounded-full object-cover" />
+                ` : `
+                  <span class="w-4 h-4 rounded-full bg-surface-overlay text-[9px] font-mono flex items-center justify-center font-bold">
+                    ${part.fp.slice(0, 2).toUpperCase()}
+                  </span>
+                `}
+                <span class="truncate max-w-[90px] font-medium">${escapeHtml(part.name)}</span>
+                ${part.isOP ? `<span class="text-[8px] font-mono font-bold text-[var(--color-accent,#e89e38)]">OP</span>` : ''}
+              </div>
+            `).join('')}
+          </div>
+        </section>
+
+        <!-- 2. RIVER CONVERSATION FLOW -->
+        <section class="context-rail__section">
+          <span class="context-rail__title">Conversation Metrics</span>
+          <div class="grid grid-cols-2 gap-2 mt-1">
+            <div class="p-2 rounded-xl bg-surface-raised/40 border border-white/5">
+              <div class="text-[10px] text-slate-400 font-mono uppercase">Replies</div>
+              <div class="text-base font-bold text-slate-100">${post.replyCount || rootComments.length}</div>
+            </div>
+            <div class="p-2 rounded-xl bg-surface-raised/40 border border-white/5">
+              <div class="text-[10px] text-slate-400 font-mono uppercase">Merit Score</div>
+              <div class="text-base font-bold text-[var(--color-accent,#e89e38)]">${post.meritVotes || 0}</div>
+            </div>
+          </div>
+          <div class="text-[11px] text-slate-400 font-mono mt-1">
+            Started ${formatRelative(post.createdAt || Date.now())}
+          </div>
+        </section>
+
+        <!-- 3. PRIVACY BOUNDARY LENS -->
+        <section class="context-rail__section">
+          <div class="flex items-center justify-between">
+            <span class="context-rail__title">Privacy Boundary</span>
+            ${privacyLens.renderCompact((audience as any) || 'public')}
+          </div>
+          <div class="p-3 rounded-xl bg-surface-raised/40 border border-white/5 text-xs space-y-1.5 mt-1">
+            <div class="flex items-center justify-between text-[11px]">
+              <span class="text-slate-400">Audience</span>
+              <span class="text-slate-200 font-medium capitalize">${escapeHtml(audience)}</span>
+            </div>
+            <div class="flex items-center justify-between text-[11px]">
+              <span class="text-slate-400">Storage</span>
+              <span class="text-emerald-400 font-medium font-mono text-[10px]">On-device Vault</span>
+            </div>
+            <div class="text-[10px] text-slate-400 pt-1 border-t border-white/5">
+              Not publicly linked to other social facets.
+            </div>
+          </div>
+        </section>
+
+        <!-- 4. LIVING SPACE CONTEXT (IF POST BELONGS TO COMMUNITY) -->
+        ${isCommunity ? `
+          <section class="context-rail__section">
+            <span class="context-rail__title">Living Space</span>
+            <div class="p-2.5 rounded-xl bg-surface-raised/40 border border-white/5 mt-1 space-y-2">
+              <div class="text-xs font-bold text-slate-200">c/${escapeHtml(communityName)}</div>
+              <a href="${communityPath(communityName)}" data-public-link class="block text-center text-xs font-bold py-1.5 px-3 rounded-lg bg-[var(--color-accent,#e89e38)] text-slate-950 hover:brightness-105 transition-all">
+                Browse Community
+              </a>
+            </div>
+          </section>
+        ` : ''}
+      </div>
+    `;
+  }
+
+  private renderCommunitiesSidebar(activeMode?: string): string {
+    const isSpecificSpace = activeMode && activeMode.startsWith('c/');
+    const spaceName = isSpecificSpace ? activeMode.replace(/^c\//, '') : '';
+    const circle = isSpecificSpace ? sovereignCircleEngine.getAllCircles().find(c => c.name.toLowerCase() === spaceName.toLowerCase()) : null;
+
+    if (circle) {
+      return `
+        <div class="context-rail" data-sidebar-context="community-specific">
+          <section class="context-rail__section">
+            <div class="flex items-center gap-3">
+              <span class="w-10 h-10 rounded-xl bg-surface-raised border border-white/10 flex items-center justify-center text-xl shrink-0">
+                ${circle.icon || renderIcon('users', { size: 20 })}
+              </span>
+              <div>
+                <h3 class="text-sm font-bold text-white">c/${escapeHtml(circle.name)}</h3>
+                <span class="text-[11px] text-slate-400 font-mono">${(circle.membersCount || 0).toLocaleString()} members</span>
+              </div>
+            </div>
+            <p class="text-xs text-slate-300 leading-relaxed mt-2">${escapeHtml(circle.description || 'A sovereign community space on UREfy.')}</p>
+          </section>
+
+          <section class="context-rail__section">
+            <span class="context-rail__title">Space Actions</span>
+            <button type="button" data-action="open-composer" data-channel="${circle.channelId}" class="w-full py-2 px-3 rounded-xl bg-[var(--color-accent,#e89e38)] hover:brightness-105 text-slate-950 text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer">
+              <span>✍️</span>
+              <span>Start Conversation</span>
+            </button>
+            <button type="button" class="w-full py-2 px-3 rounded-xl bg-surface-raised hover:bg-surface-overlay text-slate-200 text-xs font-semibold transition-all border border-white/5 cursor-pointer mt-1" data-action="toggle-join-circle" data-circle-id="${circle.id}">
+              ${circle.isJoined ? '✓ Joined Space' : '+ Join Space'}
+            </button>
+          </section>
+
+          ${(circle.rules && circle.rules.length > 0) ? `
+            <section class="context-rail__section">
+              <span class="context-rail__title">Community Principles (${circle.rules.length})</span>
+              <div class="space-y-1.5 mt-1 text-xs text-slate-300">
+                ${circle.rules.slice(0, 3).map((r: { title: string; description?: string }, i: number) => `
+                  <div class="p-2 rounded-lg bg-surface-raised/40 border border-white/5 text-[11px]">
+                    <strong>${i + 1}. ${escapeHtml(r.title)}</strong>
+                  </div>
+                `).join('')}
+              </div>
+            </section>
+          ` : ''}
+        </div>
+      `;
+    }
+
+    const allCircles = sovereignCircleEngine.getAllCircles();
+    const joined = allCircles.filter(c => c.isJoined).length;
+
+    return `
+      <div class="context-rail" data-sidebar-context="communities">
+        <section class="context-rail__section">
+          <span class="context-rail__title">Living Spaces</span>
+          <p class="text-xs text-slate-300 leading-relaxed mt-1">
+            Autonomous gathering places on the open web. Communities are client-governed with zero surveillance algorithms.
+          </p>
+          <div class="grid grid-cols-2 gap-2 mt-2">
+            <div class="p-2 rounded-xl bg-surface-raised/40 border border-white/5 text-center">
+              <div class="text-base font-bold text-slate-100">${allCircles.length}</div>
+              <div class="text-[10px] text-slate-400 font-mono">Discovered</div>
+            </div>
+            <div class="p-2 rounded-xl bg-surface-raised/40 border border-white/5 text-center">
+              <div class="text-base font-bold text-[var(--color-accent,#e89e38)]">${joined}</div>
+              <div class="text-[10px] text-slate-400 font-mono">Joined</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="context-rail__section">
+          <span class="context-rail__title">Build A Place</span>
+          <p class="text-xs text-slate-400">Bring people together around shared interests.</p>
+          <button type="button" data-action="open-create-circle" class="w-full py-2 px-3 rounded-xl bg-[var(--color-accent,#e89e38)] hover:brightness-105 text-slate-950 text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer mt-1">
+            ${renderIcon('plus', { size: 15 })}
+            <span>Create Living Space</span>
+          </button>
+        </section>
+      </div>`;
+  }
+
+  private renderProfileSidebar(): string {
+    const activeFacet = clientStore.getActiveFacet() || {
+      id: 'default',
+      displayName: 'Main Context',
+      handle: 'sovereign',
+      role: 'MEMBER',
+      visibility: 'public',
+    };
+
+    return `
+      <div class="context-rail" data-sidebar-context="profile">
+        <section class="context-rail__section">
+          <span class="context-rail__title">Active Social Context</span>
+          <div class="p-3 rounded-xl bg-surface-raised/60 border border-white/10 mt-1 space-y-2">
+            <div class="flex items-center gap-2.5">
+              <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-amber-700 p-0.5 shrink-0">
+                <div class="w-full h-full rounded-xl bg-surface-base flex items-center justify-center font-bold text-xs text-amber-200">
+                  ${(activeFacet.displayName || 'U').slice(0, 2).toUpperCase()}
+                </div>
+              </div>
+              <div class="min-w-0">
+                <div class="text-xs font-bold text-white truncate">${escapeHtml(activeFacet.displayName)}</div>
+                <div class="text-[11px] text-slate-400 font-mono">@${escapeHtml(activeFacet.handle)}</div>
+              </div>
+            </div>
+            <div class="pt-2 border-t border-white/5 flex items-center justify-between text-[11px]">
+              <span class="text-slate-400">Visibility:</span>
+              <span class="font-medium text-emerald-400">Public persona</span>
+            </div>
+          </div>
+          <button type="button" data-action="open-context-lens" class="w-full mt-2 py-2 px-3 rounded-xl bg-surface-raised hover:bg-surface-overlay text-slate-200 text-xs font-semibold transition-all border border-white/5 flex items-center justify-center gap-2 cursor-pointer">
+            <span>⇄</span>
+            <span>Switch Context</span>
+          </button>
+        </section>
+
+        <section class="context-rail__section">
+          <span class="context-rail__title">Identity Settings</span>
+          <div class="space-y-1.5 mt-1">
+            <button type="button" data-action="open-settings" data-subtab="account" class="w-full text-left p-2 rounded-xl hover:bg-surface-raised text-xs text-slate-300 flex items-center gap-2 transition-colors cursor-pointer">
+              ${renderIcon('settings', { size: 15 })}
+              <span>Account Preferences</span>
+            </button>
+            <button type="button" data-action="open-settings" data-subtab="security" class="w-full text-left p-2 rounded-xl hover:bg-surface-raised text-xs text-slate-300 flex items-center gap-2 transition-colors cursor-pointer">
+              ${renderIcon('shield', { size: 15 })}
+              <span>Keys & Sovereign Identity</span>
+            </button>
+            <button type="button" data-action="open-feature" data-feature="export-backup" class="w-full text-left p-2 rounded-xl hover:bg-surface-raised text-xs text-slate-300 flex items-center gap-2 transition-colors cursor-pointer">
+              ${renderIcon('download', { size: 15 })}
+              <span>Backup Recovery Kit</span>
+            </button>
+          </div>
+        </section>
+
+        <section class="context-rail__section">
+          <div class="text-[10px] text-slate-500 leading-normal">
+            Facets on UREfy are unlinked by design. Each persona operates under sovereign client-side boundaries.
+          </div>
+        </section>
+      </div>`;
+  }
+
+  private renderExploreSidebar(): string {
+    const topics = getRealTopics();
+
+    return `
+      <div class="context-rail" data-sidebar-context="explore">
+        <section class="context-rail__section">
+          <span class="context-rail__title">Directional Discovery</span>
+          <p class="text-xs text-slate-300 leading-relaxed mt-1">
+            Follow ideas as they travel from sparks into discussions, connect with real thinkers, and gather in living spaces.
+          </p>
+          <div class="flex items-center justify-between text-[10px] font-mono text-[var(--color-accent,#e89e38)] p-2 rounded-lg bg-surface-raised/40 border border-white/5 mt-2">
+            <span>Ideas</span>
+            <span>→</span>
+            <span>Conversations</span>
+            <span>→</span>
+            <span>People</span>
+            <span>→</span>
+            <span>Spaces</span>
+          </div>
+        </section>
+
+        <section class="context-rail__section">
+          <span class="context-rail__title">Top Themes</span>
+          ${topics.length ? `
+            <div class="space-y-1.5 mt-1">
+              ${topics.map(t => `
+                <button type="button" class="w-full text-left p-2 rounded-lg bg-surface-raised/40 hover:bg-surface-raised flex items-center justify-between text-xs transition-colors cursor-pointer" data-nav-mode="explore">
+                  <span class="font-bold text-slate-200">${escapeHtml(t.tag)}</span>
+                  <span class="text-[10px] text-slate-400 font-mono">${t.count} posts</span>
+                </button>
+              `).join('')}
+            </div>
+          ` : `
+            <div class="text-xs text-slate-400 italic p-2">Topics emerge from real conversation.</div>
+          `}
+        </section>
+      </div>`;
+  }
+
+  private renderMessagesSidebar(): string {
+    return `
+      <div class="context-rail" data-sidebar-context="messages">
+        <section class="context-rail__section">
+          <span class="context-rail__title">Privacy Boundaries</span>
+          <div class="p-3 rounded-xl bg-surface-raised/40 border border-white/5 space-y-2 mt-1 text-xs">
+            <div class="flex items-center gap-2 text-emerald-400 font-semibold">
+              ${renderIcon('lock', { size: 16 })}
+              <span>Direct 1:1 Messages</span>
+            </div>
+            <p class="text-slate-400 text-[11px] leading-relaxed">
+              End-to-end encrypted with hybrid post-quantum cryptography on your device. Only you and the recipient can read them.
+            </p>
+          </div>
+        </section>
+      </div>`;
+  }
+
+  private renderVaultSidebar(): string {
+    return `
+      <div class="context-rail" data-sidebar-context="vault">
+        <section class="context-rail__section">
+          <span class="context-rail__title">Sovereign Vault</span>
+          <p class="text-xs text-slate-300 leading-relaxed mt-1">
+            Private snapshots and kept conversations are encrypted on this device.
+          </p>
+        </section>
+      </div>`;
+  }
 }
 
 function getRealTopics(): Array<{ tag: string; count: number }> {
@@ -28,150 +459,6 @@ function getRealTopics(): Array<{ tag: string; count: number }> {
     .map(([tag, count]) => ({ tag, count }));
 }
 
-export class ContextualSidebar {
-  public renderSidebarContent(activeMode: string): string {
-    if (activeMode.startsWith('relay') || activeMode.startsWith('dm-') || activeMode === 'messages') return this.renderMessagesSidebar();
-    if (activeMode.startsWith('profile')) return this.renderProfileSidebar();
-    if (activeMode === 'explore') return this.renderExploreSidebar();
-    if (activeMode === 'communities' || activeMode.startsWith('c/')) return this.renderCommunitiesSidebar();
-    if (activeMode.startsWith('vault')) return this.renderVaultSidebar();
-    return this.renderFeedSidebar();
-  }
-
-  private renderFeedSidebar(): string {
-    const topics = getRealTopics();
-    const communities = sovereignCircleEngine.getAllCircles().slice(0, 4);
-    return `
-      <div class="context-stack" data-sidebar-context="feed">
-        <div class="sovereign-matrix-status pb-3 mb-1 border-b border-white/5 flex items-center justify-between text-xs select-none">
-          <div class="flex items-center gap-2">
-            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span class="font-mono text-slate-300 text-[11px] font-semibold tracking-wider">SOVEREIGN STATE</span>
-          </div>
-          <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Local Vault Ready</span>
-        </div>
-
-        <section class="context-card">
-          <div class="context-card__header"><h2>In the conversation</h2><a href="/explore" data-public-link>Explore</a></div>
-          ${topics.length ? `<div class="context-list">${topics.map((topic, index) => `
-            <button type="button" class="context-topic" data-nav-mode="explore" title="Explore ${escapeHtml(topic.tag)}">
-              <span class="context-topic__rank">${index + 1}</span><span><strong>${escapeHtml(topic.tag)}</strong><small>${topic.count} ${topic.count === 1 ? 'post' : 'posts'}</small></span>
-            </button>`).join('')}</div>` : `
-            <div class="context-empty"><strong>The next big idea starts small.</strong><span>Topics appear here as posts arrive in your workspace.</span></div>`}
-        </section>
-
-        <section class="context-card">
-          <div class="context-card__header"><h2>Communities for you <span class="sr-only">Sovereign Communities</span></h2><div class="flex items-center gap-1.5"><a href="/communities" data-public-link>Browse <span class="sr-only">Directory</span></a><button type="button" data-action="open-create-circle" class="sr-only">+ Create</button></div></div>
-          <div class="context-list">${communities.map(circle => `
-            <div class="community-suggestion">
-              <a href="${communityPath(circle.name)}" data-public-link class="community-suggestion__identity">
-                <span class="community-avatar">${circle.icon || renderIcon('users', { size: 16 })}</span>
-                <span><strong>c/${escapeHtml(circle.name)}</strong><small>${circle.membersCount || 0} members</small></span>
-              </a>
-              <button type="button" class="compact-join-button ${circle.isJoined ? 'is-joined' : ''}" data-action="toggle-join-circle" data-circle-id="${circle.id}">${circle.isJoined ? 'Joined' : 'Join'}</button>
-            </div>`).join('')}</div>
-        </section>
-
-        <section class="orbit-note">
-          ${renderIcon('sparkles', { size: 24 })}
-          <h2>Good ideas deserve<br>a place to grow.</h2>
-          <p>Bring your people together around something you care about. Your own corner of the open web.</p>
-          <button type="button" data-action="open-create-circle">Create a community ${renderIcon('plus', { size: 15 })}</button>
-        </section>
-
-        <p class="context-privacy-note">${renderIcon('shield', { size: 14 })}<span>No ads. No tracking. Your feed stays yours.</span></p>
-      </div>`;
-  }
-
-  private renderMessagesSidebar(): string {
-    return `
-      <div class="context-stack" data-sidebar-context="messages">
-        <section class="context-card context-card--secure">
-          <span class="security-mark">${renderIcon('lock', { size: 18 })}</span>
-          <div>
-            <h2>Privacy Boundaries</h2>
-            <p>Direct 1:1 messages are end-to-end encrypted on-device. Community chat channels are public to all participants.</p>
-          </div>
-        </section>
-        <section class="context-card">
-          <div class="context-card__header"><h2>Conversation Safety</h2></div>
-          <button type="button" data-action="open-settings" data-subtab="privacy" class="context-action">${renderIcon('shield', { size: 17 })}<span>Privacy & safety settings</span></button>
-        </section>
-      </div>`;
-  }
-
-  private renderExploreSidebar(): string {
-    const joined = sovereignCircleEngine.getAllCircles().filter(circle => circle.isJoined).length;
-    return `
-      <div class="context-stack" data-sidebar-context="explore">
-        <section class="context-card">
-          <div class="context-card__header"><h2>Your spaces</h2><button type="button" data-nav-mode="communities">Manage</button></div>
-          <div class="context-stat"><strong>${joined}</strong><span>communities joined</span></div>
-          <p class="context-copy">Follow people and join communities to make discovery more personal.</p>
-        </section>
-      </div>`;
-  }
-
-  private renderCommunitiesSidebar(): string {
-    return `
-      <div class="context-stack" data-sidebar-context="communities">
-        <section class="context-card">
-          <div class="context-card__header"><h2>Build your space</h2></div>
-          <p class="context-copy">Create a focused place for people who care about the same things.</p>
-          <button type="button" data-action="open-create-circle" class="context-primary-action">${renderIcon('plus', { size: 16 })}<span>Create a community</span></button>
-        </section>
-      </div>`;
-  }
-
-  private renderProfileSidebar(): string {
-    return `
-      <div class="context-stack" data-sidebar-context="profile">
-        <section class="context-card">
-          <div class="context-card__header"><h2>Your account</h2></div>
-          <button type="button" data-action="open-settings" data-subtab="account" class="context-action">${renderIcon('settings', { size: 17 })}<span>Settings</span></button>
-          <button type="button" data-action="open-settings" data-subtab="security" class="context-action">${renderIcon('shield', { size: 17 })}<span>Identity & security</span></button>
-        </section>
-      </div>`;
-  }
-
-  private renderVaultSidebar(): string {
-    return `
-      <div class="context-stack" data-sidebar-context="vault">
-        <section class="context-card">
-          <div class="context-card__header">
-            <h2>Where your knowledge lives</h2>
-          </div>
-          <div class="mt-2 space-y-2">
-            <p class="context-copy">Private snapshots are encrypted on this device. Up to 200 snapshots / 4 MiB. Clearing browser data removes these local copies.</p>
-            <p class="context-copy">Cloud storage has separate server-enforced limits. Account usage is unavailable in this view.</p>
-          </div>
-        </section>
-
-        <section class="context-card">
-          <div class="context-card__header"><h2>Vault shortcuts</h2></div>
-          <div class="space-y-1.5">
-            <button type="button" data-action="open-feature" data-feature="export-backup" class="context-action w-full text-left flex items-center space-x-2">
-              ${renderIcon('download', { size: 16 })}
-              <span>Account export & backup</span>
-            </button>
-            <button type="button" data-action="open-feature" data-feature="binary-hygiene" class="context-action w-full text-left flex items-center space-x-2">
-              ${renderIcon('shield', { size: 16 })}
-              <span>Binary hygiene scan</span>
-            </button>
-          </div>
-        </section>
-
-        <section class="context-card context-card--secure">
-          <span class="security-mark">${renderIcon('lock', { size: 18 })}</span>
-          <div>
-            <h2>Keep the context</h2>
-            <p>Snapshots retain their source, author and date. A checksum identifies the saved copy; it does not verify the source's claims.</p>
-          </div>
-        </section>
-      </div>`;
-  }
-}
-
 export const contextualSidebar = new ContextualSidebar();
 
 export function renderSidebar(mode = 'feed'): string {
@@ -179,12 +466,9 @@ export function renderSidebar(mode = 'feed'): string {
 }
 
 export function hasContextualSidebar(route: string, channelId: string): boolean {
+  if (postDetailView.isOpen()) return true;
   if (route === 'messages' || channelId.startsWith('relays-') || channelId.startsWith('relay-') || channelId.startsWith('dm-') || channelId === 'messages') return false;
   if (route === 'vault' || channelId.startsWith('vault')) return false;
   if (route === 'settings' || channelId === 'settings') return false;
-  if (route === 'explore' || channelId === 'explore') return false;
-  if (route === 'communities' || channelId === 'communities') return false;
-  if (route === 'profile' || channelId.startsWith('profile')) return false;
   return true;
 }
-

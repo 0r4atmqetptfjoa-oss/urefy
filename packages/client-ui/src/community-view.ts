@@ -20,6 +20,7 @@ import { t } from './i18n.js';
 import { renderPulsePostCard } from './feed-view.js';
 import { communityCategories, filterCommunities } from './discovery-data.js';
 import { renderDiscoveryCard } from './discovery-card.js';
+import { communityPath } from './public-urls.js';
 
 function escapeHtml(str: string): string {
   return (str || '')
@@ -658,6 +659,66 @@ export class CommunityView {
     this.activeCategory = cat;
   }
 
+  private _renderFeaturedLivingSpace(circle: SovereignCircle): string {
+    const latestPost = clientStore.posts.find(p =>
+      p.channelId === circle.channelId ||
+      p.channelId === `c/${circle.name}` ||
+      p.channelId === circle.name
+    );
+
+    return `
+      <div class="living-space-featured mb-6 relative">
+        <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div class="flex items-start gap-4 min-w-0">
+            <span class="w-14 h-14 rounded-2xl bg-surface-base border border-white/10 flex items-center justify-center text-3xl shrink-0 shadow-md">
+              ${circle.icon ? escapeHtml(circle.icon) : renderIcon('users', { size: 28 })}
+            </span>
+            <div class="space-y-1 min-w-0">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="text-[10px] font-bold font-mono px-2 py-0.5 rounded-full bg-[var(--color-accent,#e89e38)]/15 text-[var(--color-accent,#e89e38)] border border-[var(--color-accent,#e89e38)]/30 uppercase">Featured Living Space</span>
+                <span class="text-[10px] font-mono text-slate-400 uppercase tracking-wider">${escapeHtml(circle.category || 'General')}</span>
+              </div>
+              <h2 class="text-xl font-extrabold text-white truncate">
+                <a href="${communityPath(circle.name)}" data-public-link class="hover:text-[var(--color-accent,#e89e38)] transition-colors">
+                  ${escapeHtml(circle.displayName || circle.name)}
+                </a>
+                <span class="text-sm font-mono text-slate-400 font-normal ml-1.5">c/${escapeHtml(circle.name)}</span>
+              </h2>
+              <p class="text-xs text-slate-300 max-w-xl leading-relaxed line-clamp-2">${escapeHtml(circle.description)}</p>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2 shrink-0 self-stretch md:self-auto justify-end flex-wrap">
+            <button type="button" data-action="toggle-join-circle" data-circle-id="${circle.id}" class="min-h-[40px] px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${circle.isJoined ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30' : 'bg-white text-slate-900 hover:bg-slate-200'}">
+              ${circle.isJoined ? '✓ Joined Space' : '+ Join Space'}
+            </button>
+            <a href="${communityPath(circle.name)}" data-public-link class="min-h-[40px] px-4 py-2 rounded-xl bg-[var(--color-accent,#e89e38)] hover:brightness-105 text-slate-950 text-xs font-bold transition-all shadow-sm flex items-center gap-1.5">
+              <span>Enter Space</span>
+              <span>→</span>
+            </a>
+          </div>
+        </div>
+
+        <!-- ACTIVE CONVERSATION STRIP -->
+        <div class="living-space-conversation-strip mt-4">
+          <span class="living-space-pulse-dot" style="${latestPost ? '' : 'background: #64748b; box-shadow: none;'}"></span>
+          <div class="min-w-0 flex-1 truncate text-xs">
+            ${latestPost ? `
+              <span class="text-slate-400">Active River: </span>
+              <span class="text-slate-100 font-semibold">"${escapeHtml(latestPost.title || latestPost.content.slice(0, 60))}"</span>
+              <span class="text-slate-400 text-[11px] ml-1">(${latestPost.replyCount || 0} replies)</span>
+            ` : `
+              <span class="text-slate-400 italic text-[11px]">Quiet right now · Start the first conversation in this space</span>
+            `}
+          </div>
+          <button type="button" data-action="open-composer" data-channel="${circle.channelId}" class="text-[11px] text-[var(--color-accent,#e89e38)] hover:underline font-bold shrink-0">
+            + Start discussion
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
   public renderCommunitiesHub(): string {
     const allCircles = sovereignCircleEngine.getAllCircles();
     const categories = communityCategories(allCircles);
@@ -676,7 +737,20 @@ export class CommunityView {
         </div>
         <div class="discovery-category-list" role="group" aria-label="Community topics">${categories.map(category => `<button type="button" data-action="filter-community-category" data-category="${escapeHtml(category)}" aria-pressed="${this.activeCategory.toLowerCase() === category.toLowerCase()}">${category === 'all' ? 'All topics' : escapeHtml(category)}</button>`).join('')}</div>
         <div class="discovery-results-heading"><h2>${this.membershipFilter === 'joined' ? 'Your communities' : 'Find a conversation'}</h2><span role="status">${filtered.length} ${filtered.length === 1 ? 'community' : 'communities'}</span></div>
-        ${filtered.length ? `<div class="discovery-space-grid">${filtered.map(renderDiscoveryCard).join('')}</div>` : `<div class="discovery-empty discovery-empty--roomy">${renderIcon('search', { size: 28 })}<strong>${this.membershipFilter === 'joined' && !joinedCount ? 'Your circle starts here' : 'No communities match these filters'}</strong><span>Try a different topic, broaden your search, or start a space of your own.</span>${isFiltering ? '<button type="button" data-action="reset-community-filters">Reset filters</button>' : ''}<button type="button" data-action="open-create-circle">Create a community</button></div>`}
+        ${filtered.length ? `
+          <div class="living-spaces-editorial">
+            ${(!isFiltering && filtered.length > 1) ? `
+              ${this._renderFeaturedLivingSpace(filtered[0])}
+              <div class="discovery-results-heading mt-6 mb-3">
+                <h3 class="text-xs font-mono font-bold uppercase tracking-wider text-slate-400">Emerging Living Spaces</h3>
+                <span class="text-[11px] font-mono text-slate-500">${filtered.length - 1} spaces</span>
+              </div>
+              <div class="living-spaces-grid">${filtered.slice(1).map(renderDiscoveryCard).join('')}</div>
+            ` : `
+              <div class="living-spaces-grid">${filtered.map(renderDiscoveryCard).join('')}</div>
+            `}
+          </div>
+        ` : `<div class="discovery-empty discovery-empty--roomy">${renderIcon('search', { size: 28 })}<strong>${this.membershipFilter === 'joined' && !joinedCount ? 'Your circle starts here' : 'No communities match these filters'}</strong><span>Try a different topic, broaden your search, or start a space of your own.</span>${isFiltering ? '<button type="button" data-action="reset-community-filters">Reset filters</button>' : ''}<button type="button" data-action="open-create-circle">Create a community</button></div>`}
       </div>
     </div>`;
   }

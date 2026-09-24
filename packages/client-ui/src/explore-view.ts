@@ -133,7 +133,19 @@ export class ExploreView {
   private renderTopics(posts: ClientPost[]): string {
     const topics = this.getComputedTrendingTopics(posts);
     if (!topics.length) return '<div class="discovery-empty"><strong>No trending topics yet</strong><span>Topics are calculated from real public posts.</span></div>';
-    return `<div class="topic-grid">${topics.map(topic => `<button type="button" class="topic-card btn-select-trend" data-search-trend="${escapeHtml(topic.topic)}"><span>${topic.rank}</span><div><strong>${escapeHtml(topic.topic)}</strong><small>${escapeHtml(topic.postCount)}</small></div>${renderIcon('externalLink', { size: 17 })}</button>`).join('')}</div>`;
+    return `
+      <div class="thematic-ideas-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        ${topics.map(topic => `
+          <button type="button" class="btn-select-trend text-left p-3.5 rounded-xl bg-surface-raised/50 hover:bg-surface-raised border border-white/5 hover:border-[var(--color-accent,#e89e38)]/40 transition-all cursor-pointer group" data-search-trend="${escapeHtml(topic.topic)}">
+            <div class="flex items-center justify-between mb-1.5">
+              <span class="text-xs font-bold text-slate-100 group-hover:text-[var(--color-accent,#e89e38)] transition-colors">${escapeHtml(topic.topic)}</span>
+              <span class="text-[10px] font-mono px-2 py-0.5 rounded-md bg-white/5 text-slate-400">${escapeHtml(topic.postCount)}</span>
+            </div>
+            <p class="text-[11px] text-slate-400 line-clamp-1">${escapeHtml(topic.description)}</p>
+          </button>
+        `).join('')}
+      </div>
+    `;
   }
 
   public renderCommunitiesDirectory(): string {
@@ -142,7 +154,7 @@ export class ExploreView {
     return `
       <section class="discovery-section">
         <div class="section-heading"><div><span>Communities</span><h2>Find your next conversation</h2></div><button type="button" data-action="open-create-circle">${renderIcon('plus', { size: 16 })}Create community</button></div>
-        ${communities.length ? `<div class="discovery-space-grid">${communities.map(renderDiscoveryCard).join('')}</div>` : '<div class="discovery-empty"><strong>No communities found</strong><span>Try a broader search or create the first one.</span></div>'}
+        ${communities.length ? `<div class="living-spaces-grid">${communities.map(renderDiscoveryCard).join('')}</div>` : '<div class="discovery-empty"><strong>No communities found</strong><span>Try a broader search or create the first one.</span></div>'}
       </section>`;
   }
 
@@ -158,10 +170,10 @@ export class ExploreView {
     const counts = { posts: posts.length, people: people.length, communities: communities.length, topics: topics.length };
     return `
       <div class="search-result-tabs" role="tablist" aria-label="Search categories">${(['posts', 'people', 'communities', 'topics'] as const).map(tab => `<button type="button" role="tab" data-search-result-tab="${tab}" aria-selected="${this.activeSearchTab === tab}" class="${this.activeSearchTab === tab ? 'is-active' : ''}">${tab[0].toUpperCase() + tab.slice(1)}<span>${counts[tab]}</span></button>`).join('')}</div>
-      ${this.activeSearchTab === 'posts' ? (posts.length ? `<div class="post-stream">${posts.map(renderPulsePostCard).join('')}</div>` : `<div class="discovery-empty"><strong>No posts found for “${escapeHtml(this.searchQuery)}”</strong><span class="sr-only">No pulses found matching "${escapeHtml(this.searchQuery)}"</span><span>Try another word, person, or community.</span><button type="button" id="btn-clear-explore-empty">Clear search</button></div>`) : ''}
+      ${this.activeSearchTab === 'posts' ? (posts.length ? `<div class="river-stream pt-2">${posts.map(renderPulsePostCard).join('')}</div>` : `<div class="discovery-empty"><strong>No posts found for “${escapeHtml(this.searchQuery)}”</strong><span class="sr-only">No pulses found matching "${escapeHtml(this.searchQuery)}"</span><span>Try another word, person, or community.</span><button type="button" id="btn-clear-explore-empty">Clear search</button></div>`) : ''}
       ${this.activeSearchTab === 'people' ? this.renderPeople(allPosts, people) : ''}
       ${this.activeSearchTab === 'communities' ? this.renderCommunitiesDirectory() : ''}
-      ${this.activeSearchTab === 'topics' ? (topics.length ? `<div class="topic-grid">${topics.map(topic => `<button type="button" class="topic-card btn-select-trend" data-search-trend="${escapeHtml(topic.topic)}"><span>${topic.rank}</span><div><strong>${escapeHtml(topic.topic)}</strong><small>${escapeHtml(topic.postCount)}</small></div></button>`).join('')}</div>` : '<div class="discovery-empty"><strong>No matching topics</strong><span>Try another search.</span></div>') : ''}`;
+      ${this.activeSearchTab === 'topics' ? (topics.length ? this.renderTopics(allPosts) : '<div class="discovery-empty"><strong>No matching topics</strong><span>Try another search.</span></div>') : ''}`;
   }
 
   public renderExploreView(allPosts: ClientPost[]): string {
@@ -175,7 +187,7 @@ export class ExploreView {
           <div>
             <span class="text-[10px] font-bold uppercase tracking-wider text-[var(--color-accent,#e89e38)]">Atlas of Sovereign Spaces</span>
             <h1>Explore</h1>
-            <p>Discover autonomous communities, verified minds, and open conversations.</p>
+            <p>Follow ideas as they travel through conversations, minds, and living spaces.</p>
           </div>
           <label class="explore-search">${renderIcon('search', { size: 19 })}<input type="search" id="explore-search-input" aria-label="Search UREfy" placeholder="Search topics, people or communities..." value="${escapeHtml(this.searchQuery)}" autocomplete="off" />${this.searchQuery ? `<button type="button" id="btn-clear-explore-search" aria-label="Clear search">${renderIcon('close', { size: 16 })}</button>` : ''}</label>
         </header>
@@ -187,23 +199,75 @@ export class ExploreView {
 
         <div id="explore-feed-scroll" class="explore-scroll">
           ${this.searchQuery ? this.renderSearchResults(allPosts) : this.activeSubTab === 'communities' ? this.renderCommunitiesDirectory() : `
-            ${this.activeCategory === 'all' ? `<nav class="discovery-wayfinding" aria-label="Discovery shortcuts"><span>People, ideas and conversations</span><button type="button" data-action="nav-mode" data-mode="communities">Browse communities ${renderIcon('chevronRight', { size: 16 })}</button></nav>` : ''}
+            <!-- DIRECTIONAL PATHWAY GUIDE -->
+            <nav class="directional-pathway mb-6 p-3.5 sm:p-4 rounded-2xl bg-surface-raised/40 border border-white/5 flex items-center justify-between gap-3 text-xs font-mono overflow-x-auto select-none" aria-label="Discovery shortcuts">
+              <div class="flex items-center gap-2 shrink-0">
+                <span class="w-6 h-6 rounded-lg bg-[var(--color-accent,#e89e38)]/20 text-[var(--color-accent,#e89e38)] flex items-center justify-center font-bold text-xs">1</span>
+                <span class="text-white font-bold">Ideas</span>
+              </div>
+              <span class="text-slate-600 shrink-0">→</span>
+              <div class="flex items-center gap-2 shrink-0">
+                <span class="w-6 h-6 rounded-lg bg-surface-base text-slate-400 flex items-center justify-center font-bold text-xs">2</span>
+                <span class="text-slate-300 font-medium">Conversations</span>
+              </div>
+              <span class="text-slate-600 shrink-0">→</span>
+              <div class="flex items-center gap-2 shrink-0">
+                <span class="w-6 h-6 rounded-lg bg-surface-base text-slate-400 flex items-center justify-center font-bold text-xs">3</span>
+                <span class="text-slate-300 font-medium">People</span>
+              </div>
+              <span class="text-slate-600 shrink-0">→</span>
+              <div class="flex items-center gap-2 shrink-0">
+                <span class="w-6 h-6 rounded-lg bg-surface-base text-slate-400 flex items-center justify-center font-bold text-xs">4</span>
+                <span class="text-slate-300 font-medium">Spaces</span>
+              </div>
+            </nav>
+
             ${recentSearches.length ? `<section class="recent-searches"><span>Recent</span>${recentSearches.slice(0, 5).map(item => `<button type="button" class="btn-select-trend" data-search-trend="${escapeHtml(item)}">${escapeHtml(item)}</button>`).join('')}<button type="button" id="btn-clear-recent-searches">Clear</button></section>` : ''}
+            
+            <!-- 1. IDEAS -->
             <section class="discovery-section">
               <div class="section-heading">
                 <div>
-                  <span>Trending conversations</span>
+                  <span class="text-[10px] font-mono uppercase text-[var(--color-accent,#e89e38)] font-bold">1 · Thematic Concepts</span>
                   <h2>${this.activeCategory === 'all' ? 'Ideas making connections' : escapeHtml(this.categories.find(category => category.id === this.activeCategory)?.label || 'Conversations')}</h2>
                 </div>
               </div>
               ${this.renderTopics(filteredPosts)}
             </section>
+
+            <!-- 2. CONVERSATIONS -->
             <section class="discovery-section">
-              <div class="section-heading"><div><span>Communities</span><h2>Spaces to make your own</h2></div><button type="button" data-action="nav-mode" data-mode="communities">See all</button></div>
-              <div class="discovery-space-grid">${topCommunities.map(renderDiscoveryCard).join('')}</div>
+              <div class="section-heading">
+                <div>
+                  <span class="text-[10px] font-mono uppercase text-[var(--color-accent,#e89e38)] font-bold">2 · River Flow</span>
+                  <h2>Active Conversations</h2>
+                </div>
+              </div>
+              ${filteredPosts.length ? `<div class="river-stream pt-2">${filteredPosts.slice(0, 4).map(renderPulsePostCard).join('')}</div>` : '<div class="discovery-empty"><strong>No public discussions yet</strong><span>New conversations will appear here as they are shared.</span></div>'}
             </section>
-            <section class="discovery-section"><div class="section-heading"><div><span>People</span><h2>Meet the minds behind the ideas</h2></div></div>${this.renderPeople(filteredPosts)}</section>
-            <section class="discovery-section"><div class="section-heading"><div><span>Fresh discussions</span><h2>Join a conversation</h2></div></div>${filteredPosts.length ? `<div class="post-stream">${filteredPosts.slice(0, 3).map(renderPulsePostCard).join('')}</div>` : '<div class="discovery-empty"><strong>No public discussions yet</strong><span>New conversations will appear here as they are shared.</span></div>'}</section>
+
+            <!-- 3. PEOPLE -->
+            <section class="discovery-section">
+              <div class="section-heading">
+                <div>
+                  <span class="text-[10px] font-mono uppercase text-[var(--color-accent,#e89e38)] font-bold">3 · Sovereign Minds</span>
+                  <h2>People behind the perspectives</h2>
+                </div>
+              </div>
+              ${this.renderPeople(filteredPosts)}
+            </section>
+
+            <!-- 4. SPACES -->
+            <section class="discovery-section">
+              <div class="section-heading">
+                <div>
+                  <span class="text-[10px] font-mono uppercase text-[var(--color-accent,#e89e38)] font-bold">4 · Living Places</span>
+                  <h2>Spaces to make your own</h2>
+                </div>
+                <button type="button" data-action="nav-mode" data-mode="communities">Browse all</button>
+              </div>
+              <div class="living-spaces-grid">${topCommunities.map(renderDiscoveryCard).join('')}</div>
+            </section>
           `}
         </div>
       </div>`;

@@ -26,6 +26,7 @@ import { signMessage, ZKRLN, bytesToHex } from '@aetheris/core-crypto';
 import { t } from './i18n.js';
 import { processMediaFile } from './media-pipeline.js';
 import { sovereignCircleEngine } from './sovereign-circle.js';
+import { privacyLens } from './privacy-lens.js';
 
 // ---------------------------------------------------------------------------
 // Types & Interfaces
@@ -515,27 +516,27 @@ export class HybridComposer {
             
             <!-- MULTI-TAB SWITCHER -->
             <div class="flex items-center space-x-1 bg-surface-base/80 p-1 rounded-xl border border-white/5 overflow-x-auto">
-              <button type="button" data-composer-tab="pulse" class="btn-composer-tab px-3 py-1.5 text-xs rounded-lg font-semibold transition-all cursor-pointer flex items-center space-x-1.5 ${this.activeTab === 'pulse' ? 'bg-indigo-600/30 text-indigo-300 border border-indigo-500/40 shadow-sm font-bold' : 'text-slate-400 hover:text-slate-200'}">
+              <button type="button" data-composer-tab="pulse" class="btn-composer-tab px-3 py-1.5 text-xs rounded-lg font-semibold transition-all cursor-pointer flex items-center space-x-1.5 ${this.activeTab === 'pulse' ? 'bg-[var(--color-accent,#e89e38)]/15 text-[var(--color-accent,#e89e38)] border border-[var(--color-accent,#e89e38)]/30 shadow-sm font-bold' : 'text-slate-400 hover:text-slate-200'}">
                 <span>📝</span>
                 <span>Post</span>
               </button>
               
-              <button type="button" data-composer-tab="article" class="btn-composer-tab px-3 py-1.5 text-xs rounded-lg font-semibold transition-all cursor-pointer flex items-center space-x-1.5 ${this.activeTab === 'article' ? 'bg-indigo-600/30 text-indigo-300 border border-indigo-500/40 shadow-sm font-bold' : 'text-slate-400 hover:text-slate-200'}">
-                <span>📝</span>
+              <button type="button" data-composer-tab="article" class="btn-composer-tab px-3 py-1.5 text-xs rounded-lg font-semibold transition-all cursor-pointer flex items-center space-x-1.5 ${this.activeTab === 'article' ? 'bg-[var(--color-accent,#e89e38)]/15 text-[var(--color-accent,#e89e38)] border border-[var(--color-accent,#e89e38)]/30 shadow-sm font-bold' : 'text-slate-400 hover:text-slate-200'}">
+                <span>📜</span>
                 <span>Article</span>
               </button>
               
-              <button type="button" data-composer-tab="media" class="btn-composer-tab px-3 py-1.5 text-xs rounded-lg font-semibold transition-all cursor-pointer flex items-center space-x-1.5 ${this.activeTab === 'media' ? 'bg-cyan-600/30 text-cyan-300 border border-cyan-500/40 shadow-sm font-bold' : 'text-slate-400 hover:text-slate-200'}">
+              <button type="button" data-composer-tab="media" class="btn-composer-tab px-3 py-1.5 text-xs rounded-lg font-semibold transition-all cursor-pointer flex items-center space-x-1.5 ${this.activeTab === 'media' ? 'bg-[var(--color-accent,#e89e38)]/15 text-[var(--color-accent,#e89e38)] border border-[var(--color-accent,#e89e38)]/30 shadow-sm font-bold' : 'text-slate-400 hover:text-slate-200'}">
                 <span>🖼️</span>
                 <span>Media (${this.mediaItems.length}/4)</span>
               </button>
               
-              <button type="button" data-composer-tab="poll" class="btn-composer-tab px-3 py-1.5 text-xs rounded-lg font-semibold transition-all cursor-pointer flex items-center space-x-1.5 ${this.activeTab === 'poll' ? 'bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 shadow-sm font-bold' : 'text-slate-400 hover:text-slate-200'}">
+              <button type="button" data-composer-tab="poll" class="btn-composer-tab px-3 py-1.5 text-xs rounded-lg font-semibold transition-all cursor-pointer flex items-center space-x-1.5 ${this.activeTab === 'poll' ? 'bg-[var(--color-accent,#e89e38)]/15 text-[var(--color-accent,#e89e38)] border border-[var(--color-accent,#e89e38)]/30 shadow-sm font-bold' : 'text-slate-400 hover:text-slate-200'}">
                 <span>📊</span>
                 <span>Poll</span>
               </button>
               
-              <button type="button" data-composer-tab="code" class="btn-composer-tab px-3 py-1.5 text-xs rounded-lg font-semibold transition-all cursor-pointer flex items-center space-x-1.5 ${this.activeTab === 'code' || this.activeTab === 'vault' ? 'bg-purple-600/30 text-purple-300 border border-purple-500/40 shadow-sm font-bold' : 'text-slate-400 hover:text-slate-200'}">
+              <button type="button" data-composer-tab="code" class="btn-composer-tab px-3 py-1.5 text-xs rounded-lg font-semibold transition-all cursor-pointer flex items-center space-x-1.5 ${this.activeTab === 'code' || this.activeTab === 'vault' ? 'bg-[var(--color-accent,#e89e38)]/15 text-[var(--color-accent,#e89e38)] border border-[var(--color-accent,#e89e38)]/30 shadow-sm font-bold' : 'text-slate-400 hover:text-slate-200'}">
                 <span>💻</span>
                 <span>Code & Diff</span>
               </button>
@@ -559,7 +560,7 @@ export class HybridComposer {
               <!-- ACTIVE FACET SELECTOR -->
               <div class="flex items-center space-x-2">
                 <span class="text-slate-400 font-medium text-[11px]">Posting as:</span>
-                <select id="composer-facet-select" class="bg-surface-raised border border-white/10 text-slate-200 text-xs rounded-lg px-2.5 py-1 focus:outline-none focus:border-indigo-500 cursor-pointer font-medium max-w-[170px] truncate">
+                <select id="composer-facet-select" class="bg-surface-raised border border-white/10 text-slate-200 text-xs rounded-lg px-2.5 py-1 focus:outline-none focus:border-[var(--color-accent,#e89e38)] cursor-pointer font-medium max-w-[170px] truncate">
                   ${facets.map(f => `
                     <option value="${f.id}" ${f.id === activeFacet.id ? 'selected' : ''}>
                       ${escapeHtml(f.displayName)} (@${escapeHtml(f.handle)})
@@ -570,9 +571,9 @@ export class HybridComposer {
 
               <!-- COMMUNITY SELECTOR -->
               <div class="flex items-center space-x-2">
-                <span class="text-slate-400 font-medium text-[11px]">Community:</span>
-                <select id="composer-community-select" class="bg-surface-raised border border-white/10 text-slate-200 text-xs rounded-lg px-2.5 py-1 focus:outline-none focus:border-indigo-500 cursor-pointer font-medium">
-                  <option value="" ${!this.targetCommunityId ? 'selected' : ''}>🌐 Global Feed</option>
+                <span class="text-slate-400 font-medium text-[11px]">Space:</span>
+                <select id="composer-community-select" class="bg-surface-raised border border-white/10 text-slate-200 text-xs rounded-lg px-2.5 py-1 focus:outline-none focus:border-[var(--color-accent,#e89e38)] cursor-pointer font-medium">
+                  <option value="" ${!this.targetCommunityId ? 'selected' : ''}>🌐 Global Stream</option>
                   ${sovereignCircleEngine.getAllCircles().map(c => `
                     <option value="${c.channelId}" ${this.targetCommunityId === c.channelId ? 'selected' : ''}>
                       ${c.icon || '🏛️'} c/${c.name}
@@ -581,12 +582,12 @@ export class HybridComposer {
                 </select>
               </div>
 
-              <!-- AUDIENCE PRIVACY SELECTOR (Server-enforced: Public, Community, Followers) -->
+              <!-- AUDIENCE PRIVACY SELECTOR -->
               <div class="flex items-center space-x-2">
                 <span class="text-slate-400 font-medium text-[11px]">Audience:</span>
-                <select id="composer-post-audience-select" class="bg-surface-raised border border-white/10 text-slate-200 text-xs rounded-lg px-2.5 py-1 focus:outline-none focus:border-indigo-500 cursor-pointer font-medium">
+                <select id="composer-post-audience-select" class="bg-surface-raised border border-white/10 text-slate-200 text-xs rounded-lg px-2.5 py-1 focus:outline-none focus:border-[var(--color-accent,#e89e38)] cursor-pointer font-medium">
                   <option value="public" ${this.postAudience === 'public' ? 'selected' : ''}>🌐 Public (everyone)</option>
-                  <option value="community" ${this.postAudience === 'community' ? 'selected' : ''}>🏛️ Community only</option>
+                  <option value="community" ${this.postAudience === 'community' ? 'selected' : ''}>🏛️ Space members only</option>
                   <option value="followers" ${this.postAudience === 'followers' ? 'selected' : ''}>👥 Followers only</option>
                 </select>
               </div>
@@ -606,10 +607,7 @@ export class HybridComposer {
             </div>
 
             <div class="flex items-center space-x-2">
-              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${this.postAudience === 'public' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20' : 'bg-amber-500/10 text-amber-300 border border-amber-500/20'}">
-                <span class="w-1.5 h-1.5 rounded-full ${this.postAudience === 'public' ? 'bg-indigo-400' : 'bg-amber-400'} mr-1.5"></span>
-                <span>${this.postAudience.toUpperCase()}</span>
-              </span>
+              ${privacyLens.renderCompact((this.postAudience as any) || 'public')}
             </div>
           </div>
 
@@ -630,7 +628,7 @@ export class HybridComposer {
             <div class="flex items-center justify-between flex-wrap gap-2">
               <!-- LEFT SIGNATURE SUMMARY & PROOF TOGGLE -->
               <div class="flex items-center space-x-3">
-                <button type="button" id="btn-toggle-proof-drawer" class="text-[11px] text-indigo-400 hover:text-indigo-300 flex items-center space-x-1 cursor-pointer transition-colors">
+                <button type="button" id="btn-toggle-proof-drawer" class="text-[11px] text-[var(--color-accent,#e89e38)] hover:underline flex items-center space-x-1 cursor-pointer transition-colors">
                   <span>🔐</span>
                   <span>${this.isProofDrawerOpen ? 'Hide Security Details' : 'Verification Details'}</span>
                 </button>
@@ -640,7 +638,7 @@ export class HybridComposer {
               <!-- RIGHT ACTIONS: DISCARD DRAFT & BROADCAST -->
               <div class="flex items-center space-x-2">
                 <span class="text-[11px] text-slate-400 hidden sm:inline mr-2">
-                  Posting as: <strong class="text-indigo-300">@${escapeHtml(activeFacet.handle)}</strong>
+                  Posting as: <strong class="text-white">@${escapeHtml(activeFacet.handle)}</strong>
                 </span>
 
                 <button type="button" id="btn-discard-draft" class="px-3 py-1.5 text-xs text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl cursor-pointer transition-colors">
@@ -651,7 +649,7 @@ export class HybridComposer {
                   ${t('common.cancel', undefined, 'Cancel')}
                 </button>
 
-                <button type="button" id="btn-submit-hybrid-composer" class="px-5 py-2 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white font-bold text-xs rounded-xl shadow-lg shadow-indigo-500/20 transition-all flex items-center space-x-2 cursor-pointer active:scale-95">
+                <button type="button" id="btn-submit-hybrid-composer" class="px-5 py-2.5 bg-[var(--color-accent,#e89e38)] hover:brightness-105 text-slate-950 font-bold text-xs rounded-xl shadow-md transition-all flex items-center space-x-2 cursor-pointer active:scale-95">
                   <span>🚀</span>
                   <span>Post as ${escapeHtml(activeFacet.displayName)}</span>
                 </button>
@@ -840,8 +838,8 @@ export class HybridComposer {
 
                   <textarea 
                     data-segment-input="${index}"
-                    placeholder="${index === 0 ? "What's on your mind? Share an update, link, or thought..." : "Continue thread..."}"
-                    class="w-full bg-transparent text-xs text-slate-100 placeholder-slate-500 focus:outline-none resize-none min-h-[90px] leading-relaxed"
+                    placeholder="${index === 0 ? "What do you want to share with the open network?" : "Continue conversation..."}"
+                    class="w-full bg-transparent text-xs text-slate-100 placeholder-slate-500 focus:outline-none resize-none min-h-[110px] leading-relaxed"
                   >${escapeHtml(segment.content)}</textarea>
 
                   ${index === 0 && this.quotedPost ? `
@@ -863,12 +861,20 @@ export class HybridComposer {
                   <!-- SEGMENT FOOTER: RADIAL COUNTER + MEDIA INDICATOR -->
                   <div class="flex items-center justify-between pt-2 border-t border-white/5">
                     <div class="flex items-center space-x-2">
-                      <button type="button" data-action="attach-media-segment" data-index="${index}" class="text-[11px] text-slate-400 hover:text-cyan-400 flex items-center space-x-1 px-2 py-1 rounded bg-white/5 hover:bg-white/10 cursor-pointer">
-                        <span>📎</span>
-                        <span>Attach Media</span>
+                      <button type="button" data-action="attach-media-segment" data-index="${index}" class="text-[11px] text-slate-400 hover:text-[var(--color-accent,#e89e38)] flex items-center space-x-1 px-2 py-1 rounded bg-white/5 hover:bg-white/10 cursor-pointer transition-colors" title="Attach image or video">
+                        <span>🖼️</span>
+                        <span>Media</span>
+                      </button>
+                      <button type="button" data-composer-tab="poll" class="text-[11px] text-slate-400 hover:text-[var(--color-accent,#e89e38)] flex items-center space-x-1 px-2 py-1 rounded bg-white/5 hover:bg-white/10 cursor-pointer transition-colors" title="Create a cryptographic poll">
+                        <span>📊</span>
+                        <span>Poll</span>
+                      </button>
+                      <button type="button" data-composer-tab="code" class="text-[11px] text-slate-400 hover:text-[var(--color-accent,#e89e38)] flex items-center space-x-1 px-2 py-1 rounded bg-white/5 hover:bg-white/10 cursor-pointer transition-colors" title="Attach verified code or diff">
+                        <span>💻</span>
+                        <span>Code</span>
                       </button>
                       ${this.mediaItems.length > 0 ? `
-                        <span class="text-[10px] font-mono text-cyan-400">(${this.mediaItems.length} gallery assets attached)</span>
+                        <span class="text-[10px] font-mono text-cyan-400">(${this.mediaItems.length} media attached)</span>
                       ` : ''}
                     </div>
 
@@ -886,7 +892,7 @@ export class HybridComposer {
 
         <!-- ADD TO THREAD BUTTON -->
         <div class="flex items-center justify-between pt-1">
-          <button type="button" id="btn-add-thread-segment" class="px-4 py-2 rounded-xl bg-surface-raised hover:bg-surface-overlay text-indigo-300 hover:text-indigo-200 border border-indigo-500/30 hover:border-indigo-500/60 text-xs font-semibold flex items-center space-x-2 cursor-pointer transition-all shadow-sm">
+          <button type="button" id="btn-add-thread-segment" class="px-4 py-2 rounded-xl bg-surface-raised hover:bg-surface-overlay text-slate-200 hover:text-white border border-white/10 hover:border-white/20 text-xs font-semibold flex items-center space-x-2 cursor-pointer transition-all shadow-sm">
             <span class="text-sm font-bold">+</span>
             <span>Add to thread chain (${this.threadSegments.length + 1})</span>
           </button>

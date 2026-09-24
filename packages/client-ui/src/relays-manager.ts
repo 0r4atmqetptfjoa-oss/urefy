@@ -188,7 +188,7 @@ export class RelaysManager {
         if (!exists) {
           window.clientStore.channels.push({
             id: ch.id,
-            name: `# ${ch.name}`,
+            name: ch.name,
             space: 'relays',
             unreadCount: 0,
             isEncrypted: ch.isEncrypted,
@@ -229,7 +229,7 @@ export class RelaysManager {
           synthesizedRelay.channels.forEach(ch => {
             window.clientStore.channels.push({
               id: ch.id,
-              name: `# ${ch.name}`,
+              name: ch.name,
               space: 'relays',
               unreadCount: 0,
               isEncrypted: ch.isEncrypted,
@@ -256,7 +256,7 @@ export class RelaysManager {
         if (!exists) {
           window.clientStore.channels.push({
             id: ch.id,
-            name: `# ${ch.name}`,
+            name: ch.name,
             space: 'relays',
             unreadCount: 0,
             isEncrypted: ch.isEncrypted,
@@ -293,7 +293,7 @@ export class RelaysManager {
     if (typeof window !== 'undefined' && window.clientStore) {
       window.clientStore.channels.push({
         id: newChan.id,
-        name: `# ${newChan.name}`,
+        name: newChan.name,
         space: 'relays',
         unreadCount: 0,
         isEncrypted: newChan.isEncrypted,
@@ -408,6 +408,40 @@ export class RelaysManager {
   // UI RENDERERS
   // ─────────────────────────────────────────────────────────
 
+  public resolveTopicName(rawName: string): string {
+    const clean = (rawName || '').replace(/^relays-/, '').toLowerCase();
+    switch (clean) {
+      case 'general': return 'General Discussion';
+      case 'announcements': return 'Dispatches & Updates';
+      case 'dev':
+      case 'dev-core': return 'Builds & Engineering';
+      case 'random':
+      case 'lounge': return 'Ideas & Casual';
+      case 'questions':
+      case 'help': return 'Questions & Support';
+      case 'off-topic': return 'Off-topic';
+      case 'community': return 'Community Pulse';
+      default: return clean ? clean.charAt(0).toUpperCase() + clean.slice(1) : 'Discussion';
+    }
+  }
+
+  public resolveTopicIcon(rawName: string): string {
+    const clean = (rawName || '').replace(/^relays-/, '').toLowerCase();
+    switch (clean) {
+      case 'general': return '💬';
+      case 'announcements': return '📢';
+      case 'dev':
+      case 'dev-core': return '🛠️';
+      case 'random':
+      case 'lounge': return '💡';
+      case 'questions':
+      case 'help': return '❓';
+      case 'off-topic': return '☕';
+      case 'community': return '🌐';
+      default: return '💬';
+    }
+  }
+
   /** Unified Navigation Pane on the Left Side of Relays Chat */
   public renderRelayServerRail(): string {
     const activeRelay = this.getActiveRelay();
@@ -419,14 +453,14 @@ export class RelaysManager {
         <!-- Top header: Communities + Actions -->
         <div class="p-3 border-b border-white/5 flex items-center justify-between">
           <div class="flex items-center space-x-2">
-            <span class="text-sm">📻</span>
-            <h2 class="text-xs font-bold text-slate-300">Community Spaces</h2>
+            <span class="text-sm">💬</span>
+            <h2 class="text-xs font-bold text-slate-300">Active conversations</h2>
           </div>
           <div class="flex items-center space-x-1">
             <button
               type="button"
               id="btn-open-create-relay"
-              class="px-2 py-1 bg-surface-raised hover:bg-surface-elevated text-slate-300 hover:text-white rounded-lg text-xs font-semibold flex items-center space-x-1 border border-white/10 transition-all cursor-pointer"
+              class="px-2.5 py-1 bg-surface-raised hover:bg-surface-elevated text-slate-300 hover:text-white rounded-lg text-xs font-semibold flex items-center space-x-1 border border-white/10 transition-all cursor-pointer"
               title="Create a community chat"
             >
               <span>+</span>
@@ -463,28 +497,36 @@ export class RelaysManager {
                   <span class="text-lg shrink-0">${r.icon}</span>
                   <div class="flex-1 min-w-0">
                     <div class="text-xs font-bold truncate ${isActive ? 'text-white' : 'text-slate-300'}">${this._escapeHtml(r.name)}</div>
-                    <div class="text-[10px] text-slate-500 truncate">${r.channels.length} channels</div>
+                    <div class="text-[10px] text-slate-500 truncate">${r.channels.length} topics</div>
                   </div>
                   ${isActive ? `<span class="w-1.5 h-1.5 rounded-full bg-[var(--color-accent,#e59b3c)] shrink-0"></span>` : ''}
                 </button>
 
                 <!-- Channels under active community -->
                 ${isActive ? `
-                  <div class="pl-4 pr-1 space-y-0.5 border-l border-white/5 ml-4">
+                  <div class="pl-3 pr-1 space-y-0.5 border-l border-white/5 ml-3.5">
                     ${r.channels.map(ch => {
                       const isChActive = activeChId === ch.id;
+                      const topicTitle = this.resolveTopicName(ch.name);
+                      const topicIcon = this.resolveTopicIcon(ch.name);
                       return `
                         <button
                           type="button"
                           data-channel-id="${ch.id}"
-                          class="btn-channel w-full text-left px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-between transition-all cursor-pointer ${
+                          class="btn-channel w-full text-left px-3 py-2 rounded-xl text-xs flex items-center justify-between transition-all cursor-pointer ${
                             isChActive
-                              ? 'bg-[var(--color-accent,#e59b3c)]/15 text-[var(--color-accent,#e59b3c)] font-semibold border border-[var(--color-accent,#e59b3c)]/30'
-                              : 'text-slate-400 hover:text-slate-200 hover:bg-surface-raised/50'
+                              ? 'bg-[var(--color-accent,#e59b3c)]/15 text-[var(--color-accent,#e59b3c)] font-semibold border border-[var(--color-accent,#e59b3c)]/30 shadow-xs'
+                              : 'text-slate-400 hover:text-slate-200 hover:bg-surface-raised/50 border border-transparent'
                           }"
                         >
-                          <span class="truncate"># ${this._escapeHtml(ch.name)}</span>
-                          <span class="text-[10px] text-slate-500">${ch.type === 'voice' ? '🎙️' : ''}</span>
+                          <div class="flex items-center space-x-2.5 truncate">
+                            <span class="text-xs opacity-75">${topicIcon}</span>
+                            <span class="truncate font-medium">${this._escapeHtml(topicTitle)}</span>
+                          </div>
+                          <div class="flex items-center space-x-1.5 shrink-0">
+                            ${isChActive ? '<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-xs" title="Active topic"></span>' : ''}
+                            <span class="text-[10px] text-slate-500">${ch.type === 'voice' ? '🎙️' : ''}</span>
+                          </div>
                         </button>
                       `;
                     }).join('')}
@@ -510,6 +552,8 @@ export class RelaysManager {
       (!currentFp)
     );
 
+    const topicTitle = this.resolveTopicName(activeChannelName);
+
     return `
       <div class="h-14 border-b border-white/10 bg-surface-base/80 px-4 flex items-center justify-between shrink-0 select-none">
         <div class="flex items-center space-x-3 truncate">
@@ -517,26 +561,37 @@ export class RelaysManager {
           <div>
             <div class="flex items-center space-x-2">
               <h2 class="text-sm font-bold text-white tracking-tight">${this._escapeHtml(displayName)}</h2>
-              <span class="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 font-medium">Public Channel</span>
+              <span class="text-[10px] px-2 py-0.5 rounded-full bg-[var(--color-accent,#e59b3c)]/15 text-[var(--color-accent,#e59b3c)] border border-[var(--color-accent,#e59b3c)]/30 font-medium">Community conversation</span>
             </div>
             <div class="text-[11px] text-slate-400 font-sans flex items-center space-x-1.5">
-              <span># ${activeChannelName}</span>
+              <span class="font-semibold text-slate-200">${this._escapeHtml(topicTitle)}</span>
               <span>•</span>
-              <span>${isGlobal ? 'Open community discussion · Authenticated mesh dispatch' : `${relay.members.length} members · Open channel`}</span>
+              <span>${isGlobal ? 'Visible to community members' : `${relay.members.length} members · Visible to members`}</span>
             </div>
           </div>
         </div>
 
         <div class="flex items-center space-x-2">
+          <!-- Local Search Button -->
+          <button
+            type="button"
+            data-action="open-chat-search"
+            class="p-2 rounded-xl bg-surface-raised hover:bg-surface-elevated border border-white/10 text-slate-300 hover:text-white text-xs font-medium transition-all cursor-pointer"
+            title="Search conversation"
+          >
+            <span>🔍</span>
+          </button>
+
           <!-- Privacy Info Badge -->
           <button
             type="button" data-action="call-global" data-raw-click="if(window.__aetherisTransparency) window.__aetherisTransparency.open('pipeline');"
             class="px-2.5 py-1.5 rounded-xl bg-surface-raised hover:bg-surface-elevated border border-white/10 text-slate-300 text-xs font-medium flex items-center space-x-1.5 transition-all cursor-pointer"
-            title="How message privacy works"
+            title="Community privacy details"
           >
             <span>🛡️</span>
             <span class="hidden lg:inline">Privacy</span>
           </button>
+
 
           <!-- Invite Friends Button -->
           <button

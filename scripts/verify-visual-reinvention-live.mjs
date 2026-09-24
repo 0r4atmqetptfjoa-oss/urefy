@@ -2,7 +2,7 @@ import { chromium } from 'playwright';
 import fs from 'node:fs';
 import path from 'node:path';
 
-const SCREENSHOT_DIR = 'C:/Users/razva/.gemini/antigravity/brain/f79e8250-398d-43ed-8b46-622de3a557d7/screenshots/visual_reinvention';
+const SCREENSHOT_DIR = 'C:/Users/razva/.gemini/antigravity/brain/9748bee8-5521-434c-9761-d28586697e9f/screenshots/visual_reinvention';
 if (!fs.existsSync(SCREENSHOT_DIR)) {
   fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
 }

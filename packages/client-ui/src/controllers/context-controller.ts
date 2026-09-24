@@ -34,7 +34,7 @@ export async function handleContextAction(action: string, element: HTMLElement):
         createdAt: message.timestamp,
       });
     }
-    clientStore.showToast('Saved to your encrypted Vault on this device.', 'success');
+    clientStore.showToast(message ? 'Saved to your encrypted Vault on this device.' : 'Kept in your encrypted Vault on this device.', 'success');
   } else if (action === 'unsave-message-vault') {
     const msgId = element.dataset.messageId;
     if (msgId) {

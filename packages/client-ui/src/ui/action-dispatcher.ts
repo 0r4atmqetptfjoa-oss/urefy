@@ -50,7 +50,6 @@ import { communityView } from '../community-view.js';
 import { replaceEmoticons } from '../chat-rich-embed.js';
 import { setWorkspaceLayout } from '../workspace-layout.js';
 import { sovereignWebPush } from '../web-push.js';
-import { sovereignMnemonicModal } from '../mnemonic-modal.js';
 import { dismissSinceYouWereAwayCard, submitQuickPost } from '../feed-view.js';
 import { reportModalManager } from '../report-modal.js';
 import { postDetailView } from '../post-detail.js';
@@ -62,7 +61,6 @@ import { profileView } from '../profile/profile-view.js';
 import { homeDiscoveryEngine } from '../home-discovery.js';
 import { hashtagExplorer } from '../hashtag-explorer.js';
 import { mobileFlowEngine } from '../mobile-flow.js';
-import { shareToMessagesModal } from '../share-to-messages-modal.js';
 import { obsidianMediaPlayer } from '../media-player.js';
 
 function withWallet(action: (wallet: typeof import('../wallet-bridge.js').walletBridge) => unknown): void {
@@ -779,7 +777,9 @@ export class ActionDispatcher {
         event.stopPropagation();
         const postId = el.getAttribute('data-post-id') || '';
         if (postId) {
-          shareToMessagesModal.open(postId);
+          void import('../share-to-messages-modal.js').then(({ shareToMessagesModal }) => {
+            shareToMessagesModal.open(postId);
+          });
           el.closest('.post-more-menu')?.remove();
         }
         break;
@@ -2258,6 +2258,7 @@ export class ActionDispatcher {
         break;
       }
 
+      case 'jump-dm-branch':
       case 'switch-dm-branch': {
         const branch = el.getAttribute('data-branch') || 'main';
         void getMV().then(m => {
@@ -2301,7 +2302,7 @@ export class ActionDispatcher {
       }
 
       case 'mnemonic-remind-later': {
-        sovereignMnemonicModal.remindLater();
+        void import('../mnemonic-modal.js').then(m => m.sovereignMnemonicModal.remindLater());
         break;
       }
 
@@ -2978,6 +2979,221 @@ export class ActionDispatcher {
         break;
       }
 
+      case 'toggle-composer-menu': {
+        const target = (el.getAttribute('data-target') as 'dm' | 'relay') || 'dm';
+        void getMV().then(m => {
+          m.toggleComposerMenu(target);
+          clientStore.notifySync();
+        });
+        break;
+      }
+
+      case 'close-composer-menu': {
+        void getMV().then(m => {
+          m.closeComposerMenu();
+          clientStore.notifySync();
+        });
+        break;
+      }
+
+      case 'insert-code-snippet': {
+        const target = (el.getAttribute('data-target') as 'dm' | 'relay') || 'dm';
+        void getMV().then(m => {
+          m.closeComposerMenu();
+          const inputId = target === 'dm' ? 'input-dm-message' : 'input-message';
+          const input = document.getElementById(inputId) as HTMLInputElement | null;
+          if (input) {
+            const val = input.value;
+            const snippet = "```ts\n// write code here\n```";
+            input.value = val ? `${val}\n${snippet}` : snippet;
+            m.setMessageDraft(target, input.value);
+            input.focus();
+          }
+          clientStore.notifySync();
+        });
+        break;
+      }
+
+      case 'start-voice-note': {
+        const target = (el.getAttribute('data-target') as 'dm' | 'relay') || 'dm';
+        void getMV().then(m => m.closeComposerMenu());
+        void import('../messages-voice.js').then(({ voiceNotesManager }) => {
+          void voiceNotesManager.startRecording(target);
+        });
+        break;
+      }
+
+      case 'pause-voice-note': {
+        void import('../messages-voice.js').then(({ voiceNotesManager }) => {
+          voiceNotesManager.pauseRecording();
+        });
+        break;
+      }
+
+      case 'resume-voice-note': {
+        void import('../messages-voice.js').then(({ voiceNotesManager }) => {
+          voiceNotesManager.resumeRecording();
+        });
+        break;
+      }
+
+      case 'cancel-voice-note': {
+        void import('../messages-voice.js').then(({ voiceNotesManager }) => {
+          voiceNotesManager.cancelRecording();
+        });
+        break;
+      }
+
+      case 'finish-voice-note': {
+        void import('../messages-voice.js').then(({ voiceNotesManager }) => {
+          voiceNotesManager.stopRecording();
+        });
+        break;
+      }
+
+      case 'attach-voice-note': {
+        void import('../messages-voice.js').then(async ({ voiceNotesManager }) => {
+          const att = await voiceNotesManager.getAttachment();
+          if (att) {
+            if (voiceNotesManager.state.targetType === 'dm') {
+              sovereignDM.setPendingAttachment(att);
+            } else {
+              clientStore.pendingRelayAttachment = att;
+            }
+            voiceNotesManager.cancelRecording();
+            clientStore.showToast('Voice note attached', 'info');
+            clientStore.notifySync();
+          }
+        });
+        break;
+      }
+
+      case 'open-capsule-creator': {
+        void getMV().then(m => m.closeComposerMenu());
+        void import('../messages-capsule.js').then(({ contextCapsuleManager }) => {
+          const contextName = sovereignDM.activePeerFP ? `Direct Message` : `Community Discussion`;
+          contextCapsuleManager.openCreator(contextName);
+        });
+        break;
+      }
+
+      case 'close-capsule-creator': {
+        void import('../messages-capsule.js').then(({ contextCapsuleManager }) => {
+          contextCapsuleManager.closeCreator();
+        });
+        break;
+      }
+
+      case 'remove-capsule-item': {
+        const itemId = el.getAttribute('data-item-id');
+        if (itemId) {
+          void import('../messages-capsule.js').then(({ contextCapsuleManager }) => {
+            contextCapsuleManager.removeItem(itemId);
+          });
+        }
+        break;
+      }
+
+      case 'submit-capsule-vault': {
+        void import('../messages-capsule.js').then(({ contextCapsuleManager }) => {
+          void contextCapsuleManager.saveCapsuleToVault();
+        });
+        break;
+      }
+
+      case 'add-to-capsule': {
+        const id = el.getAttribute('data-message-id');
+        const senderName = el.getAttribute('data-sender-name') || 'Member';
+        const senderHandle = el.getAttribute('data-sender-handle') || '';
+        const text = el.getAttribute('data-text') || '';
+        const timestamp = Number(el.getAttribute('data-timestamp')) || Date.now();
+        if (id && text) {
+          void import('../messages-capsule.js').then(({ contextCapsuleManager }) => {
+            contextCapsuleManager.addItem({ id, senderName, senderHandle, text, timestamp });
+            clientStore.showToast('Added to Context Capsule', 'info');
+          });
+        }
+        break;
+      }
+
+      case 'open-chat-search': {
+        void import('../messages-search.js').then(({ chatSearchEngine }) => {
+          chatSearchEngine.openSearch();
+        });
+        break;
+      }
+
+      case 'close-chat-search': {
+        void import('../messages-search.js').then(({ chatSearchEngine }) => {
+          chatSearchEngine.closeSearch();
+        });
+        break;
+      }
+
+      case 'set-search-filter': {
+        const filter = el.getAttribute('data-filter') as any;
+        if (filter) {
+          void import('../messages-search.js').then(({ chatSearchEngine }) => {
+            chatSearchEngine.setFilter(filter);
+          });
+        }
+        break;
+      }
+
+      case 'jump-search-result': {
+        const msgId = el.getAttribute('data-message-id');
+        const type = el.getAttribute('data-type');
+        const target = el.getAttribute('data-target');
+        void import('../messages-search.js').then(({ chatSearchEngine }) => {
+          chatSearchEngine.closeSearch();
+        });
+        void getMV().then(m => {
+          if (type === 'dm' && target) {
+            m.setActiveMessagesTab('dm');
+            sovereignDM.setActivePeer(target);
+          } else if (type === 'relay' && target) {
+            m.setActiveMessagesTab('relays');
+            clientStore.activeChannelId = target;
+          }
+          clientStore.notifySync();
+          setTimeout(() => {
+            const msgEl = document.getElementById(`dm-message-${msgId}`) || document.getElementById(`message-${msgId}`);
+            msgEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            msgEl?.classList.add('ring-2', 'ring-[var(--color-accent,#e89e38)]');
+            setTimeout(() => msgEl?.classList.remove('ring-2', 'ring-[var(--color-accent,#e89e38)]'), 2000);
+          }, 100);
+        });
+        break;
+      }
+
+      case 'copy-code-block': {
+        const raw = el.getAttribute('data-code');
+        if (raw) {
+          try {
+            const decoded = decodeURIComponent(raw);
+            void navigator.clipboard.writeText(decoded).then(() => {
+              clientStore.showToast('✓ Code copied to clipboard', 'info');
+            });
+          } catch (_) {
+            void navigator.clipboard.writeText(raw).then(() => {
+              clientStore.showToast('✓ Code copied to clipboard', 'info');
+            });
+          }
+        }
+        break;
+      }
+
+      case 'save-moment-vault': {
+        const id = el.getAttribute('data-message-id');
+        const text = el.getAttribute('data-text') || '';
+        const sender = el.getAttribute('data-sender') || 'Member';
+        const context = el.getAttribute('data-context') || 'Chat';
+        if (id && text) {
+          void getMV().then(m => m.saveMessageMoment(id, text, sender, context));
+        }
+        break;
+      }
+
       case 'open-lightbox': {
         const src = el.getAttribute('data-src');
         if (src) {
@@ -3182,13 +3398,31 @@ export class ActionDispatcher {
         v.setVaultSearchQuery(el.value);
         clientStore.notifySync();
       });
+    } else if (action === 'chat-local-search-query') {
+      void import('../messages-search.js').then(({ chatSearchEngine }) => {
+        chatSearchEngine.setQuery(el.value);
+      });
+    } else if (action === 'capsule-title') {
+      void import('../messages-capsule.js').then(({ contextCapsuleManager }) => {
+        contextCapsuleManager.capsuleTitle = el.value;
+      });
+    } else if (action === 'capsule-note') {
+      void import('../messages-capsule.js').then(({ contextCapsuleManager }) => {
+        contextCapsuleManager.capsuleNote = el.value;
+      });
     } else if (action === 'update-dm-draft') {
-      void getMV().then(m => m.captureMessageSelection('dm', el as HTMLInputElement));
+      void getMV().then(m => {
+        m.captureMessageSelection('dm', el as HTMLInputElement);
+        m.setMessageDraft('dm', el.value);
+      });
       if (sovereignDM.activePeerFP) {
         sovereignDM.notifyTyping(sovereignDM.activePeerFP);
       }
     } else if (action === 'update-relay-draft') {
-      void getMV().then(m => m.captureMessageSelection('relay', el as HTMLInputElement));
+      void getMV().then(m => {
+        m.captureMessageSelection('relay', el as HTMLInputElement);
+        m.setMessageDraft('relay', el.value);
+      });
     } else if (action === 'mnemonic-validate-restore') {
       const statusSpan = document.getElementById('restore-validation-status');
       if (statusSpan) {

@@ -59,7 +59,16 @@ test.describe('Aetheris Sovereign Omni-Sphere: End-to-End User Journeys', () => 
 
   test('3. Responsive Mobile Tab Bar provides zero-jargon navigation landmarks', async ({ page, isMobile }) => {
     if (isMobile) {
-      await page.locator('#btn-skip-onboarding').click();
+      await page.evaluate(() => {
+        localStorage.setItem('aetheris_onboarding_completed', 'true');
+        localStorage.setItem('urefy_onboarding_stage', 'ONBOARDING_COMPLETE');
+        if ((window as any).onboardingWizard) {
+          (window as any).onboardingWizard.isOpen = false;
+          (window as any).onboardingWizard.isCompleted = true;
+          (window as any).onboardingWizard.stage = 'ONBOARDING_COMPLETE';
+          (window as any).onboardingWizard.syncUI();
+        }
+      });
       const mobileNav = page.locator('#native-mobile-tab-bar');
       await expect(mobileNav).toBeVisible();
 

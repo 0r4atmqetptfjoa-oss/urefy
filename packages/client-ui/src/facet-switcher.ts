@@ -68,6 +68,7 @@ export class FacetSwitcher {
     };
 
     const facets: ClientFacet[] = clientStore.facets.length > 0 ? clientStore.facets : [activeFacet];
+    const initial = (activeFacet.displayName || 'U').slice(0, 1).toUpperCase();
 
     return `
       <div id="facet-switcher-root" class="relative inline-flex items-center text-xs">
@@ -75,78 +76,79 @@ export class FacetSwitcher {
           type="button"
           id="btn-facet-switcher"
           data-action="toggle-facet-switcher"
-          class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-surface-raised/80 hover:bg-surface-raised border border-white/10 text-slate-200 hover:text-white transition-all cursor-pointer shadow-sm"
-          title="Switch your active Facet context (using UREfy as ${escapeHtml(activeFacet.displayName)})"
+          class="context-lens-trigger group select-none shadow-sm"
+          title="Change your social context (currently here as ${escapeHtml(activeFacet.displayName)})"
           aria-expanded="${this.isOpen}"
           aria-haspopup="true"
         >
-          <span class="text-slate-400 text-[11px] hidden xl:inline">Using UREfy as:</span>
-          <div class="w-4 h-4 rounded-full bg-indigo-500/30 text-indigo-300 flex items-center justify-center font-bold text-[9px] overflow-hidden flex-shrink-0">
-            ${activeFacet.avatarUrl ? `<img src="${escapeHtml(activeFacet.avatarUrl)}" class="w-full h-full object-cover">` : activeFacet.displayName.slice(0, 1).toUpperCase()}
+          <div class="relative w-6 h-6 rounded-full bg-[var(--color-accent,#e89e38)]/20 text-[var(--color-accent,#e89e38)] flex items-center justify-center font-bold text-[11px] overflow-hidden shrink-0 border border-[var(--color-accent,#e89e38)]/40">
+            ${activeFacet.avatarUrl ? `<img src="${escapeHtml(activeFacet.avatarUrl)}" class="w-full h-full object-cover">` : initial}
+            <span class="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-[var(--color-accent,#e89e38)] ring-1 ring-[#0f1219]"></span>
           </div>
-          <span class="font-semibold text-slate-100 truncate max-w-[110px]">${escapeHtml(activeFacet.displayName)}</span>
-          <span class="text-[10px] text-slate-400">▾</span>
+          <div class="flex items-center gap-1.5 text-left leading-tight">
+            <span class="text-slate-400 text-[11px] hidden lg:inline">You're here as</span>
+            <span class="font-semibold text-slate-100 truncate max-w-[100px] sm:max-w-[130px]">${escapeHtml(activeFacet.displayName)}</span>
+            <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-white/5 text-slate-400 font-mono hidden sm:inline">${activeFacet.isDefault ? 'Personal' : 'Context'}</span>
+          </div>
+          <span class="text-[10px] text-slate-400 transition-transform duration-150 ${this.isOpen ? 'rotate-180 text-[var(--color-accent,#e89e38)]' : ''}">▾</span>
         </button>
 
         ${this.isOpen ? `
           <div
             id="facet-switcher-menu"
-            class="absolute right-0 top-full mt-2 w-72 p-2 rounded-2xl bg-surface-base border border-white/15 shadow-2xl z-50 select-none animate-in fade-in zoom-in-95 duration-150"
+            class="context-lens-panel animate-in fade-in zoom-in-95 duration-150 p-2 shadow-2xl"
             role="menu"
           >
-            <div class="px-3 py-2 border-b border-white/5 flex items-center justify-between">
-              <div>
-                <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Active Social Context</div>
-                <div class="text-[11px] text-slate-500">Contextual personas on 1 identity</div>
+            <div class="px-3.5 py-2.5 border-b border-white/5">
+              <div class="flex items-center justify-between">
+                <span class="text-[11px] font-bold uppercase tracking-wider text-[var(--color-accent,#e89e38)]">Context Lens</span>
+                <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/5 text-slate-400">${facets.length} ${facets.length === 1 ? 'facet' : 'facets'}</span>
               </div>
-              <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white/5 text-slate-400">${facets.length}/5</span>
+              <p class="text-[11px] text-slate-400 mt-0.5">Switch social contexts without changing your sovereign identity.</p>
             </div>
 
-            <div class="py-1.5 space-y-1 max-h-60 overflow-y-auto">
+            <div class="py-1.5 space-y-1 max-h-64 overflow-y-auto" role="none">
               ${facets.map(f => {
                 const isCurrent = f.id === activeFacet.id;
+                const fInitial = (f.displayName || 'U').slice(0, 1).toUpperCase();
                 return `
                   <button
                     type="button"
                     data-action="select-facet"
                     data-facet-id="${escapeHtml(f.id)}"
-                    class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-left transition-colors cursor-pointer ${isCurrent ? 'bg-indigo-600/15 border border-indigo-500/30' : 'hover:bg-white/5 border border-transparent'}"
+                    class="context-lens-item ${isCurrent ? 'is-active' : ''}"
                     role="menuitem"
                   >
-                    <div class="flex items-center gap-2.5 min-w-0">
-                      <div class="w-7 h-7 rounded-full bg-slate-700 overflow-hidden flex-shrink-0 flex items-center justify-center text-xs font-bold text-slate-200">
-                        ${f.avatarUrl ? `<img src="${escapeHtml(f.avatarUrl)}" class="w-full h-full object-cover">` : f.displayName.slice(0, 1).toUpperCase()}
+                    <div class="relative w-8 h-8 rounded-full bg-surface-raised border border-white/10 flex items-center justify-center text-xs font-bold text-slate-200 shrink-0 overflow-hidden">
+                      ${f.avatarUrl ? `<img src="${escapeHtml(f.avatarUrl)}" class="w-full h-full object-cover">` : fInitial}
+                      ${isCurrent ? '<span class="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-[var(--color-accent,#e89e38)] ring-1 ring-[#0f1219]"></span>' : ''}
+                    </div>
+
+                    <div class="min-w-0 flex-1">
+                      <div class="flex items-center justify-between gap-1">
+                        <span class="font-semibold text-xs text-white truncate">${escapeHtml(f.displayName)}</span>
+                        ${f.isDefault ? '<span class="text-[9px] px-1.5 py-0.2 rounded bg-[var(--color-accent,#e89e38)]/15 text-[var(--color-accent,#e89e38)] font-mono">Personal</span>' : ''}
                       </div>
-                      <div class="min-w-0 truncate">
-                        <div class="text-xs font-medium truncate text-slate-100 flex items-center gap-1.5">
-                          <span>${escapeHtml(f.displayName)}</span>
-                          ${f.isDefault ? '<span class="text-[9px] px-1 py-0.2 rounded bg-indigo-500/20 text-indigo-300 font-mono">Main</span>' : ''}
-                        </div>
-                        <div class="text-[10px] text-slate-400 truncate">@${escapeHtml(f.handle)}</div>
+                      <div class="text-[11px] text-slate-400 truncate">@${escapeHtml(f.handle)}</div>
+                      <div class="text-[10px] text-slate-500 flex items-center gap-1 mt-0.5">
+                        ${f.isPubliclyLinked ? '<span>🔗 Publicly cross-linked</span>' : '<span class="text-emerald-400/80">🛡️ Not publicly linked by UREfy</span>'}
                       </div>
                     </div>
 
-                    <div class="flex items-center gap-1 flex-shrink-0">
-                      ${f.isPubliclyLinked ? `
-                        <span class="text-[10px] text-slate-400" title="Publicly linked to other profiles">🔗</span>
-                      ` : `
-                        <span class="text-[10px] text-emerald-400" title="Not publicly linked by UREfy">🛡️</span>
-                      `}
-                      ${isCurrent ? '<span class="text-indigo-400 text-xs ml-1 font-bold">✓</span>' : ''}
-                    </div>
+                    ${isCurrent ? '<span class="text-[var(--color-accent,#e89e38)] text-sm font-bold ml-1">✓</span>' : ''}
                   </button>
                 `;
               }).join('')}
             </div>
 
-            <div class="pt-1.5 mt-1 border-t border-white/5">
+            <div class="pt-2 mt-1 border-t border-white/5">
               <button
                 type="button"
                 data-action="new-facet"
-                class="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-surface-raised hover:bg-surface-overlay text-indigo-300 hover:text-indigo-200 text-xs font-semibold transition-colors cursor-pointer border border-white/5"
+                class="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-surface-raised hover:bg-surface-overlay text-slate-200 hover:text-white text-xs font-medium transition-colors cursor-pointer border border-white/5"
               >
-                <span>+</span>
-                <span>New Context / Facet</span>
+                <span class="text-base leading-none text-[var(--color-accent,#e89e38)]">+</span>
+                <span>Add social context</span>
               </button>
             </div>
           </div>

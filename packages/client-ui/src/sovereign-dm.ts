@@ -635,7 +635,13 @@ export class SovereignDMManager {
       if (notifyLevel !== 'muted' && !isMine && !delivery.content.context?.reaction && !delivery.content.context?.readReceipt) {
         sovereignWebPush.triggerDMNotification(delivery.sender, delivery.content.text).catch(() => {});
         if (typeof window !== 'undefined' && (window as any).clientStore?.showToast) {
-          const senderName = delivery.sender === 'genesis-core' ? 'Genesis Protocol Archon' : (delivery.sender.length > 8 ? `Member ${delivery.sender.substring(0, 6)}` : delivery.sender);
+          let senderName = 'Someone';
+          if (delivery.sender === 'genesis-core') {
+            senderName = 'System';
+          } else {
+            const member = (window as any).clientStore?.members?.find((m: any) => m.fingerprint === delivery.sender);
+            senderName = member?.name || member?.alias || 'Direct message';
+          }
           (window as any).clientStore.showToast(`New message from ${senderName}`, 'info');
         }
       }
@@ -2241,11 +2247,7 @@ export class SovereignDMManager {
 
         <div class="text-[11px] text-slate-300 space-y-3 font-sans">
           <p class="leading-relaxed">
-            Compare this UREfy Safety Number out-of-band with <span class="font-mono text-cyphr font-bold">node_${escapeHtml(peerFP.slice(0, 8))}</span> to confirm cryptographic identity keys and verify zero relay tampering.
-          </p>
-
-          <p class="text-[10px] text-slate-400 leading-relaxed bg-surface-raised/60 p-2.5 rounded-xl border border-white/5">
-            ℹ️ <strong>User Confirmation Only:</strong> Marking this code as verified is your personal manual confirmation recorded solely in your local device storage. It does not imply server verification, network certification, or third-party attestation.
+            Compare this UREfy Safety Number out-of-band with your contact to confirm cryptographic identity keys and verify that no intermediary has intercepted or modified messages.
           </p>
 
           <!-- 12-Group Safety Number Display -->
@@ -2257,15 +2259,26 @@ export class SovereignDMManager {
           </div>
 
           <div class="p-2.5 rounded-xl bg-surface-raised/80 border border-white/5 space-y-1.5 text-[11px]">
-            <div class="flex items-center justify-between text-slate-400 font-mono text-[10px]">
-              <span>Peer Node FP:</span>
-              <span class="text-slate-200">${escapeHtml(peerFP)}</span>
-            </div>
-            <div class="flex items-center justify-between text-slate-400 font-mono text-[10px]">
-              <span>Your Node FP:</span>
-              <span class="text-slate-200">${escapeHtml(myFP)}</span>
-            </div>
+            <p class="text-[10px] text-slate-400 leading-relaxed">
+              ℹ️ <strong>User Confirmation Only:</strong> Marking this code as verified is your personal manual confirmation recorded solely in your local device storage. It does not imply server verification, network certification, or third-party attestation.
+            </p>
           </div>
+
+          <!-- COLLAPSIBLE TECHNICAL CRYPTOGRAPHIC DETAILS -->
+          <details class="text-[11px] bg-surface-raised/40 border border-white/5 rounded-xl p-2.5 space-y-2">
+            <summary class="font-semibold text-slate-400 hover:text-slate-200 cursor-pointer list-none flex items-center justify-between select-none">
+              <span>Technical Cryptographic Details</span>
+              <span class="text-xs">▾</span>
+            </summary>
+            <div class="pt-2 border-t border-white/5 space-y-1.5 text-[10px] font-mono text-slate-400">
+              <div><strong>Key Encapsulation:</strong> NIST FIPS 203 ML-KEM-768 + X25519</div>
+              <div><strong>Symmetric Cipher:</strong> AES-256-GCM authenticated encryption</div>
+              <div><strong>Signature Envelope:</strong> Ed25519 sovereign signed envelopes</div>
+              <div><strong>Forward Secrecy:</strong> Double Ratchet root & chain keys</div>
+              <div class="pt-1 text-slate-500 truncate">Peer: ${escapeHtml(peerFP)}</div>
+              <div class="text-slate-500 truncate">Device: ${escapeHtml(myFP)}</div>
+            </div>
+          </details>
 
           ${!safetyNumber ? `
             <button

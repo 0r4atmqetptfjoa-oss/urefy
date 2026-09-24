@@ -13,7 +13,16 @@ test('onboarding and public tools display only UREfy product branding', async ({
   await page.goto('/');
   await expect(page.getByText('UREfy // SOVEREIGN WELCOME', { exact: true })).toBeVisible();
   await expect(page.locator('body')).not.toContainText(/\baetheris\b/i);
-  await page.locator('#btn-skip-onboarding').click();
+  await page.evaluate(() => {
+    localStorage.setItem('aetheris_onboarding_completed', 'true');
+    localStorage.setItem('urefy_onboarding_stage', 'ONBOARDING_COMPLETE');
+    if ((window as any).onboardingWizard) {
+      (window as any).onboardingWizard.isOpen = false;
+      (window as any).onboardingWizard.isCompleted = true;
+      (window as any).onboardingWizard.stage = 'ONBOARDING_COMPLETE';
+      (window as any).onboardingWizard.syncUI();
+    }
+  });
   await expect(page.locator('#app-top-header')).toBeVisible();
   if (await page.locator('#main-layout').getAttribute('data-ui-mode') !== 'sovereign') {
     await page.locator('#btn-rail-more').click();

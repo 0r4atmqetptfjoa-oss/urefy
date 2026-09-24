@@ -257,16 +257,75 @@ export function renderChatPostEmbed(postId: string): string {
 }
 
 /**
- * Transforms message body into formatted HTML with embedded post preview cards.
+ * Transforms message body into formatted HTML with lightweight markdown (code blocks, bold, italic, spoilers, links)
+ * and native embedded post preview cards.
  */
 export function processChatMessageContent(rawText: string): string {
   if (!rawText) return '';
-  const withEmoticons = replaceEmoticons(rawText);
+
+  // Extract post IDs before formatting
   const postIds = extractPostIdsFromText(rawText);
 
-  let html = escapeHtml(withEmoticons);
+  // 1. Separate code blocks before emoticon replacement
+  const codeBlocks: string[] = [];
+  let text = rawText.replace(/```(?:([a-zA-Z0-9#+_-]+)\n)?([\s\S]*?)```/g, (_, lang, code) => {
+    const language = (lang || 'code').trim();
+    const cleanCode = code.replace(/^\n+|\n+$/g, '');
+    const escapedCode = escapeHtml(cleanCode);
+    const escapedAttrCode = cleanCode.replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+    const blockHtml = `
+      <div class="my-2.5 rounded-xl border border-white/10 bg-slate-950/80 overflow-hidden text-left shadow-md select-text">
+        <div class="flex items-center justify-between px-3 py-1.5 bg-white/5 border-b border-white/5 text-[11px] font-mono text-slate-400">
+          <span class="font-semibold text-slate-300 uppercase tracking-wider">${escapeHtml(language)}</span>
+          <button type="button" class="px-2 py-0.5 rounded hover:bg-white/10 text-slate-300 hover:text-white flex items-center space-x-1 cursor-pointer transition-colors" data-action="copy-code-block" data-code="${escapedAttrCode}">
+            <span>📋</span>
+            <span>Copy</span>
+          </button>
+        </div>
+        <pre class="p-3 overflow-x-auto text-[13px] sm:text-[14px] font-mono text-emerald-300/90 leading-relaxed no-scrollbar select-text"><code>${escapedCode}</code></pre>
+      </div>
+    `;
+    codeBlocks.push(blockHtml);
+    return `__CODE_BLOCK_${codeBlocks.length - 1}__`;
+  });
 
-  // If there are post links, append the rich embed cards
+  // 2. Separate inline code
+  const inlineCodes: string[] = [];
+  text = text.replace(/`([^`\n]+)`/g, (_, code) => {
+    const inlineHtml = `<code class="px-1.5 py-0.5 rounded-md bg-white/10 border border-white/5 font-mono text-[13px] text-amber-300/90 select-text">${escapeHtml(code)}</code>`;
+    inlineCodes.push(inlineHtml);
+    return `__INLINE_CODE_${inlineCodes.length - 1}__`;
+  });
+
+  // 3. Emoticons replacement on remaining text
+  text = replaceEmoticons(text);
+
+  // 4. HTML escape remaining text
+  let html = escapeHtml(text);
+
+  // 5. Bold & Italic
+  html = html.replace(/\*\*([^*\n]+)\*\*/g, '<strong class="font-bold text-white">$1</strong>');
+  html = html.replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, '<em class="italic text-slate-200">$1</em>');
+
+  // 6. Spoilers: ||text||
+  html = html.replace(/\|\|([^|\n]+)\|\|/g, '<span class="spoiler-text px-1 rounded bg-slate-700 text-transparent hover:text-white hover:bg-slate-600 transition-all cursor-pointer select-none" onclick="this.classList.toggle(\'text-transparent\')" title="Click to reveal spoiler">$1</span>');
+
+  // 7. Blockquotes (> text)
+  html = html.replace(/(?:^|\n)&gt;\s*([^\n]+)/g, '<blockquote class="border-l-2 border-[var(--color-accent,#e59b3c)] pl-3 my-1.5 text-slate-300 italic text-[14px] leading-relaxed">$1</blockquote>');
+
+  // 8. Restore inline code
+  html = html.replace(/__INLINE_CODE_(\d+)__/g, (_, idx) => inlineCodes[parseInt(idx, 10)] ?? '');
+
+  // 9. Restore code blocks
+  html = html.replace(/__CODE_BLOCK_(\d+)__/g, (_, idx) => codeBlocks[parseInt(idx, 10)] ?? '');
+
+  // 10. Links (excluding internal post links which are embedded below)
+  html = html.replace(/(https?:\/\/[^\s<]+)(?![^<]*>)/g, (url) => {
+    if (url.includes('/p/')) return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-[var(--color-accent,#e59b3c)] hover:underline">${url}</a>`;
+    return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-[var(--color-accent,#e59b3c)] hover:underline break-all">${url}</a>`;
+  });
+
+  // 11. Append embedded post cards if any
   if (postIds.length > 0) {
     const embeds = postIds.map(id => renderChatPostEmbed(id)).join('');
     html = `${html}\n${embeds}`;
@@ -274,3 +333,4 @@ export function processChatMessageContent(rawText: string): string {
 
   return html;
 }
+

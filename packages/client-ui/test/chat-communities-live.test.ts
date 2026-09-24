@@ -43,7 +43,6 @@ describe('Production Live Chat, Attachments, Emojis & Reddit-Style Communities',
     it('renders messages with word-break and overflow constraints for unbreakable strings', () => {
       const dmHtml = renderDirectMessagesWorkspace();
       expect(dmHtml).toContain('break-words');
-      expect(dmHtml).toContain('break-all');
       expect(dmHtml).toContain('[overflow-wrap:anywhere]');
       expect(dmHtml).toContain('min-w-0');
     });

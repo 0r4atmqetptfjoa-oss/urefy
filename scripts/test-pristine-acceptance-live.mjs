@@ -2,7 +2,7 @@ import { chromium } from '@playwright/test';
 import fs from 'fs';
 import path from 'path';
 
-const ARTIFACT_DIR = 'C:/Users/razva/.gemini/antigravity/brain/f79e8250-398d-43ed-8b46-622de3a557d7/screenshots';
+const ARTIFACT_DIR = 'C:/Users/razva/.gemini/antigravity/brain/9748bee8-5521-434c-9761-d28586697e9f/screenshots';
 fs.mkdirSync(ARTIFACT_DIR, { recursive: true });
 
 const TARGET_URL = 'https://urefy.com';

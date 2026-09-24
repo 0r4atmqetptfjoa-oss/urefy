@@ -512,8 +512,8 @@ export class OnboardingWizard {
   }
 
   public canSkip(): boolean {
-    // Only allow skipping if display name and handle have already been saved
-    return this.currentStep > 0 || this.isStep1Valid();
+    // Identity setup and 12-word recovery seed backup are strictly mandatory
+    return false;
   }
 
   /**
@@ -654,35 +654,24 @@ export class OnboardingWizard {
    * Skips onboarding
    */
   public async skip(): Promise<void> {
-    const cleanHandle = this.handle.replace(/^@/, '').trim().toLowerCase();
-    const cleanName = this.displayName.trim();
+    if (this.currentStep === 1) {
+      this.chooseInterestsLater();
+      return;
+    }
 
-    if (!cleanName || !/^[a-z0-9_]{3,30}$/.test(cleanHandle)) {
-      this.currentStep = 0;
-      this.stage = 'PROFILE_REQUIRED';
-      this.saveError = 'Choose your display name and @handle before leaving setup.';
-      this.syncUI();
+    if (this.currentStep === 0) {
+      await this.submitStep1();
       return;
     }
 
     if (this.currentStep === 2) {
-      const warningText = i18n.t(
-        'onboardingNarrative.step4Warning',
-        undefined,
-        'This 12-word phrase is the only way to recover your account if you change devices.'
-      );
-      const proceed = await sovereignDialog.confirm(
-        `${warningText}\n\nAre you sure you want to skip without saving your recovery phrase?`,
-        {
-          title: 'Skip Key Backup',
-          confirmText: 'Skip Anyway',
-          destructive: true,
-        }
-      );
-      if (!proceed) return;
+      if (this.seedSavedConfirmed) {
+        await this.finish();
+      } else {
+        this.saveError = 'Please confirm you have saved your 12-word recovery phrase before completing setup.';
+        this.syncUI();
+      }
     }
-
-    await this.finish();
   }
 
   /**
@@ -1280,21 +1269,6 @@ export class OnboardingWizard {
 
             <div class="flex items-center space-x-2">
               <span class="text-xs font-mono text-slate-400">${stepOfText}</span>
-              ${
-                this.canSkip()
-                  ? `
-                <button
-                  type="button"
-                  id="btn-skip-onboarding"
-                  data-action="call-global"
-                  data-global-method="onboardingWizard.skip"
-                  class="px-2.5 py-1 text-xs font-mono text-slate-400 hover:text-white rounded bg-white/5 hover:bg-white/10 border border-white/5 cursor-pointer transition-all"
-                >
-                  Skip ✕
-                </button>
-              `
-                  : ''
-              }
             </div>
           </div>
 

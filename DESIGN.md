@@ -43,8 +43,61 @@ All themes define a strict set of CSS custom properties mapped across `:root` an
   --color-accent-border: <rgba-hex>; /* High-contrast outline */
   --color-accent-secondary: <hex>;   /* Warm supportive tone */
   --color-sage: #3ecf8e;             /* Cryptographic trust and verified status */
-  --color-iris: #818cf8;             /* Contemplative depth and vault archives */
+  --color-iris: #818cf8;             /* Contemplative depth, privacy lens, and vault archives */
+  --river-spine: rgba(255, 255, 255, 0.08); /* Continuous vertical conversational river spine */
+  --river-spine-active: var(--color-accent); /* Active branch indicator */
+  --context-lens-glow: rgba(232, 158, 56, 0.12); /* Subtle ambient context marker */
 }
+
+/* ─── UREFY SIGNATURE MECHANISMS (PHASE 2 STRUCTURAL ORIGINALITY) ─── */
+
+/* 1. CONVERSATION RIVER
+   Feeds flow as a continuous river topology rather than isolated floating cards.
+   A subtle vertical conversational spine connects root dispatches, community markers,
+   and branching reply paths. Cards are reduced to semantic surfaces only.
+   Rhythm is driven by content grammar:
+   - Starter: Editorial heading, open typographic breathing room.
+   - Deep Discussion: River spine connected, reply tree indicated spatially.
+   - Media: Edge-to-edge frameless treatment with docked context bar.
+   - Community Discussion: Integrated community anchor node on the river spine.
+   - Link / Shared: Typographic preview with minimal hairline boundary.
+   - Reply Branch: Conversational continuation along the spine without nested box-in-box.
+*/
+
+/* 2. CONTEXT LENS
+   Facets embody human social contexts, not corporate tenants or account switchers.
+   Presented as "You're here as [Avatar] [DisplayName] [Context]".
+   Switching contexts applies subtle environmental feedback:
+   active context marker, ambient accent tint, contextual recommendations,
+   and composer identity alignment.
+*/
+
+/* 3. PRIVACY LENS
+   Audience privacy is a signature interactive lens, not a technical receipt.
+   Coherent grammar:
+   - 🌐 Public · Searchable · Federated
+   - ◉ Community · Members only · Not indexed
+   - ◌ Followers · Not indexed · Not federated
+   Compact inline status with bespoke SVG glyphs, expanding on click into an inspectable
+   receipt. Accurate privacy language: "Not publicly linked by UREfy."
+*/
+
+/* 4. LIVING SPACES
+   Communities feel like dynamic places rather than static 3-column card catalogs.
+   Spaces display real signs of life: community emblem, dominant discussion,
+   member presence, and conversational momentum. Editorial spatial composition:
+   major active space, emerging spaces, and conversation pathways.
+   Honest low-activity states when calm (zero synthetic activity).
+*/
+
+/* 5. CONTEXT RAIL
+   The right sidebar is dynamic and contextual:
+   - Home: Active discussions, related spaces, river continuations.
+   - Post Detail: Participants roster, branch tree, related thoughts, privacy state.
+   - Community: Space context, member presence, rules summary.
+   - Profile: Facet personas, sovereign identity status, vault overview.
+   Intrusive developer telemetry (e.g. SOVEREIGN STATE) is moved out of primary social chrome.
+*/
 ```
 
 ---

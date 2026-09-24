@@ -698,7 +698,15 @@ export function initApp(): void {
   };
 
   const renderRightRailContent = (): string => {
-    return contextualSidebar.renderSidebarContent(clientStore.activeChannelId);
+    if (postDetailView.isOpen()) {
+      return contextualSidebar.renderSidebarContent('post-detail');
+    }
+    const currentRoute = sovereignRouter.route;
+    const currentChannel = clientStore.activeChannelId;
+    if (currentRoute === 'explore' || currentChannel === 'explore') return contextualSidebar.renderSidebarContent('explore');
+    if (currentRoute === 'communities' || currentChannel === 'communities' || currentChannel.startsWith('c/')) return contextualSidebar.renderSidebarContent(currentChannel.startsWith('c/') ? currentChannel : 'communities');
+    if (currentRoute === 'profile' || currentChannel.startsWith('profile')) return contextualSidebar.renderSidebarContent('profile');
+    return contextualSidebar.renderSidebarContent(currentChannel);
   };
 
   const updateNavigationActiveClasses = (): void => {

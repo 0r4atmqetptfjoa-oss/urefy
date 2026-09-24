@@ -7,6 +7,7 @@ import { profileView } from './profile-view.js';
 import { obsidianMediaPlayer } from './media-player.js';
 import { reactionsEngine, bindReactionBarEvents } from './reactions.js';
 import { presentPublicIdentity } from './public-identity.js';
+import { privacyLens } from './privacy-lens.js';
 
 export interface PostAttachment {
   fileName: string;
@@ -480,6 +481,7 @@ export class PostDetailView {
               <div class="flex items-center space-x-2 truncate">
                 <span class="font-mono text-xs font-bold text-slate-300">${channelDisplay}</span>
                 <span class="text-[10px] font-mono px-2 py-0.5 rounded-md border ${flairStyle} hidden sm:inline-block">${flair}</span>
+                <span class="hidden sm:inline-block">${privacyLens.renderCompact((post.audience as any) || (post.channelId?.startsWith('vault-') ? 'followers' : post.channelId ? 'community' : 'public'))}</span>
               </div>
             </div>
 
@@ -716,8 +718,12 @@ export class PostDetailView {
     const authorAvatar = authorProfile?.avatar;
 
     return `
-      <!-- ARTICLE CARD -->
-      <article class="p-5 md:p-6 rounded-2xl bg-surface-base border border-white/10 shadow-xl space-y-5">
+      <div class="river-stream post-detail-river">
+        <div class="river-item post-grammar--deep-discussion">
+          <div class="river-anchor">
+            <div class="river-node-dot"></div>
+          </div>
+          <article class="river-content p-5 md:p-6 rounded-2xl bg-surface-raised/40 border border-white/5 shadow-md space-y-5">
         
         <!-- TOP METADATA & MERIT VOTE BANNER -->
         <div class="flex items-start justify-between gap-4">
@@ -838,77 +844,89 @@ export class PostDetailView {
           ${reactionsEngine.renderReactionBar(postId, clientStore.keypair?.fingerprint || '')}
         </div>
 
-      </article>
-
-      <!-- ─── FAST REPLY COMPOSER ────────────────────────────────────── -->
-      <section class="p-5 rounded-2xl bg-surface-base border border-white/10 shadow-lg space-y-4">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center space-x-2">
-            <span class="text-sm">✍️</span>
-            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-200">Write a reply</h3>
-          </div>
-
-          <!-- PREVIEW TOGGLE -->
-          <div class="flex items-center space-x-1 bg-surface-raised p-0.5 rounded-lg border border-white/5 text-[11px] font-mono">
-            <button type="button" id="btn-reply-edit-toggle" class="px-2.5 py-0.5 rounded transition-all ${!this.isPreviewMode ? 'bg-surface-overlay text-white font-bold' : 'text-slate-400 hover:text-slate-200'}">
-              Write
-            </button>
-            <button type="button" id="btn-reply-preview-toggle" class="px-2.5 py-0.5 rounded transition-all ${this.isPreviewMode ? 'bg-surface-overlay text-white font-bold' : 'text-slate-400 hover:text-slate-200'}">
-              Preview
-            </button>
-          </div>
+          </article>
         </div>
 
-        <form id="form-post-detail-reply" class="space-y-3">
-          <!-- MARKDOWN TOOLBAR -->
-          ${this.renderMarkdownToolbar()}
+        <!-- ─── FAST REPLY COMPOSER (RIVER NODE) ────────────────────────── -->
+        <div class="river-item">
+          <div class="river-anchor">
+            <div class="river-node-dot" style="background: var(--color-accent, #e89e38);"></div>
+          </div>
+          <section class="river-content p-5 rounded-2xl bg-surface-raised/30 border border-white/5 space-y-4">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center space-x-2">
+                <span class="text-sm">✍️</span>
+                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-200">Write a reply</h3>
+              </div>
 
-          <!-- INPUT OR LIVE PREVIEW -->
-          ${!this.isPreviewMode ? `
-            <textarea 
-              id="input-detail-reply-text" 
-              placeholder="Add your perspective. Markdown is supported." aria-label="Reply to discussion"
-              class="w-full bg-surface-raised border border-white/10 rounded-xl p-3 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-[var(--color-accent,#e59b3c)] resize-none h-28 leading-relaxed font-sans"
-              required
-            >${this.escapeHtml(this.replyDraft)}</textarea>
-          ` : `
-            <div class="w-full bg-surface-raised border border-white/10 rounded-xl p-3 min-h-[7rem] text-xs text-slate-200 leading-relaxed font-sans overflow-y-auto">
-              ${this.replyDraft.trim() ? this.renderMarkdown(this.replyDraft) : '<p class="text-slate-500 italic">Nothing to preview yet. Switch to Write tab to compose your reply.</p>'}
+              <!-- PREVIEW TOGGLE -->
+              <div class="flex items-center space-x-1 bg-surface-raised p-0.5 rounded-lg border border-white/5 text-[11px] font-mono">
+                <button type="button" id="btn-reply-edit-toggle" class="px-2.5 py-0.5 rounded transition-all ${!this.isPreviewMode ? 'bg-surface-overlay text-white font-bold' : 'text-slate-400 hover:text-slate-200'}">
+                  Write
+                </button>
+                <button type="button" id="btn-reply-preview-toggle" class="px-2.5 py-0.5 rounded transition-all ${this.isPreviewMode ? 'bg-surface-overlay text-white font-bold' : 'text-slate-400 hover:text-slate-200'}">
+                  Preview
+                </button>
+              </div>
             </div>
-          `}
 
-          <div class="flex items-center justify-between pt-1">
-            <span class="text-xs text-slate-400">Markdown supported</span>
-            <button type="submit" ${this.replySubmitting ? 'disabled aria-busy="true"' : ''} class="context-button">
-              <span>${this.replySubmitting ? 'Sending…' : 'Reply'}</span>
-            </button>
-          </div>
-        </form>
-      </section>
+            <form id="form-post-detail-reply" class="space-y-3">
+              <!-- MARKDOWN TOOLBAR -->
+              ${this.renderMarkdownToolbar()}
 
-      <!-- ─── NESTED COLOR-BRANCHED COMMENT TREE ─────────────────────── -->
-      <section class="space-y-4">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center space-x-2">
-            <span class="text-sm">💬</span>
-            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300">
-              Discussion (${comments.length} ${comments.length === 1 ? 'reply' : 'replies'})
-            </h3>
-          </div>
+              <!-- INPUT OR LIVE PREVIEW -->
+              ${!this.isPreviewMode ? `
+                <textarea 
+                  id="input-detail-reply-text" 
+                  placeholder="Add your perspective. Markdown is supported." aria-label="Reply to discussion"
+                  class="w-full bg-surface-raised border border-white/10 rounded-xl p-3 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-[var(--color-accent,#e59b3c)] resize-none h-28 leading-relaxed font-sans"
+                  required
+                >${this.escapeHtml(this.replyDraft)}</textarea>
+              ` : `
+                <div class="w-full bg-surface-raised border border-white/10 rounded-xl p-3 min-h-[7rem] text-xs text-slate-200 leading-relaxed font-sans overflow-y-auto">
+                  ${this.replyDraft.trim() ? this.renderMarkdown(this.replyDraft) : '<p class="text-slate-500 italic">Nothing to preview yet. Switch to Write tab to compose your reply.</p>'}
+                </div>
+              `}
+
+              <div class="flex items-center justify-between pt-1">
+                <span class="text-xs text-slate-400">Markdown supported</span>
+                <button type="submit" ${this.replySubmitting ? 'disabled aria-busy="true"' : ''} class="context-button">
+                  <span>${this.replySubmitting ? 'Sending…' : 'Reply'}</span>
+                </button>
+              </div>
+            </form>
+          </section>
         </div>
 
-        ${comments.length === 0 ? `
-          <div class="p-8 rounded-2xl bg-surface-base border border-white/5 text-center text-slate-500 space-y-2">
-            <span class="text-3xl block">💬</span>
-            <p class="text-xs font-medium text-slate-300">No replies yet.</p>
-            <p class="text-[11px] text-slate-500">Be the first to join the conversation.</p>
+        <!-- ─── NESTED COLOR-BRANCHED COMMENT TREE (RIVER FLOW) ─────────── -->
+        <div class="river-item">
+          <div class="river-anchor">
+            <div class="river-node-dot"></div>
           </div>
-        ` : `
-          <div class="space-y-4">
-            ${comments.map(c => this.renderCommentNode(c, 0, post.authorFingerprint)).join('')}
-          </div>
-        `}
-      </section>
+          <section class="river-content space-y-4 w-full">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center space-x-2">
+                <span class="text-sm">💬</span>
+                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300">
+                  Discussion (${comments.length} ${comments.length === 1 ? 'reply' : 'replies'})
+                </h3>
+              </div>
+            </div>
+
+            ${comments.length === 0 ? `
+              <div class="p-8 rounded-2xl bg-surface-base/50 border border-white/5 text-center text-slate-500 space-y-2">
+                <span class="text-3xl block">💬</span>
+                <p class="text-xs font-medium text-slate-300">No replies yet.</p>
+                <p class="text-[11px] text-slate-500">Be the first to join the conversation.</p>
+              </div>
+            ` : `
+              <div class="space-y-4 pt-1">
+                ${comments.map(c => this.renderCommentNode(c, 0, post.authorFingerprint)).join('')}
+              </div>
+            `}
+          </section>
+        </div>
+      </div>
 
       <!-- ─── RELATED TECHNICAL THREADS ──────────────────────────────── -->
       ${relatedPosts.length > 0 ? `

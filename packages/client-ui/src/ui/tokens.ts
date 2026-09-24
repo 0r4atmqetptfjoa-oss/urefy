@@ -67,3 +67,22 @@ export const CONTENT_WIDTHS = {
   discovery: 'max-w-5xl',
   dialog: 'max-w-lg',
 } as const;
+
+export const SIGNATURE_MECHANISMS = {
+  river: {
+    spineWidth: '2px',
+    nodeSize: '6px',
+    avatarSize: '40px',
+  },
+  contextLens: {
+    triggerRadius: 'rounded-full',
+    panelWidth: '300px',
+  },
+  privacyLens: {
+    publicIcon: 'globe',
+    communityIcon: 'shield',
+    followersIcon: 'users',
+    accentColor: '#818cf8',
+  },
+} as const;
+

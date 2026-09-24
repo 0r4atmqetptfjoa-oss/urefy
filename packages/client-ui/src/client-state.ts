@@ -424,9 +424,14 @@ export class AetherisClientStore {
       if (typeof localStorage !== 'undefined') {
         localStorage.setItem('urefy_active_facet_id', found.id);
       }
+      if (typeof document !== 'undefined') {
+        document.documentElement.setAttribute('data-active-facet-id', found.id);
+        document.documentElement.setAttribute('data-active-facet-name', found.displayName);
+      }
       void import('./feed-personalization.js').then(({ feedPersonalization }) => {
         feedPersonalization.setFacetContext(found.id);
       }).catch(() => {});
+      this.showToast(`Switched context to ${found.displayName}`, 'info');
       this.notify('facet:changed', found);
     }
   }
