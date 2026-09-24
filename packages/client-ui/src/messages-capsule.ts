@@ -107,13 +107,13 @@ class ContextCapsuleManager {
           <!-- Header -->
           <div class="p-4 border-b border-white/5 flex items-center justify-between bg-surface-raised/40">
             <div class="flex items-center space-x-2.5">
-              <span class="text-xl">📦</span>
+              <span class="text-base text-[var(--color-accent,#e89e38)] font-serif">◈</span>
               <div>
-                <h3 class="text-sm font-bold text-white">Create Context Capsule</h3>
-                <p class="text-[11px] text-slate-400">Curate important points and save to your Vault</p>
+                <h3 class="text-sm font-bold text-white tracking-tight">Context Capsule Assembly</h3>
+                <p class="text-[11px] text-slate-400">Curate conversation points and archive directly to your Vault</p>
               </div>
             </div>
-            <button type="button" data-action="close-capsule-creator" class="p-1 rounded-lg text-slate-400 hover:text-white cursor-pointer text-xs">✕</button>
+            <button type="button" data-action="close-capsule-creator" class="p-1 rounded-lg text-slate-400 hover:text-white cursor-pointer text-xs" aria-label="Close">✕</button>
           </div>
 
           <!-- Body -->
@@ -154,10 +154,10 @@ class ContextCapsuleManager {
               ` : `
                 <div class="space-y-2 max-h-48 overflow-y-auto pr-1">
                   ${this.stagedItems.map(item => `
-                    <div class="p-2.5 rounded-xl bg-surface-raised/70 border border-white/5 flex items-start justify-between gap-2">
+                    <div class="p-2.5 rounded-xl bg-surface-raised/50 border border-white/5 border-l-2 border-l-[var(--color-accent,#e89e38)]/60 flex items-start justify-between gap-2">
                       <div class="min-w-0">
-                        <div class="text-[11px] font-bold text-slate-200">${item.senderName} <span class="text-slate-500 font-mono text-[10px]">${item.senderHandle}</span></div>
-                        <p class="text-[11px] text-slate-400 line-clamp-2 mt-0.5">${item.text.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</p>
+                        <div class="text-[11px] font-semibold text-slate-200">${item.senderName} <span class="text-slate-500 font-mono text-[10px]">${item.senderHandle}</span></div>
+                        <p class="text-[11px] text-slate-300 line-clamp-2 mt-0.5 leading-relaxed">${item.text.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</p>
                       </div>
                       <button type="button" data-action="remove-capsule-item" data-item-id="${item.id}" class="text-slate-500 hover:text-rose-400 p-1 text-xs shrink-0 cursor-pointer" title="Remove from capsule">✕</button>
                     </div>

@@ -489,10 +489,10 @@ export class RelaysManager {
               <button
                 type="button"
                 data-channel-id="${ch.id}"
-                class="btn-channel w-full text-left p-2.5 rounded-xl transition-all cursor-pointer flex items-center justify-between border ${
+                class="btn-channel w-full text-left px-3 py-2 rounded-lg transition-all cursor-pointer flex items-center justify-between border ${
                   isChActive
-                    ? 'bg-[var(--color-accent,#e59b3c)]/10 text-white border-[var(--color-accent,#e59b3c)]/25 shadow-xs'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-surface-raised/40 border-transparent'
+                    ? 'bg-white/[0.04] text-white border-white/10 shadow-xs'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.02] border-transparent'
                 }"
               >
                 <div class="flex-1 min-w-0 pr-2">

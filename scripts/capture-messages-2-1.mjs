@@ -177,6 +177,7 @@ async function run() {
         sDM.activePeerFP = peerFP;
         sDM.isOpen = true;
 
+        const oneDayAgo = now - 86400000;
         const dmMessages = [
           {
             id: 'dm-sys-1',
@@ -184,9 +185,20 @@ async function run() {
             receiverFP: myFP,
             encryptedPayload: 'ENCRYPTED_PAYLOAD_HASH',
             plaintext: 'Direct messages are end-to-end encrypted. Tap the header to verify safety numbers.',
-            timestamp: now - 7200000,
+            timestamp: oneDayAgo - 7200000,
             isRead: true,
             isSystem: true,
+          },
+          {
+            id: 'dm-msg-prev-1',
+            senderFP: peerFP,
+            receiverFP: myFP,
+            encryptedPayload: 'ENCRYPTED_PREV_1',
+            plaintext: 'Initial benchmark runs finished on test enclaves.',
+            timestamp: oneDayAgo - 3600000,
+            isRead: true,
+            isPeerRead: true,
+            deliveryStatus: 'sent',
           },
           {
             id: 'dm-msg-1',
@@ -512,16 +524,6 @@ async function run() {
           peerRole: 'MEMBER',
           messages: [
             {
-              id: 'm-dm-sys',
-              senderFP: 'genesis-core',
-              receiverFP: myFP,
-              encryptedPayload: 'ENCRYPTED',
-              plaintext: 'This is the start of your direct conversation with David Chen.',
-              timestamp: now - 3600000,
-              isRead: true,
-              isSystem: true,
-            },
-            {
               id: 'm-dm-1',
               senderFP: peerFP,
               receiverFP: myFP,
@@ -529,6 +531,7 @@ async function run() {
               plaintext: 'Hey Elena! Ready to test fail-closed rollover?',
               timestamp: now - 1800000,
               isRead: true,
+              isPeerRead: true,
               deliveryStatus: 'sent',
             },
             {
@@ -539,7 +542,41 @@ async function run() {
               plaintext: 'Ready on mobile client. Initiating session.',
               timestamp: now - 900000,
               isRead: true,
+              isPeerRead: true,
               deliveryStatus: 'sent',
+            },
+            {
+              id: 'm-dm-3',
+              senderFP: myFP,
+              receiverFP: peerFP,
+              encryptedPayload: 'ENCRYPTED',
+              plaintext: 'Endpoints verified device signatures before accepting envelope updates.',
+              timestamp: now - 850000,
+              isRead: true,
+              isPeerRead: true,
+              deliveryStatus: 'sent',
+            },
+            {
+              id: 'm-dm-4',
+              senderFP: peerFP,
+              receiverFP: myFP,
+              encryptedPayload: 'ENCRYPTED',
+              plaintext: 'Confirmed sub-20ms key encapsulation. Zero leakage on test enclaves.',
+              timestamp: now - 300000,
+              isRead: true,
+              isPeerRead: true,
+              deliveryStatus: 'sent',
+              context: { replyToId: 'm-dm-3' },
+            },
+            {
+              id: 'm-dm-5',
+              senderFP: myFP,
+              receiverFP: peerFP,
+              encryptedPayload: 'ENCRYPTED',
+              plaintext: 'Attempting secondary node test...',
+              timestamp: now - 60000,
+              isRead: true,
+              deliveryStatus: 'failed',
             },
           ],
           unreadCount: 0,

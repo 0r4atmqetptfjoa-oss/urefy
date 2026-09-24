@@ -2551,48 +2551,104 @@ img[loading="lazy"]:not([width]):not([height]) {
   content-visibility: auto;
 }
 
-/* ─── UREFY MESSAGES 2.3 — LIVING DIALOGUE & CONVERSATION SCENES ─── */
+/* ─── UREFY MESSAGES 2.4 — SIGNATURE VISUAL RESET: DUAL DIALOGUE FLOW ─── */
 .dialogue-canvas {
   background-color: #101218;
-  background-image: radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.018) 0%, transparent 65%);
+  background-image: radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.015) 0%, transparent 60%);
 }
 
-/* Conversation Scene: natural conversational unit without hard cards or timeline graphs */
-.dialogue-scene {
+/* Conversation Flow: natural canvas without card containers or timeline lines */
+.dialogue-scene,
+.dialogue-flow {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  gap: 0.875rem;
+  margin-bottom: 0.875rem;
+}
+
+/* Conversational Stanzas: consecutive thoughts grouped by speaker */
+.scene-cluster,
+.dialogue-stanza {
   position: relative;
-  background-color: rgba(255, 255, 255, 0.016);
-  border: 1px solid rgba(255, 255, 255, 0.024);
-  border-radius: 1.25rem;
-  padding: 1.25rem 1.5rem;
-  margin-bottom: 1.75rem;
-  transition: background-color 0.2s ease;
+  display: flex;
+  flex-direction: column;
 }
 
-.dialogue-scene:hover {
-  background-color: rgba(255, 255, 255, 0.022);
+.scene-cluster-peer,
+.dialogue-stanza--peer {
+  width: fit-content;
+  min-width: 160px;
+  max-width: 88%;
+  align-self: flex-start;
+  margin-right: auto;
 }
 
-/* Participant clusters inside a Scene */
-.scene-cluster-peer {
-  background-color: rgba(255, 255, 255, 0.01);
-  border-radius: 0.875rem;
-  padding: 0.5rem 0.75rem;
-  transition: background-color 0.15s ease;
+@media (min-width: 640px) {
+  .scene-cluster-peer,
+  .dialogue-stanza--peer {
+    max-width: 78%;
+  }
 }
 
-.scene-cluster-peer:hover {
+.scene-cluster-own,
+.dialogue-stanza--own {
+  width: fit-content;
+  max-width: 88%;
+  align-self: flex-end;
+  margin-left: auto;
+  align-items: flex-end;
+}
+
+@media (min-width: 640px) {
+  .scene-cluster-own,
+  .dialogue-stanza--own {
+    max-width: 78%;
+  }
+}
+
+.dialogue-stanza--own .stanza-messages {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  width: 100%;
+}
+
+.dialogue-stanza--own .dm-message {
+  align-self: flex-end;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.dialogue-stanza--peer .stanza-messages {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+}
+
+.dialogue-stanza--peer .dm-message {
+  align-self: flex-start;
+  width: fit-content;
+  max-width: 100%;
+}
+
+/* Compact message rows directly on canvas */
+.dialogue-stanza .dm-message,
+.scene-cluster .dm-message {
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.375rem;
+  transition: background-color 0.12s ease;
+}
+
+.dialogue-stanza--peer .dm-message:hover,
+.scene-cluster-peer .dm-message:hover {
   background-color: rgba(255, 255, 255, 0.018);
 }
 
-.scene-cluster-own {
+.dialogue-stanza--own .dm-message:hover,
+.scene-cluster-own .dm-message:hover {
   background-color: rgba(232, 158, 56, 0.025);
-  border-radius: 0.875rem;
-  padding: 0.5rem 0.75rem;
-  transition: background-color 0.15s ease;
-}
-
-.scene-cluster-own:hover {
-  background-color: rgba(232, 158, 56, 0.038);
 }
 
 /* Delicate reply branch indicator */
@@ -2603,7 +2659,7 @@ img[loading="lazy"]:not([width]):not([height]) {
   gap: 0.375rem;
   font-size: 0.75rem;
   color: #94a3b8;
-  padding-left: 0.625rem;
+  padding-left: 0.5rem;
   border-left: 1.5px solid rgba(255, 255, 255, 0.14);
 }
 
@@ -2612,9 +2668,9 @@ img[loading="lazy"]:not([width]):not([height]) {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 1rem;
-  margin: 1.75rem auto 1.25rem;
-  font-size: 0.75rem;
+  gap: 0.875rem;
+  margin: 1.25rem auto 0.875rem;
+  font-size: 0.725rem;
   font-weight: 500;
   color: #64748b;
   letter-spacing: 0.025em;
@@ -2624,7 +2680,7 @@ img[loading="lazy"]:not([width]):not([height]) {
 .scene-date-separator::after {
   content: '';
   flex: 1;
-  max-width: 140px;
+  max-width: 120px;
   height: 1px;
   background-color: rgba(255, 255, 255, 0.06);
 }
@@ -2632,11 +2688,11 @@ img[loading="lazy"]:not([width]):not([height]) {
 /* Editorial Context Capsule Insert */
 .editorial-capsule-insert {
   position: relative;
-  margin: 1.25rem 0;
-  padding: 1.125rem 1.25rem;
+  margin: 0.75rem 0;
+  padding: 0.875rem 1rem;
   background: linear-gradient(135deg, rgba(232, 158, 56, 0.05) 0%, rgba(255, 255, 255, 0.015) 100%);
   border-left: 2.5px solid var(--color-accent, #e59b3c);
-  border-radius: 0.875rem;
+  border-radius: 0.75rem;
   transition: border-color 0.2s ease, background-color 0.2s ease;
 }
 
@@ -2657,9 +2713,12 @@ img[loading="lazy"]:not([width]):not([height]) {
   margin-bottom: 0.5rem;
 }
 
-/* Mobile Focused Chat: Hide Global Header During Active Conversations */
+/* Mobile Focused Chat: Hide Global and Tab Headers During Active Conversations */
 @media (max-width: 767px) {
   #main-layout:has(.messages-thread-active) #app-top-header {
+    display: none !important;
+  }
+  #main-layout:has(.messages-thread-active) .messages-tab-header {
     display: none !important;
   }
 }
