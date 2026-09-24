@@ -172,6 +172,8 @@ async function run() {
       const now = Date.now();
 
       if (sDM) {
+        Object.defineProperty(sDM, 'syncError', { get: () => null, set: () => {}, configurable: true });
+        sDM.syncError = null;
         sDM.activePeerFP = peerFP;
         sDM.isOpen = true;
 
@@ -501,6 +503,8 @@ async function run() {
       const now = Date.now();
 
       if (sDM) {
+        Object.defineProperty(sDM, 'syncError', { get: () => null, set: () => {}, configurable: true });
+        sDM.syncError = null;
         sDM.activePeerFP = peerFP;
         sDM.isOpen = true;
         sDM.conversations.set(peerFP, {

@@ -274,15 +274,15 @@ export function processChatMessageContent(rawText: string): string {
     const escapedCode = escapeHtml(cleanCode);
     const escapedAttrCode = cleanCode.replace(/"/g, '&quot;').replace(/'/g, '&#039;');
     const blockHtml = `
-      <div class="my-2.5 rounded-xl border border-white/10 bg-slate-950/80 overflow-hidden text-left shadow-md select-text">
-        <div class="flex items-center justify-between px-3 py-1.5 bg-white/5 border-b border-white/5 text-[11px] font-mono text-slate-400">
+      <div class="my-2 rounded-xl border border-white/10 bg-[#0d0f14]/90 overflow-hidden text-left shadow-sm select-text max-w-xl">
+        <div class="flex items-center justify-between px-3 py-1 bg-white/[0.03] border-b border-white/5 text-[10px] font-mono text-slate-400">
           <span class="font-semibold text-slate-300 uppercase tracking-wider">${escapeHtml(language)}</span>
           <button type="button" class="px-2 py-0.5 rounded hover:bg-white/10 text-slate-300 hover:text-white flex items-center space-x-1 cursor-pointer transition-colors" data-action="copy-code-block" data-code="${escapedAttrCode}">
             <span>📋</span>
             <span>Copy</span>
           </button>
         </div>
-        <pre class="p-3 overflow-x-auto text-[13px] sm:text-[14px] font-mono text-emerald-300/90 leading-relaxed no-scrollbar select-text"><code>${escapedCode}</code></pre>
+        <pre class="p-2.5 overflow-x-auto text-[12.5px] sm:text-[13px] font-mono text-emerald-300/90 leading-relaxed no-scrollbar select-text m-0"><code>${escapedCode}</code></pre>
       </div>
     `;
     codeBlocks.push(blockHtml);

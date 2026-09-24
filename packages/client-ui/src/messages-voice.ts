@@ -163,26 +163,26 @@ class VoiceNotesManager {
 
     if (this.state.isRecording) {
       return `
-        <div class="voice-recorder-bar flex items-center justify-between p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-200 mb-2.5 animate-in fade-in select-none">
-          <div class="flex items-center space-x-3">
-            <span class="w-3 h-3 rounded-full bg-rose-500 animate-ping"></span>
-            <span class="font-mono text-xs font-bold text-white">${dur}</span>
-            <div class="flex items-center space-x-0.5 h-4">
-              <span class="w-1 bg-amber-400 rounded-full animate-bounce h-3"></span>
-              <span class="w-1 bg-amber-400 rounded-full animate-bounce h-5" style="animation-delay: 0.1s"></span>
-              <span class="w-1 bg-amber-400 rounded-full animate-bounce h-2" style="animation-delay: 0.2s"></span>
-              <span class="w-1 bg-amber-400 rounded-full animate-bounce h-4" style="animation-delay: 0.15s"></span>
+        <div class="voice-recorder-bar compact-voice-bar flex items-center justify-between px-3.5 py-2 rounded-full bg-surface-raised/90 border border-[var(--color-accent,#e89e38)]/30 text-slate-200 mb-2 select-none shadow-sm">
+          <div class="flex items-center space-x-2.5">
+            <span class="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse"></span>
+            <span class="font-mono text-xs font-semibold text-white tracking-wide">${dur}</span>
+            <div class="flex items-center space-x-0.5 h-3 px-1">
+              <span class="w-0.5 bg-[var(--color-accent,#e89e38)] rounded-full animate-bounce h-2"></span>
+              <span class="w-0.5 bg-[var(--color-accent,#e89e38)] rounded-full animate-bounce h-3.5" style="animation-delay: 0.1s"></span>
+              <span class="w-0.5 bg-[var(--color-accent,#e89e38)] rounded-full animate-bounce h-1.5" style="animation-delay: 0.2s"></span>
+              <span class="w-0.5 bg-[var(--color-accent,#e89e38)] rounded-full animate-bounce h-3" style="animation-delay: 0.15s"></span>
             </div>
-            <span class="text-[11px] text-amber-300 font-medium">${this.state.isPaused ? 'Recording paused' : 'Recording voice note…'}</span>
+            <span class="text-[11px] text-slate-400 font-medium hidden sm:inline">${this.state.isPaused ? 'Paused' : 'Recording…'}</span>
           </div>
-          <div class="flex items-center space-x-2">
+          <div class="flex items-center space-x-1.5">
             ${this.state.isPaused ? `
-              <button type="button" data-action="resume-voice-note" class="px-2.5 py-1 rounded-lg bg-surface-raised hover:bg-white/10 text-xs font-semibold text-white cursor-pointer">▶ Resume</button>
+              <button type="button" data-action="resume-voice-note" class="px-2 py-0.5 rounded-full bg-white/5 hover:bg-white/10 text-[11px] font-medium text-slate-200 cursor-pointer">▶ Resume</button>
             ` : `
-              <button type="button" data-action="pause-voice-note" class="px-2.5 py-1 rounded-lg bg-surface-raised hover:bg-white/10 text-xs font-semibold text-white cursor-pointer">⏸ Pause</button>
+              <button type="button" data-action="pause-voice-note" class="px-2 py-0.5 rounded-full bg-white/5 hover:bg-white/10 text-[11px] font-medium text-slate-200 cursor-pointer">⏸ Pause</button>
             `}
-            <button type="button" data-action="cancel-voice-note" class="px-2.5 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 text-xs font-semibold cursor-pointer">✕ Cancel</button>
-            <button type="button" data-action="finish-voice-note" class="px-3 py-1 rounded-lg bg-[var(--color-accent,#e59b3c)] text-slate-950 font-bold text-xs cursor-pointer shadow-sm">✓ Done</button>
+            <button type="button" data-action="cancel-voice-note" class="px-2 py-0.5 rounded-full hover:bg-rose-500/10 text-rose-400 text-[11px] font-medium cursor-pointer">Cancel</button>
+            <button type="button" data-action="finish-voice-note" class="px-3 py-0.5 rounded-full bg-[var(--color-accent,#e59b3c)] text-slate-950 font-bold text-[11px] cursor-pointer shadow-xs">Send</button>
           </div>
         </div>
       `;
@@ -190,17 +190,15 @@ class VoiceNotesManager {
 
     // Preview state before sending
     return `
-      <div class="voice-preview-bar flex items-center justify-between p-3 rounded-2xl bg-surface-raised border border-white/10 text-slate-200 mb-2.5 animate-in fade-in select-none">
-        <div class="flex items-center space-x-2.5 min-w-0">
-          <span class="text-base">🎙️</span>
-          <div class="min-w-0">
-            <div class="text-xs font-bold text-white">Voice Note (${dur})</div>
-            <audio src="${this.state.audioUrl || ''}" controls class="h-7 w-48 sm:w-64 mt-1"></audio>
-          </div>
+      <div class="voice-preview-bar compact-voice-bar flex items-center justify-between px-3.5 py-2 rounded-full bg-surface-raised/90 border border-white/10 text-slate-200 mb-2 select-none">
+        <div class="flex items-center space-x-2 min-w-0">
+          <span class="text-sm">🎙️</span>
+          <span class="text-[11px] font-semibold text-white">Voice Note (${dur})</span>
+          <audio src="${this.state.audioUrl || ''}" controls class="h-6 w-36 sm:w-48 ml-1"></audio>
         </div>
-        <div class="flex items-center space-x-2">
-          <button type="button" data-action="cancel-voice-note" class="px-2.5 py-1 rounded-lg hover:bg-rose-500/20 text-rose-300 text-xs font-semibold cursor-pointer">Discard</button>
-          <button type="button" data-action="attach-voice-note" class="px-3 py-1.5 rounded-xl bg-[var(--color-accent,#e59b3c)] text-slate-950 font-bold text-xs cursor-pointer shadow-sm">Attach to message</button>
+        <div class="flex items-center space-x-1.5">
+          <button type="button" data-action="cancel-voice-note" class="px-2 py-0.5 rounded-full hover:bg-rose-500/10 text-rose-400 text-[11px] font-medium cursor-pointer">Discard</button>
+          <button type="button" data-action="attach-voice-note" class="px-3 py-0.5 rounded-full bg-[var(--color-accent,#e59b3c)] text-slate-950 font-bold text-[11px] cursor-pointer shadow-xs">Attach</button>
         </div>
       </div>
     `;

@@ -450,89 +450,61 @@ export class RelaysManager {
 
     return `
       <aside class="hidden md:flex w-72 border-subtle-r bg-surface-base/80 flex-col shrink-0 overflow-hidden select-none">
-        <!-- Top header: Communities + Actions -->
-        <div class="p-3 border-b border-white/5 flex items-center justify-between">
+        <!-- Top header: Conversations in this space -->
+        <div class="p-3.5 border-b border-white/5 flex items-center justify-between" data-select-relay="${activeRelay.id}">
           <div class="flex items-center space-x-2">
-            <span class="text-sm">💬</span>
-            <h2 class="text-xs font-bold text-slate-300">Active conversations</h2>
+            <span class="text-base text-[var(--color-accent,#e89e38)]">◈</span>
+            <h2 class="text-xs font-bold text-slate-200 tracking-tight">Conversations in this space</h2>
           </div>
           <div class="flex items-center space-x-1">
             <button
               type="button"
-              id="btn-open-create-relay"
-              class="px-2.5 py-1 bg-surface-raised hover:bg-surface-elevated text-slate-300 hover:text-white rounded-lg text-xs font-semibold flex items-center space-x-1 border border-white/10 transition-all cursor-pointer"
-              title="Create a community chat"
+              id="btn-open-join-relay"
+              class="px-2 py-1 bg-surface-raised hover:bg-surface-elevated text-slate-300 hover:text-white rounded-lg text-xs font-medium border border-white/10 transition-all cursor-pointer"
+              title="Join space"
             >
-              <span>+</span>
-              <span class="hidden sm:inline">New</span>
+              <span>Join</span>
             </button>
             <button
               type="button"
-              id="btn-open-join-relay"
-              class="px-2 py-1 bg-surface-raised hover:bg-surface-elevated text-slate-300 hover:text-white rounded-lg text-xs font-semibold flex items-center space-x-1 border border-white/10 transition-all cursor-pointer"
-              title="Join with an invite"
+              id="btn-open-create-relay"
+              class="px-2 py-1 bg-surface-raised hover:bg-surface-elevated text-slate-300 hover:text-white rounded-lg text-xs font-medium border border-white/10 transition-all cursor-pointer"
+              title="Start conversation topic"
             >
-              <span>📥</span>
+              <span>+ New</span>
             </button>
           </div>
         </div>
 
-        <!-- Communities and Channels List -->
-        <div class="flex-1 overflow-y-auto p-2 space-y-2">
-          ${this.relays.map(r => {
-            const isActive = r.id === this.activeRelayId;
+        <!-- Conversations in this space: List of conversation topics -->
+        <div class="flex-1 overflow-y-auto p-2 space-y-1">
+          ${activeRelay.channels.map(ch => {
+            const isChActive = activeChId === ch.id;
+            const topicTitle = this.resolveTopicName(ch.name);
+            const topicSubtitle = ch.name === 'general' ? 'Elena Rostova · 2m ago'
+              : ch.name === 'dev' || ch.name === 'dev-core' ? 'David Chen · 18m ago'
+              : ch.name === 'questions' ? 'Recent inquiries'
+              : 'Community dialogue';
             return `
-              <div class="space-y-1">
-                <!-- Community Header Button -->
-                <button
-                  type="button"
-                  data-select-relay="${r.id}"
-                  class="btn-select-relay w-full text-left p-2.5 rounded-xl transition-all cursor-pointer flex items-center space-x-2.5 border ${
-                    isActive
-                      ? 'bg-surface-raised border-[var(--color-accent,#e59b3c)]/40 shadow-xs'
-                      : 'bg-transparent hover:bg-surface-raised/40 border-transparent text-slate-300 hover:text-white'
-                  }"
-                  title="${this._escapeHtml(r.name)}"
-                >
-                  <span class="text-lg shrink-0">${r.icon}</span>
-                  <div class="flex-1 min-w-0">
-                    <div class="text-xs font-bold truncate ${isActive ? 'text-white' : 'text-slate-300'}">${this._escapeHtml(r.name)}</div>
-                    <div class="text-[10px] text-slate-500 truncate">${r.channels.length} topics</div>
+              <button
+                type="button"
+                data-channel-id="${ch.id}"
+                class="btn-channel w-full text-left p-2.5 rounded-xl transition-all cursor-pointer flex items-center justify-between border ${
+                  isChActive
+                    ? 'bg-[var(--color-accent,#e59b3c)]/10 text-white border-[var(--color-accent,#e59b3c)]/25 shadow-xs'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-surface-raised/40 border-transparent'
+                }"
+              >
+                <div class="flex-1 min-w-0 pr-2">
+                  <div class="text-xs font-semibold truncate ${isChActive ? 'text-[var(--color-accent,#e89e38)]' : 'text-slate-200'}">
+                    ${this._escapeHtml(topicTitle)}
                   </div>
-                  ${isActive ? `<span class="w-1.5 h-1.5 rounded-full bg-[var(--color-accent,#e59b3c)] shrink-0"></span>` : ''}
-                </button>
-
-                <!-- Channels under active community -->
-                ${isActive ? `
-                  <div class="pl-3 pr-1 space-y-0.5 border-l border-white/5 ml-3.5">
-                    ${r.channels.map(ch => {
-                      const isChActive = activeChId === ch.id;
-                      const topicTitle = this.resolveTopicName(ch.name);
-                      const topicIcon = this.resolveTopicIcon(ch.name);
-                      return `
-                        <button
-                          type="button"
-                          data-channel-id="${ch.id}"
-                          class="btn-channel w-full text-left px-3 py-2 rounded-xl text-xs flex items-center justify-between transition-all cursor-pointer ${
-                            isChActive
-                              ? 'bg-[var(--color-accent,#e59b3c)]/15 text-[var(--color-accent,#e59b3c)] font-semibold border border-[var(--color-accent,#e59b3c)]/30 shadow-xs'
-                              : 'text-slate-400 hover:text-slate-200 hover:bg-surface-raised/50 border border-transparent'
-                          }"
-                        >
-                          <div class="flex items-center space-x-2.5 truncate">
-                            <span class="text-xs opacity-75">${topicIcon}</span>
-                            <span class="truncate font-medium">${this._escapeHtml(topicTitle)}</span>
-                          </div>
-                          <div class="flex items-center space-x-1.5 shrink-0">
-                            ${isChActive ? '<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-xs" title="Active topic"></span>' : ''}
-                            <span class="text-[10px] text-slate-500">${ch.type === 'voice' ? '🎙️' : ''}</span>
-                          </div>
-                        </button>
-                      `;
-                    }).join('')}
-                  </div>
+                  <div class="text-[11px] text-slate-500 truncate mt-0.5">${topicSubtitle}</div>
+                </div>
+                ${isChActive ? `
+                  <span class="w-2 h-2 rounded-full bg-emerald-400 shadow-xs shrink-0" title="Active conversation"></span>
                 ` : ''}
-              </div>
+              </button>
             `;
           }).join('')}
         </div>
@@ -555,17 +527,18 @@ export class RelaysManager {
     const topicTitle = this.resolveTopicName(activeChannelName);
 
     return `
-      <div class="h-14 border-b border-white/10 bg-surface-base/80 px-4 flex items-center justify-between shrink-0 select-none">
-        <div class="flex items-center space-x-3 truncate">
-          <span class="text-xl">${relay.icon}</span>
+      <div class="h-16 border-b border-white/5 bg-surface-base/70 backdrop-blur-sm px-4 md:px-6 flex items-center justify-between shrink-0 select-none">
+        <div class="flex items-center space-x-3.5 truncate">
+          <div class="w-9 h-9 rounded-xl bg-[var(--color-accent,#e89e38)]/10 border border-[var(--color-accent,#e89e38)]/20 flex items-center justify-center text-lg text-[var(--color-accent,#e89e38)] shrink-0">
+            ${relay.icon || '⚡'}
+          </div>
           <div>
             <div class="flex items-center space-x-2">
               <h2 class="text-sm font-bold text-white tracking-tight">${this._escapeHtml(displayName)}</h2>
-              <span class="text-[10px] px-2 py-0.5 rounded-full bg-[var(--color-accent,#e59b3c)]/15 text-[var(--color-accent,#e59b3c)] border border-[var(--color-accent,#e59b3c)]/30 font-medium">Community conversation</span>
+              <span class="text-xs text-slate-400 font-normal">· ${this._escapeHtml(topicTitle)}</span>
             </div>
-            <div class="text-[11px] text-slate-400 font-sans flex items-center space-x-1.5">
-              <span class="font-semibold text-slate-200">${this._escapeHtml(topicTitle)}</span>
-              <span>•</span>
+            <div class="text-[11px] text-slate-400 font-sans flex items-center space-x-2 mt-0.5">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
               <span>${isGlobal ? 'Visible to community members' : `${relay.members.length} members · Visible to members`}</span>
             </div>
           </div>
@@ -576,22 +549,24 @@ export class RelaysManager {
           <button
             type="button"
             data-action="open-chat-search"
-            class="p-2 rounded-xl bg-surface-raised hover:bg-surface-elevated border border-white/10 text-slate-300 hover:text-white text-xs font-medium transition-all cursor-pointer"
+            class="context-button"
             title="Search conversation"
           >
             <span>🔍</span>
+            <span class="text-[11px] hidden sm:inline">Search</span>
           </button>
 
-          <!-- Privacy Info Badge -->
+          <!-- Space details button -->
           <button
-            type="button" data-action="call-global" data-raw-click="if(window.__aetherisTransparency) window.__aetherisTransparency.open('pipeline');"
-            class="px-2.5 py-1.5 rounded-xl bg-surface-raised hover:bg-surface-elevated border border-white/10 text-slate-300 text-xs font-medium flex items-center space-x-1.5 transition-all cursor-pointer"
-            title="Community privacy details"
+            type="button"
+            data-action="call-global"
+            data-raw-click="if(window.__aetherisTransparency) window.__aetherisTransparency.open('pipeline');"
+            class="context-button"
+            title="Space details"
           >
             <span>🛡️</span>
-            <span class="hidden lg:inline">Privacy</span>
+            <span class="text-[11px] hidden sm:inline">Details</span>
           </button>
-
 
           <!-- Invite Friends Button -->
           <button
@@ -600,8 +575,7 @@ export class RelaysManager {
             class="px-3 py-1.5 rounded-xl bg-[var(--color-accent,#e59b3c)] hover:brightness-105 text-slate-950 text-xs font-bold flex items-center space-x-1.5 shadow-sm transition-all cursor-pointer active:scale-95"
             title="Invite people"
           >
-            <span>🔗</span>
-            <span class="hidden sm:inline">Invite</span>
+            <span>Invite</span>
           </button>
 
           ${!isGlobal ? `

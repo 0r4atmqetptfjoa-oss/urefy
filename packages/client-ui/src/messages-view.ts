@@ -358,16 +358,22 @@ export function isSameCalendarDay(ts1: number, ts2: number): boolean {
 }
 
 export function formatDateSeparator(ts: number): string {
+  const d = new Date(ts);
+  const formattedDate = d.toLocaleDateString(undefined, {
+    day: 'numeric',
+    month: 'long',
+  });
   const today = new Date();
-  if (isSameCalendarDay(ts, today.getTime())) return 'Today';
+  if (isSameCalendarDay(ts, today.getTime())) {
+    return `Today · ${formattedDate}`;
+  }
   const yesterday = new Date(today);
   yesterday.setDate(yesterday.getDate() - 1);
-  if (isSameCalendarDay(ts, yesterday.getTime())) return 'Yesterday';
-  return new Date(ts).toLocaleDateString(undefined, {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-  });
+  if (isSameCalendarDay(ts, yesterday.getTime())) {
+    return `Yesterday · ${formattedDate}`;
+  }
+  const weekday = d.toLocaleDateString(undefined, { weekday: 'long' });
+  return `${weekday} · ${formattedDate}`;
 }
 
 export function resolveHumanDisplayName(fp: string, isMine?: boolean): { name: string; handle: string } {
@@ -945,16 +951,73 @@ function isSameSenderWithin5Min(
   return Math.abs(curr.createdAt - prev.createdAt) < 5 * 60 * 1000;
 }
 
+export interface DMCluster {
+  senderFP: string;
+  isMine: boolean;
+  isSystem: boolean;
+  messages: DirectMessage[];
+}
+
+export interface DMScene {
+  dateSepText?: string;
+  clusters: DMCluster[];
+}
+
+export function groupDirectMessagesIntoScenes(msgs: DirectMessage[], myFP: string): DMScene[] {
+  const scenes: DMScene[] = [];
+  let currentScene: DMScene | null = null;
+  let currentCluster: DMCluster | null = null;
+  let lastTimestamp = 0;
+
+  for (let i = 0; i < msgs.length; i++) {
+    const msg = msgs[i];
+    const isNewDay = i === 0 || !isSameCalendarDay(msg.timestamp, msgs[i - 1].timestamp);
+    const isTemporalGap = i > 0 && Math.abs(msg.timestamp - lastTimestamp) > 15 * 60 * 1000;
+    const isSystem = msg.senderFP === 'genesis-core' || (msg as any).isSystem;
+    const isMine = msg.senderFP === myFP;
+
+    if (!currentScene || isNewDay || isTemporalGap) {
+      currentScene = {
+        dateSepText: isNewDay ? formatDateSeparator(msg.timestamp) : undefined,
+        clusters: [],
+      };
+      scenes.push(currentScene);
+      currentCluster = null;
+    }
+
+    const canGroupInCluster =
+      currentCluster &&
+      !isSystem &&
+      !currentCluster.isSystem &&
+      currentCluster.senderFP === msg.senderFP &&
+      Math.abs(msg.timestamp - lastTimestamp) < 5 * 60 * 1000;
+
+    if (canGroupInCluster && currentCluster) {
+      currentCluster.messages.push(msg);
+    } else {
+      currentCluster = {
+        senderFP: msg.senderFP,
+        isMine,
+        isSystem: Boolean(isSystem),
+        messages: [msg],
+      };
+      currentScene.clusters.push(currentCluster);
+    }
+
+    lastTimestamp = msg.timestamp;
+  }
+
+  return scenes;
+}
+
 export function renderMessageItem(m: ClientMessage, prevMsg?: ClientMessage): string {
   const time = new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   const author = resolveHumanDisplayName(m.authorFingerprint, m.isMine);
   const isGrouped = isSameSenderWithin5Min(m, prevMsg);
   const showDateSep = !prevMsg || !isSameCalendarDay(m.createdAt, prevMsg.createdAt);
   const dateSepHtml = showDateSep ? `
-    <div class="flex items-center justify-center my-3 select-none" role="separator">
-      <span class="px-2.5 py-0.5 rounded-full bg-surface-raised/80 border border-white/5 text-[11px] font-semibold text-slate-400 tracking-wider shadow-xs uppercase">
-        ${formatDateSeparator(m.createdAt)}
-      </span>
+    <div class="scene-date-separator" role="separator">
+      <span>${formatDateSeparator(m.createdAt)}</span>
     </div>
   ` : '';
 
@@ -1009,7 +1072,6 @@ export function renderMessageItem(m: ClientMessage, prevMsg?: ClientMessage): st
         <div class="flex items-baseline gap-2 min-w-0 flex-wrap">
           <span class="text-[13px] sm:text-[14px] font-bold ${m.isMine ? 'text-[var(--color-accent,#e89e38)]' : 'text-slate-100'}">${escapeHtml(author.name)}</span>
           ${author.handle ? `<span class="text-[11px] text-slate-400 font-mono">${escapeHtml(author.handle)}</span>` : ''}
-          ${m.isMine ? '<span class="text-[10px] font-semibold bg-[var(--color-accent,#e89e38)]/15 text-[var(--color-accent,#e89e38)] border border-[var(--color-accent,#e89e38)]/30 px-1.5 py-0.2 rounded-md">You</span>' : ''}
         </div>
         <span class="text-[11px] text-slate-400 font-mono ml-auto sm:ml-0">${time}</span>
       </div>
@@ -1349,7 +1411,7 @@ export function renderDirectMessagesWorkspace(): string {
 
 
       <!-- 2. RIGHT CHAT THREAD AREA -->
-      <main class="conversation-pane flex-1 flex flex-col overflow-hidden bg-canvas">
+      <main class="conversation-pane flex-1 flex flex-col overflow-hidden bg-canvas ${activeConv ? 'messages-thread-active' : ''}">
         ${!activeConv ? `
           <div class="flex-1 flex flex-col items-center justify-center p-8 text-center select-none animate-in fade-in duration-200">
             <div class="w-14 h-14 rounded-2xl bg-[var(--color-accent,#e89e38)]/10 border border-[var(--color-accent,#e89e38)]/20 flex items-center justify-center text-2xl text-[var(--color-accent,#e89e38)] shadow-inner mb-4">
@@ -1386,13 +1448,14 @@ export function renderDirectMessagesWorkspace(): string {
                 <div class="flex items-center space-x-2">
                   <span class="text-sm font-bold text-white truncate">${escapeHtml(resolveHumanDisplayName(activeConv.peerFingerprint).name)}</span>
                   <span class="text-[11px] text-slate-400 font-mono hidden sm:inline">${escapeHtml(resolveHumanDisplayName(activeConv.peerFingerprint).handle)}</span>
-                  <span class="text-[9px] px-1.5 py-0.2 rounded border ${
-                    activeConv.peerRole === 'GUARDIAN' ? 'bg-amber/15 text-amber border-amber/30' :
-                    activeConv.peerRole === 'ARCHIVIST' ? 'bg-cyphr/15 text-cyphr border-cyphr/30' :
-                    'bg-surface-raised text-slate-300 border-white/10'
-                  }">
-                    ${escapeHtml(humanPeerRole(activeConv.peerRole))}
-                  </span>
+                  ${activeConv.peerRole === 'GUARDIAN' || activeConv.peerRole === 'ARCHIVIST' ? `
+                    <span class="text-[9px] px-1.5 py-0.2 rounded border ${
+                      activeConv.peerRole === 'GUARDIAN' ? 'bg-amber/15 text-amber border-amber/30' :
+                      'bg-cyphr/15 text-cyphr border-cyphr/30'
+                    }">
+                      ${escapeHtml(humanPeerRole(activeConv.peerRole))}
+                    </span>
+                  ` : ''}
                   ${sovereignDM.isPeerBlocked(activeConv.peerFingerprint) ? `
                     <span class="text-[9px] px-1.5 py-0.2 rounded bg-rose-950/80 text-rose-400 border border-rose-800/40 font-bold">Blocked</span>
                   ` : ''}
@@ -1558,7 +1621,7 @@ export function renderDirectMessagesWorkspace(): string {
           </section>` : ''}
 
           <!-- MESSAGES THREAD SCROLL -->
-          <div id="dm-thread-messages" class="flex-1 p-4 md:p-6 overflow-y-auto space-y-4 max-w-4xl mx-auto w-full">
+          <div id="dm-thread-messages" class="flex-1 p-4 md:p-6 overflow-y-auto space-y-4 max-w-4xl lg:max-w-5xl mx-auto w-full dialogue-canvas">
             ${renderCatchMeUpCard(messages, resolvePeerName(activeConv.peerFingerprint))}
             ${messages.length === 0 ? `
               <div class="max-w-md mx-auto p-6 rounded-3xl bg-surface-base/80 border border-white/5 space-y-4 my-8 text-center animate-in fade-in duration-200">
@@ -1569,13 +1632,14 @@ export function renderDirectMessagesWorkspace(): string {
                   <h4 class="text-base font-bold text-white">${escapeHtml(resolveHumanDisplayName(activeConv.peerFingerprint).name)}</h4>
                   <div class="flex items-center justify-center gap-2 mt-1">
                     <span class="text-[11px] font-mono text-slate-400">${escapeHtml(resolveHumanDisplayName(activeConv.peerFingerprint).handle)}</span>
-                    <span class="text-[9px] px-1.5 py-0.2 rounded border ${
-                      activeConv.peerRole === 'GUARDIAN' ? 'bg-amber/15 text-amber border-amber/30' :
-                      activeConv.peerRole === 'ARCHIVIST' ? 'bg-cyphr/15 text-cyphr border-cyphr/30' :
-                      'bg-surface-raised text-slate-300 border-white/10'
-                    }">
-                      ${escapeHtml(humanPeerRole(activeConv.peerRole))}
-                    </span>
+                    ${activeConv.peerRole === 'GUARDIAN' || activeConv.peerRole === 'ARCHIVIST' ? `
+                      <span class="text-[9px] px-1.5 py-0.2 rounded border ${
+                        activeConv.peerRole === 'GUARDIAN' ? 'bg-amber/15 text-amber border-amber/30' :
+                        'bg-cyphr/15 text-cyphr border-cyphr/30'
+                      }">
+                        ${escapeHtml(humanPeerRole(activeConv.peerRole))}
+                      </span>
+                    ` : ''}
                   </div>
                 </div>
                 <p class="text-xs text-slate-400 leading-relaxed max-w-xs mx-auto">
@@ -1611,153 +1675,170 @@ export function renderDirectMessagesWorkspace(): string {
                   </div>
                 </div>
               </div>
-            ` : messages.map((msg, idx) => {
-              const prevMsg = idx > 0 ? messages[idx - 1] : undefined;
-              const isMine = msg.senderFP === myFP;
-              const isGrouped = !!prevMsg && prevMsg.senderFP === msg.senderFP && Math.abs(msg.timestamp - prevMsg.timestamp) < 5 * 60 * 1000;
-              const showDateSep = idx === 0 || !isSameCalendarDay(msg.timestamp, messages[idx - 1].timestamp);
-              const timeStr = formatTime(msg.timestamp);
-
-              // Render system notices / announcements as subtle centered events
-              if (msg.senderFP === 'genesis-core' || (msg as any).isSystem) {
-                return `
-                  ${showDateSep ? `
-                    <div class="flex items-center justify-center my-3 select-none" role="separator">
-                      <span class="px-2.5 py-0.5 rounded-full bg-surface-raised/80 border border-white/5 text-[11px] font-semibold text-slate-400 tracking-wider shadow-xs uppercase">
-                        ${formatDateSeparator(msg.timestamp)}
-                      </span>
-                    </div>
-                  ` : ''}
-                  <div class="weave-system-event flex items-center justify-center my-2 select-none px-4" role="status">
-                    <div class="text-[12px] text-slate-400 flex items-center space-x-2 text-center max-w-lg">
-                      <span class="w-1.5 h-1.5 rounded-full bg-slate-500"></span>
-                      <span class="leading-relaxed select-text">${processChatMessageContent(msg.plaintext || '')}</span>
-                      <span class="text-[10px] text-slate-500 font-mono ml-1">${timeStr}</span>
-                    </div>
-                  </div>
-                `;
-              }
-
-              const senderInfo = isMine ? { name: 'You', handle: '@me' } : resolveHumanDisplayName(activeConv.peerFingerprint);
+            ` : (() => {
+              const scenes = groupDirectMessagesIntoScenes(messages, myFP);
               const readReceiptsEnabled = typeof localStorage !== 'undefined' && localStorage.getItem('urefy_msg_read_receipts') !== 'false';
-              let statusHtml = '<span class="text-emerald-400 flex items-center gap-0.5"><span>✓</span><span>Encrypted</span></span>';
-              if (msg.deliveryStatus === 'sending') {
-                statusHtml = '<span class="text-amber-400 flex items-center gap-1 animate-pulse"><span>⏳</span><span>Sending...</span></span>';
-              } else if (msg.deliveryStatus === 'failed') {
-                statusHtml = `<span class="text-rose-400 flex items-center gap-1 font-semibold"><span>⚠️ Failed</span><button type="button" data-action="retry-send-dm" data-message-id="${msg.id}" class="underline text-rose-300 hover:text-white cursor-pointer ml-1">Retry</button></span>`;
-              } else if (msg.isPeerRead && readReceiptsEnabled) {
-                statusHtml = '<span class="text-cyan-400 flex items-center gap-0.5 font-semibold" title="Read by recipient"><span>✓✓</span><span>Read</span></span>';
-              } else if (msg.deliveryStatus === 'sent') {
-                statusHtml = '<span class="text-emerald-400 flex items-center gap-0.5"><span>✓</span><span>Sent</span></span>';
-              }
 
-              const existingReactions = sovereignDM.getReactions(msg.id);
-
-              return `
-                ${showDateSep ? `
-                  <div class="flex items-center justify-center my-3 select-none" role="separator">
-                    <span class="px-2.5 py-0.5 rounded-full bg-surface-raised/80 border border-white/5 text-[11px] font-semibold text-slate-400 tracking-wider shadow-xs uppercase">
-                      ${formatDateSeparator(msg.timestamp)}
-                    </span>
+              return scenes.map(scene => `
+                ${scene.dateSepText ? `
+                  <div class="scene-date-separator" role="separator">
+                    <span>${escapeHtml(scene.dateSepText)}</span>
                   </div>
                 ` : ''}
-                ${!isGrouped ? `
-                  <div class="weave-identity-node flex items-center gap-2.5 mb-1 px-1 mt-3 select-none">
-                    <div class="w-8 h-8 rounded-xl ${isMine ? 'bg-gradient-to-tr ' + generateDeterministicGradient(myFP) : 'bg-gradient-to-tr ' + generateDeterministicGradient(activeConv.peerFingerprint)} flex items-center justify-center text-white font-bold text-xs shadow-xs shrink-0 ring-2 ring-black/40 border border-white/10">
-                      ${senderInfo.name === 'Profile not set up' ? '?' : senderInfo.name.substring(0, 2).toUpperCase()}
-                    </div>
-                    <div class="flex items-baseline gap-2 min-w-0 flex-wrap">
-                      <span class="text-[13px] sm:text-[14px] font-bold ${isMine ? 'text-[var(--color-accent,#e59b3c)]' : 'text-slate-100'}">${escapeHtml(senderInfo.name)}</span>
-                      <span class="text-[11px] text-slate-400 font-mono">${escapeHtml(senderInfo.handle)}</span>
-                      ${!isMine && activeConv.peerRole ? `<span class="text-[9px] px-1.5 py-0.2 rounded border ${
-                        activeConv.peerRole === 'GUARDIAN' ? 'bg-amber/15 text-amber border-amber/30' :
-                        activeConv.peerRole === 'ARCHIVIST' ? 'bg-cyphr/15 text-cyphr border-cyphr/30' :
-                        'bg-surface-raised text-slate-300 border-white/10'
-                      }">${escapeHtml(humanPeerRole(activeConv.peerRole))}</span>` : ''}
-                      ${isMine ? '<span class="text-[10px] font-semibold bg-[var(--color-accent,#e59b3c)]/15 text-[var(--color-accent,#e59b3c)] border border-[var(--color-accent,#e89e38)]/30 px-1.5 py-0.2 rounded-md">You</span>' : ''}
-                    </div>
-                    <span class="text-[11px] text-slate-400 font-mono ml-auto sm:ml-0">${timeStr}</span>
-                    ${isMine ? statusHtml : ''}
-                  </div>
-                ` : ''}
-                <div id="dm-message-${escapeHtml(msg.id)}" tabindex="-1" class="dm-message group/msg-row relative flex flex-col py-0.5 ${isGrouped ? 'mt-0.5' : 'mt-1'} rounded-xl transition-colors select-text">
-                  <div class="weave-spine ${isMine ? 'is-mine' : ''} pl-10 sm:pl-11 pr-3 space-y-1">
-                    <!-- Visual Reply Branch -->
-                    ${msg.context?.replyToId ? `
-                      <div class="weave-branch-connector flex items-center gap-1.5 text-xs text-slate-400 mb-1 select-none">
-                        <span class="text-slate-500 font-mono text-[13px] leading-none">↳</span>
-                        <span class="text-slate-400">replying to:</span>
-                        <button type="button" class="context-quote context-quote-link text-slate-300 hover:text-[var(--color-accent,#e89e38)] underline font-medium cursor-pointer truncate max-w-xs sm:max-w-md text-[12px] bg-transparent border-none p-0 inline" data-action="open-message-context" data-message-id="${escapeHtml(msg.context.replyToId)}" aria-label="Return to replied message">${escapeHtml(allMessages.find(item => item.id === msg.context?.replyToId)?.plaintext.slice(0, 120) || 'Earlier message unavailable')}</button>
-                      </div>
-                    ` : ''}
-
-                    <!-- Message Body: De-bubbled typography or rich artifact container -->
-                    <div class="weave-message-body text-[15px] sm:text-[16px] text-slate-100 select-text leading-[1.6] break-words [overflow-wrap:anywhere] min-w-0">
-                      ${sovereignDM.showCiphertextToggle ? `
-                        <div class="font-mono text-[10px] text-emerald-400 bg-black/40 p-2 rounded-lg border border-emerald-500/30 break-all space-y-1">
-                          <div class="text-slate-400 font-bold">SIGNED ENCRYPTED ENVELOPE:</div>
-                          <div>${escapeHtml(msg.encryptedPayload)}</div>
+                <div class="dialogue-scene">
+                  ${scene.clusters.map(cluster => {
+                    if (cluster.isSystem) {
+                      return cluster.messages.map(msg => `
+                        <div class="weave-system-event flex items-center justify-center my-2 select-none px-4" role="status">
+                          <div class="text-[12px] text-slate-400 flex items-center space-x-2 text-center max-w-lg">
+                            <span class="w-1.5 h-1.5 rounded-full bg-slate-500"></span>
+                            <span class="leading-relaxed select-text">${processChatMessageContent(msg.plaintext || '')}</span>
+                            <span class="text-[10px] text-slate-500 font-mono ml-1">${formatTime(msg.timestamp)}</span>
+                          </div>
                         </div>
-                      ` : `
-                        ${(() => {
-                          if (!msg.plaintext) return '';
-                          const capsule = parseCapsuleFromText(msg.plaintext);
-                          if (capsule) return renderCapsuleArtifact(capsule);
-                          const outcome = renderOutcomeCard(msg.plaintext);
-                          if (outcome) return outcome;
-                          return `<div class="whitespace-pre-wrap py-1 px-2 -mx-2 rounded-lg transition-colors hover:bg-surface-raised/30 ${isMine ? 'bg-[var(--color-accent,#e89e38)]/[0.04]' : ''}">${processChatMessageContent(msg.plaintext)}</div>`;
-                        })()}
-                      `}
-                      ${renderAttachmentCard(msg.attachment)}
-                    </div>
+                      `).join('');
+                    }
 
-                    <!-- Attached Branch Marker if this message spawned branches -->
-                    ${sovereignDM.getBranches(activeConv.peerFingerprint).filter(b => b.sourceMessageId === msg.id).map(b => {
-                      const count = allMessages.filter(m => branchOf(m) === b.id).length;
-                      return `
-                        <button type="button" data-action="jump-dm-branch" data-branch="${escapeHtml(b.id)}" class="weave-branch-marker inline-flex items-center gap-1.5 mt-1 px-3 py-1 rounded-full bg-[var(--color-accent,#e89e38)]/10 hover:bg-[var(--color-accent,#e89e38)]/20 border border-[var(--color-accent,#e89e38)]/25 text-xs text-slate-200 transition-all cursor-pointer">
-                          <span class="text-[var(--color-accent,#e89e38)] font-mono text-[12px]">↳</span>
-                          <span class="font-semibold text-slate-200">${count} replies</span>
-                          <span class="text-[11px] text-slate-400">· ${escapeHtml(b.title)}</span>
-                        </button>
-                      `;
-                    }).join('')}
+                    const isMine = cluster.isMine;
+                    const senderInfo = isMine ? { name: 'You', handle: '@me' } : resolveHumanDisplayName(cluster.senderFP);
+                    const firstMsg = cluster.messages[0];
+                    const timeStr = formatTime(firstMsg.timestamp);
 
-                    ${isMine && msg.deliveryStatus === 'failed' ? `
-                      <div class="mt-1 flex items-center gap-1.5 text-[11px] text-rose-400 font-medium">
-                        <span>⚠️ Couldn’t send</span>
-                        <span>•</span>
-                        <button type="button" data-action="retry-send-dm" data-message-id="${escapeHtml(msg.id)}" class="underline hover:text-rose-200 cursor-pointer font-semibold">Retry</button>
+                    // Compute delivery status for own messages
+                    const lastMsg = cluster.messages[cluster.messages.length - 1];
+                    let statusHtml = '';
+                    if (isMine) {
+                      if (lastMsg.deliveryStatus === 'sending') {
+                        statusHtml = '<span class="text-amber-400/90 text-[11px] flex items-center gap-1 font-mono"><span>⏳</span><span>Sending...</span></span>';
+                      } else if (lastMsg.deliveryStatus === 'failed') {
+                        statusHtml = `<span class="text-rose-400 text-[11px] flex items-center gap-1 font-mono"><span>⚠️</span><button type="button" data-action="retry-send-dm" data-message-id="${lastMsg.id}" class="underline text-rose-300 hover:text-white cursor-pointer ml-1">Retry</button></span>`;
+                      } else if (lastMsg.isPeerRead && readReceiptsEnabled) {
+                        statusHtml = '<span class="text-emerald-400/80 text-[11px] flex items-center gap-1 font-mono" title="Read by recipient"><span>✓✓</span><span>Read</span></span>';
+                      } else if (lastMsg.deliveryStatus === 'sent') {
+                        statusHtml = '<span class="text-slate-400 text-[11px] flex items-center gap-1 font-mono"><span>✓</span><span>Sent</span></span>';
+                      } else {
+                        statusHtml = '<span class="text-emerald-400/80 text-[11px] flex items-center gap-1 font-mono"><span>✓</span><span>Encrypted</span></span>';
+                      }
+                    }
+
+                    return `
+                      <div class="scene-cluster ${isMine ? 'scene-cluster-own' : 'scene-cluster-peer'}">
+                        <!-- Cluster Header: Identity Node -->
+                        <div class="weave-identity-node flex items-center gap-2.5 mb-1 px-1 select-none">
+                          ${!isMine ? `
+                            <div class="w-8 h-8 rounded-xl bg-gradient-to-tr ${generateDeterministicGradient(cluster.senderFP)} flex items-center justify-center text-white font-bold text-xs shadow-xs shrink-0 ring-2 ring-black/40 border border-white/10">
+                              ${senderInfo.name === 'Profile not set up' ? '?' : senderInfo.name.substring(0, 2).toUpperCase()}
+                            </div>
+                            <div class="flex items-baseline gap-2 min-w-0 flex-wrap">
+                              <span class="text-[13px] sm:text-[14px] font-bold text-slate-100">${escapeHtml(senderInfo.name)}</span>
+                              ${senderInfo.handle ? `<span class="text-[11px] text-slate-400 font-mono">${escapeHtml(senderInfo.handle)}</span>` : ''}
+                              ${activeConv.peerRole === 'GUARDIAN' || activeConv.peerRole === 'ARCHIVIST' ? `
+                                <span class="text-[9px] px-1.5 py-0.2 rounded border ${
+                                  activeConv.peerRole === 'GUARDIAN' ? 'bg-amber/15 text-amber border-amber/30' :
+                                  'bg-cyphr/15 text-cyphr border-cyphr/30'
+                                }">${escapeHtml(humanPeerRole(activeConv.peerRole))}</span>
+                              ` : ''}
+                            </div>
+                            <span class="text-[11px] text-slate-400 font-mono ml-auto sm:ml-0">${timeStr}</span>
+                          ` : `
+                            <div class="flex items-center gap-2 min-w-0">
+                              <span class="text-[13px] sm:text-[14px] font-bold text-[var(--color-accent,#e89e38)]">You</span>
+                              <span class="text-[11px] text-slate-400 font-mono">${timeStr}</span>
+                              ${statusHtml ? `<span class="ml-1">${statusHtml}</span>` : ''}
+                            </div>
+                          `}
+                        </div>
+
+                        <!-- Messages in cluster -->
+                        <div class="cluster-messages space-y-1 ${isMine ? 'pl-2' : 'pl-10 sm:pl-11'} pr-2">
+                          ${cluster.messages.map((msg, mIdx) => {
+                            const existingReactions = sovereignDM.getReactions(msg.id);
+                            const msgTime = formatTime(msg.timestamp);
+
+                            return `
+                              <div id="dm-message-${escapeHtml(msg.id)}" tabindex="-1" class="dm-message group/msg-row relative flex flex-col py-0.5 rounded-xl transition-colors select-text">
+                                <!-- Visual Reply Branch -->
+                                ${msg.context?.replyToId ? `
+                                  <div class="dialogue-reply-branch flex items-center gap-1.5 text-xs text-slate-400 mb-1 select-none">
+                                    <span class="text-slate-500 font-mono text-[13px] leading-none">↳</span>
+                                    <span class="text-slate-400">replying to:</span>
+                                    <button type="button" class="context-quote context-quote-link text-slate-300 hover:text-[var(--color-accent,#e89e38)] underline font-medium cursor-pointer truncate max-w-xs sm:max-w-md text-[12px] bg-transparent border-none p-0 inline" data-action="open-message-context" data-message-id="${escapeHtml(msg.context.replyToId)}" aria-label="Return to replied message">${escapeHtml(allMessages.find(item => item.id === msg.context?.replyToId)?.plaintext.slice(0, 120) || 'Earlier message unavailable')}</button>
+                                  </div>
+                                ` : ''}
+
+                                <!-- Message Body -->
+                                <div class="weave-message-body text-[15px] sm:text-[16px] text-slate-100 select-text leading-[1.65] break-words [overflow-wrap:anywhere] min-w-0">
+                                  ${sovereignDM.showCiphertextToggle ? `
+                                    <div class="font-mono text-[10px] text-emerald-400 bg-black/40 p-2 rounded-lg border border-emerald-500/30 break-all space-y-1">
+                                      <div class="text-slate-400 font-bold">SIGNED ENCRYPTED ENVELOPE:</div>
+                                      <div>${escapeHtml(msg.encryptedPayload)}</div>
+                                    </div>
+                                  ` : `
+                                    ${(() => {
+                                      if (!msg.plaintext) return '';
+                                      const capsule = parseCapsuleFromText(msg.plaintext);
+                                      if (capsule) return renderCapsuleArtifact(capsule);
+                                      const outcome = renderOutcomeCard(msg.plaintext);
+                                      if (outcome) return outcome;
+                                      return `<div class="whitespace-pre-wrap py-0.5">${processChatMessageContent(msg.plaintext)}</div>`;
+                                    })()}
+                                  `}
+                                  ${renderAttachmentCard(msg.attachment)}
+                                </div>
+
+                                <!-- Attached Branch Marker if this message spawned branches -->
+                                ${sovereignDM.getBranches(activeConv.peerFingerprint).filter(b => b.sourceMessageId === msg.id).map(b => {
+                                  const count = allMessages.filter(m => branchOf(m) === b.id).length;
+                                  return `
+                                    <button type="button" data-action="jump-dm-branch" data-branch="${escapeHtml(b.id)}" class="weave-branch-marker inline-flex items-center gap-1.5 mt-1 px-3 py-1 rounded-full bg-[var(--color-accent,#e89e38)]/10 hover:bg-[var(--color-accent,#e89e38)]/20 border border-[var(--color-accent,#e89e38)]/25 text-xs text-slate-200 transition-all cursor-pointer">
+                                      <span class="text-[var(--color-accent,#e89e38)] font-mono text-[12px]">↳</span>
+                                      <span class="font-semibold text-slate-200">${count} replies</span>
+                                      <span class="text-[11px] text-slate-400">· ${escapeHtml(b.title)}</span>
+                                    </button>
+                                  `;
+                                }).join('')}
+
+                                ${isMine && msg.deliveryStatus === 'failed' ? `
+                                  <div class="mt-1 flex items-center gap-1.5 text-[11px] text-rose-400 font-medium">
+                                    <span>⚠️ Couldn’t send</span>
+                                    <span>•</span>
+                                    <button type="button" data-action="retry-send-dm" data-message-id="${escapeHtml(msg.id)}" class="underline hover:text-rose-200 cursor-pointer font-semibold">Retry</button>
+                                  </div>
+                                ` : ''}
+
+                                <!-- Existing reactions -->
+                                ${existingReactions.length > 0 ? `
+                                  <div class="flex flex-wrap gap-1 mt-1">
+                                    ${existingReactions.map(reaction => `<button type="button" class="context-button text-[11px] py-0.5 px-2 min-h-[24px]" aria-pressed="${reaction.mine}" data-action="react-dm-message" data-message-id="${escapeHtml(msg.id)}" data-emoji="${reaction.emoji}">${reaction.emoji} ${reaction.count}</button>`).join('')}
+                                  </div>
+                                ` : ''}
+
+                                <!-- Progressive Action Bar (revealed on hover/focus) -->
+                                ${!sovereignDM.showCiphertextToggle && msg.deliveryStatus !== 'failed' ? `
+                                  <div class="context-actions opacity-0 group-hover/msg-row:opacity-100 focus-within:opacity-100 transition-opacity mt-1 flex items-center gap-1 flex-wrap" aria-label="Message actions">
+                                    <button type="button" class="context-button" data-action="reply-dm-message" data-message-id="${escapeHtml(msg.id)}">Reply</button>
+                                    <button type="button" class="context-button" data-action="create-dm-branch" data-peer="${escapeHtml(activeConv.peerFingerprint)}" data-message-id="${escapeHtml(msg.id)}">Branch</button>
+                                    <button type="button" class="context-button" data-action="add-to-capsule" data-message-id="${escapeHtml(msg.id)}" data-sender-name="${escapeAttr(senderInfo.name)}" data-sender-handle="${escapeAttr(senderInfo.handle)}" data-text="${escapeAttr(msg.plaintext || '')}" data-timestamp="${msg.timestamp}" title="Add to Context Capsule">📦 Capsule</button>
+                                    ${canonicalVault.isMessageSaved(msg.id)
+                                      ? `<button type="button" class="context-button text-[var(--color-accent,#e89e38)] font-semibold border-[var(--color-accent,#e89e38)]/40 bg-[var(--color-accent,#e89e38)]/10" data-action="unsave-message-vault" data-message-id="${escapeHtml(msg.id)}" title="Remove from your encrypted device Vault">💾 Saved in Vault</button>`
+                                      : `<button type="button" class="context-button hover:border-[var(--color-accent,#e89e38)]/40 hover:text-white" data-action="save-message-vault" data-message-id="${escapeHtml(msg.id)}" title="Keep this message securely in your encrypted device Vault">🔒 Keep in Vault</button>`
+                                    }
+                                    <button type="button" class="context-button" data-action="copy-message-text" data-text="${escapeAttr(msg.plaintext || '')}" title="Copy text">📋 Copy</button>
+                                    <details class="message-reactions"><summary class="context-button" aria-label="React to message">React</summary><div class="context-actions">${MESSAGE_REACTIONS.map(emoji => `<button type="button" class="context-button" data-action="react-dm-message" data-message-id="${escapeHtml(msg.id)}" data-emoji="${emoji}" aria-label="React ${emoji}">${emoji}</button>`).join('')}</div></details>
+                                  </div>
+                                ` : ''}
+
+                                ${mIdx > 0 ? `<span class="message-timestamp-hover text-[11px] text-slate-400 font-mono opacity-0 group-hover/msg-row:opacity-100 transition-opacity absolute right-3 top-2 select-none">${msgTime}</span>` : ''}
+                              </div>
+                            `;
+                          }).join('')}
+                        </div>
                       </div>
-                    ` : ''}
-
-                    <!-- Existing reactions -->
-                    ${existingReactions.length > 0 ? `
-                      <div class="flex flex-wrap gap-1 mt-1">
-                        ${existingReactions.map(reaction => `<button type="button" class="context-button text-[11px] py-0.5 px-2 min-h-[24px]" aria-pressed="${reaction.mine}" data-action="react-dm-message" data-message-id="${escapeHtml(msg.id)}" data-emoji="${reaction.emoji}">${reaction.emoji} ${reaction.count}</button>`).join('')}
-                      </div>
-                    ` : ''}
-
-                    <!-- Progressive Action Bar (revealed on hover/focus) -->
-                    ${!sovereignDM.showCiphertextToggle && msg.deliveryStatus !== 'failed' ? `
-                      <div class="context-actions opacity-0 group-hover/msg-row:opacity-100 focus-within:opacity-100 transition-opacity mt-1 flex items-center gap-1 flex-wrap" aria-label="Message actions">
-                        <button type="button" class="context-button" data-action="reply-dm-message" data-message-id="${escapeHtml(msg.id)}">Reply</button>
-                        <button type="button" class="context-button" data-action="create-dm-branch" data-peer="${escapeHtml(activeConv.peerFingerprint)}" data-message-id="${escapeHtml(msg.id)}">Branch</button>
-                        <button type="button" class="context-button" data-action="add-to-capsule" data-message-id="${escapeHtml(msg.id)}" data-sender-name="${escapeAttr(senderInfo.name)}" data-sender-handle="${escapeAttr(senderInfo.handle)}" data-text="${escapeAttr(msg.plaintext || '')}" data-timestamp="${msg.timestamp}" title="Add to Context Capsule">📦 Capsule</button>
-                        ${canonicalVault.isMessageSaved(msg.id)
-                          ? `<button type="button" class="context-button text-[var(--color-accent,#e89e38)] font-semibold border-[var(--color-accent,#e89e38)]/40 bg-[var(--color-accent,#e89e38)]/10" data-action="unsave-message-vault" data-message-id="${escapeHtml(msg.id)}" title="Remove from your encrypted device Vault">💾 Saved in Vault</button>`
-                          : `<button type="button" class="context-button hover:border-[var(--color-accent,#e89e38)]/40 hover:text-white" data-action="save-message-vault" data-message-id="${escapeHtml(msg.id)}" title="Keep this message securely in your encrypted device Vault">🔒 Keep in Vault</button>`
-                        }
-                        <button type="button" class="context-button" data-action="copy-message-text" data-text="${escapeAttr(msg.plaintext || '')}" title="Copy text">📋 Copy</button>
-                        <details class="message-reactions"><summary class="context-button" aria-label="React to message">React</summary><div class="context-actions">${MESSAGE_REACTIONS.map(emoji => `<button type="button" class="context-button" data-action="react-dm-message" data-message-id="${escapeHtml(msg.id)}" data-emoji="${emoji}" aria-label="React ${emoji}">${emoji}</button>`).join('')}</div></details>
-                      </div>
-                    ` : ''}
-                  </div>
-
-                  ${isGrouped ? `<span class="message-timestamp-hover text-[11px] text-slate-400 font-mono opacity-0 group-hover/msg-row:opacity-100 transition-opacity absolute right-3 top-2 select-none">${timeStr}</span>` : ''}
+                    `;
+                  }).join('')}
                 </div>
-              `;
-            }).join('')}
+              `).join('');
+            })()}
             ${sovereignDM.isPeerTyping(activeConv.peerFingerprint) ? `
               <div class="flex items-center space-x-2 text-xs text-slate-400 italic bg-surface-raised/40 px-3 py-1.5 rounded-2xl w-fit border border-white/5 animate-pulse">
                 <span class="w-1.5 h-1.5 rounded-full bg-[var(--color-accent,#e89e38)]"></span>
@@ -1810,14 +1891,15 @@ export function renderDirectMessagesWorkspace(): string {
                 😊
               </button>
 
-              <div class="relative flex-1 min-w-0">
+              <div class="relative flex-1 min-w-0 flex items-center bg-surface-raised border border-white/10 rounded-2xl focus-within:border-[var(--color-accent,#e59b3c)] transition-all">
+                <span class="pl-3.5 text-xs text-slate-500 font-mono select-none">💬</span>
                 <input 
                   type="text" 
                   id="input-dm-message"
                   data-input="update-dm-draft"
                   value="${escapeHtml(getMessageDraft('dm'))}"
-                  placeholder="Write a private message..." aria-label="Private message"
-                  class="w-full bg-surface-raised border border-white/10 rounded-2xl px-4 py-2.5 sm:py-3 text-sm sm:text-[15px] text-slate-100 placeholder-slate-400 focus:outline-none focus:border-[var(--color-accent,#e59b3c)] transition-all font-sans"
+                  placeholder="Write a private message to ${escapeHtml(resolveHumanDisplayName(activeConv.peerFingerprint).name)}..." aria-label="Private message"
+                  class="w-full bg-transparent border-0 px-2.5 py-2.5 sm:py-3 text-sm sm:text-[15px] text-slate-100 placeholder-slate-400 focus:outline-none font-sans"
                   autocomplete="off"
                 />
               </div>
@@ -1851,7 +1933,7 @@ export function renderDirectMessagesWorkspace(): string {
           </div>
 
           <!-- 1. PERSON -->
-          <div class="text-center p-3.5 rounded-2xl bg-surface-raised/60 border border-white/5 space-y-2">
+          <div class="text-center p-3.5 rounded-2xl bg-surface-raised/40 border border-white/5 space-y-2">
             <div class="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-tr ${generateDeterministicGradient(activeConv.peerFingerprint)} flex items-center justify-center text-white font-bold text-lg shadow-md border border-white/10">
               ${resolveHumanDisplayName(activeConv.peerFingerprint).name.substring(0, 2).toUpperCase()}
             </div>
@@ -1859,13 +1941,14 @@ export function renderDirectMessagesWorkspace(): string {
               <h3 class="text-sm font-bold text-white">${escapeHtml(resolveHumanDisplayName(activeConv.peerFingerprint).name)}</h3>
               <p class="text-[11px] text-slate-400 font-mono">${escapeHtml(resolveHumanDisplayName(activeConv.peerFingerprint).handle)}</p>
             </div>
-            <span class="inline-block text-[9px] px-2 py-0.5 rounded-full border ${
-              activeConv.peerRole === 'GUARDIAN' ? 'bg-amber/15 text-amber border-amber/30' :
-              activeConv.peerRole === 'ARCHIVIST' ? 'bg-cyphr/15 text-cyphr border-cyphr/30' :
-              'bg-surface-raised text-slate-300 border-white/10'
-            }">
-              ${escapeHtml(humanPeerRole(activeConv.peerRole))}
-            </span>
+            ${activeConv.peerRole === 'GUARDIAN' || activeConv.peerRole === 'ARCHIVIST' ? `
+              <span class="inline-block text-[9px] px-2 py-0.5 rounded-full border ${
+                activeConv.peerRole === 'GUARDIAN' ? 'bg-amber/15 text-amber border-amber/30' :
+                'bg-cyphr/15 text-cyphr border-cyphr/30'
+              }">
+                ${escapeHtml(humanPeerRole(activeConv.peerRole))}
+              </span>
+            ` : ''}
           </div>
 
           <!-- 2. CONVERSATION: WHAT MATTERS (Capsules, Vault, Media) -->
@@ -1897,11 +1980,11 @@ export function renderDirectMessagesWorkspace(): string {
                 ${(() => {
                   const safetyStatus = sovereignDM.getSafetyVerificationStatus(activeConv.peerFingerprint);
                   if (safetyStatus === 'verified') {
-                    return '<span class="text-[10px] font-semibold text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.2 rounded-md">✓ Verified</span>';
+                    return '<span class="text-[10px] font-semibold text-emerald-400">✓ Verified</span>';
                   } else if (safetyStatus === 'changed') {
-                    return '<span class="text-[10px] font-semibold text-rose-400 bg-rose-500/20 border border-rose-500/40 px-2 py-0.2 rounded-md animate-pulse">⚠️ Key Changed</span>';
+                    return '<span class="text-[10px] font-semibold text-rose-400 animate-pulse">⚠️ Key Changed</span>';
                   }
-                  return '<span class="text-[10px] text-slate-400 bg-surface-base border border-white/10 px-2 py-0.2 rounded-md">Unverified</span>';
+                  return '<span class="text-[10px] text-slate-500 font-mono">Unverified</span>';
                 })()}
               </div>
               <button 

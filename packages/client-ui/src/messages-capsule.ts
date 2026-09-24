@@ -197,23 +197,28 @@ export interface RenderCapsuleOptions {
 }
 
 export function renderCapsuleArtifact(capsule: RenderCapsuleOptions): string {
-  const dateStr = capsule.createdAt ? new Date(capsule.createdAt).toLocaleDateString() : '';
   const count = capsule.itemCount ?? 1;
   const author = capsule.authorName || 'Elena';
   return `
-    <div class="weave-capsule-card rounded-2xl bg-surface-raised/90 border border-[var(--color-accent,#e89e38)]/25 p-3.5 space-y-2 my-1.5 shadow-sm max-w-lg select-text">
+    <div class="editorial-capsule-insert weave-capsule-card rounded-2xl bg-surface-raised/60 border border-[var(--color-accent,#e89e38)]/20 p-4 space-y-2.5 my-3 max-w-xl select-text">
       <div class="flex items-center justify-between gap-2">
-        <span class="inline-flex items-center gap-1.5 text-xs font-bold text-[var(--color-accent,#e89e38)]">
-          <span>📦</span><span>Context Capsule</span>
+        <div class="flex items-center gap-2">
+          <span class="text-base text-[var(--color-accent,#e89e38)] font-serif">◈</span>
+          <span class="text-sm font-bold text-white tracking-tight">${escapeHtml(capsule.title)}</span>
+        </div>
+        <span class="text-[11px] text-[var(--color-accent,#e89e38)]/90 font-mono flex items-center gap-1">
+          <span>🔒</span><span>Saved to Vault</span>
         </span>
-        ${dateStr ? `<span class="text-[10px] text-slate-400 font-mono">${dateStr}</span>` : ''}
       </div>
-      <div class="text-[14px] font-bold text-slate-100">${escapeHtml(capsule.title)}</div>
-      ${capsule.note ? `<div class="text-xs text-slate-300 leading-relaxed">${escapeHtml(capsule.note)}</div>` : ''}
-      <div class="pt-2 border-t border-white/5 flex items-center justify-between text-[11px] text-slate-400 flex-wrap gap-2">
-        <span>${count} message${count === 1 ? '' : 's'}${author ? ` · note by ${escapeHtml(author)}` : ''}</span>
-        <span class="text-emerald-400 flex items-center gap-1 font-medium"><span>🔒</span><span>Saved to Vault</span></span>
+      <div class="text-[12px] text-slate-400">
+        <span>${count} moment${count === 1 ? '' : 's'} saved from this conversation</span>
+        ${author ? ` · <span class="text-slate-300">Curated by ${escapeHtml(author)}</span>` : ''}
       </div>
+      ${capsule.note ? `
+        <div class="text-[13px] text-slate-200 leading-relaxed pl-3 border-l-2 border-[var(--color-accent,#e89e38)]/30 italic">
+          ${escapeHtml(capsule.note)}
+        </div>
+      ` : ''}
     </div>
   `;
 }
