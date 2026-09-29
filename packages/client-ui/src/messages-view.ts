@@ -1524,9 +1524,9 @@ export function renderDirectMessagesWorkspace(): string {
                     </span>
                   ` : `
                     <button type="button" data-action="open-dm-safety" class="flex items-center gap-1.5 text-emerald-400 hover:text-emerald-300 font-medium cursor-pointer transition-colors" title="View conversation security">
-                      <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 ring-2 ring-emerald-400/20"></span>
-                      <span class="hidden sm:inline">Active now · MLS Quantum-Ratcheted (E2EE)</span>
-                      <span class="sm:hidden">Active now</span>
+                      <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 ring-2 ring-emerald-400/20 shrink-0"></span>
+                      <span class="hidden lg:inline">Active now · MLS Quantum-Ratcheted (E2EE)</span>
+                      <span class="lg:hidden">Active now</span>
                     </button>
                   `}
                 </div>
@@ -1543,7 +1543,7 @@ export function renderDirectMessagesWorkspace(): string {
                 aria-label="Search conversation"
               >
                 ${renderIcon('search', { size: 15 })}
-                <span class="text-[11px] hidden sm:inline">Search</span>
+                <span class="text-[11px] hidden xl:inline">Search</span>
               </button>
 
               <button
@@ -1554,7 +1554,7 @@ export function renderDirectMessagesWorkspace(): string {
                 aria-label="Create Context Capsule"
               >
                 <span class="text-xs">📦</span>
-                <span class="text-[11px] hidden sm:inline">Capsule</span>
+                <span class="text-[11px] hidden xl:inline">Capsule</span>
               </button>
 
               <button
@@ -1565,7 +1565,7 @@ export function renderDirectMessagesWorkspace(): string {
                 aria-label="Catch up"
               >
                 ${renderIcon('sparkles', { size: 15 })}
-                <span class="text-[11px] hidden sm:inline">Catch Up</span>
+                <span class="text-[11px] hidden xl:inline">Catch Up</span>
               </button>
 
               <button
@@ -1576,7 +1576,7 @@ export function renderDirectMessagesWorkspace(): string {
                 aria-label="Context Shelf"
               >
                 ${renderIcon('bookmark', { size: 15 })}
-                <span class="text-[11px] hidden sm:inline">Context Shelf</span>
+                <span class="text-[11px] hidden xl:inline">Context Shelf</span>
               </button>
 
               <details class="relative inline-block text-left group">
@@ -1587,9 +1587,9 @@ export function renderDirectMessagesWorkspace(): string {
                   <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-2.5 py-1 border-b border-white/5">
                     Conversation Options
                   </div>
-                  <button type="button" data-action="open-capsule-creator" class="w-full text-left px-2.5 py-2 rounded-xl hover:bg-surface-raised text-slate-200 text-xs md:hidden">Context Capsules</button>
-                  <button type="button" data-action="toggle-catch-me-up" class="w-full text-left px-2.5 py-2 rounded-xl hover:bg-surface-raised text-slate-200 text-xs md:hidden">Catch up</button>
-                  <button type="button" data-action="toggle-dm-context" class="w-full text-left px-2.5 py-2 rounded-xl hover:bg-surface-raised text-slate-200 text-xs md:hidden">Context Shelf</button>
+                  <button type="button" data-action="open-capsule-creator" class="w-full text-left px-2.5 py-2 rounded-xl hover:bg-surface-raised text-slate-200 text-xs xl:hidden">Context Capsules</button>
+                  <button type="button" data-action="toggle-catch-me-up" class="w-full text-left px-2.5 py-2 rounded-xl hover:bg-surface-raised text-slate-200 text-xs xl:hidden">Catch up</button>
+                  <button type="button" data-action="toggle-dm-context" class="w-full text-left px-2.5 py-2 rounded-xl hover:bg-surface-raised text-slate-200 text-xs xl:hidden">Context Shelf</button>
                   <button 
                     type="button" 
                     data-action="open-dm-safety" 

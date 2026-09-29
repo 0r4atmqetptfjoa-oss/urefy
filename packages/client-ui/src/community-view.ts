@@ -674,7 +674,7 @@ export class CommunityView {
               ${circle.icon ? escapeHtml(circle.icon) : renderIcon('users', { size: 28 })}
             </span>
             <div class="journal-place-featured__copy">
-              <p class="journal-place-kicker"><span>${latestPost ? 'Recently active community' : 'Community spotlight'}</span><span>${escapeHtml(circle.category || 'General')}</span></p>
+              <p class="journal-place-kicker"><span>${latestPost ? 'Recently active community' : 'Community spotlight'}</span><span class="opacity-40 select-none" aria-hidden="true">·</span><span>${escapeHtml(circle.category || 'General')}</span></p>
               <h2 id="journal-place-featured-title">
                 <a href="${communityPath(circle.name)}" data-public-link>
                   ${escapeHtml(circle.displayName || circle.name)}

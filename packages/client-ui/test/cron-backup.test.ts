@@ -383,7 +383,7 @@ describe('Automated D1 SQLite to Cloudflare R2 Encrypted Backup Engine (Item 19)
       expect(json.checksumSha256).toBeDefined();
     });
 
-    it('POST /api/cron-backup succeeds when triggered via Cloudflare CF-Cron header', async () => {
+    it('POST /api/cron-backup rejects spoofed CF-Cron header without auth', async () => {
       const req = new Request('https://urefy.com/api/cron-backup', {
         method: 'POST',
         headers: {
@@ -391,6 +391,19 @@ describe('Automated D1 SQLite to Cloudflare R2 Encrypted Backup Engine (Item 19)
         },
       });
       const res = await handleBackupPost({ request: req });
+      expect(res.status).toBe(401);
+      const json = await res.json();
+      expect(json.success).toBe(false);
+    });
+
+    it('POST /api/cron-backup succeeds when triggered via configured cron secret', async () => {
+      const req = new Request('https://urefy.com/api/cron-backup', {
+        method: 'POST',
+        headers: {
+          'X-Cron-Secret': 'super-secret-cron-key',
+        },
+      });
+      const res = await handleBackupPost({ request: req, env: { CRON_SECRET: 'super-secret-cron-key' } as any });
       expect(res.status).toBe(200);
       const json = await res.json();
       expect(json.success).toBe(true);

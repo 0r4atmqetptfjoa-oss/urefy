@@ -2,7 +2,7 @@
 // UREfy — AUTOMATED D1 SQLITE -> CLOUDFLARE R2 ENCRYPTED BACKUP
 // Item 19: Automated Scheduled D1 SQLite -> Cloudflare R2 Backups
 // Features:
-// - Endpoint POST /api/cron-backup (supports Cloudflare Cron Triggers via scheduled() and Admin token trigger).
+// - Endpoint POST /api/cron-backup (Cron secret or Admin-authorized trigger).
 // - Dumps D1 tables: posts, channels, messages, nullifiers, push_subscriptions.
 // - Serializes, compresses with Gzip (CompressionStream), and encrypts with AES-256-GCM using backup key.
 // - Stores in Cloudflare R2 bucket under backups/d1-snapshot-daily.enc with SHA-256 checksum and ISO timestamp metadata.
@@ -665,10 +665,9 @@ export async function onRequestPost(context: {
     const cronSecretHeader = req.headers.get('X-Cron-Secret');
     const configuredCronSecret = context.env?.CRON_SECRET;
 
-    // Check if triggered by valid cron secret OR admin credentials
+    // HTTP clients can forge CF-Cron, so only the configured secret or admin auth is trusted.
     const isCronAuthorized =
-      Boolean(configuredCronSecret && cronSecretHeader === configuredCronSecret) ||
-      req.headers.get('CF-Cron') === 'true';
+      Boolean(configuredCronSecret && cronSecretHeader === configuredCronSecret);
 
     if (!isCronAuthorized) {
       const auth = await verifyAdminAuthorization(req, context.env);

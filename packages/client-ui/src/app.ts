@@ -756,15 +756,16 @@ export function initApp(): void {
       }
     });
 
-    document.querySelectorAll('[data-channel-id]').forEach(btn => {
+    document.querySelectorAll('button.btn-channel[data-channel-id], [data-action="switch-channel"][data-channel-id]').forEach(btn => {
       const chId = btn.getAttribute('data-channel-id');
       const isActive = chId === currentChannel;
+      btn.setAttribute('aria-current', isActive ? 'true' : 'false');
       if (isActive) {
-        btn.classList.add('is-active', 'font-bold', 'text-indigo-300', 'bg-indigo-950/60', 'border-indigo-500/30');
-        btn.classList.remove('text-slate-300', 'text-slate-400');
+        btn.classList.add('is-active', 'bg-white/[0.06]', 'text-white', 'border-white/10');
+        btn.classList.remove('text-slate-400', 'border-transparent', 'hover:bg-white/[0.02]');
       } else {
-        btn.classList.remove('is-active', 'font-bold', 'text-indigo-300', 'bg-indigo-950/60', 'border-indigo-500/30');
-        btn.classList.add('text-slate-300');
+        btn.classList.remove('is-active', 'bg-white/[0.06]', 'text-white', 'border-white/10');
+        btn.classList.add('text-slate-400', 'border-transparent');
       }
     });
 
