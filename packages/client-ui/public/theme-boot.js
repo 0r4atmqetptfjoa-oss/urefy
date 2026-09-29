@@ -17,6 +17,7 @@
       }
     }
     var bgMap = {
+      'mineral-basalt': '#08090d',
       'alabaster-light': '#f6f5f2',
       'light': '#f6f5f2',
       'matrix-monolith': '#000000',

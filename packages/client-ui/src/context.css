@@ -156,3 +156,155 @@
 @media (prefers-reduced-motion: reduce) {
   .context-button, .dm-message .context-actions { transition: none; }
 }
+
+/* UREfy Dialogue Flow: the conversation is the surface, artifacts carry the frame. */
+.direct-messages-workspace,
+.relay-messages-workspace {
+  --dialogue-shell: var(--bg-surface-base);
+  --dialogue-nav: var(--bg-surface-base);
+  --dialogue-canvas: var(--bg-canvas);
+  --dialogue-line: var(--border-subtle);
+}
+.direct-messages-workspace .conversation-list { background: var(--dialogue-nav) !important; border-color: var(--dialogue-line); }
+.direct-messages-workspace .conversation-pane { background: var(--dialogue-canvas) !important; }
+.dialogue-canvas { background: var(--dialogue-canvas) !important; background-image: none !important; }
+.dialogue-identity-mark { position: relative; color: var(--text-primary); background: var(--bg-surface-raised); border: 1px solid var(--border-subtle); box-shadow: none; }
+.dialogue-identity-mark::after { content: ''; position: absolute; right: -2px; bottom: -2px; width: 6px; height: 6px; background: var(--color-accent); transform: rotate(45deg); }
+.dialogue-stanza--peer,
+.dialogue-stanza--own { width: 82%; max-width: none; min-width: 0; }
+.dialogue-stanza--peer { margin-right: auto; }
+.dialogue-stanza--own { margin-left: auto; }
+.dialogue-flow { gap: 1.05rem; }
+.dialogue-flow { position: relative; z-index: 1; }
+.dialogue-flow:has(.dm-message:hover), .dialogue-flow:has(.dm-message:focus-within) { z-index: 50; }
+.dialogue-stanza:has(.dm-message:hover), .dialogue-stanza:has(.dm-message:focus-within) { z-index: 25; }
+.dialogue-stanza .stanza-header { margin-bottom: .3rem; }
+.dialogue-stanza .stanza-messages { gap: .12rem; }
+.dialogue-stanza .dm-message { padding: .15rem .25rem; border-radius: 3px; }
+.dialogue-stanza .dm-message:hover { background: color-mix(in srgb, var(--color-accent) 6%, transparent); }
+.dialogue-stanza .weave-message-body { line-height: 1.6; }
+.dialogue-stanza .context-actions { gap: .25rem; }
+.dialogue-stanza .dm-message > .context-actions { position: absolute; z-index: 15; bottom: 100%; left: 0; width: max-content; max-width: min(100vw - 30px, 440px); padding: 2px 4px; background: var(--bg-surface-overlay); border: 1px solid var(--dialogue-line); border-radius: 5px; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25); pointer-events: none; }
+.dialogue-stanza--own .dm-message > .context-actions { left: auto; right: 0; }
+.dialogue-stanza .dm-message:hover > .context-actions,
+.dialogue-stanza .dm-message:focus > .context-actions,
+.dialogue-stanza .dm-message:focus-within > .context-actions { opacity: 1; pointer-events: auto; }
+.dialogue-stanza .context-actions > .context-button,
+.dialogue-stanza .context-actions > details > .context-button { min-height: 25px; padding: 2px 6px; border: 0; border-radius: 3px; background: transparent; color: var(--text-secondary); font-size: 11px; }
+.dialogue-stanza .context-actions > .context-button:hover,
+.dialogue-stanza .context-actions > details > .context-button:hover { color: var(--color-accent); background: color-mix(in srgb, var(--color-accent) 12%, transparent); }
+.message-more { position: relative; }
+.message-more > summary { list-style: none; }
+.message-more > summary::-webkit-details-marker { display: none; }
+.message-more > .context-actions { position: absolute; z-index: 25; right: 0; bottom: calc(100% + 3px); width: 170px; padding: 6px; display: flex; flex-direction: column; align-items: stretch; border: 1px solid var(--dialogue-line); border-radius: 8px; background: var(--bg-surface-overlay); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3); }
+.message-more > .context-actions > button { width: 100%; justify-content: flex-start; text-align: left; }
+.dialogue-stanza--peer .message-reactions > div { left: 0; right: auto; }
+.dialogue-stanza--own .message-reactions > div { left: auto; right: 0; }
+.dialogue-reply-branch { background: transparent; border-left-color: var(--color-accent-border); }
+.weave-branch-marker { border: 0; border-radius: 0; background: transparent; padding: 0; }
+.scene-date-separator { margin-top: 1.6rem; margin-bottom: 1.2rem; color: var(--text-muted); }
+.scene-date-separator::before, .scene-date-separator::after { background: var(--dialogue-line); }
+.dialogue-empty, .dialogue-thread-empty { width: min(100%, 700px); margin-inline: auto; text-align: left; }
+.dialogue-empty > button { align-self: flex-start; }
+.dialogue-thread-empty { padding: clamp(24px, 6vw, 70px); }
+.dialogue-eyebrow { display: block; margin-bottom: 16px; color: var(--color-accent); font-size: 11px; letter-spacing: .16em; font-weight: 700; }
+.direct-messages-workspace .conversation-list [data-action="select-dm-peer"] { border: 0; border-left: 2px solid transparent; border-radius: 2px; box-shadow: none; }
+.direct-messages-workspace .conversation-list [data-action="select-dm-peer"]:hover { background: var(--bg-surface-raised); }
+.direct-messages-workspace .conversation-list [data-action="select-dm-peer"][class*="bg-surface-raised"] { background: var(--bg-surface-raised); border-left-color: var(--color-accent); }
+.editorial-capsule-insert { background: var(--bg-surface-raised) !important; border: 0 !important; border-left: 2px solid var(--color-accent) !important; border-radius: 2px !important; box-shadow: none !important; }
+.editorial-capsule-insert:hover { background: var(--bg-surface-overlay) !important; }
+.dialogue-shared-post { background: var(--bg-surface-raised); border: 0; border-left: 2px solid var(--color-accent-border); border-radius: 2px; box-shadow: none; }
+.dialogue-shared-post:hover { background: var(--bg-surface-overlay); border-left-color: var(--color-accent); }
+.dialogue-audio { background: var(--bg-surface-raised); border-left: 2px solid var(--color-accent); border-radius: 2px; }
+.dialogue-audio audio { height: 32px; }
+.dialogue-context-shelf { background: var(--bg-surface-base); backdrop-filter: none; border-color: var(--border-subtle); }
+.dialogue-context-shelf > div, .dialogue-context-shelf > details { border-color: var(--border-subtle); }
+.dialogue-shelf-person { display: flex; align-items: center; gap: 12px; text-align: left; }
+.dialogue-shelf-person .dialogue-identity-mark { flex: none; }
+.dialogue-shelf-person h3 { font-size: 17px; }
+.dialogue-context-shelf [data-action="keep-dm-branch"],
+.dialogue-context-shelf [data-action="open-dm-safety"] { background: transparent !important; border: 0 !important; border-radius: 2px; justify-content: flex-start; padding-inline: 0; box-shadow: none !important; }
+.dialogue-context-shelf details { background: transparent; border: 0; border-top: 1px solid var(--border-subtle); border-radius: 0; padding: 12px 0; }
+.dialogue-composer-reply { display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 10px; margin: 0 auto 8px; padding: 3px 8px; max-width: 896px; background: transparent; border: 0; border-left: 2px solid var(--color-accent); border-radius: 0; box-shadow: none; }
+.dialogue-composer-reply p { margin: 0; color: var(--text-secondary); font-size: 12px; line-height: 1.4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dialogue-composer-reply .context-button { flex: none; min-height: 25px; padding: 2px 5px; background: transparent; border: 0; color: var(--color-accent); }
+@media (min-width: 768px) { .dialogue-context-shelf { top: 56px; max-height: calc(100vh - 56px); } }
+#chat-search-overlay { background: var(--bg-surface-base); backdrop-filter: none; border-color: var(--border-subtle); }
+#chat-search-overlay [data-action="jump-search-result"] { background: transparent; border: 0; border-bottom: 1px solid var(--border-subtle); border-radius: 0; padding: 13px 5px; }
+#chat-search-overlay [data-action="jump-search-result"]:hover { background: var(--bg-surface-raised); }
+#chat-search-overlay [data-action="jump-search-result"] p { font-size: 13px; line-height: 1.5; }
+@media (min-width: 768px) { #chat-search-overlay { top: 56px; height: calc(100vh - 56px); } }
+.capsule-editor-body { display: flex; flex-direction: column; gap: 18px; }
+.capsule-moments { order: -1; padding-bottom: 17px; border-bottom: 1px solid var(--border-subtle); }
+.capsule-moments > div:first-child { font-size: 13px; }
+.capsule-moments .space-y-2 > div + div { margin-top: 11px; }
+.capsule-title-field label, .capsule-note-field label { font-size: 12px; }
+.capsule-title-field input, .capsule-note-field textarea { background: var(--bg-surface-raised); border-color: var(--border-subtle); font-size: 14px; }
+.direct-messages-workspace .conversation-pane > :first-child { background: var(--bg-surface-base); backdrop-filter: none; }
+.direct-messages-workspace form[id="form-send-dm-message"] > div:has(#input-dm-message) { background: var(--bg-surface-raised); border-color: var(--border-subtle); box-shadow: none; }
+.direct-messages-workspace form[id="form-send-dm-message"] > div:has(#input-dm-message):focus-within { border-color: var(--color-accent); box-shadow: none; }
+.direct-messages-workspace form[id="form-send-dm-message"] button { box-shadow: none; }
+.relay-messages-workspace > aside { width: 280px; background: var(--dialogue-nav); border-color: var(--dialogue-line); }
+.relay-messages-workspace .btn-channel { border: 0; border-left: 2px solid transparent; border-radius: 2px; min-height: 48px; }
+.relay-messages-workspace .btn-channel:hover { background: var(--bg-surface-raised); }
+.relay-messages-workspace .btn-channel[aria-current="true"] { background: var(--bg-surface-raised); border-left-color: var(--color-accent); box-shadow: none; }
+.relay-messages-workspace > div { background: var(--dialogue-canvas); }
+.relay-messages-workspace > div > :first-child { background: var(--dialogue-canvas); backdrop-filter: none; }
+#messages-container { max-width: 940px; background: var(--dialogue-canvas); }
+#main-stage .relay-message { padding: 2px 4px; border-radius: 3px !important; background: transparent; }
+#main-stage .relay-message:hover { background: color-mix(in srgb, var(--color-accent) 6%, transparent); }
+.relay-message--own { width: 82%; margin-left: auto; align-items: flex-end; }
+.relay-message--own .weave-spine { width: 100%; text-align: right; }
+.relay-message--own .message-body { text-align: right; }
+.relay-message--own .stanza-header { justify-content: flex-end; }
+.relay-message .message-body { font-size: 15px; line-height: 1.6; }
+.relay-message .stanza-header { margin-bottom: 4px; }
+.relay-message.message-row--subsequent { padding-block: 1px; }
+.relay-message .weave-spine { padding-block: 0; }
+.relay-message .message-actions-bar { background: var(--bg-surface-overlay); border-color: var(--dialogue-line); box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25); }
+.dialogue-community-empty { width: min(100%, 700px); margin: clamp(45px, 10vh, 110px) auto; padding: 20px; }
+.dialogue-community-empty h3 { margin: 0 0 8px; font-size: 25px; font-weight: 600; color: var(--text-primary); }
+.dialogue-community-empty p { max-width: 400px; color: var(--text-secondary); font-size: 15px; line-height: 1.6; }
+.relay-messages-workspace form[id="form-send-message"] #input-message { background: var(--bg-surface-raised); border-color: var(--border-subtle); box-shadow: none; }
+.relay-messages-workspace form[id="form-send-message"] #input-message:focus { border-color: var(--color-accent); box-shadow: none; }
+.relay-mobile-more { display: none; }
+
+@media (max-width: 767px) {
+  #main-layout:has(.messages-thread-active) #app-top-header,
+  #main-layout:has(.messages-thread-active) .messages-header { display: none !important; }
+  .dialogue-stanza--peer, .dialogue-stanza--own { width: 91%; }
+  .dialogue-flow { gap: .8rem; }
+  #dm-thread-messages { padding: 14px 12px; }
+  .dialogue-stanza .stanza-header { gap: .45rem; }
+  .dialogue-stanza .dm-message { padding-block: 1px; }
+  .dialogue-stanza .context-actions { opacity: 0; }
+  .dialogue-stanza .dm-message:focus > .context-actions,
+  .dialogue-stanza .dm-message:focus-within > .context-actions { opacity: 1; }
+  .direct-messages-workspace .conversation-pane > div:first-child [data-action="open-capsule-creator"],
+  .direct-messages-workspace .conversation-pane > div:first-child [data-action="toggle-catch-me-up"],
+  .direct-messages-workspace .conversation-pane > div:first-child [data-action="toggle-dm-context"] { display: none; }
+  .dialogue-empty { padding: 36px 24px; }
+  body:has(.messages-thread-active) #native-mobile-tab-bar { display: none !important; }
+  body:has(.messages-thread-active) #main-stage { padding-bottom: 0 !important; }
+  .relay-messages-workspace > aside { display: none !important; }
+  .relay-message--own { width: 91%; }
+  .relay-conversation-header { padding-inline: 12px; gap: 8px; }
+  .relay-header-identity { gap: 6px; flex: 1; }
+  .relay-header-identity > div:first-child { width: 23px; height: 23px; font-size: 16px; }
+  .relay-header-title { flex-direction: column; align-items: flex-start; gap: 0; }
+  .relay-header-title h2 { font-size: 13px; }
+  .relay-header-title > span { font-size: 11px; white-space: nowrap; }
+  .relay-header-identity > div:last-child > div:last-child { font-size: 10px; white-space: nowrap; }
+  .relay-header-actions > button[data-action="call-global"],
+  .relay-header-actions > button[data-open-relay-invite] { display: none; }
+  .relay-header-actions { gap: 4px; }
+  .relay-header-actions .context-button { width: 36px; min-width: 36px; padding: 0; }
+  .relay-header-actions .context-button > span:last-child { display: none; }
+  .relay-mobile-more { display: block; }
+  .relay-mobile-more > summary { list-style: none; min-height: 36px; padding: 7px 8px; color: var(--text-secondary); font-size: 12px; cursor: pointer; }
+  .relay-mobile-more > summary::-webkit-details-marker { display: none; }
+  .relay-mobile-more-menu { position: absolute; z-index: 30; top: 100%; right: 0; display: flex; flex-direction: column; width: 160px; padding: 5px; background: var(--bg-surface-overlay); border: 1px solid var(--dialogue-line); border-radius: 8px; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35); }
+  .relay-mobile-more-menu button { padding: 10px; text-align: left; color: var(--text-primary); font-size: 12px; }
+  #main-layout:has(.relay-messages-workspace) #app-top-header,
+  #main-layout:has(.relay-messages-workspace) .messages-header { display: none !important; }
+}

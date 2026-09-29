@@ -20,6 +20,7 @@ try {
     }
   }
   const bgMap: Record<string, string> = {
+    'mineral-basalt': '#08090d',
     'alabaster-light': '#f6f5f2',
     'matrix-monolith': '#000000',
     'matrix-emerald': '#020d08',

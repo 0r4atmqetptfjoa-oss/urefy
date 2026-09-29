@@ -466,6 +466,10 @@ export class ActionDispatcher {
         event.stopPropagation();
         break;
       }
+      case 'toggle-spoiler': {
+        el.classList.toggle('text-transparent');
+        break;
+      }
 
       case 'call-global': {
         // If element is a backdrop, only proceed if click was directly on the backdrop
@@ -3550,6 +3554,17 @@ export class ActionDispatcher {
           input.focus({ preventScroll: true });
         }
         clientStore.notifySync();
+      }
+    } else if (action === 'submit-onboarding-profile') {
+      event.preventDefault();
+      if (typeof window !== 'undefined' && (window as any).onboardingWizard) {
+        (window as any).onboardingWizard.next();
+      }
+    } else if (action === 'call-global') {
+      event.preventDefault();
+      const method = el.getAttribute('data-global-method');
+      if (method) {
+        this.invokeMethodPath(method, []);
       }
     } else if (typeof window !== 'undefined') {
       const customHandler = (window as any)[`__aetheris_submit_${action}`];

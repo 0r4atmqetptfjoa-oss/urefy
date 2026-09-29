@@ -66,7 +66,9 @@ test('two independent sessions exchange encrypted messages and retain private hi
     expect(fixture.sqlite.prepare('SELECT envelope_json FROM direct_messages LIMIT 1').get()?.envelope_json).not.toContain(text);
 
     // A branch preserves the source and travels inside the encrypted envelope.
-    await sender.locator('.dm-message').filter({ hasText: text }).getByRole('button', { name: 'Branch', exact: true }).click();
+    await sender.locator('.dm-message').filter({ hasText: text }).hover();
+    await sender.locator('.dm-message').filter({ hasText: text }).getByLabel('More message actions').click();
+    await sender.locator('.dm-message').filter({ hasText: text }).getByRole('button', { name: 'Branch conversation', exact: true }).click();
     await sender.locator('#sovereign-dialog-root input').fill('Private reading plan');
     await sender.locator('#sovereign-dialog-confirm-btn').click();
     await expect(sender.locator('.context-trail').first()).toContainText(text);
@@ -93,13 +95,15 @@ test('two independent sessions exchange encrypted messages and retain private hi
     await recipient.locator('#input-dm-search').fill('');
     const branchMessageId = await recipient.locator('.dm-message').filter({ hasText: branchText }).getAttribute('id');
     const branchMessage = recipient.locator(`#${branchMessageId}`);
+    await branchMessage.hover();
     await branchMessage.getByRole('button', { name: 'Reply', exact: true }).click();
-    await expect(recipient.getByText(`Replying to: ${branchText}`, { exact: true })).toBeVisible();
+    await expect(recipient.locator('.dialogue-composer-reply')).toContainText(`Replying to: ${branchText}`);
     await recipient.locator('#input-dm-message').fill('A contextual answer');
     await recipient.locator('#input-dm-message').press('Enter');
     await expect(recipient.locator('#input-dm-message')).toHaveValue('');
     await expect(recipient.locator('.context-quote-link')).toHaveText(branchText);
-    await branchMessage.locator('summary').click();
+    await branchMessage.hover();
+    await branchMessage.getByLabel('React to message').click();
     await branchMessage.getByRole('button', { name: 'React 👍', exact: true }).click();
     await expect(branchMessage.locator('[data-emoji="👍"][aria-pressed="true"]')).toContainText('1');
     expect(fixture.sqlite.prepare('SELECT envelope_json FROM direct_messages').all().some(row => String(row.envelope_json).includes(branchText))).toBe(false);

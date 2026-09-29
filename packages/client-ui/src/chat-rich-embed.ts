@@ -308,7 +308,7 @@ export function processChatMessageContent(rawText: string): string {
   html = html.replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, '<em class="italic text-slate-200">$1</em>');
 
   // 6. Spoilers: ||text||
-  html = html.replace(/\|\|([^|\n]+)\|\|/g, '<span class="spoiler-text px-1 rounded bg-slate-700 text-transparent hover:text-white hover:bg-slate-600 transition-all cursor-pointer select-none" onclick="this.classList.toggle(\'text-transparent\')" title="Click to reveal spoiler">$1</span>');
+  html = html.replace(/\|\|([^|\n]+)\|\|/g, '<span class="spoiler-text px-1 rounded bg-slate-700 text-transparent hover:text-white hover:bg-slate-600 transition-all cursor-pointer select-none" data-action="toggle-spoiler" role="button" tabindex="0" title="Click to reveal spoiler">$1</span>');
 
   // 7. Blockquotes (> text)
   html = html.replace(/(?:^|\n)&gt;\s*([^\n]+)/g, '<blockquote class="border-l-2 border-[var(--color-accent,#e59b3c)] pl-3 my-1.5 text-slate-300 italic text-[14px] leading-relaxed">$1</blockquote>');

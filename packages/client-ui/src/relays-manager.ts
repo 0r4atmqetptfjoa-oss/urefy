@@ -481,14 +481,11 @@ export class RelaysManager {
           ${activeRelay.channels.map(ch => {
             const isChActive = activeChId === ch.id;
             const topicTitle = this.resolveTopicName(ch.name);
-            const topicSubtitle = ch.name === 'general' ? 'Elena Rostova · 2m ago'
-              : ch.name === 'dev' || ch.name === 'dev-core' ? 'David Chen · 18m ago'
-              : ch.name === 'questions' ? 'Recent inquiries'
-              : 'Community dialogue';
             return `
               <button
                 type="button"
-                data-channel-id="${ch.id}"
+                  data-channel-id="${ch.id}"
+                  aria-current="${isChActive ? 'true' : 'false'}"
                 class="btn-channel w-full text-left px-3 py-2 rounded-lg transition-all cursor-pointer flex items-center justify-between border ${
                   isChActive
                     ? 'bg-white/[0.04] text-white border-white/10 shadow-xs'
@@ -499,10 +496,9 @@ export class RelaysManager {
                   <div class="text-xs font-semibold truncate ${isChActive ? 'text-[var(--color-accent,#e89e38)]' : 'text-slate-200'}">
                     ${this._escapeHtml(topicTitle)}
                   </div>
-                  <div class="text-[11px] text-slate-500 truncate mt-0.5">${topicSubtitle}</div>
                 </div>
                 ${isChActive ? `
-                  <span class="w-2 h-2 rounded-full bg-emerald-400 shadow-xs shrink-0" title="Active conversation"></span>
+                  <span class="w-1.5 h-1.5 rotate-45 bg-[var(--color-accent,#e89e38)] shrink-0" title="Current conversation"></span>
                 ` : ''}
               </button>
             `;
@@ -527,13 +523,13 @@ export class RelaysManager {
     const topicTitle = this.resolveTopicName(activeChannelName);
 
     return `
-      <div class="h-16 border-b border-white/5 bg-surface-base/70 backdrop-blur-sm px-4 md:px-6 flex items-center justify-between shrink-0 select-none">
-        <div class="flex items-center space-x-3.5 truncate">
-          <div class="w-9 h-9 rounded-xl bg-[var(--color-accent,#e89e38)]/10 border border-[var(--color-accent,#e89e38)]/20 flex items-center justify-center text-lg text-[var(--color-accent,#e89e38)] shrink-0">
-            ${relay.icon || '⚡'}
+      <div class="relay-conversation-header h-16 border-b border-white/5 bg-surface-base/70 backdrop-blur-sm px-4 md:px-6 flex items-center justify-between shrink-0 select-none">
+        <div class="relay-header-identity flex items-center space-x-3.5 min-w-0">
+          <div class="w-9 h-9 flex items-center justify-center text-lg text-[var(--color-accent,#e89e38)] shrink-0" aria-hidden="true">
+            ◈
           </div>
-          <div>
-            <div class="flex items-center space-x-2">
+          <div class="min-w-0">
+            <div class="relay-header-title flex items-center space-x-2">
               <h2 class="text-sm font-bold text-white tracking-tight">${this._escapeHtml(displayName)}</h2>
               <span class="text-xs text-slate-400 font-normal">· ${this._escapeHtml(topicTitle)}</span>
             </div>
@@ -544,7 +540,7 @@ export class RelaysManager {
           </div>
         </div>
 
-        <div class="flex items-center space-x-2">
+        <div class="relay-header-actions flex items-center space-x-2 shrink-0">
           <!-- Local Search Button -->
           <button
             type="button"
@@ -577,6 +573,14 @@ export class RelaysManager {
           >
             <span>Invite</span>
           </button>
+
+          <details class="relay-mobile-more relative md:hidden">
+            <summary class="context-button" aria-label="More community actions">More</summary>
+            <div class="relay-mobile-more-menu">
+              <button type="button" data-action="call-global" data-raw-click="if(window.__aetherisTransparency) window.__aetherisTransparency.open('pipeline');">Details</button>
+              <button type="button" data-open-relay-invite="${relay.id}">Invite people</button>
+            </div>
+          </details>
 
           ${!isGlobal ? `
             <!-- Leave Relay Button -->

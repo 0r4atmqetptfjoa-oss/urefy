@@ -200,6 +200,22 @@ export class ThemeEngine {
   ];
 
   public readonly CURATED_THEMES: ThemeDefinition[] = [
+    {
+      id: 'mineral-basalt',
+      name: 'Mineral Basalt',
+      emoji: '🏛️',
+      accentColor: '#e89e38',
+      bgCanvas: '#08090d',
+      bgSurfaceBase: '#0f1219',
+      bgSurfaceRaised: '#161a24',
+      bgSurfaceOverlay: '#222838',
+      textAccent: '#e89e38',
+      borderAccent: 'rgba(232, 158, 56, 0.45)',
+      secondaryAccent: '#c27020',
+      description: 'Rich warm mineral basalt canvas (#08090d) with nocturnal slate surfaces (#0f1219) and Solar Forge Amber (#e89e38).',
+      badgeText: 'CANONICAL BASALT',
+      mode: 'dim',
+    },
     ...this.THEMES,
     {
       id: 'sovereign-midnight',
@@ -1142,6 +1158,20 @@ export class ThemeEngine {
       }
 
       /* Theme-specific accent glows, card borders and highlights */
+      [data-theme="mineral-basalt"] {
+        --color-accent: ${effectiveAccent};
+        --color-accent-glow: ${effectiveAccent}33;
+        --color-accent-border: ${effectiveAccent}55;
+      }
+      [data-theme="mineral-basalt"] article {
+        background-color: #121620 !important;
+        border: 1px solid rgba(255, 255, 255, 0.07) !important;
+      }
+      [data-theme="mineral-basalt"] article:hover {
+        border-color: ${effectiveAccent}66 !important;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+      }
+
       [data-theme="obsidian-cyber"] {
         --color-accent: ${effectiveAccent};
         --color-accent-glow: ${effectiveAccent}33;

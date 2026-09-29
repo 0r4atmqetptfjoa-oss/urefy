@@ -6,7 +6,6 @@
 
 import { clientStore, ClientMessage, DirectMessageAttachment } from './client-state.js';
 import { relaysManager } from './relays-manager.js';
-import { renderRelaysEmptyState } from './empty-states.js';
 import { zkReputation } from './zk-reputation.js';
 import { sovereignDM, DirectMessage } from './sovereign-dm.js';
 import { MAX_PRIVATE_ATTACHMENT_BYTES } from './direct-messaging-client.js';
@@ -24,6 +23,29 @@ if (typeof window !== 'undefined') {
   (window as any).voiceNotesManager = voiceNotesManager;
   (window as any).contextCapsuleManager = contextCapsuleManager;
   (window as any).chatSearchEngine = chatSearchEngine;
+}
+
+// A touch hold reveals the same contextual actions as desktop hover.
+if (typeof document !== 'undefined') {
+  let holdTimer: ReturnType<typeof setTimeout> | undefined;
+  let startX = 0;
+  let startY = 0;
+  const cancelHold = () => { if (holdTimer) clearTimeout(holdTimer); holdTimer = undefined; };
+  document.addEventListener('pointerdown', event => {
+    if (event.pointerType !== 'touch' || !(event.target instanceof Element)) return;
+    if (event.target.closest('button, summary, a, input, textarea')) return;
+    const message = event.target.closest<HTMLElement>('.dm-message');
+    if (!message) return;
+    cancelHold();
+    startX = event.clientX;
+    startY = event.clientY;
+    holdTimer = setTimeout(() => { message.focus({ preventScroll: true }); holdTimer = undefined; }, 420);
+  }, { passive: true });
+  document.addEventListener('pointermove', event => {
+    if (Math.abs(event.clientX - startX) > 8 || Math.abs(event.clientY - startY) > 8) cancelHold();
+  }, { passive: true });
+  document.addEventListener('pointerup', cancelHold, { passive: true });
+  document.addEventListener('pointercancel', cancelHold, { passive: true });
 }
 
 export type MessagesTab = 'relays' | 'dm';
@@ -320,8 +342,8 @@ function formatRelative(ts: number): string {
   return `${Math.floor(diff / 86400)}d`;
 }
 
-function generateDeterministicGradient(seed: string): string {
-  if (!seed || seed === 'genesis-core' || seed === 'unknown') {
+function generateDeterministicGradient(fingerprint: string): string {
+  if (!fingerprint || fingerprint === 'genesis-core' || fingerprint === 'unknown') {
     return 'from-slate-800 to-slate-900 text-slate-300 border-slate-700/50';
   }
   const gradients = [
@@ -333,8 +355,8 @@ function generateDeterministicGradient(seed: string): string {
     'from-[#251e22] to-[#181316] text-rose-200/90 border-rose-500/20',
   ];
   let hash = 0x811c9dc5;
-  for (let i = 0; i < seed.length; i++) {
-    hash ^= seed.charCodeAt(i);
+  for (let i = 0; i < fingerprint.length; i++) {
+    hash ^= fingerprint.charCodeAt(i);
     hash = Math.imul(hash, 0x01000193);
   }
   const idx = Math.abs(hash) % gradients.length;
@@ -439,7 +461,7 @@ export function renderSharedPostCard(text: string): string {
   }
   const postAuthor = resolveHumanDisplayName(post.authorFingerprint);
   return `
-    <div class="mt-2.5 p-3 rounded-2xl bg-surface-base border border-white/10 hover:border-white/20 transition-all space-y-1.5 text-xs text-left cursor-pointer group/card shadow-xs" data-action="open-post" data-post-id="${escapeHtml(post.id)}">
+    <div class="dialogue-shared-post mt-2.5 p-3 space-y-1.5 text-xs text-left cursor-pointer group/card" data-action="open-post" data-post-id="${escapeHtml(post.id)}">
       <div class="flex items-center justify-between text-[11px] text-slate-400">
         <div class="flex items-center space-x-1.5 truncate">
           <span>📜</span>
@@ -460,8 +482,8 @@ export function renderAttachmentCard(att?: DirectMessageAttachment): string {
   if (!att || !att.dataUrl) return '';
 
   const isImg = att.type?.startsWith('image/') || /\.(png|jpe?g|gif|webp|svg)$/i.test(att.name);
-  const isVideo = att.type?.startsWith('video/') || /\.(mp4|webm|ogg)$/i.test(att.name);
-  const isAudio = att.type?.startsWith('audio/') || /\.(mp3|wav|ogg|m4a)$/i.test(att.name);
+  const isVideo = att.type?.startsWith('video/') || (!att.type && /\.(mp4|webm|ogg)$/i.test(att.name));
+  const isAudio = att.type?.startsWith('audio/') || (!att.type && /\.(mp3|wav|ogg|m4a)$/i.test(att.name));
   const sizeFormatted = att.size ? (att.size < 1024 * 1024 ? `${(att.size / 1024).toFixed(1)} KB` : `${(att.size / (1024 * 1024)).toFixed(1)} MB`) : '';
 
   if (isImg) {
@@ -490,10 +512,10 @@ export function renderAttachmentCard(att?: DirectMessageAttachment): string {
 
   if (isAudio) {
     return `
-      <div class="mt-2 p-2.5 rounded-xl border border-white/10 bg-surface-raised/80 max-w-sm space-y-1">
-        <div class="text-[11px] font-mono font-bold text-slate-200 flex items-center space-x-1.5 truncate">
-          <span>🎵</span>
-          <span class="truncate">${escapeHtml(att.name)}</span>
+      <div class="dialogue-audio mt-2 p-2.5 max-w-sm space-y-1">
+        <div class="text-xs font-semibold text-slate-200 flex items-center space-x-1.5 truncate">
+          <span aria-hidden="true">◖</span>
+          <span class="truncate">${/^voice[_ -]?note/i.test(att.name) ? 'Voice message' : 'Audio'} · ${escapeHtml(att.name)}</span>
         </div>
         <audio src="${escapeHtml(att.dataUrl)}" controls class="w-full h-8"></audio>
       </div>
@@ -1034,15 +1056,12 @@ export function renderMessageItem(m: ClientMessage, prevMsg?: ClientMessage): st
   }
 
   const avatarInitials = author.name === 'Profile not set up' ? '?' : author.name.substring(0, 2).toUpperCase();
-  const avatarGradient = author.name === 'Profile not set up'
-    ? 'from-slate-800 to-slate-900 border-slate-700/60 text-slate-300'
-    : generateDeterministicGradient(m.authorFingerprint);
   const capsule = m.text ? parseCapsuleFromText(m.text) : null;
 
   if (isGrouped) {
     return `
       ${dateSepHtml}
-      <div class="message-row message-row--subsequent group/msg-row relative relay-message py-0.5 max-w-full overflow-hidden transition-colors" data-author-fp="${escapeAttr(m.authorFingerprint)}" data-author-profile="${escapeAttr(m.authorFingerprint)}">
+      <div class="message-row message-row--subsequent group/msg-row relative relay-message ${m.isMine ? 'relay-message--own' : ''} py-0.5 max-w-full overflow-hidden transition-colors" data-author-fp="${escapeAttr(m.authorFingerprint)}" data-author-profile="${escapeAttr(m.authorFingerprint)}">
         <div class="weave-spine ${m.isMine ? 'is-mine' : ''} ${m.isMine ? 'pl-2' : 'pl-9 sm:pl-10'} pr-3 py-0.5 space-y-1">
           <div class="message-body text-[14px] sm:text-[15px] text-slate-100 select-text leading-[1.55] break-words [overflow-wrap:anywhere] min-w-0">
             ${capsule ? renderCapsuleArtifact(capsule) : (m.text ? `<div class="whitespace-pre-wrap">${processChatMessageContent(m.text)}</div>` : '')}
@@ -1063,10 +1082,10 @@ export function renderMessageItem(m: ClientMessage, prevMsg?: ClientMessage): st
 
   return `
     ${dateSepHtml}
-    <div class="message-row group/msg-row relative relay-message mt-2 max-w-full overflow-hidden transition-colors" data-author-fp="${escapeAttr(m.authorFingerprint)}" data-author-profile="${escapeAttr(m.authorFingerprint)}">
+    <div class="message-row group/msg-row relative relay-message ${m.isMine ? 'relay-message--own' : ''} mt-2 max-w-full overflow-hidden transition-colors" data-author-fp="${escapeAttr(m.authorFingerprint)}" data-author-profile="${escapeAttr(m.authorFingerprint)}">
       <div class="stanza-header flex items-center gap-2 mb-1 px-1 select-none">
         ${!m.isMine ? `
-          <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-gradient-to-tr ${avatarGradient} border flex items-center justify-center text-xs font-bold shadow-xs shrink-0 ring-1 ring-white/10">
+          <div class="dialogue-identity-mark w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center text-xs font-bold shrink-0">
             ${avatarInitials}
           </div>
           <div class="flex items-baseline gap-2 min-w-0 flex-wrap">
@@ -1360,10 +1379,9 @@ export function renderDirectMessagesWorkspace(): string {
             const isSelected = activePeerFP === conv.peerFingerprint;
             const lastMsg = conv.messages.filter(message => !message.context?.reaction).at(-1);
             const snippet = lastMsg ? lastMsg.plaintext : 'No messages yet';
-            const gradient = generateDeterministicGradient(conv.peerFingerprint);
             const peerInfo = resolveHumanDisplayName(conv.peerFingerprint);
             const avatarInitials = peerInfo.name === 'Profile not set up' ? '?' : peerInfo.name.substring(0, 2).toUpperCase();
-            const avatarBg = peerInfo.name === 'Profile not set up' ? 'bg-slate-700 text-slate-300' : `bg-gradient-to-tr ${gradient} text-white`;
+            const avatarBg = 'dialogue-identity-mark';
 
             return `
               <div class="relative group/conv flex items-center">
@@ -1419,14 +1437,10 @@ export function renderDirectMessagesWorkspace(): string {
       <!-- 2. RIGHT CHAT THREAD AREA -->
       <main class="conversation-pane flex-1 flex flex-col overflow-hidden bg-canvas ${activeConv ? 'messages-thread-active' : ''}">
         ${!activeConv ? `
-          <div class="flex-1 flex flex-col items-center justify-center p-8 text-center select-none animate-in fade-in duration-200">
-            <div class="w-14 h-14 rounded-2xl bg-[var(--color-accent,#e89e38)]/10 border border-[var(--color-accent,#e89e38)]/20 flex items-center justify-center text-2xl text-[var(--color-accent,#e89e38)] shadow-inner mb-4">
-              💬
-            </div>
-            <h3 class="text-xl font-bold text-white tracking-tight mb-2">Your private conversations</h3>
-            <p class="text-sm text-slate-400 max-w-sm mx-auto leading-relaxed mb-6">
-              Start a direct conversation with someone you trust. Messages are encrypted on-device.
-            </p>
+          <div class="dialogue-empty flex-1 flex flex-col justify-center p-8 md:p-14 select-none">
+            <span class="dialogue-eyebrow">◈ &nbsp; DIRECT</span>
+            <h3 class="text-2xl md:text-3xl font-semibold text-white tracking-tight mb-2">Private conversations</h3>
+            <p class="text-sm md:text-base text-slate-400 max-w-sm leading-relaxed mb-6">A quieter place for conversations that matter.</p>
             <button 
               type="button" 
               data-action="new-dm-conversation"
@@ -1435,7 +1449,7 @@ export function renderDirectMessagesWorkspace(): string {
               <span>+</span>
               <span>New message</span>
             </button>
-            <div class="mt-8 flex items-center gap-2 text-xs text-slate-500 font-mono">
+            <div class="mt-8 flex items-center gap-2 text-xs text-slate-500">
               <span class="w-1.5 h-1.5 rounded-full bg-emerald-400/80"></span>
               <span>Private · End-to-end encrypted</span>
             </div>
@@ -1447,7 +1461,7 @@ export function renderDirectMessagesWorkspace(): string {
               <button type="button" data-action="dm-back" class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-surface-raised cursor-pointer md:hidden" aria-label="Back to conversations">
                 ${renderIcon('chevronRight', { size: 18, className: 'rotate-180' })}
               </button>
-              <div class="w-9 h-9 rounded-xl ${resolveHumanDisplayName(activeConv.peerFingerprint).name === 'Profile not set up' ? 'bg-slate-700 text-slate-300' : 'bg-gradient-to-tr ' + generateDeterministicGradient(activeConv.peerFingerprint) + ' text-white'} flex items-center justify-center font-bold text-xs shadow-sm border border-white/10 shrink-0">
+              <div class="dialogue-identity-mark w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs shrink-0">
                 ${resolveHumanDisplayName(activeConv.peerFingerprint).name === 'Profile not set up' ? '?' : resolveHumanDisplayName(activeConv.peerFingerprint).name.substring(0, 2).toUpperCase()}
               </div>
               <div class="min-w-0">
@@ -1476,7 +1490,7 @@ export function renderDirectMessagesWorkspace(): string {
                     <button type="button" data-action="open-dm-safety" class="flex items-center gap-1.5 text-emerald-400 hover:text-emerald-300 font-medium cursor-pointer transition-colors" title="View conversation security">
                       <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 ring-2 ring-emerald-400/20"></span>
                       <span class="hidden sm:inline">Private · End-to-end encrypted</span>
-                      <span class="sm:hidden">Encrypted</span>
+                      <span class="sm:hidden">Private</span>
                     </button>
                   `}
                 </div>
@@ -1537,6 +1551,9 @@ export function renderDirectMessagesWorkspace(): string {
                   <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-2.5 py-1 border-b border-white/5">
                     Conversation Options
                   </div>
+                  <button type="button" data-action="open-capsule-creator" class="w-full text-left px-2.5 py-2 rounded-xl hover:bg-surface-raised text-slate-200 text-xs md:hidden">Context Capsules</button>
+                  <button type="button" data-action="toggle-catch-me-up" class="w-full text-left px-2.5 py-2 rounded-xl hover:bg-surface-raised text-slate-200 text-xs md:hidden">Catch up</button>
+                  <button type="button" data-action="toggle-dm-context" class="w-full text-left px-2.5 py-2 rounded-xl hover:bg-surface-raised text-slate-200 text-xs md:hidden">Context Shelf</button>
                   <button 
                     type="button" 
                     data-action="open-dm-safety" 
@@ -1601,17 +1618,6 @@ export function renderDirectMessagesWorkspace(): string {
                     ${allMessages.some(message => !message.isRead && branchOf(message) === b) ? '<span aria-label="Unread messages"> •</span>' : ''}
                   </button>
                 `).join('')}
-                <button
-                  type="button"
-                  data-action="create-dm-branch"
-                  data-peer="${activeConv.peerFingerprint}"
-                  class="px-2.5 py-1 rounded-lg text-[11px] text-slate-300 hover:text-white bg-surface-raised hover:bg-surface-overlay border border-white/10 transition-all cursor-pointer shrink-0 flex items-center space-x-1"
-                  title="Create a new conversation branch"
-                  ${messages.some(message => message.deliveryStatus !== 'failed') ? '' : 'disabled'}
-                >
-                  <span>+</span>
-                  <span>New Branch</span>
-                </button>
               </div>
             `;
           })()}
@@ -1627,16 +1633,14 @@ export function renderDirectMessagesWorkspace(): string {
           </section>` : ''}
 
           <!-- MESSAGES THREAD SCROLL -->
-          <div id="dm-thread-messages" class="flex-1 p-3 sm:p-5 md:p-6 overflow-y-auto space-y-3 max-w-3xl lg:max-w-4xl mx-auto w-full dialogue-canvas">
+          <div id="dm-thread-messages" class="flex-1 p-3 sm:p-5 md:p-6 overflow-y-auto space-y-3 max-w-[940px] mx-auto w-full dialogue-canvas">
             ${renderCatchMeUpCard(messages, resolvePeerName(activeConv.peerFingerprint))}
             ${messages.length === 0 ? `
-              <div class="max-w-md mx-auto p-6 rounded-2xl bg-surface-base/80 border border-white/5 space-y-4 my-8 text-center animate-in fade-in duration-200">
-                <div class="w-14 h-14 mx-auto rounded-xl bg-gradient-to-tr ${generateDeterministicGradient(activeConv.peerFingerprint)} flex items-center justify-center text-white font-bold text-xl shadow-md border border-white/10">
-                  ${resolveHumanDisplayName(activeConv.peerFingerprint).name.substring(0, 2).toUpperCase()}
-                </div>
+              <div class="dialogue-thread-empty space-y-4 my-8">
+                <span class="dialogue-eyebrow">◈ &nbsp; A NEW CONVERSATION</span>
                 <div>
                   <h4 class="text-base font-bold text-white">${escapeHtml(resolveHumanDisplayName(activeConv.peerFingerprint).name)}</h4>
-                  <div class="flex items-center justify-center gap-2 mt-1">
+                  <div class="flex items-center gap-2 mt-1">
                     <span class="text-[11px] font-mono text-slate-400">${escapeHtml(resolveHumanDisplayName(activeConv.peerFingerprint).handle)}</span>
                     ${activeConv.peerRole === 'GUARDIAN' || activeConv.peerRole === 'ARCHIVIST' ? `
                       <span class="text-[9px] px-1.5 py-0.2 rounded border ${
@@ -1648,12 +1652,12 @@ export function renderDirectMessagesWorkspace(): string {
                     ` : ''}
                   </div>
                 </div>
-                <p class="text-xs text-slate-400 leading-relaxed max-w-xs mx-auto">
-                  Start a direct conversation with ${escapeHtml(resolveHumanDisplayName(activeConv.peerFingerprint).name)}. Messages are encrypted on-device.
+                <p class="text-sm text-slate-400 leading-relaxed max-w-xs">
+                  Start a conversation with ${escapeHtml(resolveHumanDisplayName(activeConv.peerFingerprint).name)}.
                 </p>
                 <div class="space-y-2 pt-2">
                   <div class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Suggested conversation starters</div>
-                  <div class="flex flex-wrap gap-2 justify-center">
+                   <div class="flex flex-wrap gap-2">
                     <button 
                       type="button" 
                       data-action="insert-chat-prompt" 
@@ -1694,7 +1698,7 @@ export function renderDirectMessagesWorkspace(): string {
                 <div class="dialogue-flow space-y-3">
                   ${scene.clusters.map(cluster => {
                     if (cluster.isSystem) {
-                      return cluster.messages.map(msg => `
+                      return cluster.messages.filter(msg => !/encrypt|ratchet|key exchange|safety number|ml-kem|x25519/i.test(msg.plaintext || '')).map(msg => `
                         <div class="dialogue-system-event flex items-center justify-center my-2 select-none px-4" role="status">
                           <div class="text-[11px] text-slate-400 flex items-center space-x-2 text-center max-w-lg">
                             <span class="w-1.5 h-1.5 rounded-full bg-slate-500"></span>
@@ -1722,8 +1726,6 @@ export function renderDirectMessagesWorkspace(): string {
                         statusHtml = '<span class="text-emerald-400/80 text-[11px] flex items-center gap-1 font-mono" title="Read by recipient"><span>✓✓</span><span>Read</span></span>';
                       } else if (lastMsg.deliveryStatus === 'sent') {
                         statusHtml = '<span class="text-slate-400 text-[11px] flex items-center gap-1 font-mono"><span>✓</span><span>Sent</span></span>';
-                      } else {
-                        statusHtml = '<span class="text-emerald-400/80 text-[11px] flex items-center gap-1 font-mono"><span>✓</span><span>Encrypted</span></span>';
                       }
                     }
 
@@ -1732,18 +1734,12 @@ export function renderDirectMessagesWorkspace(): string {
                         <!-- Stanza Header -->
                         <div class="stanza-header flex items-center gap-2 mb-1 px-1 select-none ${isMine ? 'justify-end' : ''}">
                           ${!isMine ? `
-                            <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-gradient-to-tr ${generateDeterministicGradient(cluster.senderFP)} flex items-center justify-center font-bold text-xs shadow-xs shrink-0 ring-1 ring-white/10">
+                            <div class="dialogue-identity-mark w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center font-bold text-xs shrink-0">
                               ${senderInfo.name === 'Profile not set up' ? '?' : senderInfo.name.substring(0, 2).toUpperCase()}
                             </div>
                             <div class="flex items-baseline gap-2 min-w-0 flex-wrap">
                               <span class="text-[13px] sm:text-[14px] font-semibold text-slate-100">${escapeHtml(senderInfo.name)}</span>
                               ${senderInfo.handle ? `<span class="text-[11px] text-slate-500 font-mono">${escapeHtml(senderInfo.handle)}</span>` : ''}
-                              ${activeConv.peerRole === 'GUARDIAN' || activeConv.peerRole === 'ARCHIVIST' ? `
-                                <span class="text-[9px] px-1.5 py-0.2 rounded border ${
-                                  activeConv.peerRole === 'GUARDIAN' ? 'bg-amber/15 text-amber border-amber/30' :
-                                  'bg-cyphr/15 text-cyphr border-cyphr/30'
-                                }">${escapeHtml(humanPeerRole(activeConv.peerRole))}</span>
-                              ` : ''}
                             </div>
                             <span class="text-[11px] text-slate-500 font-mono ml-auto sm:ml-0">${timeStr}</span>
                           ` : `
@@ -1764,18 +1760,18 @@ export function renderDirectMessagesWorkspace(): string {
                             const msgTime = formatTime(msg.timestamp);
 
                             return `
-                              <div id="dm-message-${escapeHtml(msg.id)}" tabindex="-1" class="dm-message group/msg-row relative flex flex-col py-0.5 rounded-lg transition-colors select-text">
+                              <div id="dm-message-${escapeHtml(msg.id)}" tabindex="0" class="dm-message group/msg-row relative flex flex-col py-0.5 rounded-lg transition-colors select-text">
                                 <!-- Visual Reply Branch -->
                                 ${msg.context?.replyToId ? `
                                   <div class="dialogue-reply-branch flex items-center gap-1.5 text-xs text-slate-400 mb-0.5 select-none ${isMine ? 'justify-end' : ''}">
                                     <span class="text-slate-500 font-mono text-[12px] leading-none">↳</span>
-                                    <span class="text-slate-500 text-[11px]">replying to:</span>
+                                    <span class="text-slate-500 text-[11px]">${escapeHtml(allMessages.find(item => item.id === msg.context?.replyToId)?.senderFP === myFP ? 'You' : senderInfo.name)} ·</span>
                                     <button type="button" class="context-quote context-quote-link text-slate-300 hover:text-[var(--color-accent,#e89e38)] underline font-medium cursor-pointer truncate max-w-xs sm:max-w-md text-[11px] bg-transparent border-none p-0 inline" data-action="open-message-context" data-message-id="${escapeHtml(msg.context.replyToId)}" aria-label="Return to replied message">${escapeHtml(allMessages.find(item => item.id === msg.context?.replyToId)?.plaintext.slice(0, 100) || 'Earlier message unavailable')}</button>
                                   </div>
                                 ` : ''}
 
                                 <!-- Message Body -->
-                                <div class="weave-message-body text-[14px] sm:text-[15px] text-slate-100 select-text leading-[1.55] break-words [overflow-wrap:anywhere] min-w-0">
+                                <div class="weave-message-body text-[15px] sm:text-[16px] text-slate-100 select-text leading-[1.6] break-words [overflow-wrap:anywhere] min-w-0">
                                   ${sovereignDM.showCiphertextToggle ? `
                                     <div class="font-mono text-[10px] text-emerald-400 bg-black/40 p-2 rounded-lg border border-emerald-500/30 break-all space-y-1">
                                       <div class="text-slate-400 font-bold">SIGNED ENCRYPTED ENVELOPE:</div>
@@ -1798,7 +1794,7 @@ export function renderDirectMessagesWorkspace(): string {
                                 ${sovereignDM.getBranches(activeConv.peerFingerprint).filter(b => b.sourceMessageId === msg.id).map(b => {
                                   const count = allMessages.filter(m => branchOf(m) === b.id).length;
                                   return `
-                                    <button type="button" data-action="jump-dm-branch" data-branch="${escapeHtml(b.id)}" class="weave-branch-marker inline-flex items-center gap-1.5 mt-1 px-3 py-1 rounded-full bg-[var(--color-accent,#e89e38)]/10 hover:bg-[var(--color-accent,#e89e38)]/20 border border-[var(--color-accent,#e89e38)]/25 text-xs text-slate-200 transition-all cursor-pointer">
+                                    <button type="button" data-action="jump-dm-branch" data-branch="${escapeHtml(b.id)}" class="weave-branch-marker inline-flex items-center gap-1.5 mt-1 text-xs text-slate-400 hover:text-white transition-colors cursor-pointer">
                                       <span class="text-[var(--color-accent,#e89e38)] font-mono text-[12px]">↳</span>
                                       <span class="font-semibold text-slate-200">${count} replies</span>
                                       <span class="text-[11px] text-slate-400">· ${escapeHtml(b.title)}</span>
@@ -1824,15 +1820,17 @@ export function renderDirectMessagesWorkspace(): string {
                                 <!-- Progressive Action Bar (revealed on hover/focus) -->
                                 ${!sovereignDM.showCiphertextToggle && msg.deliveryStatus !== 'failed' ? `
                                   <div class="context-actions opacity-0 group-hover/msg-row:opacity-100 focus-within:opacity-100 transition-opacity mt-0.5 flex items-center gap-1 flex-wrap ${isMine ? 'justify-end' : ''}" aria-label="Message actions">
-                                    <button type="button" class="context-button" data-action="reply-dm-message" data-message-id="${escapeHtml(msg.id)}">Reply</button>
-                                    <button type="button" class="context-button" data-action="create-dm-branch" data-peer="${escapeHtml(activeConv.peerFingerprint)}" data-message-id="${escapeHtml(msg.id)}">Branch</button>
-                                    <button type="button" class="context-button" data-action="add-to-capsule" data-message-id="${escapeHtml(msg.id)}" data-sender-name="${escapeAttr(senderInfo.name)}" data-sender-handle="${escapeAttr(senderInfo.handle)}" data-text="${escapeAttr(msg.plaintext || '')}" data-timestamp="${msg.timestamp}" title="Add to Context Capsule">📦 Capsule</button>
-                                    ${canonicalVault.isMessageSaved(msg.id)
-                                      ? `<button type="button" class="context-button text-[var(--color-accent,#e89e38)] font-semibold border-[var(--color-accent,#e89e38)]/40 bg-[var(--color-accent,#e89e38)]/10" data-action="unsave-message-vault" data-message-id="${escapeHtml(msg.id)}" title="Remove from your encrypted device Vault">💾 Saved in Vault</button>`
-                                      : `<button type="button" class="context-button hover:border-[var(--color-accent,#e89e38)]/40 hover:text-white" data-action="save-message-vault" data-message-id="${escapeHtml(msg.id)}" title="Keep this message securely in your encrypted device Vault">🔒 Keep in Vault</button>`
-                                    }
-                                    <button type="button" class="context-button" data-action="copy-message-text" data-text="${escapeAttr(msg.plaintext || '')}" title="Copy text">📋 Copy</button>
                                     <details class="message-reactions"><summary class="context-button" aria-label="React to message">React</summary><div class="context-actions">${MESSAGE_REACTIONS.map(emoji => `<button type="button" class="context-button" data-action="react-dm-message" data-message-id="${escapeHtml(msg.id)}" data-emoji="${emoji}" aria-label="React ${emoji}">${emoji}</button>`).join('')}</div></details>
+                                    <button type="button" class="context-button" data-action="reply-dm-message" data-message-id="${escapeHtml(msg.id)}">Reply</button>
+                                    ${canonicalVault.isMessageSaved(msg.id)
+                                      ? `<button type="button" class="context-button text-[var(--color-accent,#e89e38)]" data-action="unsave-message-vault" data-message-id="${escapeHtml(msg.id)}" title="Remove from Vault">Saved</button>`
+                                      : `<button type="button" class="context-button" data-action="save-message-vault" data-message-id="${escapeHtml(msg.id)}" title="Save to Vault">Save</button>`
+                                    }
+                                    <details class="message-more"><summary class="context-button" aria-label="More message actions">More</summary><div class="context-actions">
+                                      <button type="button" class="context-button" data-action="create-dm-branch" data-peer="${escapeHtml(activeConv.peerFingerprint)}" data-message-id="${escapeHtml(msg.id)}">Branch conversation</button>
+                                      <button type="button" class="context-button" data-action="add-to-capsule" data-message-id="${escapeHtml(msg.id)}" data-sender-name="${escapeAttr(senderInfo.name)}" data-sender-handle="${escapeAttr(senderInfo.handle)}" data-text="${escapeAttr(msg.plaintext || '')}" data-timestamp="${msg.timestamp}">Add to Capsule</button>
+                                      <button type="button" class="context-button" data-action="copy-message-text" data-text="${escapeAttr(msg.plaintext || '')}">Copy text</button>
+                                    </div></details>
                                   </div>
                                 ` : ''}
 
@@ -1862,7 +1860,7 @@ export function renderDirectMessagesWorkspace(): string {
             ${renderOutcomePopover()}
             ${renderStagedAttachmentChip(sovereignDM.getPendingAttachment(), 'dm')}
             ${voiceNotesManager.renderRecorderBar()}
-            ${reply ? `<div class="context-trail"><p>Replying to: ${escapeHtml(reply.plaintext.slice(0, 120))}</p><button type="button" class="context-button" data-action="cancel-dm-reply">Cancel reply</button></div>` : ''}
+            ${reply ? `<div class="context-trail dialogue-composer-reply"><p>↳ Replying to: ${escapeHtml(reply.plaintext.slice(0, 100))}</p><button type="button" class="context-button" data-action="cancel-dm-reply">Cancel</button></div>` : ''}
 
             <!-- Hidden File Input -->
             <input 
@@ -1900,7 +1898,6 @@ export function renderDirectMessagesWorkspace(): string {
               </button>
 
               <div class="relative flex-1 min-w-0 flex items-center bg-surface-raised border border-white/10 rounded-2xl focus-within:border-[var(--color-accent,#e59b3c)] transition-all">
-                <span class="pl-3.5 text-xs text-slate-500 font-mono select-none">💬</span>
                 <input 
                   type="text" 
                   id="input-dm-message"
@@ -1925,7 +1922,7 @@ export function renderDirectMessagesWorkspace(): string {
       <!-- 3. RIGHT SIDEBAR: CONVERSATION CONTEXT SHELF (On-demand drawer on desktop, bottom sheet on mobile) -->
       ${activeConv && isDMContextDrawerOpen ? `
         <div class="fixed inset-0 bg-black/50 backdrop-blur-xs z-30 md:bg-black/25" data-action="toggle-dm-context"></div>
-        <aside class="flex fixed inset-x-0 bottom-0 md:inset-y-0 md:left-auto md:right-0 z-40 w-full md:w-[360px] max-h-[85vh] md:max-h-full border-t md:border-t-0 md:border-l border-white/10 bg-surface-base/95 backdrop-blur-md flex-col p-4 space-y-4 shrink-0 overflow-y-auto shadow-2xl rounded-t-3xl md:rounded-none">
+        <aside class="dialogue-context-shelf flex fixed inset-x-0 bottom-0 md:inset-y-0 md:left-auto md:right-0 z-40 w-full md:w-[360px] max-h-[85vh] md:max-h-full border-t md:border-t-0 md:border-l border-white/10 bg-surface-base/95 flex-col p-4 space-y-4 shrink-0 overflow-y-auto shadow-2xl rounded-t-3xl md:rounded-none">
           <!-- Mobile drag handle -->
           <div class="w-12 h-1.5 rounded-full bg-white/20 mx-auto -mt-1 mb-1 md:hidden"></div>
 
@@ -1941,8 +1938,8 @@ export function renderDirectMessagesWorkspace(): string {
           </div>
 
           <!-- 1. PERSON -->
-          <div class="text-center py-4 border-b border-white/5 space-y-2">
-            <div class="w-12 h-12 mx-auto rounded-xl bg-gradient-to-tr ${generateDeterministicGradient(activeConv.peerFingerprint)} flex items-center justify-center text-white font-bold text-base shadow-sm ring-1 ring-white/10">
+          <div class="dialogue-shelf-person py-4 border-b border-white/5 space-y-2">
+            <div class="dialogue-identity-mark w-10 h-10 rounded-xl flex items-center justify-center font-bold text-base">
               ${resolveHumanDisplayName(activeConv.peerFingerprint).name.substring(0, 2).toUpperCase()}
             </div>
             <div>
@@ -2084,11 +2081,7 @@ export function renderRelaysWorkspace(): string {
 
           <!-- MESSAGES FEED -->
           <div id="messages-container" class="flex-1 p-3 sm:p-4 md:p-6 overflow-y-auto space-y-${clientStore.density === 'compact' ? '0.5' : clientStore.density === 'balanced' ? '2' : '3'} max-w-4xl mx-auto w-full pb-20 md:pb-6">
-            ${messages.length === 0 ? renderRelaysEmptyState({
-              title: `${relaysManager.resolveTopicName(channelName)} has no messages yet`,
-              description: `This is the beginning of the conversation. Messages in this space are protected in transit.`,
-              actionText: 'Send the first message',
-            }) : messages.map((m, idx) => renderMessageItem(m, idx > 0 ? messages[idx - 1] : undefined)).join('')}
+          ${messages.length === 0 ? `<div class="dialogue-community-empty"><span class="dialogue-eyebrow">◈ &nbsp; ${escapeHtml(relaysManager.resolveTopicName(channelName))}</span><h3>Start this conversation</h3><p>Ask a question, share an idea, or bring something worth discussing.</p></div>` : messages.map((m, idx) => renderMessageItem(m, idx > 0 ? messages[idx - 1] : undefined)).join('')}
           </div>
 
           <!-- RELAYS COMPOSER -->

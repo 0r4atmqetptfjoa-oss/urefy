@@ -188,7 +188,7 @@ export class StoriesEngine {
 
       const ringWrapper = viewed
         ? 'p-[2px] rounded-full bg-surface-highlight border border-white/10'
-        : 'p-[2.5px] rounded-full bg-gradient-to-tr from-cyphr via-aether to-signal animate-pulse shadow-cyphr-sm';
+        : 'p-[2px] rounded-full border border-[var(--color-accent,#e59b3c)] ring-1 ring-[var(--color-accent,#e59b3c)]/40 shadow-xs';
 
       const avatarBg = viewed
         ? 'bg-surface-base text-slate-400'
@@ -399,7 +399,7 @@ export class StoriesEngine {
           <!-- ACTION FOOTER -->
           <div class="flex items-center justify-between pt-2 border-subtle-t">
             <span class="text-[10px] font-mono text-slate-500">Signing as: @id:${authorFingerprint.substring(0, 8)}</span>
-            <button id="btn-submit-story" type="button" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:opacity-90 text-white text-xs font-bold font-mono transition-all shadow-md flex items-center space-x-1.5 cursor-pointer">
+            <button id="btn-submit-story" type="button" class="px-5 py-2.5 rounded-xl bg-[var(--color-accent,#e59b3c)] hover:brightness-105 text-black text-xs font-bold font-mono transition-all shadow-md flex items-center space-x-1.5 cursor-pointer">
               <span>Broadcast (24h)</span>
               <span>⚡</span>
             </button>

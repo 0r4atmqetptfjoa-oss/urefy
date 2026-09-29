@@ -1,6 +1,6 @@
 # i18n Coverage Report — Aetheris Omni-Sphere
 
-> Generated: 2026-09-20 12:00 UTC
+> Generated: 2026-09-29 08:05 UTC
 > Audit tool: `packages/client-ui/scripts/i18n-audit.ts`
 > Scope: `packages/client-ui/src/*.ts`
 
@@ -11,7 +11,7 @@
 | Metric | Value |
 |--------|-------|
 | Total i18n dictionary keys (EN baseline) | **375** |
-| Unique hardcoded template strings found | **1427** |
+| Unique hardcoded template strings found | **1541** |
 | Strings likely needing i18n attention | **50** (sample capped at 50) |
 | Registered translation keys | **379** |
 
@@ -45,13 +45,13 @@
 | `admin-app.ts` | L112 | ORIGIN BINDING |
 | `admin-app.ts` | L128 | Authenticate with Hardware Key |
 | `admin-app.ts` | L166 | Unlock with Override PIN |
-| `admin-auth.ts` | L330 | Admin Access |
-| `admin-auth.ts` | L356 | Unlock Admin Panel |
-| `vault-view.ts` | L712 | Cancel |
+| `admin-auth.ts` | L312 | Admin Access |
+| `admin-auth.ts` | L338 | Unlock Admin Panel |
+| `vault-view.ts` | L721 | Cancel |
 | `admin-overview.ts` | L25 | Workspace overview |
 | `admin-overview.ts` | L40 | Content activity |
 | `admin-overview.ts` | L43 | Current hour |
-| `settings-view.ts` | L563 | Messages |
+| `messages-view.ts` | L1131 | Messages |
 | `admin-overview.ts` | L48 | Reports awaiting review |
 | `admin-overview.ts` | L48 | Open reports |
 | `admin-overview.ts` | L49 | Not connected |
@@ -88,7 +88,7 @@
 | `admin-panel.ts` | L1965 | Edit full post content here... |
 | `admin-panel.ts` | L709 | Administration navigation |
 
-_...and 1377 more. Run the full audit to see all._
+_...and 1491 more. Run the full audit to see all._
 
 ---
 

@@ -443,7 +443,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
   const requestId =
     req.headers.get('cf-ray') ||
     req.headers.get('x-request-id') ||
-    ('req_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8));
+    ('req_' + Date.now().toString(36) + '_' + crypto.randomUUID().replace(/-/g, '').slice(0, 8));
 
   const startMs = Date.now();
   let response: Response;

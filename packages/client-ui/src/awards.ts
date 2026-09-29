@@ -982,7 +982,7 @@ export class AwardsSystem {
           <!-- MODAL HEADER -->
           <div class="px-5 py-4 border-b border-white/10 bg-surface-raised flex items-center justify-between">
             <div class="flex items-center space-x-2.5">
-              <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-500/30 via-indigo-500/30 to-cyan-500/30 flex items-center justify-center text-xl border border-amber-500/40 shadow-sm">
+              <div class="w-9 h-9 rounded-xl bg-surface-base flex items-center justify-center text-xl border border-[var(--color-accent,#e59b3c)]/40 shadow-xs">
                 🏅
               </div>
               <div>
@@ -1063,7 +1063,7 @@ export class AwardsSystem {
               <button 
                 type="button"
                 id="btn-confirm-give-award"
-                class="px-4 py-2 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:brightness-110 text-black font-bold text-xs rounded-xl transition-all shadow-md flex items-center space-x-1.5 cursor-pointer"
+                class="px-4 py-2 bg-[var(--color-accent,#e59b3c)] hover:brightness-105 text-black font-bold text-xs rounded-xl transition-all shadow-sm flex items-center space-x-1.5 cursor-pointer"
                 data-post-id="${postId}"
                 ${commentId ? `data-comment-id="${commentId}"` : ''}
               >

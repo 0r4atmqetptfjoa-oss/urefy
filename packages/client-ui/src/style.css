@@ -433,22 +433,22 @@ code, kbd, samp, pre, .font-mono {
 [data-theme="alabaster-light"] input,
 [data-theme="alabaster-light"] textarea,
 [data-theme="alabaster-light"] select {
-  color: #0f172a !important;
-  background-color: #f8fafc !important;
-  border: 1px solid #e2e8f0 !important;
+  color: #1a1917 !important;
+  background-color: #efede8 !important;
+  border: 1px solid #e5e2da !important;
 }
 
 [data-theme="alabaster-light"] input:focus,
 [data-theme="alabaster-light"] textarea:focus,
 [data-theme="alabaster-light"] select:focus {
   background-color: #ffffff !important;
-  border-color: var(--color-accent, #4f46e5) !important;
-  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12) !important;
+  border-color: var(--color-accent, #c27803) !important;
+  box-shadow: 0 0 0 3px rgba(194, 120, 3, 0.14) !important;
 }
 
 [data-theme="alabaster-light"] input::placeholder,
 [data-theme="alabaster-light"] textarea::placeholder {
-  color: #64748b !important;
+  color: #615d56 !important;
 }
 
 /* Navigation Buttons */
@@ -560,16 +560,16 @@ article,
 
 /* Merit Voting Column */
 [data-theme="alabaster-light"] .btn-upvote {
-  color: #64748b !important;
+  color: #615d56 !important;
 }
 [data-theme="alabaster-light"] .btn-upvote:hover {
-  color: var(--color-accent, #4f46e5) !important;
-  background-color: #eef2ff !important;
+  color: var(--color-accent, #c27803) !important;
+  background-color: rgba(194, 120, 3, 0.08) !important;
 }
 [data-theme="alabaster-light"] .btn-upvote.text-indigo-400,
 [data-theme="alabaster-light"] .btn-upvote[class*="font-bold"] {
-  color: #4338ca !important;
-  background-color: #e0e7ff !important;
+  color: #c27803 !important;
+  background-color: rgba(194, 120, 3, 0.12) !important;
   font-weight: 800 !important;
 }
 

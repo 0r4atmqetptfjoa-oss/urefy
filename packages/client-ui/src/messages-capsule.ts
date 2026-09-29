@@ -109,16 +109,16 @@ class ContextCapsuleManager {
             <div class="flex items-center space-x-2.5">
               <span class="text-base text-[var(--color-accent,#e89e38)] font-serif">◈</span>
               <div>
-                <h3 class="text-sm font-bold text-white tracking-tight">Context Capsule Assembly</h3>
-                <p class="text-[11px] text-slate-400">Curate conversation points and archive directly to your Vault</p>
+                <h3 class="text-base font-semibold text-white tracking-tight">Context Capsule</h3>
+                <p class="text-xs text-slate-400">A few moments worth keeping together</p>
               </div>
             </div>
             <button type="button" data-action="close-capsule-creator" class="p-1 rounded-lg text-slate-400 hover:text-white cursor-pointer text-xs" aria-label="Close">✕</button>
           </div>
 
           <!-- Body -->
-          <div class="p-4 overflow-y-auto space-y-4 text-xs">
-            <div>
+          <div class="capsule-editor-body p-4 overflow-y-auto text-xs">
+            <div class="capsule-title-field">
               <label for="input-capsule-title" class="block font-semibold text-slate-300 mb-1">Capsule Title *</label>
               <input
                 type="text"
@@ -130,7 +130,7 @@ class ContextCapsuleManager {
               />
             </div>
 
-            <div>
+            <div class="capsule-note-field">
               <label for="input-capsule-note" class="block font-semibold text-slate-300 mb-1">Curator Note (Optional)</label>
               <textarea
                 id="input-capsule-note"
@@ -141,20 +141,20 @@ class ContextCapsuleManager {
               >${this.capsuleNote ? this.capsuleNote : ''}</textarea>
             </div>
 
-            <div>
+            <div class="capsule-moments">
               <div class="flex items-center justify-between font-semibold text-slate-300 mb-1.5">
-                <span>Included Messages (${this.stagedItems.length})</span>
+                <span>Selected moments · ${this.stagedItems.length}</span>
                 <span class="text-[10px] text-slate-500 font-mono">${this.targetContextName}</span>
               </div>
               ${this.stagedItems.length === 0 ? `
-                <div class="p-4 rounded-xl border border-dashed border-white/10 text-center text-slate-500">
+                <div class="p-4 border-l border-white/10 text-slate-500">
                   <p>No messages selected yet.</p>
-                  <p class="text-[11px] text-slate-600 mt-0.5">Click "Capsule" on any message in chat to add it here.</p>
+                  <p class="text-xs text-slate-500 mt-0.5">Use a message’s More menu to add it here.</p>
                 </div>
               ` : `
                 <div class="space-y-2 max-h-48 overflow-y-auto pr-1">
                   ${this.stagedItems.map(item => `
-                    <div class="p-2.5 rounded-xl bg-surface-raised/50 border border-white/5 border-l-2 border-l-[var(--color-accent,#e89e38)]/60 flex items-start justify-between gap-2">
+                    <div class="p-2.5 border-l border-l-[var(--color-accent,#e89e38)]/50 flex items-start justify-between gap-2">
                       <div class="min-w-0">
                         <div class="text-[11px] font-semibold text-slate-200">${item.senderName} <span class="text-slate-500 font-mono text-[10px]">${item.senderHandle}</span></div>
                         <p class="text-[11px] text-slate-300 line-clamp-2 mt-0.5 leading-relaxed">${item.text.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</p>
@@ -198,13 +198,13 @@ export interface RenderCapsuleOptions {
 
 export function renderCapsuleArtifact(capsule: RenderCapsuleOptions): string {
   const count = capsule.itemCount ?? 1;
-  const author = capsule.authorName || 'Elena';
+  const author = capsule.authorName || '';
   return `
-    <div class="editorial-capsule-insert weave-capsule-card rounded-2xl bg-surface-raised/60 border border-[var(--color-accent,#e89e38)]/20 p-4 space-y-2.5 my-3 max-w-xl select-text">
+    <div class="editorial-capsule-insert weave-capsule-card p-4 space-y-2.5 my-3 max-w-xl select-text">
       <div class="flex items-center justify-between gap-2">
         <div class="flex items-center gap-2">
           <span class="text-base text-[var(--color-accent,#e89e38)] font-serif">◈</span>
-          <span class="text-sm font-bold text-white tracking-tight">${escapeHtml(capsule.title)}</span>
+          <span class="text-sm font-semibold text-white tracking-tight uppercase">${escapeHtml(capsule.title)}</span>
         </div>
         <span class="text-[11px] text-[var(--color-accent,#e89e38)]/90 font-mono flex items-center gap-1">
           <span>🔒</span><span>Saved to Vault</span>
@@ -249,4 +249,3 @@ export function parseCapsuleFromText(text: string): RenderCapsuleOptions | null 
   }
   return null;
 }
-

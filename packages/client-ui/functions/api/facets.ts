@@ -364,9 +364,7 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
       }
 
       const isDefault = count === 0;
-      const randSuffix = typeof crypto !== 'undefined' && crypto.randomUUID
-        ? crypto.randomUUID().replace(/-/g, '').slice(0, 12)
-        : Math.random().toString(36).slice(2, 14);
+      const randSuffix = crypto.randomUUID().replace(/-/g, '').slice(0, 12);
       const newFacetId = `fct-${randSuffix}`;
 
       const newFacet: EdgeFacet = {
@@ -645,7 +643,7 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
           f.status = 'deleted';
           f.visibility = 'unlisted';
           f.displayName = '[Deleted Context]';
-          f.handle = `deleted-${Math.random().toString(36).slice(2, 8)}`;
+          f.handle = `deleted-${crypto.randomUUID().replace(/-/g, '').slice(0, 8)}`;
           f.bio = undefined;
           f.avatarUrl = undefined;
           f.isPubliclyLinked = false;

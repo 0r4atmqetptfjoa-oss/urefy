@@ -813,7 +813,7 @@ export class OnboardingWizard {
         </div>
 
         <!-- Public Profile Form -->
-        <form id="onboarding-profile-form" onsubmit="event.preventDefault(); window.onboardingWizard && window.onboardingWizard.next();" class="space-y-4">
+        <form id="onboarding-profile-form" data-submit="submit-onboarding-profile" class="space-y-4">
           <div class="space-y-3">
             <div>
               <label for="onboarding-display-name" class="block text-xs font-medium text-slate-300 mb-1.5">
