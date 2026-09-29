@@ -117,7 +117,7 @@ export function renderInlineQuickComposer(): string {
     avatarUrl: '',
   };
   return `
-    <section class="quick-composer" aria-label="Create a post">
+    <section class="quick-composer social-home-composer" aria-label="Create a post">
       <div class="flex flex-wrap items-center justify-between gap-2 text-xs pb-2 mb-2 border-b border-white/5 text-slate-400">
         <div class="flex items-center gap-2 min-w-0">
           <span class="text-[11px] shrink-0">Posting as</span>
@@ -244,8 +244,8 @@ export function renderPulseWorkspace(): string {
     : '';
 
   return `
-    <div class="feed-workspace">
-      <header class="view-header">
+    <div class="feed-workspace social-home">
+      <header class="view-header social-home__header">
         <div>
           <h1>${activeCircle ? `c/${escapeHtml(activeCircle.name)}` : 'Home'}</h1>
           ${activeCircle ? `<p>${escapeHtml(activeCircle.displayName)}</p>` : ''}
@@ -254,21 +254,23 @@ export function renderPulseWorkspace(): string {
         <div class="orbit-layout-tools">${renderWorkspaceLayoutControls()}</div>
       </header>
       ${hashtagExplorer.renderActiveTagBanner()}
-      <div id="main-feed-scroll" class="feed-scroll">
+      <div id="main-feed-scroll" class="feed-scroll social-home__scroll">
         ${activeCircle ? renderCommunityHeaderBanner(activeCircle) : ''}
-        <div class="feed-toolbar-wrap">${feedControlsEngine.renderFeedControlsToolbar()}</div>
+        <div class="feed-toolbar-wrap social-home__feed-switcher">${feedControlsEngine.renderFeedControlsToolbar()}</div>
         ${renderInlineQuickComposer()}
         ${!activeCircle ? renderSinceYouWereAwayCard() : ''}
         ${discoveryLayerHtml}
         ${!activeCircle ? renderHomeHorizon(posts, clientStore.isConnected, isDemoModeEnabled()) : ''}
-        ${isFlow ? `
-          <div class="block sm:hidden">
-            ${mobileFlowEngine.renderFlowStream(posts)}
-          </div>
-          <div class="hidden sm:block">
-            ${classicStreamHtml}
-          </div>
-        ` : classicStreamHtml}
+        <div class="social-home__stream">
+          ${isFlow ? `
+            <div class="block sm:hidden">
+              ${mobileFlowEngine.renderFlowStream(posts)}
+            </div>
+            <div class="hidden sm:block">
+              ${classicStreamHtml}
+            </div>
+          ` : classicStreamHtml}
+        </div>
       </div>
     </div>`;
 }
@@ -336,20 +338,19 @@ export function renderPulsePostCard(post: ClientPost): string {
   else if (isCommunity) grammarClass = 'post-grammar--community-discussion';
 
   return `
-    <article class="river-item ${grammarClass} cursor-pointer" data-post-card-id="${post.id}" data-action="open-post-detail" data-post-id="${post.id}">
+    <article class="river-item social-post ${grammarClass} cursor-pointer" data-post-card-id="${post.id}" data-action="open-post-detail" data-post-id="${post.id}">
       <div class="river-anchor">
         <div class="social-post__avatar" data-author-profile="${post.authorFingerprint}">
-          ${renderAvatar(profile?.avatar, post.authorFingerprint, { size: 40, className: 'w-10 h-10 rounded-xl' })}
+          ${renderAvatar(profile?.avatar, post.authorFingerprint, { size: 40, className: 'w-10 h-10 rounded-full border border-white/10' })}
         </div>
-        <span class="river-node-dot" aria-hidden="true"></span>
       </div>
       <div class="social-post__content min-w-0">
         ${repostAttribution}
         <header class="social-post__header flex items-center justify-between gap-2 flex-wrap mb-1">
           <div class="flex items-center gap-1.5 min-w-0 flex-wrap">
-            <a href="${profilePath(post.authorFingerprint)}" data-public-link class="social-post__author font-semibold text-slate-200">
+            <a href="${profilePath(post.authorFingerprint)}" data-public-link class="social-post__author font-semibold text-slate-100 hover:text-white">
               <strong>${escapeHtml(authorName)}</strong>
-              <span class="text-slate-400 font-mono text-xs">${escapeHtml(authorHandle)}</span>
+              <span class="text-slate-400 text-xs">${escapeHtml(authorHandle)}</span>
               <span class="sr-only">${escapeHtml(post.authorFingerprint.substring(0, 8))}</span>
             </a>
             ${role ? `<span class="role-badge">${role}</span>` : ''}

@@ -1,0 +1,192 @@
+/* Shared Social Workspace treatment for Settings and Vault. */
+.workspace-settings__backdrop {
+  padding: clamp(12px, 3vw, 36px) !important;
+  background: color-mix(in srgb, var(--bg-canvas) 84%, #000 16%) !important;
+}
+
+.workspace-settings__modal {
+  width: min(1120px, 100%) !important;
+  max-width: 1120px !important;
+  height: min(900px, 92dvh) !important;
+  max-height: 92dvh !important;
+  color: var(--text-primary) !important;
+  background: var(--bg-surface-base) !important;
+  border: 1px solid color-mix(in srgb, var(--text-primary) 12%, transparent) !important;
+  border-radius: 18px !important;
+  box-shadow: 0 24px 80px color-mix(in srgb, var(--bg-canvas) 48%, transparent) !important;
+  backdrop-filter: none !important;
+}
+
+.workspace-settings__header,
+.workspace-settings__footer,
+.workspace-settings__picker {
+  color: var(--text-primary);
+  background: var(--bg-surface-raised) !important;
+  border-color: color-mix(in srgb, var(--text-primary) 10%, transparent) !important;
+}
+
+.workspace-settings__header h2 { font-size: 21px !important; letter-spacing: -.02em !important; }
+.workspace-settings__header p { margin-top: 4px; color: var(--text-secondary) !important; font-size: 14px !important; }
+.workspace-settings__body { min-height: 0; }
+.workspace-settings__nav {
+  width: 280px !important;
+  padding: 14px !important;
+  gap: 5px !important;
+  background: var(--bg-canvas) !important;
+  border-color: color-mix(in srgb, var(--text-primary) 10%, transparent) !important;
+}
+
+.workspace-settings__nav [data-settings-tab] {
+  min-height: 54px;
+  padding: 9px 11px !important;
+  border: 1px solid transparent !important;
+  border-radius: 10px !important;
+  color: var(--text-secondary) !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  white-space: normal !important;
+}
+
+.workspace-settings__nav [data-settings-tab][aria-selected="true"] {
+  color: var(--color-accent) !important;
+  background: color-mix(in srgb, var(--color-accent) 9%, var(--bg-surface-base)) !important;
+  border-color: var(--color-accent-border) !important;
+}
+.workspace-settings__nav [data-settings-tab] > div > div:first-child { font-size: 14px; }
+.workspace-settings__nav [data-settings-tab] > div > div + div { margin-top: 3px; color: var(--text-muted) !important; font-size: 12px !important; line-height: 1.4; }
+.workspace-settings__content {
+  padding: clamp(20px, 3vw, 36px) !important;
+  color: var(--text-primary) !important;
+  background: var(--bg-surface-base) !important;
+}
+
+.workspace-settings__content [class*="text-white"],
+.workspace-settings__header [class*="text-white"] { color: var(--text-primary) !important; }
+.workspace-settings__content [class*="text-slate-400"] { color: var(--text-secondary) !important; }
+.workspace-settings__content [class*="text-slate-500"] { color: var(--text-muted) !important; }
+.workspace-settings__content [class*="bg-surface-raised"] {
+  background-color: color-mix(in srgb, var(--bg-surface-raised) 74%, var(--bg-surface-base)) !important;
+  border-color: color-mix(in srgb, var(--text-primary) 10%, transparent) !important;
+  box-shadow: none !important;
+}
+.workspace-settings__content [class*="rounded-2xl"] { border-radius: 12px !important; }
+
+.workspace-settings__content h1,
+.workspace-settings__content h2,
+.workspace-settings__content h3 { color: var(--text-primary) !important; letter-spacing: -.02em; }
+.workspace-settings__content h1 { font-size: clamp(24px, 3vw, 32px) !important; }
+.workspace-settings__content h2 { font-size: clamp(20px, 2vw, 25px) !important; }
+.workspace-settings__content p,
+.workspace-settings__content label { font-size: 15px; line-height: 1.55; }
+.workspace-settings__content [class*="text-xs"],
+.workspace-settings__content [class*="text-\[10px\]"],
+.workspace-settings__content [class*="text-\[11px\]"] { font-size: 13px !important; line-height: 1.45; }
+.workspace-settings__content input:not([type="checkbox"]):not([type="radio"]),
+.workspace-settings__content select,
+.workspace-settings__content textarea,
+.workspace-settings__picker select {
+  min-height: 44px;
+  color: var(--text-primary) !important;
+  background-color: var(--bg-surface-raised) !important;
+  border-color: color-mix(in srgb, var(--text-primary) 16%, transparent) !important;
+  border-radius: 9px !important;
+  font-size: 15px !important;
+}
+
+.workspace-settings__content button,
+.workspace-settings__footer button,
+.workspace-settings__picker select { min-height: 44px; }
+.workspace-settings__content button:focus-visible,
+.workspace-settings__nav button:focus-visible,
+.workspace-settings__header button:focus-visible,
+.workspace-settings__footer button:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+.workspace-settings__footer { min-height: 60px; padding: 9px 22px !important; }
+.workspace-settings__footer > div:first-child { color: var(--text-secondary) !important; font: 14px "Segoe UI Variable", "Segoe UI", Arial, sans-serif !important; }
+.workspace-settings__footer button { padding-inline: 17px !important; border-radius: 9px !important; font-size: 14px !important; }
+
+.workspace-settings--dedicated { min-width: 0; }
+.workspace-settings--dedicated .workspace-settings__body { max-width: 1440px !important; width: 100% !important; gap: clamp(20px, 3vw, 36px) !important; padding: clamp(16px, 3vw, 36px) !important; }
+.workspace-settings--dedicated .workspace-settings__nav { background: transparent !important; border: 0 !important; }
+.workspace-settings--dedicated .workspace-settings__content { border: 1px solid color-mix(in srgb, var(--text-primary) 12%, transparent) !important; border-radius: 16px !important; }
+
+.workspace-vault { color: var(--text-primary); font-family: "Segoe UI Variable", "Segoe UI", Arial, sans-serif; }
+.workspace-vault__header {
+  min-height: 72px !important;
+  padding: 12px clamp(16px, 3vw, 36px) !important;
+  background: var(--bg-surface-base) !important;
+  border-color: color-mix(in srgb, var(--text-primary) 10%, transparent) !important;
+  box-shadow: none !important;
+}
+.workspace-vault__header h1 { color: var(--text-primary) !important; font-size: 20px !important; letter-spacing: -.02em; }
+.workspace-vault__header p { color: var(--text-secondary) !important; font-size: 14px !important; }
+.workspace-vault__header > div:first-child > div > div > span { color: var(--text-muted) !important; font-size: 13px !important; }
+.workspace-vault__header button { min-height: 42px; padding-inline: 13px !important; border-radius: 9px !important; font-size: 14px !important; }
+.workspace-vault__search { padding: 12px clamp(16px, 3vw, 36px) !important; background: var(--bg-canvas) !important; border-color: color-mix(in srgb, var(--text-primary) 9%, transparent) !important; }
+.workspace-vault__search > div { max-width: 760px !important; }
+.workspace-vault__search input { min-height: 44px; padding-inline: 14px !important; color: var(--text-primary) !important; background: var(--bg-surface-base) !important; border: 1px solid color-mix(in srgb, var(--text-primary) 16%, transparent) !important; border-radius: 9px !important; font-size: 15px !important; }
+.workspace-vault__privacy { padding: 10px clamp(16px, 3vw, 36px) !important; color: var(--text-secondary) !important; background: var(--bg-surface-raised) !important; border-color: color-mix(in srgb, var(--text-primary) 9%, transparent) !important; font-size: 14px !important; line-height: 1.5; }
+.workspace-vault__tabs { gap: 6px !important; padding: 8px clamp(16px, 3vw, 36px) !important; background: var(--bg-canvas) !important; border-color: color-mix(in srgb, var(--text-primary) 10%, transparent) !important; }
+.workspace-vault__tab {
+  min-height: 44px;
+  padding: 0 14px !important;
+  border: 1px solid transparent !important;
+  border-radius: 9px !important;
+  color: var(--text-secondary) !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  font-size: 14px !important;
+}
+.workspace-vault__tab:hover { color: var(--text-primary) !important; background: var(--bg-surface-raised) !important; }
+.workspace-vault__tab[aria-selected="true"] { color: var(--text-primary) !important; background: color-mix(in srgb, var(--color-accent) 12%, var(--bg-surface-base)) !important; border-color: var(--color-accent-border) !important; }
+.workspace-vault__content { max-width: 1360px !important; padding: clamp(18px, 3vw, 38px) !important; gap: 18px !important; }
+.workspace-vault__release,
+.workspace-vault__collection,
+.workspace-vault__collection-heading {
+  color: var(--text-primary) !important;
+  background: var(--bg-surface-base) !important;
+  border: 1px solid color-mix(in srgb, var(--text-primary) 12%, transparent) !important;
+  border-radius: 14px !important;
+  box-shadow: none !important;
+}
+.workspace-vault__release { padding: clamp(18px, 2.5vw, 26px) !important; }
+.workspace-vault__release h3 { color: var(--text-primary) !important; font-size: 18px !important; }
+.workspace-vault__release p { font-size: 15px; line-height: 1.55; }
+.workspace-vault__release [class*="text-\[10px\]"],
+.workspace-vault__release [class*="text-\[11px\]"],
+.workspace-vault__collection [class*="text-\[10px\]"] { font-size: 13px !important; line-height: 1.45; }
+.workspace-vault__collections-heading h3 { color: var(--text-primary) !important; font-size: 18px !important; }
+.workspace-vault__collections-heading p { color: var(--text-secondary) !important; font-size: 14px !important; }
+.workspace-vault__collection { min-height: 200px; padding: 20px !important; }
+.workspace-vault__collection h4 { font-size: 17px !important; }
+.workspace-vault__collection p { color: var(--text-secondary) !important; font-size: 14px !important; line-height: 1.55 !important; }
+.workspace-vault__collection-view { display: grid; gap: 16px; }
+.workspace-vault__collection-heading { padding: 18px !important; }
+.workspace-vault__collection-heading h3 { color: var(--text-primary) !important; font-size: 18px !important; }
+.workspace-vault__collection-heading p { color: var(--text-secondary) !important; font-size: 14px !important; }
+.workspace-vault__content input:focus-visible,
+.workspace-vault__content button:focus-visible,
+.workspace-vault__content [data-action]:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+.workspace-vault__content details { border-color: color-mix(in srgb, var(--text-primary) 12%, transparent) !important; border-radius: 12px !important; }
+.workspace-vault__content details summary { min-height: 48px; color: var(--text-primary) !important; font-size: 14px !important; }
+
+@media (max-width: 700px) {
+  .workspace-settings__backdrop { padding: 0 !important; }
+  .workspace-settings__modal { width: 100% !important; height: 100dvh !important; max-height: 100dvh !important; border-radius: 0 !important; }
+  .workspace-settings__header { padding: 14px 16px !important; }
+  .workspace-settings__header h2 { font-size: 18px !important; }
+  .workspace-settings__content { padding: 18px 16px !important; }
+  .workspace-settings__footer { padding-inline: 14px !important; }
+  .workspace-settings__picker { padding: 10px 14px !important; }
+  .workspace-vault__header { flex-wrap: wrap; }
+  .workspace-vault__header > div:first-child { flex: 1 1 100%; }
+  .workspace-vault__header > div:last-child { width: 100%; justify-content: flex-start; overflow-x: auto; }
+  .workspace-vault__header button { flex: 0 0 auto; }
+  .workspace-vault__content { padding: 16px !important; }
+  .workspace-vault__collections { grid-template-columns: 1fr !important; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workspace-settings__modal,
+  .workspace-vault__tab,
+  .workspace-vault__release { animation: none !important; transition: none !important; }
+}

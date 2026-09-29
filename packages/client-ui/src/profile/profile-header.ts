@@ -34,17 +34,17 @@ export function renderProfileHeaderHTML(profile: UserProfileData, isOwnProfile: 
   const federatedHandle = formatFederatedHandle(fedIdentifier);
 
   return `
-    <section class="profile-hero">
-      <div class="profile-hero__banner">
+    <section class="profile-hero journal-profile__hero">
+      <div class="profile-hero__banner journal-profile__banner">
         ${profile.banner ? `<img src="${escapeAttr(profile.banner)}" alt="" loading="eager" />` : '<div class="profile-hero__banner-fallback"></div>'}
       </div>
-      <div class="profile-hero__content">
-        <div class="profile-hero__topline">
-          <div class="profile-avatar-wrap">
+      <div class="profile-hero__content journal-profile__hero-content">
+        <div class="profile-hero__topline journal-profile__hero-topline">
+          <div class="profile-avatar-wrap journal-profile__portrait">
             ${renderAvatar(profile.avatar, profile.fingerprint, { size: 128, rounded: 'full', className: 'profile-avatar' })}
             <span class="profile-presence profile-presence--${profile.status}" title="${profile.status}"></span>
           </div>
-          <div class="profile-actions">
+          <div class="profile-actions journal-profile__actions">
             <button type="button" id="btn-share-profile" data-action="share-profile" data-handle="${escapeAttr(handle)}" class="secondary-icon-button" title="Share profile" aria-label="Share profile">${renderIcon('share', { size: 18 })}</button>
             ${isOwnProfile ? `
               <button type="button" id="btn-open-edit-profile" data-action="open-edit-profile" class="secondary-button">Edit profile</button>
@@ -59,11 +59,12 @@ export function renderProfileHeaderHTML(profile: UserProfileData, isOwnProfile: 
           </div>
         </div>
 
-        <div class="profile-identity">
-          <div class="profile-name-row"><h1>${escapeAttr(displayName)}</h1>${profile.isZKVerified ? `<span class="verified-badge" title="Verified account">${renderIcon('checkCircle', { size: 17 })}</span>` : ''}${role ? `<span class="role-badge">${role}</span>` : ''}</div>
-          <p class="profile-handle">${escapeAttr(displayHandle)}</p>
-          ${displayBio ? `<div class="profile-bio">${markdownRenderer.renderMarkdown(displayBio)}</div>` : ''}
-          ${(displayLocation || profile.website) ? `<div class="profile-details">${displayLocation ? `<span>${renderIcon('globe', { size: 15 })}${escapeAttr(displayLocation)}</span>` : ''}${profile.website ? `<a href="${escapeAttr(profile.website)}" target="_blank" rel="noopener noreferrer">${renderIcon('link', { size: 15 })}${escapeAttr(profile.website)}</a>` : ''}</div>` : ''}
+        <div class="profile-identity journal-profile__identity">
+          <span class="journal-profile__eyebrow">${isOwnProfile ? 'Your identity folio' : 'Community member'}</span>
+          <div class="profile-name-row journal-profile__name-row"><h1>${escapeAttr(displayName)}</h1>${profile.isZKVerified ? `<span class="verified-badge" title="Verified account">${renderIcon('checkCircle', { size: 17 })}</span>` : ''}${role ? `<span class="role-badge">${role}</span>` : ''}</div>
+          <p class="profile-handle journal-profile__handle">${escapeAttr(displayHandle)}</p>
+          ${displayBio ? `<div class="profile-bio journal-profile__bio">${markdownRenderer.renderMarkdown(displayBio)}</div>` : ''}
+          ${(displayLocation || profile.website) ? `<div class="profile-details journal-profile__details">${displayLocation ? `<span>${renderIcon('globe', { size: 15 })}${escapeAttr(displayLocation)}</span>` : ''}${profile.website ? `<a href="${escapeAttr(profile.website)}" target="_blank" rel="noopener noreferrer">${renderIcon('link', { size: 15 })}${escapeAttr(profile.website)}</a>` : ''}</div>` : ''}
           <details class="profile-federation-accordion group mt-2 pt-2 border-t border-white/5 text-xs">
             <summary class="cursor-pointer text-slate-400 hover:text-slate-200 flex items-center justify-between select-none py-1">
               <span class="flex items-center space-x-1.5 font-medium">
@@ -87,7 +88,7 @@ export function renderProfileHeaderHTML(profile: UserProfileData, isOwnProfile: 
               ${profile.badges.map(b => `<span class="badge px-2.5 py-0.5 text-xs rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 font-medium">${escapeAttr(b)}</span>`).join('')}
             </div>
           ` : ''}
-          <div class="profile-stats mt-3">
+          <div class="profile-stats journal-profile__record mt-3">
             <button type="button"><strong>${profile.followingCount.toLocaleString()}</strong><span>Following</span></button>
             <button type="button"><strong>${profile.followersCount.toLocaleString()}</strong><span>Followers</span></button>
             <span class="trust-summary">${renderIcon('shield', { size: 15 })}<strong>${profile.trustScore}</strong><span>Trust <span class="sr-only">WoT Max-Flow: ${profile.trustScore}</span></span></span>
@@ -101,10 +102,10 @@ export function renderProfileHeaderHTML(profile: UserProfileData, isOwnProfile: 
 
 export function renderEditProfileModalHTML(profile: UserProfileData, saving = false): string {
   return `
-    <div id="edit-profile-modal-overlay" class="modal-overlay" data-action="close-edit-profile" role="dialog" aria-modal="true" aria-labelledby="edit-profile-title">
-      <section class="edit-profile-dialog" data-action="stop-propagation">
+    <div id="edit-profile-modal-overlay" class="modal-overlay journal-profile__edit-overlay" data-action="close-edit-profile" role="dialog" aria-modal="true" aria-labelledby="edit-profile-title">
+      <section class="edit-profile-dialog journal-profile__edit-dialog" data-action="stop-propagation">
         <header><div><span>Profile</span><h2 id="edit-profile-title">Edit profile</h2></div><button type="button" id="btn-close-edit-profile" data-action="close-edit-profile" aria-label="Close">${renderIcon('close', { size: 19 })}</button></header>
-        <form id="form-edit-profile" data-submit="save-profile" class="edit-profile-form">
+        <form id="form-edit-profile" data-submit="save-profile" class="edit-profile-form journal-profile__edit-form">
           <div class="profile-media-fields">
             <label><span>Profile photo</span><input type="file" id="edit-profile-avatar-file" accept="image/*" /></label>
             <label><span>Cover photo</span><input type="file" id="edit-profile-banner-file" accept="image/*" /></label>

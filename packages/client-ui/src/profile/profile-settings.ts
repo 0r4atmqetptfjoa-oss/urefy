@@ -38,9 +38,9 @@ export function renderProfileSettingsHTML(
   currentUserFp: string
 ): string {
   return `
-    <div id="profile-settings-panel" class="space-y-6">
+    <div id="profile-settings-panel" class="journal-profile__settings space-y-6">
       <!-- CATEGORY NAVIGATION PILLS -->
-      <div id="profile-settings-nav" role="tablist" aria-label="Profile settings" class="flex items-center space-x-1.5 overflow-x-auto pb-2 scrollbar-none border-b border-white/5">
+      <div id="profile-settings-nav" role="tablist" aria-label="Profile settings" class="journal-profile__settings-nav flex items-center space-x-1.5 overflow-x-auto pb-2 scrollbar-none border-b border-white/5">
         ${SETTINGS_CATEGORIES.map(cat => `
           <button
             type="button"
@@ -61,7 +61,7 @@ export function renderProfileSettingsHTML(
       </div>
 
       <!-- ACTIVE CATEGORY CONTENT CONTAINER -->
-      <div class="p-6 rounded-3xl bg-surface-raised border border-white/10 shadow-xl space-y-6">
+      <div class="journal-profile__settings-panel p-6 rounded-3xl bg-surface-raised border border-white/10 shadow-xl space-y-6">
         ${renderSettingsCategoryContentHTML(currentCat, profile, currentUserFp)}
       </div>
     </div>

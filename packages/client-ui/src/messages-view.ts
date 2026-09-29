@@ -512,31 +512,34 @@ export function renderAttachmentCard(att?: DirectMessageAttachment): string {
 
   if (isAudio) {
     return `
-      <div class="dialogue-audio mt-2 p-2.5 max-w-sm space-y-1">
-        <div class="text-xs font-semibold text-slate-200 flex items-center space-x-1.5 truncate">
-          <span aria-hidden="true">◖</span>
-          <span class="truncate">${/^voice[_ -]?note/i.test(att.name) ? 'Voice message' : 'Audio'} · ${escapeHtml(att.name)}</span>
+      <div class="chat-voice-card dialogue-audio mt-2">
+        <button type="button" class="chat-voice-play-btn" data-action="toggle-audio-play" data-audio-src="${escapeHtml(att.dataUrl)}" aria-label="Play voice note">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+        </button>
+        <div class="chat-voice-track" aria-hidden="true">
+          ${Array.from({ length: 18 }).map((_, i) => `<span class="chat-voice-bar ${i < 6 ? 'is-active' : ''}" style="height: ${Math.max(6, (Math.sin(i * 0.8) * 8 + 10))}px"></span>`).join('')}
         </div>
-        <audio src="${escapeHtml(att.dataUrl)}" controls class="w-full h-8"></audio>
+        <span class="chat-voice-duration font-mono text-[11px] text-slate-400">${escapeHtml(att.name)}</span>
+        <audio src="${escapeHtml(att.dataUrl)}" preload="metadata" controls class="hidden"></audio>
       </div>
     `;
   }
 
   return `
-    <div class="mt-2 flex items-center justify-between gap-3 p-2.5 rounded-xl bg-surface-raised/90 border border-white/10 max-w-sm shadow-xs">
+    <div class="mt-2 flex items-center justify-between gap-3 p-2.5 rounded-xl bg-surface-raised border border-white/10 max-w-sm shadow-xs">
       <div class="flex items-center space-x-2.5 min-w-0">
-        <div class="w-8 h-8 rounded-lg bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 flex items-center justify-center text-sm shrink-0">
+        <div class="w-8 h-8 rounded-lg bg-[var(--color-accent,#e89e38)]/15 text-[var(--color-accent,#e89e38)] border border-[var(--color-accent,#e89e38)]/30 flex items-center justify-center text-sm shrink-0">
           📁
         </div>
         <div class="min-w-0">
-          <div class="text-xs font-mono font-bold text-slate-200 truncate">${escapeHtml(att.name)}</div>
-          <div class="text-[10px] font-mono text-slate-400">${sizeFormatted} ${att.sha256 ? `• ${att.sha256.slice(0, 8)}` : ''}</div>
+          <div class="text-xs font-semibold text-slate-200 truncate">${escapeHtml(att.name)}</div>
+          <div class="text-[10px] text-slate-400">${sizeFormatted} ${att.sha256 ? `• ${att.sha256.slice(0, 8)}` : ''}</div>
         </div>
       </div>
       <a 
         href="${escapeHtml(att.dataUrl)}" 
         download="${escapeHtml(att.name)}"
-        class="px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-mono text-[11px] font-bold transition-all shrink-0 flex items-center space-x-1 cursor-pointer"
+        class="px-2.5 py-1.5 rounded-lg bg-[var(--color-accent,#e89e38)] hover:brightness-110 text-slate-950 text-[11px] font-bold transition-all shrink-0 flex items-center space-x-1 cursor-pointer"
         title="Download file"
       >
         <span>⬇</span>
@@ -793,9 +796,9 @@ export function renderCatchMeUpCard(messages: DirectMessage[], peerName: string)
   const count = messages.length;
   if (count === 0) {
     return `
-      <div class="p-3.5 mb-3 rounded-2xl bg-indigo-950/40 border border-indigo-500/30 text-xs text-indigo-200 space-y-1.5 animate-in fade-in duration-150">
+      <div class="p-3.5 mb-3 rounded-2xl bg-surface-raised border border-white/5 text-xs text-slate-300 space-y-1.5 animate-in fade-in duration-150">
         <div class="flex items-center justify-between font-bold">
-          <span class="flex items-center gap-1.5"><span>✨</span><span>Local Catch-Up Summary</span></span>
+          <span class="flex items-center gap-1.5"><span class="text-[var(--color-accent,#e89e38)]">✨</span><span>Local Catch-Up Summary</span></span>
           <button type="button" data-action="toggle-catch-me-up" class="text-slate-400 hover:text-white p-0.5 cursor-pointer">✕</button>
         </div>
         <p class="text-slate-400">No recent messages to summarize in this conversation yet.</p>
@@ -809,12 +812,12 @@ export function renderCatchMeUpCard(messages: DirectMessage[], peerName: string)
   const outcomes = recentMsgs.filter(m => m.plaintext.includes('[DECISION]') || m.plaintext.includes('[TASK]') || m.plaintext.includes('[POLL]')).length;
 
   return `
-    <div class="p-4 mb-4 rounded-2xl bg-gradient-to-r from-indigo-950/60 via-surface-raised to-cyan-950/40 border border-indigo-500/30 shadow-lg text-xs space-y-2.5 animate-in fade-in duration-200">
-      <div class="flex items-center justify-between border-b border-white/10 pb-2">
+    <div class="p-4 mb-4 rounded-2xl bg-surface-raised border border-white/10 text-xs space-y-2.5 animate-in fade-in duration-200">
+      <div class="flex items-center justify-between border-b border-white/5 pb-2">
         <div class="flex items-center space-x-2">
-          <span class="text-base">✨</span>
+          <span class="text-base text-[var(--color-accent,#e89e38)]">✨</span>
           <span class="font-bold text-white tracking-wide">Recent context</span>
-          <span class="px-2 py-0.5 rounded-full text-[10px] font-mono bg-emerald-950 text-emerald-400 border border-emerald-500/30">100% Client-Side Private</span>
+          <span class="px-2 py-0.5 rounded-full text-[10px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">Client-Side Private</span>
         </div>
         <button type="button" data-action="toggle-catch-me-up" class="text-slate-400 hover:text-white p-1 rounded-lg cursor-pointer text-xs" title="Dismiss summary">✕</button>
       </div>
@@ -835,9 +838,9 @@ export function renderOutcomeCard(plaintext: string): string {
   if (plaintext.startsWith('[DECISION]')) {
     const title = plaintext.replace(/^\[DECISION\]\s*/, '').trim();
     return `
-      <div class="p-3 rounded-xl bg-purple-950/50 border border-purple-500/30 space-y-1.5 my-1 text-xs">
+      <div class="p-3 rounded-xl bg-surface-raised border border-white/10 space-y-1.5 my-1 text-xs">
         <div class="flex items-center justify-between font-mono text-[10px]">
-          <span class="px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 font-bold uppercase flex items-center gap-1">⚖️ Decision Outcome</span>
+          <span class="px-2 py-0.5 rounded bg-[var(--color-accent,#e89e38)]/15 text-[var(--color-accent,#e89e38)] font-bold uppercase flex items-center gap-1">⚖️ Decision Outcome</span>
         </div>
         <div class="text-slate-200 font-semibold">${escapeHtml(title)}</div>
         <div class="text-[10px] text-slate-400">Decision recorded by the message author.</div>
@@ -847,9 +850,9 @@ export function renderOutcomeCard(plaintext: string): string {
   if (plaintext.startsWith('[TASK]')) {
     const title = plaintext.replace(/^\[TASK\]\s*/, '').trim();
     return `
-      <div class="p-3 rounded-xl bg-amber-950/40 border border-amber-500/30 space-y-1.5 my-1 text-xs">
+      <div class="p-3 rounded-xl bg-surface-raised border border-white/10 space-y-1.5 my-1 text-xs">
         <div class="flex items-center justify-between font-mono text-[10px]">
-          <span class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold uppercase flex items-center gap-1">📌 Actionable Task</span>
+          <span class="px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 font-bold uppercase flex items-center gap-1">📌 Actionable Task</span>
         </div>
         <div class="text-slate-200 font-semibold flex items-center gap-2">
           <span>${escapeHtml(title)}</span>
@@ -860,10 +863,10 @@ export function renderOutcomeCard(plaintext: string): string {
   if (plaintext.startsWith('[QUESTION]')) {
     const title = plaintext.replace(/^\[QUESTION\]\s*/, '').trim();
     return `
-      <div class="p-3 rounded-xl bg-cyan-950/40 border border-cyan-500/30 space-y-1.5 my-1 text-xs">
+      <div class="p-3 rounded-xl bg-surface-raised border border-white/10 space-y-1.5 my-1 text-xs">
         <div class="flex items-center justify-between font-mono text-[10px]">
-          <span class="px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-bold uppercase flex items-center gap-1">❓ Structured Question</span>
-          <span class="text-cyan-400 font-bold">OPEN FOR INPUT</span>
+          <span class="px-2 py-0.5 rounded bg-sky-500/15 text-sky-400 font-bold uppercase flex items-center gap-1">❓ Structured Question</span>
+          <span class="text-sky-400 font-bold">OPEN FOR INPUT</span>
         </div>
         <div class="text-slate-200 font-semibold">${escapeHtml(title)}</div>
       </div>
@@ -1037,7 +1040,7 @@ export function renderMessageItem(m: ClientMessage, prevMsg?: ClientMessage): st
   const isGrouped = isSameSenderWithin5Min(m, prevMsg);
   const showDateSep = !prevMsg || !isSameCalendarDay(m.createdAt, prevMsg.createdAt);
   const dateSepHtml = showDateSep ? `
-    <div class="scene-date-separator" role="separator">
+    <div class="scene-date-separator journal-dialogue-day-break" role="separator">
       <span>${formatDateSeparator(m.createdAt)}</span>
     </div>
   ` : '';
@@ -1045,7 +1048,7 @@ export function renderMessageItem(m: ClientMessage, prevMsg?: ClientMessage): st
   if (m.authorFingerprint === 'genesis-core' || (m as any).isSystem) {
     return `
       ${dateSepHtml}
-      <div class="weave-system-event flex items-center justify-center my-2 select-none px-4" role="status">
+      <div class="weave-system-event journal-dialogue-context journal-dialogue-message journal-dialogue-context--system flex items-center justify-center my-2 select-none px-4" data-message-id="${escapeAttr(m.id)}" role="status">
         <div class="text-[12px] text-slate-400 flex items-center space-x-2 text-center max-w-lg">
           <span class="w-1.5 h-1.5 rounded-full bg-slate-500"></span>
           <span class="leading-relaxed select-text">${processChatMessageContent(m.text || '')}</span>
@@ -1061,7 +1064,7 @@ export function renderMessageItem(m: ClientMessage, prevMsg?: ClientMessage): st
   if (isGrouped) {
     return `
       ${dateSepHtml}
-      <div class="message-row message-row--subsequent group/msg-row relative relay-message ${m.isMine ? 'relay-message--own' : ''} py-0.5 max-w-full overflow-hidden transition-colors" data-author-fp="${escapeAttr(m.authorFingerprint)}" data-author-profile="${escapeAttr(m.authorFingerprint)}">
+      <div class="message-row message-row--subsequent group/msg-row relative relay-message journal-dialogue-message ${m.isMine ? 'relay-message--own journal-dialogue-message--outgoing' : 'journal-dialogue-message--incoming'} py-0.5 max-w-full overflow-hidden transition-colors" data-message-id="${escapeAttr(m.id)}" data-author-fp="${escapeAttr(m.authorFingerprint)}" data-author-profile="${escapeAttr(m.authorFingerprint)}">
         <div class="weave-spine ${m.isMine ? 'is-mine' : ''} ${m.isMine ? 'pl-2' : 'pl-9 sm:pl-10'} pr-3 py-0.5 space-y-1">
           <div class="message-body text-[14px] sm:text-[15px] text-slate-100 select-text leading-[1.55] break-words [overflow-wrap:anywhere] min-w-0">
             ${capsule ? renderCapsuleArtifact(capsule) : (m.text ? `<div class="whitespace-pre-wrap">${processChatMessageContent(m.text)}</div>` : '')}
@@ -1082,7 +1085,7 @@ export function renderMessageItem(m: ClientMessage, prevMsg?: ClientMessage): st
 
   return `
     ${dateSepHtml}
-    <div class="message-row group/msg-row relative relay-message ${m.isMine ? 'relay-message--own' : ''} mt-2 max-w-full overflow-hidden transition-colors" data-author-fp="${escapeAttr(m.authorFingerprint)}" data-author-profile="${escapeAttr(m.authorFingerprint)}">
+    <div class="message-row group/msg-row relative relay-message journal-dialogue-message ${m.isMine ? 'relay-message--own journal-dialogue-message--outgoing' : 'journal-dialogue-message--incoming'} mt-2 max-w-full overflow-hidden transition-colors" data-message-id="${escapeAttr(m.id)}" data-author-fp="${escapeAttr(m.authorFingerprint)}" data-author-profile="${escapeAttr(m.authorFingerprint)}">
       <div class="stanza-header flex items-center gap-2 mb-1 px-1 select-none">
         ${!m.isMine ? `
           <div class="dialogue-identity-mark w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center text-xs font-bold shrink-0">
@@ -1127,7 +1130,7 @@ export function renderMessagesTabHeader(): string {
   const isMobileThreadActive = activeMessagesTab === 'dm' && Boolean(sovereignDM.activePeerFP);
 
   return `
-    <div class="messages-header h-12 border-subtle-b bg-surface-base px-4 flex items-center justify-between shrink-0 z-10 ${isMobileThreadActive ? 'hidden md:flex' : ''}">
+    <div class="messages-header journal-dialogue-header h-12 border-subtle-b bg-surface-base px-4 flex items-center justify-between shrink-0 z-10 ${isMobileThreadActive ? 'hidden md:flex' : ''}">
       <h1 class="sr-only">Messages</h1>
       <div class="flex items-center space-x-2" role="group" aria-label="Message type">
         <button 
@@ -1324,7 +1327,7 @@ export function renderDirectMessagesWorkspace(): string {
   };
 
   return `
-    <div class="direct-messages-workspace ${activeConv ? 'has-active-conversation' : ''} flex-1 flex overflow-hidden bg-canvas">
+    <div class="direct-messages-workspace journal-dialogue-workspace ${activeConv ? 'has-active-conversation' : ''} flex-1 flex overflow-hidden bg-canvas">
       <!-- 1. LEFT SIDEBAR: PEER CONVERSATIONS LIST -->
       <aside class="conversation-list w-80 border-subtle-r bg-surface-base/80 flex flex-col shrink-0 overflow-hidden">
         <!-- SEARCH & NEW CHAT BAR -->
@@ -1633,7 +1636,7 @@ export function renderDirectMessagesWorkspace(): string {
           </section>` : ''}
 
           <!-- MESSAGES THREAD SCROLL -->
-          <div id="dm-thread-messages" class="flex-1 p-3 sm:p-5 md:p-6 overflow-y-auto space-y-3 max-w-[940px] mx-auto w-full dialogue-canvas">
+          <div id="dm-thread-messages" data-peer-id="${escapeAttr(activeConv.peerFingerprint)}" class="journal-dialogue-list flex-1 min-h-0 p-3 sm:p-5 md:p-6 overflow-y-auto space-y-3 max-w-[940px] mx-auto w-full dialogue-canvas">
             ${renderCatchMeUpCard(messages, resolvePeerName(activeConv.peerFingerprint))}
             ${messages.length === 0 ? `
               <div class="dialogue-thread-empty space-y-4 my-8">
@@ -1691,15 +1694,15 @@ export function renderDirectMessagesWorkspace(): string {
 
               return scenes.map(scene => `
                 ${scene.dateSepText ? `
-                  <div class="scene-date-separator" role="separator">
+                  <div class="scene-date-separator journal-dialogue-day-break" role="separator">
                     <span>${escapeHtml(scene.dateSepText)}</span>
                   </div>
                 ` : ''}
-                <div class="dialogue-flow space-y-3">
+                <div class="dialogue-flow journal-dialogue-flow space-y-3">
                   ${scene.clusters.map(cluster => {
                     if (cluster.isSystem) {
                       return cluster.messages.filter(msg => !/encrypt|ratchet|key exchange|safety number|ml-kem|x25519/i.test(msg.plaintext || '')).map(msg => `
-                        <div class="dialogue-system-event flex items-center justify-center my-2 select-none px-4" role="status">
+                        <div class="dialogue-system-event journal-dialogue-context journal-dialogue-context--system flex items-center justify-center my-2 select-none px-4" role="status">
                           <div class="text-[11px] text-slate-400 flex items-center space-x-2 text-center max-w-lg">
                             <span class="w-1.5 h-1.5 rounded-full bg-slate-500"></span>
                             <span class="leading-relaxed select-text">${processChatMessageContent(msg.plaintext || '')}</span>
@@ -1760,7 +1763,7 @@ export function renderDirectMessagesWorkspace(): string {
                             const msgTime = formatTime(msg.timestamp);
 
                             return `
-                              <div id="dm-message-${escapeHtml(msg.id)}" tabindex="0" class="dm-message group/msg-row relative flex flex-col py-0.5 rounded-lg transition-colors select-text">
+                              <div id="dm-message-${escapeHtml(msg.id)}" tabindex="0" class="dm-message journal-dialogue-message ${isMine ? 'journal-dialogue-message--outgoing' : 'journal-dialogue-message--incoming'} group/msg-row relative flex flex-col py-0.5 rounded-lg transition-colors select-text">
                                 <!-- Visual Reply Branch -->
                                 ${msg.context?.replyToId ? `
                                   <div class="dialogue-reply-branch flex items-center gap-1.5 text-xs text-slate-400 mb-0.5 select-none ${isMine ? 'justify-end' : ''}">
@@ -1854,7 +1857,7 @@ export function renderDirectMessagesWorkspace(): string {
           </div>
 
           <!-- DM COMPOSER FORM -->
-          <div class="p-3 md:p-4 border-subtle-t bg-surface-base shrink-0 shadow-sm relative">
+          <div class="journal-dialogue-composer p-3 md:p-4 border-subtle-t bg-surface-base shrink-0 shadow-sm relative">
             ${sovereignDM.syncError ? `<div role="status" class="mb-2 text-xs text-amber-300">${escapeHtml(sovereignDM.syncError)}</div>` : ''}
             ${renderEmojiPopover('dm')}
             ${renderOutcomePopover()}
@@ -2061,7 +2064,8 @@ export function renderRelaysWorkspace(): string {
   }
 
   const activeRelay = relaysManager.getActiveRelay();
-  const messages = clientStore.messages.get(clientStore.activeChannelId) || [];
+  const messages = [...(clientStore.messages.get(clientStore.activeChannelId) || [])]
+    .sort((a, b) => a.createdAt - b.createdAt);
   const channelName = clientStore.activeChannelId.replace(/^relay-.*?-(general|announcements|voice-room|dev-core|dev|community|lounge)/, '$1').replace('relays-', '');
 
   return `
@@ -2070,7 +2074,7 @@ export function renderRelaysWorkspace(): string {
       ${renderMessagesTabHeader()}
 
       <!-- SOVEREIGN RELAYS SPLIT WORKSPACE -->
-      <div class="relay-messages-workspace flex-1 flex overflow-hidden">
+      <div class="relay-messages-workspace journal-dialogue-workspace flex-1 flex overflow-hidden">
         <!-- 1. SOVEREIGN RELAY SERVER RAIL (LEFT-MOST ICON STRIP) -->
         ${relaysManager.renderRelayServerRail()}
 
@@ -2080,12 +2084,14 @@ export function renderRelaysWorkspace(): string {
           ${relaysManager.renderRelayHeader(activeRelay, channelName, clientStore.keypair?.fingerprint)}
 
           <!-- MESSAGES FEED -->
-          <div id="messages-container" class="flex-1 p-3 sm:p-4 md:p-6 overflow-y-auto space-y-${clientStore.density === 'compact' ? '0.5' : clientStore.density === 'balanced' ? '2' : '3'} max-w-4xl mx-auto w-full pb-20 md:pb-6">
-          ${messages.length === 0 ? `<div class="dialogue-community-empty"><span class="dialogue-eyebrow">◈ &nbsp; ${escapeHtml(relaysManager.resolveTopicName(channelName))}</span><h3>Start this conversation</h3><p>Ask a question, share an idea, or bring something worth discussing.</p></div>` : messages.map((m, idx) => renderMessageItem(m, idx > 0 ? messages[idx - 1] : undefined)).join('')}
+          <div id="messages-container" data-channel-id="${escapeAttr(clientStore.activeChannelId)}" role="log" aria-label="${escapeAttr(channelName)} conversation" aria-live="off" class="journal-dialogue-list flex-1 min-h-0 p-3 sm:p-4 md:p-6 overflow-y-auto space-y-${clientStore.density === 'compact' ? '0.5' : clientStore.density === 'balanced' ? '2' : '3'} w-full pb-20 md:pb-6">
+            <div class="journal-dialogue-flow">
+              ${messages.length === 0 ? `<div class="dialogue-community-empty"><span class="dialogue-eyebrow">◈ &nbsp; ${escapeHtml(relaysManager.resolveTopicName(channelName))}</span><h3>Start this conversation</h3><p>Ask a question, share an idea, or bring something worth discussing.</p></div>` : messages.map((m, idx) => renderMessageItem(m, idx > 0 ? messages[idx - 1] : undefined)).join('')}
+            </div>
           </div>
 
           <!-- RELAYS COMPOSER -->
-          <div class="p-3 md:p-4 border-subtle-t bg-surface-base shrink-0 shadow-sm relative">
+          <div class="journal-dialogue-composer p-3 md:p-4 border-subtle-t bg-surface-base shrink-0 shadow-sm relative">
             ${renderEmojiPopover('relay')}
             ${renderStagedAttachmentChip(clientStore.pendingRelayAttachment, 'relay')}
             ${voiceNotesManager.renderRecorderBar()}

@@ -5,6 +5,8 @@ import './orbit.css';
 import './discovery.css';
 import './context.css';
 import './product.css';
+import './profile/profile-workspace.css';
+import './workspace-secondary.css';
 import { secureStorage } from './secure-storage.js';
 
 

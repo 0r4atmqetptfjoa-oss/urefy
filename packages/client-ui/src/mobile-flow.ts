@@ -152,9 +152,11 @@ export class MobileFlowEngine {
 
     return `
       <section 
-        class="urefy-flow-card relative w-full h-[calc(100dvh-7.5rem)] snap-start shrink-0 flex flex-col justify-between p-4 overflow-hidden bg-canvas border-b border-white/5"
+        class="urefy-flow-card relative w-full h-[calc(100dvh-7.5rem)] snap-start shrink-0 flex flex-col justify-between p-4 overflow-hidden bg-canvas border-b border-white/5 cursor-pointer"
         data-flow-index="${index}"
         data-post-id="${escapeHtml(post.id)}"
+        data-post-card-id="${escapeHtml(post.id)}"
+        data-action="open-post-detail"
         aria-label="Flow post ${index + 1} of ${total}"
       >
         <!-- Top Metadata Header -->

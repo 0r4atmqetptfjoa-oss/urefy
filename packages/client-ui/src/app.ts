@@ -855,6 +855,105 @@ export function initApp(): void {
     return true;
   };
 
+  type MessageScrollSnapshot = {
+    channelId: string;
+    scrollTop: number;
+    nearBottom: boolean;
+    anchorId: string | null;
+    anchorOffset: number;
+  };
+  let pendingMessageBottom: {
+    channelId: string;
+    container: HTMLElement | null;
+    observer: ResizeObserver | null;
+    lastProgrammaticTop: number;
+  } | null = null;
+
+  const cancelPendingMessageBottom = (): void => {
+    pendingMessageBottom?.observer?.disconnect();
+    pendingMessageBottom = null;
+  };
+
+  const captureMessageScroll = (): MessageScrollSnapshot | null => {
+    const container = document.getElementById('messages-container');
+    if (!container) return null;
+    const channelId = container.dataset.channelId || '';
+    const containerTop = container.getBoundingClientRect().top;
+    const anchor = [...container.querySelectorAll<HTMLElement>('.journal-dialogue-message[data-message-id]')]
+      .find(message => message.getBoundingClientRect().bottom > containerTop);
+    return {
+      channelId,
+      scrollTop: container.scrollTop,
+      nearBottom: container.scrollHeight - container.scrollTop - container.clientHeight < 120,
+      anchorId: anchor?.dataset.messageId || null,
+      anchorOffset: anchor ? anchor.getBoundingClientRect().top - containerTop : 0,
+    };
+  };
+
+  const restoreMessageScroll = (snapshot: MessageScrollSnapshot | null): void => {
+    const container = document.getElementById('messages-container');
+    if (!container) {
+      cancelPendingMessageBottom();
+      return;
+    }
+    const channelId = container.dataset.channelId || '';
+    const channelChanged = !snapshot || snapshot.channelId !== channelId;
+    if (channelChanged && pendingMessageBottom?.channelId !== channelId) {
+      cancelPendingMessageBottom();
+      pendingMessageBottom = { channelId, container: null, observer: null, lastProgrammaticTop: 0 };
+    }
+
+    const pending = pendingMessageBottom?.channelId === channelId ? pendingMessageBottom : null;
+    if (pending) {
+      if (pending.container !== container) {
+        pending.observer?.disconnect();
+        pending.container = container;
+        if (typeof ResizeObserver !== 'undefined') {
+          pending.observer = new ResizeObserver(() => {
+            if (pendingMessageBottom !== pending || pending.container !== container) return;
+            if (container.scrollTop !== container.scrollHeight - container.clientHeight) {
+              container.scrollTop = container.scrollHeight;
+            }
+            pending.lastProgrammaticTop = container.scrollTop;
+          });
+          pending.observer.observe(container);
+          const list = container.firstElementChild;
+          if (list) pending.observer.observe(list);
+        }
+        container.addEventListener('scroll', () => {
+          if (pendingMessageBottom === pending && pending.container === container &&
+              container.scrollTop < pending.lastProgrammaticTop - 1) {
+            cancelPendingMessageBottom();
+          }
+        }, { passive: true });
+      }
+      requestAnimationFrame(() => {
+        if (pendingMessageBottom !== pending || !container.isConnected) return;
+        container.scrollTop = container.scrollHeight;
+        pending.lastProgrammaticTop = container.scrollTop;
+      });
+      return;
+    }
+
+    if (snapshot && !channelChanged && !snapshot.nearBottom && snapshot.anchorId) {
+      const anchor = [...container.querySelectorAll<HTMLElement>('.journal-dialogue-message[data-message-id]')]
+        .find(message => message.dataset.messageId === snapshot.anchorId);
+      if (anchor) {
+        const offset = anchor.getBoundingClientRect().top - container.getBoundingClientRect().top;
+        container.scrollTop += offset - snapshot.anchorOffset;
+      } else {
+        container.scrollTop = snapshot.scrollTop;
+      }
+      return;
+    }
+
+    if (!snapshot || channelChanged || snapshot.nearBottom) {
+      requestAnimationFrame(() => {
+        if (container.isConnected) container.scrollTop = container.scrollHeight;
+      });
+    }
+  };
+
   const render = () => {
     errorBoundary.wrapRender(() => {
       // Preserve scroll positions across re-renders
@@ -864,11 +963,7 @@ export function initApp(): void {
       const leftScroll = leftRail ? leftRail.scrollTop : 0;
       const mainFeed = document.getElementById('main-feed-scroll');
       const mainScroll = mainFeed ? mainFeed.scrollTop : (postDetailView.savedFeedScrollTop || 0);
-      const msgContainerEl = document.getElementById('messages-container');
-      const savedMsgScroll = msgContainerEl ? msgContainerEl.scrollTop : 0;
-      const isMsgNearBottom = msgContainerEl
-        ? (msgContainerEl.scrollHeight - msgContainerEl.scrollTop - msgContainerEl.clientHeight < 120)
-        : true;
+      const messageScrollSnapshot = captureMessageScroll();
       const dmContainerEl = document.getElementById('sovereign-dm-messages-container');
       const savedDmScroll = dmContainerEl ? dmContainerEl.scrollTop : 0;
       const isDmNearBottom = dmContainerEl
@@ -1065,11 +1160,7 @@ export function initApp(): void {
       if (newLeft && leftScroll > 0) newLeft.scrollTop = leftScroll;
       const newMain = document.getElementById('main-feed-scroll');
       if (newMain && mainScroll > 0) newMain.scrollTop = mainScroll;
-      const newMsg = document.getElementById('messages-container');
-      if (newMsg) {
-        if (isMsgNearBottom) newMsg.scrollTop = newMsg.scrollHeight;
-        else newMsg.scrollTop = savedMsgScroll;
-      }
+      restoreMessageScroll(messageScrollSnapshot);
       const newDm = document.getElementById('sovereign-dm-messages-container');
       if (newDm) {
         if (isDmNearBottom) newDm.scrollTop = newDm.scrollHeight;
@@ -1230,12 +1321,14 @@ export function initApp(): void {
       const savedPostFocusScroll = postFocusEl ? postFocusEl.scrollTop : 0;
       const savedProfileScroll = document.getElementById('sovereign-profile-container')?.scrollTop ?? 0;
       const savedSettingsNavScroll = document.getElementById('profile-settings-nav')?.scrollLeft ?? 0;
-      const msgContainerEl = document.getElementById('messages-container');
-      const savedMsgScroll = msgContainerEl ? msgContainerEl.scrollTop : 0;
-      const isMsgNearBottom = msgContainerEl
-        ? (msgContainerEl.scrollHeight - msgContainerEl.scrollTop - msgContainerEl.clientHeight < 120)
-        : true;
+      const messageScrollSnapshot = captureMessageScroll();
       const dmContainerEl = document.getElementById('sovereign-dm-messages-container');
+      const dmThreadEl = document.getElementById('dm-thread-messages');
+      const savedDmPeer = dmThreadEl?.dataset.peerId || '';
+      const savedDmThreadScroll = dmThreadEl?.scrollTop || 0;
+      const wasDmThreadNearBottom = dmThreadEl
+        ? dmThreadEl.scrollHeight - dmThreadEl.scrollTop - dmThreadEl.clientHeight < 120
+        : true;
       const savedDmScroll = dmContainerEl ? dmContainerEl.scrollTop : 0;
       const isDmNearBottom = dmContainerEl
         ? (dmContainerEl.scrollHeight - dmContainerEl.scrollTop - dmContainerEl.clientHeight < 120)
@@ -1374,15 +1467,19 @@ export function initApp(): void {
         if (pf && savedPostFocusScroll > 0) {
           pf.scrollTop = savedPostFocusScroll;
         }
-        const newMsg = document.getElementById('messages-container');
-        if (newMsg) {
-          if (isMsgNearBottom) newMsg.scrollTop = newMsg.scrollHeight;
-          else newMsg.scrollTop = savedMsgScroll;
-        }
+        restoreMessageScroll(messageScrollSnapshot);
         const newDm = document.getElementById('sovereign-dm-messages-container');
         if (newDm) {
           if (isDmNearBottom) newDm.scrollTop = newDm.scrollHeight;
           else newDm.scrollTop = savedDmScroll;
+        }
+        const newDmThread = document.getElementById('dm-thread-messages');
+        if (newDmThread) {
+          if (newDmThread.dataset.peerId !== savedDmPeer || wasDmThreadNearBottom) {
+            newDmThread.scrollTop = newDmThread.scrollHeight;
+          } else {
+            newDmThread.scrollTop = savedDmThreadScroll;
+          }
         }
       });
 
@@ -2386,7 +2483,7 @@ function bindEvents(): void {
   });
 
   // 7. Full Thread Detail Modal & Post Card Clickability
-  document.querySelectorAll('.social-post').forEach(postEl => {
+  document.querySelectorAll('.social-post, [data-post-card-id], [data-action="open-post-detail"]').forEach(postEl => {
     postEl.addEventListener('click', (e) => {
       const target = e.target as HTMLElement | null;
       if (target && target.closest('button:not([data-action="open-post-detail"]), a, input, textarea, select, iframe, video, .reaction-row, [data-action="react-post"], .btn-pulse-merit, .btn-pulse-reply, .btn-pulse-boost, .btn-pulse-bookmark, .btn-pulse-award, .btn-pulse-share, .btn-pulse-more')) {

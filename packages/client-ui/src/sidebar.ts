@@ -156,13 +156,13 @@ export class ContextualSidebar {
     const audience = post.audience || (post.channelId?.startsWith('vault-') ? 'followers' : isCommunity ? 'community' : 'public');
 
     return `
-      <div class="context-rail" data-sidebar-context="post-detail">
+      <div class="context-rail journal-thread-context" data-sidebar-context="post-detail">
         <!-- 1. DISCUSSION PARTICIPANTS -->
-        <section class="context-rail__section">
+        <section class="context-rail__section journal-thread-context__participants">
           <span class="context-rail__title">Thread Participants (${participants.length})</span>
-          <div class="flex flex-wrap gap-1.5 mt-1">
+          <div class="journal-thread-context__participant-list flex flex-wrap gap-1.5 mt-1">
             ${participants.map(part => `
-              <div class="context-rail__participant-chip">
+              <div class="context-rail__participant-chip journal-thread-context__participant">
                 ${part.avatar ? `
                   <img src="${escapeHtml(part.avatar)}" alt="${escapeHtml(part.name)}" class="w-4 h-4 rounded-full object-cover" />
                 ` : `
@@ -178,14 +178,14 @@ export class ContextualSidebar {
         </section>
 
         <!-- 2. RIVER CONVERSATION FLOW -->
-        <section class="context-rail__section">
-          <span class="context-rail__title">Conversation Metrics</span>
-          <div class="grid grid-cols-2 gap-2 mt-1">
-            <div class="p-2 rounded-xl bg-surface-raised/40 border border-white/5">
+        <section class="context-rail__section journal-thread-context__record">
+          <span class="context-rail__title">In this thread</span>
+          <div class="journal-thread-context__facts grid grid-cols-2 gap-2 mt-1">
+            <div class="journal-thread-context__fact p-2 rounded-xl bg-surface-raised/40 border border-white/5">
               <div class="text-[10px] text-slate-400 font-mono uppercase">Replies</div>
               <div class="text-base font-bold text-slate-100">${post.replyCount || rootComments.length}</div>
             </div>
-            <div class="p-2 rounded-xl bg-surface-raised/40 border border-white/5">
+            <div class="journal-thread-context__fact p-2 rounded-xl bg-surface-raised/40 border border-white/5">
               <div class="text-[10px] text-slate-400 font-mono uppercase">Merit Score</div>
               <div class="text-base font-bold text-[var(--color-accent,#e89e38)]">${post.meritVotes || 0}</div>
             </div>
@@ -196,7 +196,7 @@ export class ContextualSidebar {
         </section>
 
         <!-- 3. PRIVACY BOUNDARY LENS -->
-        <section class="context-rail__section">
+        <section class="context-rail__section journal-thread-context__privacy">
           <div class="flex items-center justify-between">
             <span class="context-rail__title">Privacy Boundary</span>
             ${privacyLens.renderCompact((audience as any) || 'public')}
@@ -218,7 +218,7 @@ export class ContextualSidebar {
 
         <!-- 4. LIVING SPACE CONTEXT (IF POST BELONGS TO COMMUNITY) -->
         ${isCommunity ? `
-          <section class="context-rail__section">
+          <section class="context-rail__section journal-thread-context__place">
             <span class="context-rail__title">Living Space</span>
             <div class="p-2.5 rounded-xl bg-surface-raised/40 border border-white/5 mt-1 space-y-2">
               <div class="text-xs font-bold text-slate-200">c/${escapeHtml(communityName)}</div>
@@ -467,6 +467,9 @@ export function renderSidebar(mode = 'feed'): string {
 
 export function hasContextualSidebar(route: string, channelId: string): boolean {
   if (postDetailView.isOpen()) return true;
+  if (route === 'explore' || channelId === 'explore') return false;
+  if (route === 'communities' || channelId === 'communities') return false;
+  if (route === 'profile' || channelId.startsWith('profile')) return false;
   if (route === 'messages' || channelId.startsWith('relays-') || channelId.startsWith('relay-') || channelId.startsWith('dm-') || channelId === 'messages') return false;
   if (route === 'vault' || channelId.startsWith('vault')) return false;
   if (route === 'settings' || channelId === 'settings') return false;

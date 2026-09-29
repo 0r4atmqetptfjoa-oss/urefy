@@ -141,7 +141,7 @@ export async function exportSovereignArchive(passphrase: string): Promise<Blob> 
 
   // 5. Gather user preferences
   const preferences = {
-    theme: themeEngine?.currentThemeId || 'obsidian-cyber',
+    theme: themeEngine?.currentThemeId || 'mineral-basalt',
     density: clientStore.density || 'balanced',
     viewMode: clientStore.viewMode || 'card',
   };

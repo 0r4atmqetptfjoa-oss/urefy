@@ -283,21 +283,21 @@ export class ProfileView {
     const publicIdentity = presentPublicIdentity(profile, target, isOwnProfile);
 
     return `
-      <div id="sovereign-profile-container" class="flex-1 w-full h-full min-h-0 overflow-y-auto overflow-x-hidden p-3 sm:p-4 md:p-6 pb-28 lg:pb-12 scroll-smooth">
-        <div class="max-w-4xl mx-auto space-y-6">
+      <div id="sovereign-profile-container" class="journal-profile flex-1 w-full h-full min-h-0 overflow-y-auto overflow-x-hidden p-3 sm:p-4 md:p-6 pb-28 lg:pb-12 scroll-smooth">
+        <div class="journal-profile__layout max-w-4xl mx-auto space-y-6">
           <!-- 1. HERO HEADER -->
           ${publicIdentity.needsSetup && isOwnProfile ? `
-            <section class="profile-setup-callout" role="status">
+            <section class="profile-setup-callout journal-profile__setup" role="status">
               <div><span>Public identity</span><strong>Choose how people see you</strong><p>Add a display name, an @handle and an optional photo before you join conversations.</p></div>
               <button type="button" data-action="open-edit-profile" class="primary-button">Set up profile</button>
             </section>` : ''}
-          ${renderProfileHeaderHTML(profile, isOwnProfile, isFollowing, false, this.pendingFollows.has(target))}
+          <div class="journal-profile__hero-wrap">${renderProfileHeaderHTML(profile, isOwnProfile, isFollowing, false, this.pendingFollows.has(target))}</div>
 
           <!-- 2. TIMELINE TABS BAR -->
-          ${renderProfileTabsHTML(this.activeTab, isOwnProfile)}
+          <div class="journal-profile__tabs">${renderProfileTabsHTML(this.activeTab, isOwnProfile)}</div>
 
           <!-- 3. TAB CONTENT -->
-          <div id="profile-tab-content-area" class="transition-all duration-200">
+          <div id="profile-tab-content-area" class="journal-profile__content transition-all duration-200">
             ${
               this.activeTab === 'settings' && isOwnProfile
                 ? renderProfileSettingsHTML(this.activeSettingsCategory, profile, currentUserFp)

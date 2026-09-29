@@ -19,7 +19,7 @@ import { renderIcon } from './ui/icons.js';
 import { t } from './i18n.js';
 import { renderPulsePostCard } from './feed-view.js';
 import { communityCategories, filterCommunities } from './discovery-data.js';
-import { renderDiscoveryCard } from './discovery-card.js';
+import { getLatestCommunityPost, getPublicCommunityDescription, renderDiscoveryCard } from './discovery-card.js';
 import { communityPath } from './public-urls.js';
 
 function escapeHtml(str: string): string {
@@ -660,62 +660,50 @@ export class CommunityView {
   }
 
   private _renderFeaturedLivingSpace(circle: SovereignCircle): string {
-    const latestPost = clientStore.posts.find(p =>
-      p.channelId === circle.channelId ||
-      p.channelId === `c/${circle.name}` ||
-      p.channelId === circle.name
-    );
+    const latestPost = getLatestCommunityPost(circle);
+    const description = getPublicCommunityDescription(circle.description);
+    const recentTitle = latestPost && (latestPost.title?.trim() || latestPost.content?.trim().slice(0, 120));
 
     return `
-      <div class="living-space-featured mb-6 relative">
-        <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div class="flex items-start gap-4 min-w-0">
-            <span class="w-14 h-14 rounded-2xl bg-surface-base border border-white/10 flex items-center justify-center text-3xl shrink-0 shadow-md">
+      <section class="living-space-featured journal-place journal-place-featured" data-community-id="${escapeHtml(circle.id)}" aria-labelledby="journal-place-featured-title">
+        <div class="journal-place-featured__main">
+          <div class="journal-place-featured__identity">
+            <span class="journal-place-featured__emblem" aria-hidden="true">
               ${circle.icon ? escapeHtml(circle.icon) : renderIcon('users', { size: 28 })}
             </span>
-            <div class="space-y-1 min-w-0">
-              <div class="flex items-center gap-2 flex-wrap">
-                <span class="text-[10px] font-bold font-mono px-2 py-0.5 rounded-full bg-[var(--color-accent,#e89e38)]/15 text-[var(--color-accent,#e89e38)] border border-[var(--color-accent,#e89e38)]/30 uppercase">Featured Living Space</span>
-                <span class="text-[10px] font-mono text-slate-400 uppercase tracking-wider">${escapeHtml(circle.category || 'General')}</span>
-              </div>
-              <h2 class="text-xl font-extrabold text-white truncate">
-                <a href="${communityPath(circle.name)}" data-public-link class="hover:text-[var(--color-accent,#e89e38)] transition-colors">
+            <div class="journal-place-featured__copy">
+              <p class="journal-place-kicker"><span>${latestPost ? 'Recently active community' : 'Community spotlight'}</span><span>${escapeHtml(circle.category || 'General')}</span></p>
+              <h2 id="journal-place-featured-title">
+                <a href="${communityPath(circle.name)}" data-public-link>
                   ${escapeHtml(circle.displayName || circle.name)}
                 </a>
-                <span class="text-sm font-mono text-slate-400 font-normal ml-1.5">c/${escapeHtml(circle.name)}</span>
               </h2>
-              <p class="text-xs text-slate-300 max-w-xl leading-relaxed line-clamp-2">${escapeHtml(circle.description)}</p>
+              <p class="journal-place-featured__slug">c/${escapeHtml(circle.name)}</p>
+              ${description ? `<p class="journal-place-featured__description">${escapeHtml(description)}</p>` : ''}
             </div>
           </div>
 
-          <div class="flex items-center gap-2 shrink-0 self-stretch md:self-auto justify-end flex-wrap">
-            <button type="button" data-action="toggle-join-circle" data-circle-id="${circle.id}" class="min-h-[40px] px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${circle.isJoined ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30' : 'bg-white text-slate-900 hover:bg-slate-200'}">
-              ${circle.isJoined ? '✓ Joined Space' : '+ Join Space'}
+          <div class="journal-place-featured__actions">
+            <button type="button" data-action="toggle-join-circle" data-circle-id="${escapeHtml(circle.id)}" class="journal-place-button journal-place-button--quiet" aria-pressed="${circle.isJoined}">
+              ${circle.isJoined ? '✓ Joined' : '+ Join'}
             </button>
-            <a href="${communityPath(circle.name)}" data-public-link class="min-h-[40px] px-4 py-2 rounded-xl bg-[var(--color-accent,#e89e38)] hover:brightness-105 text-slate-950 text-xs font-bold transition-all shadow-sm flex items-center gap-1.5">
-              <span>Enter Space</span>
-              <span>→</span>
+            <a href="${communityPath(circle.name)}" data-public-link class="journal-place-button journal-place-button--primary">
+              <span>Enter place</span><span aria-hidden="true">↗</span>
             </a>
           </div>
         </div>
 
-        <!-- ACTIVE CONVERSATION STRIP -->
-        <div class="living-space-conversation-strip mt-4">
-          <span class="living-space-pulse-dot" style="${latestPost ? '' : 'background: #64748b; box-shadow: none;'}"></span>
-          <div class="min-w-0 flex-1 truncate text-xs">
-            ${latestPost ? `
-              <span class="text-slate-400">Active River: </span>
-              <span class="text-slate-100 font-semibold">"${escapeHtml(latestPost.title || latestPost.content.slice(0, 60))}"</span>
-              <span class="text-slate-400 text-[11px] ml-1">(${latestPost.replyCount || 0} replies)</span>
-            ` : `
-              <span class="text-slate-400 italic text-[11px]">Quiet right now · Start the first conversation in this space</span>
-            `}
+        <div class="journal-place-featured__dispatch">
+          <span class="journal-place-featured__dispatch-mark" aria-hidden="true"></span>
+          <div class="journal-place-featured__dispatch-copy">
+            <span class="journal-place-kicker">${latestPost ? 'Latest discussion' : 'Getting started'}</span>
+            ${recentTitle ? `<span class="journal-place-featured__dispatch-title">${escapeHtml(recentTitle)}</span><span class="journal-place-featured__dispatch-meta">${(latestPost?.replyCount || 0).toLocaleString()} replies</span>` : '<span class="journal-place-featured__quiet">No discussions have been published here yet.</span>'}
           </div>
-          <button type="button" data-action="open-composer" data-channel="${circle.channelId}" class="text-[11px] text-[var(--color-accent,#e89e38)] hover:underline font-bold shrink-0">
-            + Start discussion
+          <button type="button" data-action="open-composer" data-channel="${escapeHtml(circle.channelId)}" class="journal-place-featured__start">
+            Start a discussion <span aria-hidden="true">↗</span>
           </button>
         </div>
-      </div>
+      </section>
     `;
   }
 
@@ -723,32 +711,34 @@ export class CommunityView {
     const allCircles = sovereignCircleEngine.getAllCircles();
     const categories = communityCategories(allCircles);
     const filtered = filterCommunities(allCircles, this.searchQuery, this.activeCategory, this.membershipFilter);
+    const mostRecentlyActive = filtered
+      .map(circle => ({ circle, post: getLatestCommunityPost(circle) }))
+      .filter((entry): entry is { circle: SovereignCircle; post: ClientPost } => Boolean(entry.post))
+      .sort((a, b) => Number(b.post.createdAt || 0) - Number(a.post.createdAt || 0))[0]?.circle;
     const joinedCount = allCircles.filter(circle => circle.isJoined).length;
-    const isFiltering = this.searchQuery.trim() || this.activeCategory !== 'all' || this.membershipFilter !== 'all';
-    return `<div id="communities-hub-workspace" class="discovery-hub">
-      <header class="view-header"><div><h1>Communities</h1><p>Small worlds. Shared interests.</p></div><button type="button" class="discovery-create" data-action="open-create-circle">${renderIcon('plus', { size: 17 })}<span>Create community</span></button></header>
-      <div id="communities-directory-scroll" class="discovery-hub__scroll">
-        <div class="discovery-directory-tools">
-          <div class="discovery-segmented" role="group" aria-label="Community membership filter">
+    const isFiltering = Boolean(this.searchQuery.trim() || this.activeCategory !== 'all' || this.membershipFilter !== 'all');
+    const featuredCircle = mostRecentlyActive || filtered[0];
+    const remaining = featuredCircle ? filtered.filter(circle => circle.id !== featuredCircle.id) : filtered;
+    return `<div id="communities-hub-workspace" class="discovery-hub journal-place-hub community-directory">
+      <header class="view-header journal-place-hub__header"><div><p class="journal-place-kicker">UREfy · Communities</p><h1>Find your community</h1><p>Discover shared spaces, follow a discussion, or bring people together around something you care about.</p></div><button type="button" class="discovery-create journal-place-button journal-place-button--primary" data-action="open-create-circle">${renderIcon('plus', { size: 17 })}<span>Create community</span></button></header>
+      <div id="communities-directory-scroll" class="discovery-hub__scroll community-directory__scroll">
+        <div class="discovery-directory-tools journal-place-hub__tools">
+          <div class="discovery-segmented journal-place-hub__membership" role="group" aria-label="Community membership filter">
             <button type="button" data-action="filter-community-membership" data-membership="all" aria-pressed="${this.membershipFilter === 'all'}">Discover <span>${allCircles.length}</span></button>
             <button type="button" data-action="filter-community-membership" data-membership="joined" aria-pressed="${this.membershipFilter === 'joined'}">My communities <span>${joinedCount}</span></button>
           </div>
-          <label class="discovery-search">${renderIcon('search', { size: 18 })}<input type="text" id="input-community-search" data-input="search-communities" aria-label="Search communities" placeholder="Find a community…" value="${escapeHtml(this.searchQuery)}" autocomplete="off" />${this.searchQuery ? `<button type="button" data-action="clear-community-search" aria-label="Clear community search">${renderIcon('close', { size: 17 })}</button>` : ''}</label>
+          <label class="discovery-search journal-place-hub__search">${renderIcon('search', { size: 18 })}<input type="text" id="input-community-search" data-input="search-communities" aria-label="Search communities" placeholder="Search communities, interests, or people…" value="${escapeHtml(this.searchQuery)}" autocomplete="off" />${this.searchQuery ? `<button type="button" data-action="clear-community-search" aria-label="Clear community search">${renderIcon('close', { size: 17 })}</button>` : ''}</label>
         </div>
-        <div class="discovery-category-list" role="group" aria-label="Community topics">${categories.map(category => `<button type="button" data-action="filter-community-category" data-category="${escapeHtml(category)}" aria-pressed="${this.activeCategory.toLowerCase() === category.toLowerCase()}">${category === 'all' ? 'All topics' : escapeHtml(category)}</button>`).join('')}</div>
-        <div class="discovery-results-heading"><h2>${this.membershipFilter === 'joined' ? 'Your communities' : 'Find a conversation'}</h2><span role="status">${filtered.length} ${filtered.length === 1 ? 'community' : 'communities'}</span></div>
+        <div class="discovery-category-list journal-place-hub__categories" role="group" aria-label="Community topics">${categories.map(category => `<button type="button" data-action="filter-community-category" data-category="${escapeHtml(category)}" aria-pressed="${this.activeCategory.toLowerCase() === category.toLowerCase()}">${category === 'all' ? 'All topics' : escapeHtml(category)}</button>`).join('')}</div>
+        <div class="discovery-results-heading journal-place-hub__section-heading"><div><p class="journal-place-kicker">${this.membershipFilter === 'joined' ? 'Your communities' : 'Community directory'}</p><h2>${this.membershipFilter === 'joined' ? 'Spaces you joined' : 'Browse communities'}</h2></div><span role="status">${filtered.length} ${filtered.length === 1 ? 'community' : 'communities'}</span></div>
         ${filtered.length ? `
-          <div class="living-spaces-editorial">
-            ${(!isFiltering && filtered.length > 1) ? `
-              ${this._renderFeaturedLivingSpace(filtered[0])}
-              <div class="discovery-results-heading mt-6 mb-3">
-                <h3 class="text-xs font-mono font-bold uppercase tracking-wider text-slate-400">Emerging Living Spaces</h3>
-                <span class="text-[11px] font-mono text-slate-500">${filtered.length - 1} spaces</span>
-              </div>
-              <div class="living-spaces-grid">${filtered.slice(1).map(renderDiscoveryCard).join('')}</div>
-            ` : `
-              <div class="living-spaces-grid">${filtered.map(renderDiscoveryCard).join('')}</div>
-            `}
+          <div class="living-spaces-editorial journal-place-hub__results">
+            ${!isFiltering && featuredCircle ? this._renderFeaturedLivingSpace(featuredCircle) : ''}
+            ${isFiltering
+              ? `<div class="journal-place-hub__entries"><div class="journal-place-hub__entries-heading"><h3>Matching communities</h3><span>${filtered.length} results</span></div><div class="living-spaces-grid journal-place-hub__grid">${filtered.map(renderDiscoveryCard).join('')}</div></div>`
+              : remaining.length
+                ? `<div class="journal-place-hub__entries"><div class="journal-place-hub__entries-heading"><h3>More communities</h3><span>${remaining.length} spaces</span></div><div class="living-spaces-grid journal-place-hub__grid">${remaining.map(renderDiscoveryCard).join('')}</div></div>`
+                : ''}
           </div>
         ` : `<div class="discovery-empty discovery-empty--roomy">${renderIcon('search', { size: 28 })}<strong>${this.membershipFilter === 'joined' && !joinedCount ? 'Your circle starts here' : 'No communities match these filters'}</strong><span>Try a different topic, broaden your search, or start a space of your own.</span>${isFiltering ? '<button type="button" data-action="reset-community-filters">Reset filters</button>' : ''}<button type="button" data-action="open-create-circle">Create a community</button></div>`}
       </div>

@@ -342,17 +342,17 @@ export class SettingsView {
     return `
       <div
         id="settings-modal-backdrop"
-        class="fixed inset-0 z-50 flex items-center justify-center p-3 md:p-6 bg-black/80 backdrop-blur-md animate-fade-in cursor-pointer" data-action="close-settings"
+        class="workspace-settings__backdrop fixed inset-0 z-50 flex items-center justify-center p-3 md:p-6 bg-black/80 backdrop-blur-md animate-fade-in cursor-pointer" data-action="close-settings"
         role="dialog"
         aria-modal="true"
         aria-labelledby="settings-modal-title"
       >
         <div
           id="unified-settings-modal"
-          class="relative w-full max-w-5xl h-[90vh] max-h-[850px] bg-surface-base border border-white/10 rounded-3xl shadow-2xl flex flex-col overflow-hidden text-slate-100 font-sans backdrop-blur-xl animate-in zoom-in-95 duration-200 cursor-default" data-action="stop-propagation"
+          class="workspace-settings__modal relative w-full max-w-5xl h-[90vh] max-h-[850px] bg-surface-base border border-white/10 rounded-3xl shadow-2xl flex flex-col overflow-hidden text-slate-100 font-sans backdrop-blur-xl animate-in zoom-in-95 duration-200 cursor-default" data-action="stop-propagation"
         >
           <!-- HEADER -->
-          <div class="flex items-center justify-between px-6 py-4 border-b border-white/10 shrink-0 bg-surface-raised/40">
+          <div class="workspace-settings__header flex items-center justify-between px-6 py-4 border-b border-white/10 shrink-0 bg-surface-raised/40">
             <div class="flex items-center space-x-3">
               <div class="w-10 h-10 rounded-2xl bg-[var(--color-accent,#e59b3c)]/15 border border-[var(--color-accent,#e59b3c)]/30 flex items-center justify-center text-[var(--color-accent,#e59b3c)] text-lg shadow-sm">
                 ⚙️
@@ -377,7 +377,7 @@ export class SettingsView {
           </div>
 
           <!-- MOBILE SECTION PICKER (Eliminates horizontal pill overflow) -->
-          <div class="md:hidden p-3 border-b border-white/10 bg-surface-raised/40 shrink-0">
+          <div class="workspace-settings__picker md:hidden p-3 border-b border-white/10 bg-surface-raised/40 shrink-0">
             <label for="mobile-settings-section-picker" class="sr-only">Settings Category</label>
             <div class="relative">
               <select
@@ -392,26 +392,27 @@ export class SettingsView {
           </div>
 
           <!-- BODY: DESKTOP TWO-COLUMN / SCROLLABLE WITH STABLE GUTTER -->
-          <div class="flex flex-col md:flex-row flex-1 overflow-hidden min-h-0">
+          <div class="workspace-settings__body flex flex-col md:flex-row flex-1 overflow-hidden min-h-0">
             <!-- DESKTOP LEFT COLUMN -->
             <nav
               id="settings-nav-column"
-              class="hidden md:flex md:flex-col w-64 shrink-0 bg-surface-raised/30 border-r border-white/10 p-3 md:p-4 gap-1.5 overflow-y-auto"
+              class="workspace-settings__nav hidden md:flex md:flex-col w-64 shrink-0 bg-surface-raised/30 border-r border-white/10 p-3 md:p-4 gap-1.5 overflow-y-auto"
               style="scrollbar-gutter: stable; max-height: 100%;"
               aria-label="Settings categories"
+              role="tablist"
               tabindex="0"
             >
               ${tabsHTML}
             </nav>
 
             <!-- RIGHT CONTENT AREA -->
-            <main class="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 bg-surface-base/50 min-h-0" id="settings-tab-content">
+            <main class="workspace-settings__content flex-1 overflow-y-auto p-4 md:p-6 space-y-6 bg-surface-base/50 min-h-0" id="settings-tab-content">
               ${contentHTML}
             </main>
           </div>
 
           <!-- FOOTER: REAL-TIME PERSISTENCE STATUS & SAVE & CLOSE BUTTON -->
-          <div class="px-6 py-3.5 border-t border-white/10 bg-surface-raised/60 flex items-center justify-between shrink-0">
+          <div class="workspace-settings__footer px-6 py-3.5 border-t border-white/10 bg-surface-raised/60 flex items-center justify-between shrink-0">
             <div class="flex items-center space-x-2 text-xs text-slate-400 font-mono">
               <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
               <span class="hidden sm:inline">Settings saved automatically</span>
@@ -446,6 +447,7 @@ export class SettingsView {
         <button
           type="button"
           data-settings-tab="${sec.id}" data-action="set-settings-tab"
+          role="tab" aria-selected="${isSelected}"
           class="flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-left text-xs md:text-sm font-medium transition-all cursor-pointer whitespace-nowrap md:whitespace-normal w-full group ${
             isSelected
               ? 'bg-[var(--color-accent,#e59b3c)]/15 text-[var(--color-accent,#e59b3c)] border border-[var(--color-accent,#e59b3c)]/30 font-semibold shadow-xs'
@@ -469,14 +471,14 @@ export class SettingsView {
     const contentHTML = this.renderTabContent(activeTab);
 
     return `
-      <div class="flex-1 flex flex-col overflow-hidden bg-canvas">
+      <div class="workspace-settings workspace-settings--dedicated flex-1 flex flex-col overflow-hidden bg-canvas">
         <header class="view-header">
           <div>
             <h1>Settings</h1>
             <p>Preferences, appearance, and account options</p>
           </div>
         </header>
-        <div class="md:hidden p-3 border-b border-white/10 bg-surface-raised/40 shrink-0">
+        <div class="workspace-settings__picker md:hidden p-3 border-b border-white/10 bg-surface-raised/40 shrink-0">
           <select
             id="mobile-settings-section-picker"
             data-action="select-mobile-settings-tab"
@@ -485,11 +487,11 @@ export class SettingsView {
             ${mobileOptionsHTML}
           </select>
         </div>
-        <div class="flex-1 flex flex-col md:flex-row overflow-hidden max-w-6xl w-full mx-auto p-4 md:p-6 gap-6 min-h-0">
-          <nav id="settings-nav-column" class="hidden md:flex md:flex-col w-64 shrink-0 space-y-1 overflow-y-auto" style="scrollbar-gutter: stable; max-height: 100%;" aria-label="Settings categories">
+        <div class="workspace-settings__body flex-1 flex flex-col md:flex-row overflow-hidden max-w-6xl w-full mx-auto p-4 md:p-6 gap-6 min-h-0">
+          <nav id="settings-nav-column" class="workspace-settings__nav hidden md:flex md:flex-col w-64 shrink-0 space-y-1 overflow-y-auto" style="scrollbar-gutter: stable; max-height: 100%;" aria-label="Settings categories" role="tablist">
             ${tabsHTML}
           </nav>
-          <main class="flex-1 bg-surface-base border border-white/5 rounded-2xl p-6 overflow-y-auto shadow-sm min-h-0">
+          <main class="workspace-settings__content flex-1 bg-surface-base border border-white/5 rounded-2xl p-6 overflow-y-auto shadow-sm min-h-0">
             ${contentHTML}
           </main>
         </div>

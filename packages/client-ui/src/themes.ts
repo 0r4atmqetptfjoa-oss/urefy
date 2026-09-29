@@ -176,8 +176,8 @@ export class ThemeEngine {
       bgSurfaceOverlay: '#e5e2da',
       textAccent: '#c27803',
       borderAccent: 'rgba(194, 120, 3, 0.4)',
-      secondaryAccent: '#b45309',
-      description: 'Warm daylight Alabaster Mode with natural off-white canvas (#f6f5f2), soft stone surfaces (#efede8), deep charcoal typography (#1a1917), and Keystone Amber accent (#c27803).',
+      secondaryAccent: '#94a3b8',
+      description: 'High-contrast daylight mode with alabaster warmth (#f6f5f2) and deep contrast.',
       badgeText: 'WARM DAYLIGHT',
       mode: 'light',
     },
@@ -204,15 +204,15 @@ export class ThemeEngine {
       id: 'mineral-basalt',
       name: 'Mineral Basalt',
       emoji: '🏛️',
-      accentColor: '#e89e38',
-      bgCanvas: '#08090d',
-      bgSurfaceBase: '#0f1219',
-      bgSurfaceRaised: '#161a24',
-      bgSurfaceOverlay: '#222838',
-      textAccent: '#e89e38',
-      borderAccent: 'rgba(232, 158, 56, 0.45)',
-      secondaryAccent: '#c27020',
-      description: 'Rich warm mineral basalt canvas (#08090d) with nocturnal slate surfaces (#0f1219) and Solar Forge Amber (#e89e38).',
+      accentColor: '#c56d54',
+      bgCanvas: '#1b1a17',
+      bgSurfaceBase: '#22211d',
+      bgSurfaceRaised: '#2b2924',
+      bgSurfaceOverlay: '#35322c',
+      textAccent: '#c56d54',
+      borderAccent: 'rgba(197, 109, 84, 0.42)',
+      secondaryAccent: '#9aa17a',
+      description: 'Warm carbon, worn-paper surfaces, clay red and sage. A quieter field journal for independent communities.',
       badgeText: 'CANONICAL BASALT',
       mode: 'dim',
     },
@@ -886,7 +886,7 @@ export class ThemeEngine {
                   <span class="text-lg">🔤</span>
                   <div>
                     <div class="text-xs font-bold font-sans">Sans-Serif (Modern Inter)</div>
-                    <div class="text-[10px] text-slate-400 font-sans">Inter UI / Segoe UI / Roboto</div>
+                    <div class="text-[10px] text-slate-400 font-sans">Segoe UI</div>
                   </div>
                 </button>
 
@@ -1087,7 +1087,7 @@ export class ThemeEngine {
     const familyStack =
       this.fontFamily === 'mono'
         ? "'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace"
-        : "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+        : "'Segoe UI Variable', 'Segoe UI', Arial, sans-serif";
 
     docEl.style.setProperty('--font-family-base', familyStack);
 
@@ -1128,10 +1128,13 @@ export class ThemeEngine {
         --bg-surface-overlay: ${theme.bgSurfaceOverlay};
         --font-size-base: ${this.fontSize}px;
         --font-family-base: ${familyStack};
-        --text-primary: ${theme.id === 'alabaster-light' ? '#1a1917' : '#f8fafc'};
-        --text-secondary: ${theme.id === 'alabaster-light' ? '#2b2824' : '#cbd5e1'};
-        --text-muted: ${theme.id === 'alabaster-light' ? '#615d56' : '#94a3b8'};
-        --border-subtle: ${theme.id === 'alabaster-light' ? '#e5e2da' : 'rgba(255, 255, 255, 0.08)'};
+        --font-family-sans: 'Segoe UI Variable', 'Segoe UI', Arial, sans-serif;
+        --font-family-display: 'Segoe UI Variable Display', 'Segoe UI Variable', 'Segoe UI', Arial, sans-serif;
+        --text-primary: ${theme.id === 'alabaster-light' ? '#25231f' : '#f1ecdf'};
+        --text-secondary: ${theme.id === 'alabaster-light' ? '#565147' : '#c0b8a8'};
+        --text-muted: ${theme.id === 'alabaster-light' ? '#756f63' : '#928a7c'};
+        --border-subtle: ${theme.id === 'alabaster-light' ? '#d8d0c1' : 'rgba(237, 226, 204, 0.11)'};
+        --surface-rule: ${theme.id === 'alabaster-light' ? '#d8d0c1' : 'rgba(237, 226, 204, 0.11)'};
       }
 
       body {
@@ -1163,30 +1166,11 @@ export class ThemeEngine {
         --color-accent-glow: ${effectiveAccent}33;
         --color-accent-border: ${effectiveAccent}55;
       }
-      [data-theme="mineral-basalt"] article {
-        background-color: #121620 !important;
-        border: 1px solid rgba(255, 255, 255, 0.07) !important;
-      }
-      [data-theme="mineral-basalt"] article:hover {
-        border-color: ${effectiveAccent}66 !important;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-      }
-
       [data-theme="obsidian-cyber"] {
         --color-accent: ${effectiveAccent};
         --color-accent-glow: ${effectiveAccent}33;
         --color-accent-border: ${effectiveAccent}55;
       }
-      [data-theme="obsidian-cyber"] article {
-        background-color: rgba(30, 41, 59, 0.65) !important;
-        backdrop-filter: blur(12px) !important;
-        -webkit-backdrop-filter: blur(12px) !important;
-        border: 1px solid rgba(255, 255, 255, 0.08) !important;
-      }
-      [data-theme="obsidian-cyber"] article:hover {
-        box-shadow: 0 0 0 1px ${effectiveAccent}33, 0 8px 32px rgba(0, 0, 0, 0.55);
-      }
-
       [data-theme="matrix-monolith"] {
         --color-accent: ${effectiveAccent};
         --color-accent-glow: ${effectiveAccent}33;
@@ -1195,42 +1179,21 @@ export class ThemeEngine {
       [data-theme="matrix-monolith"] body {
         background-color: #000000 !important;
       }
-      [data-theme="matrix-monolith"] article {
-        background-color: #050505 !important;
-        border: 1px solid #27272a !important;
-      }
-      [data-theme="matrix-monolith"] article:hover {
-        border-color: ${effectiveAccent}80 !important;
-        box-shadow: 0 0 0 1px ${effectiveAccent}33, 0 8px 32px rgba(0, 0, 0, 0.7);
-      }
-
       [data-theme="tokyo-neon"] {
         --color-accent: ${effectiveAccent};
         --color-accent-glow: ${effectiveAccent}33;
         --color-accent-border: ${effectiveAccent}55;
       }
-      [data-theme="tokyo-neon"] article:hover {
-        box-shadow: 0 0 0 1px ${effectiveAccent}33, 0 8px 32px rgba(0, 0, 0, 0.6);
-      }
-
       [data-theme="solar-amber"] {
         --color-accent: ${effectiveAccent};
         --color-accent-glow: ${effectiveAccent}33;
         --color-accent-border: ${effectiveAccent}55;
       }
-      [data-theme="solar-amber"] article:hover {
-        box-shadow: 0 0 0 1px ${effectiveAccent}33, 0 8px 32px rgba(0, 0, 0, 0.55);
-      }
-
       [data-theme="nordic-frost"] {
         --color-accent: ${effectiveAccent};
         --color-accent-glow: ${effectiveAccent}33;
         --color-accent-border: ${effectiveAccent}55;
       }
-      [data-theme="nordic-frost"] article:hover {
-        box-shadow: 0 0 0 1px ${effectiveAccent}33, 0 8px 32px rgba(0, 0, 0, 0.55);
-      }
-
       /* High-contrast Daylight Light Mode styling (Sovereign Dual Horizon) */
       /* Warm Alabaster Daylight Mode styling */
       [data-theme="alabaster-light"] {
@@ -1238,7 +1201,7 @@ export class ThemeEngine {
       }
       [data-theme="alabaster-light"] body,
       [data-theme="alabaster-light"] #main-layout {
-        color: #1a1917 !important;
+        color: #25231f !important;
         background-color: #f6f5f2 !important;
       }
       [data-theme="alabaster-light"] ::-webkit-scrollbar-thumb {
@@ -1250,27 +1213,16 @@ export class ThemeEngine {
       }
       [data-theme="alabaster-light"] header,
       [data-theme="alabaster-light"] #app-top-header {
-        background-color: rgba(246, 245, 242, 0.96) !important;
-        border-color: #e5e2da !important;
+        background-color: rgba(243, 239, 228, 0.96) !important;
+        border-color: #d8d0c1 !important;
         box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04) !important;
         backdrop-filter: blur(16px);
       }
       [data-theme="alabaster-light"] aside,
       [data-theme="alabaster-light"] #app-left-sidebar,
       [data-theme="alabaster-light"] #app-right-sidebar {
-        background-color: #efede8 !important;
-        border-color: #e5e2da !important;
-      }
-      [data-theme="alabaster-light"] article,
-      [data-theme="alabaster-light"] .post-card-container,
-      [data-theme="alabaster-light"] .rounded-2xl {
-        background-color: #fbfaf8 !important;
-        border-color: #e5e2da !important;
-        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.03), 0 1px 2px -1px rgba(0, 0, 0, 0.03) !important;
-      }
-      [data-theme="alabaster-light"] article:hover {
-        box-shadow: 0 6px 20px -2px rgba(0, 0, 0, 0.06), 0 2px 6px -1px rgba(0, 0, 0, 0.03) !important;
-        border-color: #d8d4ca !important;
+        background-color: #e9e3d6 !important;
+        border-color: #d8d0c1 !important;
       }
       [data-theme="alabaster-light"] h1,
       [data-theme="alabaster-light"] h2,
@@ -1282,14 +1234,14 @@ export class ThemeEngine {
       [data-theme="alabaster-light"] .font-semibold,
       [data-theme="alabaster-light"] .btn-open-detail,
       [data-theme="alabaster-light"] .post-title {
-        color: #1a1917 !important;
+        color: #25231f !important;
       }
       [data-theme="alabaster-light"] p,
       [data-theme="alabaster-light"] .post-content,
       [data-theme="alabaster-light"] .text-slate-100,
       [data-theme="alabaster-light"] .text-slate-200,
       [data-theme="alabaster-light"] .text-slate-300 {
-        color: #2b2824 !important;
+        color: #565147 !important;
       }
       [data-theme="alabaster-light"] .text-slate-400,
       [data-theme="alabaster-light"] .text-slate-500,
@@ -1299,13 +1251,13 @@ export class ThemeEngine {
       [data-theme="alabaster-light"] .text-white\\/30,
       [data-theme="alabaster-light"] .text-white\\/25,
       [data-theme="alabaster-light"] .text-white\\/20 {
-        color: #615d56 !important;
+        color: #756f63 !important;
       }
       [data-theme="alabaster-light"] .text-white,
       [data-theme="alabaster-light"] .text-white\\/90,
       [data-theme="alabaster-light"] .text-white\\/80,
       [data-theme="alabaster-light"] .text-white\\/70 {
-        color: #1a1917 !important;
+        color: #25231f !important;
       }
       [data-theme="alabaster-light"] .border-white\\/5,
       [data-theme="alabaster-light"] .border-white\\/10,
@@ -1315,16 +1267,16 @@ export class ThemeEngine {
       [data-theme="alabaster-light"] .border-subtle-t,
       [data-theme="alabaster-light"] .border-subtle-r,
       [data-theme="alabaster-light"] .border-subtle-l {
-        border-color: #e5e2da !important;
+        border-color: #d8d0c1 !important;
       }
       [data-theme="alabaster-light"] .bg-canvas {
-        background-color: #f6f5f2 !important;
+        background-color: #f3efe4 !important;
       }
       [data-theme="alabaster-light"] .bg-canvas\\/90,
       [data-theme="alabaster-light"] .bg-canvas\\/80,
       [data-theme="alabaster-light"] .bg-canvas\\/50,
       [data-theme="alabaster-light"] .bg-canvas\\/30 {
-        background-color: #f6f5f2 !important;
+        background-color: #f3efe4 !important;
       }
       [data-theme="alabaster-light"] .bg-surface-base,
       [data-theme="alabaster-light"] .bg-surface-base\\/95,
@@ -1341,10 +1293,10 @@ export class ThemeEngine {
       [data-theme="alabaster-light"] .bg-surface-raised\\/60,
       [data-theme="alabaster-light"] .bg-surface-raised\\/50,
       [data-theme="alabaster-light"] .bg-surface-raised\\/30 {
-        background-color: #efede8 !important;
+        background-color: #e9e3d6 !important;
       }
       [data-theme="alabaster-light"] .bg-surface-overlay {
-        background-color: #e5e2da !important;
+        background-color: #dfd7c8 !important;
       }
       [data-theme="alabaster-light"] .bg-surface-highlight {
         background-color: #ded9cf !important;
@@ -1352,16 +1304,16 @@ export class ThemeEngine {
       [data-theme="alabaster-light"] .stories-track,
       [data-theme="alabaster-light"] [class*="stories-track"] {
         background-color: #fbfaf8 !important;
-        border-bottom-color: #e5e2da !important;
+        border-bottom-color: #d8d0c1 !important;
       }
       [data-theme="alabaster-light"] .sticky.top-0 {
         background-color: rgba(246, 245, 242, 0.96) !important;
-        border-bottom-color: #e5e2da !important;
+        border-bottom-color: #d8d0c1 !important;
       }
       [data-theme="alabaster-light"] footer {
-        background-color: #efede8 !important;
-        border-top-color: #e5e2da !important;
-        color: #615d56 !important;
+        background-color: #e9e3d6 !important;
+        border-top-color: #d8d0c1 !important;
+        color: #756f63 !important;
       }
       [data-theme="alabaster-light"] .text-signal {
         color: #059669 !important;
@@ -1638,6 +1590,24 @@ export class ThemeEngine {
 
       .feed-text-fluid-lg {
         font-size: ${this.fontSize + 2}px;
+      }
+
+      /* UREfy Field Journal surfaces: keep page grammar intact when themes change. */
+      [data-theme] .journal-place-featured,
+      [data-theme] .journal-place-entry,
+      [data-theme] .journal-dispatch,
+      [data-theme] .journal-dialogue-message {
+        background: transparent !important;
+        box-shadow: none !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+      }
+      [data-theme] .journal-place-entry,
+      [data-theme] .journal-dialogue-message {
+        border-radius: 0 !important;
+      }
+      [data-theme] .journal-place-featured {
+        border-inline: 0 !important;
       }
     `;
 

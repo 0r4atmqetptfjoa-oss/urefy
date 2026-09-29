@@ -17,7 +17,7 @@
       }
     }
     var bgMap = {
-      'mineral-basalt': '#08090d',
+      'mineral-basalt': '#1b1a17',
       'alabaster-light': '#f6f5f2',
       'light': '#f6f5f2',
       'matrix-monolith': '#000000',
@@ -25,10 +25,10 @@
       'obsidian-cyber': '#090a0f',
       'solar-amber': '#0c0906',
       'tokyo-neon': '#0d0714',
+      'nordic-frost': '#080d16',
       'sovereign-midnight': '#060810',
       'aurora-glass': '#050d0b',
       'deep-ocean': '#060b14',
-      'nordic-frost': '#080d16',
       'neo-graphite': '#0a0a0c',
       'royal-indigo': '#090714',
       'velvet-carbon': '#08080a',

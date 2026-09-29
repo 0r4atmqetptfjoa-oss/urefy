@@ -463,11 +463,11 @@ export class PostDetailView {
     const replyCount = post.replyCount || (comments ? comments.length : 0);
 
     return `
-      <div id="post-focus-view" class="flex-1 flex flex-col h-full overflow-y-auto bg-canvas">
-        <div class="w-full max-w-[960px] mx-auto px-4 py-6 md:px-8 space-y-6">
+      <div id="post-focus-view" class="flex-1 flex flex-col h-full overflow-y-auto bg-canvas journal-thread-view">
+        <div class="journal-thread-page w-full mx-auto px-4 py-6 md:px-8 space-y-6">
           
           <!-- STAGE HEADER BAR -->
-          <header class="flex items-center justify-between pb-4 border-b border-white/5 gap-3">
+          <header class="journal-thread-toolbar flex items-center justify-between pb-4 border-b border-white/5 gap-3">
             <div class="flex items-center space-x-3 min-w-0">
               <button type="button" id="btn-back-to-feed" data-action="close-post-detail" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-surface-raised hover:bg-surface-overlay text-slate-300 hover:text-white text-xs font-semibold border border-white/5 transition-all cursor-pointer shrink-0">
                 <svg class="w-4 h-4 text-[var(--color-accent,#e59b3c)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -517,7 +517,7 @@ export class PostDetailView {
           </header>
 
           <!-- MAIN CONTENT VIEW -->
-          <div class="space-y-6">
+          <div class="journal-thread-content space-y-6">
             ${this.activeSubTab === 'raw_json' ? this.renderRawJsonView(post) :
               this.activeSubTab === 'zk_proof' ? this.renderZkProofView(post) :
               this.renderMainDiscussionView(post, comments, relatedPosts, {
@@ -617,11 +617,11 @@ export class PostDetailView {
     const animClass = existingOverlay ? '' : 'animate-in fade-in duration-150';
 
     return `
-      <div id="post-detail-modal-overlay" data-action="close-post-detail-backdrop" class="fixed inset-0 z-[60] bg-black/85 backdrop-blur-md overflow-y-auto flex justify-center p-4 md:p-8 ${animClass} select-none pointer-events-auto">
-        <div class="max-w-4xl w-full bg-surface-base border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col my-auto max-h-[94vh] pointer-events-auto" data-action="stop-propagation">
+      <div id="post-detail-modal-overlay" data-action="close-post-detail-backdrop" class="journal-thread-overlay fixed inset-0 z-[60] bg-black/85 backdrop-blur-md overflow-y-auto flex justify-center p-4 md:p-8 ${animClass} select-none pointer-events-auto">
+        <div class="journal-thread-dialog max-w-4xl w-full bg-surface-base border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col my-auto max-h-[94vh] pointer-events-auto" data-action="stop-propagation">
           
           <!-- ─── HEADER BAR ─────────────────────────────────────────── -->
-          <header class="h-14 border-subtle-b bg-surface-raised/80 px-4 md:px-6 flex items-center justify-between shrink-0">
+          <header class="journal-thread-toolbar h-14 border-subtle-b bg-surface-raised/80 px-4 md:px-6 flex items-center justify-between shrink-0">
             <div class="flex items-center space-x-3 truncate">
               <button type="button" id="btn-back-to-feed" data-action="close-post-detail" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-surface-base hover:bg-surface-overlay text-slate-300 hover:text-white text-xs font-semibold border border-white/5 transition-all cursor-pointer">
                 <svg class="w-4 h-4 text-cyphr" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -671,7 +671,7 @@ export class PostDetailView {
           </header>
 
           <!-- ─── SCROLLABLE BODY ────────────────────────────────────── -->
-          <div class="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 bg-canvas">
+          <div class="journal-thread-content flex-1 overflow-y-auto p-4 md:p-6 space-y-6 bg-canvas">
             
             ${this.activeSubTab === 'raw_json' ? this.renderRawJsonView(post) :
               this.activeSubTab === 'zk_proof' ? this.renderZkProofView(post) :
@@ -718,15 +718,12 @@ export class PostDetailView {
     const authorAvatar = authorProfile?.avatar;
 
     return `
-      <div class="river-stream post-detail-river">
-        <div class="river-item post-grammar--deep-discussion">
-          <div class="river-anchor">
-            <div class="river-node-dot"></div>
-          </div>
-          <article class="river-content p-5 md:p-6 rounded-2xl bg-surface-raised/40 border border-white/5 shadow-md space-y-5">
+      <div class="editorial-stage__reading-room post-detail-river journal-thread-river max-w-[78ch] mx-auto w-full">
+      <div class="river-item journal-thread-root post-grammar--deep-discussion border-0">
+          <article class="river-content journal-thread-article editorial-stage__article space-y-5 w-full">
         
         <!-- TOP METADATA & MERIT VOTE BANNER -->
-        <div class="flex items-start justify-between gap-4">
+        <div class="journal-thread-byline flex items-start justify-between gap-4">
           <div class="flex items-center space-x-3">
             <div class="relative">
               ${authorAvatar ? `
@@ -736,24 +733,23 @@ export class PostDetailView {
                   ${(post.authorFingerprint || '??').substring(0, 2).toUpperCase()}
                 </div>
               `}
-              <span class="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-surface-base bg-signal" title="Online sovereign node"></span>
             </div>
 
-            <div>
+            <div class="journal-thread-author">
               <div class="flex items-center space-x-2 flex-wrap gap-y-0.5">
                 <strong class="font-bold text-sm text-white">${escapeHtml(authorName)}</strong>
                 <span class="font-mono text-xs text-slate-400">${escapeHtml(authorHandle)}</span>
                 <span class="text-[9px] font-mono px-1.5 py-0.2 rounded border ${meta.roleBadge}">${post.authorRole || 'MEMBER'}</span>
                 <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-emerald-950/80 text-emerald-400 border border-emerald-800/40">ZK-Verified</span>
               </div>
-              <div class="text-[11px] font-mono text-slate-500 mt-0.5" title="${meta.exactTime}">
+              <div class="journal-thread-metadata text-[11px] font-mono text-slate-500 mt-0.5" title="${meta.exactTime}">
                 Posted ${meta.relTime} • In <span class="text-cyphr">${meta.channelDisplay}</span>
               </div>
             </div>
           </div>
 
           <!-- MERIT VOTING CONTROLLER -->
-          <div class="flex items-center space-x-1.5 bg-surface-raised p-1 rounded-xl border border-white/5">
+          <div class="journal-thread-vote flex items-center space-x-1.5 bg-surface-raised p-1 rounded-xl border border-white/5">
             <button type="button" data-action="post-detail-vote" data-vote-id="${postId}" data-dir="1" class="btn-detail-vote p-1.5 rounded-lg hover:bg-surface-overlay transition-colors cursor-pointer ${meta.userVoted === 1 ? 'text-cyphr font-bold bg-cyphr/10' : 'text-slate-400 hover:text-cyphr'}" title="Endorse (+1 Merit)">
               ▲
             </button>
@@ -774,7 +770,7 @@ export class PostDetailView {
         ` : ''}
 
         <!-- POST TITLE -->
-        <h1 class="text-xl md:text-2xl font-extrabold text-slate-100 leading-tight tracking-wide">
+        <h1 class="journal-thread-title text-xl md:text-2xl font-extrabold text-slate-100 leading-tight tracking-wide">
           ${meta.safeTitle}
         </h1>
 
@@ -782,7 +778,7 @@ export class PostDetailView {
         ${awardsSystem.renderAwardBadges(postId)}
 
         <!-- POST BODY (MARKDOWN FORMATTED) -->
-        <div class="text-sm md:text-base text-slate-200 leading-relaxed select-text space-y-3 border-t border-white/5 pt-4 max-w-prose break-words">
+        <div class="journal-thread-body text-sm md:text-base text-slate-200 leading-relaxed select-text space-y-3 border-t border-white/5 pt-4 max-w-prose break-words">
           ${meta.safeContent}
         </div>
 
@@ -802,9 +798,8 @@ export class PostDetailView {
 
         <!-- 5. BINARY HYGIENE ATTACHMENT PASSPORT -->
         ${post.attachment ? this.renderAttachmentBlock(post.attachment) : ''}
-
         <!-- ─── ACTION TOOLBAR ───────────────────────────────────────── -->
-        <div class="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-white/5 text-xs font-mono text-slate-400">
+        <div class="journal-thread-actions flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-white/5 text-xs font-mono text-slate-400">
           <div class="flex items-center space-x-4">
             <button class="flex items-center space-x-1.5 text-cyphr hover:opacity-80 transition-opacity">
               <span>💬</span>
@@ -840,23 +835,20 @@ export class PostDetailView {
         </div>
 
         <!-- ─── REACTION ROW ─────────────────────────────────────────── -->
-        <div class="reaction-row pt-2 border-t border-white/5">
+        <div class="reaction-row journal-thread-reactions pt-2 border-t border-white/5">
           ${reactionsEngine.renderReactionBar(postId, clientStore.keypair?.fingerprint || '')}
         </div>
 
           </article>
         </div>
 
-        <!-- ─── FAST REPLY COMPOSER (RIVER NODE) ────────────────────────── -->
-        <div class="river-item">
-          <div class="river-anchor">
-            <div class="river-node-dot" style="background: var(--color-accent, #e89e38);"></div>
-          </div>
-          <section class="river-content p-5 rounded-2xl bg-surface-raised/30 border border-white/5 space-y-4">
+        <!-- ─── FAST REPLY COMPOSER ────────────────────────── -->
+        <div class="river-item border-0 pt-4">
+          <section class="river-content journal-thread-reply-composer editorial-reply-composer p-4 sm:p-5 rounded-2xl bg-surface-raised/40 space-y-4 w-full">
             <div class="flex items-center justify-between">
               <div class="flex items-center space-x-2">
                 <span class="text-sm">✍️</span>
-                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-200">Write a reply</h3>
+                <h3 class="journal-thread-reply-heading text-xs font-bold uppercase tracking-wider text-slate-200">Write a reply</h3>
               </div>
 
               <!-- PREVIEW TOGGLE -->
@@ -870,7 +862,7 @@ export class PostDetailView {
               </div>
             </div>
 
-            <form id="form-post-detail-reply" class="space-y-3">
+            <form id="form-post-detail-reply" class="journal-thread-reply-form space-y-3">
               <!-- MARKDOWN TOOLBAR -->
               ${this.renderMarkdownToolbar()}
 
@@ -903,24 +895,24 @@ export class PostDetailView {
           <div class="river-anchor">
             <div class="river-node-dot"></div>
           </div>
-          <section class="river-content space-y-4 w-full">
+          <section class="river-content journal-thread-replies space-y-4 w-full">
             <div class="flex items-center justify-between">
               <div class="flex items-center space-x-2">
                 <span class="text-sm">💬</span>
-                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300">
+                <h3 class="journal-thread-replies-heading text-xs font-bold uppercase tracking-wider text-slate-300">
                   Discussion (${comments.length} ${comments.length === 1 ? 'reply' : 'replies'})
                 </h3>
               </div>
             </div>
 
             ${comments.length === 0 ? `
-              <div class="p-8 rounded-2xl bg-surface-base/50 border border-white/5 text-center text-slate-500 space-y-2">
+              <div class="journal-thread-empty p-8 rounded-2xl bg-surface-base/50 border border-white/5 text-center text-slate-500 space-y-2">
                 <span class="text-3xl block">💬</span>
                 <p class="text-xs font-medium text-slate-300">No replies yet.</p>
                 <p class="text-[11px] text-slate-500">Be the first to join the conversation.</p>
               </div>
             ` : `
-              <div class="space-y-4 pt-1">
+              <div class="journal-thread-branches space-y-4 pt-1">
                 ${comments.map(c => this.renderCommentNode(c, 0, post.authorFingerprint)).join('')}
               </div>
             `}
@@ -930,7 +922,7 @@ export class PostDetailView {
 
       <!-- ─── RELATED TECHNICAL THREADS ──────────────────────────────── -->
       ${relatedPosts.length > 0 ? `
-        <section class="p-5 rounded-2xl bg-surface-base border border-white/10 shadow-lg space-y-3 mt-8">
+        <section class="journal-thread-related p-5 rounded-2xl bg-surface-base border border-white/10 shadow-lg space-y-3 mt-8">
           <div class="flex items-center justify-between">
             <div class="flex items-center space-x-2">
               <span class="text-sm">📌</span>
@@ -991,9 +983,9 @@ export class PostDetailView {
     const authorAvatar = authorProfile?.avatar;
 
     return `
-      <div id="context-comment-${escapeHtml(c.id)}" tabindex="-1" class="relative ${indentClass} transition-all" style="border-left: 2px solid ${color};">
+      <div id="context-comment-${escapeHtml(c.id)}" tabindex="-1" class="journal-comment-branch editorial-comment-branch relative ${indentClass} transition-all" style="border-left: 1.5px solid var(--surface-rule);">
         ${continuationBadge}
-        <div class="p-3.5 rounded-xl bg-surface-base/90 hover:bg-surface-base border border-white/5 transition-all space-y-2">
+        <div class="journal-comment-entry editorial-comment-node p-3 sm:p-3.5 rounded-xl bg-surface-raised/35 hover:bg-surface-raised/55 transition-all space-y-2">
           
           <!-- COMMENT HEADER -->
           <div class="flex items-center justify-between text-xs gap-2 flex-wrap">
@@ -1090,7 +1082,7 @@ export class PostDetailView {
   private renderImageMosaicBlock(images: string[]): string {
     const gridCols = images.length === 1 ? 'grid-cols-1' : images.length === 2 ? 'grid-cols-2' : 'grid-cols-2 md:grid-cols-3';
     return `
-      <div class="my-3 space-y-2">
+      <div class="journal-thread-media my-3 space-y-2">
         <div class="text-[10px] font-mono text-slate-500 uppercase tracking-wider">Attached Visual Artifacts (${images.length})</div>
         <div class="grid ${gridCols} gap-2">
           ${images.map((src, idx) => `
@@ -1113,7 +1105,7 @@ export class PostDetailView {
 
   private renderPollBlock(pollId: string): string {
     return `
-      <div class="p-4 rounded-xl bg-surface-raised border border-white/10 my-3 space-y-3">
+      <div class="journal-thread-media p-4 rounded-xl bg-surface-raised border border-white/10 my-3 space-y-3">
         <div class="flex items-center justify-between text-xs">
           <span class="font-bold text-signal flex items-center space-x-1.5">
             <span>📊</span>
@@ -1131,7 +1123,7 @@ export class PostDetailView {
 
   private renderQuotedPostBlock(quoted: QuotedPost): string {
     return `
-      <div class="p-3.5 rounded-xl bg-surface-raised/70 border border-white/10 my-3 space-y-2 hover:border-white/20 transition-all">
+      <div class="journal-thread-media p-3.5 rounded-xl bg-surface-raised/70 border border-white/10 my-3 space-y-2 hover:border-white/20 transition-all">
         <div class="flex items-center space-x-2 text-xs">
           <span class="text-slate-400 text-sm">❝</span>
           <span class="font-mono text-xs font-bold text-cyphr">id:${quoted.authorFingerprint}</span>
@@ -1146,7 +1138,7 @@ export class PostDetailView {
   private renderAttachmentBlock(att: PostAttachment): string {
     const sizeKb = (att.byteSize / 1024).toFixed(1);
     return `
-      <div class="p-4 rounded-xl bg-surface-raised border border-signal/30 my-3 space-y-3 shadow-lg">
+      <div class="journal-thread-media p-4 rounded-xl bg-surface-raised border border-signal/30 my-3 space-y-3 shadow-lg">
         <div class="flex items-center justify-between flex-wrap gap-2">
           <div class="flex items-center space-x-2.5">
             <span class="text-xl">📦</span>

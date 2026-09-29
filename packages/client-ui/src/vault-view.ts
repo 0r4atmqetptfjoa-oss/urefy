@@ -283,7 +283,7 @@ export function renderVaultReleaseCard(p: ClientPost): string {
   const entropy = p.attachment?.entropy || 6.12;
 
   return `
-    <div class="p-4 sm:p-5 rounded-2xl bg-surface-raised border border-white/5 hover:border-white/10 transition-all shadow-md space-y-3.5">
+    <div class="workspace-vault__release p-4 sm:p-5 rounded-2xl bg-surface-raised border border-white/5 hover:border-white/10 transition-all shadow-md space-y-3.5">
       
       <!-- TOP RELEASE HEADER -->
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
@@ -589,9 +589,9 @@ function renderCollectionsView(posts: ClientPost[]): string {
     );
 
     return `
-      <div class="space-y-4">
+      <div class="workspace-vault__collection-view space-y-4">
         <!-- BREADCRUMB & COLLECTION HEADER -->
-        <div class="p-4 rounded-2xl bg-surface-raised border border-white/5 flex items-center justify-between gap-3">
+        <div class="workspace-vault__collection-heading p-4 rounded-2xl bg-surface-raised border border-white/5 flex items-center justify-between gap-3">
           <div class="flex items-center space-x-3 min-w-0">
             <button type="button" data-action="clear-vault-collection" class="p-2 rounded-xl bg-surface-base hover:bg-surface-overlay text-slate-300 hover:text-white border border-white/5 text-xs font-bold transition-all cursor-pointer flex items-center space-x-1 shrink-0">
               <span>←</span>
@@ -628,7 +628,7 @@ function renderCollectionsView(posts: ClientPost[]): string {
 
   return `
     <div class="space-y-4">
-      <div class="flex items-center justify-between">
+      <div class="workspace-vault__collections-heading flex items-center justify-between">
         <div>
           <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider">Resource collections (${collections.length})</h3>
           <p class="text-xs text-slate-400">Local groups of public resources, matched by tags.</p>
@@ -640,12 +640,12 @@ function renderCollectionsView(posts: ClientPost[]): string {
       </div>
 
       <!-- COLLECTIONS GRID -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+      <div class="workspace-vault__collections grid grid-cols-1 sm:grid-cols-2 gap-3.5">
         ${collections.map(c => `
           <div 
             data-action="select-vault-collection" 
                 data-collection-id="${escapeHtml(c.id)}"
-            class="p-4 rounded-2xl bg-surface-raised hover:bg-surface-overlay border border-white/5 hover:border-white/15 transition-all shadow-sm cursor-pointer space-y-2.5 group"
+            class="workspace-vault__collection p-4 rounded-2xl bg-surface-raised hover:bg-surface-overlay border border-white/5 hover:border-white/15 transition-all shadow-sm cursor-pointer space-y-2.5 group"
           >
             <div class="flex items-start justify-between">
               <div class="w-10 h-10 rounded-xl bg-surface-base border border-white/5 group-hover:border-white/20 flex items-center justify-center text-xl shadow-xs transition-colors shrink-0">
@@ -787,10 +787,10 @@ export function renderVaultWorkspace(): string {
   }
 
   return `
-    <div class="flex-1 flex flex-col overflow-hidden bg-canvas">
+    <div class="workspace-vault flex-1 flex flex-col overflow-hidden bg-canvas">
       
       <!-- STICKY TOP VAULT NAVIGATION BAR -->
-      <div class="sticky top-0 z-10 border-b border-white/5 bg-surface-base/90 backdrop-blur-xl px-4 md:px-6 flex items-center justify-between shrink-0 min-h-[56px] py-2 shadow-sm gap-3">
+      <div class="workspace-vault__header sticky top-0 z-10 border-b border-white/5 bg-surface-base/90 backdrop-blur-xl px-4 md:px-6 flex items-center justify-between shrink-0 min-h-[56px] py-2 shadow-sm gap-3">
         <div class="flex items-center space-x-3 min-w-0">
           <div class="w-9 h-9 rounded-xl bg-surface-base border border-white/10 flex items-center justify-center text-[var(--color-accent,#e59b3c)] text-lg font-bold shadow-sm shrink-0">
             📁
@@ -823,7 +823,7 @@ export function renderVaultWorkspace(): string {
       </div>
 
       <!-- IN-VAULT SEARCH BAR -->
-      <div class="px-4 md:px-6 py-2 border-b border-white/5 bg-surface-base/40 flex items-center shrink-0">
+      <div class="workspace-vault__search px-4 md:px-6 py-2 border-b border-white/5 bg-surface-base/40 flex items-center shrink-0">
         <div class="relative w-full max-w-lg">
           <input
             type="text"
@@ -838,13 +838,13 @@ export function renderVaultWorkspace(): string {
       </div>
 
       <!-- PRIVACY REASSURANCE BANNER -->
-      <div class="px-4 md:px-6 py-1.5 bg-surface-raised/30 border-b border-white/5 flex items-center text-[11px] text-slate-400">
+      <div class="workspace-vault__privacy px-4 md:px-6 py-1.5 bg-surface-raised/30 border-b border-white/5 flex items-center text-[11px] text-slate-400">
         <span class="mr-1.5">🔒</span>
         <span>Your Vault contents are encrypted before leaving your device. Cloudflare stores encrypted data and limited operational metadata but cannot read your private Vault content.</span>
       </div>
 
       <!-- CONSUMER SECTION CATEGORIES / TABS -->
-      <div class="flex items-center gap-1.5 overflow-x-auto py-2 px-4 md:px-6 border-b border-white/5 bg-surface-base/60 text-xs no-scrollbar shrink-0">
+      <div class="workspace-vault__tabs flex items-center gap-1.5 overflow-x-auto py-2 px-4 md:px-6 border-b border-white/5 bg-surface-base/60 text-xs no-scrollbar shrink-0" role="tablist" aria-label="Vault sections">
         ${[
           { id: 'private', label: 'My knowledge', icon: '🔒' },
           { id: 'saved', label: 'Saved posts', icon: '🔖' },
@@ -852,7 +852,7 @@ export function renderVaultWorkspace(): string {
           { id: 'collections', label: 'Collections', icon: '📁' },
           { id: 'downloads', label: 'Attachments', icon: '⬇️' },
         ].map(cat => `
-          <button type="button" data-action="switch-vault-tab" data-vault-tab="${cat.id}" class="px-3 py-1.5 rounded-xl font-medium whitespace-nowrap transition-all cursor-pointer flex items-center space-x-1.5 ${activeVaultCategory === cat.id ? 'bg-[var(--color-accent,#e59b3c)] text-slate-950 font-bold shadow-xs' : 'text-slate-400 hover:text-white hover:bg-surface-raised border border-transparent'}">
+          <button type="button" role="tab" aria-selected="${activeVaultCategory === cat.id}" data-action="switch-vault-tab" data-vault-tab="${cat.id}" class="workspace-vault__tab px-3 py-1.5 rounded-xl font-medium whitespace-nowrap transition-all cursor-pointer flex items-center space-x-1.5 ${activeVaultCategory === cat.id ? 'bg-[var(--color-accent,#e59b3c)] text-slate-950 font-bold shadow-xs' : 'text-slate-400 hover:text-white hover:bg-surface-raised border border-transparent'}">
             <span>${cat.icon}</span>
             <span>${cat.label}</span>
           </button>
@@ -860,7 +860,7 @@ export function renderVaultWorkspace(): string {
       </div>
 
       <!-- VAULT CONTENT SCROLL AREA (CONTENT FIRST) -->
-      <div id="main-feed-scroll" class="flex-1 p-3 sm:p-4 md:p-6 overflow-y-auto space-y-4 max-w-5xl mx-auto w-full pb-20 md:pb-6">
+      <div id="main-feed-scroll" class="workspace-vault__content flex-1 p-3 sm:p-4 md:p-6 overflow-y-auto space-y-4 max-w-5xl mx-auto w-full pb-20 md:pb-6">
         ${renderUploadProgressCard()}
         ${
           activeVaultCategory === 'private'
@@ -923,4 +923,3 @@ export function renderVaultWorkspace(): string {
     </div>
   `;
 }
-
