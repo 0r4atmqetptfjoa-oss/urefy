@@ -1,5 +1,7 @@
 import { test, expect } from '@playwright/test';
 
+test.use({ serviceWorkers: 'block' });
+
 test.describe('Aetheris Sovereign Omni-Sphere: End-to-End User Journeys', () => {
   test.beforeEach(async ({ page }) => {
     // Navigate to root

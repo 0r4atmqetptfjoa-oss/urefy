@@ -1,6 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { fileURLToPath } from 'node:url';
 
+test.use({ serviceWorkers: 'block' });
+
 test('dashboard displays persisted counts, refresh failures, and reports on desktop and mobile', async ({ page }) => {
   let failed = false;
   let version = 1;

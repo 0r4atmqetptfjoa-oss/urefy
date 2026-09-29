@@ -115,9 +115,8 @@ test('100-message dialogue stays readable across direct and community layouts', 
   await page.screenshot({ path: resolve(output, 'emoji-sheet-mobile.png') });
   await page.getByRole('button', { name: 'Close emoji picker' }).click();
   await page.locator('.dm-message').nth(45).dispatchEvent('pointerdown', { pointerType: 'touch', clientX: 160, clientY: 320 });
-  await page.waitForTimeout(460);
-  await page.locator('.dm-message').nth(45).dispatchEvent('pointerup', { pointerType: 'touch', clientX: 160, clientY: 320 });
   await expect(page.locator('.dm-message').nth(45)).toBeFocused();
+  await page.locator('.dm-message').nth(45).dispatchEvent('pointerup', { pointerType: 'touch', clientX: 160, clientY: 320 });
   await page.screenshot({ path: resolve(output, 'message-actions-mobile.png') });
   await page.locator('.dm-message').nth(45).getByRole('button', { name: 'Reply' }).click();
   await page.screenshot({ path: resolve(output, 'reply-mobile.png') });

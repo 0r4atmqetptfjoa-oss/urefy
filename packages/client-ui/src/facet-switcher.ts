@@ -85,7 +85,7 @@ export class FacetSwitcher {
             ${activeFacet.avatarUrl ? `<img src="${escapeHtml(activeFacet.avatarUrl)}" class="w-full h-full object-cover">` : initial}
             <span class="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-[var(--color-accent,#e89e38)] ring-1 ring-[#0f1219]"></span>
           </div>
-          <div class="flex items-center gap-1.5 text-left leading-tight">
+          <div class="hidden sm:flex items-center gap-1.5 text-left leading-tight">
             <span class="text-slate-400 text-[11px] hidden lg:inline">You're here as</span>
             <span class="font-semibold text-slate-100 truncate max-w-[100px] sm:max-w-[130px]">${escapeHtml(activeFacet.displayName)}</span>
             <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-white/5 text-slate-400 font-mono hidden sm:inline">${activeFacet.isDefault ? 'Personal' : 'Context'}</span>

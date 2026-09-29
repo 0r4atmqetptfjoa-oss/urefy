@@ -58,10 +58,10 @@ export class SovereignDialog {
     };
 
     const colorMap = {
-      info: 'from-cyan-500 to-indigo-600 border-indigo-500/30 text-indigo-400',
-      warning: 'from-amber-500 to-orange-600 border-amber-500/30 text-amber-400',
-      error: 'from-rose-500 to-red-600 border-rose-500/30 text-rose-400',
-      success: 'from-emerald-500 to-teal-600 border-emerald-500/30 text-emerald-400',
+      info: 'bg-[var(--color-accent,#e89e38)]/15 border-[var(--color-accent,#e89e38)]/30 text-[var(--color-accent,#e89e38)]',
+      warning: 'bg-amber-500/15 border-amber-500/30 text-amber-400',
+      error: 'bg-rose-500/15 border-rose-500/30 text-rose-400',
+      success: 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400',
     };
 
     return new Promise((resolve) => {
@@ -91,7 +91,7 @@ export class SovereignDialog {
             <button
               type="button"
               id="sovereign-dialog-confirm-btn"
-              class="px-5 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-cyan-500 hover:from-indigo-500 hover:to-cyan-400 text-white text-xs font-bold shadow-lg shadow-indigo-600/30 transition-all cursor-pointer active:scale-95"
+              class="px-5 py-2 rounded-xl bg-[var(--color-accent,#e89e38)] hover:brightness-110 text-slate-950 text-xs font-bold shadow-md transition-all cursor-pointer active:scale-95"
             >
               ${this._escapeHtml(confirmText)}
             </button>
@@ -155,7 +155,7 @@ export class SovereignDialog {
       container.innerHTML = `
         <div class="w-full max-w-md bg-surface-overlay border border-white/10 rounded-3xl p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150">
           <div class="flex items-center space-x-3 border-b border-white/10 pb-3">
-            <div class="w-9 h-9 rounded-2xl ${isDestructive ? 'bg-rose-500/20 text-rose-400 border-rose-500/30' : 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30'} border flex items-center justify-center text-lg font-bold">
+            <div class="w-9 h-9 rounded-2xl ${isDestructive ? 'bg-rose-500/20 text-rose-400 border-rose-500/30' : 'bg-[var(--color-accent,#e89e38)]/20 text-[var(--color-accent,#e89e38)] border-[var(--color-accent,#e89e38)]/30'} border flex items-center justify-center text-lg font-bold">
               ${isDestructive ? '🗑️' : '❓'}
             </div>
             <div>
@@ -177,7 +177,7 @@ export class SovereignDialog {
             <button
               type="button"
               id="sovereign-dialog-confirm-btn"
-              class="px-5 py-2 rounded-xl ${isDestructive ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-600/30' : 'bg-gradient-to-r from-indigo-600 to-cyan-500 hover:from-indigo-500 hover:to-cyan-400 text-white shadow-indigo-600/30'} text-xs font-bold shadow-lg transition-all cursor-pointer active:scale-95"
+              class="px-5 py-2 rounded-xl ${isDestructive ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-600/30' : 'bg-[var(--color-accent,#e89e38)] hover:brightness-110 text-slate-950'} text-xs font-bold shadow-md transition-all cursor-pointer active:scale-95"
             >
               ${this._escapeHtml(confirmText)}
             </button>

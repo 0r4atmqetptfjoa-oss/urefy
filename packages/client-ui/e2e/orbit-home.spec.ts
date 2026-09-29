@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
 
+test.use({ serviceWorkers: 'block' });
+
 async function expectReadableHeading(page: import('@playwright/test').Page): Promise<void> {
   // Assert the accessibility requirement instead of a retired theme's exact RGB.
   await expect.poll(() => page.locator('.view-header h1').evaluate(element => {

@@ -202,7 +202,16 @@ test.describe('WebAuthn / Passkey Physical & Adversarial Suite', () => {
 
     // Register a credential via WebAuthnManager with matching clientStore identity
     const regResult = await page.evaluate(async () => {
-      const manager = (window as any).webAuthnManager;
+      let manager = (window as any).webAuthnManager;
+      if (!manager) {
+        for (let i = 0; i < 50; i++) {
+          if ((window as any).webAuthnManager) {
+            manager = (window as any).webAuthnManager;
+            break;
+          }
+          await new Promise((r) => setTimeout(r, 50));
+        }
+      }
       const cs = (window as any).clientStore;
       const fp = cs?.keypair?.fingerprint || 'sovereign_node';
       if (!manager) return { success: false, error: 'no webAuthnManager on window', hasCs: !!cs };
@@ -213,7 +222,7 @@ test.describe('WebAuthn / Passkey Physical & Adversarial Suite', () => {
         return { success: false, error: e?.message || String(e), isSupported: manager?.isSupported };
       }
     });
-    expect(regResult.success).toBe(true);
+    expect(regResult.success, JSON.stringify(regResult)).toBe(true);
 
     // Lock the vault
     const isLocked = await page.evaluate(async () => {

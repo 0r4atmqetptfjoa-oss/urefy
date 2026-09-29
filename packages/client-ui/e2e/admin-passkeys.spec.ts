@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { onRequestGet, onRequestPost, resetAdminStores } from '../functions/api/admin.js';
 
 // WebAuthn RP IDs must be domain names; localhost is supported for development.
-test.use({ baseURL: (process.env.PLAYWRIGHT_TEST_BASE_URL || 'http://localhost:3000').replace('127.0.0.1', 'localhost') });
+test.use({ baseURL: (process.env.PLAYWRIGHT_TEST_BASE_URL || 'http://localhost:3000').replace('127.0.0.1', 'localhost'), serviceWorkers: 'block' });
 
 test('administrator enrolls, signs in with, and revokes a passkey', async ({ page, browserName }) => {
   test.skip(browserName !== 'chromium', 'Chromium virtual authenticator');

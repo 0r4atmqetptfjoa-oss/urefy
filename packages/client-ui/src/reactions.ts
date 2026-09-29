@@ -813,37 +813,8 @@ export function updateReactionBarDOM(postId: string): void {
 /**
  * Binds click events on reaction bar buttons within a container or root element.
  */
-export function bindReactionBarEvents(container: HTMLElement | Document = document): void {
-  if (typeof document === 'undefined') return;
-
-  // 1. Toggle reaction button (clicking an active or existing emoji chip)
-  container.querySelectorAll<HTMLButtonElement>('.btn-toggle-reaction').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const postId = btn.getAttribute('data-post-id');
-      const emoji = btn.getAttribute('data-emoji');
-      const userFP = (window as any).clientStore?.keypair?.fingerprint || '';
-      if (postId && emoji) {
-        reactionsEngine.toggleReaction(postId, emoji, userFP);
-        updateReactionBarDOM(postId);
-      }
-    });
-  });
-
-  // 2. Add reaction button (+ pill) & overflow badge (+N)
-  const openTriggers = container.querySelectorAll<HTMLButtonElement>('.add-reaction-btn, .btn-overflow-reactions');
-  openTriggers.forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const postId = btn.getAttribute('data-post-id');
-      const userFP = (window as any).clientStore?.keypair?.fingerprint || '';
-      if (postId) {
-        reactionsEngine.openPortalPicker(btn, postId, userFP, () => {
-          updateReactionBarDOM(postId);
-        });
-      }
-    });
-  });
+export function bindReactionBarEvents(_container?: HTMLElement | Document): void {
+  // Event handling is fully centralized via global document delegation below.
 }
 
 // ─── Global Event Delegation for Reactions ──────────────────────────────────

@@ -1,5 +1,7 @@
 import { test, expect } from '@playwright/test';
 
+test.use({ serviceWorkers: 'block' });
+
 test.describe('Aetheris Multilingual & Internationalization Engine (i18n)', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');

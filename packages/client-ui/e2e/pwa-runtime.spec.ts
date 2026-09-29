@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 
-test.beforeEach(async ({ page }) => {
+test.beforeEach(async ({ page, browserName }) => {
+  test.skip(browserName === 'webkit', 'Playwright WebKit does not support Service Worker runtime');
   await page.addInitScript(() => {
     localStorage.setItem('aetheris_onboarding_completed', 'true');
     localStorage.setItem('aetheris_onboarding_completed_v4', 'true');

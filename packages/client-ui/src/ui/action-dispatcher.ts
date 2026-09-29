@@ -691,9 +691,16 @@ export class ActionDispatcher {
         const anchor = el.getBoundingClientRect();
         Object.assign(menu.style, { position: 'fixed', bottom: 'auto', right: 'auto', zIndex: '10050', maxHeight: 'calc(100dvh - 16px)', overflowY: 'auto' });
         const bounds = menu.getBoundingClientRect();
-        const top = anchor.bottom + 6;
+        const spaceBelow = window.innerHeight - anchor.bottom;
+        const spaceAbove = anchor.top;
+        let top = anchor.bottom + 6;
+        if (bounds.height > spaceBelow - 8 && spaceAbove > bounds.height) {
+          top = anchor.top - bounds.height - 6;
+        } else {
+          top = Math.max(8, Math.min(top, window.innerHeight - bounds.height - 8));
+        }
         const left = Math.max(8, Math.min(window.innerWidth - bounds.width - 8, anchor.right - bounds.width));
-        Object.assign(menu.style, { top: `${Math.max(8, top)}px`, left: `${left}px` });
+        Object.assign(menu.style, { top: `${Math.round(top)}px`, left: `${Math.round(left)}px` });
         const cleanup = new AbortController();
         const close = () => { menu.remove(); el.setAttribute('aria-expanded', 'false'); cleanup.abort(); };
         document.addEventListener('click', ev => {

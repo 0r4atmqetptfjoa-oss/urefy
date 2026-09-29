@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 
-test('two real browser peers exchange bytes over an RTCDataChannel', async ({ page }) => {
+test('two real browser peers exchange bytes over an RTCDataChannel', async ({ page, browserName }) => {
+  test.skip(browserName === 'webkit', 'WebKit headless in Playwright lacks WebRTC RTCPeerConnection support');
   const result = await page.evaluate(async () => {
     const sender = new RTCPeerConnection({ iceServers: [] });
     const receiver = new RTCPeerConnection({ iceServers: [] });

@@ -1447,6 +1447,7 @@ export class PostDetailView {
         const commentId = btn.getAttribute('data-comment-collapse');
         if (commentId) {
           this.toggleCommentCollapse(commentId);
+          clientStore.notifySync();
           window.dispatchEvent(new CustomEvent('aetheris-detail-view-refresh'));
         }
       });
@@ -1458,6 +1459,7 @@ export class PostDetailView {
         const commentId = btn.getAttribute('data-comment-reply-toggle');
         if (commentId) {
           this.replyingToCommentId = this.replyingToCommentId === commentId ? null : commentId;
+          clientStore.notifySync();
           window.dispatchEvent(new CustomEvent('aetheris-detail-view-refresh'));
         }
       });
@@ -1499,6 +1501,7 @@ export class PostDetailView {
     root.querySelectorAll('.btn-cancel-inline-reply').forEach(btn => {
       btn.addEventListener('click', () => {
         this.replyingToCommentId = null;
+        clientStore.notifySync();
         window.dispatchEvent(new CustomEvent('aetheris-detail-view-refresh'));
       });
     });

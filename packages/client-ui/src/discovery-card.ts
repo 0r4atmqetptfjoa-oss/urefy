@@ -24,7 +24,7 @@ export function renderDiscoveryCard(circle: SovereignCircle): string {
             ${escape(circle.category || 'General')}
           </span>
         </div>
-        <a href="${communityPath(circle.name)}" data-public-link class="block group">
+        <a href="${communityPath(circle.name)}" data-public-link class="discovery-space__identity block group">
           <h3 class="text-sm font-bold text-white group-hover:text-[var(--color-accent,#e89e38)] transition-colors">
             ${escape(circle.displayName || circle.name)}
           </h3>

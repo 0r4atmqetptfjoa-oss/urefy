@@ -86,6 +86,21 @@ export class SovereignWebPush {
   private _bannerDismissed: boolean = false;
 
   constructor() {
+    if (typeof sessionStorage !== 'undefined') {
+      try {
+        if (sessionStorage.getItem('aetheris_push_banner_dismissed') === '1') {
+          this._bannerDismissed = true;
+        }
+      } catch (_) {}
+    }
+    if (typeof localStorage !== 'undefined') {
+      try {
+        const dismissedUntil = Number(localStorage.getItem('urefy_push_banner_dismissed_until') || '0');
+        if (dismissedUntil > Date.now()) {
+          this._bannerDismissed = true;
+        }
+      } catch (_) {}
+    }
     this._initEngagementGate();
     this._initStatus();
   }
@@ -496,14 +511,26 @@ export class SovereignWebPush {
       return '';
     }
 
-    // Engagement gate: require at least 3 user actions or 45 seconds of active session before displaying banner
     if (typeof sessionStorage !== 'undefined') {
       try {
-        const sessionStart = Number(sessionStorage.getItem('urefy_session_start') || Date.now());
-        const actionCount = Number(sessionStorage.getItem('urefy_user_action_count') || '0');
-        const elapsed = Date.now() - sessionStart;
-        if (elapsed < 45000 && actionCount < 3) {
+        if (sessionStorage.getItem('aetheris_push_banner_dismissed') === '1') {
+          this._bannerDismissed = true;
           return '';
+        }
+      } catch (_) {}
+    }
+
+    // Engagement gate: require at least 3 user actions or 45 seconds of active session before displaying banner (unless user is already onboarded)
+    if (typeof sessionStorage !== 'undefined') {
+      try {
+        const isOnboarded = typeof localStorage !== 'undefined' && localStorage.getItem('aetheris_onboarding_completed') === 'true';
+        if (!isOnboarded) {
+          const sessionStart = Number(sessionStorage.getItem('urefy_session_start') || Date.now());
+          const actionCount = Number(sessionStorage.getItem('urefy_user_action_count') || '0');
+          const elapsed = Date.now() - sessionStart;
+          if (elapsed < 45000 && actionCount < 3) {
+            return '';
+          }
         }
       } catch (_) {}
     }
@@ -520,7 +547,7 @@ export class SovereignWebPush {
         id="sovereign-push-opt-in-banner"
         role="region"
         aria-label="Notification setup"
-        class="web-push-banner fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] sm:bottom-4 right-4 z-[9990] w-[calc(100%-2rem)] max-w-sm bg-surface-raised/95 border border-white/10 rounded-2xl p-4 shadow-2xl backdrop-blur-2xl transition-all duration-300 animate-in fade-in slide-in-from-bottom-6"
+        class="web-push-banner pointer-events-auto fixed bottom-20 sm:bottom-4 right-4 z-[9990] w-[calc(100%-2rem)] max-w-sm bg-surface-raised border border-white/10 rounded-2xl p-4 shadow-2xl"
       >
         <div class="flex items-start gap-3.5">
           <!-- Shield Icon -->

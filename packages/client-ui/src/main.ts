@@ -7,6 +7,8 @@ import './context.css';
 import './product.css';
 import { secureStorage } from './secure-storage.js';
 
+
+
 // An open tab can outlive the deployment that supplied its lazy chunks. Preserve
 // the user's current form rather than replacing the page without their action.
 window.addEventListener('vite:preloadError', (event) => {

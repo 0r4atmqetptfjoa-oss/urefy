@@ -497,7 +497,10 @@ export class SovereignCircleEngine {
   }
 
   public findCircle(channelOrCircleId: string): SovereignCircle | undefined {
-    return this.circles.get(channelOrCircleId);
+    if (!channelOrCircleId) return undefined;
+    const clean = channelOrCircleId.trim();
+    const withoutPrefix = clean.replace(/^(?:c\/|c-)/, '');
+    return this.circles.get(clean) || this.circles.get(`c/${withoutPrefix}`) || this.circles.get(`c-${withoutPrefix}`) || this.circles.get(withoutPrefix);
   }
 
   public getCircle(channelOrCircleId: string): SovereignCircle | undefined {

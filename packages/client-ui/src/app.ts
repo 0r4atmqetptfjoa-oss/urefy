@@ -346,14 +346,18 @@ if (typeof window !== 'undefined') {
   window.postDetailView = postDetailView;
   if (!('webAuthnManager' in window)) {
     let _wam: any = null;
+    const loadWam = () => import('./webauthn.js').then((m) => {
+      _wam = m.webAuthnManager;
+      (window as any).webAuthnManager = m.webAuthnManager;
+      return _wam;
+    });
+    void loadWam();
     Object.defineProperty(window, 'webAuthnManager', {
       configurable: true,
       enumerable: true,
       get() {
         if (!_wam) {
-          void import('./webauthn.js').then((m) => {
-            _wam = m.webAuthnManager;
-          });
+          void loadWam();
         }
         return _wam;
       },
@@ -449,6 +453,10 @@ export function initApp(): void {
   window.addEventListener('offline', () => {
     updateNetworkStatusBadge();
     toastManager.warning('Network disconnected — Offline Vault active', '🟡');
+  });
+
+  window.addEventListener('aetheris-detail-view-refresh', () => {
+    clientStore.notifySync();
   });
 
   // Background Edge Sync Interval (polls public announcements & live state every 30s)
@@ -920,7 +928,7 @@ export function initApp(): void {
         <div id="broadcast-root">${initBroadcast}</div>
 
         <!-- TOP BAR: SOVEREIGN HEADER & CONTROLS -->
-        <header id="app-top-header" class="app-top-header h-14 border-subtle-b bg-surface-base/95 backdrop-blur-xl px-4 sm:px-6 flex items-center justify-between z-20 shrink-0 shadow-md">
+        <header id="app-top-header" class="app-top-header h-14 border-subtle-b bg-surface-base/95 backdrop-blur-xl px-2 sm:px-6 flex items-center justify-between z-20 shrink-0 shadow-md max-w-full overflow-x-clip">
           
           <!-- LEFT: LOGO + PRIMARY WORKSPACE MODES -->
           <div class="flex items-center space-x-3 sm:space-x-6">
@@ -953,7 +961,7 @@ export function initApp(): void {
           <div class="flex items-center space-x-2 sm:space-x-2.5">
             
             <!-- MOBILE SEARCH TRIGGER (visible on mobile/tablet) -->
-            <button type="button" id="btn-mobile-search-trigger" class="lg:hidden p-2 text-xs rounded-xl border border-white/5 bg-surface-raised/80 hover:bg-surface-overlay text-slate-300 transition-all cursor-pointer" title="Search (Ctrl+K)">
+            <button type="button" id="btn-mobile-search-trigger" class="lg:hidden min-w-[44px] min-h-[44px] w-11 h-11 flex items-center justify-center p-2 text-xs rounded-xl border border-white/5 bg-surface-raised/80 hover:bg-surface-overlay text-slate-300 transition-all cursor-pointer" title="Search (Ctrl+K)">
               <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
             </button>
 
@@ -1539,7 +1547,7 @@ function renderMainStage(): string {
                           currentRoute === 'communities' || clientStore.activeChannelId.startsWith('c/') ||
                           currentRoute === 'profile' || isProfile;
 
-  if (postDetailView.isOpen() && postDetailView.activePostId && !isExplicitRoute) {
+  if (postDetailView.isOpen() && postDetailView.activePostId) {
     const post = clientStore.posts.find(p => p.id === postDetailView.activePostId);
     if (post) {
       const comments = threadManager.getRootCommentsForPost(post.id);

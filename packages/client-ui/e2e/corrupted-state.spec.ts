@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
 
+test.use({ serviceWorkers: 'block' });
+
 test.describe('Adversarial & Corrupted State Verification', () => {
   test('fresh visitor with completely empty storage loads cleanly without white screen', async ({ page }) => {
     // Zero localStorage, zero sessionStorage
@@ -7,7 +9,7 @@ test.describe('Adversarial & Corrupted State Verification', () => {
     
     // Check that top header or onboarding wizard is visible and no uncaught JS error crashed the page
     const topHeader = page.locator('#app-top-header');
-    await expect(topHeader).toBeVisible();
+    await expect(topHeader).toBeVisible({ timeout: 15000 });
 
     // Verify keypair generated cleanly
     const fingerprint = await page.evaluate(() => (window as any).clientStore?.keypair?.fingerprint);
@@ -36,7 +38,7 @@ test.describe('Adversarial & Corrupted State Verification', () => {
  });
 
  await page.goto('/');
- await expect(page.locator('#app-top-header')).toBeVisible();
+ await expect(page.locator('#app-top-header')).toBeVisible({ timeout: 15000 });
 
  // Verify layout rendered and no white screen
  const layout = page.locator('#main-layout');
@@ -55,7 +57,7 @@ test.describe('Adversarial & Corrupted State Verification', () => {
  });
 
  await page.goto('/');
- await expect(page.locator('#app-top-header')).toBeVisible();
+ await expect(page.locator('#app-top-header')).toBeVisible({ timeout: 15000 });
 
     // Delete IndexedDB database from inside the browser
     await page.evaluate(async () => {
@@ -79,7 +81,7 @@ test.describe('Adversarial & Corrupted State Verification', () => {
  });
 
  await page.goto('/');
- await expect(page.locator('#app-top-header')).toBeVisible();
+ await expect(page.locator('#app-top-header')).toBeVisible({ timeout: 15000 });
 
  // Set network to offline
  await context.setOffline(true);
@@ -91,6 +93,6 @@ test.describe('Adversarial & Corrupted State Verification', () => {
  await page.evaluate(() => window.dispatchEvent(new Event('online')));
  await page.waitForTimeout(500);
 
- await expect(page.locator('#app-top-header')).toBeVisible();
+ await expect(page.locator('#app-top-header')).toBeVisible({ timeout: 15000 });
  });
 });

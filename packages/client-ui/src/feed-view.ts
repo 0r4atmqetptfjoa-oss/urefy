@@ -118,16 +118,16 @@ export function renderInlineQuickComposer(): string {
   };
   return `
     <section class="quick-composer" aria-label="Create a post">
-      <div class="flex items-center justify-between text-xs pb-2 mb-2 border-b border-white/5 text-slate-400">
-        <div class="flex items-center gap-2">
-          <span class="text-[11px]">Posting as</span>
-          <div class="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-surface-base border border-white/10 text-white font-medium">
-            <span class="w-1.5 h-1.5 rounded-full bg-[var(--color-accent,#e89e38)]"></span>
-            <span>${escapeHtml(activeFacet.displayName)}</span>
-            <span class="text-slate-400 text-[10px] font-mono">@${escapeHtml(activeFacet.handle)}</span>
+      <div class="flex flex-wrap items-center justify-between gap-2 text-xs pb-2 mb-2 border-b border-white/5 text-slate-400">
+        <div class="flex items-center gap-2 min-w-0">
+          <span class="text-[11px] shrink-0">Posting as</span>
+          <div class="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-surface-base border border-white/10 text-white font-medium min-w-0">
+            <span class="w-1.5 h-1.5 rounded-full bg-[var(--color-accent,#e89e38)] shrink-0"></span>
+            <span class="truncate">${escapeHtml(activeFacet.displayName)}</span>
+            <span class="text-slate-400 text-[10px] font-mono truncate">@${escapeHtml(activeFacet.handle)}</span>
           </div>
         </div>
-        ${privacyLens.renderCompact({ audience: 'public', interactive: false })}
+        <div class="shrink-0">${privacyLens.renderCompact({ audience: 'public', interactive: false })}</div>
       </div>
       <div class="flex gap-3">
         ${renderAvatar(profileView.getProfile(clientStore.keypair.fingerprint)?.avatar, clientStore.keypair.fingerprint, { size: 40, className: 'quick-composer__avatar shrink-0 w-10 h-10 rounded-xl' })}

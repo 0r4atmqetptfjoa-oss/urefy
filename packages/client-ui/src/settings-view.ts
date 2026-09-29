@@ -623,10 +623,11 @@ export class SettingsView {
               type="button"
               id="btn-settings-register-passkey"
               data-action="register-passkey"
-              class="px-4 py-2 rounded-xl bg-[var(--color-accent,#e59b3c)] hover:brightness-105 text-slate-950 font-bold text-xs shadow-sm transition-all cursor-pointer shrink-0 flex items-center justify-center gap-1.5"
+              aria-label="Register New Passkey"
+              class="px-4 py-2 rounded-xl bg-[var(--color-accent,#e89e38)] hover:brightness-105 text-slate-950 font-bold text-xs shadow-sm transition-all cursor-pointer shrink-0 flex items-center justify-center gap-1.5"
             >
               <span>+</span>
-              <span>Add Passkey</span>
+              <span>Register New Passkey</span>
             </button>
           </div>
 
@@ -890,14 +891,7 @@ export class SettingsView {
 
     const isOledActive = currentThemeId === 'matrix-monolith';
 
-    const themesList = (THEMES && THEMES.length > 0) ? THEMES : [
-      { id: 'obsidian-cyber', name: 'Obsidian Cyber', emoji: '🌌', accentColor: '#00e5ff', description: 'Deep obsidian nocturnal blue' },
-      { id: 'matrix-monolith', name: 'Matrix Monolith', emoji: '🌲', accentColor: '#22c55e', description: 'Pure OLED black' },
-      { id: 'tokyo-neon', name: 'Tokyo Neon', emoji: '🌆', accentColor: '#f43f5e', description: 'Cyberpunk nocturnal violet' },
-      { id: 'solar-amber', name: 'Solar Amber', emoji: '🌅', accentColor: '#f59e0b', description: 'Warm charcoal & solar amber' },
-      { id: 'alabaster-light', name: 'Alabaster Light', emoji: '☀️', accentColor: '#c27803', description: 'Warm daylight off-white mode' },
-      { id: 'nordic-frost', name: 'Nordic Frost', emoji: '❄️', accentColor: '#38bdf8', description: 'Arctic blue & glacial frost' },
-    ];
+    const themesList = themeEngine.getCuratedThemes();
 
     const themeCardsHTML = themesList.map((t) => {
       const isSelected = currentThemeId === t.id;

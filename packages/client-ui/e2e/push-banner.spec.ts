@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
 
+test.use({ serviceWorkers: 'block' });
+
 test('push invitation stays dismissed after Later and reload', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 960 });
   await page.addInitScript(() => {
