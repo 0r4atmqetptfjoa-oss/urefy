@@ -155,9 +155,65 @@ export class ContextualSidebar {
     const communityName = isCommunity ? post.channelId.replace(/^c\//, '') : '';
     const audience = post.audience || (post.channelId?.startsWith('vault-') ? 'followers' : isCommunity ? 'community' : 'public');
 
+    // Extract table of contents from markdown headings or numbered sections
+    const headingMatches = (post.content || '').match(/^(?:#{1,3}\s+|(?:\d+\.\s+))([^\n]+)/gm) || [];
+    const sections = headingMatches.slice(0, 5).map(h => {
+      const clean = h.replace(/^(?:#{1,3}\s+|\d+\.\s+)/, '').replace(/\*\*/g, '').trim();
+      const slug = clean.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      return { title: clean, slug };
+    }).filter(s => s.title.length > 2);
+
+    // Other discussions in same channel
+    const relatedInChannel = clientStore.posts
+      .filter(p => p.id !== post.id && (post.channelId ? p.channelId === post.channelId : !p.channelId?.startsWith('c/')))
+      .slice(0, 3);
+
     return `
-      <div class="context-rail journal-thread-context" data-sidebar-context="post-detail">
-        <!-- 1. DISCUSSION PARTICIPANTS -->
+      <div class="context-rail journal-thread-context space-y-3" data-sidebar-context="post-detail">
+        <!-- 1. AUTHOR IDENTITY CARD -->
+        <section class="context-rail__section">
+          <span class="context-rail__title">Author</span>
+          <div class="p-3 rounded-xl bg-surface-raised/40 border border-white/5 mt-1 space-y-2.5">
+            <div class="flex items-center space-x-2.5">
+              ${authorProfile?.avatar ? `
+                <img src="${escapeHtml(authorProfile.avatar)}" alt="${escapeHtml(authorName)}" class="w-9 h-9 rounded-full object-cover border border-white/10" />
+              ` : `
+                <div class="w-9 h-9 rounded-full bg-gradient-to-tr from-aether/60 to-cyphr/60 flex items-center justify-center font-mono text-xs font-bold text-white shadow-sm">
+                  ${(post.authorFingerprint || '??').substring(0, 2).toUpperCase()}
+                </div>
+              `}
+              <div class="min-w-0 flex-1">
+                <div class="font-bold text-xs text-white truncate">${escapeHtml(authorName)}</div>
+                <div class="text-[11px] font-mono text-slate-400 truncate">@${post.authorFingerprint.slice(0, 8)}</div>
+              </div>
+              <span class="text-[9px] font-mono px-1.5 py-0.5 rounded border border-white/10 text-slate-300 bg-surface-base">
+                ${post.authorRole || 'MEMBER'}
+              </span>
+            </div>
+            ${authorProfile?.bio ? `
+              <p class="text-[11px] text-slate-300 line-clamp-2 leading-relaxed">${escapeHtml(authorProfile.bio)}</p>
+            ` : ''}
+            <a href="/profile/${post.authorFingerprint}" data-public-link class="block text-center text-[11px] font-semibold py-1 px-2.5 rounded-lg bg-surface-raised hover:bg-surface-overlay text-slate-300 hover:text-white border border-white/5 transition-all">
+              View Profile
+            </a>
+          </div>
+        </section>
+
+        <!-- 2. TABLE OF CONTENTS / KEY SECTIONS (IF PRESENT) -->
+        ${sections.length > 0 ? `
+          <section class="context-rail__section">
+            <span class="context-rail__title">On This Page</span>
+            <div class="space-y-1 mt-1">
+              ${sections.map(s => `
+                <a href="#${escapeHtml(s.slug)}" class="block py-1.5 px-2.5 rounded-lg hover:bg-surface-raised text-[11.5px] text-slate-300 hover:text-[var(--color-accent,#e89e38)] truncate transition-all">
+                  <span class="text-slate-500 mr-1.5">•</span>${escapeHtml(s.title)}
+                </a>
+              `).join('')}
+            </div>
+          </section>
+        ` : ''}
+
+        <!-- 3. DISCUSSION PARTICIPANTS -->
         <section class="context-rail__section journal-thread-context__participants">
           <span class="context-rail__title">Thread Participants (${participants.length})</span>
           <div class="journal-thread-context__participant-list flex flex-wrap gap-1.5 mt-1">
@@ -177,7 +233,7 @@ export class ContextualSidebar {
           </div>
         </section>
 
-        <!-- 2. RIVER CONVERSATION FLOW -->
+        <!-- 4. IN THIS THREAD METRICS -->
         <section class="context-rail__section journal-thread-context__record">
           <span class="context-rail__title">In this thread</span>
           <div class="journal-thread-context__facts grid grid-cols-2 gap-2 mt-1">
@@ -195,7 +251,7 @@ export class ContextualSidebar {
           </div>
         </section>
 
-        <!-- 3. PRIVACY BOUNDARY LENS -->
+        <!-- 5. PRIVACY BOUNDARY LENS -->
         <section class="context-rail__section journal-thread-context__privacy">
           <div class="flex items-center justify-between">
             <span class="context-rail__title">Privacy Boundary</span>
@@ -216,7 +272,7 @@ export class ContextualSidebar {
           </div>
         </section>
 
-        <!-- 4. LIVING SPACE CONTEXT (IF POST BELONGS TO COMMUNITY) -->
+        <!-- 6. LIVING SPACE CONTEXT (IF POST BELONGS TO COMMUNITY) -->
         ${isCommunity ? `
           <section class="context-rail__section journal-thread-context__place">
             <span class="context-rail__title">Living Space</span>
@@ -225,6 +281,26 @@ export class ContextualSidebar {
               <a href="${communityPath(communityName)}" data-public-link class="block text-center text-xs font-bold py-1.5 px-3 rounded-lg bg-[var(--color-accent,#e89e38)] text-slate-950 hover:brightness-105 transition-all">
                 Browse Community
               </a>
+            </div>
+          </section>
+        ` : ''}
+
+        <!-- 7. MORE IN CHANNEL / RELATED DISCUSSIONS -->
+        ${relatedInChannel.length > 0 ? `
+          <section class="context-rail__section">
+            <span class="context-rail__title">More Discussions</span>
+            <div class="space-y-2 mt-1">
+              ${relatedInChannel.map(rp => `
+                <button type="button" data-open-detail="${escapeHtml(rp.id)}" class="w-full text-left p-2.5 rounded-xl bg-surface-raised/40 hover:bg-surface-raised border border-white/5 hover:border-white/10 transition-all cursor-pointer group">
+                  <div class="text-xs font-semibold text-slate-200 group-hover:text-[var(--color-accent,#e89e38)] transition-colors line-clamp-2 leading-snug">
+                    ${escapeHtml(rp.title)}
+                  </div>
+                  <div class="flex items-center space-x-2 text-[10px] text-slate-500 font-mono mt-1">
+                    <span>▲ ${rp.meritVotes || 0}</span>
+                    <span>💬 ${rp.replyCount || 0}</span>
+                  </div>
+                </button>
+              `).join('')}
             </div>
           </section>
         ` : ''}

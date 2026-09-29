@@ -464,10 +464,10 @@ export class PostDetailView {
 
     return `
       <div id="post-focus-view" class="flex-1 flex flex-col h-full overflow-y-auto bg-canvas journal-thread-view">
-        <div class="journal-thread-page w-full mx-auto px-4 py-6 md:px-8 space-y-6">
+        <div class="journal-thread-page w-full mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-5 space-y-6">
           
           <!-- STAGE HEADER BAR -->
-          <header class="journal-thread-toolbar flex items-center justify-between pb-4 border-b border-white/5 gap-3">
+          <header class="journal-thread-toolbar sticky top-0 z-30 flex items-center justify-between py-2.5 pb-3 border-b border-white/10 bg-canvas/90 backdrop-blur-md gap-3">
             <div class="flex items-center space-x-3 min-w-0">
               <button type="button" id="btn-back-to-feed" data-action="close-post-detail" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-surface-raised hover:bg-surface-overlay text-slate-300 hover:text-white text-xs font-semibold border border-white/5 transition-all cursor-pointer shrink-0">
                 <svg class="w-4 h-4 text-[var(--color-accent,#e59b3c)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -718,9 +718,9 @@ export class PostDetailView {
     const authorAvatar = authorProfile?.avatar;
 
     return `
-      <div class="editorial-stage__reading-room post-detail-river journal-thread-river max-w-[78ch] mx-auto w-full">
+      <div class="post-detail-river journal-thread-river w-full space-y-6">
       <div class="river-item journal-thread-root post-grammar--deep-discussion border-0">
-          <article class="river-content journal-thread-article editorial-stage__article space-y-5 w-full">
+          <article class="river-content journal-thread-article editorial-stage__article space-y-6 w-full">
         
         <!-- TOP METADATA & MERIT VOTE BANNER -->
         <div class="journal-thread-byline flex items-start justify-between gap-4">
@@ -770,7 +770,7 @@ export class PostDetailView {
         ` : ''}
 
         <!-- POST TITLE -->
-        <h1 class="journal-thread-title text-xl md:text-2xl font-extrabold text-slate-100 leading-tight tracking-wide">
+        <h1 class="journal-thread-title">
           ${meta.safeTitle}
         </h1>
 
@@ -843,8 +843,8 @@ export class PostDetailView {
         </div>
 
         <!-- ─── FAST REPLY COMPOSER ────────────────────────── -->
-        <div class="river-item border-0 pt-4">
-          <section class="river-content journal-thread-reply-composer editorial-reply-composer p-4 sm:p-5 rounded-2xl bg-surface-raised/40 space-y-4 w-full">
+        <div class="river-item border-0 pt-2">
+          <section class="river-content journal-thread-reply-composer editorial-reply-composer p-5 sm:p-6 rounded-2xl bg-surface-base border border-white/10 shadow-lg space-y-4 w-full">
             <div class="flex items-center justify-between">
               <div class="flex items-center space-x-2">
                 <span class="text-sm">✍️</span>

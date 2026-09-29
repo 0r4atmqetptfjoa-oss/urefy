@@ -28,6 +28,7 @@ import {
   getTotalStorageBytes,
 } from './storage.js';
 import { verifyAdminAuthorization } from './admin.js';
+import { mirrorEncryptedBackupToS3, type S3BackupResult } from './_aws-s3.js';
 
 export const DAILY_BACKUP_KEY = 'backups/d1-snapshot-daily.enc';
 export const BACKUP_PREFIX = 'backups/';
@@ -83,6 +84,7 @@ export interface BackupExecutionResult {
   totalRecords: number;
   tableCounts: Record<string, number>;
   storage: 'Cloudflare-R2' | 'Edge-Isolate-Memory';
+  awsS3Backup?: S3BackupResult;
   rotation: {
     rotatedCount: number;
     deletedKeys: string[];
@@ -497,6 +499,10 @@ export async function executeBackup(
     rotationResult = await rotateOldSnapshots(r2, RETENTION_PERIOD_MS, now);
   }
 
+  // S3 receives only the same AES-GCM ciphertext already persisted in R2.
+  // It is an optional disaster-recovery mirror and never replaces Cloudflare storage.
+  const awsS3Backup = await mirrorEncryptedBackupToS3(env, timestampedKey, encryptedPayload);
+
   const result: BackupExecutionResult = {
     success: true,
     key: primaryKey,
@@ -508,6 +514,7 @@ export async function executeBackup(
     totalRecords,
     tableCounts: counts,
     storage: storageType,
+    awsS3Backup,
     rotation: rotationResult,
     metadata,
   };

@@ -274,13 +274,15 @@ class MarkdownRenderer {
 
   private renderHeading(text: string, level: number): string {
     const inlineText = this.renderInline(text.trim());
+    const rawText = text.trim().replace(/<[^>]*>/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    const idAttr = rawText ? ` id="${rawText}"` : '';
     const sizeMap: Record<number, string> = {
       1: 'text-xl font-bold text-slate-100 mt-4 mb-2',
       2: 'text-lg font-bold text-slate-100 mt-3 mb-1.5',
       3: 'text-base font-bold text-slate-100 mt-2 mb-1',
     };
     const cls = sizeMap[level] ?? 'text-sm font-bold text-slate-100 mt-2 mb-1';
-    return `<h${level} class="${cls}">${inlineText}</h${level}>`;
+    return `<h${level}${idAttr} class="${cls}">${inlineText}</h${level}>`;
   }
 
   // ─── URL Sanitization ─────────────────────────────────────────────────────
