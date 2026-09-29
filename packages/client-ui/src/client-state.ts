@@ -438,7 +438,11 @@ export class AetherisClientStore {
 
   public async fetchFacets(): Promise<ClientFacet[]> {
     try {
-      const res = await fetch(`/api/facets?userFingerprint=${encodeURIComponent(this.keypair.fingerprint)}`);
+      const res = await fetch(`/api/facets?ownerFingerprint=${encodeURIComponent(this.keypair.fingerprint)}`, {
+        headers: {
+          'X-User-Fingerprint': this.keypair.fingerprint,
+        },
+      });
       if (res.ok) {
         const data = await res.json();
         if (data.success && Array.isArray(data.facets)) {

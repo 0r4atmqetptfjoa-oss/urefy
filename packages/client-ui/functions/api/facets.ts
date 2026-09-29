@@ -75,7 +75,7 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
     const facetId = (url.searchParams.get('id') || '').trim();
     let handle = (url.searchParams.get('handle') || '').trim();
     if (handle.startsWith('@')) handle = handle.slice(1);
-    const ownerQuery = (url.searchParams.get('owner') || url.searchParams.get('ownerFingerprint') || '').trim();
+    const ownerQuery = (url.searchParams.get('owner') || url.searchParams.get('ownerFingerprint') || url.searchParams.get('userFingerprint') || '').trim();
     const callerFingerprint = (context.request.headers.get('X-User-Fingerprint') || '').trim();
 
     const db = getD1Database(context.env);
