@@ -492,8 +492,9 @@ export class RelaysManager {
                     : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.02] border-transparent'
                 }"
               >
-                <div class="flex-1 min-w-0 pr-2">
-                  <div class="text-xs font-semibold truncate ${isChActive ? 'text-[var(--color-accent,#e89e38)]' : 'text-slate-200'}">
+                <div class="flex-1 min-w-0 pr-2 flex items-center">
+                  <span class="text-slate-500 font-bold mr-1.5 text-xs select-none ${isChActive ? 'text-[var(--color-accent,#e89e38)]' : ''}">#</span>
+                  <div class="text-xs font-semibold truncate ${isChActive ? 'text-[var(--color-accent,#e89e38)] font-bold' : 'text-slate-200'}">
                     ${this._escapeHtml(topicTitle)}
                   </div>
                 </div>

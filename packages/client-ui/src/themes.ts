@@ -1595,19 +1595,54 @@ export class ThemeEngine {
       /* UREfy Field Journal surfaces: keep page grammar intact when themes change. */
       [data-theme] .journal-place-featured,
       [data-theme] .journal-place-entry,
-      [data-theme] .journal-dispatch,
-      [data-theme] .journal-dialogue-message {
+      [data-theme] .journal-dispatch {
         background: transparent !important;
         box-shadow: none !important;
         backdrop-filter: none !important;
         -webkit-backdrop-filter: none !important;
       }
-      [data-theme] .journal-place-entry,
-      [data-theme] .journal-dialogue-message {
+      [data-theme] .journal-place-entry {
         border-radius: 0 !important;
       }
       [data-theme] .journal-place-featured {
         border-inline: 0 !important;
+      }
+
+      /* Light mode chat bubbles & sovereign dialogue */
+      [data-theme="alabaster-light"] .journal-dialogue-message {
+        background: #ffffff !important;
+        border-color: #e2e8f0 !important;
+        color: #0f172a !important;
+      }
+      [data-theme="alabaster-light"] .journal-dialogue-message--incoming {
+        background: #ffffff !important;
+        border-color: #e2e8f0 !important;
+      }
+      [data-theme="alabaster-light"] .journal-dialogue-message--outgoing {
+        background: #fffbeb !important;
+        border-color: #fde68a !important;
+      }
+      [data-theme="alabaster-light"] .journal-dialogue-message .weave-message-body {
+        color: #0f172a !important;
+      }
+      [data-theme="alabaster-light"] .dialogue-identity-mark {
+        background: #e2e8f0 !important;
+        color: #0f172a !important;
+        border-color: #cbd5e1 !important;
+      }
+      [data-theme="alabaster-light"] .scene-date-separator span,
+      [data-theme="alabaster-light"] .journal-dialogue-day-break span,
+      [data-theme="alabaster-light"] .chat-date-pill {
+        background: #f1f5f9 !important;
+        border-color: #cbd5e1 !important;
+        color: #475569 !important;
+      }
+      [data-theme="alabaster-light"] .sovereign-dm-item button,
+      [data-theme="alabaster-light"] [data-action="select-dm-peer"] {
+        color: #0f172a !important;
+      }
+      [data-theme="alabaster-light"] [data-action="select-dm-peer"] span.text-slate-200 {
+        color: #0f172a !important;
       }
     `;
 

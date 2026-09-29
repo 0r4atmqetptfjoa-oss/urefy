@@ -30,7 +30,7 @@ function relativeTime(timestamp: number): string {
 }
 
 export class HomeDiscoveryEngine {
-  private isCollapsed = false;
+  private isCollapsed = true;
 
   public toggleCollapse(): void { this.isCollapsed = !this.isCollapsed; }
 
@@ -72,14 +72,25 @@ export class HomeDiscoveryEngine {
 
   /** Home overview and community shortcuts. */
   public renderDiscoveryLayer(posts: readonly ClientPost[]): string {
+    const topics = collectTopics(posts).slice(0, 6);
     if (this.isCollapsed) {
-      return `<div class="social-home-collapsed"><span>Community highlights are hidden.</span><button type="button" data-action="toggle-discovery-layer">Show highlights</button></div>`;
+      return `
+        <div class="social-home-collapsed flex items-center justify-between p-3 px-4 rounded-2xl bg-surface-base/80 border border-white/5 text-xs text-slate-300 mb-4 shadow-xs">
+          <div class="flex items-center gap-2 min-w-0 overflow-hidden">
+            <span class="text-amber-400 font-bold shrink-0">🔥 Trending</span>
+            <span class="text-slate-600 hidden sm:inline shrink-0">·</span>
+            <div class="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-0.5">
+              ${topics.length ? topics.map(t => `<button type="button" data-action="filter-by-topic" data-topic="${escapeHtml(t.topic)}" class="px-2.5 py-1 rounded-full bg-surface-raised hover:bg-surface-overlay text-[11px] font-medium text-slate-200 border border-white/5 hover:border-white/20 transition-all shrink-0 cursor-pointer">#${escapeHtml(t.topic)} <span class="text-slate-500 font-mono text-[10px]">${t.count}</span></button>`).join('') : '<span class="text-slate-500">Live topics from the network</span>'}
+            </div>
+          </div>
+          <button type="button" data-action="toggle-discovery-layer" class="text-[11px] text-[var(--color-accent,#e59b3c)] hover:underline shrink-0 ml-3 font-semibold cursor-pointer">Highlights ▾</button>
+        </div>
+      `;
     }
 
     const rankedPosts = [...posts]
       .sort((a, b) => ((b.meritVotes || 0) + (b.replyCount || 0) * 2) - ((a.meritVotes || 0) + (a.replyCount || 0) * 2))
       .slice(0, 4);
-    const topics = collectTopics(posts).slice(0, 6);
     const circles = sovereignCircleEngine.getAllCircles()
       .map((circle, index) => ({ circle, index, latest: getLatestCommunityPost(circle) }))
       .sort((a, b) => {

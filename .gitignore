@@ -29,6 +29,8 @@ id_ed25519*
 credentials*.json
 r2-credentials*.json
 cloudflare-secrets*.json
+*accessKeys*.csv
+*.csv
 
 # Archives & Temporary storage
 *.zip

@@ -25,6 +25,7 @@ import { countPostsSince } from './home-signals.js';
 import { renderWorkspaceLayoutControls } from './workspace-layout.js';
 import { isDemoModeEnabled } from './demo-mode.js';
 import { privacyLens } from './privacy-lens.js';
+import { storiesEngine } from './stories.js';
 
 function escapeHtml(text: string): string {
   return String(text || '')
@@ -258,6 +259,7 @@ export function renderPulseWorkspace(): string {
         ${activeCircle ? renderCommunityHeaderBanner(activeCircle) : ''}
         <div class="feed-toolbar-wrap social-home__feed-switcher">${feedControlsEngine.renderFeedControlsToolbar()}</div>
         ${renderInlineQuickComposer()}
+        ${!activeCircle ? storiesEngine.renderStoriesCarousel(clientStore.keypair.fingerprint) : ''}
         ${!activeCircle ? renderSinceYouWereAwayCard() : ''}
         ${discoveryLayerHtml}
         ${!activeCircle ? renderHomeHorizon(posts, clientStore.isConnected, isDemoModeEnabled()) : ''}
@@ -356,7 +358,7 @@ export function renderPulsePostCard(post: ClientPost): string {
             ${role ? `<span class="role-badge">${role}</span>` : ''}
             <span class="social-post__separator text-slate-500">·</span>
             <a href="${postPath(post.id)}" data-public-link aria-label="Open post" class="text-xs text-slate-400 hover:text-white"><time datetime="${new Date(post.createdAt).toISOString()}">${relativeTime(post.createdAt)}</time></a>
-            <a href="${communityPath(circleName)}" data-public-link class="social-post__community text-xs text-[var(--color-accent,#e89e38)] hover:underline">${escapeHtml(circleName)}</a>
+            <a href="${communityPath(circleName)}" data-public-link class="social-post__community inline-flex items-center px-2 py-0.5 rounded-full bg-surface-raised border border-white/10 text-[11px] font-medium text-[var(--color-accent,#e59b3c)] hover:bg-surface-overlay hover:border-white/25 transition-all">${escapeHtml(circleName)}</a>
           </div>
           <div class="flex items-center shrink-0">
             ${privacyLens.renderCompact({ audience: post.audience || 'public', postId: post.id, channelName: circle?.name, facetHandle: post.facetHandle || authorHandle })}

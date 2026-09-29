@@ -258,15 +258,27 @@ export function restoreMessageSelection(targetType: 'dm' | 'relay', focus = true
 
 export function setActiveMessagesTab(tab: MessagesTab): void {
   activeMessagesTab = tab;
-  if (typeof window !== 'undefined') (window as any).__aetheris_activeMessagesTab = tab;
+  if (typeof window !== 'undefined') {
+    (window as any).__aetheris_activeMessagesTab = tab;
+    try { localStorage.setItem('urefy_active_messages_tab', tab); } catch {}
+  }
   sovereignDM.setInlineMode(true);
   sovereignDM.isOpen = tab === 'dm';
   if (tab === 'dm') void sovereignDM.startLiveSync();
 }
 
 export function getActiveMessagesTab(): MessagesTab {
-  if (typeof window !== 'undefined' && (window as any).__aetheris_activeMessagesTab) {
-    return (window as any).__aetheris_activeMessagesTab;
+  if (typeof window !== 'undefined') {
+    if ((window as any).__aetheris_activeMessagesTab) {
+      return (window as any).__aetheris_activeMessagesTab;
+    }
+    try {
+      const saved = localStorage.getItem('urefy_active_messages_tab') as MessagesTab;
+      if (saved === 'relays' || saved === 'dm') {
+        (window as any).__aetheris_activeMessagesTab = saved;
+        return saved;
+      }
+    } catch {}
   }
   return activeMessagesTab;
 }
@@ -998,7 +1010,10 @@ export function groupDirectMessagesIntoScenes(msgs: DirectMessage[], myFP: strin
     const isNewDay = i === 0 || !isSameCalendarDay(msg.timestamp, msgs[i - 1].timestamp);
     const isTemporalGap = i > 0 && Math.abs(msg.timestamp - lastTimestamp) > 15 * 60 * 1000;
     const isSystem = msg.senderFP === 'genesis-core' || (msg as any).isSystem;
-    const isMine = msg.senderFP === myFP;
+    const isMine =
+      msg.senderFP === myFP ||
+      msg.senderFP === 'me_local_node_0x9f4e' ||
+      (typeof window !== 'undefined' && Boolean((window as any).clientStore?.keypair?.fingerprint) && msg.senderFP === (window as any).clientStore?.keypair?.fingerprint);
 
     if (!currentScene || isNewDay || isTemporalGap) {
       currentScene = {
@@ -1040,8 +1055,8 @@ export function renderMessageItem(m: ClientMessage, prevMsg?: ClientMessage): st
   const isGrouped = isSameSenderWithin5Min(m, prevMsg);
   const showDateSep = !prevMsg || !isSameCalendarDay(m.createdAt, prevMsg.createdAt);
   const dateSepHtml = showDateSep ? `
-    <div class="scene-date-separator journal-dialogue-day-break" role="separator">
-      <span>${formatDateSeparator(m.createdAt)}</span>
+    <div class="scene-date-separator chat-date-chip-wrapper flex justify-center my-3 select-none" role="separator">
+      <span class="chat-date-pill px-3.5 py-1 rounded-full bg-surface-raised/90 border border-white/10 text-[11px] font-semibold text-slate-300 shadow-xs backdrop-blur-sm">${formatDateSeparator(m.createdAt)}</span>
     </div>
   ` : '';
 
@@ -1072,12 +1087,14 @@ export function renderMessageItem(m: ClientMessage, prevMsg?: ClientMessage): st
           </div>
         </div>
         <span class="message-timestamp-hover absolute right-3 top-1 text-[10px] text-slate-500 font-mono opacity-0 group-hover/msg-row:opacity-100 transition-opacity select-none">${time}</span>
-        <div class="message-actions-bar opacity-0 group-hover/msg-row:opacity-100 focus-within:opacity-100 transition-opacity flex items-center space-x-1 absolute right-2 top-1 bg-surface-base/90 border border-white/10 rounded-lg px-1.5 py-0.5 shadow-sm">
-          <button type="button" class="px-1.5 py-0.5 rounded hover:bg-white/10 text-xs cursor-pointer" title="React with emoji" data-action="toggle-relay-emoji">😊</button>
-          <button type="button" class="px-1.5 py-0.5 rounded hover:bg-white/10 text-xs cursor-pointer text-slate-400 hover:text-white" title="Reply" data-action="reply-relay-message" data-message-id="${escapeHtml(m.id)}">↩</button>
-          <button type="button" class="px-1.5 py-0.5 rounded hover:bg-white/10 text-xs cursor-pointer text-slate-400 hover:text-white" title="Add to Context Capsule" data-action="add-to-capsule" data-message-id="${escapeHtml(m.id)}" data-sender-name="${escapeAttr(author.name)}" data-sender-handle="${escapeAttr(author.handle)}" data-text="${escapeAttr(m.text || '')}" data-timestamp="${m.createdAt}">📦</button>
-          <button type="button" class="px-1.5 py-0.5 rounded hover:bg-white/10 text-xs cursor-pointer ${canonicalVault.isMessageSaved(m.id) ? 'text-[var(--color-accent,#e89e38)] font-bold' : 'text-slate-400 hover:text-white'}" title="${canonicalVault.isMessageSaved(m.id) ? 'Remove from Vault' : 'Save to Vault'}" data-action="${canonicalVault.isMessageSaved(m.id) ? 'unsave-message-vault' : 'keep-live-message'}" data-message-id="${escapeHtml(m.id)}">${canonicalVault.isMessageSaved(m.id) ? '💾' : '🔒'}</button>
-          <button type="button" class="px-1.5 py-0.5 rounded hover:bg-white/10 text-xs cursor-pointer text-slate-400 hover:text-white" title="Copy text" data-action="copy-message-text" data-text="${escapeAttr(m.text || '')}">📋</button>
+        <div class="message-actions-bar opacity-0 group-hover/msg-row:opacity-100 focus-within:opacity-100 transition-all flex items-center space-x-1 absolute -top-3.5 right-3 bg-surface-base/95 border border-white/10 rounded-xl px-2 py-1 shadow-lg backdrop-blur-md z-20">
+          <button type="button" class="p-1 rounded-lg hover:bg-white/10 text-xs cursor-pointer" title="React ❤️" data-action="toggle-relay-emoji">❤️</button>
+          <button type="button" class="p-1 rounded-lg hover:bg-white/10 text-xs cursor-pointer" title="React 👍" data-action="toggle-relay-emoji">👍</button>
+          <button type="button" class="p-1 rounded-lg hover:bg-white/10 text-xs cursor-pointer" title="React 🔥" data-action="toggle-relay-emoji">🔥</button>
+          <button type="button" class="p-1 rounded-lg hover:bg-white/10 text-xs cursor-pointer text-slate-400 hover:text-white" title="Reply" data-action="reply-relay-message" data-message-id="${escapeHtml(m.id)}">↩</button>
+          <button type="button" class="p-1 rounded-lg hover:bg-white/10 text-xs cursor-pointer text-slate-400 hover:text-white" title="Add to Context Capsule" data-action="add-to-capsule" data-message-id="${escapeHtml(m.id)}" data-sender-name="${escapeAttr(author.name)}" data-sender-handle="${escapeAttr(author.handle)}" data-text="${escapeAttr(m.text || '')}" data-timestamp="${m.createdAt}">📦</button>
+          <button type="button" class="p-1 rounded-lg hover:bg-white/10 text-xs cursor-pointer ${canonicalVault.isMessageSaved(m.id) ? 'text-[var(--color-accent,#e89e38)] font-bold' : 'text-slate-400 hover:text-white'}" title="${canonicalVault.isMessageSaved(m.id) ? 'Remove from Vault' : 'Save to Vault'}" data-action="${canonicalVault.isMessageSaved(m.id) ? 'unsave-message-vault' : 'keep-live-message'}" data-message-id="${escapeHtml(m.id)}">${canonicalVault.isMessageSaved(m.id) ? '💾' : '🔒'}</button>
+          <button type="button" class="p-1 rounded-lg hover:bg-white/10 text-xs cursor-pointer text-slate-400 hover:text-white" title="Copy text" data-action="copy-message-text" data-text="${escapeAttr(m.text || '')}">📋</button>
         </div>
       </div>
     `;
@@ -1111,12 +1128,14 @@ export function renderMessageItem(m: ClientMessage, prevMsg?: ClientMessage): st
           ${renderAttachmentCard(m.attachment)}
         </div>
       </div>
-      <div class="message-actions-bar opacity-0 group-hover/msg-row:opacity-100 focus-within:opacity-100 transition-opacity flex items-center space-x-1 absolute right-2 top-2 bg-surface-base/90 border border-white/10 rounded-lg px-1.5 py-0.5 shadow-sm">
-        <button type="button" class="px-1.5 py-0.5 rounded hover:bg-white/10 text-xs cursor-pointer" title="React with emoji" data-action="toggle-relay-emoji">😊</button>
-        <button type="button" class="px-1.5 py-0.5 rounded hover:bg-white/10 text-xs cursor-pointer text-slate-400 hover:text-white" title="Reply" data-action="reply-relay-message" data-message-id="${escapeHtml(m.id)}">↩</button>
-        <button type="button" class="px-1.5 py-0.5 rounded hover:bg-white/10 text-xs cursor-pointer text-slate-400 hover:text-white" title="Add to Context Capsule" data-action="add-to-capsule" data-message-id="${escapeHtml(m.id)}" data-sender-name="${escapeAttr(author.name)}" data-sender-handle="${escapeAttr(author.handle)}" data-text="${escapeAttr(m.text || '')}" data-timestamp="${m.createdAt}">📦</button>
-        <button type="button" class="px-1.5 py-0.5 rounded hover:bg-white/10 text-xs cursor-pointer ${canonicalVault.isMessageSaved(m.id) ? 'text-[var(--color-accent,#e89e38)] font-bold' : 'text-slate-400 hover:text-white'}" title="${canonicalVault.isMessageSaved(m.id) ? 'Remove from Vault' : 'Save to Vault'}" data-action="${canonicalVault.isMessageSaved(m.id) ? 'unsave-message-vault' : 'keep-live-message'}" data-message-id="${escapeHtml(m.id)}">${canonicalVault.isMessageSaved(m.id) ? '💾' : '🔒'}</button>
-        <button type="button" class="px-1.5 py-0.5 rounded hover:bg-white/10 text-xs cursor-pointer text-slate-400 hover:text-white" title="Copy text" data-action="copy-message-text" data-text="${escapeAttr(m.text || '')}">📋</button>
+      <div class="message-actions-bar opacity-0 group-hover/msg-row:opacity-100 focus-within:opacity-100 transition-all flex items-center space-x-1 absolute -top-3.5 right-3 bg-surface-base/95 border border-white/10 rounded-xl px-2 py-1 shadow-lg backdrop-blur-md z-20">
+        <button type="button" class="p-1 rounded-lg hover:bg-white/10 text-xs cursor-pointer" title="React ❤️" data-action="toggle-relay-emoji">❤️</button>
+        <button type="button" class="p-1 rounded-lg hover:bg-white/10 text-xs cursor-pointer" title="React 👍" data-action="toggle-relay-emoji">👍</button>
+        <button type="button" class="p-1 rounded-lg hover:bg-white/10 text-xs cursor-pointer" title="React 🔥" data-action="toggle-relay-emoji">🔥</button>
+        <button type="button" class="p-1 rounded-lg hover:bg-white/10 text-xs cursor-pointer text-slate-400 hover:text-white" title="Reply" data-action="reply-relay-message" data-message-id="${escapeHtml(m.id)}">↩</button>
+        <button type="button" class="p-1 rounded-lg hover:bg-white/10 text-xs cursor-pointer text-slate-400 hover:text-white" title="Add to Context Capsule" data-action="add-to-capsule" data-message-id="${escapeHtml(m.id)}" data-sender-name="${escapeAttr(author.name)}" data-sender-handle="${escapeAttr(author.handle)}" data-text="${escapeAttr(m.text || '')}" data-timestamp="${m.createdAt}">📦</button>
+        <button type="button" class="p-1 rounded-lg hover:bg-white/10 text-xs cursor-pointer ${canonicalVault.isMessageSaved(m.id) ? 'text-[var(--color-accent,#e89e38)] font-bold' : 'text-slate-400 hover:text-white'}" title="${canonicalVault.isMessageSaved(m.id) ? 'Remove from Vault' : 'Save to Vault'}" data-action="${canonicalVault.isMessageSaved(m.id) ? 'unsave-message-vault' : 'keep-live-message'}" data-message-id="${escapeHtml(m.id)}">${canonicalVault.isMessageSaved(m.id) ? '💾' : '🔒'}</button>
+        <button type="button" class="p-1 rounded-lg hover:bg-white/10 text-xs cursor-pointer text-slate-400 hover:text-white" title="Copy text" data-action="copy-message-text" data-text="${escapeAttr(m.text || '')}">📋</button>
       </div>
     </div>
   `;
@@ -1126,40 +1145,41 @@ export function renderMessageItem(m: ClientMessage, prevMsg?: ClientMessage): st
  * Renders Top Navigation Switcher between Sovereign Relays (channels) and Direct Messages (E2EE 1-on-1).
  */
 export function renderMessagesTabHeader(): string {
+  const currentTab = getActiveMessagesTab();
   const totalUnread = sovereignDM.getTotalUnreadCount();
-  const isMobileThreadActive = activeMessagesTab === 'dm' && Boolean(sovereignDM.activePeerFP);
+  const isMobileThreadActive = currentTab === 'dm' && Boolean(sovereignDM.activePeerFP);
 
   return `
-    <div class="messages-header journal-dialogue-header h-12 border-subtle-b bg-surface-base px-4 flex items-center justify-between shrink-0 z-10 ${isMobileThreadActive ? 'hidden md:flex' : ''}">
+    <div class="messages-header journal-dialogue-header h-14 border-b border-white/5 bg-surface-base/90 backdrop-blur-md px-4 sm:px-6 flex items-center justify-between shrink-0 z-10 ${isMobileThreadActive ? 'hidden md:flex' : ''}">
       <h1 class="sr-only">Messages</h1>
-      <div class="flex items-center space-x-2" role="group" aria-label="Message type">
+      <div class="flex items-center space-x-1.5 p-1 bg-surface-raised/60 rounded-2xl border border-white/5" role="group" aria-label="Message type">
         <button 
           type="button" 
           data-action="switch-messages-tab" 
           data-tab="relays"
-          aria-pressed="${activeMessagesTab === 'relays'}"
-          class="px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center space-x-2 transition-all cursor-pointer ${
-            activeMessagesTab === 'relays'
+          aria-pressed="${currentTab === 'relays'}"
+          class="px-4 py-1.5 rounded-xl text-xs font-semibold flex items-center space-x-2 transition-all cursor-pointer ${
+            currentTab === 'relays'
               ? 'bg-[var(--color-accent,#e89e38)] text-slate-950 font-bold shadow-sm'
-              : 'bg-surface-raised/60 hover:bg-surface-raised text-slate-300 border border-white/5'
+              : 'text-slate-400 hover:text-white hover:bg-surface-raised/80'
           }"
         >
-          ${renderIcon('radio', { size: 17 })}
+          <span class="font-bold text-sm">#</span>
           <span>Communities</span>
         </button>
         <button 
           type="button" 
           data-action="switch-messages-tab" 
           data-tab="dm"
-          aria-pressed="${activeMessagesTab === 'dm'}"
-          class="px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center space-x-2 transition-all cursor-pointer ${
-            activeMessagesTab === 'dm'
+          aria-pressed="${currentTab === 'dm'}"
+          class="px-4 py-1.5 rounded-xl text-xs font-semibold flex items-center space-x-2 transition-all cursor-pointer ${
+            currentTab === 'dm'
               ? 'bg-[var(--color-accent,#e89e38)] text-slate-950 font-bold shadow-sm'
-              : 'bg-surface-raised/60 hover:bg-surface-raised text-slate-300 border border-white/5'
+              : 'text-slate-400 hover:text-white hover:bg-surface-raised/80'
           }"
         >
-          ${renderIcon('messages', { size: 17 })}
-          <span>Direct</span>
+          <span>💬</span>
+          <span>Direct Messages</span>
           ${
             totalUnread > 0
               ? `<span class="px-1.5 py-0.2 bg-crimson text-white rounded-full text-[10px] font-bold animate-pulse">${totalUnread}</span>`
@@ -1167,10 +1187,10 @@ export function renderMessagesTabHeader(): string {
           }
         </button>
       </div>
-      <div class="hidden sm:flex items-center space-x-3 text-[11px] font-mono text-slate-400">
-        <span class="flex items-center space-x-1.5">
-          <span class="w-1.5 h-1.5 rounded-full ${activeMessagesTab === 'dm' ? 'bg-emerald-400/80' : 'bg-signal'}"></span>
-          <span>${activeMessagesTab === 'dm' ? 'Direct Messaging' : 'Community Discussions'}</span>
+      <div class="hidden sm:flex items-center space-x-3 text-[11px] font-sans text-slate-400">
+        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-raised/60 border border-white/5 text-[11px] text-slate-300">
+          <span class="w-2 h-2 rounded-full ${currentTab === 'dm' ? 'bg-emerald-400 ring-2 ring-emerald-400/20' : 'bg-amber-400 ring-2 ring-amber-400/20'}"></span>
+          <span>${currentTab === 'dm' ? '🔒 MLS TreeKEM v2.4 (E2EE)' : '🌐 Sovereign Channels'}</span>
         </span>
       </div>
     </div>
@@ -1381,6 +1401,10 @@ export function renderDirectMessagesWorkspace(): string {
           ` : filteredConversations.map(conv => {
             const isSelected = activePeerFP === conv.peerFingerprint;
             const lastMsg = conv.messages.filter(message => !message.context?.reaction).at(-1);
+            const isLastMsgMine =
+              lastMsg?.senderFP === myFP ||
+              lastMsg?.senderFP === 'me_local_node_0x9f4e' ||
+              (typeof window !== 'undefined' && Boolean((window as any).clientStore?.keypair?.fingerprint) && lastMsg?.senderFP === (window as any).clientStore?.keypair?.fingerprint);
             const snippet = lastMsg ? lastMsg.plaintext : 'No messages yet';
             const peerInfo = resolveHumanDisplayName(conv.peerFingerprint);
             const avatarInitials = peerInfo.name === 'Profile not set up' ? '?' : peerInfo.name.substring(0, 2).toUpperCase();
@@ -1391,29 +1415,33 @@ export function renderDirectMessagesWorkspace(): string {
                 <button type="button"
                   data-action="select-dm-peer" 
                   data-peer="${conv.peerFingerprint}"
-                  class="w-full text-left p-2.5 rounded-xl transition-all cursor-pointer flex items-center space-x-3 border ${
+                  class="w-full text-left p-3 rounded-2xl transition-all cursor-pointer flex items-center space-x-3 border ${
                     isSelected 
                       ? 'bg-surface-raised border-[var(--color-accent,#e59b3c)]/40 shadow-sm' 
-                      : 'bg-transparent hover:bg-surface-raised/40 border-transparent'
+                      : 'bg-transparent hover:bg-surface-raised/50 border-transparent'
                   }"
                 >
-                  <!-- Avatar -->
+                  <!-- Avatar with Online Presence Dot -->
                   <div class="relative shrink-0">
-                    <div class="w-9 h-9 rounded-xl ${avatarBg} flex items-center justify-center font-bold text-xs shadow-sm border border-white/10">
+                    <div class="w-10 h-10 rounded-2xl ${avatarBg} flex items-center justify-center font-bold text-xs shadow-sm border border-white/10">
                       ${avatarInitials}
                     </div>
+                    <span class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-surface-base ring-1 ring-emerald-500/40" title="Active now"></span>
                   </div>
 
                   <!-- Text details -->
                   <div class="flex-1 min-w-0 pr-6">
                     <div class="flex items-center justify-between">
                       <span class="text-xs font-bold text-slate-200 truncate">${escapeHtml(peerInfo.name)}</span>
-                      <span class="text-[10px] text-slate-500 shrink-0">${formatRelative(conv.lastMessageAt)}</span>
+                      <span class="text-[10px] text-slate-500 shrink-0 font-mono">${formatRelative(conv.lastMessageAt)}</span>
                     </div>
                     <div class="flex items-center justify-between mt-0.5">
-                      <p class="text-[11px] text-slate-400 truncate pr-2">${escapeHtml(snippet)}</p>
+                      <p class="text-[11px] text-slate-400 truncate pr-2 flex items-center">
+                        ${isLastMsgMine ? `<span class="mr-1 text-[10px] font-mono leading-none ${lastMsg?.isPeerRead ? 'text-[#00e5ff] font-bold' : 'text-slate-400'}" title="${lastMsg?.isPeerRead ? 'Read' : 'Delivered'}">${lastMsg?.isPeerRead ? '✓✓' : (lastMsg?.deliveryStatus === 'sent' ? '✓' : '✓✓')}</span>` : ''}
+                        <span>${escapeHtml(snippet)}</span>
+                      </p>
                       ${conv.unreadCount > 0 ? `
-                        <span class="px-1.5 py-0.2 bg-crimson text-white rounded-full text-[10px] font-bold shrink-0">
+                        <span class="px-2 py-0.5 bg-[var(--color-accent,#e59b3c)] text-slate-950 rounded-full text-[10px] font-bold shrink-0 shadow-xs">
                           ${conv.unreadCount}
                         </span>
                       ` : ''}
@@ -1459,20 +1487,23 @@ export function renderDirectMessagesWorkspace(): string {
           </div>
         ` : `
           <!-- ACTIVE THREAD HEADER -->
-          <div class="h-16 px-4 md:px-6 border-b border-white/5 bg-surface-base/70 backdrop-blur-sm flex items-center justify-between gap-2 shrink-0">
-            <div class="flex items-center space-x-2.5 min-w-0">
-              <button type="button" data-action="dm-back" class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-surface-raised cursor-pointer md:hidden" aria-label="Back to conversations">
+          <div class="h-16 px-4 md:px-6 border-b border-white/5 bg-surface-base/80 backdrop-blur-md flex items-center justify-between gap-2 shrink-0">
+            <div class="flex items-center space-x-3 min-w-0">
+              <button type="button" data-action="dm-back" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-surface-raised cursor-pointer md:hidden" aria-label="Back to conversations">
                 ${renderIcon('chevronRight', { size: 18, className: 'rotate-180' })}
               </button>
-              <div class="dialogue-identity-mark w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs shrink-0">
-                ${resolveHumanDisplayName(activeConv.peerFingerprint).name === 'Profile not set up' ? '?' : resolveHumanDisplayName(activeConv.peerFingerprint).name.substring(0, 2).toUpperCase()}
+              <div class="relative shrink-0">
+                <div class="dialogue-identity-mark w-10 h-10 rounded-2xl flex items-center justify-center font-bold text-xs shadow-sm border border-white/10">
+                  ${resolveHumanDisplayName(activeConv.peerFingerprint).name === 'Profile not set up' ? '?' : resolveHumanDisplayName(activeConv.peerFingerprint).name.substring(0, 2).toUpperCase()}
+                </div>
+                <span class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-surface-base ring-1 ring-emerald-500/40" title="Active now"></span>
               </div>
               <div class="min-w-0">
                 <div class="flex items-center space-x-2">
                   <span class="text-sm font-bold text-white truncate">${escapeHtml(resolveHumanDisplayName(activeConv.peerFingerprint).name)}</span>
                   <span class="text-[11px] text-slate-400 font-mono hidden sm:inline">${escapeHtml(resolveHumanDisplayName(activeConv.peerFingerprint).handle)}</span>
                   ${activeConv.peerRole === 'GUARDIAN' || activeConv.peerRole === 'ARCHIVIST' ? `
-                    <span class="text-[9px] px-1.5 py-0.2 rounded border ${
+                    <span class="text-[9px] px-2 py-0.5 rounded-full border ${
                       activeConv.peerRole === 'GUARDIAN' ? 'bg-amber/15 text-amber border-amber/30' :
                       'bg-cyphr/15 text-cyphr border-cyphr/30'
                     }">
@@ -1480,27 +1511,29 @@ export function renderDirectMessagesWorkspace(): string {
                     </span>
                   ` : ''}
                   ${sovereignDM.isPeerBlocked(activeConv.peerFingerprint) ? `
-                    <span class="text-[9px] px-1.5 py-0.2 rounded bg-rose-950/80 text-rose-400 border border-rose-800/40 font-bold">Blocked</span>
+                    <span class="text-[9px] px-2 py-0.5 rounded-full bg-rose-950/80 text-rose-400 border border-rose-800/40 font-bold">Blocked</span>
                   ` : ''}
                 </div>
-                <div class="flex items-center space-x-2 mt-0.5 text-[10px] text-slate-400">
+                <div class="flex items-center space-x-2 mt-0.5 text-[11px] text-slate-400">
                   ${sovereignDM.isPeerTyping(activeConv.peerFingerprint) ? `
-                    <span class="flex items-center space-x-1 text-[var(--color-accent,#e89e38)] font-semibold animate-pulse">
-                      <span>✍️</span>
+                    <span class="flex items-center space-x-1.5 text-[var(--color-accent,#e89e38)] font-semibold animate-pulse">
+                      <span class="typing-dot !w-1.5 !h-1.5"></span>
+                      <span class="typing-dot !w-1.5 !h-1.5"></span>
+                      <span class="typing-dot !w-1.5 !h-1.5"></span>
                       <span>typing...</span>
                     </span>
                   ` : `
                     <button type="button" data-action="open-dm-safety" class="flex items-center gap-1.5 text-emerald-400 hover:text-emerald-300 font-medium cursor-pointer transition-colors" title="View conversation security">
                       <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 ring-2 ring-emerald-400/20"></span>
-                      <span class="hidden sm:inline">Private · End-to-end encrypted</span>
-                      <span class="sm:hidden">Private</span>
+                      <span class="hidden sm:inline">Active now · MLS Quantum-Ratcheted (E2EE)</span>
+                      <span class="sm:hidden">Active now</span>
                     </button>
                   `}
                 </div>
               </div>
             </div>
 
-            <!-- HEADER ACTIONS: SEARCH, CAPSULE, CONTEXT & OPTIONS -->
+            <!-- HEADER ACTIONS: SEARCH, AUDIO/VIDEO RELAY, CAPSULE, CONTEXT & OPTIONS -->
             <div class="flex items-center space-x-1 shrink-0">
               <button
                 type="button"
@@ -1692,14 +1725,15 @@ export function renderDirectMessagesWorkspace(): string {
               const scenes = groupDirectMessagesIntoScenes(messages, myFP);
               const readReceiptsEnabled = typeof localStorage !== 'undefined' && localStorage.getItem('urefy_msg_read_receipts') !== 'false';
 
-              return scenes.map(scene => `
-                ${scene.dateSepText ? `
-                  <div class="scene-date-separator journal-dialogue-day-break" role="separator">
-                    <span>${escapeHtml(scene.dateSepText)}</span>
-                  </div>
-                ` : ''}
+              return `
                 <div class="dialogue-flow journal-dialogue-flow space-y-3">
-                  ${scene.clusters.map(cluster => {
+                  ${scenes.map(scene => `
+                    ${scene.dateSepText ? `
+                      <div class="scene-date-separator journal-dialogue-day-break" role="separator">
+                        <span>${escapeHtml(scene.dateSepText)}</span>
+                      </div>
+                    ` : ''}
+                    ${scene.clusters.map(cluster => {
                     if (cluster.isSystem) {
                       return cluster.messages.filter(msg => !/encrypt|ratchet|key exchange|safety number|ml-kem|x25519/i.test(msg.plaintext || '')).map(msg => `
                         <div class="dialogue-system-event journal-dialogue-context journal-dialogue-context--system flex items-center justify-center my-2 select-none px-4" role="status">
@@ -1793,6 +1827,16 @@ export function renderDirectMessagesWorkspace(): string {
                                   ${renderAttachmentCard(msg.attachment)}
                                 </div>
 
+                                <!-- WhatsApp-style Meta (Timestamp & Checkmark status) -->
+                                <div class="flex items-center gap-1.5 ${isMine ? 'justify-end' : 'justify-start'} mt-1 pt-0.5 select-none text-[10px] text-slate-400 font-mono">
+                                  <span>${msgTime}</span>
+                                  ${isMine ? `
+                                    <span class="text-[11px] leading-none ${msg.isPeerRead ? 'text-[#00e5ff] font-bold' : 'text-slate-400'}" title="${msg.isPeerRead ? 'Read by recipient' : (msg.deliveryStatus === 'sent' ? 'Sent' : 'Delivered')}">
+                                      ${msg.deliveryStatus === 'sending' ? '⏳' : msg.deliveryStatus === 'failed' ? '⚠️' : (msg.isPeerRead ? '✓✓' : (msg.deliveryStatus === 'sent' ? '✓' : '✓✓'))}
+                                    </span>
+                                  ` : ''}
+                                </div>
+
                                 <!-- Attached Branch Marker if this message spawned branches -->
                                 ${sovereignDM.getBranches(activeConv.peerFingerprint).filter(b => b.sourceMessageId === msg.id).map(b => {
                                   const count = allMessages.filter(m => branchOf(m) === b.id).length;
@@ -1820,20 +1864,16 @@ export function renderDirectMessagesWorkspace(): string {
                                   </div>
                                 ` : ''}
 
-                                <!-- Progressive Action Bar (revealed on hover/focus) -->
+                                <!-- Discord-style Floating Action Dock (hover) -->
                                 ${!sovereignDM.showCiphertextToggle && msg.deliveryStatus !== 'failed' ? `
-                                  <div class="context-actions opacity-0 group-hover/msg-row:opacity-100 focus-within:opacity-100 transition-opacity mt-0.5 flex items-center gap-1 flex-wrap ${isMine ? 'justify-end' : ''}" aria-label="Message actions">
-                                    <details class="message-reactions"><summary class="context-button" aria-label="React to message">React</summary><div class="context-actions">${MESSAGE_REACTIONS.map(emoji => `<button type="button" class="context-button" data-action="react-dm-message" data-message-id="${escapeHtml(msg.id)}" data-emoji="${emoji}" aria-label="React ${emoji}">${emoji}</button>`).join('')}</div></details>
-                                    <button type="button" class="context-button" data-action="reply-dm-message" data-message-id="${escapeHtml(msg.id)}">Reply</button>
-                                    ${canonicalVault.isMessageSaved(msg.id)
-                                      ? `<button type="button" class="context-button text-[var(--color-accent,#e89e38)]" data-action="unsave-message-vault" data-message-id="${escapeHtml(msg.id)}" title="Remove from Vault">Saved</button>`
-                                      : `<button type="button" class="context-button" data-action="save-message-vault" data-message-id="${escapeHtml(msg.id)}" title="Save to Vault">Save</button>`
-                                    }
-                                    <details class="message-more"><summary class="context-button" aria-label="More message actions">More</summary><div class="context-actions">
-                                      <button type="button" class="context-button" data-action="create-dm-branch" data-peer="${escapeHtml(activeConv.peerFingerprint)}" data-message-id="${escapeHtml(msg.id)}">Branch conversation</button>
-                                      <button type="button" class="context-button" data-action="add-to-capsule" data-message-id="${escapeHtml(msg.id)}" data-sender-name="${escapeAttr(senderInfo.name)}" data-sender-handle="${escapeAttr(senderInfo.handle)}" data-text="${escapeAttr(msg.plaintext || '')}" data-timestamp="${msg.timestamp}">Add to Capsule</button>
-                                      <button type="button" class="context-button" data-action="copy-message-text" data-text="${escapeAttr(msg.plaintext || '')}">Copy text</button>
-                                    </div></details>
+                                  <div class="message-actions-bar opacity-0 group-hover/msg-row:opacity-100 focus-within:opacity-100 transition-all flex items-center space-x-1 absolute -top-3.5 right-3 bg-surface-base/95 border border-white/10 rounded-xl px-2 py-1 shadow-lg backdrop-blur-md z-20" aria-label="Message actions">
+                                    <button type="button" class="p-1 rounded-lg hover:bg-white/10 text-xs cursor-pointer" title="React ❤️" data-action="react-dm-message" data-message-id="${escapeHtml(msg.id)}" data-emoji="❤️">❤️</button>
+                                    <button type="button" class="p-1 rounded-lg hover:bg-white/10 text-xs cursor-pointer" title="React 👍" data-action="react-dm-message" data-message-id="${escapeHtml(msg.id)}" data-emoji="👍">👍</button>
+                                    <button type="button" class="p-1 rounded-lg hover:bg-white/10 text-xs cursor-pointer" title="React 🔥" data-action="react-dm-message" data-message-id="${escapeHtml(msg.id)}" data-emoji="🔥">🔥</button>
+                                    <button type="button" class="p-1 rounded-lg hover:bg-white/10 text-xs cursor-pointer text-slate-400 hover:text-white" title="Reply" data-action="reply-dm-message" data-message-id="${escapeHtml(msg.id)}">↩</button>
+                                    <button type="button" class="p-1 rounded-lg hover:bg-white/10 text-xs cursor-pointer text-slate-400 hover:text-white" title="Add to Context Capsule" data-action="add-to-capsule" data-message-id="${escapeHtml(msg.id)}" data-sender-name="${escapeAttr(senderInfo.name)}" data-sender-handle="${escapeAttr(senderInfo.handle)}" data-text="${escapeAttr(msg.plaintext || '')}" data-timestamp="${msg.timestamp}">📦</button>
+                                    <button type="button" class="p-1 rounded-lg hover:bg-white/10 text-xs cursor-pointer ${canonicalVault.isMessageSaved(msg.id) ? 'text-[var(--color-accent,#e89e38)]' : 'text-slate-400 hover:text-white'}" title="${canonicalVault.isMessageSaved(msg.id) ? 'Remove from Vault' : 'Save to Vault'}" data-action="${canonicalVault.isMessageSaved(msg.id) ? 'unsave-message-vault' : 'save-message-vault'}" data-message-id="${escapeHtml(msg.id)}">${canonicalVault.isMessageSaved(msg.id) ? '💾' : '🔒'}</button>
+                                    <button type="button" class="p-1 rounded-lg hover:bg-white/10 text-xs cursor-pointer text-slate-400 hover:text-white" title="Copy text" data-action="copy-message-text" data-text="${escapeAttr(msg.plaintext || '')}">📋</button>
                                   </div>
                                 ` : ''}
 
@@ -1845,13 +1885,16 @@ export function renderDirectMessagesWorkspace(): string {
                       </div>
                     `;
                   }).join('')}
-                </div>
-              `).join('');
-            })()}
+                `).join('')}
+              </div>
+            `;
+          })()}
             ${sovereignDM.isPeerTyping(activeConv.peerFingerprint) ? `
-              <div class="flex items-center space-x-2 text-xs text-slate-400 italic bg-surface-raised/40 px-3 py-1.5 rounded-2xl w-fit border border-white/5 animate-pulse">
-                <span class="w-1.5 h-1.5 rounded-full bg-[var(--color-accent,#e89e38)]"></span>
-                <span>${escapeHtml(resolvePeerName(activeConv.peerFingerprint))} is typing...</span>
+              <div class="typing-indicator-bubble flex items-center space-x-2 px-4 py-2.5 rounded-2xl bg-surface-raised border border-white/10 w-fit shadow-xs my-2 self-start animate-fade-in">
+                <span class="typing-dot"></span>
+                <span class="typing-dot"></span>
+                <span class="typing-dot"></span>
+                <span class="text-[12px] text-slate-300 font-medium ml-1.5">${escapeHtml(resolvePeerName(activeConv.peerFingerprint))} is typing...</span>
               </div>
             ` : ''}
           </div>
