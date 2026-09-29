@@ -305,12 +305,12 @@ export function renderVaultReleaseCard(p: ClientPost): string {
           </div>
         </div>
 
-        <!-- MERIT SCORE PILL -->
+        <!-- MERIT SCORE CONTROLS (>=44px touch targets) -->
         <div class="flex items-center space-x-2 self-start sm:self-auto shrink-0">
-          <div class="flex items-center space-x-1.5 bg-surface-overlay px-2.5 py-1 rounded-xl border border-white/5 text-xs font-mono">
-            <button data-vote-id="${p.id}" data-dir="1" class="btn-upvote text-slate-400 hover:text-emerald-400 cursor-pointer p-0.5" title="Endorse (+1 Merit)">▲</button>
-            <span class="font-bold text-emerald-400">${p.meritVotes} Merit</span>
-            <button data-vote-id="${p.id}" data-dir="-1" class="btn-downvote text-slate-400 hover:text-rose-400 cursor-pointer p-0.5" title="Divergent (-1)">▼</button>
+          <div class="merit-controls-wrap">
+            <button data-vote-id="${p.id}" data-dir="1" class="merit-btn btn-upvote" title="Endorse (+1 Merit)" aria-label="Endorse (+1 Merit)">▲</button>
+            <span class="merit-value font-mono text-emerald-400">${p.meritVotes} Merit</span>
+            <button data-vote-id="${p.id}" data-dir="-1" class="merit-btn btn-downvote" title="Divergent (-1)" aria-label="Divergent (-1)">▼</button>
           </div>
         </div>
       </div>
@@ -324,21 +324,21 @@ export function renderVaultReleaseCard(p: ClientPost): string {
       </div>
 
       <!-- COLLAPSIBLE TECHNICAL & CRYPTOGRAPHIC DETAILS -->
-      <details class="vault-card-tech-details rounded-xl bg-surface-base/80 border border-white/5 p-3 text-xs font-mono space-y-2.5 select-none">
-        <summary class="cursor-pointer text-slate-400 hover:text-slate-200 text-[11px] font-bold flex items-center justify-between">
-          <span class="flex items-center space-x-1.5">
+      <details class="vault-card-tech-details rounded-xl bg-surface-raised/40 border border-[var(--surface-rule)] p-3 text-xs font-mono space-y-2.5 select-none">
+        <summary class="cursor-pointer text-slate-300 hover:text-white text-xs font-semibold flex items-center justify-between min-h-[36px]">
+          <span class="flex items-center space-x-2">
             <span>🔬</span>
-            <span>Technical & Cryptographic Verification</span>
+            <span>Technical &amp; Cryptographic Verification</span>
           </span>
-          <span class="text-[10px] text-slate-400 font-sans">Inspect SHA & Entropy ▾</span>
+          <span class="text-[11px] text-slate-400 font-sans">Inspect SHA &amp; Entropy ▾</span>
         </summary>
-        <div class="pt-2 space-y-2 border-t border-white/5 text-[11px]">
-          <div class="flex items-center justify-between text-[11px] pb-1">
+        <div class="pt-2.5 space-y-2.5 border-t border-[var(--surface-rule)] text-xs">
+          <div class="flex items-center justify-between text-xs pb-1">
             <span class="text-slate-400 font-bold">Cryptographic Software Attestation:</span>
             <span class="text-slate-400 font-medium">Publisher-supplied metadata</span>
           </div>
 
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
             <div>
               <span class="text-slate-500">File Name:</span>
               <div class="text-slate-200 font-bold truncate">${fileName} (${(byteSize / 1024).toFixed(1)} KB)</div>
@@ -349,16 +349,16 @@ export function renderVaultReleaseCard(p: ClientPost): string {
             </div>
           </div>
 
-          <div class="p-2 rounded-lg bg-surface-overlay flex items-center justify-between text-[10px] text-slate-400">
-            <span class="truncate pr-2 font-mono">SHA256: ${sha}</span>
-            <button type="button" class="btn-copy-sha px-2.5 py-1 bg-surface-highlight hover:bg-slate-700 text-slate-200 rounded text-[9px] cursor-pointer shrink-0 font-medium" data-sha="${sha}">
+          <div class="p-2.5 rounded-xl bg-surface-raised border border-[var(--surface-rule)] flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[11px] text-slate-400">
+            <span class="break-all font-mono select-all">SHA256: ${sha}</span>
+            <button type="button" class="btn-copy-sha min-h-[36px] px-3 py-1.5 bg-surface-base hover:bg-surface-overlay text-slate-200 rounded-lg text-xs cursor-pointer shrink-0 font-medium border border-white/5 transition-colors self-start sm:self-auto" data-sha="${sha}">
               Copy SHA
             </button>
           </div>
 
-          <div class="text-[10px] text-amber-300/80 bg-amber-950/30 border border-amber-500/20 rounded-lg p-2 flex items-start space-x-1.5 font-sans">
+          <div class="text-xs text-amber-300/80 bg-amber-950/20 border border-amber-500/20 rounded-xl p-2.5 flex items-start space-x-2 font-sans">
             <span>⚠️</span>
-            <span>Static Shannon entropy & binary structure metrics provide heuristic safety indicators.</span>
+            <span>Static Shannon entropy &amp; binary structure metrics provide heuristic safety indicators.</span>
           </div>
         </div>
       </details>

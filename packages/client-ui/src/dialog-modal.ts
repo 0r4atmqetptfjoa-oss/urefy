@@ -38,6 +38,16 @@ export class SovereignDialog {
       el.setAttribute('role', 'dialog');
       el.setAttribute('aria-modal', 'true');
       el.setAttribute('aria-labelledby', 'sovereign-dialog-title');
+      el.addEventListener('click', (e) => {
+        if (e.target === el && this.activeResolver) {
+          const cancelBtn = document.getElementById('sovereign-dialog-cancel-btn');
+          if (cancelBtn) cancelBtn.click();
+          else {
+            const confirmBtn = document.getElementById('sovereign-dialog-confirm-btn');
+            if (confirmBtn) confirmBtn.click();
+          }
+        }
+      });
       document.body.appendChild(el);
     }
     this.container = el;
@@ -74,24 +84,24 @@ export class SovereignDialog {
       this.activeResolver = resolve;
 
       container.innerHTML = `
-        <div class="w-full max-w-md bg-surface-overlay border border-white/10 rounded-3xl p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150">
+        <div class="w-full max-w-md bg-surface-overlay border border-white/10 rounded-2xl p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150">
           <div class="flex items-center space-x-3 border-b border-white/10 pb-3">
-            <div class="w-9 h-9 rounded-2xl bg-surface-raised border flex items-center justify-center text-lg font-bold ${colorMap[type]}">
+            <div class="w-10 h-10 rounded-xl bg-surface-raised border flex items-center justify-center text-lg font-bold ${colorMap[type]}">
               ${iconMap[type]}
             </div>
             <div>
-              <h3 id="sovereign-dialog-title" class="text-sm font-bold text-white tracking-tight">${this._escapeHtml(title)}</h3>
-              <p class="text-[11px] text-slate-400 font-mono">Sovereign Security Notification</p>
+              <h3 id="sovereign-dialog-title" class="text-base font-bold text-white tracking-tight">${this._escapeHtml(title)}</h3>
+              <p class="text-xs text-slate-400">Sovereign Security Notification</p>
             </div>
           </div>
-          <div class="text-xs text-slate-300 leading-relaxed font-sans max-h-60 overflow-y-auto whitespace-pre-wrap select-text">
+          <div class="text-[15px] text-slate-200 leading-relaxed font-sans max-h-60 overflow-y-auto whitespace-pre-wrap select-text">
             ${this._escapeHtml(message)}
           </div>
           <div class="pt-2 flex justify-end">
             <button
               type="button"
               id="sovereign-dialog-confirm-btn"
-              class="px-5 py-2 rounded-xl bg-[var(--color-accent,#e89e38)] hover:brightness-110 text-slate-950 text-xs font-bold shadow-md transition-all cursor-pointer active:scale-95"
+              class="min-h-[44px] px-6 py-2.5 rounded-xl bg-[var(--color-accent,#e89e38)] hover:brightness-110 text-slate-950 text-sm font-bold shadow-md transition-all cursor-pointer active:scale-95"
             >
               ${this._escapeHtml(confirmText)}
             </button>
@@ -153,31 +163,31 @@ export class SovereignDialog {
       this.activeResolver = resolve;
 
       container.innerHTML = `
-        <div class="w-full max-w-md bg-surface-overlay border border-white/10 rounded-3xl p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150">
+        <div class="w-full max-w-md bg-surface-overlay border border-white/10 rounded-2xl p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150">
           <div class="flex items-center space-x-3 border-b border-white/10 pb-3">
-            <div class="w-9 h-9 rounded-2xl ${isDestructive ? 'bg-rose-500/20 text-rose-400 border-rose-500/30' : 'bg-[var(--color-accent,#e89e38)]/20 text-[var(--color-accent,#e89e38)] border-[var(--color-accent,#e89e38)]/30'} border flex items-center justify-center text-lg font-bold">
+            <div class="w-10 h-10 rounded-xl ${isDestructive ? 'bg-rose-500/20 text-rose-400 border-rose-500/30' : 'bg-[var(--color-accent,#e89e38)]/20 text-[var(--color-accent,#e89e38)] border-[var(--color-accent,#e89e38)]/30'} border flex items-center justify-center text-lg font-bold">
               ${isDestructive ? '🗑️' : '❓'}
             </div>
             <div>
-              <h3 id="sovereign-dialog-title" class="text-sm font-bold text-white tracking-tight">${this._escapeHtml(title)}</h3>
-              <p class="text-[11px] text-slate-400 font-mono">${isDestructive ? 'Action cannot be undone' : 'Please verify this action'}</p>
+              <h3 id="sovereign-dialog-title" class="text-base font-bold text-white tracking-tight">${this._escapeHtml(title)}</h3>
+              <p class="text-xs text-slate-400">${isDestructive ? 'Action cannot be undone' : 'Please verify this action'}</p>
             </div>
           </div>
-          <div class="text-xs text-slate-300 leading-relaxed font-sans max-h-60 overflow-y-auto whitespace-pre-wrap select-text">
+          <div class="text-[15px] text-slate-200 leading-relaxed font-sans max-h-60 overflow-y-auto whitespace-pre-wrap select-text">
             ${this._escapeHtml(message)}
           </div>
           <div class="pt-2 flex items-center justify-end space-x-3">
             <button
               type="button"
               id="sovereign-dialog-cancel-btn"
-              class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-surface-raised transition-all cursor-pointer"
+              class="min-h-[44px] px-5 py-2.5 rounded-xl text-sm font-semibold text-slate-300 hover:text-white hover:bg-surface-raised transition-all cursor-pointer"
             >
               ${this._escapeHtml(cancelText)}
             </button>
             <button
               type="button"
               id="sovereign-dialog-confirm-btn"
-              class="px-5 py-2 rounded-xl ${isDestructive ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-600/30' : 'bg-[var(--color-accent,#e89e38)] hover:brightness-110 text-slate-950'} text-xs font-bold shadow-md transition-all cursor-pointer active:scale-95"
+              class="min-h-[44px] px-6 py-2.5 rounded-xl ${isDestructive ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-600/30' : 'bg-[var(--color-accent,#e89e38)] hover:brightness-110 text-slate-950'} text-sm font-bold shadow-md transition-all cursor-pointer active:scale-95"
             >
               ${this._escapeHtml(confirmText)}
             </button>
@@ -246,17 +256,17 @@ export class SovereignDialog {
       this.activeResolver = resolve;
 
       container.innerHTML = `
-        <div class="w-full max-w-md bg-surface-overlay border border-white/10 rounded-3xl p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150">
+        <div class="w-full max-w-md bg-surface-overlay border border-white/10 rounded-2xl p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150">
           <div class="flex items-center space-x-3 border-b border-white/10 pb-3">
-            <div class="w-9 h-9 rounded-2xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 flex items-center justify-center text-lg font-bold">
+            <div class="w-10 h-10 rounded-xl bg-[var(--color-accent,#e89e38)]/20 text-[var(--color-accent,#e89e38)] border border-[var(--color-accent,#e89e38)]/30 flex items-center justify-center text-lg font-bold">
               ✎
             </div>
             <div>
-              <h3 id="sovereign-dialog-title" class="text-sm font-bold text-white tracking-tight">${this._escapeHtml(title)}</h3>
-              <p class="text-[11px] text-slate-400 font-mono">Sovereign secure input</p>
+              <h3 id="sovereign-dialog-title" class="text-base font-bold text-white tracking-tight">${this._escapeHtml(title)}</h3>
+              <p class="text-xs text-slate-400">Sovereign secure input</p>
             </div>
           </div>
-          <div class="text-xs text-slate-300 leading-relaxed font-sans max-h-60 overflow-y-auto whitespace-pre-wrap select-text">
+          <div class="text-[15px] text-slate-200 leading-relaxed font-sans max-h-60 overflow-y-auto whitespace-pre-wrap select-text">
             ${this._escapeHtml(message)}
           </div>
           <div class="pt-1">
@@ -265,21 +275,21 @@ export class SovereignDialog {
               id="sovereign-dialog-input"
               value="${this._escapeHtml(defaultValue)}"
               placeholder="${this._escapeHtml(placeholder)}"
-              class="w-full px-3 py-2 bg-surface-base border border-white/15 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
+              class="w-full px-3.5 py-2.5 min-h-[44px] bg-surface-base border border-white/15 rounded-xl text-[16px] sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-[var(--color-accent,#e89e38)] focus:ring-1 focus:ring-[var(--color-accent,#e89e38)]"
             />
           </div>
           <div class="pt-2 flex items-center justify-end space-x-3">
             <button
               type="button"
               id="sovereign-dialog-cancel-btn"
-              class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-surface-raised transition-all cursor-pointer"
+              class="min-h-[44px] px-5 py-2.5 rounded-xl text-sm font-semibold text-slate-300 hover:text-white hover:bg-surface-raised transition-all cursor-pointer"
             >
               ${this._escapeHtml(cancelText)}
             </button>
             <button
               type="button"
               id="sovereign-dialog-confirm-btn"
-              class="px-5 py-2 rounded-xl bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white shadow-cyan-600/30 text-xs font-bold shadow-lg transition-all cursor-pointer active:scale-95"
+              class="min-h-[44px] px-6 py-2.5 rounded-xl bg-[var(--color-accent,#e89e38)] hover:brightness-110 text-slate-950 text-sm font-bold shadow-md transition-all cursor-pointer active:scale-95"
             >
               ${this._escapeHtml(confirmText)}
             </button>

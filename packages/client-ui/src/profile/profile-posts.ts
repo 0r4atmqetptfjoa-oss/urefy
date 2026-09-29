@@ -111,10 +111,10 @@ export function renderProfileTimelinePostsHTML(
 
     return `
       <div class="journal-profile__creator space-y-6">
-        <div class="journal-profile__creator-intro p-6 rounded-3xl bg-gradient-to-r from-indigo-950/60 via-purple-950/40 to-surface-base border border-indigo-500/20 shadow-xl space-y-2">
+        <div class="journal-profile__creator-intro p-6 rounded-2xl bg-surface-base border border-[var(--surface-rule)] space-y-2">
           <div class="flex items-center justify-between">
-            <h2 class="text-sm font-bold text-white flex items-center space-x-2">
-              <span>✨</span>
+            <h2 class="text-base font-bold text-white flex items-center space-x-2">
+              <span class="text-[var(--color-accent,#e89e38)]">✨</span>
               <span>Sovereign Creator Insights</span>
             </h2>
           </div>
@@ -124,25 +124,25 @@ export function renderProfileTimelinePostsHTML(
         </div>
 
         <div class="journal-profile__creator-record grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div class="p-4 rounded-2xl bg-surface-base border border-white/10 shadow-lg space-y-1">
+          <div class="p-4 rounded-2xl bg-surface-base border border-[var(--surface-rule)] space-y-1">
             <span class="text-sm font-semibold text-slate-400">Posts available here</span>
             <div class="text-xl font-black text-white font-mono">${userPosts.length}</div>
             <span class="text-sm text-slate-500">In this profile view</span>
           </div>
-          <div class="p-4 rounded-2xl bg-surface-base border border-white/10 shadow-lg space-y-1">
+          <div class="p-4 rounded-2xl bg-surface-base border border-[var(--surface-rule)] space-y-1">
             <span class="text-sm font-semibold text-slate-400">Merit votes</span>
             <div class="text-xl font-black text-amber-400 font-mono">+${totalMerit}</div>
             <span class="text-sm text-slate-500">On these posts</span>
           </div>
-          <div class="p-4 rounded-2xl bg-surface-base border border-white/10 shadow-lg space-y-1">
+          <div class="p-4 rounded-2xl bg-surface-base border border-[var(--surface-rule)] space-y-1">
             <span class="text-sm font-semibold text-slate-400">Replies</span>
             <div class="text-xl font-black text-cyan-400 font-mono">${totalReplies}</div>
             <span class="text-sm text-slate-500">On these posts</span>
           </div>
-          <div class="p-4 rounded-2xl bg-surface-base border border-white/10 shadow-lg space-y-1">
+          <div class="p-4 rounded-2xl bg-surface-base border border-[var(--surface-rule)] space-y-1">
             <span class="text-sm font-semibold text-slate-400">Local Reach</span>
-            <div class="text-xl font-black text-emerald-400 font-mono">~${(userPosts.length * 12) + (totalMerit * 5) + (totalReplies * 8)}</div>
-            <span class="text-sm text-slate-500">Consensus impressions</span>
+            <div class="text-xl font-black text-emerald-400 font-mono">${userPosts.length + totalMerit + totalReplies}</div>
+            <span class="text-sm text-slate-500">Total engagements</span>
           </div>
         </div>
       </div>
@@ -200,7 +200,7 @@ export function renderProfileTimelinePostsHTML(
           : (displayContent.length > 280 || (displayContent.match(/\n/g) || []).length >= 4);
 
         return `
-          <article class="journal-profile__post p-5 rounded-3xl bg-surface-base border ${isPinned ? 'border-amber-500/40 shadow-amber-500/5' : 'border-white/10'} hover:border-white/20 transition-all space-y-3 shadow-lg cursor-pointer" data-action="open-post-detail" data-post-id="${p.id}">
+          <article class="journal-profile__post editorial-post-card p-5 rounded-2xl bg-surface-base border ${isPinned ? 'border-[var(--color-accent,#e89e38)]/40 shadow-sm' : 'border-[var(--surface-rule)]'} hover:border-white/20 transition-all space-y-3 cursor-pointer" data-action="open-post-detail" data-post-id="${p.id}">
             ${isRepost ? `
               <div class="journal-profile__repost flex items-center space-x-1.5 text-xs text-slate-400 font-mono pb-1 border-b border-white/5">
                 <span class="text-emerald-400">🔁</span>
@@ -208,7 +208,7 @@ export function renderProfileTimelinePostsHTML(
               </div>
             ` : ''}
             ${isPinned ? `
-              <div class="journal-profile__pinned flex items-center space-x-1.5 text-xs font-bold text-amber-400 pb-1 border-b border-amber-500/20">
+              <div class="journal-profile__pinned flex items-center space-x-1.5 text-xs font-bold text-[var(--color-accent,#e89e38)] pb-1 border-b border-[var(--color-accent,#e89e38)]/20">
                 <span>📌</span>
                 <span>Pinned Post</span>
               </div>
@@ -239,7 +239,7 @@ export function renderProfileTimelinePostsHTML(
 
             ${displayContent ? `
               <div class="social-post__body-wrapper ${hasMedia ? 'has-media' : 'text-only'} ${isClamped ? 'is-clamped' : ''}">
-                <div data-action="open-post-detail" data-post-id="${p.id}" class="social-post__body text-xs text-slate-200 leading-relaxed cursor-pointer">${markdownRenderer.renderMarkdown(displayContent)}</div>
+                <div data-action="open-post-detail" data-post-id="${p.id}" class="social-post__body text-[15px] sm:text-base text-slate-200 leading-relaxed cursor-pointer">${markdownRenderer.renderMarkdown(displayContent)}</div>
                 ${isClamped ? `
                   <button type="button" data-action="open-post-detail" data-post-id="${p.id}" class="social-post__see-more" aria-label="Read full post">
                     <span>Read full post</span>

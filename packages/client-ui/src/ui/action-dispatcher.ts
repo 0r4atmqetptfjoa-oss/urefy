@@ -3271,6 +3271,16 @@ export class ActionDispatcher {
       }
       return;
     }
+    if (action === 'select-profile-settings-cat') {
+      const select = el as HTMLSelectElement;
+      const cat = (select.value || 'account') as any;
+      profileView.setActiveSettingsCategory(cat);
+      if (typeof window !== 'undefined' && (window as any).__aetheris_set_settings_cat) {
+        (window as any).__aetheris_set_settings_cat(cat);
+      }
+      clientStore.notifySync();
+      return;
+    }
     if (action === 'settings-set-pref') {
       const select = el as HTMLSelectElement;
       const pref = el.getAttribute('data-pref');

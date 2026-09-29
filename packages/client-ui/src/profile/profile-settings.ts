@@ -38,9 +38,30 @@ export function renderProfileSettingsHTML(
   currentUserFp: string
 ): string {
   return `
-    <div id="profile-settings-panel" class="journal-profile__settings space-y-6">
-      <!-- CATEGORY NAVIGATION PILLS -->
-      <div id="profile-settings-nav" role="tablist" aria-label="Profile settings" class="journal-profile__settings-nav flex items-center space-x-1.5 overflow-x-auto pb-2 scrollbar-none border-b border-white/5">
+    <div id="profile-settings-panel" class="journal-profile__settings space-y-6 max-w-4xl mx-auto">
+      <!-- MOBILE CATEGORY SELECTOR (<640px) -->
+      <div class="sm:hidden mb-2">
+        <label for="profile-settings-mobile-select" class="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Settings Section</label>
+        <div class="relative">
+          <select
+            id="profile-settings-mobile-select"
+            data-change="select-profile-settings-cat"
+            class="w-full min-h-[44px] px-3.5 py-2.5 bg-surface-raised border border-white/10 rounded-xl text-sm font-semibold text-white focus:outline-none focus:border-[var(--color-accent,#e89e38)] appearance-none cursor-pointer"
+          >
+            ${SETTINGS_CATEGORIES.map(cat => `
+              <option value="${cat.id}" ${currentCat === cat.id ? 'selected' : ''}>
+                ${cat.label}
+              </option>
+            `).join('')}
+          </select>
+          <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3.5 text-slate-400">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- DESKTOP CATEGORY NAVIGATION PILLS -->
+      <div id="profile-settings-nav" role="tablist" aria-label="Profile settings" class="journal-profile__settings-nav hidden sm:flex items-center space-x-1.5 overflow-x-auto pb-2 scrollbar-none border-b border-[var(--surface-rule)]">
         ${SETTINGS_CATEGORIES.map(cat => `
           <button
             type="button"
@@ -48,10 +69,10 @@ export function renderProfileSettingsHTML(
             data-action="set-profile-settings-cat"
             data-settings-cat="${cat.id}"
             role="tab" aria-selected="${currentCat === cat.id}"
-            class="px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center space-x-2 cursor-pointer border ${
+            class="min-h-[40px] px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center space-x-2 cursor-pointer border ${
               currentCat === cat.id
-                ? 'bg-cyan-500/20 text-cyan-200 border-cyan-400/40 shadow-sm shadow-cyan-500/10'
-                : 'bg-surface-raised hover:bg-surface-overlay text-slate-400 hover:text-slate-200 border-white/5'
+                ? 'bg-[var(--color-accent-subtle,rgba(232,158,56,0.15))] text-[var(--color-accent,#e89e38)] border-[var(--color-accent,#e89e38)]/40 font-bold shadow-xs'
+                : 'bg-surface-raised hover:bg-surface-overlay text-slate-400 hover:text-slate-200 border-transparent'
             }"
           >
             <span>${renderIcon(cat.iconName, { size: 14 })}</span>
@@ -61,7 +82,7 @@ export function renderProfileSettingsHTML(
       </div>
 
       <!-- ACTIVE CATEGORY CONTENT CONTAINER -->
-      <div class="journal-profile__settings-panel p-6 rounded-3xl bg-surface-raised border border-white/10 shadow-xl space-y-6">
+      <div class="journal-profile__settings-panel p-6 rounded-2xl bg-surface-base border border-[var(--surface-rule)] space-y-6">
         ${renderSettingsCategoryContentHTML(currentCat, profile, currentUserFp)}
       </div>
     </div>

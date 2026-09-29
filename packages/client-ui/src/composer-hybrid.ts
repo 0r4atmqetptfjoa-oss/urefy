@@ -839,7 +839,7 @@ export class HybridComposer {
                   <textarea 
                     data-segment-input="${index}"
                     placeholder="${index === 0 ? "What do you want to share with the open network?" : "Continue conversation..."}"
-                    class="w-full bg-transparent text-xs text-slate-100 placeholder-slate-500 focus:outline-none resize-none min-h-[110px] leading-relaxed"
+                    class="w-full bg-transparent text-[16px] sm:text-base text-slate-100 placeholder-slate-500 focus:outline-none resize-none min-h-[110px] leading-relaxed"
                   >${escapeHtml(segment.content)}</textarea>
 
                   ${index === 0 && this.quotedPost ? `
@@ -981,7 +981,7 @@ export class HybridComposer {
             <textarea 
               id="composer-article-body" 
               placeholder="Write Markdown, technical whitepaper, benchmark analysis, or cryptographic advisories..."
-              class="w-full bg-surface-raised border border-white/10 rounded-xl p-3.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 resize-none h-48 leading-relaxed font-sans"
+              class="w-full bg-surface-raised border border-white/10 rounded-xl p-3.5 text-[16px] sm:text-base text-slate-100 placeholder-slate-500 focus:outline-none focus:border-[var(--color-accent,#e89e38)] resize-none h-48 leading-relaxed font-sans"
             >${escapeHtml(this.articleBody)}</textarea>
           `}
         </div>

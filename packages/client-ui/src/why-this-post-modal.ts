@@ -55,11 +55,16 @@ export class WhyThisPostModal {
     if (!el) {
       el = document.createElement('div');
       el.id = 'why-this-post-modal-root';
-      el.className = 'fixed inset-0 z-[10003] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md hidden select-none';
+      el.className = 'urefy-modal-backdrop hidden select-none';
       el.setAttribute('role', 'dialog');
       el.setAttribute('aria-modal', 'true');
       el.setAttribute('aria-label', 'Why am I seeing this?');
       document.body.appendChild(el);
+      window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && this.isOpen()) {
+          this.close();
+        }
+      });
     }
     this.container = el;
     return el;
@@ -148,9 +153,10 @@ export class WhyThisPostModal {
     const postTitle = post.title || post.content.slice(0, 60);
 
     const html = `
-      <div class="w-full max-w-md bg-surface-base border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-150">
+      <div class="urefy-modal-card w-full max-w-md bg-surface-base border border-[var(--surface-rule)] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-150">
+        <div class="urefy-sheet-grabber"></div>
         <!-- Header -->
-        <div class="px-5 py-4 border-b border-white/10 flex items-center justify-between">
+        <div class="px-5 py-4 border-b border-[var(--surface-rule)] flex items-center justify-between">
           <div class="flex items-center gap-2.5">
             <span class="text-base text-[var(--color-accent,#e59b3c)]">${renderIcon('info', { size: 18 })}</span>
             <h3 class="text-sm font-bold text-slate-100">Why am I seeing this?</h3>
@@ -158,7 +164,7 @@ export class WhyThisPostModal {
           <button 
             type="button" 
             data-action="close-why-modal" 
-            class="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-surface-raised cursor-pointer transition-colors"
+            class="min-w-[44px] min-h-[44px] p-2 rounded-xl text-slate-400 hover:text-white hover:bg-surface-raised cursor-pointer transition-colors flex items-center justify-center"
             aria-label="Close"
           >
             ${renderIcon('close', { size: 16 })}
@@ -262,11 +268,11 @@ export class WhyThisPostModal {
         </div>
 
         <!-- Footer -->
-        <div class="p-4 border-t border-white/10 bg-surface-base flex justify-end">
+        <div class="p-4 border-t border-[var(--surface-rule)] bg-surface-base flex justify-end">
           <button
             type="button"
             data-action="close-why-modal"
-            class="px-4 py-2 rounded-xl bg-surface-raised hover:bg-surface-overlay text-xs font-medium text-slate-200 transition-colors cursor-pointer"
+            class="min-h-[44px] px-5 py-2.5 rounded-xl bg-surface-raised hover:bg-surface-overlay text-sm font-semibold text-slate-200 transition-colors cursor-pointer"
           >
             Done
           </button>

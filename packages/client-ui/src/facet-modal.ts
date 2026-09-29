@@ -54,10 +54,15 @@ export class FacetModal {
     if (!el) {
       el = document.createElement('div');
       el.id = 'facet-modal-root';
-      el.className = 'fixed inset-0 z-[10005] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md hidden select-none';
+      el.className = 'urefy-modal-backdrop hidden select-none';
       el.setAttribute('role', 'dialog');
       el.setAttribute('aria-modal', 'true');
       document.body.appendChild(el);
+      window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && this.isOpen()) {
+          this.close();
+        }
+      });
     }
     this.container = el;
     return el;
@@ -69,11 +74,12 @@ export class FacetModal {
     const facet = this.editingFacet;
 
     const html = `
-      <div class="relative w-full max-w-lg rounded-2xl bg-surface-base border border-white/15 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      <div class="urefy-modal-card relative w-full max-w-lg rounded-2xl bg-surface-base border border-[var(--surface-rule)] shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        <div class="urefy-sheet-grabber"></div>
         <!-- Header -->
-        <div class="p-5 border-b border-white/10 flex items-center justify-between bg-surface-raised/40">
+        <div class="p-5 border-b border-[var(--surface-rule)] flex items-center justify-between bg-surface-raised/40">
           <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold">
+            <div class="w-10 h-10 rounded-xl bg-[var(--color-accent,#e89e38)]/15 text-[var(--color-accent,#e89e38)] flex items-center justify-center font-bold">
               ${renderIcon('users', { size: 20 })}
             </div>
             <div>
@@ -88,7 +94,7 @@ export class FacetModal {
           <button
             type="button"
             data-action="close-facet-modal"
-            class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
+            class="min-w-[44px] min-h-[44px] p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer flex items-center justify-center"
             aria-label="Close"
           >
             ${renderIcon('close', { size: 18 })}
@@ -116,7 +122,7 @@ export class FacetModal {
               maxlength="50"
               placeholder="e.g. Photography, GameDev, Work"
               value="${escapeHtml(facet?.displayName || '')}"
-              class="w-full px-3 py-2 rounded-xl bg-surface-raised border border-white/10 text-slate-100 text-sm focus:outline-none focus:border-indigo-500"
+              class="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl bg-surface-raised border border-[var(--surface-rule)] text-slate-100 text-[16px] sm:text-sm focus:outline-none focus:border-[var(--color-accent,#e89e38)]"
             />
           </div>
 
@@ -126,7 +132,7 @@ export class FacetModal {
               Handle <span class="text-rose-400">*</span>
             </label>
             <div class="relative">
-              <span class="absolute left-3 top-2.5 text-xs text-slate-500 font-mono">@</span>
+              <span class="absolute left-3 top-3 text-xs text-slate-500 font-mono">@</span>
               <input
                 type="text"
                 id="facet-handle"
@@ -135,7 +141,7 @@ export class FacetModal {
                 pattern="^[a-zA-Z0-9_]{3,30}$"
                 placeholder="alice_dev"
                 value="${escapeHtml(facet?.handle || '')}"
-                class="w-full pl-7 pr-3 py-2 rounded-xl bg-surface-raised border border-white/10 text-slate-100 text-sm font-mono focus:outline-none focus:border-indigo-500"
+                class="w-full pl-7 pr-3.5 py-2.5 min-h-[44px] rounded-xl bg-surface-raised border border-[var(--surface-rule)] text-slate-100 text-[16px] sm:text-sm font-mono focus:outline-none focus:border-[var(--color-accent,#e89e38)]"
               />
             </div>
             <p class="text-[11px] text-slate-500 mt-1">3-30 letters, numbers, or underscores.</p>
@@ -151,7 +157,7 @@ export class FacetModal {
               id="facet-avatar-url"
               placeholder="https://example.com/avatar.jpg"
               value="${escapeHtml(facet?.avatarUrl || '')}"
-              class="w-full px-3 py-2 rounded-xl bg-surface-raised border border-white/10 text-slate-100 text-sm focus:outline-none focus:border-indigo-500"
+              class="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl bg-surface-raised border border-[var(--surface-rule)] text-slate-100 text-[16px] sm:text-sm focus:outline-none focus:border-[var(--color-accent,#e89e38)]"
             />
           </div>
 
@@ -165,7 +171,7 @@ export class FacetModal {
               rows="2"
               maxlength="200"
               placeholder="What this context is for..."
-              class="w-full px-3 py-2 rounded-xl bg-surface-raised border border-white/10 text-slate-100 text-sm focus:outline-none focus:border-indigo-500 resize-none"
+              class="w-full px-3.5 py-2.5 rounded-xl bg-surface-raised border border-[var(--surface-rule)] text-slate-100 text-[16px] sm:text-sm focus:outline-none focus:border-[var(--color-accent,#e89e38)] resize-none"
             >${escapeHtml(facet?.bio || '')}</textarea>
           </div>
 
@@ -175,42 +181,42 @@ export class FacetModal {
               Context Visibility
             </label>
             <div class="grid grid-cols-3 gap-2">
-              <label class="flex flex-col p-2.5 rounded-xl border border-white/10 bg-surface-raised hover:bg-surface-overlay cursor-pointer transition-colors">
+              <label class="flex flex-col p-2.5 rounded-xl border border-[var(--surface-rule)] bg-surface-raised hover:bg-surface-overlay cursor-pointer transition-colors">
                 <div class="flex items-center gap-1.5 mb-1">
                   <input
                     type="radio"
                     name="facet-visibility"
                     value="public"
                     ${!facet || facet.visibility === 'public' ? 'checked' : ''}
-                    class="text-indigo-500"
+                    class="accent-[var(--color-accent,#e89e38)]"
                   />
                   <span class="text-xs font-semibold text-slate-200">Public</span>
                 </div>
-                <span class="text-[10px] text-slate-400">Discoverable across public search & profile</span>
+                <span class="text-[10px] text-slate-400">Discoverable across public search &amp; profile</span>
               </label>
 
-              <label class="flex flex-col p-2.5 rounded-xl border border-white/10 bg-surface-raised hover:bg-surface-overlay cursor-pointer transition-colors">
+              <label class="flex flex-col p-2.5 rounded-xl border border-[var(--surface-rule)] bg-surface-raised hover:bg-surface-overlay cursor-pointer transition-colors">
                 <div class="flex items-center gap-1.5 mb-1">
                   <input
                     type="radio"
                     name="facet-visibility"
                     value="contextual"
                     ${facet?.visibility === 'contextual' ? 'checked' : ''}
-                    class="text-indigo-500"
+                    class="accent-[var(--color-accent,#e89e38)]"
                   />
                   <span class="text-xs font-semibold text-slate-200">Contextual</span>
                 </div>
-                <span class="text-[10px] text-slate-400">Shared communities & followers only</span>
+                <span class="text-[10px] text-slate-400">Shared communities &amp; followers only</span>
               </label>
 
-              <label class="flex flex-col p-2.5 rounded-xl border border-white/10 bg-surface-raised hover:bg-surface-overlay cursor-pointer transition-colors">
+              <label class="flex flex-col p-2.5 rounded-xl border border-[var(--surface-rule)] bg-surface-raised hover:bg-surface-overlay cursor-pointer transition-colors">
                 <div class="flex items-center gap-1.5 mb-1">
                   <input
                     type="radio"
                     name="facet-visibility"
                     value="unlisted"
                     ${facet?.visibility === 'unlisted' ? 'checked' : ''}
-                    class="text-indigo-500"
+                    class="accent-[var(--color-accent,#e89e38)]"
                   />
                   <span class="text-xs font-semibold text-slate-200">Unlisted</span>
                 </div>
@@ -220,13 +226,13 @@ export class FacetModal {
           </div>
 
           <!-- Public Unlinkability Toggle (Default: OFF) -->
-          <div class="p-3.5 rounded-xl bg-surface-raised/80 border border-white/10">
+          <div class="p-3.5 rounded-xl bg-surface-raised/80 border border-[var(--surface-rule)]">
             <label class="flex items-start gap-3 cursor-pointer">
               <input
                 type="checkbox"
                 id="facet-is-publicly-linked"
                 ${facet?.isPubliclyLinked ? 'checked' : ''}
-                class="mt-1 w-4 h-4 rounded text-indigo-500 focus:ring-0 bg-surface-base border-white/20"
+                class="mt-1 w-4 h-4 rounded accent-[var(--color-accent,#e89e38)] focus:ring-0 bg-surface-base border-white/20"
               />
               <div>
                 <span class="text-xs font-semibold text-slate-200">
@@ -244,11 +250,11 @@ export class FacetModal {
         </form>
 
         <!-- Footer -->
-        <div class="p-4 border-t border-white/10 bg-surface-base flex items-center justify-end gap-2">
+        <div class="p-4 border-t border-[var(--surface-rule)] bg-surface-base flex items-center justify-end gap-2.5">
           <button
             type="button"
             data-action="close-facet-modal"
-            class="px-4 py-2 rounded-xl bg-surface-raised hover:bg-surface-overlay text-xs font-medium text-slate-300 transition-colors cursor-pointer"
+            class="min-h-[44px] px-5 py-2.5 rounded-xl bg-surface-raised hover:bg-surface-overlay text-sm font-medium text-slate-300 transition-colors cursor-pointer"
           >
             Cancel
           </button>
@@ -257,7 +263,7 @@ export class FacetModal {
             id="btn-save-facet"
             data-action="submit-facet"
             ${this.isSubmitting ? 'disabled' : ''}
-            class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-lg shadow-indigo-500/20 transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+            class="min-h-[44px] px-6 py-2.5 rounded-xl bg-[var(--color-accent,#e89e38)] hover:brightness-110 text-slate-950 text-sm font-bold shadow-md transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
           >
             ${this.isSubmitting ? '<span>Saving...</span>' : `<span>${isEdit ? 'Save Changes' : 'Create Facet'}</span>`}
           </button>
