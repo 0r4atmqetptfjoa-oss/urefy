@@ -1,0 +1,169 @@
+{
+  "total_count": 1000,
+  "archetypes_count": 10,
+  "personas_per_archetype": 100,
+  "sample_records": [
+    {
+      "user_id": "696ce1a8b9f3",
+      "display_name": "Liam O'Connor",
+      "handle": "vortex_peek",
+      "style": "adventurer",
+      "bio": "24.8k CS2 Premier. Wooting 60HE rapid trigger set to 0.1mm. If Valve doesn't fix sub-tick hitreg I'm going to valorant permanently 🎯💀",
+      "location": "subnet // bucharest 🇷🇴",
+      "role": "MEMBER",
+      "status": "online",
+      "trust_score": 76,
+      "merit_score": 16,
+      "badges": [
+        "CS2 Premier 24k",
+        "Faceit Level 10"
+      ]
+    },
+    {
+      "user_id": "acdae2b7a46b",
+      "display_name": "Andrei // Direct-Die",
+      "handle": "delid_king",
+      "style": "bottts",
+      "bio": "14900KS delidded with Supercool direct-die block. DDR5-8200 CL34 100% Karhu stable 10,000%. Water delta 1.8°C at 700W load ❄️💧",
+      "location": "node // timisoara 🇷🇴",
+      "role": "MEMBER",
+      "status": "online",
+      "trust_score": 77,
+      "merit_score": 17,
+      "badges": [
+        "Direct-Die Cooled",
+        "DDR5-8200 CL34"
+      ]
+    },
+    {
+      "user_id": "5ca170343057",
+      "display_name": "PlatHunter",
+      "handle": "plat_hunter_99",
+      "style": "lorelei",
+      "bio": "218 Platinum Trophies. Currently suffering through Crypt of the NecroDancer. PS5 Pro PSSR upscaling is actually insane on a 77' OLED 🏆✨",
+      "location": "node // brasov 🇷🇴",
+      "role": "MEMBER",
+      "status": "online",
+      "trust_score": 78,
+      "merit_score": 71,
+      "badges": [
+        "Platinum Hunter (200+)",
+        "Trophy Addict"
+      ]
+    },
+    {
+      "user_id": "81192712c529",
+      "display_name": "Alex Rivera",
+      "handle": "mister_fpga_cluj",
+      "style": "pixel-art",
+      "bio": "Sony BVM-20E1U calibrated with 240p Test Suite. 1000 TVL RGB scanlines through shielded SCART cables. Modern screens look like smudges 📺⚡",
+      "location": "node // iasi 🇷🇴",
+      "role": "MEMBER",
+      "status": "online",
+      "trust_score": 79,
+      "merit_score": 78,
+      "badges": [
+        "CRT 240p Purist",
+        "BVM Calibrated"
+      ]
+    },
+    {
+      "user_id": "9324ec4fc950",
+      "display_name": "Radu 'Godot' Grigorescu",
+      "handle": "godot_dev_dan",
+      "style": "pixel-art",
+      "bio": "Godot 4.3 C# solo dev. Rebuilding my roguelike engine after escaping Unity's runtime fee disaster. FOSS gamedev or bust 🤖🎮",
+      "location": "datacenter // frankfurt 🇩🇪",
+      "role": "MEMBER",
+      "status": "online",
+      "trust_score": 80,
+      "merit_score": 85,
+      "badges": [
+        "Godot 4 Maintainer",
+        "GDScript Static Typist"
+      ]
+    },
+    {
+      "user_id": "77306e47e7b1",
+      "display_name": "Felix Zimmermann",
+      "handle": "arch_btw_alex",
+      "style": "bottts",
+      "bio": "I use Arch btw. Hyprland Wayland compositor with custom Catppuccin mocha theme. Minimal status bar, zero bloated Electron apps allowed 🐧💅",
+      "location": "mesh // tokyo 🇯🇵",
+      "role": "MEMBER",
+      "status": "online",
+      "trust_score": 81,
+      "merit_score": 92,
+      "badges": [
+        "Arch Linux (btw)",
+        "Hyprland Rice"
+      ]
+    },
+    {
+      "user_id": "137ee847d2e4",
+      "display_name": "Andrei // Skill",
+      "handle": "skill_issue_ceo",
+      "style": "bottts",
+      "bio": "Your entire opinion was rendered invalid the second you missed that smoke lineup. Major skill issue ngl 💀🧢",
+      "location": "node // austin 🇺🇸",
+      "role": "MEMBER",
+      "status": "online",
+      "trust_score": 82,
+      "merit_score": 277,
+      "badges": [
+        "Certified Yapologist",
+        "Skill Issue Dispenser"
+      ]
+    },
+    {
+      "user_id": "3a1ce8ad967d",
+      "display_name": "TsmcWhisperer",
+      "handle": "tsmc_whisperer",
+      "style": "notionists",
+      "bio": "Investigative hardware journalist. Tracking TSMC N3E packaging bottlenecks, wafer allocation, and Blackwell B200 yield rates. NDA free since 2019 🔬📊",
+      "location": "peer // london 🇬🇧",
+      "role": "MODERATOR",
+      "status": "online",
+      "trust_score": 86,
+      "merit_score": 404,
+      "badges": [
+        "TSMC Supply Chain",
+        "Wafer Yield Tracker",
+        "Sovereign Sentinel"
+      ]
+    },
+    {
+      "user_id": "cccd8f94488a",
+      "display_name": "Alex Rivera",
+      "handle": "balcony_solar_dan",
+      "style": "adventurer",
+      "bio": "Balcony solar 800W Hoymiles microinverter feeding my homelab. Net-zero computing during daylight hours. The sun runs my Docker containers ☀️⚡",
+      "location": "node // warsaw 🇵🇱",
+      "role": "GUARDIAN",
+      "status": "online",
+      "trust_score": 89,
+      "merit_score": 1171,
+      "badges": [
+        "Balcony Solar 800W",
+        "Zero Grid Waste",
+        "Genesis Guardian"
+      ]
+    },
+    {
+      "user_id": "cf0982b51f63",
+      "display_name": "Claudiu 'Cozy' Dragomir",
+      "handle": "cozy_stardew_tea",
+      "style": "lorelei",
+      "bio": "Year 5 Stardew Valley 1.6 perfection farm. Herbal tea, warm blanket, and rain sounds while planting ancient fruit wine crops 🍓🧺",
+      "location": "node // seoul 🇰🇷",
+      "role": "MEMBER",
+      "status": "idle",
+      "trust_score": 85,
+      "merit_score": 25,
+      "badges": [
+        "Stardew 100% Perfection",
+        "Junimo Whisperer"
+      ]
+    }
+  ]
+}
