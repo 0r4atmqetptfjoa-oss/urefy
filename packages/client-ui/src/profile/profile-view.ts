@@ -50,8 +50,7 @@ export class ProfileView {
       this.profileData.set(p.fingerprint, p);
     }
 
-    if (isDemoModeEnabled()) {
-      this.profileData.set('genesis-core', {
+    this.profileData.set('genesis-core', {
         fingerprint: 'genesis-core',
         name: 'Genesis Protocol Archon',
         handle: 'genesis-core',
@@ -70,7 +69,6 @@ export class ProfileView {
         trustScore: 98,
         badges: ['🛡️ ZK-Human', '💎 Sovereign Archon', '🔑 Keymaster'],
       });
-    }
   }
 
   public getProfile(fp: string): UserProfileData {

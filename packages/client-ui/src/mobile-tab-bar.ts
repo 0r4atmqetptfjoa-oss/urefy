@@ -68,7 +68,7 @@ export class MobileTabBar {
     if (channelId.startsWith('explore-') || channelId === 'explore') {
       return 'explore';
     }
-    if (channelId.startsWith('relays-') || channelId.startsWith('dm-') || channelId === 'circle' || channelId === 'messages') {
+    if (channelId.startsWith('relays-') || channelId.startsWith('relay-') || channelId.startsWith('dm-') || channelId === 'circle' || channelId === 'messages' || channelId === 'message') {
       return 'messages';
     }
     if (channelId.startsWith('profile')) {

@@ -38,9 +38,14 @@ export class RelaysManager {
   public isInviteModalOpen: boolean = false;
   public isJoinModalOpen: boolean = false;
   public targetInviteRelayId: string | null = null;
+  public isMobileChannelsOpen: boolean = false;
 
   constructor() {
     this._loadRelays();
+  }
+
+  public toggleMobileChannels(open?: boolean): void {
+    this.isMobileChannelsOpen = typeof open === 'boolean' ? open : !this.isMobileChannelsOpen;
   }
 
   private _loadRelays(): void {
@@ -524,19 +529,32 @@ export class RelaysManager {
     const topicTitle = this.resolveTopicName(activeChannelName);
 
     return `
-      <div class="relay-conversation-header h-16 border-b border-white/5 bg-surface-base/70 backdrop-blur-sm px-4 md:px-6 flex items-center justify-between shrink-0 select-none">
-        <div class="relay-header-identity flex items-center space-x-3.5 min-w-0">
-          <div class="w-9 h-9 flex items-center justify-center text-lg text-[var(--color-accent,#e89e38)] shrink-0" aria-hidden="true">
+      <div class="relay-conversation-header h-16 border-b border-white/5 bg-surface-base/70 backdrop-blur-sm px-3 md:px-6 flex items-center justify-between shrink-0 select-none">
+        <div class="relay-header-identity flex items-center space-x-2.5 sm:space-x-3.5 min-w-0">
+          <!-- Mobile Topics trigger button -->
+          <button
+            type="button"
+            data-action="toggle-mobile-relay-channels"
+            class="md:hidden p-2 rounded-xl bg-surface-raised border border-white/10 text-[var(--color-accent,#e89e38)] hover:text-white cursor-pointer shrink-0 flex items-center justify-center min-w-[36px] min-h-[36px]"
+            title="Browse conversation topics"
+            aria-label="Browse conversation topics"
+          >
+            <span class="font-bold text-base leading-none">#</span>
+          </button>
+          <div class="hidden md:flex w-9 h-9 items-center justify-center text-lg text-[var(--color-accent,#e89e38)] shrink-0" aria-hidden="true">
             ◈
           </div>
-          <div class="min-w-0">
-            <div class="relay-header-title flex items-center space-x-2">
-              <h2 class="text-sm font-bold text-white tracking-tight">${this._escapeHtml(displayName)}</h2>
-              <span class="text-xs text-slate-400 font-normal">· ${this._escapeHtml(topicTitle)}</span>
+          <div class="min-w-0 cursor-pointer md:cursor-default" data-action="toggle-mobile-relay-channels">
+            <div class="relay-header-title flex items-center space-x-1.5 sm:space-x-2">
+              <h2 class="text-xs sm:text-sm font-bold text-white tracking-tight truncate">${this._escapeHtml(displayName)}</h2>
+              <span class="text-[11px] sm:text-xs text-[var(--color-accent,#e89e38)] font-semibold truncate flex items-center gap-1">
+                <span>· #${this._escapeHtml(topicTitle)}</span>
+                <span class="md:hidden text-[9px] text-slate-400">▼</span>
+              </span>
             </div>
-            <div class="text-[11px] text-slate-400 font-sans flex items-center space-x-2 mt-0.5">
-              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-              <span>${isGlobal ? 'Visible to community members' : `${relay.members.length} members · Visible to members`}</span>
+            <div class="text-[10px] sm:text-[11px] text-slate-400 font-sans flex items-center space-x-1.5 sm:space-x-2 mt-0.5">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0"></span>
+              <span class="truncate">${isGlobal ? 'Visible to community members' : `${relay.members.length} members · Visible to members`}</span>
             </div>
           </div>
         </div>
@@ -608,6 +626,91 @@ export class RelaysManager {
               <span class="hidden sm:inline">Delete</span>
             </button>
           ` : ''}
+        </div>
+      </div>
+    `;
+  }
+
+  /** Mobile Bottom Sheet / Drawer for Relays Channels & Spaces */
+  public renderMobileChannelsDrawer(): string {
+    if (!this.isMobileChannelsOpen) return '';
+    const activeRelay = this.getActiveRelay();
+    const windowClientStore = typeof window !== 'undefined' ? (window as any).clientStore : null;
+    const activeChId = windowClientStore?.activeChannelId || activeRelay.channels[0]?.id || 'relays-general';
+
+    return `
+      <div id="mobile-relay-channels-overlay" class="fixed inset-0 z-50 md:hidden flex flex-col justify-end bg-black/80 backdrop-blur-xs" data-action="close-mobile-relay-channels" role="dialog" aria-modal="true" aria-label="Conversation topics">
+        <div class="w-full max-h-[80vh] bg-surface-base border-t border-white/10 rounded-t-2xl shadow-2xl flex flex-col overflow-hidden" data-action="stop-propagation">
+          <!-- Drawer Top Header -->
+          <div class="p-4 border-b border-white/5 flex items-center justify-between bg-surface-raised/70">
+            <div class="flex items-center space-x-2.5">
+              <span class="text-lg text-[var(--color-accent,#e89e38)]">◈</span>
+              <div>
+                <h3 class="text-sm font-bold text-white tracking-tight">${this._escapeHtml(activeRelay.name)}</h3>
+                <p class="text-[11px] text-slate-400">Choose a channel or topic</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              data-action="close-mobile-relay-channels"
+              class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-surface-raised cursor-pointer min-w-[36px] min-h-[36px] flex items-center justify-center"
+              aria-label="Close topics drawer"
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+          </div>
+
+          <!-- Quick Action Buttons -->
+          <div class="px-4 py-2.5 border-b border-white/5 flex items-center justify-between bg-surface-base">
+            <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Topics (${activeRelay.channels.length})</span>
+            <div class="flex items-center space-x-2">
+              <button
+                type="button"
+                id="btn-open-join-relay-mobile"
+                data-action="open-join-relay"
+                class="px-2.5 py-1 bg-surface-raised hover:bg-surface-elevated text-slate-300 hover:text-white rounded-lg text-xs font-medium border border-white/10 transition-all cursor-pointer"
+              >
+                <span>Join space</span>
+              </button>
+              <button
+                type="button"
+                id="btn-open-create-relay-mobile"
+                data-action="open-create-relay"
+                class="px-2.5 py-1 bg-[var(--color-accent,#e89e38)] hover:brightness-105 text-slate-950 rounded-lg text-xs font-bold transition-all cursor-pointer"
+              >
+                <span>+ New topic</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Topics List -->
+          <div class="flex-1 overflow-y-auto p-3 space-y-1.5 max-h-[50vh]">
+            ${activeRelay.channels.map(ch => {
+              const isChActive = activeChId === ch.id;
+              const topicTitle = this.resolveTopicName(ch.name);
+              return `
+                <button
+                  type="button"
+                  data-channel-id="${ch.id}"
+                  data-action="select-relay-channel"
+                  aria-current="${isChActive ? 'true' : 'false'}"
+                  class="btn-channel w-full text-left px-3.5 py-2.5 rounded-xl transition-all cursor-pointer flex items-center justify-between border ${
+                    isChActive
+                      ? 'bg-[var(--color-accent,#e89e38)]/15 text-[var(--color-accent,#e89e38)] border-[var(--color-accent,#e89e38)]/30 font-bold shadow-xs'
+                      : 'text-slate-300 hover:text-white hover:bg-white/[0.04] border-transparent'
+                  }"
+                >
+                  <div class="flex items-center space-x-2.5 min-w-0">
+                    <span class="text-sm font-bold ${isChActive ? 'text-[var(--color-accent,#e89e38)]' : 'text-slate-500'}">#</span>
+                    <span class="text-xs truncate">${this._escapeHtml(topicTitle)}</span>
+                  </div>
+                  ${isChActive ? `
+                    <span class="w-2 h-2 rounded-full bg-[var(--color-accent,#e89e38)] shrink-0"></span>
+                  ` : ''}
+                </button>
+              `;
+            }).join('')}
+          </div>
         </div>
       </div>
     `;

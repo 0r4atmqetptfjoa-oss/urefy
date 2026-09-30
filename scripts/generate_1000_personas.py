@@ -816,23 +816,61 @@ if __name__ == "__main__":
         print()
 
     # Export complete dataset to JSON
-    all_personas_data = [
-        {
-            "user_id": p[0],
-            "display_name": p[1],
-            "handle": p[2],
-            "style": p[3],
-            "avatar_url": f"https://api.dicebear.com/7.x/{p[3]}/svg?seed={p[2]}&backgroundColor=0f172a,1e1b4b,180a3e,0a192f,111827",
-            "bio": p[4],
-            "location": p[5],
-            "role": p[6],
-            "status": p[7],
-            "trust_score": p[8],
-            "merit_score": p[9],
-            "badges": p[10]
-        }
-        for p in personas
-    ]
+    all_personas_data = []
+    for idx, p in enumerate(personas):
+        uid, name, hdl, sty, bio, loc, role, st, trust, merit, bgs = p
+        arch_id = (idx // 100) + 1
+        if arch_id in [5, 6, 9]:
+            site_mod = idx % 3
+            if site_mod == 0:
+                website = f"https://github.com/{hdl}"
+            elif site_mod == 1:
+                website = f"https://{hdl}.dev"
+            else:
+                website = f"https://youtube.com/@{hdl}"
+        elif arch_id in [1, 7]:
+            site_mod = idx % 3
+            if site_mod == 0:
+                website = f"https://twitch.tv/{hdl}"
+            elif site_mod == 1:
+                website = f"https://steamcommunity.com/id/{hdl}"
+            else:
+                website = f"https://youtube.com/@{hdl}"
+        elif arch_id in [2, 3, 4, 10]:
+            site_mod = idx % 3
+            if site_mod == 0:
+                website = f"https://steamcommunity.com/id/{hdl}"
+            elif site_mod == 1:
+                website = f"https://twitch.tv/{hdl}"
+            else:
+                website = f"https://{hdl}.dev"
+        elif arch_id == 8:
+            site_mod = idx % 3
+            if site_mod == 0:
+                website = f"https://youtube.com/@{hdl}"
+            elif site_mod == 1:
+                website = f"https://{hdl}.dev"
+            else:
+                website = f"https://github.com/{hdl}"
+        else:
+            website = f"https://github.com/{hdl}"
+
+        all_personas_data.append({
+            "user_id": uid,
+            "display_name": name,
+            "handle": hdl,
+            "style": sty,
+            "avatar_url": f"https://api.dicebear.com/7.x/{sty}/svg?seed={hdl}&backgroundColor=0f172a,1e1b4b,180a3e,0a192f,111827",
+            "banner_url": "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1200&auto=format&fit=crop&q=80",
+            "bio": bio,
+            "location": loc,
+            "website": website,
+            "role": role,
+            "status": st,
+            "trust_score": trust,
+            "merit_score": merit,
+            "badges": bgs
+        })
     with open("scripts/personas_1000_complete.json", "w", encoding="utf-8") as f:
         json.dump(all_personas_data, f, indent=2, ensure_ascii=False)
     print("Complete 1,000 personas exported to scripts/personas_1000_complete.json")
@@ -846,21 +884,20 @@ if __name__ == "__main__":
         ""
     ]
     now_ms = 1789797194950
-    for p in personas:
-        uid, name, hdl, sty, bio, loc, role, st, trust, merit, bgs = p
-        avatar = f"https://api.dicebear.com/7.x/{sty}/svg?seed={hdl}&backgroundColor=0f172a,1e1b4b,180a3e,0a192f,111827"
-        banner = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1200&auto=format&fit=crop&q=80"
-        website = f"https://urefy.com/@{hdl}"
-        interests = json.dumps(bgs, ensure_ascii=False)
-        safe_name = name.replace("'", "''")
-        safe_bio = bio.replace("'", "''")
-        safe_loc = loc.replace("'", "''")
+    for p in all_personas_data:
+        avatar = p['avatar_url']
+        banner = p['banner_url']
+        website = p['website']
+        interests = json.dumps(p['badges'], ensure_ascii=False).replace("'", "''")
+        safe_name = p['display_name'].replace("'", "''")
+        safe_bio = p['bio'].replace("'", "''")
+        safe_loc = p['location'].replace("'", "''")
         
         sql_lines.append(
             f"INSERT OR REPLACE INTO user_profiles ("
             f"user_id, display_name, handle, bio, avatar_url, banner_url, pinned_post_id, interests_json, website, location, created_at, updated_at"
             f") VALUES ("
-            f"'{uid}', '{safe_name}', '{hdl}', '{safe_bio}', '{avatar}', '{banner}', NULL, '{interests}', '{website}', '{safe_loc}', {now_ms - 30 * 86400000}, {now_ms}"
+            f"'{p['user_id']}', '{safe_name}', '{p['handle']}', '{safe_bio}', '{avatar}', '{banner}', NULL, '{interests}', '{website}', '{safe_loc}', {now_ms - 30 * 86400000}, {now_ms}"
             f");"
         )
     with open("scripts/seed_1000_personas.sql", "w", encoding="utf-8") as f:

@@ -1,11 +1,11 @@
 # scripts/viral_gaming_tech_part3.py
 """
 Part 3 of 50 Viral Gaming & Tech Discussions (Posts 31-50)
-Topics:
-7. Hollow Knight Silksong copium / clown makeup (Posts 31-35)
-8. Black Myth: Wukong, Elden Ring Erdtree Radahn nerf debates (Posts 36-40)
-9. Denuvo DRM performance drops in new AAA releases (Posts 41-45)
-10. Open source LLMs (DeepSeek R1, Llama 3.3) running locally on consumer GPUs vs closed AI (Posts 46-50)
+Enriched with:
+- Video objects: {"src": "https://www.youtube.com/watch?v=...", "poster": "https://images.unsplash.com/..."}
+- High-res Unsplash image galleries
+- Markdown source links (ArXiv, GitHub, SteamDB, Bandai Namco, GOG, Irdeto, TechCrunch, etc.)
+- Authentic human slang, typos ('definately', 'shoud', 'wierd', 'wait fr???'), heated feuds
 """
 
 NOW = 1789797200000  # Baseline time September 2026
@@ -21,7 +21,7 @@ POSTS_PART3 = [
         "author_role": "INDIE_DEV",
         "title": "Another Nintendo Direct showcase, another 40 minutes of staring at anime farming sims waiting for Silksong. Honk honk 🤡🔴",
         "content": """It is September 2026.
-Over **2,770 days** since Hollow Knight: Silksong was officially announced in February 2019.
+Over **2,770 days** since Hollow Knight: Silksong was officially announced in February 2019 ([Nintendo Life Silksong Coverage](https://www.nintendolife.com) and [Team Cherry Kickstarter Archive](https://www.kickstarter.com/projects/teamcherry/hollow-knight)).
 
 Here is the exact live ritual:
 1. 10:00 AM: 'Team Cherry was spotted eating lunch in Adelaide, today is definitely the day!'
@@ -37,6 +37,13 @@ Team Cherry has three employees. Did Ari Gibson and William Pellen accidentally 
         "boost_count": 510,
         "reply_count": 8,
         "created_at": NOW - 1000 * 60 * 60 * 35,
+        "video": {
+            "src": "https://www.youtube.com/watch?v=pFAknD_9U7c",
+            "poster": "https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=1200&auto=format&fit=crop&q=80"
+        },
+        "images": [
+            "https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=1200&auto=format&fit=crop&q=80"
+        ],
         "tags": ["silksong", "hollowknight", "clown", "teamcherry", "copium", "nintendodirect"],
         "comments": [
             {
@@ -103,7 +110,7 @@ Team Cherry has three employees. Did Ari Gibson and William Pellen accidentally 
         "author_id": "fp_glitch_reaper",
         "author_role": "DATA_MINER",
         "title": "HOLD ON: SteamDB changelist 2891040 just updated Hollow Knight Silksong depot with a 4.2GB encrypted branch! Is the copium finally paying off?! 🚨🔍",
-        "content": """Do NOT panic, but at 03:14 UTC this morning, the Steam backend depot for App ID **1030300 (Hollow Knight: Silksong)** received its first major build update in 8 months:
+        "content": """Do NOT panic, but at 03:14 UTC this morning, the Steam backend depot for App ID **1030300 (Hollow Knight: Silksong)** received its first major build update in 8 months, tracked live on [SteamDB Silksong App 1030300 Depot History](https://steamdb.info/app/1030300/history/):
 
 ```text
 ChangeList: 2891040
@@ -124,6 +131,10 @@ Are we actually in the endgame, or did Matthew Griffin just upload a dummy encry
         "boost_count": 395,
         "reply_count": 6,
         "created_at": NOW - 1000 * 60 * 60 * 25,
+        "video": None,
+        "images": [
+            "https://images.unsplash.com/photo-1555680202-c86f0e12f086?w=1200&auto=format&fit=crop&q=80"
+        ],
         "tags": ["silksong", "steamdb", "leak", "teamcherry", "steam", "gaming"],
         "comments": [
             {
@@ -178,10 +189,10 @@ Are we actually in the endgame, or did Matthew Griffin just upload a dummy encry
         "title": "Team Cherry's radio silence has crossed the line from 'let them cook' to borderline disrespectful to the Kickstarter backers who made them famous 🗣️",
         "content": """Let's take off the clown memes for a second and speak uncomfortable truths:
 
-In 2014, Hollow Knight was funded by **2,158 Kickstarter backers** who pledged $57,000 AUD. One of the official stretch goals was a **second playable character (Hornet)** with her own questline.
+In 2014, Hollow Knight was funded by **2,158 Kickstarter backers** who pledged $57,000 AUD ([Team Cherry Kickstarter Archive](https://www.kickstarter.com/projects/teamcherry/hollow-knight)). One of the official stretch goals was a **second playable character (Hornet)** with her own questline.
 
 That stretch goal evolved into a standalone sequel: *Silksong*.
-Every original backer was promised a free digital copy of Silksong on release day.
+Every original backer was promised a free digital copy of Silksong on release day, reaffirmed during the [Xbox Wire 2022 Showcase Recap](https://news.xbox.com).
 
 **Yet for over 3 years, Team Cherry has not posted a single official blog post to Kickstarter backers:**
 - No dev diaries.
@@ -197,6 +208,10 @@ Why does indie stardom always breed total communication arrogance?""",
         "boost_count": 280,
         "reply_count": 7,
         "created_at": NOW - 1000 * 60 * 60 * 18,
+        "video": None,
+        "images": [
+            "https://images.unsplash.com/photo-1511512578047-dfb367046420?w=1200&auto=format&fit=crop&q=80"
+        ],
         "tags": ["silksong", "teamcherry", "kickstarter", "indiegames", "transparency", "hollowknight"],
         "comments": [
             {
@@ -258,7 +273,7 @@ Why does indie stardom always breed total communication arrogance?""",
         "title": "Geoff Keighley literally auto-mod timing out anyone who types 'SKONG' or 'SILKSONG' in Summer Game Fest chat is the peak comedy of 2026 🚫🎪",
         "content": """I cannot stop laughing.
 
-During the Summer Game Fest opening stream, the live Twitch chat was moving at 100 messages per second.
+During the Summer Game Fest opening stream ([Summer Game Fest Twitch VOD](https://www.twitch.tv)), the live Twitch chat was moving at 100 messages per second.
 Every single time Geoff walked onto the stage to announce a world premiere:
 - Chat: *'SILKSONG?!'*
 - Chat: *'SKONG 📢'*
@@ -277,6 +292,11 @@ Geoff's blood pressure must have been 180/120 looking at the stage monitor. We h
         "boost_count": 420,
         "reply_count": 6,
         "created_at": NOW - 1000 * 60 * 60 * 12,
+        "video": {
+            "src": "https://www.youtube.com/watch?v=pFAknD_9U7c",
+            "poster": "https://images.unsplash.com/photo-1542751371-adc38448a05e?w=1200&auto=format&fit=crop&q=80"
+        },
+        "images": None,
         "tags": ["silksong", "geoffkeighley", "summergamefest", "twitch", "meme", "skong"],
         "comments": [
             {
@@ -329,7 +349,7 @@ Geoff's blood pressure must have been 180/120 looking at the stage monitor. We h
         "author_id": "ninty_loyalist_mario",
         "author_role": "NINTENDO_INSIDER",
         "title": "The only logical explanation: Nintendo paid Team Cherry an exclusivity bag to hold Silksong as a day-one launch title for Switch 2. Change my mind 💰🎮",
-        "content": """Connect the dots, people:
+        "content": """Connect the dots, people ([Nintendo Life Silksong Coverage](https://www.nintendolife.com)):
 
 1. **The Original Partnership**: Hollow Knight achieved its massive cultural explosion on the original Nintendo Switch in 2018 after Nintendo featured it in their E3 Direct. It sold over 3 million copies on Switch alone.
 2. **The 2022 Xbox Game Pass Delay**: Xbox showed Silksong in 2022 claiming it was coming to Game Pass on Day One within 12 months. Team Cherry officially delayed it in May 2023.
@@ -345,6 +365,10 @@ Silksong is the Switch 2's secret weapon. Convince me I'm wrong.""",
         "boost_count": 210,
         "reply_count": 6,
         "created_at": NOW - 1000 * 60 * 60 * 6,
+        "video": None,
+        "images": [
+            "https://images.unsplash.com/photo-1612287232258-a5ec0906be70?w=1200&auto=format&fit=crop&q=80"
+        ],
         "tags": ["silksong", "switch2", "nintendo", "exclusivity", "teamcherry", "gamepass"],
         "comments": [
             {
@@ -401,7 +425,7 @@ Silksong is the Switch 2's secret weapon. Convince me I'm wrong.""",
         "author_id": "fp_souls_vet",
         "author_role": "SOULS_SPEEDRUNNER",
         "title": "FromSoftware nerfed Promised Consort Radahn in Patch 1.14 (cross-slash, visibility, recovery frames) and the elitist gatekeepers are crying in the comments 😭⚔️",
-        "content": """FromSoftware just dropped **Patch 1.14 for Shadow of the Erdtree**, and the patch notes confirmed what every sane player has been saying since June:
+        "content": """FromSoftware just dropped **Patch 1.14 for Shadow of the Erdtree** ([FromSoftware Official Patch 1.14 Notes](https://www.bandainamcoent.com/news/elden-ring-patch-notes-version-1-14)), and the patch notes confirmed what every sane player has been saying since June:
 
 **Promised Consort Radahn has been heavily nerfed:**
 1. **The Infamous Cross-Slash Combo**: The startup delay of the second slash was lengthened, and the hitbox radius was shrunk. You can now cleanly dodge it with a standard medium roll without hugging his left ankle!
@@ -420,6 +444,13 @@ Why do Souls elitists treat artificial bad hitbox design and blinding VFX as a b
         "boost_count": 330,
         "reply_count": 8,
         "created_at": NOW - 1000 * 60 * 60 * 30,
+        "video": {
+            "src": "https://www.youtube.com/watch?v=qLZenOn7WUo",
+            "poster": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1200&auto=format&fit=crop&q=80"
+        },
+        "images": [
+            "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1200&auto=format&fit=crop&q=80"
+        ],
         "tags": ["eldenring", "shadowoferdtree", "radahn", "fromsoftware", "nerf", "soulslike", "patch114"],
         "comments": [
             {
@@ -486,7 +517,7 @@ Why do Souls elitists treat artificial bad hitbox design and blinding VFX as a b
         "author_id": "fp_glitch_reaper",
         "author_role": "FRAME_DATA_ANALYST",
         "title": "Frame-by-frame hitbox breakdown: Why pre-nerf Radahn's 1-2 cross slash was mathematically impossible to medium roll dodge without specific positioning 📐",
-        "content": """Let's put the 'skill issue' debate to rest permanently using exported Havok collision sub-meshes from Elden Ring build 1.12.1:
+        "content": """Let's put the 'skill issue' debate to rest permanently using exported Havok collision sub-meshes from Elden Ring build 1.12.1, corroborated by [Tarnished Archeology Hitbox Breakdown](https://www.youtube.com):
 
 ### The Pre-Nerf Attack Frame Data:
 - **Slash 1 Startup**: 18 frames (at 60 FPS).
@@ -513,6 +544,10 @@ Frame data doesn't lie.""",
         "boost_count": 260,
         "reply_count": 6,
         "created_at": NOW - 1000 * 60 * 60 * 20,
+        "video": None,
+        "images": [
+            "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=1200&auto=format&fit=crop&q=80"
+        ],
         "tags": ["eldenring", "framedata", "hitbox", "gamedev", "radahn", "analysis"],
         "comments": [
             {
@@ -565,7 +600,7 @@ Frame data doesn't lie.""",
         "author_id": "fp_kai_bloxfan",
         "author_role": "GAMING_CRITIC",
         "title": "Black Myth: Wukong selling 20M+ copies in one month with no microtransactions, no battle pass, and single-player focus is a wake-up call to Western AAA 🐒👑",
-        "content": """Game Science's *Black Myth: Wukong* has officially crossed **20,000,000 copies sold** across Steam and PlayStation 5 in just one month, generating over **$800 million in gross revenue**:
+        "content": """Game Science's *Black Myth: Wukong* has officially crossed **20,000,000 copies sold** across Steam and PlayStation 5 in just one month ([SteamDB Black Myth: Wukong Charts](https://steamdb.info/app/2358720/charts/) and [Game Science Black Myth Official Site](https://www.heishenhua.com)), generating over **$800 million in gross revenue**:
 
 Let's look at what Game Science did:
 1. **No Microtransactions**: No skin shops, no loot boxes, no $20 seasonal battle passes.
@@ -584,6 +619,13 @@ Gamers don't hate modern games. Gamers hate cynical, corporate monetization disg
         "boost_count": 480,
         "reply_count": 7,
         "created_at": NOW - 1000 * 60 * 60 * 14,
+        "video": {
+            "src": "https://www.youtube.com/watch?v=O23HMnhVw38",
+            "poster": "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=1200&auto=format&fit=crop&q=80"
+        },
+        "images": [
+            "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=1200&auto=format&fit=crop&q=80"
+        ],
         "tags": ["blackmythwukong", "wukong", "steam", "sales", "singleplayer", "gamedev", "goty"],
         "comments": [
             {
@@ -645,7 +687,7 @@ Gamers don't hate modern games. Gamers hate cynical, corporate monetization disg
         "title": "Leaked technical post-mortem: Wukong's Xbox delay wasn't an exclusivity deal, it was the Series S having only 10GB shared RAM causing constant out-of-memory crashes 📉",
         "content": """Remember when Black Myth: Wukong launched on PC and PS5, but the Xbox Series X/S version was indefinitely delayed, leading to wild rumors of a secret Sony paid exclusivity deal?
 
-An engineering post-mortem from a porting contractor working with Game Science has leaked the real truth:
+An engineering post-mortem from a porting contractor working with Game Science (analyzed in [Digital Foundry Series S Memory Allocation Analysis](https://www.eurogamer.net/digitalfoundry)) has leaked the real truth:
 
 **The Xbox Series S unified memory bottleneck:**
 - Xbox Series S has **10GB total GDDR6 memory**.
@@ -662,6 +704,10 @@ Has the $299 Series S become a generational anchor holding back ninth-gen gaming
         "boost_count": 240,
         "reply_count": 6,
         "created_at": NOW - 1000 * 60 * 60 * 8,
+        "video": None,
+        "images": [
+            "https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=1200&auto=format&fit=crop&q=80"
+        ],
         "tags": ["wukong", "xbox", "seriesS", "hardware", "unrealengine5", "memory", "gaming"],
         "comments": [
             {
@@ -714,7 +760,7 @@ Has the $299 Series S become a generational anchor holding back ninth-gen gaming
         "author_id": "fp_souls_vet",
         "author_role": "COMBAT_ANALYST",
         "title": "Combat design debate: Black Myth Wukong's fluid dodge-cancel stance rhythm vs Elden Ring's roll-poke patience. Which boss design is healthier? 🥋⚔️",
-        "content": """Having completed both *Shadow of the Erdtree* (pre and post-nerf) and *Black Myth: Wukong* to New Game+3, I think we are witnessing a philosophical divergence in action RPG combat design:
+        "content": """Having completed both *Shadow of the Erdtree* ([FromSoftware Official Site](https://www.fromsoftware.jp)) and *Black Myth: Wukong* ([Game Science Black Myth Official Site](https://www.heishenhua.com)) to New Game+3, I think we are witnessing a philosophical divergence in action RPG combat design:
 
 ### 1. Elden Ring's Boss Philosophy (Turn-Based Simulation)
 Bosses like Malenia, Messmer, and Radahn execute 7-hit to 12-hit anime combos with delayed windups. The player's role is primarily passive:
@@ -737,6 +783,11 @@ Which combat loop feels more mechanically rewarding?""",
         "boost_count": 210,
         "reply_count": 6,
         "created_at": NOW - 1000 * 60 * 60 * 4,
+        "video": {
+            "src": "https://www.youtube.com/watch?v=O23HMnhVw38",
+            "poster": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1200&auto=format&fit=crop&q=80"
+        },
+        "images": None,
         "tags": ["wukong", "eldenring", "combat", "gamedev", "bossdesign", "gaming"],
         "comments": [
             {
@@ -796,8 +847,7 @@ Which combat loop feels more mechanically rewarding?""",
         "content": """Whenever a publisher includes **Denuvo Anti-Tamper**, PR reps claim:
 *'Denuvo has zero perceptible impact on gaming performance.'*
 
-We finally have scientific, apples-to-apples proof that this is a blatant lie.
-Following a recent publisher build leak where an uncompressed DRM-free debug binary was shipped alongside the Denuvo-protected production build, we ran 100 identical benchmark passes:
+We finally have scientific, apples-to-apples proof that this is a blatant lie, confirmed in the [Ars Technica Anti-Tamper Performance Audit](https://arstechnica.com). Following a recent publisher build leak where an uncompressed DRM-free debug binary was shipped alongside the Denuvo-protected production build, we ran 100 identical benchmark passes:
 
 ### Test Rig:
 - Core i7-14700K, RTX 4070 Ti Super, 32GB DDR5-6400, NVMe PCIe 4.0.
@@ -820,6 +870,13 @@ Paying customers get micro-stutter. When will publishers stop punishing the peop
         "boost_count": 420,
         "reply_count": 6,
         "created_at": NOW - 1000 * 60 * 60 * 32,
+        "video": {
+            "src": "https://www.youtube.com/watch?v=s-lFgbzU3LY",
+            "poster": "https://images.unsplash.com/photo-1591799264318-7e6ef8ddb7ea?w=1200&auto=format&fit=crop&q=80"
+        },
+        "images": [
+            "https://images.unsplash.com/photo-1591799264318-7e6ef8ddb7ea?w=1200&auto=format&fit=crop&q=80"
+        ],
         "tags": ["denuvo", "drm", "benchmarks", "performance", "pcgaming", "stutter", "frametime"],
         "comments": [
             {
@@ -872,7 +929,7 @@ Paying customers get micro-stutter. When will publishers stop punishing the peop
         "author_id": "fp_glitch_reaper",
         "author_role": "REVERSE_ENGINEER",
         "title": "Developer forgets to protect release .exe on Steam, uploads Denuvo-free binary by mistake: 15 GB less RAM usage and zero loading hitching reported! 🚀",
-        "content": """It happened AGAIN.
+        "content": """It happened AGAIN. See the report on [Steam Community Denuvo Removal Hub](https://steamcommunity.com).
 
 The QA deployment team for a major AAA action title accidentally uploaded an unstripped, Denuvo-free developer build (`Shipping_Win64_Dev.exe`) in today's minor 1.04 Steam patch.
 
@@ -891,6 +948,10 @@ You literally cannot make this up.""",
         "boost_count": 360,
         "reply_count": 6,
         "created_at": NOW - 1000 * 60 * 60 * 22,
+        "video": None,
+        "images": [
+            "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=1200&auto=format&fit=crop&q=80"
+        ],
         "tags": ["denuvo", "steam", "leak", "drm", "pcgaming", "blunder", "optimization"],
         "comments": [
             {
@@ -943,7 +1004,7 @@ You literally cannot make this up.""",
         "author_id": "fp_zenith_fps",
         "author_role": "SECURITY_ANALYST",
         "title": "Denuvo launches 'TraceMark' technology that embeds invisible steganographic watermarks into video game frames to track beta testers and leakers 👁️🕵️",
-        "content": """Irdeto (the parent company of Denuvo) has officially unveiled **TraceMark for Gaming**:
+        "content": """Irdeto (the parent company of Denuvo) has officially unveiled **TraceMark for Gaming** in the [Denuvo / Irdeto TraceMark Press Release](https://resources.irdeto.com):
 
 ### What It Does:
 According to their marketing whitepaper:
@@ -965,6 +1026,10 @@ Are we ready for active watermarking surveillance inside our single-player video
         "boost_count": 210,
         "reply_count": 6,
         "created_at": NOW - 1000 * 60 * 60 * 16,
+        "video": None,
+        "images": [
+            "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=1200&auto=format&fit=crop&q=80"
+        ],
         "tags": ["denuvo", "tracemark", "drm", "privacy", "surveillance", "steganography", "gamedev"],
         "comments": [
             {
@@ -1022,6 +1087,8 @@ Are we ready for active watermarking surveillance inside our single-player video
 - Sony removed hundreds of purchased Discovery shows and games from PSN accounts without compensation.
 - Games with Denuvo become permanently unplayable when publishers shut down authentication servers 10 years later.
 
+Sign the [EU Stop Destroying Videogames Initiative](https://www.stopkillinggames.com) and read the [GOG DRM-Free Preservation Manifesto](https://www.gog.com).
+
 When you buy a game on Steam, PSN, or Xbox, you do **not own the game**. You own a revocable, temporary software license subject to arbitrary terms of service modifications.
 
 **GOG (Good Old Games) remains the only mainstream platform that respects digital ownership:**
@@ -1035,6 +1102,13 @@ If a game is available on both Steam and GOG, why would anyone with a functionin
         "boost_count": 340,
         "reply_count": 6,
         "created_at": NOW - 1000 * 60 * 60 * 10,
+        "video": {
+            "src": "https://www.youtube.com/watch?v=OLRldZjty_s",
+            "poster": "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=1200&auto=format&fit=crop&q=80"
+        },
+        "images": [
+            "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=1200&auto=format&fit=crop&q=80"
+        ],
         "tags": ["gog", "drmfree", "digitalpreservation", "ownership", "gaming", "steam", "preservation"],
         "comments": [
             {
@@ -1090,7 +1164,7 @@ If a game is available on both Steam and GOG, why would anyone with a functionin
         "content": """Gabe Newell famously said 15 years ago:
 *'Piracy is almost always a service problem, not a pricing problem.'*
 
-In 2026, the PC gaming industry has managed to make piracy not just a better service, but a **measurably superior technical product**:
+Read the [Ars Technica Anti-Tamper Performance Audit](https://arstechnica.com) to see how in 2026, the PC gaming industry has managed to make piracy not just a better service, but a **measurably superior technical product**:
 
 ### The Paying Customer Experience ($70 - $100):
 - Forces you to install an unwanted third-party launcher (EA App, Ubisoft Connect, Rockstar Launcher) that runs background telemetry daemons.
@@ -1110,6 +1184,10 @@ Why are video game publishers actively creating an incentive structure where pir
         "boost_count": 380,
         "reply_count": 7,
         "created_at": NOW - 1000 * 60 * 60 * 5,
+        "video": None,
+        "images": [
+            "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=1200&auto=format&fit=crop&q=80"
+        ],
         "tags": ["drm", "denuvo", "piracy", "gabenewell", "steam", "pcgaming", "consumerrights"],
         "comments": [
             {
@@ -1173,7 +1251,7 @@ Why are video game publishers actively creating an incentive structure where pir
         "author_id": "fp_mayalin_ai",
         "author_role": "AI_RESEARCHER",
         "title": "Running DeepSeek R1 reasoning model locally on two used RTX 3090s via Ollama: Benchmark reasoning matches OpenAI o1 for $0/month after hardware 🧠⚡",
-        "content": """For the past week, I have been running **DeepSeek-R1 (Full 671B MoE quantized via EXL2 / GGUF down to 32B/70B dense distilled equivalents)** locally on my home inference workstation:
+        "content": """For the past week, I have been running **DeepSeek-R1 (Full 671B MoE quantized via EXL2 / GGUF down to 32B/70B dense distilled equivalents)** locally on my home inference workstation ([ArXiv: DeepSeek-R1 Technical Report](https://arxiv.org/abs/2501.12948) and [GitHub Repository: deepseek-ai/DeepSeek-R1](https://github.com/deepseek-ai/DeepSeek-R1)):
 
 ### The Hardware Setup:
 - 2x used **Nvidia RTX 3090 24GB** ($650 each on secondary market = $1,300 total)
@@ -1196,6 +1274,13 @@ Why would any developer or enterprise pay $200/month for cloud API rate limits w
         "boost_count": 480,
         "reply_count": 8,
         "created_at": NOW - 1000 * 60 * 60 * 28,
+        "video": {
+            "src": "https://www.youtube.com/watch?v=xBByvFrqmWU",
+            "poster": "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=1200&auto=format&fit=crop&q=80"
+        },
+        "images": [
+            "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=1200&auto=format&fit=crop&q=80"
+        ],
         "tags": ["deepseek", "localai", "localllm", "rtx3090", "privacy", "opensource", "o1"],
         "comments": [
             {
@@ -1262,9 +1347,9 @@ Why would any developer or enterprise pay $200/month for cloud API rate limits w
         "author_id": "fp_alex_dev",
         "author_role": "SYSTEMS_ARCHITECT",
         "title": "Meta's Llama 3.3 70B running at 35 tokens/sec with EXL2 4.25bpw quant on a single RTX 4090 proves open weights have completely caught up 🦙⚡",
-        "content": """Meta dropped **Llama 3.3 70B Instruct**, and the efficiency benchmarks on consumer GeForce silicon are nothing short of miraculous.
+        "content": """Meta dropped **Llama 3.3 70B Instruct** ([Hugging Face Llama 3.3 70B Model Card](https://huggingface.co/meta-llama/Llama-3.3-70B-Instruct)), and the efficiency benchmarks on consumer GeForce silicon are nothing short of miraculous.
 
-Using **ExLlamaV2 v0.2.4** on Linux with an RTX 4090 (24GB VRAM):
+Using **ExLlamaV2 v0.2.4** ([GitHub Repository: turboderp/exllamav2](https://github.com/turboderp/exllamav2)) on Linux with an RTX 4090 (24GB VRAM):
 - Model: `Llama-3.3-70B-Instruct-exl2-4.25bpw`
 - VRAM Footprint: **21.8 GB** (leaves 2.2GB for 8k context KV cache!)
 - Prompt Processing Speed: **1,450 tokens/second**!
@@ -1282,6 +1367,10 @@ Why give your company's proprietary IP to Microsoft or Amazon when you can run t
         "boost_count": 310,
         "reply_count": 6,
         "created_at": NOW - 1000 * 60 * 60 * 20,
+        "video": None,
+        "images": [
+            "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=1200&auto=format&fit=crop&q=80"
+        ],
         "tags": ["llama3", "meta", "localllm", "rtx4090", "exllamav2", "opensource", "ai"],
         "comments": [
             {
@@ -1334,7 +1423,7 @@ Why give your company's proprietary IP to Microsoft or Amazon when you can run t
         "author_id": "local_ai_arch",
         "author_role": "FOSS_MAXIMALIST",
         "title": "Sam Altman claiming that local AI inference on consumer GPUs is 'economically inefficient' is the most transparent vendor lock-in panic statement ever 🤡💸",
-        "content": """During a recent tech summit fireside chat, Sam Altman was asked about the explosion of users running open-weights models (DeepSeek, Llama, Mistral) locally on Nvidia hardware.
+        "content": """During a recent tech summit fireside chat ([TechCrunch Fireside Chat Coverage](https://techcrunch.com)), Sam Altman was asked about the explosion of users running open-weights models (DeepSeek, Llama, Mistral) locally on Nvidia hardware.
 
 His response:
 *'Running local models on personal devices is an inefficient allocation of compute. Centralized hyperscaler data centers achieve economies of scale and energy efficiencies that desktop PCs simply cannot match. The future of intelligence is utility compute delivered via the cloud.'*
@@ -1355,6 +1444,11 @@ Don't let cloud cartels convince you that owning your own compute is 'inefficien
         "boost_count": 390,
         "reply_count": 6,
         "created_at": NOW - 1000 * 60 * 60 * 15,
+        "video": {
+            "src": "https://www.youtube.com/watch?v=gYn9aWfG_p8",
+            "poster": "https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=1200&auto=format&fit=crop&q=80"
+        },
+        "images": None,
         "tags": ["samaltman", "openai", "localai", "cloud", "privacy", "lockin", "chatgpt"],
         "comments": [
             {
@@ -1407,7 +1501,7 @@ Don't let cloud cartels convince you that owning your own compute is 'inefficien
         "author_id": "fp_alex_dev",
         "author_role": "BENCHMARK_ENGINEER",
         "title": "Local LLM runtime shootout 2026: Ollama vs vLLM vs ExLlamaV2 vs llama.cpp on Linux. Throughput, KV cache compression, and VRAM efficiency compared ⚙️📊",
-        "content": """We benchmarked the four most popular local inference engines running on an **Ubuntu 24.04 LTS rig with an RTX 4090 (24GB)** using **Qwen-2.5-Coder-32B**:
+        "content": """We benchmarked the four most popular local inference engines running on an **Ubuntu 24.04 LTS rig with an RTX 4090 (24GB)** using **Qwen-2.5-Coder-32B**, comparing results from [GitHub Repository: vllm-project/vllm](https://github.com/vllm-project/vllm) and [Ollama Official Library](https://ollama.com/library):
 
 ### 1. Ollama (The Beginner Standard)
 - **Ease of Use**: 10/10 (one-click installer, instant CLI).
@@ -1438,6 +1532,11 @@ What engine are you currently running in your stack?""",
         "boost_count": 290,
         "reply_count": 6,
         "created_at": NOW - 1000 * 60 * 60 * 10,
+        "video": None,
+        "images": [
+            "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=1200&auto=format&fit=crop&q=80",
+            "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=1200&auto=format&fit=crop&q=80"
+        ],
         "tags": ["localllm", "ollama", "vllm", "exllamav2", "llamacpp", "benchmarks", "opensource"],
         "comments": [
             {
@@ -1495,7 +1594,7 @@ What engine are you currently running in your stack?""",
 Three major closed-source AI vendors (names redacted pending legal proceedings, but you can guess the usual suspects):
 - Marketed 'Zero Data Retention' and 'Enterprise Privacy Tier (No Model Training)' agreements costing upwards of $60,000/year per company.
 - **The Reality**: The audit discovered that while raw text strings were purged from production logs after 30 days, **vector embeddings and high-dimensional semantic latent vectors generated from enterprise prompts were systematically stored in long-term cold-storage buckets (`s3://internal-eval-vectors`)**!
-- In modern diffusion and transformer architectures, dense embeddings can be inverted using generative inversion algorithms to reconstruct **up to 75% of the original plaintext tokens**, including proprietary API keys, internal customer names, and unpublished patent draft claims!
+- In modern diffusion and transformer architectures (like [ArXiv: Vec2Text Generative Inversion](https://arxiv.org)), dense embeddings can be inverted using generative inversion algorithms to reconstruct **up to 75% of the original plaintext tokens**, including proprietary API keys, internal customer names, and unpublished patent draft claims!
 
 When confronted, one vendor's legal counsel claimed that *'Vector embeddings do not constitute personally identifiable information under our privacy policy terms.'*
 
@@ -1507,6 +1606,11 @@ The only safe AI is local AI.""",
         "boost_count": 410,
         "reply_count": 6,
         "created_at": NOW - 1000 * 60 * 60 * 2,
+        "video": {
+            "src": "https://www.youtube.com/watch?v=1S0aBV-Waeo",
+            "poster": "https://images.unsplash.com/photo-1563986768609-322da13575f3?w=1200&auto=format&fit=crop&q=80"
+        },
+        "images": None,
         "tags": ["privacy", "ai", "cloud", "security", "leak", "enterprise", "openai", "localllm"],
         "comments": [
             {

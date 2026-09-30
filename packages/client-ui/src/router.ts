@@ -367,7 +367,7 @@ export class SovereignRouter {
     const validRoutes: SovereignRoute[] = ['feed', 'explore', 'communities', 'messages', 'vault', 'profile', 'settings', 'more', 'governance'];
 
     let resolvedRoute: SovereignRoute | null = null;
-    if (mainRoute === 'relays' || mainRoute === 'chat' || mainRoute === 'messages') {
+    if (mainRoute === 'relays' || mainRoute === 'chat' || mainRoute === 'messages' || mainRoute === 'message') {
       resolvedRoute = 'messages';
     } else if (mainRoute === 'pulse' || mainRoute === 'home' || mainRoute === 'feed') {
       resolvedRoute = 'feed';

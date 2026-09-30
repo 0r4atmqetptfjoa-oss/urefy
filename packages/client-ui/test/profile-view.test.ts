@@ -7,6 +7,7 @@ describe('ProfileView - Sovereign Profile Hero Header & Multi-Tab Timeline', () 
   let samplePosts: ClientPost[];
 
   beforeEach(() => {
+    if (typeof localStorage !== 'undefined') localStorage.clear();
     profile = new ProfileView();
     samplePosts = [
       {

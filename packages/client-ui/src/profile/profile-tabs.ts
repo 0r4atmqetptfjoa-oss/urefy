@@ -22,7 +22,7 @@ export const PROFILE_TABS: ProfileTabItem[] = [
 ];
 
 export function renderProfileTabsHTML(activeTab: ProfileTab, _isOwnProfile?: boolean): string {
-  const tabsToShow = PROFILE_TABS;
+  const tabsToShow: ProfileTabItem[] = PROFILE_TABS;
 
   return `
     <div class="journal-profile__tab-list flex items-center space-x-2 border-b border-white/10 pb-2 overflow-x-auto scrollbar-none no-scrollbar" role="tablist" aria-label="Profile sections">

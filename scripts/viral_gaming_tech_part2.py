@@ -1,10 +1,11 @@
 # scripts/viral_gaming_tech_part2.py
 """
 Part 2 of 50 Viral Gaming & Tech Discussions (Posts 16-30)
-Topics:
-4. Nintendo Switch 2 leaked specs: Tegra T239, DLSS 3.1, backward compatibility cartridge slot (Posts 16-20)
-5. Monster Hunter Wilds PC beta performance, stuttering, CPU bottleneck, shader compilation (Posts 21-25)
-6. Valve Deadlock roster changes, CS2 Sub-tick vs 128-tick, Snap Tap ban feuds (Posts 26-30)
+Enriched with:
+- Video objects: {"src": "https://www.youtube.com/watch?v=...", "poster": "https://images.unsplash.com/..."}
+- High-res Unsplash image galleries
+- Markdown source links (SteamDB, Capcom, Digital Foundry, HLTV, WIPO, Wooting, etc.)
+- Authentic human slang, typos ('definately', 'shoud', 'wierd', 'wait fr???'), heated feuds
 """
 
 NOW = 1789797200000  # Baseline time September 2026
@@ -19,7 +20,7 @@ POSTS_PART2 = [
         "author_id": "fp_emulation_vault",
         "author_role": "HARDWARE_LEAKER",
         "title": "Switch 2 assembly factory leak: Custom Nvidia Tegra T239 chip, 12GB LPDDR5X RAM, 8-inch 1080p screen, and magnetic Joy-Cons 🎮",
-        "content": """A customs manifest and 3D CAD schematic from a Foxconn assembly facility in Vietnam has leaked the exact hardware revision for Nintendo's next-gen console:
+        "content": """A customs manifest and 3D CAD schematic from a Foxconn assembly facility in Vietnam has leaked the exact hardware revision for Nintendo's next-gen console, verified by the [Digital Foundry Switch 2 Tegra T239 Deep-Dive](https://www.eurogamer.net/digitalfoundry) and [Bloomberg Supply Chain Report](https://www.bloomberg.com):
 
 - **SoC**: Nvidia Tegra **T239 (Drake)** built on Samsung 8nm/TSMC process node.
 - **CPU**: 8x ARM Cortex-A78C cores running up to 1.8 GHz docked / 1.1 GHz handheld.
@@ -37,6 +38,14 @@ Is this the biggest generational hardware leap in Nintendo history?""",
         "boost_count": 390,
         "reply_count": 8,
         "created_at": NOW - 1000 * 60 * 60 * 36,
+        "video": {
+            "src": "https://www.youtube.com/watch?v=1xN5c6aZ-eM",
+            "poster": "https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=1200&auto=format&fit=crop&q=80"
+        },
+        "images": [
+            "https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=1200&auto=format&fit=crop&q=80",
+            "https://images.unsplash.com/photo-1612287232258-a5ec0906be70?w=1200&auto=format&fit=crop&q=80"
+        ],
         "tags": ["switch2", "nintendo", "tegra", "hardware", "dlss", "leak", "joycon"],
         "comments": [
             {
@@ -103,7 +112,7 @@ Is this the biggest generational hardware leap in Nintendo history?""",
         "author_id": "fp_emulation_vault",
         "author_role": "PRESERVATIONIST",
         "title": "Patent filings confirm Nintendo Switch 2 physical backward compatibility cartridge slot with dual-notch system for original Switch carts! 🎉",
-        "content": """A newly published patent filed by Nintendo Co., Ltd. at the World Intellectual Property Organization (WIPO) has put our biggest fears to rest:
+        "content": """A newly published patent filed by Nintendo Co., Ltd. at the World Intellectual Property Organization ([WIPO Patent Filing #WO2025/119283](https://patentscope.wipo.int) and reported on [Nintendo Life Patent Breakdown](https://www.nintendolife.com)) has put our biggest fears to rest:
 
 **Physical backward compatibility is 100% real.**
 
@@ -120,6 +129,10 @@ Are you keeping all your physical Switch cartridges?""",
         "boost_count": 480,
         "reply_count": 6,
         "created_at": NOW - 1000 * 60 * 60 * 26,
+        "video": None,
+        "images": [
+            "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=1200&auto=format&fit=crop&q=80"
+        ],
         "tags": ["switch2", "nintendo", "backwardcompatibility", "zelda", "patent", "cartridges"],
         "comments": [
             {
@@ -174,7 +187,7 @@ Are you keeping all your physical Switch cartridges?""",
         "title": "Can the Switch 2 actually deliver 4K 60FPS docked using DLSS 3.1 Super Resolution or are people expecting way too much from a 15-watt handheld?",
         "content": """The hype train for Nintendo Switch 2 is reaching dangerous levels, with some YouTube tech influencers claiming it will be a 'portable PS5'.
 
-Let's do the actual silicon math before people get disappointed on launch day:
+Check the [Digital Foundry 4K Handheld Reconstruction Analysis](https://www.eurogamer.net/digitalfoundry) for the real silicon math:
 
 ### Handheld Mode:
 - Power draw: **8W - 12W**
@@ -194,6 +207,11 @@ Keep your expectations grounded!""",
         "boost_count": 160,
         "reply_count": 6,
         "created_at": NOW - 1000 * 60 * 60 * 18,
+        "video": {
+            "src": "https://www.youtube.com/watch?v=1xN5c6aZ-eM",
+            "poster": "https://images.unsplash.com/photo-1511512578047-dfb367046420?w=1200&auto=format&fit=crop&q=80"
+        },
+        "images": None,
         "tags": ["switch2", "dlss", "4k", "nintendo", "hardware", "benchmarks", "graphics"],
         "comments": [
             {
@@ -246,9 +264,9 @@ Keep your expectations grounded!""",
         "author_id": "fp_nadia_foss",
         "author_role": "FOSS_ADVOCATE",
         "title": "Nintendo going scorched earth against Switch emulators (Yuzu, Ryujinx) right before the Switch 2 reveal tells you everything about their upcoming security model ⚖️",
-        "content": """Within the last few months, Nintendo's legal team has:
+        "content": """Within the last few months, Nintendo's legal team has escalated dramatically according to [The Verge Nintendo Legal Coverage](https://www.theverge.com):
 1. Settled with Tropic Haze ($2.4M) and forced the deletion of **Yuzu**.
-2. Pressured the lead maintainer of **Ryujinx** into shutting down the organization and repo.
+2. Pressured the lead maintainer of **Ryujinx** into shutting down the organization and repo ([Ryujinx GitHub Repository Archive](https://github.com)).
 3. Issued DMCA subpoenas against Git hosting forks, Discord servers, and Patreon pages.
 
 Why the sudden nuclear escalation in 2026 after tolerating emulators for 7 years?
@@ -265,6 +283,11 @@ Emulation is legal under *Sony v. Bleem!* and *Sony v. Connectix*. Nintendo usin
         "boost_count": 340,
         "reply_count": 6,
         "created_at": NOW - 1000 * 60 * 60 * 14,
+        "video": None,
+        "images": [
+            "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=1200&auto=format&fit=crop&q=80",
+            "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=1200&auto=format&fit=crop&q=80"
+        ],
         "tags": ["nintendo", "emulation", "yuzu", "ryujinx", "opensource", "law", "preservation"],
         "comments": [
             {
@@ -317,7 +340,7 @@ Emulation is legal under *Sony v. Bleem!* and *Sony v. Connectix*. Nintendo usin
         "author_id": "cynic_dan_90s",
         "author_role": "INDUSTRY_WATCHER",
         "title": "If Nintendo prices Switch 2 at $449 with $70 Mario Kart 9, will the casual family audience refuse to upgrade from the $299 OG Switch? 📉",
-        "content": """Industry supply chain leaks indicate Nintendo is aiming for a **$399 to $449 launch MSRP** for Switch 2, with new flagship first-party physical cartridges bumping permanently to **$69.99**.
+        "content": """Industry supply chain leaks analyzed by [IGN Switch 2 Spec & Price Forecast](https://www.ign.com) indicate Nintendo is aiming for a **$399 to $449 launch MSRP** for Switch 2, with new flagship first-party physical cartridges bumping permanently to **$69.99**.
 
 Let's remember how Nintendo history works:
 - **Wii ($249)** sold 101 million -> **Wii U ($349)** bombed at 13.5 million.
@@ -335,6 +358,10 @@ Is Nintendo walking into another Wii U trap?""",
         "boost_count": 185,
         "reply_count": 6,
         "created_at": NOW - 1000 * 60 * 60 * 8,
+        "video": None,
+        "images": [
+            "https://images.unsplash.com/photo-1511512578047-dfb367046420?w=1200&auto=format&fit=crop&q=80"
+        ],
         "tags": ["switch2", "nintendo", "pricing", "wiiu", "economics", "consolegaming"],
         "comments": [
             {
@@ -391,7 +418,9 @@ Is Nintendo walking into another Wii U trap?""",
         "author_id": "fp_chloe_pals",
         "author_role": "MONSTER_HUNTER",
         "title": "Monster Hunter Wilds PC Beta performance is an absolute CPU slaughterhouse: 100% usage on Ryzen 7800X3D and stuttering in the Windward Plains 🏜️🦖",
-        "content": """I spent 6 hours testing the Monster Hunter Wilds PC Open Beta across multiple hardware configurations, and we need to have a serious talk about Capcom's RE Engine implementation.
+        "content": """I spent 6 hours testing the Monster Hunter Wilds PC Open Beta across multiple hardware configurations ([Steam Store: Monster Hunter Wilds](https://store.steampowered.com/app/2246340/Monster_Hunter_Wilds/)), and we need to have a serious talk about Capcom's RE Engine implementation.
+
+Check the frame time graphs logged on [Hardware Unboxed CPU Scaling Benchmarks](https://www.youtube.com/@Hardwareunboxed).
 
 My test rig:
 - Ryzen 7 7800X3D (fastest gaming CPU on the market)
@@ -413,6 +442,13 @@ If an $800 enthusiast CPU can't hold 60 FPS during a monster hunt, what is going
         "boost_count": 310,
         "reply_count": 7,
         "created_at": NOW - 1000 * 60 * 60 * 32,
+        "video": {
+            "src": "https://www.youtube.com/watch?v=zyoBA0aCRNk",
+            "poster": "https://images.unsplash.com/photo-1542751371-adc38448a05e?w=1200&auto=format&fit=crop&q=80"
+        },
+        "images": [
+            "https://images.unsplash.com/photo-1542751371-adc38448a05e?w=1200&auto=format&fit=crop&q=80"
+        ],
         "tags": ["mhwilds", "monsterhunter", "capcom", "pcgaming", "performance", "cpu", "stutter"],
         "comments": [
             {
@@ -472,12 +508,12 @@ If an $800 enthusiast CPU can't hold 60 FPS during a monster hunt, what is going
         "author_id": "fps_snob_4k",
         "author_role": "PERFORMANCE_PURIST",
         "title": "Dear Capcom: Frame Generation is supposed to be for 120Hz+ smoothness, NOT a band-aid crutch to push a game from 28 FPS up to 55 FPS 😤",
-        "content": """The official PC system requirements for *Monster Hunter Wilds* have exposed the ugliest trend in modern AAA game development:
+        "content": """The official PC system requirements for *Monster Hunter Wilds* from the [Capcom Official System Requirements Sheet](https://www.monsterhunter.com/wilds/) have exposed the ugliest trend in modern AAA game development:
 
 To reach '1080p / 60 FPS (Medium Settings)', Capcom's official spec sheet literally says:
 **'Requires DLSS / FSR Frame Generation enabled'**!
 
-Let's spell out why this is an engineering crime:
+See the latency analysis at [Digital Foundry Frame Generation Latency Tests](https://www.eurogamer.net/digitalfoundry):
 1. **Input Latency**: Frame Generation calculates motion vectors *between* two real rendered frames. That means your GPU must queue the next frame before displaying the generated frame.
 2. If your base render frame rate is **30 FPS (33.3ms frame time)**, turning on Frame Gen doubles the display frames to 60, but your input latency is worse than 30 FPS! It feels like playing with greasy thumbs through 100ms of input lag!
 3. Trying to time an insect glaive vault, longsword foresight slash, or charge blade guard point with 100ms of lag feels horrendous!
@@ -489,6 +525,10 @@ Publishers are now using Frame Generation to avoid doing basic engine optimizati
         "boost_count": 290,
         "reply_count": 6,
         "created_at": NOW - 1000 * 60 * 60 * 20,
+        "video": None,
+        "images": [
+            "https://images.unsplash.com/photo-1587202372775-e229f172b9d7?w=1200&auto=format&fit=crop&q=80"
+        ],
         "tags": ["mhwilds", "framegeneration", "dlss", "fsr", "capcom", "optimization", "inputlag"],
         "comments": [
             {
@@ -528,7 +568,7 @@ Publishers are now using Frame Generation to avoid doing basic engine optimizati
             },
             {
                 "id": "c-mhw-fg-6",
-                "parent_id": None,
+                "parent_id": "c-mhw-fg-5",
                 "author_id": "fp_alex_dev",
                 "content": "Nvidia's own developer documentation explicitly states: 'Frame Generation is recommended for applications already running at a baseline of 60 FPS or higher.' Publishers putting it in minimum specs are violating Nvidia's own engineering guidelines.",
                 "merit_votes": 210
@@ -541,7 +581,7 @@ Publishers are now using Frame Generation to avoid doing basic engine optimizati
         "author_id": "fp_kai_bloxfan",
         "author_role": "MEME_CREATOR",
         "title": "When your 8GB GPU runs out of VRAM in MH Wilds and the monsters turn into low-poly Nintendo 64 papercraft origami sculptures 💀🦖",
-        "content": """I am in tears laughing at what happened to my friend's PC during the Monster Hunter Wilds beta.
+        "content": """I am in tears laughing at what happened to my friend's PC during the Monster Hunter Wilds beta. See the user clips gathered on the [Steam Community Low-Poly Glitch Megathread](https://steamcommunity.com).
 
 He is running an RTX 3070 8GB on High Textures at 1440p.
 About 20 minutes into the hunt, the VRAM buffer hit 7,950 MB.
@@ -560,6 +600,13 @@ If you have an 8GB GPU, you are officially in the PS1 retro demake club!""",
         "boost_count": 410,
         "reply_count": 6,
         "created_at": NOW - 1000 * 60 * 60 * 16,
+        "video": {
+            "src": "https://www.youtube.com/watch?v=zyoBA0aCRNk",
+            "poster": "https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=1200&auto=format&fit=crop&q=80"
+        },
+        "images": [
+            "https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=1200&auto=format&fit=crop&q=80"
+        ],
         "tags": ["mhwilds", "meme", "vram", "n64", "polygons", "reengine", "gaming"],
         "comments": [
             {
@@ -612,7 +659,7 @@ If you have an 8GB GPU, you are officially in the PS1 retro demake club!""",
         "author_id": "fp_chloe_pals",
         "author_role": "COMMUNITY_REPORTER",
         "title": "Capcom issues official statement on Monster Hunter Wilds PC performance: 'Release build will feature shader compilation improvements and CPU balancing' 📜",
-        "content": """Following massive backlash and mixed feedback during the Steam Open Beta test, Capcom's Monster Hunter dev team has published an official response on the Steam Community Hub:
+        "content": """Following massive backlash and mixed feedback during the Steam Open Beta test, Capcom's Monster Hunter dev team has published an official response on the Steam Community Hub ([Capcom Community Update & Patch Notes](https://www.monsterhunter.com/wilds/)):
 
 **Key Takeaways from Capcom's Statement:**
 1. **Beta Build Age**: The beta branch was branched off in early summer 2026 and lacks several performance patches already integrated into the internal master build.
@@ -620,12 +667,16 @@ If you have an 8GB GPU, you are officially in the PS1 retro demake club!""",
 3. **CPU Thread Allocation**: The dev team is actively profiling high-core count CPUs (Intel 13th/14th gen E-cores and AMD dual-CCD Ryzen 9s) to fix thread scheduling bugs where background tasks overwhelmed the main render thread.
 4. **Dynamic Mesh LODs**: The low-polygon 'origami monster' bug was confirmed to be a memory allocation leak in the streaming buffer when VRAM capacity is reached.
 
-Is this PR damage control or should we genuinely expect a much smoother launch in 2026?""",
+Is this PR damage control or shoud we genuinely expect a much smoother launch in 2026?""",
         "flair": "GAMING NEWS",
         "merit_votes": 910,
         "boost_count": 170,
         "reply_count": 6,
         "created_at": NOW - 1000 * 60 * 60 * 12,
+        "video": None,
+        "images": [
+            "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1200&auto=format&fit=crop&q=80"
+        ],
         "tags": ["mhwilds", "capcom", "patch", "steam", "monsterhunter", "pcperformance"],
         "comments": [
             {
@@ -678,11 +729,11 @@ Is this PR damage control or should we genuinely expect a much smoother launch i
         "author_id": "undervolt_king",
         "author_role": "OPTIMIZER",
         "title": "Fixing the MH Wilds Beta stutter: D3D12 pipeline cache tweaks, ReBAR forcing, and swapping nvngx_dlss.dll to version 3.7.20 🛠️",
-        "content": """While waiting for Capcom's launch day patch, the PC modding community has found three configuration tweaks that boost 1% low frame rates by up to **35%** in the Wilds Beta:
+        "content": """While waiting for Capcom's launch day patch, the PC modding community has found three configuration tweaks that boost 1% low frame rates by up to **35%** in the Wilds Beta (guides on [NexusMods DLSSTweaks & Config Fixes](https://www.nexusmods.com)):
 
 ### 1. Swap the Outdated DLSS DLL
 The beta ships with an archaic `nvngx_dlss.dll` version (3.1.11) that has horrible ghosting.
-- Download DLSS **3.7.20** from TechPowerUp.
+- Download DLSS **3.7.20** from [TechPowerUp DLSS 3.7.20 Library](https://www.techpowerup.com/download/nvidia-dlss-dll/).
 - Drop it into `MonsterHunterWildsBeta/` root directory.
 - Switch DLSS preset to **Preset E** via DLSSTweaks for razor-sharp motion clarity.
 
@@ -707,6 +758,11 @@ Try this out and report your frame-time graphs below!""",
         "boost_count": 290,
         "reply_count": 6,
         "created_at": NOW - 1000 * 60 * 60 * 6,
+        "video": {
+            "src": "https://www.youtube.com/watch?v=s-lFgbzU3LY",
+            "poster": "https://images.unsplash.com/photo-1591799264318-7e6ef8ddb7ea?w=1200&auto=format&fit=crop&q=80"
+        },
+        "images": None,
         "tags": ["mhwilds", "optimization", "modding", "dlss", "rebar", "pcgaming", "guide"],
         "comments": [
             {
@@ -763,9 +819,11 @@ Try this out and report your frame-time graphs below!""",
         "author_id": "fp_wooting_chad",
         "author_role": "ESPORTS_ANALYST",
         "title": "Valve officially bans Razer Snap Tap, Wooting Rappy Snappy, and all null-bind / SOCD keyboards from CS2 matchmaking! Instant kick if detected 🚫⌨️",
-        "content": """Valve just dropped a game-changing update for *Counter-Strike 2*:
+        "content": """Valve just dropped a game-changing update for *Counter-Strike 2* as announced on [Counter-Strike Official Release Notes](https://www.counter-strike.net/news):
 
 **Null-cancelling movement binds, hardware SOCD (Simultaneous Opposite Cardinal Direction) features like Razer Snap Tap and Wooting Snappy Tappy are now explicitly illegal in official Valve matchmaking.**
+
+Check the [Wooting Official Statement on SOCD Banning](https://wooting.io) for their firmware roadmap response.
 
 ### How the Detection Works:
 - The CS2 engine now performs client-side heuristic timing analysis on counter-strafing input deltas.
@@ -782,6 +840,13 @@ Did Valve do the right thing or should hardware innovations be embraced?""",
         "boost_count": 360,
         "reply_count": 8,
         "created_at": NOW - 1000 * 60 * 60 * 30,
+        "video": {
+            "src": "https://www.youtube.com/watch?v=l8_8W6xWp7E",
+            "poster": "https://images.unsplash.com/photo-1587829741301-dc798b83add3?w=1200&auto=format&fit=crop&q=80"
+        },
+        "images": [
+            "https://images.unsplash.com/photo-1587829741301-dc798b83add3?w=1200&auto=format&fit=crop&q=80"
+        ],
         "tags": ["cs2", "valve", "snaptap", "wooting", "esports", "anticheat", "gaming"],
         "comments": [
             {
@@ -851,7 +916,7 @@ Did Valve do the right thing or should hardware innovations be embraced?""",
         "content": """Valve promised that Sub-tick would make tick rates obsolete:
 *'What you see is what you get.'*
 
-One year later in competitive Premier (20k+ rating), the consensus among high-level players is unanimous:
+Read the full tick analysis on [HLTV CS2 Sub-Tick Mechanics Breakdown](https://www.hltv.org). One year later in competitive Premier (20k+ rating), the consensus among high-level players is unanimous:
 
 ### 1. Dying Behind Walls (De-sync)
 Because sub-tick timestamps the EXACT moment the enemy clicked their mouse on their client, if they shoot you while you are peeking, the server honors their timestamp even if your client has already moved 2 steps behind solid concrete! You literally collapse around the corner like a cartoon character.
@@ -868,6 +933,10 @@ Why did Valve refuse to just give us dedicated 128-tick servers like Valorant ha
         "boost_count": 240,
         "reply_count": 6,
         "created_at": NOW - 1000 * 60 * 60 * 22,
+        "video": None,
+        "images": [
+            "https://images.unsplash.com/photo-1538481199705-c710c4e965fc?w=1200&auto=format&fit=crop&q=80"
+        ],
         "tags": ["cs2", "subtick", "counterstrike", "valve", "faceit", "fps", "esports"],
         "comments": [
             {
@@ -922,6 +991,8 @@ Why did Valve refuse to just give us dedicated 128-tick servers like Valorant ha
         "title": "Deadlock hits 170,000 peak players while still in unannounced closed invite-only playtest. Is Valve quietly building the biggest MOBA shooter ever? 🧪💥",
         "content": """Valve's new project *Deadlock* (formerly Neon Prime / Citadel) is pulling off something never seen before in gaming:
 
+Check the live stats on [SteamDB Deadlock Concurrent Player Charts](https://steamdb.info/app/1422450/charts/) and join the discussion on [Valve Deadlock Developer Forum](https://forums.playdeadlock.com).
+
 - No official trailer.
 - No store page marketing.
 - No public announcement from Gabe Newell.
@@ -940,6 +1011,13 @@ Overwatch 2 and Concord are completely obsolete in comparison. Has Valve struck 
         "boost_count": 320,
         "reply_count": 6,
         "created_at": NOW - 1000 * 60 * 60 * 16,
+        "video": {
+            "src": "https://www.youtube.com/watch?v=j3v7oM3Z1v4",
+            "poster": "https://images.unsplash.com/photo-1542751371-adc38448a05e?w=1200&auto=format&fit=crop&q=80"
+        },
+        "images": [
+            "https://images.unsplash.com/photo-1542751371-adc38448a05e?w=1200&auto=format&fit=crop&q=80"
+        ],
         "tags": ["deadlock", "valve", "steam", "moba", "esports", "overwatch", "dota2"],
         "comments": [
             {
@@ -994,7 +1072,7 @@ Overwatch 2 and Concord are completely obsolete in comparison. Has Valve struck 
         "title": "The latest Deadlock balance patch completely gutted Yamato's Shadow Transformation and buffed Viscous Puddle Punch. High MMR lobbies are unplayable 🪼⚔️",
         "content": """IceFrog or whoever is balancing Deadlock at Valve needs to stop smoking whatever they are smoking in Bellevue.
 
-Patch 08.28 breakdown:
+Check the changelog at [Deadlock Balance Patch 08.28 Notes](https://forums.playdeadlock.com).
 
 ### Yamato Nerfs:
 - **Shadow Transformation (Ult)**: Duration reduced from 5.5s -> 4.0s.
@@ -1013,6 +1091,10 @@ Who thought giving an invincible green goo cube a 14-second cooldown was balance
         "boost_count": 130,
         "reply_count": 6,
         "created_at": NOW - 1000 * 60 * 60 * 10,
+        "video": None,
+        "images": [
+            "https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=1200&auto=format&fit=crop&q=80"
+        ],
         "tags": ["deadlock", "icefrog", "balance", "yamato", "viscous", "patchnotes", "moba"],
         "comments": [
             {
@@ -1065,7 +1147,7 @@ Who thought giving an invincible green goo cube a 14-second cooldown was balance
         "author_id": "fp_zenith_fps",
         "author_role": "SECURITY_RESEARCHER",
         "title": "Valve's new VACnet 3.0 server-side AI anticheat is now live-cancelling matches when spinbots are detected. Does it actually work or false-ban legit flickers? 🛡️🤖",
-        "content": """Valve has quietly enabled **VACnet 3.0 (Live Match Cancellation)** in CS2 competitive servers across Europe and North America:
+        "content": """Valve has quietly enabled **VACnet 3.0 (Live Match Cancellation)** in CS2 competitive servers across Europe and North America according to [Valve Security Bulletin VACnet 3.0](https://www.valvesoftware.com):
 
 When the server-side machine learning model detects anomalous angular velocity (pitch/yaw snapping exceeding human biomechanical limits, aka spinbots or rapid aimlocks):
 - The match is halted immediately on the active round.
@@ -1081,6 +1163,11 @@ Can an AI anticheat reliably differentiate between a 20,000 eDPI mouse flick and
         "boost_count": 180,
         "reply_count": 6,
         "created_at": NOW - 1000 * 60 * 60 * 4,
+        "video": {
+            "src": "https://www.youtube.com/watch?v=1S0aBV-Waeo",
+            "poster": "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=1200&auto=format&fit=crop&q=80"
+        },
+        "images": None,
         "tags": ["vacnet", "cs2", "anticheat", "ai", "valve", "security", "machinelearning"],
         "comments": [
             {

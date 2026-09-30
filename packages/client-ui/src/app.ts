@@ -3182,7 +3182,12 @@ function updateCommandRailHighlight(index: number): void {
   document.querySelectorAll('.btn-channel').forEach(btn => {
     btn.addEventListener('click', () => {
       const id = btn.getAttribute('data-channel-id');
-      if (id) clientStore.joinChannel(id);
+      if (id) {
+        if (typeof relaysManager !== 'undefined') {
+          relaysManager.toggleMobileChannels(false);
+        }
+        clientStore.joinChannel(id);
+      }
     }, { signal });
   });
 

@@ -62,6 +62,7 @@ import { homeDiscoveryEngine } from '../home-discovery.js';
 import { hashtagExplorer } from '../hashtag-explorer.js';
 import { mobileFlowEngine } from '../mobile-flow.js';
 import { obsidianMediaPlayer } from '../media-player.js';
+import { relaysManager } from '../relays-manager.js';
 
 function withWallet(action: (wallet: typeof import('../wallet-bridge.js').walletBridge) => unknown): void {
   void import('../wallet-bridge.js').then(({ walletBridge }) => action(walletBridge)).catch(error => {
@@ -468,6 +469,41 @@ export class ActionDispatcher {
       }
       case 'toggle-spoiler': {
         el.classList.toggle('text-transparent');
+        break;
+      }
+
+      case 'toggle-mobile-relay-channels': {
+        relaysManager.toggleMobileChannels();
+        clientStore.notifySync();
+        break;
+      }
+
+      case 'close-mobile-relay-channels': {
+        relaysManager.toggleMobileChannels(false);
+        clientStore.notifySync();
+        break;
+      }
+
+      case 'select-relay-channel': {
+        const channelId = el.getAttribute('data-channel-id');
+        relaysManager.toggleMobileChannels(false);
+        if (channelId) {
+          clientStore.joinChannel(channelId);
+        }
+        break;
+      }
+
+      case 'open-create-relay': {
+        relaysManager.toggleMobileChannels(false);
+        relaysManager.isCreateModalOpen = true;
+        clientStore.notifySync();
+        break;
+      }
+
+      case 'open-join-relay': {
+        relaysManager.toggleMobileChannels(false);
+        relaysManager.isJoinModalOpen = true;
+        clientStore.notifySync();
         break;
       }
 

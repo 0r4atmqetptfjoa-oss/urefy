@@ -295,9 +295,17 @@
   .relay-mobile-more > summary { list-style: none; min-height: 36px; padding: 7px 8px; color: var(--text-secondary); font-size: 12px; cursor: pointer; }
   .relay-mobile-more > summary::-webkit-details-marker { display: none; }
   .relay-mobile-more-menu { position: absolute; z-index: 30; top: 100%; right: 0; display: flex; flex-direction: column; width: 160px; padding: 5px; background: var(--bg-surface-overlay); border: 1px solid var(--dialogue-line); border-radius: 8px; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35); }
-  .relay-mobile-more-menu button { padding: 10px; text-align: left; color: var(--text-primary); font-size: 12px; }
-  #main-layout:has(.relay-messages-workspace) #app-top-header,
-  #main-layout:has(.relay-messages-workspace) .messages-header { display: none !important; }
+  /* Keep messages tab switcher accessible on mobile so users can switch between Communities and Direct Messages */
+  .messages-header {
+    height: 48px !important;
+    min-height: 48px !important;
+    padding-inline: 10px !important;
+  }
+  .messages-header button {
+    min-height: 36px !important;
+    padding: 4px 12px !important;
+    font-size: 12px !important;
+  }
 }
 
 /* ── Community field journal: a continuous, readable conversation surface ── */

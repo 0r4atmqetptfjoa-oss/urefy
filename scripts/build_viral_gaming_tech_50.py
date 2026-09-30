@@ -1,10 +1,16 @@
 # scripts/build_viral_gaming_tech_50.py
 """
-Build and compile the 50 Viral Gaming & Tech Discussions dataset for UREfy.
+Build and compile the 50 Enriched Viral Gaming & Tech Discussions dataset for UREfy.
+Includes:
+- Videos (YouTube embeds with poster thumbnails)
+- Images (High-res Unsplash galleries)
+- Markdown links to source pages (Digital Foundry, Videocardz, SteamDB, etc.)
+- Threaded comments with feuds, trolls, fanboys, casuals, cynics
 Generates:
 1. scripts/data_viral_gaming_tech_50.py (Python module)
-2. scripts/data_viral_gaming_tech_50.json (Structured JSON)
-3. scripts/seed_viral_gaming_tech_50.sql (D1 SQL Seed)
+2. scripts/enriched_viral_posts_50.py (Alternative module name)
+3. scripts/data_viral_gaming_tech_50.json (Structured JSON)
+4. scripts/seed_viral_gaming_tech_50.sql (D1 SQL Seed with video_json and images_json)
 """
 
 import sys
@@ -21,7 +27,7 @@ from viral_gaming_tech_part3 import POSTS_PART3
 NOW = 1789797200000
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 1. ADDITIONAL GAMING & TECH PERSONAS (9 NEW ARCHETYPES)
+# 1. ADDITIONAL GAMING & TECH PERSONAS (11 ARCHETYPES)
 # ─────────────────────────────────────────────────────────────────────────────
 ADDITIONAL_GAMING_PERSONAS = [
     {
@@ -151,18 +157,26 @@ ADDITIONAL_GAMING_PERSONAS = [
 ALL_50_POSTS = POSTS_PART1 + POSTS_PART2 + POSTS_PART3
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 2. WRITE PYTHON MODULE (scripts/data_viral_gaming_tech_50.py)
+# 2. WRITE PYTHON MODULES
 # ─────────────────────────────────────────────────────────────────────────────
 py_target = os.path.join(os.path.dirname(__file__), "data_viral_gaming_tech_50.py")
 with open(py_target, "w", encoding="utf-8") as f:
     f.write('"""\nscripts/data_viral_gaming_tech_50.py\n')
-    f.write('Comprehensive collection of 50 viral gaming & tech posts and heated comment feuds for UREfy.\n')
-    f.write('Topics: GTA 6, PS5 Pro, RTX 5090/5080, Switch 2, MH Wilds, Deadlock/CS2, Silksong, Wukong/Radahn, Denuvo, Local LLMs.\n')
+    f.write('Comprehensive collection of 50 enriched viral gaming & tech posts with video embeds, images, source links and comment feuds.\n')
     f.write('"""\n\n')
     f.write(f'ADDITIONAL_GAMING_PERSONAS = {repr(ADDITIONAL_GAMING_PERSONAS)}\n\n')
     f.write(f'VIRAL_GAMING_TECH_50_POSTS = {repr(ALL_50_POSTS)}\n')
 
+enriched_py_target = os.path.join(os.path.dirname(__file__), "enriched_viral_posts_50.py")
+with open(enriched_py_target, "w", encoding="utf-8") as f:
+    f.write('"""\nscripts/enriched_viral_posts_50.py\n')
+    f.write('Enhanced viral gaming & tech posts (videos, images, links to source pages).\n')
+    f.write('"""\n\n')
+    f.write('from .data_viral_gaming_tech_50 import VIRAL_GAMING_TECH_50_POSTS, ADDITIONAL_GAMING_PERSONAS\n\n')
+    f.write('ENRICHED_VIRAL_POSTS_50 = VIRAL_GAMING_TECH_50_POSTS\n')
+
 print(f"Successfully generated Python dataset: {py_target}")
+print(f"Successfully generated Enriched module: {enriched_py_target}")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 3. WRITE JSON DATASET (scripts/data_viral_gaming_tech_50.json)
@@ -192,7 +206,7 @@ def escape_sql(val):
 sql_target = os.path.join(os.path.dirname(__file__), "seed_viral_gaming_tech_50.sql")
 with open(sql_target, "w", encoding="utf-8") as f:
     f.write("-- ============================================================================\n")
-    f.write("-- UREfy — 50 VIRAL GAMING & TECH DISCUSSIONS, THREADED FEUDS & PERSONAS (2026)\n")
+    f.write("-- UREfy — 50 ENRICHED VIRAL GAMING & TECH DISCUSSIONS, VIDEOS, IMAGES & FEUDS (2026)\n")
     f.write("-- Target: Cloudflare D1 Database (aetheris-db)\n")
     f.write("-- ============================================================================\n\n")
 
@@ -207,14 +221,39 @@ with open(sql_target, "w", encoding="utf-8") as f:
         persona_vals.append(p_row)
     f.write(",\n".join(persona_vals) + ";\n\n")
 
-    f.write("-- 2. INSERT 50 VIRAL POSTS\n")
+    f.write("-- 2. INSERT 50 ENRICHED POSTS (WITH VIDEO_JSON & IMAGES_JSON)\n")
     f.write("INSERT OR REPLACE INTO posts (\n")
-    f.write("    id, channel_id, author_id, author_role, title, content, flair, merit_votes, reply_count, boost_count, tags_json, created_at, updated_at\n")
+    f.write("    id, channel_id, author_id, author_role, title, content, flair,\n")
+    f.write("    merit_votes, user_voted, reply_count, boost_count,\n")
+    f.write("    attachment_json, video_json, images_json, poll_id, quoted_post_json,\n")
+    f.write("    status, created_at, is_expanded\n")
     f.write(") VALUES\n")
 
     post_vals = []
     for p in ALL_50_POSTS:
-        p_row = f"({escape_sql(p['id'])}, {escape_sql(p['channel_id'])}, {escape_sql(p['author_id'])}, {escape_sql(p['author_role'])}, {escape_sql(p['title'])}, {escape_sql(p['content'])}, {escape_sql(p['flair'])}, {p['merit_votes']}, {len(p.get('comments', []))}, {p.get('boost_count', 0)}, {escape_sql(json.dumps(p.get('tags', [])))}, {p['created_at']}, {p['created_at']})"
+        video_json = escape_sql(json.dumps(p['video'])) if p.get('video') else "NULL"
+        images_json = escape_sql(json.dumps(p['images'])) if p.get('images') else "NULL"
+        p_row = f"""(
+    {escape_sql(p['id'])},
+    {escape_sql(p['channel_id'])},
+    {escape_sql(p['author_id'])},
+    {escape_sql(p['author_role'])},
+    {escape_sql(p['title'])},
+    {escape_sql(p['content'])},
+    {escape_sql(p['flair'])},
+    {p['merit_votes']},
+    0,
+    {len(p.get('comments', []))},
+    {p.get('boost_count', 0)},
+    NULL,
+    {video_json},
+    {images_json},
+    NULL,
+    NULL,
+    'published',
+    {p['created_at']},
+    0
+)"""
         post_vals.append(p_row)
     f.write(",\n".join(post_vals) + ";\n\n")
 

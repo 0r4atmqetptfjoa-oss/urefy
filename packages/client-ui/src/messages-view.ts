@@ -2220,6 +2220,7 @@ export function renderRelaysWorkspace(): string {
       </div>
       ${contextCapsuleManager.renderCreatorModal()}
       ${chatSearchEngine.renderSearchDrawer()}
+      ${relaysManager.renderMobileChannelsDrawer()}
     </div>
   `;
 }

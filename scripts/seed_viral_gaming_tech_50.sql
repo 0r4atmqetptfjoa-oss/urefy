@@ -1,5 +1,5 @@
 -- ============================================================================
--- UREfy — 50 VIRAL GAMING & TECH DISCUSSIONS, THREADED FEUDS & PERSONAS (2026)
+-- UREfy — 50 ENRICHED VIRAL GAMING & TECH DISCUSSIONS, VIDEOS, IMAGES & FEUDS (2026)
 -- Target: Cloudflare D1 Database (aetheris-db)
 -- ============================================================================
 
@@ -19,11 +19,20 @@ INSERT OR REPLACE INTO user_profiles (
 ('green_team_phil', 'XboxChief_Phil', 'green_team_phil', 'Team Green and Game Pass subscriber. Cloud gaming advocate. When everyone plays, we all win.', 'https://images.unsplash.com/photo-1566492031773-4f4e44671857?w=400&auto=format&fit=crop&q=80', 'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=1200&auto=format&fit=crop&q=80', NULL, '["xbox", "gamepass", "halo", "cloudgaming"]', 'Seattle, WA', 1788414800000, 1788414800000),
 ('bryan_plays', 'Bryan // HypeBeast', 'bryan_plays', 'Just an enthusiastic gamer hyping every new trailer. Life is too short to be a cynical hater!', 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400&auto=format&fit=crop&q=80', 'https://images.unsplash.com/photo-1587202372775-e229f172b9d7?w=1200&auto=format&fit=crop&q=80', NULL, '["hype", "trailers", "gaming", "silksong", "gta6"]', 'Toronto, CA', 1788587600000, 1788587600000);
 
--- 2. INSERT 50 VIRAL POSTS
+-- 2. INSERT 50 ENRICHED POSTS (WITH VIDEO_JSON & IMAGES_JSON)
 INSERT OR REPLACE INTO posts (
-    id, channel_id, author_id, author_role, title, content, flair, merit_votes, reply_count, boost_count, tags_json, created_at, updated_at
+    id, channel_id, author_id, author_role, title, content, flair,
+    merit_votes, user_voted, reply_count, boost_count,
+    attachment_json, video_json, images_json, poll_id, quoted_post_json,
+    status, created_at, is_expanded
 ) VALUES
-('post-gta6-trailer2-leaks-breakdown', 'c/gaming', 'fp_glitch_reaper', 'LEAKER', '🚨 GTA 6 Trailer 2 LEAKED on TikTok: Vice City International Airport, fully dynamic hurricane physics, and Lucia/Jason motel shootout?!', 'So a 32-second vertical clip ripped from an internal Take-Two marketing QA staging server just made the rounds on TikTok before getting copyright nuked in 14 minutes flat.
+(
+    'post-gta6-trailer2-leaks-breakdown',
+    'c/gaming',
+    'fp_glitch_reaper',
+    'LEAKER',
+    '🚨 GTA 6 Trailer 2 LEAKED on TikTok: Vice City International Airport, fully dynamic hurricane physics, and Lucia/Jason motel shootout?!',
+    'So a 32-second vertical clip ripped from an internal Take-Two marketing QA staging server just made the rounds on TikTok before getting copyright nuked in 14 minutes flat.
 
 I managed to inspect the video frames before it was purged. Here is what''s definately real in the build:
 1. **Vice City International Airport (MIA)**: Commercial jets taking off with actual volumetric vortex vapor trails. The terminal scale looks 1:1 compared to real life Miami airport.
@@ -31,17 +40,59 @@ I managed to inspect the video frames before it was purged. Here is what''s defi
 3. **Motel Standoff**: Lucia and Jason pinned down by Vice-Dale County deputies in what looks like a neon pink motel courtyard. You can see bullet holes tearing through dry-wall realistically.
 4. **Target release window shown at the end**: ''FALL 2026''.
 
-Rockstar''s legal team is issuing DMCA strikes on every Discord server sharing the hash. Shoud we expect an official YouTube drop this Friday? Thoughts?', 'LEAK / RUMOR', 1284, 8, 420, '["gta6", "rockstar", "vicecity", "leak", "trailer2", "take-two", "gaming"]', 1789660400000, 1789660400000),
-('post-gta6-pc-delay-2027', 'c/gaming', 'fps_snob_4k', 'PC_BUILDER', 'Rockstar insider basically confirms GTA 6 PC port won''t drop until late 2027. We are officially second class citizens again 💀', 'Let''s be completely honest: Rockstar double-dipping on PC players for the THIRD console generation in a row is pure anti-consumer corporate greed.
+Compare this with the official [Rockstar Games Newswire Announcement](https://www.rockstargames.com/newswire) and the early [Digital Foundry / Eurogamer Analysis](https://www.eurogamer.net/digitalfoundry) frame pacing logs. Rockstar''s legal team is issuing DMCA strikes on every Discord server sharing the hash. Shoud we expect an official YouTube drop this Friday? Thoughts?',
+    'LEAK / RUMOR',
+    1284,
+    0,
+    8,
+    420,
+    NULL,
+    '{"src": "https://www.youtube.com/watch?v=QdBZY2fkU-0", "poster": "https://images.unsplash.com/photo-1508739773434-c26b3d09e071?w=1200&auto=format&fit=crop&q=80"}',
+    '["https://images.unsplash.com/photo-1542751371-adc38448a05e?w=1200&auto=format&fit=crop&q=80", "https://images.unsplash.com/photo-1508739773434-c26b3d09e071?w=1200&auto=format&fit=crop&q=80"]',
+    NULL,
+    NULL,
+    'published',
+    1789660400000,
+    0
+),
+(
+    'post-gta6-pc-delay-2027',
+    'c/gaming',
+    'fps_snob_4k',
+    'PC_BUILDER',
+    'Rockstar insider basically confirms GTA 6 PC port won''t drop until late 2027. We are officially second class citizens again 💀',
+    'Let''s be completely honest: Rockstar double-dipping on PC players for the THIRD console generation in a row is pure anti-consumer corporate greed.
 
 GTA 5: PS3/360 in 2013 -> PS4/Xbone in 2014 -> PC in 2015.
 RDR 2: Consoles in 2018 -> PC in late 2019.
-GTA 6: Consoles in Fall 2026 -> PC in late 2027 or even 2028 according to recent Take-Two investor calls.
+GTA 6: Consoles in Fall 2026 -> PC in late 2027 or even 2028 according to the latest [Take-Two Interactive Investor Presentation](https://www.take2games.com/ir).
 
-They literally hold back the PC version on purpose so enthusiasts buy a PS5 / PS5 Pro to play it at launch, and then buy the game a SECOND time on Steam when uncompressed textures and uncapped frame rates arrive.
+Even [PC Gamer''s Port Analysis](https://www.pcgamer.com) noted that Rockstar intentionally withholds PC releases so enthusiasts buy a PS5 / PS5 Pro at launch, and then buy the game a SECOND time on Steam when uncompressed textures and uncapped frame rates arrive.
 
-Why does the gaming community give Rockstar a free pass for practices that would get EA or Ubisoft crucified?', 'HOT TAKE', 940, 7, 210, '["gta6", "pcgaming", "rockstar", "steam", "taketwo", "consolewars"]', 1789689200000, 1789689200000),
-('post-gta6-map-scale-comparison', 'c/gaming', 'fp_noclip_andy', 'TECH_ARTIST', 'The GTA 6 mapping project just updated with coordinate data: Leonida is 2.8x bigger than Los Santos and covers 3 whole biomes 🗺️🌴', 'The community mapping team has matched over 1,400 coordinate vectors from the leaked footage and official trailer snippets against real Florida geographic benchmarks.
+Why does the gaming community give Rockstar a free pass for practices that would get EA or Ubisoft crucified?',
+    'HOT TAKE',
+    940,
+    0,
+    7,
+    210,
+    NULL,
+    NULL,
+    '["https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=1200&auto=format&fit=crop&q=80"]',
+    NULL,
+    NULL,
+    'published',
+    1789689200000,
+    0
+),
+(
+    'post-gta6-map-scale-comparison',
+    'c/gaming',
+    'fp_noclip_andy',
+    'TECH_ARTIST',
+    'The GTA 6 mapping project just updated with coordinate data: Leonida is 2.8x bigger than Los Santos and covers 3 whole biomes 🗺️🌴',
+    'The community mapping team has matched over 1,400 coordinate vectors from the leaked footage and official trailer snippets against real Florida geographic benchmarks.
+
+Check the full interactive map at [GTA Mapping Project Coordinates](https://gtamapping.net).
 
 Here are the confirmed geographic stats:
 - **Total Landmass**: Approximately **132 square kilometers** (GTA 5 was ~48 sq km without the empty ocean padding).
@@ -49,19 +100,59 @@ Here are the confirmed geographic stats:
 - **Biomes**: Urban neon sprawl, the Grassrivers (Everglades swamp with airboats and predatory wildlife), and Pine Barrens / farming country up north.
 - **Interiors**: Telemetry data indicates over **65% of commercial buildings** (supermarkets, motels, pawn shops, strip clubs, banks) have full enterable interiors without loading screens.
 
-If these interior numbers are true, the memory footprint is going to be absurd. No wonder base consoles with 16GB unified memory are sweating.', 'GAMING NEWS', 1510, 6, 380, '["gta6", "map", "vicecity", "gamedev", "rockstar", "openworld"]', 1789710800000, 1789710800000),
-('post-gta6-100-dollar-price-tag', 'c/technology', 'fp_alex_dev', 'TECH_ANALYST', 'Take-Two CEO Strauss Zelnick doubles down on ''games are too cheap per hour played''. Are you actually willing to pay $90-$100 for GTA 6 standard edition?', 'During the recent Goldman Sachs Communacopia conference, Strauss Zelnick once again floated his algorithmic pricing philosophy:
+If these interior numbers are true, the memory footprint is going to be wierdly high. Base consoles with 16GB unified memory are going to sweat!',
+    'GAMING NEWS',
+    1510,
+    0,
+    6,
+    380,
+    NULL,
+    NULL,
+    '["https://images.unsplash.com/photo-1524661135-423995f22d0b?w=1200&auto=format&fit=crop&q=80", "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1200&auto=format&fit=crop&q=80"]',
+    NULL,
+    NULL,
+    'published',
+    1789710800000,
+    0
+),
+(
+    'post-gta6-100-dollar-price-tag',
+    'c/technology',
+    'fp_alex_dev',
+    'TECH_ANALYST',
+    'Take-Two CEO Strauss Zelnick doubles down on ''games are too cheap per hour played''. Are you actually willing to pay $90-$100 for GTA 6 standard edition?',
+    'During the recent Goldman Sachs Communacopia conference ([Goldman Sachs Transcript](https://www.goldmansachs.com)), Strauss Zelnick once again floated his algorithmic pricing philosophy:
 *''By any measure, video game frontline pricing is very, very low for what it brings... The price per hour of engagement is tiny compared to movies or concerts.''*
 
-Analysts are now projecting Take-Two might test the waters with an **$89.99 or $99.99 Standard Edition** MSRP for GTA 6, while pushing Deluxe/Collector editions well past $150.
+Analysts covering the [Take-Two Interactive Investor Presentation](https://www.take2games.com/ir) are now projecting Take-Two might test the waters with an **$89.99 or $99.99 Standard Edition** MSRP for GTA 6, while pushing Deluxe/Collector editions well past $150.
 
 Here is the dilemma:
 1. GTA 6 budget is rumored at over **$1.5 billion** across a decade of development.
 2. But GTA Online will also make billions via microtransactions, battle passes, and GTA+ subscriptions within the first 6 months.
 3. If GTA 6 normalizes an $80-$100 base game, EVERY greedy publisher (EA, Ubisoft, Activision) will immediately follow suit for unfinished seasonal games.
 
-Where do you draw the line? Will you buy it on day one regardless of price?', 'HOT TAKE', 810, 7, 190, '["gta6", "pricing", "taketwo", "economics", "gamingnews", "boycott"]', 1789732400000, 1789732400000),
-('post-gta6-console-30fps-controversy', 'c/gaming', 'fp_cyber_samurai', 'HARDWARE_NERD', 'Digital Foundry analysis suggests GTA 6 will be LOCKED to 30 FPS on PS5 & Xbox Series X. The CPU simulation is too heavy for 60fps.', 'Digital Foundry just did a deep dive on the trailer pixel counts and crowd density simulation. Their conclusion is causing widespread panic across console subs:
+Where do you draw the line? Will you buy it on day one regardless of price?',
+    'HOT TAKE',
+    810,
+    0,
+    7,
+    190,
+    NULL,
+    '{"src": "https://www.youtube.com/watch?v=s-lFgbzU3LY", "poster": "https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=1200&auto=format&fit=crop&q=80"}',
+    NULL,
+    NULL,
+    NULL,
+    'published',
+    1789732400000,
+    0
+),
+(
+    'post-gta6-console-30fps-controversy',
+    'c/gaming',
+    'fp_cyber_samurai',
+    'HARDWARE_NERD',
+    'Digital Foundry analysis suggests GTA 6 will be LOCKED to 30 FPS on PS5 & Xbox Series X. The CPU simulation is too heavy for 60fps.',
+    'Digital Foundry just did a comprehensive video breakdown on trailer pixel counts and crowd density simulation ([Digital Foundry / Eurogamer Analysis](https://www.eurogamer.net/digitalfoundry)). Their conclusion is causing widespread panic across console subs:
 
 **GTA 6 will almost certainly be locked to 30 FPS on both PS5 and Xbox Series X.**
 
@@ -73,8 +164,28 @@ Why?
 
 Even the PS5 Pro''s CPU is only boosted by 10% (3.85 GHz). If base PS5 drops frames at 30, PS5 Pro won''t magically hit 60.
 
-Are console players prepared for a 30 FPS experience in 2026?', 'TECH DISCUSSION', 730, 6, 145, '["gta6", "digitalfoundry", "ps5", "xbox", "fps", "performance", "cpu"]', 1789754000000, 1789754000000),
-('post-ps5-pro-price-outrage', 'c/gaming', 'cynic_dan_90s', 'VETERAN_GAMER', 'Sony charging $700 for PS5 Pro with NO disc drive and NO vertical stand in the box is the pinnacle of corporate greed 🤡', 'Let''s break down the actual receipt if you want a complete PS5 Pro console experience in 2026:
+Are console players prepared for a 30 FPS experience in 2026?',
+    'TECH DISCUSSION',
+    730,
+    0,
+    6,
+    145,
+    NULL,
+    '{"src": "https://www.youtube.com/watch?v=1xN5c6aZ-eM", "poster": "https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=1200&auto=format&fit=crop&q=80"}',
+    '["https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=1200&auto=format&fit=crop&q=80"]',
+    NULL,
+    NULL,
+    'published',
+    1789754000000,
+    0
+),
+(
+    'post-ps5-pro-price-outrage',
+    'c/gaming',
+    'cynic_dan_90s',
+    'VETERAN_GAMER',
+    'Sony charging $700 for PS5 Pro with NO disc drive and NO vertical stand in the box is the pinnacle of corporate greed 🤡',
+    'Let''s break down the actual receipt if you want a complete PS5 Pro console experience in 2026 according to the [PlayStation Blog Official PS5 Pro Spec Sheet](https://blog.playstation.com):
 - **PS5 Pro Console**: $699.99
 - **Detachable Disc Drive**: $79.99 (if you can find one not scalped)
 - **Vertical Plastic Stand**: $29.99
@@ -88,19 +199,59 @@ For that price, you get:
 
 Sony watched the PS3 launch disaster at $599 in 2006, waited 20 years for Xbox to completely surrender the console race, and decided they can charge whatever they want because there is zero competition.
 
-Who is actually preordering this machine?', 'HOT TAKE', 1420, 8, 310, '["ps5pro", "sony", "playstation", "pricing", "consolegaming", "greed"]', 1789646000000, 1789646000000),
-('post-ps5-pro-disc-drive-scalping', 'pulse-global', 'fp_alex_dev', 'HARDWARE_ANALYST', 'The PS5 Pro external disc drive is already completely sold out worldwide and going for $260 on eBay. Scalpers are winning again 📈💸', 'Within 2 hours of Sony''s PS5 Pro announcement, inventory trackers across the US, UK, and Japan showed the standalone **PS5 Slim / Pro Disc Drive ($79.99 MSRP)** vanishing from every retailer.
+Who is actually preordering this machine?',
+    'HOT TAKE',
+    1420,
+    0,
+    8,
+    310,
+    NULL,
+    '{"src": "https://www.youtube.com/watch?v=1xN5c6aZ-eM", "poster": "https://images.unsplash.com/photo-1606813907291-d86efa9b94db?w=1200&auto=format&fit=crop&q=80"}',
+    NULL,
+    NULL,
+    NULL,
+    'published',
+    1789646000000,
+    0
+),
+(
+    'post-ps5-pro-disc-drive-scalping',
+    'pulse-global',
+    'fp_alex_dev',
+    'HARDWARE_ANALYST',
+    'The PS5 Pro external disc drive is already completely sold out worldwide and going for $260 on eBay. Scalpers are winning again 📈💸',
+    'Within 2 hours of Sony''s PS5 Pro announcement, inventory trackers across the US, UK, and Japan showed the standalone **PS5 Slim / Pro Disc Drive ($79.99 MSRP)** vanishing from every retailer.
 
-What happened:
+What happened according to [eBay Sold Listings Tracker](https://www.ebay.com) and the [iFixit PS5 Pro Teardown](https://www.ifixit.com):
 1. Reselling bot networks (StockX, eBay, Mercari) realized Sony deliberately manufactured limited inventory of the modular disc drive.
 2. Over 40,000 confirmed listings appeared on eBay within 24 hours, priced between **$190 and $280**.
 3. Physical media collectors who own 50+ PS4 and PS5 game discs are now held hostage: either buy a scalped drive, or your existing game library is unplayable on the new hardware.
 
-Sony has not issued any preorder allotment guarantees or queue systems for existing PSN accounts. Why is an accessory needed for backward compatibility being treated like a limited sneaker drop?', 'GAMING NEWS', 1050, 6, 280, '["ps5pro", "scalpers", "discdrive", "sony", "physicalmedia", "ebay"]', 1789674800000, 1789674800000),
-('post-ps5-pro-vs-budget-pc-build', 'c/gaming', 'fps_snob_4k', 'PC_BUILDER', '''You can''t build a PC as powerful as PS5 Pro for $700'' – Actually yes you can, and you won''t pay $80/year just to play online 🖥️', 'Every console fanboy on Twitter is repeating the same scripted line:
+Sony has not issued any preorder allotment guarantees or queue systems for existing PSN accounts. Why is an accessory needed for backward compatibility being treated like a limited sneaker drop?',
+    'GAMING NEWS',
+    1050,
+    0,
+    6,
+    280,
+    NULL,
+    NULL,
+    '["https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?w=1200&auto=format&fit=crop&q=80", "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=1200&auto=format&fit=crop&q=80"]',
+    NULL,
+    NULL,
+    'published',
+    1789674800000,
+    0
+),
+(
+    'post-ps5-pro-vs-budget-pc-build',
+    'c/gaming',
+    'fps_snob_4k',
+    'PC_BUILDER',
+    '''You can''t build a PC as powerful as PS5 Pro for $700'' – Actually yes you can, and you won''t pay $80/year just to play online 🖥️',
+    'Every console fanboy on Twitter is repeating the same scripted line:
 *''Show me a brand new PC for $700 that matches the PS5 Pro GPU and 2TB SSD.''*
 
-Challenge accepted. Here is a real-world PC build priced in current retail markets:
+Challenge accepted. Here is the verified parts breakdown from [PC Part Picker Build List](https://pcpartpicker.com):
 - **CPU**: AMD Ryzen 5 5600X (6 cores / 12 threads) – **$105** (Beats Zen 2 console CPU in single-core & gaming IPC)
 - **Motherboard**: B550M WiFi Micro-ATX – **$85**
 - **RAM**: 32GB DDR4-3600 CL16 – **$55**
@@ -116,12 +267,32 @@ Now add the hidden console tax:
 - 3 years of PlayStation Plus Essential ($80 x 3) = **$240**
 - Real 3-year PlayStation cost = **$1,050**
 
-On PC: Free multiplayer, free cloud saves, emulation from NES to PS3/Switch, cheaper Steam keys, modding, and dual-monitor multitasking. Stop falling for console math.', 'HOT TAKE', 1180, 7, 275, '["pcgaming", "ps5pro", "pcbuild", "hardware", "consolewars", "pcmasterrace"]', 1789725200000, 1789725200000),
-('post-ps5-30th-anniversary-bot-fiasco', 'pulse-global', 'fp_kai_bloxfan', 'GAMER', 'PlayStation 30th Anniversary PS1-gray editions sold out in literally 8 seconds to scalper bots while actual fans sat in error loops 💀', 'I had direct.playstation.com open on three devices with an atomic synchronized clock.
+On PC: Free multiplayer, free cloud saves, emulation from NES to PS3/Switch, cheaper Steam keys, modding, and dual-monitor multitasking. Stop falling for console math.',
+    'HOT TAKE',
+    1180,
+    0,
+    7,
+    275,
+    NULL,
+    '{"src": "https://www.youtube.com/watch?v=s-lFgbzU3LY", "poster": "https://images.unsplash.com/photo-1587202372775-e229f172b9d7?w=1200&auto=format&fit=crop&q=80"}',
+    '["https://images.unsplash.com/photo-1587202372775-e229f172b9d7?w=1200&auto=format&fit=crop&q=80"]',
+    NULL,
+    NULL,
+    'published',
+    1789725200000,
+    0
+),
+(
+    'post-ps5-30th-anniversary-bot-fiasco',
+    'pulse-global',
+    'fp_kai_bloxfan',
+    'GAMER',
+    'PlayStation 30th Anniversary PS1-gray editions sold out in literally 8 seconds to scalper bots while actual fans sat in error loops 💀',
+    'I had [Direct PlayStation Store Queue](https://direct.playstation.com) open on three devices with an atomic synchronized clock.
 At 10:00:00 AM, the queue assigned me number 48,291.
 By 10:00:08 AM, the **PS5 Pro 30th Anniversary Limited Edition Bundle (12,300 units worldwide)** was completely out of stock.
 
-Now open eBay right now and search ''PS5 Pro 30th Anniversary'':
+Now open [eBay Sold Listings Tracker](https://www.ebay.com) right now and search ''PS5 Pro 30th Anniversary'':
 - Over 1,200 confirmed pre-order tickets listed.
 - Average buy-it-now price: **$3,500 to $5,000 USD**.
 - Some scalpers are literally posting screenshots of their automated bot checkout scripts bragging about scoring 10 units with proxy farms.
@@ -131,8 +302,30 @@ Sony literally has our PSN accounts with 10+ years of purchase history, Platinum
 2. At least 50 hours of active playtime in 2026.
 3. 1 unit per verified household address.
 
-Instead they let headless Puppeteer and Selenium bots feast. Thanks Sony!', 'MEME / SHITPOST', 1390, 6, 340, '["ps5", "playstation30", "scalpers", "bots", "sony", "nostalgia"]', 1789739600000, 1789739600000),
-('post-ps5-pro-pssr-deep-dive', 'c/technology', 'fp_cyber_samurai', 'GRAPHICS_ENGINEER', 'PS5 Pro PSSR (PlayStation Spectral Super Resolution) vs FSR 3.1 & DLSS: Real-world image quality comparison in Spider-Man 2 & Alan Wake 2', 'Now that technical media outlets have captured native frame buffers from PS5 Pro demonstration units, we have our first concrete look at **PSSR (PlayStation Spectral Super Resolution)** running on custom RDNA machine learning hardware.
+Instead they let headless Puppeteer and Selenium bots feast. Thanks Sony!',
+    'MEME / SHITPOST',
+    1390,
+    0,
+    6,
+    340,
+    NULL,
+    NULL,
+    '["https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=1200&auto=format&fit=crop&q=80", "https://images.unsplash.com/photo-1606813907291-d86efa9b94db?w=1200&auto=format&fit=crop&q=80"]',
+    NULL,
+    NULL,
+    'published',
+    1789739600000,
+    0
+),
+(
+    'post-ps5-pro-pssr-deep-dive',
+    'c/technology',
+    'fp_cyber_samurai',
+    'GRAPHICS_ENGINEER',
+    'PS5 Pro PSSR (PlayStation Spectral Super Resolution) vs FSR 3.1 & DLSS: Real-world image quality comparison in Spider-Man 2 & Alan Wake 2',
+    'Now that technical media outlets have captured native frame buffers from PS5 Pro demonstration units, we have our first concrete look at **PSSR (PlayStation Spectral Super Resolution)** running on custom RDNA machine learning hardware.
+
+See the complete side-by-side video comparison at [Digital Foundry PSSR vs DLSS Comparison](https://www.eurogamer.net/digitalfoundry).
 
 Here is the objective engineering breakdown:
 
@@ -145,8 +338,28 @@ In dark, foliage-dense scenes in *Alan Wake 2*, PSSR exhibits a wierd ghosting a
 ### 3. Latency Overhead
 PSSR frame reconstruction costs approximately **1.8ms to 2.2ms of GPU frame time** at 4K target output. That is slightly heavier than DLSS 3.7 (~1.4ms on an RTX 4070), but well within the 16.6ms budget for 60 FPS.
 
-Is PSSR a game changer for console gaming? Yes. Is it superior to DLSS? Not even close.', 'TECH DISCUSSION', 690, 6, 140, '["pssr", "dlss", "fsr", "raytracing", "ps5pro", "graphics", "alanwake2"]', 1789761200000, 1789761200000),
-('post-rtx-5090-specs-600w-fear', 'c/technology', 'fp_cyber_samurai', 'OVERCLOCKER', 'RTX 5090 leaked specs: 32GB GDDR7, 24,576 CUDA cores, and 600W TDP. Are we going to need a dedicated 240V circuit breaker for our PC rigs?!', 'Multiple AIB partner sources (Asus, MSI, Zotac) have leaked preliminary board schematics for the upcoming **GeForce RTX 5090 (Blackwell GB202)**:
+Is PSSR a game changer for console gaming? Yes. Is it superior to DLSS? Not even close.',
+    'TECH DISCUSSION',
+    690,
+    0,
+    6,
+    140,
+    NULL,
+    '{"src": "https://www.youtube.com/watch?v=1xN5c6aZ-eM", "poster": "https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=1200&auto=format&fit=crop&q=80"}',
+    NULL,
+    NULL,
+    NULL,
+    'published',
+    1789761200000,
+    0
+),
+(
+    'post-rtx-5090-specs-600w-fear',
+    'c/technology',
+    'fp_cyber_samurai',
+    'OVERCLOCKER',
+    'RTX 5090 leaked specs: 32GB GDDR7, 24,576 CUDA cores, and 600W TDP. Are we going to need a dedicated 240V circuit breaker for our PC rigs?!',
+    'Multiple AIB partner sources (Asus, MSI, Zotac) have leaked preliminary board schematics for the upcoming **GeForce RTX 5090 (Blackwell GB202)**, confirmed by [Videocardz Leak & PCB Specs](https://videocardz.com/newz/geforce-rtx-5090-specs-leak):
 
 - **Architecture**: Blackwell (TSMC 4NP custom node)
 - **CUDA Cores**: 24,576 (a massive 50% jump over the 4090''s 16,384)
@@ -158,8 +371,28 @@ Is PSSR a game changer for console gaming? Yes. Is it superior to DLSS? Not even
 Think about what 600W sustained GPU power actually means:
 Pair this with a Core i9-14900KS or Ryzen 9 9950X drawing 250W under load, plus cooling fans, AIO pump, and NVMe drives. You are looking at a system pulling **900W - 1000W from the wall socket**.
 
-If you live in an older apartment or have your PC, monitor, and AC on the same 15-amp breaker, launching Cyberpunk with full path tracing will literally trip your room''s fuse box. Have we completely abandoned power efficiency?', 'HARDWARE', 1120, 7, 230, '["rtx5090", "nvidia", "blackwell", "hardware", "gpu", "overclocking", "pcbuild"]', 1789696400000, 1789696400000),
-('post-rtx-5080-16gb-insult', 'c/technology', 'fps_snob_4k', 'PC_ENTHUSIAST', 'RTX 5080 launching with only 16GB of VRAM on a 256-bit bus for $1,199 is an absolute joke. Modded Skyrim already eats 18GB 💀', 'Let''s look at the leaked RTX 5080 specs side-by-side with the 5090:
+Check the [Gamers Nexus 12V-2x6 Power Deep-Dive](https://gamersnexus.net) before upgrading. If you live in an older apartment or have your PC, monitor, and AC on the same 15-amp breaker, launching Cyberpunk with full path tracing will literally trip your room''s fuse box. Have we completely abandoned power efficiency?',
+    'HARDWARE',
+    1120,
+    0,
+    7,
+    230,
+    NULL,
+    '{"src": "https://www.youtube.com/watch?v=s-lFgbzU3LY", "poster": "https://images.unsplash.com/photo-1591799264318-7e6ef8ddb7ea?w=1200&auto=format&fit=crop&q=80"}',
+    '["https://images.unsplash.com/photo-1591799264318-7e6ef8ddb7ea?w=1200&auto=format&fit=crop&q=80", "https://images.unsplash.com/photo-1518770660439-4636190af475?w=1200&auto=format&fit=crop&q=80"]',
+    NULL,
+    NULL,
+    'published',
+    1789696400000,
+    0
+),
+(
+    'post-rtx-5080-16gb-insult',
+    'c/technology',
+    'fps_snob_4k',
+    'PC_ENTHUSIAST',
+    'RTX 5080 launching with only 16GB of VRAM on a 256-bit bus for $1,199 is an absolute joke. Modded Skyrim already eats 18GB 💀',
+    'Let''s look at the leaked RTX 5080 specs side-by-side with the 5090 via [TechPowerUp GPU Database](https://www.techpowerup.com/gpu-specs/) and [Tom''s Hardware Memory Latency Charts](https://www.tomshardware.com):
 - **RTX 5090**: 32GB GDDR7, 512-bit bus, 24,576 cores
 - **RTX 5080**: **16GB GDDR7, 256-bit bus, 10,752 cores**
 
@@ -174,8 +407,30 @@ Meanwhile:
 - *Indiana Jones* and upcoming Unreal Engine 5.5 games will easily exceed 16GB with high-resolution Nanite textures.
 - Modded games like Skyrim or Cyberpunk with 4K texture packs already hit VRAM allocation limits.
 
-Why is Nvidia deliberately gimping the 80-class card? So they can sell an ''RTX 5080 Ti 24GB'' refresh 9 months later for $1,499. Classic Jensen segmentation playbook.', 'HOT TAKE', 1030, 6, 215, '["rtx5080", "nvidia", "vram", "hardware", "greed", "pcgaming"]', 1789718000000, 1789718000000),
-('post-12v-2x6-connector-melting-fear', 'c/technology', 'undervolt_king', 'HARDWARE_TESTER', 'Does the new 12V-2x6 power connector actually fix the melting pins issue on high wattage GPUs or is Nvidia playing Russian roulette with our PSUs again?', 'With the RTX 5090 confirmed to push up to **600W TDP**, the dreaded power connector question is back with a vengeance.
+Why is Nvidia deliberately gimping the 80-class card? So they can sell an ''RTX 5080 Ti 24GB'' refresh 9 months later for $1,499. Classic Jensen segmentation playbook.',
+    'HOT TAKE',
+    1030,
+    0,
+    6,
+    215,
+    NULL,
+    NULL,
+    '["https://images.unsplash.com/photo-1555680202-c86f0e12f086?w=1200&auto=format&fit=crop&q=80"]',
+    NULL,
+    NULL,
+    'published',
+    1789718000000,
+    0
+),
+(
+    'post-12v-2x6-connector-melting-fear',
+    'c/technology',
+    'undervolt_king',
+    'HARDWARE_TESTER',
+    'Does the new 12V-2x6 power connector actually fix the melting pins issue on high wattage GPUs or is Nvidia playing Russian roulette with our PSUs again?',
+    'With the RTX 5090 confirmed to push up to **600W TDP**, the dreaded power connector question is back with a vengeance.
+
+Check Steve''s lab breakdown at [Gamers Nexus 12V-2x6 Power Deep-Dive](https://gamersnexus.net).
 
 PCI-SIG introduced the **12V-2x6 revision (ATX 3.1)** to replace the infamous melting 12VHPWR connector:
 - Sense pins are shortened by 1.7mm so power won''t flow unless the plug is 100% fully seated.
@@ -188,8 +443,28 @@ PCI-SIG introduced the **12V-2x6 revision (ATX 3.1)** to replace the infamous me
 
 If you have a compact mid-tower case where the side glass panel presses against the GPU power cable, you are still at risk of thermal degradation over time.
 
-Why did Nvidia refuse to just use three standard, bulletproof 8-pin PCIe connectors that never melted once in 15 years of PC history?', 'HARDWARE', 950, 6, 180, '["12vhpwr", "12v2x6", "nvidia", "psu", "hardware", "rtx5090", "safety"]', 1789746800000, 1789746800000),
-('post-jensen-huang-2500-dollar-pricing', 'c/technology', 'cynic_dan_90s', 'MARKET_CYNIC', 'Jensen Huang: ''In the age of AI, gaming GPUs are personal supercomputers.'' Translation: Prepare your wallets for a $2,499 RTX 5090 MSRP 💸', 'Jensen Huang gave another keynote speech wearing his signature $10,000 lizard-skin leather jacket, and his choice of words should terrify every PC gamer on earth:
+Why did Nvidia refuse to just use three standard, bulletproof 8-pin PCIe connectors that never melted once in 15 years of PC history?',
+    'HARDWARE',
+    950,
+    0,
+    6,
+    180,
+    NULL,
+    '{"src": "https://www.youtube.com/watch?v=ig2guqj5v3A", "poster": "https://images.unsplash.com/photo-1518770660439-4636190af475?w=1200&auto=format&fit=crop&q=80"}',
+    NULL,
+    NULL,
+    NULL,
+    'published',
+    1789746800000,
+    0
+),
+(
+    'post-jensen-huang-2500-dollar-pricing',
+    'c/technology',
+    'cynic_dan_90s',
+    'MARKET_CYNIC',
+    'Jensen Huang: ''In the age of AI, gaming GPUs are personal supercomputers.'' Translation: Prepare your wallets for a $2,499 RTX 5090 MSRP 💸',
+    'Jensen Huang gave another keynote speech wearing his signature $10,000 lizard-skin leather jacket ([Nvidia Computex Keynote Recording](https://www.nvidia.com)), and his choice of words should terrify every PC gamer on earth:
 
 *''GeForce is no longer just for gaming rendering. It is a full personal AI supercomputer capable of training and running multi-modal reasoning models directly at your desk. The value delivered per watt has multiplied tenfold.''*
 
@@ -202,8 +477,28 @@ Every time Jensen starts talking about ''value per watt'' or ''the more you buy,
 
 Nvidia made $30 billion in pure net income from data center Hopper and Blackwell AI chips last quarter alone. Consumer GeForce gaming represents less than 15% of their total company revenue now. They simply do not care if gamers can afford GPUs anymore.
 
-Are you prepared to pay $2,500 for a flagship graphics card?', 'MEME / SHITPOST', 1260, 6, 310, '["jensenhuang", "nvidia", "rtx5090", "pricing", "greed", "leatherjacket", "meme"]', 1789768400000, 1789768400000),
-('post-blackwell-dlss4-neural-rendering', 'c/technology', 'fp_cyber_samurai', 'GRAPHICS_RESEARCHER', 'Blackwell architecture leak: DLSS 4 rumored to introduce real-time Neural Radiance Caching and multi-frame synthesis. Hardware locked to RTX 50 series of course 🔒', 'A leaked whitepaper slide from Nvidia''s European Developer Forum details upcoming features planned for **DLSS 4.0** with the Blackwell GeForce 50 series:
+Are you prepared to pay $2,500 for a flagship graphics card?',
+    'MEME / SHITPOST',
+    1260,
+    0,
+    6,
+    310,
+    NULL,
+    NULL,
+    '["https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=1200&auto=format&fit=crop&q=80", "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=1200&auto=format&fit=crop&q=80"]',
+    NULL,
+    NULL,
+    'published',
+    1789768400000,
+    0
+),
+(
+    'post-blackwell-dlss4-neural-rendering',
+    'c/technology',
+    'fp_cyber_samurai',
+    'GRAPHICS_RESEARCHER',
+    'Blackwell architecture leak: DLSS 4 rumored to introduce real-time Neural Radiance Caching and multi-frame synthesis. Hardware locked to RTX 50 series of course 🔒',
+    'A leaked whitepaper slide from Nvidia''s European Developer Forum (covered by [Nvidia Blackwell Architecture Whitepaper](https://www.nvidia.com)) details upcoming features planned for **DLSS 4.0** with the Blackwell GeForce 50 series:
 
 1. **Neural Radiance Caching (NRC)**: Replaces Monte Carlo path-traced indirect lighting bounces with an onboard neural network that predicts multi-bounce radiance in 0.8ms. Gives full path tracing performance comparable to standard rasterization!
 2. **Multi-Frame Generation 2.0**: Capable of interpolating **TWO synthesized frames between every real frame**, turning native 60 FPS into a buttery 180 FPS on high-refresh OLED panels.
@@ -212,8 +507,28 @@ Are you prepared to pay $2,500 for a flagship graphics card?', 'MEME / SHITPOST'
 Sound familiar?
 When RTX 40 launched, Nvidia claimed DLSS 3 Frame Gen was impossible on RTX 3090 due to OFA speed, only for modders and AMD (FSR 3) to prove frame generation works fine on older hardware.
 
-Are we getting artificially locked out of DLSS 4 on our $1,600 RTX 4090s?', 'LEAK / RUMOR', 880, 6, 195, '["dlss4", "blackwell", "nvidia", "rtx5090", "rtx4090", "framgen", "neuralrendering"]', 1789775600000, 1789775600000),
-('post-switch2-factory-specs-leak', 'c/gaming', 'fp_emulation_vault', 'HARDWARE_LEAKER', 'Switch 2 assembly factory leak: Custom Nvidia Tegra T239 chip, 12GB LPDDR5X RAM, 8-inch 1080p screen, and magnetic Joy-Cons 🎮', 'A customs manifest and 3D CAD schematic from a Foxconn assembly facility in Vietnam has leaked the exact hardware revision for Nintendo''s next-gen console:
+Are we getting artificially locked out of DLSS 4 on our $1,600 RTX 4090s?',
+    'LEAK / RUMOR',
+    880,
+    0,
+    6,
+    195,
+    NULL,
+    '{"src": "https://www.youtube.com/watch?v=1xN5c6aZ-eM", "poster": "https://images.unsplash.com/photo-1518770660439-4636190af475?w=1200&auto=format&fit=crop&q=80"}',
+    NULL,
+    NULL,
+    NULL,
+    'published',
+    1789775600000,
+    0
+),
+(
+    'post-switch2-factory-specs-leak',
+    'c/gaming',
+    'fp_emulation_vault',
+    'HARDWARE_LEAKER',
+    'Switch 2 assembly factory leak: Custom Nvidia Tegra T239 chip, 12GB LPDDR5X RAM, 8-inch 1080p screen, and magnetic Joy-Cons 🎮',
+    'A customs manifest and 3D CAD schematic from a Foxconn assembly facility in Vietnam has leaked the exact hardware revision for Nintendo''s next-gen console, verified by the [Digital Foundry Switch 2 Tegra T239 Deep-Dive](https://www.eurogamer.net/digitalfoundry) and [Bloomberg Supply Chain Report](https://www.bloomberg.com):
 
 - **SoC**: Nvidia Tegra **T239 (Drake)** built on Samsung 8nm/TSMC process node.
 - **CPU**: 8x ARM Cortex-A78C cores running up to 1.8 GHz docked / 1.1 GHz handheld.
@@ -225,8 +540,28 @@ Are we getting artificially locked out of DLSS 4 on our $1,600 RTX 4090s?', 'LEA
 
 For a 15-watt handheld device, 12GB RAM paired with DLSS means modern games like *Cyberpunk 2077* or *Elden Ring* can actually run portably without looking like pixelated mud.
 
-Is this the biggest generational hardware leap in Nintendo history?', 'LEAK / RUMOR', 1340, 8, 390, '["switch2", "nintendo", "tegra", "hardware", "dlss", "leak", "joycon"]', 1789667600000, 1789667600000),
-('post-switch2-cartridge-backward-compatibility', 'c/gaming', 'fp_emulation_vault', 'PRESERVATIONIST', 'Patent filings confirm Nintendo Switch 2 physical backward compatibility cartridge slot with dual-notch system for original Switch carts! 🎉', 'A newly published patent filed by Nintendo Co., Ltd. at the World Intellectual Property Organization (WIPO) has put our biggest fears to rest:
+Is this the biggest generational hardware leap in Nintendo history?',
+    'LEAK / RUMOR',
+    1340,
+    0,
+    8,
+    390,
+    NULL,
+    '{"src": "https://www.youtube.com/watch?v=1xN5c6aZ-eM", "poster": "https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=1200&auto=format&fit=crop&q=80"}',
+    '["https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=1200&auto=format&fit=crop&q=80", "https://images.unsplash.com/photo-1612287232258-a5ec0906be70?w=1200&auto=format&fit=crop&q=80"]',
+    NULL,
+    NULL,
+    'published',
+    1789667600000,
+    0
+),
+(
+    'post-switch2-cartridge-backward-compatibility',
+    'c/gaming',
+    'fp_emulation_vault',
+    'PRESERVATIONIST',
+    'Patent filings confirm Nintendo Switch 2 physical backward compatibility cartridge slot with dual-notch system for original Switch carts! 🎉',
+    'A newly published patent filed by Nintendo Co., Ltd. at the World Intellectual Property Organization ([WIPO Patent Filing #WO2025/119283](https://patentscope.wipo.int) and reported on [Nintendo Life Patent Breakdown](https://www.nintendolife.com)) has put our biggest fears to rest:
 
 **Physical backward compatibility is 100% real.**
 
@@ -237,10 +572,30 @@ Technical details revealed in the mechanical patent:
 
 Imagine playing *Zelda: Tears of the Kingdom* and *Pokemon Scarlet* at a locked 1080p 60 FPS without frame drops into the teens.
 
-Are you keeping all your physical Switch cartridges?', 'GAMING NEWS', 1620, 6, 480, '["switch2", "nintendo", "backwardcompatibility", "zelda", "patent", "cartridges"]', 1789703600000, 1789703600000),
-('post-switch2-dlss-docked-4k', 'c/gaming', 'fp_cyber_samurai', 'TECH_ANALYST', 'Can the Switch 2 actually deliver 4K 60FPS docked using DLSS 3.1 Super Resolution or are people expecting way too much from a 15-watt handheld?', 'The hype train for Nintendo Switch 2 is reaching dangerous levels, with some YouTube tech influencers claiming it will be a ''portable PS5''.
+Are you keeping all your physical Switch cartridges?',
+    'GAMING NEWS',
+    1620,
+    0,
+    6,
+    480,
+    NULL,
+    NULL,
+    '["https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=1200&auto=format&fit=crop&q=80"]',
+    NULL,
+    NULL,
+    'published',
+    1789703600000,
+    0
+),
+(
+    'post-switch2-dlss-docked-4k',
+    'c/gaming',
+    'fp_cyber_samurai',
+    'TECH_ANALYST',
+    'Can the Switch 2 actually deliver 4K 60FPS docked using DLSS 3.1 Super Resolution or are people expecting way too much from a 15-watt handheld?',
+    'The hype train for Nintendo Switch 2 is reaching dangerous levels, with some YouTube tech influencers claiming it will be a ''portable PS5''.
 
-Let''s do the actual silicon math before people get disappointed on launch day:
+Check the [Digital Foundry 4K Handheld Reconstruction Analysis](https://www.eurogamer.net/digitalfoundry) for the real silicon math:
 
 ### Handheld Mode:
 - Power draw: **8W - 12W**
@@ -254,10 +609,30 @@ Let''s do the actual silicon math before people get disappointed on launch day:
 
 If you are expecting native 4K 60FPS with ray tracing, you will be sorely disappointed. If you are expecting clean, anti-aliased 1440p-equivalent presentation that looks razor sharp on your 65-inch OLED, Switch 2 will blow you away.
 
-Keep your expectations grounded!', 'TECH DISCUSSION', 820, 6, 160, '["switch2", "dlss", "4k", "nintendo", "hardware", "benchmarks", "graphics"]', 1789732400000, 1789732400000),
-('post-nintendo-emulation-crackdown-yuzu-ryujinx', 'c/opensource', 'fp_nadia_foss', 'FOSS_ADVOCATE', 'Nintendo going scorched earth against Switch emulators (Yuzu, Ryujinx) right before the Switch 2 reveal tells you everything about their upcoming security model ⚖️', 'Within the last few months, Nintendo''s legal team has:
+Keep your expectations grounded!',
+    'TECH DISCUSSION',
+    820,
+    0,
+    6,
+    160,
+    NULL,
+    '{"src": "https://www.youtube.com/watch?v=1xN5c6aZ-eM", "poster": "https://images.unsplash.com/photo-1511512578047-dfb367046420?w=1200&auto=format&fit=crop&q=80"}',
+    NULL,
+    NULL,
+    NULL,
+    'published',
+    1789732400000,
+    0
+),
+(
+    'post-nintendo-emulation-crackdown-yuzu-ryujinx',
+    'c/opensource',
+    'fp_nadia_foss',
+    'FOSS_ADVOCATE',
+    'Nintendo going scorched earth against Switch emulators (Yuzu, Ryujinx) right before the Switch 2 reveal tells you everything about their upcoming security model ⚖️',
+    'Within the last few months, Nintendo''s legal team has escalated dramatically according to [The Verge Nintendo Legal Coverage](https://www.theverge.com):
 1. Settled with Tropic Haze ($2.4M) and forced the deletion of **Yuzu**.
-2. Pressured the lead maintainer of **Ryujinx** into shutting down the organization and repo.
+2. Pressured the lead maintainer of **Ryujinx** into shutting down the organization and repo ([Ryujinx GitHub Repository Archive](https://github.com)).
 3. Issued DMCA subpoenas against Git hosting forks, Discord servers, and Patreon pages.
 
 Why the sudden nuclear escalation in 2026 after tolerating emulators for 7 years?
@@ -268,8 +643,28 @@ Both the original Switch (Tegra X1) and Switch 2 (Tegra T239) share common NVN g
 
 Nintendo knew that if open-source emulators were running on day one with 4K 120Hz PC support, their launch sales and software margins would face unprecedented pressure.
 
-Emulation is legal under *Sony v. Bleem!* and *Sony v. Connectix*. Nintendo using legal intimidation to destroy preservation is a dark day for open software.', 'TECH DISCUSSION', 1290, 6, 340, '["nintendo", "emulation", "yuzu", "ryujinx", "opensource", "law", "preservation"]', 1789746800000, 1789746800000),
-('post-switch2-450-dollar-pricing', 'c/gaming', 'cynic_dan_90s', 'INDUSTRY_WATCHER', 'If Nintendo prices Switch 2 at $449 with $70 Mario Kart 9, will the casual family audience refuse to upgrade from the $299 OG Switch? 📉', 'Industry supply chain leaks indicate Nintendo is aiming for a **$399 to $449 launch MSRP** for Switch 2, with new flagship first-party physical cartridges bumping permanently to **$69.99**.
+Emulation is legal under *Sony v. Bleem!* and *Sony v. Connectix*. Nintendo using legal intimidation to destroy preservation is a dark day for open software.',
+    'TECH DISCUSSION',
+    1290,
+    0,
+    6,
+    340,
+    NULL,
+    NULL,
+    '["https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=1200&auto=format&fit=crop&q=80", "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=1200&auto=format&fit=crop&q=80"]',
+    NULL,
+    NULL,
+    'published',
+    1789746800000,
+    0
+),
+(
+    'post-switch2-450-dollar-pricing',
+    'c/gaming',
+    'cynic_dan_90s',
+    'INDUSTRY_WATCHER',
+    'If Nintendo prices Switch 2 at $449 with $70 Mario Kart 9, will the casual family audience refuse to upgrade from the $299 OG Switch? 📉',
+    'Industry supply chain leaks analyzed by [IGN Switch 2 Spec & Price Forecast](https://www.ign.com) indicate Nintendo is aiming for a **$399 to $449 launch MSRP** for Switch 2, with new flagship first-party physical cartridges bumping permanently to **$69.99**.
 
 Let''s remember how Nintendo history works:
 - **Wii ($249)** sold 101 million -> **Wii U ($349)** bombed at 13.5 million.
@@ -281,8 +676,30 @@ The 143 million Switch userbase is NOT hardcore tech enthusiasts who care about 
 
 If parents walk into Walmart this Christmas and see the old Switch at $249 bundled with Mario Kart 8, vs a new Switch 2 for $449 + $70 game ($520 checkout), which one do you think they buy?
 
-Is Nintendo walking into another Wii U trap?', 'HOT TAKE', 890, 6, 185, '["switch2", "nintendo", "pricing", "wiiu", "economics", "consolegaming"]', 1789768400000, 1789768400000),
-('post-mhwilds-cpu-bottleneck-nightmare', 'c/gaming', 'fp_chloe_pals', 'MONSTER_HUNTER', 'Monster Hunter Wilds PC Beta performance is an absolute CPU slaughterhouse: 100% usage on Ryzen 7800X3D and stuttering in the Windward Plains 🏜️🦖', 'I spent 6 hours testing the Monster Hunter Wilds PC Open Beta across multiple hardware configurations, and we need to have a serious talk about Capcom''s RE Engine implementation.
+Is Nintendo walking into another Wii U trap?',
+    'HOT TAKE',
+    890,
+    0,
+    6,
+    185,
+    NULL,
+    NULL,
+    '["https://images.unsplash.com/photo-1511512578047-dfb367046420?w=1200&auto=format&fit=crop&q=80"]',
+    NULL,
+    NULL,
+    'published',
+    1789768400000,
+    0
+),
+(
+    'post-mhwilds-cpu-bottleneck-nightmare',
+    'c/gaming',
+    'fp_chloe_pals',
+    'MONSTER_HUNTER',
+    'Monster Hunter Wilds PC Beta performance is an absolute CPU slaughterhouse: 100% usage on Ryzen 7800X3D and stuttering in the Windward Plains 🏜️🦖',
+    'I spent 6 hours testing the Monster Hunter Wilds PC Open Beta across multiple hardware configurations ([Steam Store: Monster Hunter Wilds](https://store.steampowered.com/app/2246340/Monster_Hunter_Wilds/)), and we need to have a serious talk about Capcom''s RE Engine implementation.
+
+Check the frame time graphs logged on [Hardware Unboxed CPU Scaling Benchmarks](https://www.youtube.com/@Hardwareunboxed).
 
 My test rig:
 - Ryzen 7 7800X3D (fastest gaming CPU on the market)
@@ -298,20 +715,60 @@ My test rig:
 
 The RE Engine was designed for linear, corridor horror games like *Resident Evil 2 Remake* and *Village*. Bolting on a massive seamless open-world with hundreds of dynamic herd AI calculations, weather transitions, and fur physics has brought the engine to its knees.
 
-If an $800 enthusiast CPU can''t hold 60 FPS during a monster hunt, what is going to happen to gamers on Ryzen 3600 or Core i5-10400 systems?', 'TECH DISCUSSION', 1450, 7, 310, '["mhwilds", "monsterhunter", "capcom", "pcgaming", "performance", "cpu", "stutter"]', 1789682000000, 1789682000000),
-('post-mhwilds-frame-gen-crutch', 'c/gaming', 'fps_snob_4k', 'PERFORMANCE_PURIST', 'Dear Capcom: Frame Generation is supposed to be for 120Hz+ smoothness, NOT a band-aid crutch to push a game from 28 FPS up to 55 FPS 😤', 'The official PC system requirements for *Monster Hunter Wilds* have exposed the ugliest trend in modern AAA game development:
+If an $800 enthusiast CPU can''t hold 60 FPS during a monster hunt, what is going to happen to gamers on Ryzen 3600 or Core i5-10400 systems?',
+    'TECH DISCUSSION',
+    1450,
+    0,
+    7,
+    310,
+    NULL,
+    '{"src": "https://www.youtube.com/watch?v=zyoBA0aCRNk", "poster": "https://images.unsplash.com/photo-1542751371-adc38448a05e?w=1200&auto=format&fit=crop&q=80"}',
+    '["https://images.unsplash.com/photo-1542751371-adc38448a05e?w=1200&auto=format&fit=crop&q=80"]',
+    NULL,
+    NULL,
+    'published',
+    1789682000000,
+    0
+),
+(
+    'post-mhwilds-frame-gen-crutch',
+    'c/gaming',
+    'fps_snob_4k',
+    'PERFORMANCE_PURIST',
+    'Dear Capcom: Frame Generation is supposed to be for 120Hz+ smoothness, NOT a band-aid crutch to push a game from 28 FPS up to 55 FPS 😤',
+    'The official PC system requirements for *Monster Hunter Wilds* from the [Capcom Official System Requirements Sheet](https://www.monsterhunter.com/wilds/) have exposed the ugliest trend in modern AAA game development:
 
 To reach ''1080p / 60 FPS (Medium Settings)'', Capcom''s official spec sheet literally says:
 **''Requires DLSS / FSR Frame Generation enabled''**!
 
-Let''s spell out why this is an engineering crime:
+See the latency analysis at [Digital Foundry Frame Generation Latency Tests](https://www.eurogamer.net/digitalfoundry):
 1. **Input Latency**: Frame Generation calculates motion vectors *between* two real rendered frames. That means your GPU must queue the next frame before displaying the generated frame.
 2. If your base render frame rate is **30 FPS (33.3ms frame time)**, turning on Frame Gen doubles the display frames to 60, but your input latency is worse than 30 FPS! It feels like playing with greasy thumbs through 100ms of input lag!
 3. Trying to time an insect glaive vault, longsword foresight slash, or charge blade guard point with 100ms of lag feels horrendous!
 4. **Visual Artifacts**: When base frames are low, the motion vector estimation fails. Monster claws and tail sweeps dissolve into blurry, smeared ghosting artifacts.
 
-Publishers are now using Frame Generation to avoid doing basic engine optimization. Don''t let them normalize this!', 'HOT TAKE', 1380, 6, 290, '["mhwilds", "framegeneration", "dlss", "fsr", "capcom", "optimization", "inputlag"]', 1789725200000, 1789725200000),
-('post-mhwilds-origami-polygons-meme', 'c/gaming', 'fp_kai_bloxfan', 'MEME_CREATOR', 'When your 8GB GPU runs out of VRAM in MH Wilds and the monsters turn into low-poly Nintendo 64 papercraft origami sculptures 💀🦖', 'I am in tears laughing at what happened to my friend''s PC during the Monster Hunter Wilds beta.
+Publishers are now using Frame Generation to avoid doing basic engine optimization. Don''t let them normalize this!',
+    'HOT TAKE',
+    1380,
+    0,
+    6,
+    290,
+    NULL,
+    NULL,
+    '["https://images.unsplash.com/photo-1587202372775-e229f172b9d7?w=1200&auto=format&fit=crop&q=80"]',
+    NULL,
+    NULL,
+    'published',
+    1789725200000,
+    0
+),
+(
+    'post-mhwilds-origami-polygons-meme',
+    'c/gaming',
+    'fp_kai_bloxfan',
+    'MEME_CREATOR',
+    'When your 8GB GPU runs out of VRAM in MH Wilds and the monsters turn into low-poly Nintendo 64 papercraft origami sculptures 💀🦖',
+    'I am in tears laughing at what happened to my friend''s PC during the Monster Hunter Wilds beta. See the user clips gathered on the [Steam Community Low-Poly Glitch Megathread](https://steamcommunity.com).
 
 He is running an RTX 3070 8GB on High Textures at 1440p.
 About 20 minutes into the hunt, the VRAM buffer hit 7,950 MB.
@@ -324,8 +781,28 @@ Instead of crashing to desktop, the game just stopped loading LOD (Level of Deta
 - All armor textures became 64x64 blurry Nintendo DS smudge.
 
 And the best part? It STILL ran at 38 FPS!
-If you have an 8GB GPU, you are officially in the PS1 retro demake club!', 'MEME / SHITPOST', 1650, 6, 410, '["mhwilds", "meme", "vram", "n64", "polygons", "reengine", "gaming"]', 1789739600000, 1789739600000),
-('post-mhwilds-capcom-patch-statement', 'c/gaming', 'fp_chloe_pals', 'COMMUNITY_REPORTER', 'Capcom issues official statement on Monster Hunter Wilds PC performance: ''Release build will feature shader compilation improvements and CPU balancing'' 📜', 'Following massive backlash and mixed feedback during the Steam Open Beta test, Capcom''s Monster Hunter dev team has published an official response on the Steam Community Hub:
+If you have an 8GB GPU, you are officially in the PS1 retro demake club!',
+    'MEME / SHITPOST',
+    1650,
+    0,
+    6,
+    410,
+    NULL,
+    '{"src": "https://www.youtube.com/watch?v=zyoBA0aCRNk", "poster": "https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=1200&auto=format&fit=crop&q=80"}',
+    '["https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=1200&auto=format&fit=crop&q=80"]',
+    NULL,
+    NULL,
+    'published',
+    1789739600000,
+    0
+),
+(
+    'post-mhwilds-capcom-patch-statement',
+    'c/gaming',
+    'fp_chloe_pals',
+    'COMMUNITY_REPORTER',
+    'Capcom issues official statement on Monster Hunter Wilds PC performance: ''Release build will feature shader compilation improvements and CPU balancing'' 📜',
+    'Following massive backlash and mixed feedback during the Steam Open Beta test, Capcom''s Monster Hunter dev team has published an official response on the Steam Community Hub ([Capcom Community Update & Patch Notes](https://www.monsterhunter.com/wilds/)):
 
 **Key Takeaways from Capcom''s Statement:**
 1. **Beta Build Age**: The beta branch was branched off in early summer 2026 and lacks several performance patches already integrated into the internal master build.
@@ -333,12 +810,32 @@ If you have an 8GB GPU, you are officially in the PS1 retro demake club!', 'MEME
 3. **CPU Thread Allocation**: The dev team is actively profiling high-core count CPUs (Intel 13th/14th gen E-cores and AMD dual-CCD Ryzen 9s) to fix thread scheduling bugs where background tasks overwhelmed the main render thread.
 4. **Dynamic Mesh LODs**: The low-polygon ''origami monster'' bug was confirmed to be a memory allocation leak in the streaming buffer when VRAM capacity is reached.
 
-Is this PR damage control or should we genuinely expect a much smoother launch in 2026?', 'GAMING NEWS', 910, 6, 170, '["mhwilds", "capcom", "patch", "steam", "monsterhunter", "pcperformance"]', 1789754000000, 1789754000000),
-('post-mhwilds-community-fix-guide', 'c/gaming', 'undervolt_king', 'OPTIMIZER', 'Fixing the MH Wilds Beta stutter: D3D12 pipeline cache tweaks, ReBAR forcing, and swapping nvngx_dlss.dll to version 3.7.20 🛠️', 'While waiting for Capcom''s launch day patch, the PC modding community has found three configuration tweaks that boost 1% low frame rates by up to **35%** in the Wilds Beta:
+Is this PR damage control or shoud we genuinely expect a much smoother launch in 2026?',
+    'GAMING NEWS',
+    910,
+    0,
+    6,
+    170,
+    NULL,
+    NULL,
+    '["https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1200&auto=format&fit=crop&q=80"]',
+    NULL,
+    NULL,
+    'published',
+    1789754000000,
+    0
+),
+(
+    'post-mhwilds-community-fix-guide',
+    'c/gaming',
+    'undervolt_king',
+    'OPTIMIZER',
+    'Fixing the MH Wilds Beta stutter: D3D12 pipeline cache tweaks, ReBAR forcing, and swapping nvngx_dlss.dll to version 3.7.20 🛠️',
+    'While waiting for Capcom''s launch day patch, the PC modding community has found three configuration tweaks that boost 1% low frame rates by up to **35%** in the Wilds Beta (guides on [NexusMods DLSSTweaks & Config Fixes](https://www.nexusmods.com)):
 
 ### 1. Swap the Outdated DLSS DLL
 The beta ships with an archaic `nvngx_dlss.dll` version (3.1.11) that has horrible ghosting.
-- Download DLSS **3.7.20** from TechPowerUp.
+- Download DLSS **3.7.20** from [TechPowerUp DLSS 3.7.20 Library](https://www.techpowerup.com/download/nvidia-dlss-dll/).
 - Drop it into `MonsterHunterWildsBeta/` root directory.
 - Switch DLSS preset to **Preset E** via DLSSTweaks for razor-sharp motion clarity.
 
@@ -357,10 +854,32 @@ EnableCrashReporterDbg=0
 AsyncFileReadThreads=6
 ```
 
-Try this out and report your frame-time graphs below!', 'HARDWARE', 1120, 6, 290, '["mhwilds", "optimization", "modding", "dlss", "rebar", "pcgaming", "guide"]', 1789775600000, 1789775600000),
-('post-cs2-snap-tap-ban', 'c/gaming', 'fp_wooting_chad', 'ESPORTS_ANALYST', 'Valve officially bans Razer Snap Tap, Wooting Rappy Snappy, and all null-bind / SOCD keyboards from CS2 matchmaking! Instant kick if detected 🚫⌨️', 'Valve just dropped a game-changing update for *Counter-Strike 2*:
+Try this out and report your frame-time graphs below!',
+    'HARDWARE',
+    1120,
+    0,
+    6,
+    290,
+    NULL,
+    '{"src": "https://www.youtube.com/watch?v=s-lFgbzU3LY", "poster": "https://images.unsplash.com/photo-1591799264318-7e6ef8ddb7ea?w=1200&auto=format&fit=crop&q=80"}',
+    NULL,
+    NULL,
+    NULL,
+    'published',
+    1789775600000,
+    0
+),
+(
+    'post-cs2-snap-tap-ban',
+    'c/gaming',
+    'fp_wooting_chad',
+    'ESPORTS_ANALYST',
+    'Valve officially bans Razer Snap Tap, Wooting Rappy Snappy, and all null-bind / SOCD keyboards from CS2 matchmaking! Instant kick if detected 🚫⌨️',
+    'Valve just dropped a game-changing update for *Counter-Strike 2* as announced on [Counter-Strike Official Release Notes](https://www.counter-strike.net/news):
 
 **Null-cancelling movement binds, hardware SOCD (Simultaneous Opposite Cardinal Direction) features like Razer Snap Tap and Wooting Snappy Tappy are now explicitly illegal in official Valve matchmaking.**
+
+Check the [Wooting Official Statement on SOCD Banning](https://wooting.io) for their firmware roadmap response.
 
 ### How the Detection Works:
 - The CS2 engine now performs client-side heuristic timing analysis on counter-strafing input deltas.
@@ -371,11 +890,31 @@ Try this out and report your frame-time graphs below!', 'HARDWARE', 1120, 6, 290
 - **Purists**: Cheering that counter-strafing requires real human mechanical skill again instead of paying $200 for a keyboard that stops your momentum instantly.
 - **Hardware Buyers**: Demanding refunds from Razer and Wooting after spending $180-$220 marketed specifically with ''CS2 Competitive Edge'' promotional banners.
 
-Did Valve do the right thing or should hardware innovations be embraced?', 'GAMING NEWS', 1540, 8, 360, '["cs2", "valve", "snaptap", "wooting", "esports", "anticheat", "gaming"]', 1789689200000, 1789689200000),
-('post-cs2-subtick-vs-128tick-debate', 'c/gaming', 'fp_wooting_chad', 'COMPETITIVE_GRINDER', 'After 1 year of CS2, it''s undeniable: Sub-tick still feels floaty compared to native 128-tick. Dying behind walls is worse than ever 🥊', 'Valve promised that Sub-tick would make tick rates obsolete:
+Did Valve do the right thing or should hardware innovations be embraced?',
+    'GAMING NEWS',
+    1540,
+    0,
+    8,
+    360,
+    NULL,
+    '{"src": "https://www.youtube.com/watch?v=l8_8W6xWp7E", "poster": "https://images.unsplash.com/photo-1587829741301-dc798b83add3?w=1200&auto=format&fit=crop&q=80"}',
+    '["https://images.unsplash.com/photo-1587829741301-dc798b83add3?w=1200&auto=format&fit=crop&q=80"]',
+    NULL,
+    NULL,
+    'published',
+    1789689200000,
+    0
+),
+(
+    'post-cs2-subtick-vs-128tick-debate',
+    'c/gaming',
+    'fp_wooting_chad',
+    'COMPETITIVE_GRINDER',
+    'After 1 year of CS2, it''s undeniable: Sub-tick still feels floaty compared to native 128-tick. Dying behind walls is worse than ever 🥊',
+    'Valve promised that Sub-tick would make tick rates obsolete:
 *''What you see is what you get.''*
 
-One year later in competitive Premier (20k+ rating), the consensus among high-level players is unanimous:
+Read the full tick analysis on [HLTV CS2 Sub-Tick Mechanics Breakdown](https://www.hltv.org). One year later in competitive Premier (20k+ rating), the consensus among high-level players is unanimous:
 
 ### 1. Dying Behind Walls (De-sync)
 Because sub-tick timestamps the EXACT moment the enemy clicked their mouse on their client, if they shoot you while you are peeking, the server honors their timestamp even if your client has already moved 2 steps behind solid concrete! You literally collapse around the corner like a cartoon character.
@@ -386,8 +925,30 @@ In CS:GO 128-tick, recoil patterns and bullet impacts were synchronized to the f
 ### 3. FaceIT Hardcoded Lock
 Remember when FaceIT tried to run 128-tick servers in the early beta, and Valve literally pushed a hardcoded patch to FORCE all third-party community servers to run at 64-tick sub-tick?
 
-Why did Valve refuse to just give us dedicated 128-tick servers like Valorant has had since day one?', 'HOT TAKE', 1190, 6, 240, '["cs2", "subtick", "counterstrike", "valve", "faceit", "fps", "esports"]', 1789718000000, 1789718000000),
-('post-deadlock-170k-concurrent', 'c/gaming', 'fp_alex_dev', 'ESPORTS_DEV', 'Deadlock hits 170,000 peak players while still in unannounced closed invite-only playtest. Is Valve quietly building the biggest MOBA shooter ever? 🧪💥', 'Valve''s new project *Deadlock* (formerly Neon Prime / Citadel) is pulling off something never seen before in gaming:
+Why did Valve refuse to just give us dedicated 128-tick servers like Valorant has had since day one?',
+    'HOT TAKE',
+    1190,
+    0,
+    6,
+    240,
+    NULL,
+    NULL,
+    '["https://images.unsplash.com/photo-1538481199705-c710c4e965fc?w=1200&auto=format&fit=crop&q=80"]',
+    NULL,
+    NULL,
+    'published',
+    1789718000000,
+    0
+),
+(
+    'post-deadlock-170k-concurrent',
+    'c/gaming',
+    'fp_alex_dev',
+    'ESPORTS_DEV',
+    'Deadlock hits 170,000 peak players while still in unannounced closed invite-only playtest. Is Valve quietly building the biggest MOBA shooter ever? 🧪💥',
+    'Valve''s new project *Deadlock* (formerly Neon Prime / Citadel) is pulling off something never seen before in gaming:
+
+Check the live stats on [SteamDB Deadlock Concurrent Player Charts](https://steamdb.info/app/1422450/charts/) and join the discussion on [Valve Deadlock Developer Forum](https://forums.playdeadlock.com).
 
 - No official trailer.
 - No store page marketing.
@@ -401,10 +962,30 @@ What makes it so addictive:
 2. **True MOBA Macro**: 4 lanes, soul collection, active item actives (Warp Stone, Refresher, Silencer), and base patron defense. It''s not a hero shooter like Overwatch; it is a full 6v6 Dota shooter!
 3. **The ''One More Game'' Loop**: Games last 25-35 minutes with massive comeback mechanics via Urn deliveries and Mid Boss rejuvinators.
 
-Overwatch 2 and Concord are completely obsolete in comparison. Has Valve struck gold again?', 'GAMING NEWS', 1260, 6, 320, '["deadlock", "valve", "steam", "moba", "esports", "overwatch", "dota2"]', 1789739600000, 1789739600000),
-('post-deadlock-yamato-viscous-rework', 'c/gaming', 'fp_wooting_chad', 'DEADLOCK_TRYHARD', 'The latest Deadlock balance patch completely gutted Yamato''s Shadow Transformation and buffed Viscous Puddle Punch. High MMR lobbies are unplayable 🪼⚔️', 'IceFrog or whoever is balancing Deadlock at Valve needs to stop smoking whatever they are smoking in Bellevue.
+Overwatch 2 and Concord are completely obsolete in comparison. Has Valve struck gold again?',
+    'GAMING NEWS',
+    1260,
+    0,
+    6,
+    320,
+    NULL,
+    '{"src": "https://www.youtube.com/watch?v=j3v7oM3Z1v4", "poster": "https://images.unsplash.com/photo-1542751371-adc38448a05e?w=1200&auto=format&fit=crop&q=80"}',
+    '["https://images.unsplash.com/photo-1542751371-adc38448a05e?w=1200&auto=format&fit=crop&q=80"]',
+    NULL,
+    NULL,
+    'published',
+    1789739600000,
+    0
+),
+(
+    'post-deadlock-yamato-viscous-rework',
+    'c/gaming',
+    'fp_wooting_chad',
+    'DEADLOCK_TRYHARD',
+    'The latest Deadlock balance patch completely gutted Yamato''s Shadow Transformation and buffed Viscous Puddle Punch. High MMR lobbies are unplayable 🪼⚔️',
+    'IceFrog or whoever is balancing Deadlock at Valve needs to stop smoking whatever they are smoking in Bellevue.
 
-Patch 08.28 breakdown:
+Check the changelog at [Deadlock Balance Patch 08.28 Notes](https://forums.playdeadlock.com).
 
 ### Yamato Nerfs:
 - **Shadow Transformation (Ult)**: Duration reduced from 5.5s -> 4.0s.
@@ -417,8 +998,28 @@ Yamato went from a terrifying samurai dive-bomber to a squishy walking soul piñ
 - **The Cube**: Can now be cast on allies while stunned or silenced!
 High-MMR lobbies are now literally just 6 green slimes rolling around in invincible bowling balls, punching you into enemy patron towers from 40 meters away.
 
-Who thought giving an invincible green goo cube a 14-second cooldown was balanced?', 'TECH DISCUSSION', 760, 6, 130, '["deadlock", "icefrog", "balance", "yamato", "viscous", "patchnotes", "moba"]', 1789761200000, 1789761200000),
-('post-vacnet-3-match-cancellation', 'c/technology', 'fp_zenith_fps', 'SECURITY_RESEARCHER', 'Valve''s new VACnet 3.0 server-side AI anticheat is now live-cancelling matches when spinbots are detected. Does it actually work or false-ban legit flickers? 🛡️🤖', 'Valve has quietly enabled **VACnet 3.0 (Live Match Cancellation)** in CS2 competitive servers across Europe and North America:
+Who thought giving an invincible green goo cube a 14-second cooldown was balanced?',
+    'TECH DISCUSSION',
+    760,
+    0,
+    6,
+    130,
+    NULL,
+    NULL,
+    '["https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=1200&auto=format&fit=crop&q=80"]',
+    NULL,
+    NULL,
+    'published',
+    1789761200000,
+    0
+),
+(
+    'post-vacnet-3-match-cancellation',
+    'c/technology',
+    'fp_zenith_fps',
+    'SECURITY_RESEARCHER',
+    'Valve''s new VACnet 3.0 server-side AI anticheat is now live-cancelling matches when spinbots are detected. Does it actually work or false-ban legit flickers? 🛡️🤖',
+    'Valve has quietly enabled **VACnet 3.0 (Live Match Cancellation)** in CS2 competitive servers across Europe and North America according to [Valve Security Bulletin VACnet 3.0](https://www.valvesoftware.com):
 
 When the server-side machine learning model detects anomalous angular velocity (pitch/yaw snapping exceeding human biomechanical limits, aka spinbots or rapid aimlocks):
 - The match is halted immediately on the active round.
@@ -428,9 +1029,29 @@ When the server-side machine learning model detects anomalous angular velocity (
 ### The Controversy:
 Over the past 72 hours, multiple tier-2 semi-pro players have posted clips of being kicked for ''input anomaly'' after performing extreme high-DPI mouse flicks with lightweight 35-gram gaming mice (Razer Viper Mini SE, Finalmouse).
 
-Can an AI anticheat reliably differentiate between a 20,000 eDPI mouse flick and an aimbot memory injection without installing kernel-level drivers?', 'TECH DISCUSSION', 890, 6, 180, '["vacnet", "cs2", "anticheat", "ai", "valve", "security", "machinelearning"]', 1789782800000, 1789782800000),
-('post-silksong-nintendo-direct-clown', 'c/gaming', 'fp_chloe_gamedev', 'INDIE_DEV', 'Another Nintendo Direct showcase, another 40 minutes of staring at anime farming sims waiting for Silksong. Honk honk 🤡🔴', 'It is September 2026.
-Over **2,770 days** since Hollow Knight: Silksong was officially announced in February 2019.
+Can an AI anticheat reliably differentiate between a 20,000 eDPI mouse flick and an aimbot memory injection without installing kernel-level drivers?',
+    'TECH DISCUSSION',
+    890,
+    0,
+    6,
+    180,
+    NULL,
+    '{"src": "https://www.youtube.com/watch?v=1S0aBV-Waeo", "poster": "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=1200&auto=format&fit=crop&q=80"}',
+    NULL,
+    NULL,
+    NULL,
+    'published',
+    1789782800000,
+    0
+),
+(
+    'post-silksong-nintendo-direct-clown',
+    'c/gaming',
+    'fp_chloe_gamedev',
+    'INDIE_DEV',
+    'Another Nintendo Direct showcase, another 40 minutes of staring at anime farming sims waiting for Silksong. Honk honk 🤡🔴',
+    'It is September 2026.
+Over **2,770 days** since Hollow Knight: Silksong was officially announced in February 2019 ([Nintendo Life Silksong Coverage](https://www.nintendolife.com) and [Team Cherry Kickstarter Archive](https://www.kickstarter.com/projects/teamcherry/hollow-knight)).
 
 Here is the exact live ritual:
 1. 10:00 AM: ''Team Cherry was spotted eating lunch in Adelaide, today is definitely the day!''
@@ -440,8 +1061,28 @@ Here is the exact live ritual:
 5. YouTube live chat transforms into an ocean of clown emojis: 🤡🤡🤡🤡🤡
 6. We pack up the circus tent and tell ourselves ''The Game Awards will definately have it!''
 
-Team Cherry has three employees. Did Ari Gibson and William Pellen accidentally code an entire operating system inside Hollow Knight? What are they even doing at this point?', 'MEME / SHITPOST', 1720, 8, 510, '["silksong", "hollowknight", "clown", "teamcherry", "copium", "nintendodirect"]', 1789671200000, 1789671200000),
-('post-silksong-steam-db-changelist', 'c/gaming', 'fp_glitch_reaper', 'DATA_MINER', 'HOLD ON: SteamDB changelist 2891040 just updated Hollow Knight Silksong depot with a 4.2GB encrypted branch! Is the copium finally paying off?! 🚨🔍', 'Do NOT panic, but at 03:14 UTC this morning, the Steam backend depot for App ID **1030300 (Hollow Knight: Silksong)** received its first major build update in 8 months:
+Team Cherry has three employees. Did Ari Gibson and William Pellen accidentally code an entire operating system inside Hollow Knight? What are they even doing at this point?',
+    'MEME / SHITPOST',
+    1720,
+    0,
+    8,
+    510,
+    NULL,
+    '{"src": "https://www.youtube.com/watch?v=pFAknD_9U7c", "poster": "https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=1200&auto=format&fit=crop&q=80"}',
+    '["https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=1200&auto=format&fit=crop&q=80"]',
+    NULL,
+    NULL,
+    'published',
+    1789671200000,
+    0
+),
+(
+    'post-silksong-steam-db-changelist',
+    'c/gaming',
+    'fp_glitch_reaper',
+    'DATA_MINER',
+    'HOLD ON: SteamDB changelist 2891040 just updated Hollow Knight Silksong depot with a 4.2GB encrypted branch! Is the copium finally paying off?! 🚨🔍',
+    'Do NOT panic, but at 03:14 UTC this morning, the Steam backend depot for App ID **1030300 (Hollow Knight: Silksong)** received its first major build update in 8 months, tracked live on [SteamDB Silksong App 1030300 Depot History](https://steamdb.info/app/1030300/history/):
 
 ```text
 ChangeList: 2891040
@@ -456,13 +1097,33 @@ For context:
 - A 4.2 GB encrypted content package indicates an internal Release Candidate (RC) build pushed to Valve for store certification!
 - In Steam release cycles, an RC3 staging tag typically precedes a store page pre-purchase unlock by **4 to 6 weeks**!
 
-Are we actually in the endgame, or did Matthew Griffin just upload a dummy encrypted archive to watch Reddit lose its collective mind?', 'LEAK / RUMOR', 1410, 6, 395, '["silksong", "steamdb", "leak", "teamcherry", "steam", "gaming"]', 1789707200000, 1789707200000),
-('post-silksong-duke-nukem-syndrome', 'c/gaming', 'cynic_dan_90s', 'VETERAN_DEV', 'Team Cherry''s radio silence has crossed the line from ''let them cook'' to borderline disrespectful to the Kickstarter backers who made them famous 🗣️', 'Let''s take off the clown memes for a second and speak uncomfortable truths:
+Are we actually in the endgame, or did Matthew Griffin just upload a dummy encrypted archive to watch Reddit lose its collective mind?',
+    'LEAK / RUMOR',
+    1410,
+    0,
+    6,
+    395,
+    NULL,
+    NULL,
+    '["https://images.unsplash.com/photo-1555680202-c86f0e12f086?w=1200&auto=format&fit=crop&q=80"]',
+    NULL,
+    NULL,
+    'published',
+    1789707200000,
+    0
+),
+(
+    'post-silksong-duke-nukem-syndrome',
+    'c/gaming',
+    'cynic_dan_90s',
+    'VETERAN_DEV',
+    'Team Cherry''s radio silence has crossed the line from ''let them cook'' to borderline disrespectful to the Kickstarter backers who made them famous 🗣️',
+    'Let''s take off the clown memes for a second and speak uncomfortable truths:
 
-In 2014, Hollow Knight was funded by **2,158 Kickstarter backers** who pledged $57,000 AUD. One of the official stretch goals was a **second playable character (Hornet)** with her own questline.
+In 2014, Hollow Knight was funded by **2,158 Kickstarter backers** who pledged $57,000 AUD ([Team Cherry Kickstarter Archive](https://www.kickstarter.com/projects/teamcherry/hollow-knight)). One of the official stretch goals was a **second playable character (Hornet)** with her own questline.
 
 That stretch goal evolved into a standalone sequel: *Silksong*.
-Every original backer was promised a free digital copy of Silksong on release day.
+Every original backer was promised a free digital copy of Silksong on release day, reaffirmed during the [Xbox Wire 2022 Showcase Recap](https://news.xbox.com).
 
 **Yet for over 3 years, Team Cherry has not posted a single official blog post to Kickstarter backers:**
 - No dev diaries.
@@ -472,10 +1133,30 @@ Every original backer was promised a free digital copy of Silksong on release da
 
 Backers funded your studio when you had zero money. The gaming community made you multi-millionaires. Taking 30 seconds once every 6 months to write: *''Hey, here is what we worked on this quarter, here is why it''s taking longer''* is the absolute bare minimum courtesy.
 
-Why does indie stardom always breed total communication arrogance?', 'HOT TAKE', 1210, 7, 280, '["silksong", "teamcherry", "kickstarter", "indiegames", "transparency", "hollowknight"]', 1789732400000, 1789732400000),
-('post-silksong-geoff-keighley-banned-word', 'c/gaming', 'fp_kai_bloxfan', 'CHAT_TROLL', 'Geoff Keighley literally auto-mod timing out anyone who types ''SKONG'' or ''SILKSONG'' in Summer Game Fest chat is the peak comedy of 2026 🚫🎪', 'I cannot stop laughing.
+Why does indie stardom always breed total communication arrogance?',
+    'HOT TAKE',
+    1210,
+    0,
+    7,
+    280,
+    NULL,
+    NULL,
+    '["https://images.unsplash.com/photo-1511512578047-dfb367046420?w=1200&auto=format&fit=crop&q=80"]',
+    NULL,
+    NULL,
+    'published',
+    1789732400000,
+    0
+),
+(
+    'post-silksong-geoff-keighley-banned-word',
+    'c/gaming',
+    'fp_kai_bloxfan',
+    'CHAT_TROLL',
+    'Geoff Keighley literally auto-mod timing out anyone who types ''SKONG'' or ''SILKSONG'' in Summer Game Fest chat is the peak comedy of 2026 🚫🎪',
+    'I cannot stop laughing.
 
-During the Summer Game Fest opening stream, the live Twitch chat was moving at 100 messages per second.
+During the Summer Game Fest opening stream ([Summer Game Fest Twitch VOD](https://www.twitch.tv)), the live Twitch chat was moving at 100 messages per second.
 Every single time Geoff walked onto the stage to announce a world premiere:
 - Chat: *''SILKSONG?!''*
 - Chat: *''SKONG 📢''*
@@ -488,8 +1169,28 @@ By minute 25, the Twitch auto-mod filter kicked in:
 People immediately started bypassing the regex filter using leetspeak:
 `$1LKS0NG`, `S I L K S O N G`, `S-K-O-N-G`, `Adelaide Spider Game`.
 
-Geoff''s blood pressure must have been 180/120 looking at the stage monitor. We have officially driven the gaming industry''s biggest host to madness.', 'MEME / SHITPOST', 1580, 6, 420, '["silksong", "geoffkeighley", "summergamefest", "twitch", "meme", "skong"]', 1789754000000, 1789754000000),
-('post-silksong-switch2-launch-exclusive', 'c/gaming', 'ninty_loyalist_mario', 'NINTENDO_INSIDER', 'The only logical explanation: Nintendo paid Team Cherry an exclusivity bag to hold Silksong as a day-one launch title for Switch 2. Change my mind 💰🎮', 'Connect the dots, people:
+Geoff''s blood pressure must have been 180/120 looking at the stage monitor. We have officially driven the gaming industry''s biggest host to madness.',
+    'MEME / SHITPOST',
+    1580,
+    0,
+    6,
+    420,
+    NULL,
+    '{"src": "https://www.youtube.com/watch?v=pFAknD_9U7c", "poster": "https://images.unsplash.com/photo-1542751371-adc38448a05e?w=1200&auto=format&fit=crop&q=80"}',
+    NULL,
+    NULL,
+    NULL,
+    'published',
+    1789754000000,
+    0
+),
+(
+    'post-silksong-switch2-launch-exclusive',
+    'c/gaming',
+    'ninty_loyalist_mario',
+    'NINTENDO_INSIDER',
+    'The only logical explanation: Nintendo paid Team Cherry an exclusivity bag to hold Silksong as a day-one launch title for Switch 2. Change my mind 💰🎮',
+    'Connect the dots, people ([Nintendo Life Silksong Coverage](https://www.nintendolife.com)):
 
 1. **The Original Partnership**: Hollow Knight achieved its massive cultural explosion on the original Nintendo Switch in 2018 after Nintendo featured it in their E3 Direct. It sold over 3 million copies on Switch alone.
 2. **The 2022 Xbox Game Pass Delay**: Xbox showed Silksong in 2022 claiming it was coming to Game Pass on Day One within 12 months. Team Cherry officially delayed it in May 2023.
@@ -499,8 +1200,28 @@ What if Nintendo stepped in, paid Team Cherry millions for a **6-month timed con
 
 It explains the radio silence. It explains why Xbox stopped mentioning it. It explains why Team Cherry has no financial pressure to release early.
 
-Silksong is the Switch 2''s secret weapon. Convince me I''m wrong.', 'HOT TAKE', 990, 6, 210, '["silksong", "switch2", "nintendo", "exclusivity", "teamcherry", "gamepass"]', 1789775600000, 1789775600000),
-('post-erdtree-radahn-nerf-gatekeeping', 'c/gaming', 'fp_souls_vet', 'SOULS_SPEEDRUNNER', 'FromSoftware nerfed Promised Consort Radahn in Patch 1.14 (cross-slash, visibility, recovery frames) and the elitist gatekeepers are crying in the comments 😭⚔️', 'FromSoftware just dropped **Patch 1.14 for Shadow of the Erdtree**, and the patch notes confirmed what every sane player has been saying since June:
+Silksong is the Switch 2''s secret weapon. Convince me I''m wrong.',
+    'HOT TAKE',
+    990,
+    0,
+    6,
+    210,
+    NULL,
+    NULL,
+    '["https://images.unsplash.com/photo-1612287232258-a5ec0906be70?w=1200&auto=format&fit=crop&q=80"]',
+    NULL,
+    NULL,
+    'published',
+    1789775600000,
+    0
+),
+(
+    'post-erdtree-radahn-nerf-gatekeeping',
+    'c/gaming',
+    'fp_souls_vet',
+    'SOULS_SPEEDRUNNER',
+    'FromSoftware nerfed Promised Consort Radahn in Patch 1.14 (cross-slash, visibility, recovery frames) and the elitist gatekeepers are crying in the comments 😭⚔️',
+    'FromSoftware just dropped **Patch 1.14 for Shadow of the Erdtree** ([FromSoftware Official Patch 1.14 Notes](https://www.bandainamcoent.com/news/elden-ring-patch-notes-version-1-14)), and the patch notes confirmed what every sane player has been saying since June:
 
 **Promised Consort Radahn has been heavily nerfed:**
 1. **The Infamous Cross-Slash Combo**: The startup delay of the second slash was lengthened, and the hitbox radius was shrunk. You can now cleanly dodge it with a standard medium roll without hugging his left ankle!
@@ -513,8 +1234,28 @@ Souls gatekeepers are having a complete identity breakdown:
 *''You didn''t beat the REAL Radahn unless you beat him pre-1.14!''*
 *''Participation trophy generation!''*
 
-Why do Souls elitists treat artificial bad hitbox design and blinding VFX as a badge of honor?', 'HOT TAKE', 1490, 8, 330, '["eldenring", "shadowoferdtree", "radahn", "fromsoftware", "nerf", "soulslike", "patch114"]', 1789689200000, 1789689200000),
-('post-radahn-hitbox-frame-data-truth', 'c/gaming', 'fp_glitch_reaper', 'FRAME_DATA_ANALYST', 'Frame-by-frame hitbox breakdown: Why pre-nerf Radahn''s 1-2 cross slash was mathematically impossible to medium roll dodge without specific positioning 📐', 'Let''s put the ''skill issue'' debate to rest permanently using exported Havok collision sub-meshes from Elden Ring build 1.12.1:
+Why do Souls elitists treat artificial bad hitbox design and blinding VFX as a badge of honor?',
+    'HOT TAKE',
+    1490,
+    0,
+    8,
+    330,
+    NULL,
+    '{"src": "https://www.youtube.com/watch?v=qLZenOn7WUo", "poster": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1200&auto=format&fit=crop&q=80"}',
+    '["https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1200&auto=format&fit=crop&q=80"]',
+    NULL,
+    NULL,
+    'published',
+    1789689200000,
+    0
+),
+(
+    'post-radahn-hitbox-frame-data-truth',
+    'c/gaming',
+    'fp_glitch_reaper',
+    'FRAME_DATA_ANALYST',
+    'Frame-by-frame hitbox breakdown: Why pre-nerf Radahn''s 1-2 cross slash was mathematically impossible to medium roll dodge without specific positioning 📐',
+    'Let''s put the ''skill issue'' debate to rest permanently using exported Havok collision sub-meshes from Elden Ring build 1.12.1, corroborated by [Tarnished Archeology Hitbox Breakdown](https://www.youtube.com):
 
 ### The Pre-Nerf Attack Frame Data:
 - **Slash 1 Startup**: 18 frames (at 60 FPS).
@@ -535,8 +1276,28 @@ Why do Souls elitists treat artificial bad hitbox design and blinding VFX as a b
 
 When a boss attack forces 95% of standard build archetypes into taking unavoidable chip damage, that is objectively poor combat design. Patch 1.14 adding 4 frames of startup delay between swings made the fight mechanically fair.
 
-Frame data doesn''t lie.', 'TECH DISCUSSION', 1180, 6, 260, '["eldenring", "framedata", "hitbox", "gamedev", "radahn", "analysis"]', 1789725200000, 1789725200000),
-('post-wukong-20-million-sales-wake-up', 'c/gaming', 'fp_kai_bloxfan', 'GAMING_CRITIC', 'Black Myth: Wukong selling 20M+ copies in one month with no microtransactions, no battle pass, and single-player focus is a wake-up call to Western AAA 🐒👑', 'Game Science''s *Black Myth: Wukong* has officially crossed **20,000,000 copies sold** across Steam and PlayStation 5 in just one month, generating over **$800 million in gross revenue**:
+Frame data doesn''t lie.',
+    'TECH DISCUSSION',
+    1180,
+    0,
+    6,
+    260,
+    NULL,
+    NULL,
+    '["https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=1200&auto=format&fit=crop&q=80"]',
+    NULL,
+    NULL,
+    'published',
+    1789725200000,
+    0
+),
+(
+    'post-wukong-20-million-sales-wake-up',
+    'c/gaming',
+    'fp_kai_bloxfan',
+    'GAMING_CRITIC',
+    'Black Myth: Wukong selling 20M+ copies in one month with no microtransactions, no battle pass, and single-player focus is a wake-up call to Western AAA 🐒👑',
+    'Game Science''s *Black Myth: Wukong* has officially crossed **20,000,000 copies sold** across Steam and PlayStation 5 in just one month ([SteamDB Black Myth: Wukong Charts](https://steamdb.info/app/2358720/charts/) and [Game Science Black Myth Official Site](https://www.heishenhua.com)), generating over **$800 million in gross revenue**:
 
 Let''s look at what Game Science did:
 1. **No Microtransactions**: No skin shops, no loot boxes, no $20 seasonal battle passes.
@@ -549,10 +1310,30 @@ Meanwhile, Western AAA publishers in 2026:
 - Warner Bros lost $200M chasing live-service suicide squad games.
 - Ubisoft is delaying Assassin''s Creed after disastrous pre-orders and collapsing stock prices.
 
-Gamers don''t hate modern games. Gamers hate cynical, corporate monetization disguised as games. When will western executives wake up?', 'GAMING NEWS', 1650, 7, 480, '["blackmythwukong", "wukong", "steam", "sales", "singleplayer", "gamedev", "goty"]', 1789746800000, 1789746800000),
-('post-wukong-xbox-series-s-memory-leak', 'c/gaming', 'fp_alex_dev', 'SYSTEMS_DEV', 'Leaked technical post-mortem: Wukong''s Xbox delay wasn''t an exclusivity deal, it was the Series S having only 10GB shared RAM causing constant out-of-memory crashes 📉', 'Remember when Black Myth: Wukong launched on PC and PS5, but the Xbox Series X/S version was indefinitely delayed, leading to wild rumors of a secret Sony paid exclusivity deal?
+Gamers don''t hate modern games. Gamers hate cynical, corporate monetization disguised as games. When will western executives wake up?',
+    'GAMING NEWS',
+    1650,
+    0,
+    7,
+    480,
+    NULL,
+    '{"src": "https://www.youtube.com/watch?v=O23HMnhVw38", "poster": "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=1200&auto=format&fit=crop&q=80"}',
+    '["https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=1200&auto=format&fit=crop&q=80"]',
+    NULL,
+    NULL,
+    'published',
+    1789746800000,
+    0
+),
+(
+    'post-wukong-xbox-series-s-memory-leak',
+    'c/gaming',
+    'fp_alex_dev',
+    'SYSTEMS_DEV',
+    'Leaked technical post-mortem: Wukong''s Xbox delay wasn''t an exclusivity deal, it was the Series S having only 10GB shared RAM causing constant out-of-memory crashes 📉',
+    'Remember when Black Myth: Wukong launched on PC and PS5, but the Xbox Series X/S version was indefinitely delayed, leading to wild rumors of a secret Sony paid exclusivity deal?
 
-An engineering post-mortem from a porting contractor working with Game Science has leaked the real truth:
+An engineering post-mortem from a porting contractor working with Game Science (analyzed in [Digital Foundry Series S Memory Allocation Analysis](https://www.eurogamer.net/digitalfoundry)) has leaked the real truth:
 
 **The Xbox Series S unified memory bottleneck:**
 - Xbox Series S has **10GB total GDDR6 memory**.
@@ -563,8 +1344,28 @@ An engineering post-mortem from a porting contractor working with Game Science h
 
 Microsoft''s strict **Feature Parity Mandate** forbids developers from releasing a game on Series X unless it also launches simultaneously with the exact same features on Series S.
 
-Has the $299 Series S become a generational anchor holding back ninth-gen gaming?', 'HARDWARE', 1080, 6, 240, '["wukong", "xbox", "seriesS", "hardware", "unrealengine5", "memory", "gaming"]', 1789768400000, 1789768400000),
-('post-wukong-vs-shadow-erdtree-combat', 'c/gaming', 'fp_souls_vet', 'COMBAT_ANALYST', 'Combat design debate: Black Myth Wukong''s fluid dodge-cancel stance rhythm vs Elden Ring''s roll-poke patience. Which boss design is healthier? 🥋⚔️', 'Having completed both *Shadow of the Erdtree* (pre and post-nerf) and *Black Myth: Wukong* to New Game+3, I think we are witnessing a philosophical divergence in action RPG combat design:
+Has the $299 Series S become a generational anchor holding back ninth-gen gaming?',
+    'HARDWARE',
+    1080,
+    0,
+    6,
+    240,
+    NULL,
+    NULL,
+    '["https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=1200&auto=format&fit=crop&q=80"]',
+    NULL,
+    NULL,
+    'published',
+    1789768400000,
+    0
+),
+(
+    'post-wukong-vs-shadow-erdtree-combat',
+    'c/gaming',
+    'fp_souls_vet',
+    'COMBAT_ANALYST',
+    'Combat design debate: Black Myth Wukong''s fluid dodge-cancel stance rhythm vs Elden Ring''s roll-poke patience. Which boss design is healthier? 🥋⚔️',
+    'Having completed both *Shadow of the Erdtree* ([FromSoftware Official Site](https://www.fromsoftware.jp)) and *Black Myth: Wukong* ([Game Science Black Myth Official Site](https://www.heishenhua.com)) to New Game+3, I think we are witnessing a philosophical divergence in action RPG combat design:
 
 ### 1. Elden Ring''s Boss Philosophy (Turn-Based Simulation)
 Bosses like Malenia, Messmer, and Radahn execute 7-hit to 12-hit anime combos with delayed windups. The player''s role is primarily passive:
@@ -581,12 +1382,31 @@ Wukong gives the player proactive tools to dictate pacing:
 
 In Wukong, when you master a boss, you look like a god dancing around them. In Elden Ring, you look like someone doing synchronized gymnastics rolls waiting for an opening.
 
-Which combat loop feels more mechanically rewarding?', 'TECH DISCUSSION', 970, 6, 210, '["wukong", "eldenring", "combat", "gamedev", "bossdesign", "gaming"]', 1789782800000, 1789782800000),
-('post-denuvo-15percent-low-fps-proof', 'c/gaming', 'fp_cyber_samurai', 'BENCHMARK_EXPERT', 'Comprehensive benchmark testing: Denuvo Anti-Tamper causes up to 18% drops in 1% low frame rates and periodic micro-stutters in UE5 games 📉', 'Whenever a publisher includes **Denuvo Anti-Tamper**, PR reps claim:
+Which combat loop feels more mechanically rewarding?',
+    'TECH DISCUSSION',
+    970,
+    0,
+    6,
+    210,
+    NULL,
+    '{"src": "https://www.youtube.com/watch?v=O23HMnhVw38", "poster": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1200&auto=format&fit=crop&q=80"}',
+    NULL,
+    NULL,
+    NULL,
+    'published',
+    1789782800000,
+    0
+),
+(
+    'post-denuvo-15percent-low-fps-proof',
+    'c/gaming',
+    'fp_cyber_samurai',
+    'BENCHMARK_EXPERT',
+    'Comprehensive benchmark testing: Denuvo Anti-Tamper causes up to 18% drops in 1% low frame rates and periodic micro-stutters in UE5 games 📉',
+    'Whenever a publisher includes **Denuvo Anti-Tamper**, PR reps claim:
 *''Denuvo has zero perceptible impact on gaming performance.''*
 
-We finally have scientific, apples-to-apples proof that this is a blatant lie.
-Following a recent publisher build leak where an uncompressed DRM-free debug binary was shipped alongside the Denuvo-protected production build, we ran 100 identical benchmark passes:
+We finally have scientific, apples-to-apples proof that this is a blatant lie, confirmed in the [Ars Technica Anti-Tamper Performance Audit](https://arstechnica.com). Following a recent publisher build leak where an uncompressed DRM-free debug binary was shipped alongside the Denuvo-protected production build, we ran 100 identical benchmark passes:
 
 ### Test Rig:
 - Core i7-14700K, RTX 4070 Ti Super, 32GB DDR5-6400, NVMe PCIe 4.0.
@@ -603,8 +1423,28 @@ Following a recent publisher build leak where an uncompressed DRM-free debug bin
 ### Why This Happens:
 Denuvo injects virtual machine obfuscation triggers directly into tick-based gameplay loops (player movement, damage calculation, physics triggers). When the game queries CPU memory, the encrypted VM bytecode decrypts on the fly, stalling CPU cache lines and causing frame-time spikes!
 
-Paying customers get micro-stutter. When will publishers stop punishing the people who actually buy their games?', 'HARDWARE', 1580, 6, 420, '["denuvo", "drm", "benchmarks", "performance", "pcgaming", "stutter", "frametime"]', 1789682000000, 1789682000000),
-('post-denuvo-accidental-drm-free-exe', 'c/gaming', 'fp_glitch_reaper', 'REVERSE_ENGINEER', 'Developer forgets to protect release .exe on Steam, uploads Denuvo-free binary by mistake: 15 GB less RAM usage and zero loading hitching reported! 🚀', 'It happened AGAIN.
+Paying customers get micro-stutter. When will publishers stop punishing the people who actually buy their games?',
+    'HARDWARE',
+    1580,
+    0,
+    6,
+    420,
+    NULL,
+    '{"src": "https://www.youtube.com/watch?v=s-lFgbzU3LY", "poster": "https://images.unsplash.com/photo-1591799264318-7e6ef8ddb7ea?w=1200&auto=format&fit=crop&q=80"}',
+    '["https://images.unsplash.com/photo-1591799264318-7e6ef8ddb7ea?w=1200&auto=format&fit=crop&q=80"]',
+    NULL,
+    NULL,
+    'published',
+    1789682000000,
+    0
+),
+(
+    'post-denuvo-accidental-drm-free-exe',
+    'c/gaming',
+    'fp_glitch_reaper',
+    'REVERSE_ENGINEER',
+    'Developer forgets to protect release .exe on Steam, uploads Denuvo-free binary by mistake: 15 GB less RAM usage and zero loading hitching reported! 🚀',
+    'It happened AGAIN. See the report on [Steam Community Denuvo Removal Hub](https://steamcommunity.com).
 
 The QA deployment team for a major AAA action title accidentally uploaded an unstripped, Denuvo-free developer build (`Shipping_Win64_Dev.exe`) in today''s minor 1.04 Steam patch.
 
@@ -617,8 +1457,28 @@ Within 8 minutes, the community grabbed the binary before the publisher panicked
 
 The publisher has issued emergency takedown notices to Reddit and Steam forums, threatening bans for anyone running the official executable they themselves uploaded to paying customers!
 
-You literally cannot make this up.', 'GAMING NEWS', 1420, 6, 360, '["denuvo", "steam", "leak", "drm", "pcgaming", "blunder", "optimization"]', 1789718000000, 1789718000000),
-('post-denuvo-tracemark-watermarking', 'c/technology', 'fp_zenith_fps', 'SECURITY_ANALYST', 'Denuvo launches ''TraceMark'' technology that embeds invisible steganographic watermarks into video game frames to track beta testers and leakers 👁️🕵️', 'Irdeto (the parent company of Denuvo) has officially unveiled **TraceMark for Gaming**:
+You literally cannot make this up.',
+    'GAMING NEWS',
+    1420,
+    0,
+    6,
+    360,
+    NULL,
+    NULL,
+    '["https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=1200&auto=format&fit=crop&q=80"]',
+    NULL,
+    NULL,
+    'published',
+    1789718000000,
+    0
+),
+(
+    'post-denuvo-tracemark-watermarking',
+    'c/technology',
+    'fp_zenith_fps',
+    'SECURITY_ANALYST',
+    'Denuvo launches ''TraceMark'' technology that embeds invisible steganographic watermarks into video game frames to track beta testers and leakers 👁️🕵️',
+    'Irdeto (the parent company of Denuvo) has officially unveiled **TraceMark for Gaming** in the [Denuvo / Irdeto TraceMark Press Release](https://resources.irdeto.com):
 
 ### What It Does:
 According to their marketing whitepaper:
@@ -634,11 +1494,33 @@ According to their marketing whitepaper:
 2. **Surveillance Creep**: Every single gameplay frame you render is now a permanent biometric tracking beacon tied to your real identity.
 3. **What happens if a rogue actor decodes the watermark?** Your private IP and account ID are literally baked into your YouTube playthroughs!
 
-Are we ready for active watermarking surveillance inside our single-player video games?', 'TECH DISCUSSION', 960, 6, 210, '["denuvo", "tracemark", "drm", "privacy", "surveillance", "steganography", "gamedev"]', 1789739600000, 1789739600000),
-('post-gog-drm-free-preservation-2026', 'c/opensource', 'fp_emulation_vault', 'PRESERVATIONIST', 'In an era of server shutdowns, revoked licenses, and kernel-level DRM, GOG''s offline DRM-free installers are the only real digital ownership we have left 💾📦', 'Let''s look at what has happened to ''purchased'' video games in the last 2 years:
+Are we ready for active watermarking surveillance inside our single-player video games?',
+    'TECH DISCUSSION',
+    960,
+    0,
+    6,
+    210,
+    NULL,
+    NULL,
+    '["https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=1200&auto=format&fit=crop&q=80"]',
+    NULL,
+    NULL,
+    'published',
+    1789739600000,
+    0
+),
+(
+    'post-gog-drm-free-preservation-2026',
+    'c/opensource',
+    'fp_emulation_vault',
+    'PRESERVATIONIST',
+    'In an era of server shutdowns, revoked licenses, and kernel-level DRM, GOG''s offline DRM-free installers are the only real digital ownership we have left 💾📦',
+    'Let''s look at what has happened to ''purchased'' video games in the last 2 years:
 - Ubisoft revoked *The Crew* licenses from player libraries and deleted the game from existence.
 - Sony removed hundreds of purchased Discovery shows and games from PSN accounts without compensation.
 - Games with Denuvo become permanently unplayable when publishers shut down authentication servers 10 years later.
+
+Sign the [EU Stop Destroying Videogames Initiative](https://www.stopkillinggames.com) and read the [GOG DRM-Free Preservation Manifesto](https://www.gog.com).
 
 When you buy a game on Steam, PSN, or Xbox, you do **not own the game**. You own a revocable, temporary software license subject to arbitrary terms of service modifications.
 
@@ -647,11 +1529,31 @@ When you buy a game on Steam, PSN, or Xbox, you do **not own the game**. You own
 2. **Zero Activation Check**: No internet connection required. No online heartbeat. No client launcher needed.
 3. **True Longevity**: Put that installer on an external hard drive or NAS, and your grandchildren can install and play the game in 2050 on a desert island with zero network connectivity.
 
-If a game is available on both Steam and GOG, why would anyone with a functioning brain buy the locked DRM version?', 'TECH DISCUSSION', 1390, 6, 340, '["gog", "drmfree", "digitalpreservation", "ownership", "gaming", "steam", "preservation"]', 1789761200000, 1789761200000),
-('post-drm-piracy-superior-product', 'c/gaming', 'fps_snob_4k', 'PC_ENTHUSIAST', 'The greatest irony of PC gaming in 2026: Paying customers get Denuvo stutters, online check-ins, and locked files, while pirates get a cleaner, smoother experience 🏴‍☠️', 'Gabe Newell famously said 15 years ago:
+If a game is available on both Steam and GOG, why would anyone with a functioning brain buy the locked DRM version?',
+    'TECH DISCUSSION',
+    1390,
+    0,
+    6,
+    340,
+    NULL,
+    '{"src": "https://www.youtube.com/watch?v=OLRldZjty_s", "poster": "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=1200&auto=format&fit=crop&q=80"}',
+    '["https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=1200&auto=format&fit=crop&q=80"]',
+    NULL,
+    NULL,
+    'published',
+    1789761200000,
+    0
+),
+(
+    'post-drm-piracy-superior-product',
+    'c/gaming',
+    'fps_snob_4k',
+    'PC_ENTHUSIAST',
+    'The greatest irony of PC gaming in 2026: Paying customers get Denuvo stutters, online check-ins, and locked files, while pirates get a cleaner, smoother experience 🏴‍☠️',
+    'Gabe Newell famously said 15 years ago:
 *''Piracy is almost always a service problem, not a pricing problem.''*
 
-In 2026, the PC gaming industry has managed to make piracy not just a better service, but a **measurably superior technical product**:
+Read the [Ars Technica Anti-Tamper Performance Audit](https://arstechnica.com) to see how in 2026, the PC gaming industry has managed to make piracy not just a better service, but a **measurably superior technical product**:
 
 ### The Paying Customer Experience ($70 - $100):
 - Forces you to install an unwanted third-party launcher (EA App, Ubisoft Connect, Rockstar Launcher) that runs background telemetry daemons.
@@ -665,8 +1567,28 @@ In 2026, the PC gaming industry has managed to make piracy not just a better ser
 - Zero secondary launchers, zero telemetry, zero mandatory internet connectivity.
 - Completely playable on Linux / Steam Deck without launcher compatibility layer headaches.
 
-Why are video game publishers actively creating an incentive structure where pirating a game gives a more premium user experience than legally paying for it?', 'HOT TAKE', 1510, 7, 380, '["drm", "denuvo", "piracy", "gabenewell", "steam", "pcgaming", "consumerrights"]', 1789779200000, 1789779200000),
-('post-deepseek-r1-dual-3090-local', 'c/privacy-ai', 'fp_mayalin_ai', 'AI_RESEARCHER', 'Running DeepSeek R1 reasoning model locally on two used RTX 3090s via Ollama: Benchmark reasoning matches OpenAI o1 for $0/month after hardware 🧠⚡', 'For the past week, I have been running **DeepSeek-R1 (Full 671B MoE quantized via EXL2 / GGUF down to 32B/70B dense distilled equivalents)** locally on my home inference workstation:
+Why are video game publishers actively creating an incentive structure where pirating a game gives a more premium user experience than legally paying for it?',
+    'HOT TAKE',
+    1510,
+    0,
+    7,
+    380,
+    NULL,
+    NULL,
+    '["https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=1200&auto=format&fit=crop&q=80"]',
+    NULL,
+    NULL,
+    'published',
+    1789779200000,
+    0
+),
+(
+    'post-deepseek-r1-dual-3090-local',
+    'c/privacy-ai',
+    'fp_mayalin_ai',
+    'AI_RESEARCHER',
+    'Running DeepSeek R1 reasoning model locally on two used RTX 3090s via Ollama: Benchmark reasoning matches OpenAI o1 for $0/month after hardware 🧠⚡',
+    'For the past week, I have been running **DeepSeek-R1 (Full 671B MoE quantized via EXL2 / GGUF down to 32B/70B dense distilled equivalents)** locally on my home inference workstation ([ArXiv: DeepSeek-R1 Technical Report](https://arxiv.org/abs/2501.12948) and [GitHub Repository: deepseek-ai/DeepSeek-R1](https://github.com/deepseek-ai/DeepSeek-R1)):
 
 ### The Hardware Setup:
 - 2x used **Nvidia RTX 3090 24GB** ($650 each on secondary market = $1,300 total)
@@ -683,10 +1605,30 @@ Why are video game publishers actively creating an incentive structure where pir
 Most importantly:
 - **100% Privacy**: My codebases, proprietary financial models, and research papers NEVER leave my local network. Zero logging, zero corporate training data scraping.
 
-Why would any developer or enterprise pay $200/month for cloud API rate limits when you can own sovereign intelligence at your desk?', 'TECH DISCUSSION', 1640, 8, 480, '["deepseek", "localai", "localllm", "rtx3090", "privacy", "opensource", "o1"]', 1789696400000, 1789696400000),
-('post-llama3-3-70b-consumer-inference', 'c/opensource', 'fp_alex_dev', 'SYSTEMS_ARCHITECT', 'Meta''s Llama 3.3 70B running at 35 tokens/sec with EXL2 4.25bpw quant on a single RTX 4090 proves open weights have completely caught up 🦙⚡', 'Meta dropped **Llama 3.3 70B Instruct**, and the efficiency benchmarks on consumer GeForce silicon are nothing short of miraculous.
+Why would any developer or enterprise pay $200/month for cloud API rate limits when you can own sovereign intelligence at your desk?',
+    'TECH DISCUSSION',
+    1640,
+    0,
+    8,
+    480,
+    NULL,
+    '{"src": "https://www.youtube.com/watch?v=xBByvFrqmWU", "poster": "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=1200&auto=format&fit=crop&q=80"}',
+    '["https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=1200&auto=format&fit=crop&q=80"]',
+    NULL,
+    NULL,
+    'published',
+    1789696400000,
+    0
+),
+(
+    'post-llama3-3-70b-consumer-inference',
+    'c/opensource',
+    'fp_alex_dev',
+    'SYSTEMS_ARCHITECT',
+    'Meta''s Llama 3.3 70B running at 35 tokens/sec with EXL2 4.25bpw quant on a single RTX 4090 proves open weights have completely caught up 🦙⚡',
+    'Meta dropped **Llama 3.3 70B Instruct** ([Hugging Face Llama 3.3 70B Model Card](https://huggingface.co/meta-llama/Llama-3.3-70B-Instruct)), and the efficiency benchmarks on consumer GeForce silicon are nothing short of miraculous.
 
-Using **ExLlamaV2 v0.2.4** on Linux with an RTX 4090 (24GB VRAM):
+Using **ExLlamaV2 v0.2.4** ([GitHub Repository: turboderp/exllamav2](https://github.com/turboderp/exllamav2)) on Linux with an RTX 4090 (24GB VRAM):
 - Model: `Llama-3.3-70B-Instruct-exl2-4.25bpw`
 - VRAM Footprint: **21.8 GB** (leaves 2.2GB for 8k context KV cache!)
 - Prompt Processing Speed: **1,450 tokens/second**!
@@ -698,8 +1640,28 @@ In late 2026, you can run an frontier-class 70B model with a 128k context window
 
 The quality gap between proprietary closed models (GPT-4o, Claude 3.5 Sonnet) and open weights is now negligible for 90% of real-world coding and writing workflows.
 
-Why give your company''s proprietary IP to Microsoft or Amazon when you can run this inside your own firewall?', 'TECH DISCUSSION', 1380, 6, 310, '["llama3", "meta", "localllm", "rtx4090", "exllamav2", "opensource", "ai"]', 1789725200000, 1789725200000),
-('post-sam-altman-local-ai-panic', 'c/privacy-ai', 'local_ai_arch', 'FOSS_MAXIMALIST', 'Sam Altman claiming that local AI inference on consumer GPUs is ''economically inefficient'' is the most transparent vendor lock-in panic statement ever 🤡💸', 'During a recent tech summit fireside chat, Sam Altman was asked about the explosion of users running open-weights models (DeepSeek, Llama, Mistral) locally on Nvidia hardware.
+Why give your company''s proprietary IP to Microsoft or Amazon when you can run this inside your own firewall?',
+    'TECH DISCUSSION',
+    1380,
+    0,
+    6,
+    310,
+    NULL,
+    NULL,
+    '["https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=1200&auto=format&fit=crop&q=80"]',
+    NULL,
+    NULL,
+    'published',
+    1789725200000,
+    0
+),
+(
+    'post-sam-altman-local-ai-panic',
+    'c/privacy-ai',
+    'local_ai_arch',
+    'FOSS_MAXIMALIST',
+    'Sam Altman claiming that local AI inference on consumer GPUs is ''economically inefficient'' is the most transparent vendor lock-in panic statement ever 🤡💸',
+    'During a recent tech summit fireside chat ([TechCrunch Fireside Chat Coverage](https://techcrunch.com)), Sam Altman was asked about the explosion of users running open-weights models (DeepSeek, Llama, Mistral) locally on Nvidia hardware.
 
 His response:
 *''Running local models on personal devices is an inefficient allocation of compute. Centralized hyperscaler data centers achieve economies of scale and energy efficiencies that desktop PCs simply cannot match. The future of intelligence is utility compute delivered via the cloud.''*
@@ -714,8 +1676,28 @@ Centralized cloud AI has:
 - Sudden API price hikes and rate limits.
 - Total surveillance over your personal prompts.
 
-Don''t let cloud cartels convince you that owning your own compute is ''inefficient''. Your PC, your silicon, your weights.', 'HOT TAKE', 1550, 6, 390, '["samaltman", "openai", "localai", "cloud", "privacy", "lockin", "chatgpt"]', 1789743200000, 1789743200000),
-('post-ollama-vllm-exllamav2-shootout', 'c/opensource', 'fp_alex_dev', 'BENCHMARK_ENGINEER', 'Local LLM runtime shootout 2026: Ollama vs vLLM vs ExLlamaV2 vs llama.cpp on Linux. Throughput, KV cache compression, and VRAM efficiency compared ⚙️📊', 'We benchmarked the four most popular local inference engines running on an **Ubuntu 24.04 LTS rig with an RTX 4090 (24GB)** using **Qwen-2.5-Coder-32B**:
+Don''t let cloud cartels convince you that owning your own compute is ''inefficient''. Your PC, your silicon, your weights.',
+    'HOT TAKE',
+    1550,
+    0,
+    6,
+    390,
+    NULL,
+    '{"src": "https://www.youtube.com/watch?v=gYn9aWfG_p8", "poster": "https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=1200&auto=format&fit=crop&q=80"}',
+    NULL,
+    NULL,
+    NULL,
+    'published',
+    1789743200000,
+    0
+),
+(
+    'post-ollama-vllm-exllamav2-shootout',
+    'c/opensource',
+    'fp_alex_dev',
+    'BENCHMARK_ENGINEER',
+    'Local LLM runtime shootout 2026: Ollama vs vLLM vs ExLlamaV2 vs llama.cpp on Linux. Throughput, KV cache compression, and VRAM efficiency compared ⚙️📊',
+    'We benchmarked the four most popular local inference engines running on an **Ubuntu 24.04 LTS rig with an RTX 4090 (24GB)** using **Qwen-2.5-Coder-32B**, comparing results from [GitHub Repository: vllm-project/vllm](https://github.com/vllm-project/vllm) and [Ollama Official Library](https://ollama.com/library):
 
 ### 1. Ollama (The Beginner Standard)
 - **Ease of Use**: 10/10 (one-click installer, instant CLI).
@@ -740,19 +1722,53 @@ Don''t let cloud cartels convince you that owning your own compute is ''ineffici
 - **Batching**: Can handle **32 concurrent agent streams** without crashing.
 - **Verdict**: Overkill for one user, mandatory if you''re hosting an inference server for your team.
 
-What engine are you currently running in your stack?', 'TECH DISCUSSION', 1240, 6, 290, '["localllm", "ollama", "vllm", "exllamav2", "llamacpp", "benchmarks", "opensource"]', 1789761200000, 1789761200000),
-('post-enterprise-prompt-leaks-cloud-ai', 'c/privacy-ai', 'fp_zenith_fps', 'SECURITY_RESEARCHER', 'Enterprise AI audit reveals 3 major closed cloud AI providers were silently saving user chat embeddings into internal evaluation sets despite privacy opt-outs 🚨🕵️', 'A joint cybersecurity forensic audit conducted across Fortune 500 enterprise API endpoints has uncovered a massive data confidentiality breach:
+What engine are you currently running in your stack?',
+    'TECH DISCUSSION',
+    1240,
+    0,
+    6,
+    290,
+    NULL,
+    NULL,
+    '["https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=1200&auto=format&fit=crop&q=80", "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=1200&auto=format&fit=crop&q=80"]',
+    NULL,
+    NULL,
+    'published',
+    1789761200000,
+    0
+),
+(
+    'post-enterprise-prompt-leaks-cloud-ai',
+    'c/privacy-ai',
+    'fp_zenith_fps',
+    'SECURITY_RESEARCHER',
+    'Enterprise AI audit reveals 3 major closed cloud AI providers were silently saving user chat embeddings into internal evaluation sets despite privacy opt-outs 🚨🕵️',
+    'A joint cybersecurity forensic audit conducted across Fortune 500 enterprise API endpoints has uncovered a massive data confidentiality breach:
 
 Three major closed-source AI vendors (names redacted pending legal proceedings, but you can guess the usual suspects):
 - Marketed ''Zero Data Retention'' and ''Enterprise Privacy Tier (No Model Training)'' agreements costing upwards of $60,000/year per company.
 - **The Reality**: The audit discovered that while raw text strings were purged from production logs after 30 days, **vector embeddings and high-dimensional semantic latent vectors generated from enterprise prompts were systematically stored in long-term cold-storage buckets (`s3://internal-eval-vectors`)**!
-- In modern diffusion and transformer architectures, dense embeddings can be inverted using generative inversion algorithms to reconstruct **up to 75% of the original plaintext tokens**, including proprietary API keys, internal customer names, and unpublished patent draft claims!
+- In modern diffusion and transformer architectures (like [ArXiv: Vec2Text Generative Inversion](https://arxiv.org)), dense embeddings can be inverted using generative inversion algorithms to reconstruct **up to 75% of the original plaintext tokens**, including proprietary API keys, internal customer names, and unpublished patent draft claims!
 
 When confronted, one vendor''s legal counsel claimed that *''Vector embeddings do not constitute personally identifiable information under our privacy policy terms.''*
 
 If you are a company pasting trade secrets, NDA code, or medical records into closed cloud AI APIs because you paid for an ''Enterprise Shield'' toggle, your data is compromised.
 
-The only safe AI is local AI.', 'LEAK / RUMOR', 1470, 6, 410, '["privacy", "ai", "cloud", "security", "leak", "enterprise", "openai", "localllm"]', 1789790000000, 1789790000000);
+The only safe AI is local AI.',
+    'LEAK / RUMOR',
+    1470,
+    0,
+    6,
+    410,
+    NULL,
+    '{"src": "https://www.youtube.com/watch?v=1S0aBV-Waeo", "poster": "https://images.unsplash.com/photo-1563986768609-322da13575f3?w=1200&auto=format&fit=crop&q=80"}',
+    NULL,
+    NULL,
+    NULL,
+    'published',
+    1789790000000,
+    0
+);
 
 -- 3. INSERT THREADED COMMENTS (WITH REPLIES & TROLLS)
 INSERT OR REPLACE INTO comments (
@@ -900,7 +1916,7 @@ INSERT OR REPLACE INTO comments (
 ('c-mhw-fg-3', 'post-mhwilds-frame-gen-crutch', NULL, 'fp_souls_vet', 'As someone who plays precision timing games (Elden Ring, Monster Hunter), OP is 100% correct. Frame Gen below 60fps base feels like your hunter is wearing cement boots. You cannot counter reliably.', 175, 1789726460000),
 ('c-mhw-fg-4', 'post-mhwilds-frame-gen-crutch', NULL, 'just_a_casual_3060', 'wait fr??? i turned on frame gen on my 4060 and thought my wireless mouse was running out of battery because turning the camera felt so heavy lmao', 130, 1789726880000),
 ('c-mhw-fg-5', 'post-mhwilds-frame-gen-crutch', NULL, 'cynic_dan_90s', 'Nvidia and AMD marketed Frame Gen as a miracle, and greedy publishers immediately weaponized it to fire their QA optimization departments. We warned everyone two years ago.', 160, 1789727300000),
-('c-mhw-fg-6', 'post-mhwilds-frame-gen-crutch', NULL, 'fp_alex_dev', 'Nvidia''s own developer documentation explicitly states: ''Frame Generation is recommended for applications already running at a baseline of 60 FPS or higher.'' Publishers putting it in minimum specs are violating Nvidia''s own engineering guidelines.', 210, 1789727720000),
+('c-mhw-fg-6', 'post-mhwilds-frame-gen-crutch', 'c-mhw-fg-5', 'fp_alex_dev', 'Nvidia''s own developer documentation explicitly states: ''Frame Generation is recommended for applications already running at a baseline of 60 FPS or higher.'' Publishers putting it in minimum specs are violating Nvidia''s own engineering guidelines.', 210, 1789727720000),
 ('c-mhw-poly-1', 'post-mhwilds-origami-polygons-meme', NULL, 'bryan_plays', 'DUDE I SAW THIS HAPPEN ON TWITCH LMAO the chat was spamming ''Origami Hunter Wilds'' for an hour straight 💀', 140, 1789740020000),
 ('c-mhw-poly-2', 'post-mhwilds-origami-polygons-meme', NULL, 'troll_master_2026', '8GB cards in 2026 are obsolete e-waste. stop crying and buy a real GPU with 16GB', -35, 1789740440000),
 ('c-mhw-poly-3', 'post-mhwilds-origami-polygons-meme', 'c-mhw-poly-2', 'undervolt_king', 'Nvidia sold RTX 3070s for $500 and RTX 4060s for $300 with 8GB just two years ago. Normalizing hardware becoming unusable in 24 months is absurd.', 185, 1789740860000),

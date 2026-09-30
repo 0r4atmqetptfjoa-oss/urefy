@@ -1,10 +1,11 @@
 # scripts/viral_gaming_tech_part1.py
 """
 Part 1 of 50 Viral Gaming & Tech Discussions (Posts 1-15)
-Topics:
-1. GTA 6 Trailer 2 leaks, map size, PC delay drama (Posts 1-5)
-2. PS5 Pro $799 price point, missing disc drive, scalpers vs PC master race (Posts 6-10)
-3. Nvidia RTX 5090 & 5080 leaks, 32GB VRAM, 600W TDP, 16-pin connector fears, pricing (Posts 11-15)
+Enriched with:
+- Video objects: {"src": "https://www.youtube.com/watch?v=...", "poster": "https://images.unsplash.com/..."}
+- High-res Unsplash image galleries
+- Markdown source links (Digital Foundry, Videocardz, Gamers Nexus, Rockstar Newswire, etc.)
+- Human slang, typos ('definately', 'shoud', 'wierd', 'gpu', 'wait fr???'), heated feuds
 """
 
 NOW = 1789797200000  # Baseline time September 2026
@@ -27,12 +28,20 @@ I managed to inspect the video frames before it was purged. Here is what's defin
 3. **Motel Standoff**: Lucia and Jason pinned down by Vice-Dale County deputies in what looks like a neon pink motel courtyard. You can see bullet holes tearing through dry-wall realistically.
 4. **Target release window shown at the end**: 'FALL 2026'.
 
-Rockstar's legal team is issuing DMCA strikes on every Discord server sharing the hash. Shoud we expect an official YouTube drop this Friday? Thoughts?""",
+Compare this with the official [Rockstar Games Newswire Announcement](https://www.rockstargames.com/newswire) and the early [Digital Foundry / Eurogamer Analysis](https://www.eurogamer.net/digitalfoundry) frame pacing logs. Rockstar's legal team is issuing DMCA strikes on every Discord server sharing the hash. Shoud we expect an official YouTube drop this Friday? Thoughts?""",
         "flair": "LEAK / RUMOR",
         "merit_votes": 1284,
         "boost_count": 420,
         "reply_count": 8,
         "created_at": NOW - 1000 * 60 * 60 * 38,
+        "video": {
+            "src": "https://www.youtube.com/watch?v=QdBZY2fkU-0",
+            "poster": "https://images.unsplash.com/photo-1508739773434-c26b3d09e071?w=1200&auto=format&fit=crop&q=80"
+        },
+        "images": [
+            "https://images.unsplash.com/photo-1542751371-adc38448a05e?w=1200&auto=format&fit=crop&q=80",
+            "https://images.unsplash.com/photo-1508739773434-c26b3d09e071?w=1200&auto=format&fit=crop&q=80"
+        ],
         "tags": ["gta6", "rockstar", "vicecity", "leak", "trailer2", "take-two", "gaming"],
         "comments": [
             {
@@ -103,9 +112,9 @@ Rockstar's legal team is issuing DMCA strikes on every Discord server sharing th
 
 GTA 5: PS3/360 in 2013 -> PS4/Xbone in 2014 -> PC in 2015.
 RDR 2: Consoles in 2018 -> PC in late 2019.
-GTA 6: Consoles in Fall 2026 -> PC in late 2027 or even 2028 according to recent Take-Two investor calls.
+GTA 6: Consoles in Fall 2026 -> PC in late 2027 or even 2028 according to the latest [Take-Two Interactive Investor Presentation](https://www.take2games.com/ir).
 
-They literally hold back the PC version on purpose so enthusiasts buy a PS5 / PS5 Pro to play it at launch, and then buy the game a SECOND time on Steam when uncompressed textures and uncapped frame rates arrive.
+Even [PC Gamer's Port Analysis](https://www.pcgamer.com) noted that Rockstar intentionally withholds PC releases so enthusiasts buy a PS5 / PS5 Pro at launch, and then buy the game a SECOND time on Steam when uncompressed textures and uncapped frame rates arrive.
 
 Why does the gaming community give Rockstar a free pass for practices that would get EA or Ubisoft crucified?""",
         "flair": "HOT TAKE",
@@ -113,6 +122,10 @@ Why does the gaming community give Rockstar a free pass for practices that would
         "boost_count": 210,
         "reply_count": 7,
         "created_at": NOW - 1000 * 60 * 60 * 30,
+        "video": None,
+        "images": [
+            "https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=1200&auto=format&fit=crop&q=80"
+        ],
         "tags": ["gta6", "pcgaming", "rockstar", "steam", "taketwo", "consolewars"],
         "comments": [
             {
@@ -174,18 +187,25 @@ Why does the gaming community give Rockstar a free pass for practices that would
         "title": "The GTA 6 mapping project just updated with coordinate data: Leonida is 2.8x bigger than Los Santos and covers 3 whole biomes 🗺️🌴",
         "content": """The community mapping team has matched over 1,400 coordinate vectors from the leaked footage and official trailer snippets against real Florida geographic benchmarks.
 
+Check the full interactive map at [GTA Mapping Project Coordinates](https://gtamapping.net).
+
 Here are the confirmed geographic stats:
 - **Total Landmass**: Approximately **132 square kilometers** (GTA 5 was ~48 sq km without the empty ocean padding).
 - **Major Hubs**: Vice City Metro, Port Gellhorn (Gulf Coast industrial port), Ambrosia, and the Leonida Keys archipelago stretching across the entire southern border.
 - **Biomes**: Urban neon sprawl, the Grassrivers (Everglades swamp with airboats and predatory wildlife), and Pine Barrens / farming country up north.
 - **Interiors**: Telemetry data indicates over **65% of commercial buildings** (supermarkets, motels, pawn shops, strip clubs, banks) have full enterable interiors without loading screens.
 
-If these interior numbers are true, the memory footprint is going to be absurd. No wonder base consoles with 16GB unified memory are sweating.""",
+If these interior numbers are true, the memory footprint is going to be wierdly high. Base consoles with 16GB unified memory are going to sweat!""",
         "flair": "GAMING NEWS",
         "merit_votes": 1510,
         "boost_count": 380,
         "reply_count": 6,
         "created_at": NOW - 1000 * 60 * 60 * 24,
+        "video": None,
+        "images": [
+            "https://images.unsplash.com/photo-1524661135-423995f22d0b?w=1200&auto=format&fit=crop&q=80",
+            "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1200&auto=format&fit=crop&q=80"
+        ],
         "tags": ["gta6", "map", "vicecity", "gamedev", "rockstar", "openworld"],
         "comments": [
             {
@@ -238,10 +258,10 @@ If these interior numbers are true, the memory footprint is going to be absurd. 
         "author_id": "fp_alex_dev",
         "author_role": "TECH_ANALYST",
         "title": "Take-Two CEO Strauss Zelnick doubles down on 'games are too cheap per hour played'. Are you actually willing to pay $90-$100 for GTA 6 standard edition?",
-        "content": """During the recent Goldman Sachs Communacopia conference, Strauss Zelnick once again floated his algorithmic pricing philosophy:
+        "content": """During the recent Goldman Sachs Communacopia conference ([Goldman Sachs Transcript](https://www.goldmansachs.com)), Strauss Zelnick once again floated his algorithmic pricing philosophy:
 *'By any measure, video game frontline pricing is very, very low for what it brings... The price per hour of engagement is tiny compared to movies or concerts.'*
 
-Analysts are now projecting Take-Two might test the waters with an **$89.99 or $99.99 Standard Edition** MSRP for GTA 6, while pushing Deluxe/Collector editions well past $150.
+Analysts covering the [Take-Two Interactive Investor Presentation](https://www.take2games.com/ir) are now projecting Take-Two might test the waters with an **$89.99 or $99.99 Standard Edition** MSRP for GTA 6, while pushing Deluxe/Collector editions well past $150.
 
 Here is the dilemma:
 1. GTA 6 budget is rumored at over **$1.5 billion** across a decade of development.
@@ -254,6 +274,11 @@ Where do you draw the line? Will you buy it on day one regardless of price?""",
         "boost_count": 190,
         "reply_count": 7,
         "created_at": NOW - 1000 * 60 * 60 * 18,
+        "video": {
+            "src": "https://www.youtube.com/watch?v=s-lFgbzU3LY",
+            "poster": "https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=1200&auto=format&fit=crop&q=80"
+        },
+        "images": None,
         "tags": ["gta6", "pricing", "taketwo", "economics", "gamingnews", "boycott"],
         "comments": [
             {
@@ -313,7 +338,7 @@ Where do you draw the line? Will you buy it on day one regardless of price?""",
         "author_id": "fp_cyber_samurai",
         "author_role": "HARDWARE_NERD",
         "title": "Digital Foundry analysis suggests GTA 6 will be LOCKED to 30 FPS on PS5 & Xbox Series X. The CPU simulation is too heavy for 60fps.",
-        "content": """Digital Foundry just did a deep dive on the trailer pixel counts and crowd density simulation. Their conclusion is causing widespread panic across console subs:
+        "content": """Digital Foundry just did a comprehensive video breakdown on trailer pixel counts and crowd density simulation ([Digital Foundry / Eurogamer Analysis](https://www.eurogamer.net/digitalfoundry)). Their conclusion is causing widespread panic across console subs:
 
 **GTA 6 will almost certainly be locked to 30 FPS on both PS5 and Xbox Series X.**
 
@@ -331,6 +356,13 @@ Are console players prepared for a 30 FPS experience in 2026?""",
         "boost_count": 145,
         "reply_count": 6,
         "created_at": NOW - 1000 * 60 * 60 * 12,
+        "video": {
+            "src": "https://www.youtube.com/watch?v=1xN5c6aZ-eM",
+            "poster": "https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=1200&auto=format&fit=crop&q=80"
+        },
+        "images": [
+            "https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=1200&auto=format&fit=crop&q=80"
+        ],
         "tags": ["gta6", "digitalfoundry", "ps5", "xbox", "fps", "performance", "cpu"],
         "comments": [
             {
@@ -387,7 +419,7 @@ Are console players prepared for a 30 FPS experience in 2026?""",
         "author_id": "cynic_dan_90s",
         "author_role": "VETERAN_GAMER",
         "title": "Sony charging $700 for PS5 Pro with NO disc drive and NO vertical stand in the box is the pinnacle of corporate greed 🤡",
-        "content": """Let's break down the actual receipt if you want a complete PS5 Pro console experience in 2026:
+        "content": """Let's break down the actual receipt if you want a complete PS5 Pro console experience in 2026 according to the [PlayStation Blog Official PS5 Pro Spec Sheet](https://blog.playstation.com):
 - **PS5 Pro Console**: $699.99
 - **Detachable Disc Drive**: $79.99 (if you can find one not scalped)
 - **Vertical Plastic Stand**: $29.99
@@ -407,6 +439,11 @@ Who is actually preordering this machine?""",
         "boost_count": 310,
         "reply_count": 8,
         "created_at": NOW - 1000 * 60 * 60 * 42,
+        "video": {
+            "src": "https://www.youtube.com/watch?v=1xN5c6aZ-eM",
+            "poster": "https://images.unsplash.com/photo-1606813907291-d86efa9b94db?w=1200&auto=format&fit=crop&q=80"
+        },
+        "images": None,
         "tags": ["ps5pro", "sony", "playstation", "pricing", "consolegaming", "greed"],
         "comments": [
             {
@@ -475,7 +512,7 @@ Who is actually preordering this machine?""",
         "title": "The PS5 Pro external disc drive is already completely sold out worldwide and going for $260 on eBay. Scalpers are winning again 📈💸",
         "content": """Within 2 hours of Sony's PS5 Pro announcement, inventory trackers across the US, UK, and Japan showed the standalone **PS5 Slim / Pro Disc Drive ($79.99 MSRP)** vanishing from every retailer.
 
-What happened:
+What happened according to [eBay Sold Listings Tracker](https://www.ebay.com) and the [iFixit PS5 Pro Teardown](https://www.ifixit.com):
 1. Reselling bot networks (StockX, eBay, Mercari) realized Sony deliberately manufactured limited inventory of the modular disc drive.
 2. Over 40,000 confirmed listings appeared on eBay within 24 hours, priced between **$190 and $280**.
 3. Physical media collectors who own 50+ PS4 and PS5 game discs are now held hostage: either buy a scalped drive, or your existing game library is unplayable on the new hardware.
@@ -486,6 +523,11 @@ Sony has not issued any preorder allotment guarantees or queue systems for exist
         "boost_count": 280,
         "reply_count": 6,
         "created_at": NOW - 1000 * 60 * 60 * 34,
+        "video": None,
+        "images": [
+            "https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?w=1200&auto=format&fit=crop&q=80",
+            "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=1200&auto=format&fit=crop&q=80"
+        ],
         "tags": ["ps5pro", "scalpers", "discdrive", "sony", "physicalmedia", "ebay"],
         "comments": [
             {
@@ -541,7 +583,7 @@ Sony has not issued any preorder allotment guarantees or queue systems for exist
         "content": """Every console fanboy on Twitter is repeating the same scripted line:
 *'Show me a brand new PC for $700 that matches the PS5 Pro GPU and 2TB SSD.'*
 
-Challenge accepted. Here is a real-world PC build priced in current retail markets:
+Challenge accepted. Here is the verified parts breakdown from [PC Part Picker Build List](https://pcpartpicker.com):
 - **CPU**: AMD Ryzen 5 5600X (6 cores / 12 threads) – **$105** (Beats Zen 2 console CPU in single-core & gaming IPC)
 - **Motherboard**: B550M WiFi Micro-ATX – **$85**
 - **RAM**: 32GB DDR4-3600 CL16 – **$55**
@@ -563,6 +605,13 @@ On PC: Free multiplayer, free cloud saves, emulation from NES to PS3/Switch, che
         "boost_count": 275,
         "reply_count": 7,
         "created_at": NOW - 1000 * 60 * 60 * 20,
+        "video": {
+            "src": "https://www.youtube.com/watch?v=s-lFgbzU3LY",
+            "poster": "https://images.unsplash.com/photo-1587202372775-e229f172b9d7?w=1200&auto=format&fit=crop&q=80"
+        },
+        "images": [
+            "https://images.unsplash.com/photo-1587202372775-e229f172b9d7?w=1200&auto=format&fit=crop&q=80"
+        ],
         "tags": ["pcgaming", "ps5pro", "pcbuild", "hardware", "consolewars", "pcmasterrace"],
         "comments": [
             {
@@ -622,11 +671,11 @@ On PC: Free multiplayer, free cloud saves, emulation from NES to PS3/Switch, che
         "author_id": "fp_kai_bloxfan",
         "author_role": "GAMER",
         "title": "PlayStation 30th Anniversary PS1-gray editions sold out in literally 8 seconds to scalper bots while actual fans sat in error loops 💀",
-        "content": """I had direct.playstation.com open on three devices with an atomic synchronized clock.
+        "content": """I had [Direct PlayStation Store Queue](https://direct.playstation.com) open on three devices with an atomic synchronized clock.
 At 10:00:00 AM, the queue assigned me number 48,291.
 By 10:00:08 AM, the **PS5 Pro 30th Anniversary Limited Edition Bundle (12,300 units worldwide)** was completely out of stock.
 
-Now open eBay right now and search 'PS5 Pro 30th Anniversary':
+Now open [eBay Sold Listings Tracker](https://www.ebay.com) right now and search 'PS5 Pro 30th Anniversary':
 - Over 1,200 confirmed pre-order tickets listed.
 - Average buy-it-now price: **$3,500 to $5,000 USD**.
 - Some scalpers are literally posting screenshots of their automated bot checkout scripts bragging about scoring 10 units with proxy farms.
@@ -642,6 +691,11 @@ Instead they let headless Puppeteer and Selenium bots feast. Thanks Sony!""",
         "boost_count": 340,
         "reply_count": 6,
         "created_at": NOW - 1000 * 60 * 60 * 16,
+        "video": None,
+        "images": [
+            "https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=1200&auto=format&fit=crop&q=80",
+            "https://images.unsplash.com/photo-1606813907291-d86efa9b94db?w=1200&auto=format&fit=crop&q=80"
+        ],
         "tags": ["ps5", "playstation30", "scalpers", "bots", "sony", "nostalgia"],
         "comments": [
             {
@@ -696,6 +750,8 @@ Instead they let headless Puppeteer and Selenium bots feast. Thanks Sony!""",
         "title": "PS5 Pro PSSR (PlayStation Spectral Super Resolution) vs FSR 3.1 & DLSS: Real-world image quality comparison in Spider-Man 2 & Alan Wake 2",
         "content": """Now that technical media outlets have captured native frame buffers from PS5 Pro demonstration units, we have our first concrete look at **PSSR (PlayStation Spectral Super Resolution)** running on custom RDNA machine learning hardware.
 
+See the complete side-by-side video comparison at [Digital Foundry PSSR vs DLSS Comparison](https://www.eurogamer.net/digitalfoundry).
+
 Here is the objective engineering breakdown:
 
 ### 1. Stability vs FSR 3.1
@@ -713,6 +769,11 @@ Is PSSR a game changer for console gaming? Yes. Is it superior to DLSS? Not even
         "boost_count": 140,
         "reply_count": 6,
         "created_at": NOW - 1000 * 60 * 60 * 10,
+        "video": {
+            "src": "https://www.youtube.com/watch?v=1xN5c6aZ-eM",
+            "poster": "https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=1200&auto=format&fit=crop&q=80"
+        },
+        "images": None,
         "tags": ["pssr", "dlss", "fsr", "raytracing", "ps5pro", "graphics", "alanwake2"],
         "comments": [
             {
@@ -769,7 +830,7 @@ Is PSSR a game changer for console gaming? Yes. Is it superior to DLSS? Not even
         "author_id": "fp_cyber_samurai",
         "author_role": "OVERCLOCKER",
         "title": "RTX 5090 leaked specs: 32GB GDDR7, 24,576 CUDA cores, and 600W TDP. Are we going to need a dedicated 240V circuit breaker for our PC rigs?!",
-        "content": """Multiple AIB partner sources (Asus, MSI, Zotac) have leaked preliminary board schematics for the upcoming **GeForce RTX 5090 (Blackwell GB202)**:
+        "content": """Multiple AIB partner sources (Asus, MSI, Zotac) have leaked preliminary board schematics for the upcoming **GeForce RTX 5090 (Blackwell GB202)**, confirmed by [Videocardz Leak & PCB Specs](https://videocardz.com/newz/geforce-rtx-5090-specs-leak):
 
 - **Architecture**: Blackwell (TSMC 4NP custom node)
 - **CUDA Cores**: 24,576 (a massive 50% jump over the 4090's 16,384)
@@ -781,12 +842,20 @@ Is PSSR a game changer for console gaming? Yes. Is it superior to DLSS? Not even
 Think about what 600W sustained GPU power actually means:
 Pair this with a Core i9-14900KS or Ryzen 9 9950X drawing 250W under load, plus cooling fans, AIO pump, and NVMe drives. You are looking at a system pulling **900W - 1000W from the wall socket**.
 
-If you live in an older apartment or have your PC, monitor, and AC on the same 15-amp breaker, launching Cyberpunk with full path tracing will literally trip your room's fuse box. Have we completely abandoned power efficiency?""",
+Check the [Gamers Nexus 12V-2x6 Power Deep-Dive](https://gamersnexus.net) before upgrading. If you live in an older apartment or have your PC, monitor, and AC on the same 15-amp breaker, launching Cyberpunk with full path tracing will literally trip your room's fuse box. Have we completely abandoned power efficiency?""",
         "flair": "HARDWARE",
         "merit_votes": 1120,
         "boost_count": 230,
         "reply_count": 7,
         "created_at": NOW - 1000 * 60 * 60 * 28,
+        "video": {
+            "src": "https://www.youtube.com/watch?v=s-lFgbzU3LY",
+            "poster": "https://images.unsplash.com/photo-1591799264318-7e6ef8ddb7ea?w=1200&auto=format&fit=crop&q=80"
+        },
+        "images": [
+            "https://images.unsplash.com/photo-1591799264318-7e6ef8ddb7ea?w=1200&auto=format&fit=crop&q=80",
+            "https://images.unsplash.com/photo-1518770660439-4636190af475?w=1200&auto=format&fit=crop&q=80"
+        ],
         "tags": ["rtx5090", "nvidia", "blackwell", "hardware", "gpu", "overclocking", "pcbuild"],
         "comments": [
             {
@@ -846,7 +915,7 @@ If you live in an older apartment or have your PC, monitor, and AC on the same 1
         "author_id": "fps_snob_4k",
         "author_role": "PC_ENTHUSIAST",
         "title": "RTX 5080 launching with only 16GB of VRAM on a 256-bit bus for $1,199 is an absolute joke. Modded Skyrim already eats 18GB 💀",
-        "content": """Let's look at the leaked RTX 5080 specs side-by-side with the 5090:
+        "content": """Let's look at the leaked RTX 5080 specs side-by-side with the 5090 via [TechPowerUp GPU Database](https://www.techpowerup.com/gpu-specs/) and [Tom's Hardware Memory Latency Charts](https://www.tomshardware.com):
 - **RTX 5090**: 32GB GDDR7, 512-bit bus, 24,576 cores
 - **RTX 5080**: **16GB GDDR7, 256-bit bus, 10,752 cores**
 
@@ -867,6 +936,10 @@ Why is Nvidia deliberately gimping the 80-class card? So they can sell an 'RTX 5
         "boost_count": 215,
         "reply_count": 6,
         "created_at": NOW - 1000 * 60 * 60 * 22,
+        "video": None,
+        "images": [
+            "https://images.unsplash.com/photo-1555680202-c86f0e12f086?w=1200&auto=format&fit=crop&q=80"
+        ],
         "tags": ["rtx5080", "nvidia", "vram", "hardware", "greed", "pcgaming"],
         "comments": [
             {
@@ -921,6 +994,8 @@ Why is Nvidia deliberately gimping the 80-class card? So they can sell an 'RTX 5
         "title": "Does the new 12V-2x6 power connector actually fix the melting pins issue on high wattage GPUs or is Nvidia playing Russian roulette with our PSUs again?",
         "content": """With the RTX 5090 confirmed to push up to **600W TDP**, the dreaded power connector question is back with a vengeance.
 
+Check Steve's lab breakdown at [Gamers Nexus 12V-2x6 Power Deep-Dive](https://gamersnexus.net).
+
 PCI-SIG introduced the **12V-2x6 revision (ATX 3.1)** to replace the infamous melting 12VHPWR connector:
 - Sense pins are shortened by 1.7mm so power won't flow unless the plug is 100% fully seated.
 - Terminal contact pins are lengthened by 0.25mm to increase contact surface area.
@@ -938,6 +1013,11 @@ Why did Nvidia refuse to just use three standard, bulletproof 8-pin PCIe connect
         "boost_count": 180,
         "reply_count": 6,
         "created_at": NOW - 1000 * 60 * 60 * 14,
+        "video": {
+            "src": "https://www.youtube.com/watch?v=ig2guqj5v3A",
+            "poster": "https://images.unsplash.com/photo-1518770660439-4636190af475?w=1200&auto=format&fit=crop&q=80"
+        },
+        "images": None,
         "tags": ["12vhpwr", "12v2x6", "nvidia", "psu", "hardware", "rtx5090", "safety"],
         "comments": [
             {
@@ -990,7 +1070,7 @@ Why did Nvidia refuse to just use three standard, bulletproof 8-pin PCIe connect
         "author_id": "cynic_dan_90s",
         "author_role": "MARKET_CYNIC",
         "title": "Jensen Huang: 'In the age of AI, gaming GPUs are personal supercomputers.' Translation: Prepare your wallets for a $2,499 RTX 5090 MSRP 💸",
-        "content": """Jensen Huang gave another keynote speech wearing his signature $10,000 lizard-skin leather jacket, and his choice of words should terrify every PC gamer on earth:
+        "content": """Jensen Huang gave another keynote speech wearing his signature $10,000 lizard-skin leather jacket ([Nvidia Computex Keynote Recording](https://www.nvidia.com)), and his choice of words should terrify every PC gamer on earth:
 
 *'GeForce is no longer just for gaming rendering. It is a full personal AI supercomputer capable of training and running multi-modal reasoning models directly at your desk. The value delivered per watt has multiplied tenfold.'*
 
@@ -1009,6 +1089,11 @@ Are you prepared to pay $2,500 for a flagship graphics card?""",
         "boost_count": 310,
         "reply_count": 6,
         "created_at": NOW - 1000 * 60 * 60 * 8,
+        "video": None,
+        "images": [
+            "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=1200&auto=format&fit=crop&q=80",
+            "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=1200&auto=format&fit=crop&q=80"
+        ],
         "tags": ["jensenhuang", "nvidia", "rtx5090", "pricing", "greed", "leatherjacket", "meme"],
         "comments": [
             {
@@ -1061,7 +1146,7 @@ Are you prepared to pay $2,500 for a flagship graphics card?""",
         "author_id": "fp_cyber_samurai",
         "author_role": "GRAPHICS_RESEARCHER",
         "title": "Blackwell architecture leak: DLSS 4 rumored to introduce real-time Neural Radiance Caching and multi-frame synthesis. Hardware locked to RTX 50 series of course 🔒",
-        "content": """A leaked whitepaper slide from Nvidia's European Developer Forum details upcoming features planned for **DLSS 4.0** with the Blackwell GeForce 50 series:
+        "content": """A leaked whitepaper slide from Nvidia's European Developer Forum (covered by [Nvidia Blackwell Architecture Whitepaper](https://www.nvidia.com)) details upcoming features planned for **DLSS 4.0** with the Blackwell GeForce 50 series:
 
 1. **Neural Radiance Caching (NRC)**: Replaces Monte Carlo path-traced indirect lighting bounces with an onboard neural network that predicts multi-bounce radiance in 0.8ms. Gives full path tracing performance comparable to standard rasterization!
 2. **Multi-Frame Generation 2.0**: Capable of interpolating **TWO synthesized frames between every real frame**, turning native 60 FPS into a buttery 180 FPS on high-refresh OLED panels.
@@ -1076,6 +1161,11 @@ Are we getting artificially locked out of DLSS 4 on our $1,600 RTX 4090s?""",
         "boost_count": 195,
         "reply_count": 6,
         "created_at": NOW - 1000 * 60 * 60 * 6,
+        "video": {
+            "src": "https://www.youtube.com/watch?v=1xN5c6aZ-eM",
+            "poster": "https://images.unsplash.com/photo-1518770660439-4636190af475?w=1200&auto=format&fit=crop&q=80"
+        },
+        "images": None,
         "tags": ["dlss4", "blackwell", "nvidia", "rtx5090", "rtx4090", "framgen", "neuralrendering"],
         "comments": [
             {
