@@ -9,7 +9,10 @@ export async function handleContextAction(action: string, element: HTMLElement):
   const peer = sovereignDM.activePeerFP;
   const conversation = peer ? sovereignDM.getConversation(peer) : null;
   const message = conversation?.messages.find(item => item.id === element.dataset.messageId);
-  if (action === 'react-dm-message' && message) await sovereignDM.reactToMessage(message.id, element.dataset.emoji || '');
+  if (action === 'react-dm-message' && message) {
+    await sovereignDM.reactToMessage(message.id, element.dataset.emoji || '');
+    clientStore.notifySync();
+  }
   else if ((action === 'keep-dm-message' || action === 'save-message-vault' || action === 'keep-dm-branch') && peer && conversation) {
     const branchId = sovereignDM.getActiveBranch();
     const branch = sovereignDM.getBranches(peer).find(item => item.id === branchId);

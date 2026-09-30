@@ -2077,6 +2077,17 @@ export class ActionDispatcher {
         break;
       }
 
+      case 'dismiss-transfer-indicator': {
+        try {
+          const widget = document.getElementById('webrtc-floating-transfer-widget');
+          if (widget) widget.remove();
+          void import('../webrtc-transfer.js').then((m) => {
+            if (m.webrtcTransfer) m.webrtcTransfer.isIndicatorDismissed = true;
+          });
+        } catch (_) {}
+        break;
+      }
+
       case 'open-mobile-drawer': {
         if (typeof window !== 'undefined' && (window as any).__aetheris_open_mobile_drawer) {
           (window as any).__aetheris_open_mobile_drawer();

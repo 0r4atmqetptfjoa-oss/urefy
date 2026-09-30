@@ -71,12 +71,12 @@ export function renderProfileHeaderHTML(profile: UserProfileData, isOwnProfile: 
                 <span>🌐</span>
                 <span>Technical identity details</span>
               </span>
-              <span class="text-[10px] text-indigo-400 group-open:rotate-180 transition-transform">▼</span>
+              <span class="text-[10px] text-amber-400 group-open:rotate-180 transition-transform">▼</span>
             </summary>
             <div class="federated-handle-bar flex flex-wrap items-center gap-2 mt-2 pt-1">
               <span class="federated-handle font-mono text-slate-400 bg-white/5 px-2 py-0.5 rounded border border-white/10" data-federated-handle="${escapeAttr(federatedHandle)}">${escapeAttr(federatedHandle)}</span>
               <span class="font-mono text-[10px] text-slate-500 break-all" data-technical-fingerprint>${escapeAttr(profile.fingerprint)}</span>
-              <button type="button" class="btn-copy-federated-handle text-indigo-400 hover:text-indigo-300 text-xs px-2 py-0.5 rounded bg-indigo-500/10 hover:bg-indigo-500/20 transition-colors cursor-pointer" data-copy-handle="${escapeAttr(federatedHandle)}">Copy Federated Handle</button>
+              <button type="button" class="btn-copy-federated-handle text-[var(--color-accent,#e89e38)] hover:text-amber-300 text-xs px-2 py-0.5 rounded bg-[var(--color-accent,#e89e38)]/10 hover:bg-[var(--color-accent,#e89e38)]/20 transition-colors cursor-pointer" data-copy-handle="${escapeAttr(federatedHandle)}">Copy Federated Handle</button>
               <a href="/.well-known/aetheris-node" class="activitypub-badge inline-flex items-center text-[11px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full hover:underline" data-activitypub-badge="true">
                 <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1.5"></span>
                 Federated via ActivityPub 2.0
@@ -85,7 +85,7 @@ export function renderProfileHeaderHTML(profile: UserProfileData, isOwnProfile: 
           </details>
           ${profile.badges && profile.badges.length ? `
             <div class="profile-badges flex flex-wrap gap-1.5 mt-2">
-              ${profile.badges.map(b => `<span class="badge px-2.5 py-0.5 text-xs rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 font-medium">${escapeAttr(b)}</span>`).join('')}
+              ${profile.badges.map(b => `<span class="badge px-2.5 py-0.5 text-xs rounded-full bg-[var(--color-accent,#e89e38)]/10 border border-[var(--color-accent,#e89e38)]/20 text-[var(--color-accent,#e89e38)] font-medium">${escapeAttr(b)}</span>`).join('')}
             </div>
           ` : ''}
           <div class="profile-stats journal-profile__record mt-3">

@@ -1773,7 +1773,7 @@ function renderMobileBottomNav(): string {
                  clientStore.activeChannelId.startsWith('dm-') ||
                  clientStore.activeChannelId === 'relays' ||
                  clientStore.activeChannelId === 'messages';
-  const hideFab = isChat || postDetailView.isOpen();
+  const hideFab = isChat || postDetailView.isOpen() || isMobileDrawerOpen || clientStore.isComposerOpen;
 
   return `
     <!-- MOBILE COMPOSER FLOATING ACTION BUTTON (HIDDEN ON CHAT / MESSAGES / POST DETAIL) -->
@@ -1794,7 +1794,7 @@ function renderMobileBottomNav(): string {
 function renderMobileDrawer(): string {
   return `
     <!-- MOBILE SLIDE-OVER DRAWER -->
-    <div id="mobile-drawer" data-ui-mode="${clientStore.uiMode}" ${isMobileDrawerOpen ? '' : 'inert'} class="fixed inset-0 z-50 lg:hidden transition-all ${isMobileDrawerOpen ? 'pointer-events-auto' : 'pointer-events-none'}" aria-hidden="${!isMobileDrawerOpen}">
+    <div id="mobile-drawer" data-ui-mode="${clientStore.uiMode}" ${isMobileDrawerOpen ? '' : 'inert'} class="fixed inset-0 z-[70] lg:hidden transition-all ${isMobileDrawerOpen ? 'pointer-events-auto' : 'pointer-events-none'}" aria-hidden="${!isMobileDrawerOpen}">
       <!-- BACKDROP OVERLAY -->
       <div id="mobile-drawer-backdrop" data-action="close-mobile-drawer" class="fixed inset-0 bg-black/70 backdrop-blur-xs transition-opacity duration-300 ease-in-out cursor-pointer ${isMobileDrawerOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}"></div>
       
@@ -1977,7 +1977,7 @@ function renderMobileDrawer(): string {
             <div class="pt-3 border-t border-white/5 space-y-1">
               <div class="text-[10px] uppercase font-bold text-slate-500 tracking-wider mb-2 px-2 flex items-center justify-between">
                 <span>⚖️ Legal & EU Compliance</span>
-                <span class="text-indigo-400 text-[9px] font-mono">DSA 2022/2065</span>
+                <span class="text-cyan-400 text-[9px] font-mono">DSA 2022/2065</span>
               </div>
 
               <button type="button" data-action="open-legal" data-legal-tab="about" class="w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
@@ -2012,16 +2012,16 @@ function renderMobileDrawer(): string {
 
               <div class="px-3 py-2 text-[10px] font-mono text-slate-500 flex items-center justify-between">
                 <span>© 2026 UREfy</span>
-                <span class="text-indigo-400">EU DSA Compliant</span>
+                <span class="text-cyan-400">EU DSA Compliant</span>
               </div>
             </div>
           </div>
         </div>
 
         <!-- DRAWER FOOTER / USER IDENTITY -->
-        <div class="p-3 border-t border-white/10 bg-surface-raised/40">
+        <div class="p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-white/10 bg-surface-raised/40">
           <div class="flex items-center space-x-2.5">
-            <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-slate-700 p-0.5 shrink-0">
+            <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-[var(--color-accent,#e59b3c)] to-amber-700/50 p-0.5 shrink-0">
               <div class="w-full h-full rounded-full bg-surface-base flex items-center justify-center font-mono text-[10px] font-bold text-white">
                 ${clientStore.keypair.fingerprint.substring(0, 2).toUpperCase()}
               </div>
@@ -4223,6 +4223,11 @@ function updateCommandRailHighlight(index: number): void {
         }
         if (clientStore.isComposerOpen) {
           clientStore.toggleComposer();
+          clientStore.notifySync('MODAL_CHANGE');
+          return;
+        }
+        if (commandRailV2.isOpen) {
+          commandRailV2.close();
           clientStore.notifySync('MODAL_CHANGE');
           return;
         }

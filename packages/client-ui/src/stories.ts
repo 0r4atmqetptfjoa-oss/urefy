@@ -183,7 +183,23 @@ export class StoriesEngine {
     // Active Stories Carousel Items
     for (const story of active) {
       const viewed = this.isViewed(story.id, myFingerprint);
-      const initial = story.authorFingerprint.substring(0, 2).toUpperCase();
+      const isGenesis = story.authorFingerprint === 'genesis-core';
+      const isArchon = story.authorFingerprint === 'c3dc28cb705e';
+      const isMod = story.authorFingerprint === 'a89104fa2211';
+      const isOp = story.authorFingerprint === 'f40019bc88a2';
+
+      const authorLabel = isGenesis ? '@genesis'
+        : isArchon ? '@archon'
+        : isMod ? '@moderator'
+        : isOp ? '@operator'
+        : (story.authorFingerprint === myFingerprint ? 'You' : `@${story.authorFingerprint.substring(0, 5)}`);
+
+      const initial = isGenesis ? 'GN'
+        : isArchon ? 'AR'
+        : isMod ? 'MD'
+        : isOp ? 'OP'
+        : story.authorFingerprint.substring(0, 2).toUpperCase();
+
       const typeBadge = story.mediaType === 'code' ? '💻' : story.mediaType === 'image' ? '🖼️' : '⚡';
 
       const ringWrapper = viewed
@@ -204,8 +220,8 @@ export class StoriesEngine {
               ${typeBadge}
             </span>
           </div>
-          <span class="text-[9px] font-mono text-slate-300 group-hover:text-cyphr transition-colors mt-0.5 truncate w-14 text-center">
-            id:${this.escapeHtml(story.authorFingerprint.substring(0, 4))}
+          <span class="text-[10px] font-medium text-slate-300 group-hover:text-[var(--color-accent,#e59b3c)] transition-colors mt-0.5 truncate w-14 text-center">
+            ${this.escapeHtml(authorLabel)}
           </span>
         </div>
       `;

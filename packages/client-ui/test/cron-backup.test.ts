@@ -20,6 +20,7 @@ import {
   RETENTION_PERIOD_MS,
   BACKUP_TABLES,
   resetBackupSnapshots,
+  setGlobalLastBackupMetadata,
   inMemoryBackupSnapshots,
   globalLastBackupMetadata,
 } from '../functions/api/cron-backup.js';
@@ -185,6 +186,22 @@ describe('Automated D1 SQLite to Cloudflare R2 Encrypted Backup Engine (Item 19)
   });
 
   describe('1. Table Extraction & Manifest Serialization', () => {
+    it('supports production schema without the legacy nullifiers table', async () => {
+      const db = { prepare: (sql: string) => ({ all: async () => {
+        if (sql === 'SELECT * FROM nullifiers') throw new Error('D1_ERROR: no such table: nullifiers: SQLITE_ERROR');
+        return { results: [] };
+      } }) } as any;
+      const result = await dumpD1Tables({ DB: db, ENVIRONMENT: 'production' });
+      expect(result.tables.nullifiers).toEqual([]);
+      expect(result.counts.nullifiers).toBe(0);
+      expect(result.totalRecords).toBe(0);
+    });
+
+    it('still rejects a missing production core table', async () => {
+      const db = { prepare: () => ({ all: async () => { throw new Error('no such table: posts'); } }) } as any;
+      await expect(dumpD1Tables({ DB: db, ENVIRONMENT: 'production' })).rejects.toThrow('error querying table posts');
+    });
+
     it('dumps all 5 required tables (posts, channels, messages, nullifiers, push_subscriptions)', async () => {
       const { tables, counts, totalRecords } = await dumpD1Tables();
 
@@ -445,6 +462,24 @@ describe('Automated D1 SQLite to Cloudflare R2 Encrypted Backup Engine (Item 19)
       expect(res.status).toBe(204);
       expect(res.headers.get('Access-Control-Allow-Origin')).toBe('*');
       expect(res.headers.get('Access-Control-Allow-Methods')).toContain('POST');
+    });
+
+    it('reads the latest persisted backup timestamp after isolate memory is empty', async () => {
+      const bucket = new MockR2Bucket();
+      const backup = await executeBackup({ STORAGE_BUCKET: bucket });
+      setGlobalLastBackupMetadata(null);
+      const response = await handleBackupGet({ request: new Request('https://urefy.com/api/cron-backup'), env: { STORAGE_BUCKET: bucket } });
+      const result = await response.json();
+      expect(result.status).toBe('SUCCESS');
+      expect(result.lastBackup.timestamp).toBe(backup.timestamp);
+      expect(result.lastBackup.checksumSha256).toBe(backup.checksumSha256);
+      expect(result.lastBackup.storage).toBe('Cloudflare-R2');
+    });
+
+    it('does not report stale success when persisted backup status is unavailable', async () => {
+      const response = await handleBackupGet({ request: new Request('https://urefy.com/api/cron-backup'), env: { STORAGE_BUCKET: { list: async () => { throw new Error('synthetic storage unavailable'); } } as any } });
+      expect(response.status).toBe(503);
+      expect(response.headers.get('Cache-Control')).toBe('no-store');
     });
   });
 

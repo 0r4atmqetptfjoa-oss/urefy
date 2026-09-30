@@ -6,6 +6,10 @@ compatibility_flags = ["nodejs_compat"]
 [vars]
 ENVIRONMENT = "production"
 APP_NAME = "UREfy"
+AWS_REGION = "eu-central-1"
+AWS_S3_BUCKET = "urefy-dr-backups-20260929-eucentral1-7k2p"
+AWS_FULL_DR_ENABLED = "true"
+AWS_SQS_QUEUE_URL = "https://sqs.eu-central-1.amazonaws.com/579505322330/urefy-async-jobs"
 MAX_STORAGE_CAP_BYTES = "8589934592" # 8.0 GB safe storage ceiling
 MAX_UPLOAD_BYTES = "26214400" # 25 MiB per file, checked by the upload API
 MAX_ACCOUNT_STORAGE_BYTES = "104857600" # 100 MiB per account, reserved atomically in D1

@@ -615,14 +615,14 @@ export function renderEmojiPopover(targetType: 'dm' | 'relay'): string {
 
   return `
     <div class="emoji-picker-backdrop fixed inset-0 z-40 bg-black/60 backdrop-blur-xs sm:hidden" data-action="${targetType === 'dm' ? 'toggle-dm-emoji' : 'toggle-relay-emoji'}"></div>
-    <div class="emoji-picker-container fixed sm:absolute inset-x-0 sm:inset-x-auto bottom-0 sm:bottom-full sm:mb-2 sm:left-2 z-50 p-4 sm:p-3 bg-surface-base border-t sm:border border-white/10 shadow-2xl backdrop-blur-xl sm:w-80 max-w-full select-none rounded-t-3xl sm:rounded-2xl max-h-[52vh] sm:max-h-none flex flex-col animate-in slide-in-from-bottom sm:slide-in-from-bottom-2 duration-150">
+    <div class="emoji-picker-container fixed sm:absolute inset-x-0 sm:inset-x-auto bottom-0 sm:bottom-full sm:mb-3 sm:left-2 z-50 p-3 bg-surface-base/98 border-t sm:border border-white/12 shadow-[0_24px_50px_rgba(0,0,0,0.65)] backdrop-blur-2xl w-full sm:w-[350px] sm:h-[390px] h-[52vh] max-h-[52vh] sm:max-h-[390px] select-none rounded-t-3xl sm:rounded-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom sm:slide-in-from-bottom-2 duration-150">
       <div class="w-10 h-1 bg-white/20 rounded-full mx-auto mb-2.5 sm:hidden shrink-0"></div>
       <div class="flex items-center justify-between pb-2 mb-2 border-b border-white/5 text-xs text-slate-400 shrink-0">
         <span class="font-bold text-white flex items-center gap-1.5">
           <span>😊</span>
           <span>Emojis</span>
         </span>
-        <button type="button" data-action="${targetType === 'dm' ? 'toggle-dm-emoji' : 'toggle-relay-emoji'}" class="text-slate-400 hover:text-white p-1 rounded-lg cursor-pointer text-xs" aria-label="Close emoji picker">✕</button>
+        <button type="button" data-action="${targetType === 'dm' ? 'toggle-dm-emoji' : 'toggle-relay-emoji'}" class="text-slate-400 hover:text-white p-1 rounded-lg cursor-pointer text-xs transition-colors" aria-label="Close emoji picker">✕</button>
       </div>
 
       <!-- Emoji search input -->
@@ -633,23 +633,23 @@ export function renderEmojiPopover(targetType: 'dm' | 'relay'): string {
           data-input="search-chat-emojis"
           value="${escapeHtml(chatEmojiSearchQuery)}"
           placeholder="Search emojis (e.g. smile, heart, fire)..."
-          class="w-full bg-surface-raised border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[var(--color-accent,#e59b3c)] font-sans"
+          class="w-full bg-surface-raised border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[var(--color-accent,#e59b3c)] font-sans transition-colors"
           autocomplete="off"
         />
         ${chatEmojiSearchQuery ? `
-          <button type="button" data-action="clear-chat-emoji-search" class="absolute right-2.5 top-2 text-slate-400 hover:text-white text-xs cursor-pointer">✕</button>
+          <button type="button" data-action="clear-chat-emoji-search" class="absolute right-2.5 top-1.5 text-slate-400 hover:text-white text-xs cursor-pointer">✕</button>
         ` : ''}
       </div>
 
       <!-- Categories row -->
-      <div class="flex items-center space-x-1 mb-2.5 overflow-x-auto no-scrollbar pb-1 border-b border-white/5 text-sm shrink-0">
+      <div class="flex items-center justify-between mb-2 pb-1.5 border-b border-white/5 text-sm shrink-0 px-0.5">
         ${categories.map(c => `
           <button
             type="button"
             data-action="select-chat-emoji-category"
             data-category="${c.key}"
             title="${c.label}"
-            class="p-1.5 rounded-lg transition-all cursor-pointer ${chatEmojiCategory === c.key ? 'bg-[var(--color-accent,#e59b3c)]/20 border border-[var(--color-accent,#e59b3c)]/40 scale-105' : 'hover:bg-white/10 opacity-70 hover:opacity-100'}"
+            class="w-7 h-7 rounded-lg flex items-center justify-center transition-all cursor-pointer ${chatEmojiCategory === c.key ? 'bg-[var(--color-accent,#e59b3c)]/25 border border-[var(--color-accent,#e89e38)]/60 scale-110 shadow-xs text-white' : 'hover:bg-white/10 opacity-70 hover:opacity-100'}"
           >
             ${c.icon}
           </button>
@@ -657,15 +657,15 @@ export function renderEmojiPopover(targetType: 'dm' | 'relay'): string {
       </div>
 
       <!-- Emoji Grid -->
-      <div class="grid grid-cols-7 sm:grid-cols-8 gap-1.5 flex-1 min-h-0 overflow-y-auto pr-1 text-2xl sm:text-xl">
+      <div class="grid grid-cols-7 sm:grid-cols-8 gap-1.5 flex-1 min-h-0 overflow-y-auto pr-1 text-2xl sm:text-xl overscroll-contain">
         ${displayEmojis.length === 0 ? `
-          <div class="col-span-full py-6 text-center text-slate-500 text-xs">No emojis found</div>
+          <div class="col-span-full py-8 text-center text-slate-500 text-xs">No emojis found</div>
         ` : displayEmojis.map(e => `
           <button 
             type="button" 
             data-action="${targetType === 'dm' ? 'insert-dm-emoji' : 'insert-relay-emoji'}" 
             data-emoji="${e}"
-            class="w-10 h-10 sm:w-8 sm:h-8 rounded-xl hover:bg-white/10 flex items-center justify-center transition-all hover:scale-125 cursor-pointer active:scale-95"
+            class="w-9 h-9 sm:w-8 sm:h-8 rounded-xl hover:bg-white/10 flex items-center justify-center transition-transform hover:scale-125 cursor-pointer active:scale-90"
           >
             ${e}
           </button>
@@ -1079,7 +1079,7 @@ export function renderMessageItem(m: ClientMessage, prevMsg?: ClientMessage): st
   if (isGrouped) {
     return `
       ${dateSepHtml}
-      <div class="message-row message-row--subsequent group/msg-row relative relay-message journal-dialogue-message ${m.isMine ? 'relay-message--own journal-dialogue-message--outgoing' : 'journal-dialogue-message--incoming'} py-0.5 max-w-full overflow-hidden transition-colors" data-message-id="${escapeAttr(m.id)}" data-author-fp="${escapeAttr(m.authorFingerprint)}" data-author-profile="${escapeAttr(m.authorFingerprint)}">
+      <div class="message-row message-row--subsequent group/msg-row relative relay-message journal-dialogue-message ${m.isMine ? 'relay-message--own journal-dialogue-message--outgoing' : 'journal-dialogue-message--incoming'} py-0.5 max-w-full overflow-visible transition-colors" data-message-id="${escapeAttr(m.id)}" data-author-fp="${escapeAttr(m.authorFingerprint)}" data-author-profile="${escapeAttr(m.authorFingerprint)}">
         <div class="weave-spine ${m.isMine ? 'is-mine' : ''} ${m.isMine ? 'pl-2' : 'pl-9 sm:pl-10'} pr-3 py-0.5 space-y-1">
           <div class="message-body text-[14px] sm:text-[15px] text-slate-100 select-text leading-[1.55] break-words [overflow-wrap:anywhere] min-w-0">
             ${capsule ? renderCapsuleArtifact(capsule) : (m.text ? `<div class="whitespace-pre-wrap">${processChatMessageContent(m.text)}</div>` : '')}
@@ -1087,14 +1087,15 @@ export function renderMessageItem(m: ClientMessage, prevMsg?: ClientMessage): st
           </div>
         </div>
         <span class="message-timestamp-hover absolute right-3 top-1 text-[10px] text-slate-500 font-mono opacity-0 group-hover/msg-row:opacity-100 transition-opacity select-none">${time}</span>
-        <div class="message-actions-bar opacity-0 group-hover/msg-row:opacity-100 focus-within:opacity-100 transition-all flex items-center space-x-1 absolute -top-3.5 right-3 bg-surface-base/95 border border-white/10 rounded-xl px-2 py-1 shadow-lg backdrop-blur-md z-20">
-          <button type="button" class="p-1 rounded-lg hover:bg-white/10 text-xs cursor-pointer" title="React ❤️" data-action="toggle-relay-emoji">❤️</button>
-          <button type="button" class="p-1 rounded-lg hover:bg-white/10 text-xs cursor-pointer" title="React 👍" data-action="toggle-relay-emoji">👍</button>
-          <button type="button" class="p-1 rounded-lg hover:bg-white/10 text-xs cursor-pointer" title="React 🔥" data-action="toggle-relay-emoji">🔥</button>
-          <button type="button" class="p-1 rounded-lg hover:bg-white/10 text-xs cursor-pointer text-slate-400 hover:text-white" title="Reply" data-action="reply-relay-message" data-message-id="${escapeHtml(m.id)}">↩</button>
-          <button type="button" class="p-1 rounded-lg hover:bg-white/10 text-xs cursor-pointer text-slate-400 hover:text-white" title="Add to Context Capsule" data-action="add-to-capsule" data-message-id="${escapeHtml(m.id)}" data-sender-name="${escapeAttr(author.name)}" data-sender-handle="${escapeAttr(author.handle)}" data-text="${escapeAttr(m.text || '')}" data-timestamp="${m.createdAt}">📦</button>
-          <button type="button" class="p-1 rounded-lg hover:bg-white/10 text-xs cursor-pointer ${canonicalVault.isMessageSaved(m.id) ? 'text-[var(--color-accent,#e89e38)] font-bold' : 'text-slate-400 hover:text-white'}" title="${canonicalVault.isMessageSaved(m.id) ? 'Remove from Vault' : 'Save to Vault'}" data-action="${canonicalVault.isMessageSaved(m.id) ? 'unsave-message-vault' : 'keep-live-message'}" data-message-id="${escapeHtml(m.id)}">${canonicalVault.isMessageSaved(m.id) ? '💾' : '🔒'}</button>
-          <button type="button" class="p-1 rounded-lg hover:bg-white/10 text-xs cursor-pointer text-slate-400 hover:text-white" title="Copy text" data-action="copy-message-text" data-text="${escapeAttr(m.text || '')}">📋</button>
+        <div class="message-actions-bar opacity-0 group-hover/msg-row:opacity-100 focus-within:opacity-100 transition-all duration-150 flex items-center space-x-0.5 absolute -top-4.5 right-3 bg-slate-900/95 border border-white/15 rounded-full px-2 py-0.5 shadow-[0_8px_30px_rgba(0,0,0,0.5)] backdrop-blur-2xl z-30 pointer-events-none group-hover/msg-row:pointer-events-auto">
+          <button type="button" class="w-7 h-7 rounded-full hover:bg-white/15 flex items-center justify-center text-xs transition-transform hover:scale-130 active:scale-90 cursor-pointer" title="React ❤️" data-action="toggle-relay-emoji">❤️</button>
+          <button type="button" class="w-7 h-7 rounded-full hover:bg-white/15 flex items-center justify-center text-xs transition-transform hover:scale-130 active:scale-90 cursor-pointer" title="React 👍" data-action="toggle-relay-emoji">👍</button>
+          <button type="button" class="w-7 h-7 rounded-full hover:bg-white/15 flex items-center justify-center text-xs transition-transform hover:scale-130 active:scale-90 cursor-pointer" title="React 🔥" data-action="toggle-relay-emoji">🔥</button>
+          <div class="w-px h-3.5 bg-white/15 mx-1"></div>
+          <button type="button" class="p-1.5 rounded-full hover:bg-white/15 text-xs text-slate-300 hover:text-white transition-all cursor-pointer" title="Reply" data-action="reply-relay-message" data-message-id="${escapeHtml(m.id)}">↩</button>
+          <button type="button" class="p-1.5 rounded-full hover:bg-white/15 text-xs text-slate-300 hover:text-white transition-all cursor-pointer" title="Add to Context Capsule" data-action="add-to-capsule" data-message-id="${escapeHtml(m.id)}" data-sender-name="${escapeAttr(author.name)}" data-sender-handle="${escapeAttr(author.handle)}" data-text="${escapeAttr(m.text || '')}" data-timestamp="${m.createdAt}">📦</button>
+          <button type="button" class="p-1.5 rounded-full hover:bg-white/15 text-xs ${canonicalVault.isMessageSaved(m.id) ? 'text-[var(--color-accent,#e89e38)] font-bold' : 'text-slate-300 hover:text-white'} transition-all cursor-pointer" title="${canonicalVault.isMessageSaved(m.id) ? 'Remove from Vault' : 'Save to Vault'}" data-action="${canonicalVault.isMessageSaved(m.id) ? 'unsave-message-vault' : 'keep-live-message'}" data-message-id="${escapeHtml(m.id)}">${canonicalVault.isMessageSaved(m.id) ? '💾' : '🔒'}</button>
+          <button type="button" class="p-1.5 rounded-full hover:bg-white/15 text-xs text-slate-300 hover:text-white transition-all cursor-pointer" title="Copy text" data-action="copy-message-text" data-text="${escapeAttr(m.text || '')}">📋</button>
         </div>
       </div>
     `;
@@ -1102,15 +1103,15 @@ export function renderMessageItem(m: ClientMessage, prevMsg?: ClientMessage): st
 
   return `
     ${dateSepHtml}
-    <div class="message-row group/msg-row relative relay-message journal-dialogue-message ${m.isMine ? 'relay-message--own journal-dialogue-message--outgoing' : 'journal-dialogue-message--incoming'} mt-2 max-w-full overflow-hidden transition-colors" data-message-id="${escapeAttr(m.id)}" data-author-fp="${escapeAttr(m.authorFingerprint)}" data-author-profile="${escapeAttr(m.authorFingerprint)}">
+    <div class="message-row group/msg-row relative relay-message journal-dialogue-message ${m.isMine ? 'relay-message--own journal-dialogue-message--outgoing' : 'journal-dialogue-message--incoming'} mt-2 max-w-full overflow-visible transition-colors" data-message-id="${escapeAttr(m.id)}" data-author-fp="${escapeAttr(m.authorFingerprint)}" data-author-profile="${escapeAttr(m.authorFingerprint)}">
       <div class="stanza-header flex items-center gap-2 mb-1 px-1 select-none">
         ${!m.isMine ? `
-          <div class="dialogue-identity-mark w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center text-xs font-bold shrink-0">
+          <div class="dialogue-identity-mark w-7 h-7 sm:w-8 sm:h-8 rounded-xl flex items-center justify-center text-xs font-bold shrink-0 border border-white/10 shadow-xs">
             ${avatarInitials}
           </div>
           <div class="flex items-baseline gap-2 min-w-0 flex-wrap">
             <span class="text-[13px] sm:text-[14px] font-semibold text-slate-100">${escapeHtml(author.name)}</span>
-            ${author.handle ? `<span class="text-[11px] text-slate-500 font-mono">${escapeHtml(author.handle)}</span>` : ''}
+            ${author.handle ? `<span class="text-[11px] text-slate-400 font-mono">${escapeHtml(author.handle)}</span>` : ''}
           </div>
           <span class="text-[11px] text-slate-500 font-mono ml-auto sm:ml-0">${time}</span>
         ` : `
@@ -1128,14 +1129,15 @@ export function renderMessageItem(m: ClientMessage, prevMsg?: ClientMessage): st
           ${renderAttachmentCard(m.attachment)}
         </div>
       </div>
-      <div class="message-actions-bar opacity-0 group-hover/msg-row:opacity-100 focus-within:opacity-100 transition-all flex items-center space-x-1 absolute -top-3.5 right-3 bg-surface-base/95 border border-white/10 rounded-xl px-2 py-1 shadow-lg backdrop-blur-md z-20">
-        <button type="button" class="p-1 rounded-lg hover:bg-white/10 text-xs cursor-pointer" title="React ❤️" data-action="toggle-relay-emoji">❤️</button>
-        <button type="button" class="p-1 rounded-lg hover:bg-white/10 text-xs cursor-pointer" title="React 👍" data-action="toggle-relay-emoji">👍</button>
-        <button type="button" class="p-1 rounded-lg hover:bg-white/10 text-xs cursor-pointer" title="React 🔥" data-action="toggle-relay-emoji">🔥</button>
-        <button type="button" class="p-1 rounded-lg hover:bg-white/10 text-xs cursor-pointer text-slate-400 hover:text-white" title="Reply" data-action="reply-relay-message" data-message-id="${escapeHtml(m.id)}">↩</button>
-        <button type="button" class="p-1 rounded-lg hover:bg-white/10 text-xs cursor-pointer text-slate-400 hover:text-white" title="Add to Context Capsule" data-action="add-to-capsule" data-message-id="${escapeHtml(m.id)}" data-sender-name="${escapeAttr(author.name)}" data-sender-handle="${escapeAttr(author.handle)}" data-text="${escapeAttr(m.text || '')}" data-timestamp="${m.createdAt}">📦</button>
-        <button type="button" class="p-1 rounded-lg hover:bg-white/10 text-xs cursor-pointer ${canonicalVault.isMessageSaved(m.id) ? 'text-[var(--color-accent,#e89e38)] font-bold' : 'text-slate-400 hover:text-white'}" title="${canonicalVault.isMessageSaved(m.id) ? 'Remove from Vault' : 'Save to Vault'}" data-action="${canonicalVault.isMessageSaved(m.id) ? 'unsave-message-vault' : 'keep-live-message'}" data-message-id="${escapeHtml(m.id)}">${canonicalVault.isMessageSaved(m.id) ? '💾' : '🔒'}</button>
-        <button type="button" class="p-1 rounded-lg hover:bg-white/10 text-xs cursor-pointer text-slate-400 hover:text-white" title="Copy text" data-action="copy-message-text" data-text="${escapeAttr(m.text || '')}">📋</button>
+      <div class="message-actions-bar opacity-0 group-hover/msg-row:opacity-100 focus-within:opacity-100 transition-all duration-150 flex items-center space-x-0.5 absolute -top-4.5 right-3 bg-slate-900/95 border border-white/15 rounded-full px-2 py-0.5 shadow-[0_8px_30px_rgba(0,0,0,0.5)] backdrop-blur-2xl z-30 pointer-events-none group-hover/msg-row:pointer-events-auto">
+        <button type="button" class="w-7 h-7 rounded-full hover:bg-white/15 flex items-center justify-center text-xs transition-transform hover:scale-130 active:scale-90 cursor-pointer" title="React ❤️" data-action="toggle-relay-emoji">❤️</button>
+        <button type="button" class="w-7 h-7 rounded-full hover:bg-white/15 flex items-center justify-center text-xs transition-transform hover:scale-130 active:scale-90 cursor-pointer" title="React 👍" data-action="toggle-relay-emoji">👍</button>
+        <button type="button" class="w-7 h-7 rounded-full hover:bg-white/15 flex items-center justify-center text-xs transition-transform hover:scale-130 active:scale-90 cursor-pointer" title="React 🔥" data-action="toggle-relay-emoji">🔥</button>
+        <div class="w-px h-3.5 bg-white/15 mx-1"></div>
+        <button type="button" class="p-1.5 rounded-full hover:bg-white/15 text-xs text-slate-300 hover:text-white transition-all cursor-pointer" title="Reply" data-action="reply-relay-message" data-message-id="${escapeHtml(m.id)}">↩</button>
+        <button type="button" class="p-1.5 rounded-full hover:bg-white/15 text-xs text-slate-300 hover:text-white transition-all cursor-pointer" title="Add to Context Capsule" data-action="add-to-capsule" data-message-id="${escapeHtml(m.id)}" data-sender-name="${escapeAttr(author.name)}" data-sender-handle="${escapeAttr(author.handle)}" data-text="${escapeAttr(m.text || '')}" data-timestamp="${m.createdAt}">📦</button>
+        <button type="button" class="p-1.5 rounded-full hover:bg-white/15 text-xs ${canonicalVault.isMessageSaved(m.id) ? 'text-[var(--color-accent,#e89e38)] font-bold' : 'text-slate-300 hover:text-white'} transition-all cursor-pointer" title="${canonicalVault.isMessageSaved(m.id) ? 'Remove from Vault' : 'Save to Vault'}" data-action="${canonicalVault.isMessageSaved(m.id) ? 'unsave-message-vault' : 'keep-live-message'}" data-message-id="${escapeHtml(m.id)}">${canonicalVault.isMessageSaved(m.id) ? '💾' : '🔒'}</button>
+        <button type="button" class="p-1.5 rounded-full hover:bg-white/15 text-xs text-slate-300 hover:text-white transition-all cursor-pointer" title="Copy text" data-action="copy-message-text" data-text="${escapeAttr(m.text || '')}">📋</button>
       </div>
     </div>
   `;
@@ -1769,48 +1771,44 @@ export function renderDirectMessagesWorkspace(): string {
                     return `
                       <div class="dialogue-stanza ${isMine ? 'dialogue-stanza--own' : 'dialogue-stanza--peer'}">
                         <!-- Stanza Header -->
-                        <div class="stanza-header flex items-center gap-2 mb-1 px-1 select-none ${isMine ? 'justify-end' : ''}">
-                          ${!isMine ? `
-                            <div class="dialogue-identity-mark w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center font-bold text-xs shrink-0">
+                        ${!isMine ? `
+                          <div class="stanza-header flex items-center gap-2 mb-1.5 px-1 select-none">
+                            <div class="dialogue-identity-mark w-7 h-7 sm:w-8 sm:h-8 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 shadow-xs border border-white/10">
                               ${senderInfo.name === 'Profile not set up' ? '?' : senderInfo.name.substring(0, 2).toUpperCase()}
                             </div>
                             <div class="flex items-baseline gap-2 min-w-0 flex-wrap">
                               <span class="text-[13px] sm:text-[14px] font-semibold text-slate-100">${escapeHtml(senderInfo.name)}</span>
-                              ${senderInfo.handle ? `<span class="text-[11px] text-slate-500 font-mono">${escapeHtml(senderInfo.handle)}</span>` : ''}
+                              ${senderInfo.handle ? `<span class="text-[11px] text-slate-400 font-mono">${escapeHtml(senderInfo.handle)}</span>` : ''}
                             </div>
                             <span class="text-[11px] text-slate-500 font-mono ml-auto sm:ml-0">${timeStr}</span>
-                          ` : `
-                            <div class="flex items-center gap-1.5 min-w-0">
-                              <span class="w-1.5 h-1.5 rounded-full bg-[var(--color-accent,#e89e38)]"></span>
-                              <span class="text-[12px] sm:text-[13px] font-semibold text-[var(--color-accent,#e89e38)]">You</span>
-                              <span class="text-slate-600 font-mono text-[10px]">·</span>
-                              <span class="text-[11px] text-slate-500 font-mono">${timeStr}</span>
-                              ${statusHtml ? `<span class="ml-1">${statusHtml}</span>` : ''}
-                            </div>
-                          `}
-                        </div>
+                          </div>
+                        ` : (statusHtml && lastMsg?.deliveryStatus === 'failed' ? `
+                          <div class="stanza-header flex items-center justify-end gap-1.5 mb-1 px-1 select-none">
+                            ${statusHtml}
+                          </div>
+                        ` : '')}
 
                         <!-- Messages in Stanza -->
-                        <div class="cluster-messages stanza-messages space-y-0.5 sm:space-y-1 ${isMine ? 'items-end' : 'pl-9 sm:pl-10'} pr-1">
+                        <div class="cluster-messages stanza-messages space-y-1.5 ${isMine ? 'items-end' : 'pl-8 sm:pl-10'} pr-1">
                           ${cluster.messages.map((msg, mIdx) => {
                             const existingReactions = sovereignDM.getReactions(msg.id);
                             const msgTime = formatTime(msg.timestamp);
 
                             return `
-                              <div id="dm-message-${escapeHtml(msg.id)}" tabindex="0" class="dm-message journal-dialogue-message ${isMine ? 'journal-dialogue-message--outgoing' : 'journal-dialogue-message--incoming'} group/msg-row relative flex flex-col py-0.5 rounded-lg transition-colors select-text">
+                              <div id="dm-message-${escapeHtml(msg.id)}" tabindex="0" class="dm-message chat-bubble-modern ${isMine ? 'chat-bubble--outgoing journal-dialogue-message--outgoing' : 'chat-bubble--incoming journal-dialogue-message--incoming'} group/msg-row relative flex flex-col transition-all select-text">
                                 <!-- Visual Reply Branch -->
                                 ${msg.context?.replyToId ? `
-                                  <div class="dialogue-reply-branch flex items-center gap-1.5 text-xs text-slate-400 mb-0.5 select-none ${isMine ? 'justify-end' : ''}">
+                                  <div class="dialogue-reply-branch flex items-center gap-1.5 text-xs text-slate-400 mb-1 select-none ${isMine ? 'justify-end' : ''}">
                                     <span class="text-slate-500 font-mono text-[12px] leading-none">↳</span>
-                                    <span class="text-slate-500 text-[11px]">${escapeHtml(allMessages.find(item => item.id === msg.context?.replyToId)?.senderFP === myFP ? 'You' : senderInfo.name)} ·</span>
+                                    <span class="text-slate-400 text-[11px]">${escapeHtml(allMessages.find(item => item.id === msg.context?.replyToId)?.senderFP === myFP ? 'You' : senderInfo.name)} ·</span>
                                     <button type="button" class="context-quote context-quote-link text-slate-300 hover:text-[var(--color-accent,#e89e38)] underline font-medium cursor-pointer truncate max-w-xs sm:max-w-md text-[11px] bg-transparent border-none p-0 inline" data-action="open-message-context" data-message-id="${escapeHtml(msg.context.replyToId)}" aria-label="Return to replied message">${escapeHtml(allMessages.find(item => item.id === msg.context?.replyToId)?.plaintext.slice(0, 100) || 'Earlier message unavailable')}</button>
                                   </div>
                                 ` : ''}
 
                                 <!-- Message Body -->
-                                <div class="weave-message-body text-[15px] sm:text-[16px] text-slate-100 select-text leading-[1.6] break-words [overflow-wrap:anywhere] min-w-0">
+                                <div class="weave-message-body text-[14.5px] sm:text-[15px] select-text leading-[1.6] break-words [overflow-wrap:anywhere] min-w-0 ${isMine ? 'text-slate-50' : 'text-slate-100'}">
                                   ${sovereignDM.showCiphertextToggle ? `
-                                    <div class="font-mono text-[10px] text-emerald-400 bg-black/40 p-2 rounded-lg border border-emerald-500/30 break-all space-y-1">
+                                    <div class="font-mono text-[10px] text-emerald-400 bg-black/40 p-2.5 rounded-xl border border-emerald-500/30 break-all space-y-1">
                                       <div class="text-slate-400 font-bold">SIGNED ENCRYPTED ENVELOPE:</div>
                                       <div>${escapeHtml(msg.encryptedPayload)}</div>
                                     </div>
@@ -1828,10 +1826,10 @@ export function renderDirectMessagesWorkspace(): string {
                                 </div>
 
                                 <!-- WhatsApp-style Meta (Timestamp & Checkmark status) -->
-                                <div class="flex items-center gap-1.5 ${isMine ? 'justify-end' : 'justify-start'} mt-1 pt-0.5 select-none text-[10px] text-slate-400 font-mono">
+                                <div class="message-meta-inline flex items-center justify-end gap-1.5 mt-1 -mb-0.5 select-none text-[10px] font-mono text-slate-400/80">
                                   <span>${msgTime}</span>
                                   ${isMine ? `
-                                    <span class="text-[11px] leading-none ${msg.isPeerRead ? 'text-[#00e5ff] font-bold' : 'text-slate-400'}" title="${msg.isPeerRead ? 'Read by recipient' : (msg.deliveryStatus === 'sent' ? 'Sent' : 'Delivered')}">
+                                    <span class="text-[11px] leading-none ${msg.isPeerRead ? 'text-[#00e5ff] font-bold drop-shadow-[0_0_6px_rgba(0,229,255,0.4)]' : 'text-slate-400'}" title="${msg.isPeerRead ? 'Read by recipient' : (msg.deliveryStatus === 'sent' ? 'Sent' : 'Delivered')}">
                                       ${msg.deliveryStatus === 'sending' ? '⏳' : msg.deliveryStatus === 'failed' ? '⚠️' : (msg.isPeerRead ? '✓✓' : (msg.deliveryStatus === 'sent' ? '✓' : '✓✓'))}
                                     </span>
                                   ` : ''}
@@ -1841,7 +1839,7 @@ export function renderDirectMessagesWorkspace(): string {
                                 ${sovereignDM.getBranches(activeConv.peerFingerprint).filter(b => b.sourceMessageId === msg.id).map(b => {
                                   const count = allMessages.filter(m => branchOf(m) === b.id).length;
                                   return `
-                                    <button type="button" data-action="jump-dm-branch" data-branch="${escapeHtml(b.id)}" class="weave-branch-marker inline-flex items-center gap-1.5 mt-1 text-xs text-slate-400 hover:text-white transition-colors cursor-pointer">
+                                    <button type="button" data-action="jump-dm-branch" data-branch="${escapeHtml(b.id)}" class="weave-branch-marker inline-flex items-center gap-1.5 mt-1.5 text-xs text-slate-400 hover:text-white transition-colors cursor-pointer">
                                       <span class="text-[var(--color-accent,#e89e38)] font-mono text-[12px]">↳</span>
                                       <span class="font-semibold text-slate-200">${count} replies</span>
                                       <span class="text-[11px] text-slate-400">· ${escapeHtml(b.title)}</span>
@@ -1857,23 +1855,41 @@ export function renderDirectMessagesWorkspace(): string {
                                   </div>
                                 ` : ''}
 
-                                <!-- Existing reactions -->
+                                <!-- Existing reactions shelf -->
                                 ${existingReactions.length > 0 ? `
-                                  <div class="flex flex-wrap gap-1 mt-1 ${isMine ? 'justify-end' : ''}">
-                                    ${existingReactions.map(reaction => `<button type="button" class="context-button text-[11px] py-0.5 px-2 min-h-[24px]" aria-pressed="${reaction.mine}" data-action="react-dm-message" data-message-id="${escapeHtml(msg.id)}" data-emoji="${reaction.emoji}">${reaction.emoji} ${reaction.count}</button>`).join('')}
+                                  <div class="message-reactions-shelf flex flex-wrap gap-1.5 mt-2 ${isMine ? 'justify-end' : 'justify-start'} select-none">
+                                    ${existingReactions.map(reaction => `
+                                      <button 
+                                        type="button" 
+                                        class="reaction-pill group/pill inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs transition-all duration-150 cursor-pointer active:scale-95 ${
+                                          reaction.mine 
+                                            ? 'reaction-pill--mine' 
+                                            : 'reaction-pill--peer'
+                                        }" 
+                                        aria-pressed="${reaction.mine}" 
+                                        data-action="react-dm-message" 
+                                        data-message-id="${escapeHtml(msg.id)}" 
+                                        data-emoji="${reaction.emoji}"
+                                      >
+                                        <span class="text-[13px] leading-none group-hover/pill:scale-125 transition-transform duration-150">${reaction.emoji}</span>
+                                        <span class="text-[11px] font-mono leading-none">${reaction.count}</span>
+                                      </button>
+                                    `).join('')}
                                   </div>
                                 ` : ''}
 
-                                <!-- Discord-style Floating Action Dock (hover) -->
+                                <!-- 2026 Floating Action Dock (hover) -->
                                 ${!sovereignDM.showCiphertextToggle && msg.deliveryStatus !== 'failed' ? `
-                                  <div class="message-actions-bar opacity-0 group-hover/msg-row:opacity-100 focus-within:opacity-100 transition-all flex items-center space-x-1 absolute -top-3.5 right-3 bg-surface-base/95 border border-white/10 rounded-xl px-2 py-1 shadow-lg backdrop-blur-md z-20" aria-label="Message actions">
-                                    <button type="button" class="p-1 rounded-lg hover:bg-white/10 text-xs cursor-pointer" title="React ❤️" data-action="react-dm-message" data-message-id="${escapeHtml(msg.id)}" data-emoji="❤️">❤️</button>
-                                    <button type="button" class="p-1 rounded-lg hover:bg-white/10 text-xs cursor-pointer" title="React 👍" data-action="react-dm-message" data-message-id="${escapeHtml(msg.id)}" data-emoji="👍">👍</button>
-                                    <button type="button" class="p-1 rounded-lg hover:bg-white/10 text-xs cursor-pointer" title="React 🔥" data-action="react-dm-message" data-message-id="${escapeHtml(msg.id)}" data-emoji="🔥">🔥</button>
-                                    <button type="button" class="p-1 rounded-lg hover:bg-white/10 text-xs cursor-pointer text-slate-400 hover:text-white" title="Reply" data-action="reply-dm-message" data-message-id="${escapeHtml(msg.id)}">↩</button>
-                                    <button type="button" class="p-1 rounded-lg hover:bg-white/10 text-xs cursor-pointer text-slate-400 hover:text-white" title="Add to Context Capsule" data-action="add-to-capsule" data-message-id="${escapeHtml(msg.id)}" data-sender-name="${escapeAttr(senderInfo.name)}" data-sender-handle="${escapeAttr(senderInfo.handle)}" data-text="${escapeAttr(msg.plaintext || '')}" data-timestamp="${msg.timestamp}">📦</button>
-                                    <button type="button" class="p-1 rounded-lg hover:bg-white/10 text-xs cursor-pointer ${canonicalVault.isMessageSaved(msg.id) ? 'text-[var(--color-accent,#e89e38)]' : 'text-slate-400 hover:text-white'}" title="${canonicalVault.isMessageSaved(msg.id) ? 'Remove from Vault' : 'Save to Vault'}" data-action="${canonicalVault.isMessageSaved(msg.id) ? 'unsave-message-vault' : 'save-message-vault'}" data-message-id="${escapeHtml(msg.id)}">${canonicalVault.isMessageSaved(msg.id) ? '💾' : '🔒'}</button>
-                                    <button type="button" class="p-1 rounded-lg hover:bg-white/10 text-xs cursor-pointer text-slate-400 hover:text-white" title="Copy text" data-action="copy-message-text" data-text="${escapeAttr(msg.plaintext || '')}">📋</button>
+                                  <div class="message-actions-bar opacity-0 group-hover/msg-row:opacity-100 focus-within:opacity-100 transition-all duration-150 flex items-center space-x-0.5 absolute -top-4.5 right-2 bg-slate-900/95 border border-white/15 rounded-full px-2 py-0.5 shadow-[0_8px_30px_rgba(0,0,0,0.5)] backdrop-blur-2xl z-30 pointer-events-none group-hover/msg-row:pointer-events-auto" aria-label="Message actions">
+                                    <button type="button" class="w-7 h-7 rounded-full hover:bg-white/15 flex items-center justify-center text-xs transition-transform hover:scale-130 active:scale-90 cursor-pointer" title="React ❤️" data-action="react-dm-message" data-message-id="${escapeHtml(msg.id)}" data-emoji="❤️">❤️</button>
+                                    <button type="button" class="w-7 h-7 rounded-full hover:bg-white/15 flex items-center justify-center text-xs transition-transform hover:scale-130 active:scale-90 cursor-pointer" title="React 👍" data-action="react-dm-message" data-message-id="${escapeHtml(msg.id)}" data-emoji="👍">👍</button>
+                                    <button type="button" class="w-7 h-7 rounded-full hover:bg-white/15 flex items-center justify-center text-xs transition-transform hover:scale-130 active:scale-90 cursor-pointer" title="React 🔥" data-action="react-dm-message" data-message-id="${escapeHtml(msg.id)}" data-emoji="🔥">🔥</button>
+                                    <button type="button" class="w-7 h-7 rounded-full hover:bg-white/15 flex items-center justify-center text-xs transition-transform hover:scale-130 active:scale-90 cursor-pointer" title="React 🚀" data-action="react-dm-message" data-message-id="${escapeHtml(msg.id)}" data-emoji="🚀">🚀</button>
+                                    <div class="w-px h-3.5 bg-white/15 mx-1"></div>
+                                    <button type="button" class="p-1.5 rounded-full hover:bg-white/15 text-xs text-slate-300 hover:text-white transition-all cursor-pointer" title="Reply" data-action="reply-dm-message" data-message-id="${escapeHtml(msg.id)}">↩</button>
+                                    <button type="button" class="p-1.5 rounded-full hover:bg-white/15 text-xs text-slate-300 hover:text-white transition-all cursor-pointer" title="Add to Context Capsule" data-action="add-to-capsule" data-message-id="${escapeHtml(msg.id)}" data-sender-name="${escapeAttr(senderInfo.name)}" data-sender-handle="${escapeAttr(senderInfo.handle)}" data-text="${escapeAttr(msg.plaintext || '')}" data-timestamp="${msg.timestamp}">📦</button>
+                                    <button type="button" class="p-1.5 rounded-full hover:bg-white/15 text-xs ${canonicalVault.isMessageSaved(msg.id) ? 'text-[var(--color-accent,#e89e38)] font-bold' : 'text-slate-300 hover:text-white'} transition-all cursor-pointer" title="${canonicalVault.isMessageSaved(msg.id) ? 'Remove from Vault' : 'Save to Vault'}" data-action="${canonicalVault.isMessageSaved(msg.id) ? 'unsave-message-vault' : 'save-message-vault'}" data-message-id="${escapeHtml(msg.id)}">${canonicalVault.isMessageSaved(msg.id) ? '💾' : '🔒'}</button>
+                                    <button type="button" class="p-1.5 rounded-full hover:bg-white/15 text-xs text-slate-300 hover:text-white transition-all cursor-pointer" title="Copy text" data-action="copy-message-text" data-text="${escapeAttr(msg.plaintext || '')}">📋</button>
                                   </div>
                                 ` : ''}
 

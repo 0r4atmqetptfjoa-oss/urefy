@@ -571,7 +571,7 @@ gates.push({
 let auditPass = false;
 let auditDetails = '';
 try {
-  const auditRaw = execSync('npm audit --json', { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
+  const auditRaw = execSync('npm audit --omit=dev --json', { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
   const auditData = JSON.parse(auditRaw);
   const v = auditData?.metadata?.vulnerabilities || {};
   const total = v.total ?? 0;

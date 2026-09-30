@@ -16,12 +16,12 @@ function encodePath(path: string): string {
 
 async function sha256(value: string | Uint8Array): Promise<string> {
   const bytes = typeof value === 'string' ? encoder.encode(value) : value;
-  return hex(await crypto.subtle.digest('SHA-256', bytes));
+  return hex(await crypto.subtle.digest('SHA-256', bytes as unknown as BufferSource));
 }
 
 async function hmac(key: Uint8Array, value: string): Promise<Uint8Array> {
-  const cryptoKey = await crypto.subtle.importKey('raw', key, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-  return new Uint8Array(await crypto.subtle.sign('HMAC', cryptoKey, encoder.encode(value)));
+  const cryptoKey = await crypto.subtle.importKey('raw', key as unknown as BufferSource, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  return new Uint8Array(await crypto.subtle.sign('HMAC', cryptoKey, encoder.encode(value) as unknown as BufferSource));
 }
 
 function awsDate(date: Date): { full: string; day: string } {
@@ -81,6 +81,7 @@ export async function mirrorEncryptedBackupToS3(
 
   const response = await fetch(url, {
     method: 'PUT',
+    signal: AbortSignal.timeout(15000),
     // The runtime supplies Host from the URL; signing uses the same canonical host.
     headers: {
       'content-type': signedHeadersMap['content-type'],

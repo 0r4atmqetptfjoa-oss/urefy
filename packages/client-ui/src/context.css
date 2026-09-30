@@ -179,9 +179,6 @@
 .dialogue-flow:has(.dm-message:hover), .dialogue-flow:has(.dm-message:focus-within) { z-index: 50; }
 .dialogue-stanza:has(.dm-message:hover), .dialogue-stanza:has(.dm-message:focus-within) { z-index: 25; }
 .dialogue-stanza .stanza-header { margin-bottom: .3rem; }
-.dialogue-stanza .stanza-messages { gap: .12rem; }
-.dialogue-stanza .dm-message { padding: .15rem .25rem; border-radius: 3px; }
-.dialogue-stanza .dm-message:hover { background: color-mix(in srgb, var(--color-accent) 6%, transparent); }
 .dialogue-stanza .weave-message-body { line-height: 1.6; }
 .dialogue-stanza .context-actions { gap: .25rem; }
 .dialogue-stanza .dm-message > .context-actions { position: absolute; z-index: 15; bottom: 100%; left: 0; width: max-content; max-width: min(100vw - 30px, 440px); padding: 2px 4px; background: var(--bg-surface-overlay); border: 1px solid var(--dialogue-line); border-radius: 5px; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25); pointer-events: none; }
@@ -250,13 +247,7 @@
 .relay-messages-workspace .btn-channel[aria-current="true"] { background: var(--bg-surface-raised); border-left-color: var(--color-accent); box-shadow: none; }
 .relay-messages-workspace > div { background: var(--dialogue-canvas); }
 .relay-messages-workspace > div > :first-child { background: var(--dialogue-canvas); backdrop-filter: none; }
-#messages-container { max-width: 940px; background: var(--dialogue-canvas); }
-#main-stage .relay-message { padding: 2px 4px; border-radius: 3px !important; background: transparent; }
-#main-stage .relay-message:hover { background: color-mix(in srgb, var(--color-accent) 6%, transparent); }
-.relay-message--own { width: 82%; margin-left: auto; align-items: flex-end; }
-.relay-message--own .weave-spine { width: 100%; text-align: right; }
-.relay-message--own .message-body { text-align: right; }
-.relay-message--own .stanza-header { justify-content: flex-end; }
+.relay-message--own { margin-left: auto; }
 .relay-message .message-body { font-size: 15px; line-height: 1.6; }
 .relay-message .stanza-header { margin-bottom: 4px; }
 .relay-message.message-row--subsequent { padding-block: 1px; }

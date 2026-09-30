@@ -44,7 +44,22 @@
 
 .journal-profile .profile-hero__banner img { object-position: center 42%; }
 .journal-profile .profile-hero__banner-fallback {
-  background: linear-gradient(135deg, var(--bg-surface-raised), var(--journal-tint));
+  width: 100%;
+  height: 100%;
+  position: relative;
+  background-color: var(--bg-surface-raised, #0e1217);
+  background-image:
+    radial-gradient(ellipse 80% 60% at 50% 120%, color-mix(in srgb, var(--color-accent, #e59b3c) 22%, transparent), transparent 75%),
+    radial-gradient(circle at 85% 20%, color-mix(in srgb, var(--color-accent, #e59b3c) 12%, transparent), transparent 50%),
+    radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.06) 1px, transparent 0);
+  background-size: 100% 100%, 100% 100%, 24px 24px;
+}
+.journal-profile .profile-hero__banner-fallback::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.4) 0%, transparent 40%, transparent 60%, rgba(0, 0, 0, 0.4) 100%);
+  pointer-events: none;
 }
 
 .journal-profile .journal-profile__hero-content {

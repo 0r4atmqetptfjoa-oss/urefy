@@ -511,6 +511,23 @@ export class SovereignWebPush {
       return '';
     }
 
+    if (typeof localStorage !== 'undefined') {
+      try {
+        const dismissedUntil = Number(localStorage.getItem('urefy_push_banner_dismissed_until') || '0');
+        if (dismissedUntil > Date.now()) {
+          this._bannerDismissed = true;
+          return '';
+        }
+        if (
+          localStorage.getItem('aetheris_notification_prompt_dismissed') === 'true' ||
+          localStorage.getItem('aetheris_push_banner_dismissed') === '1'
+        ) {
+          this._bannerDismissed = true;
+          return '';
+        }
+      } catch (_) {}
+    }
+
     if (typeof sessionStorage !== 'undefined') {
       try {
         if (sessionStorage.getItem('aetheris_push_banner_dismissed') === '1') {

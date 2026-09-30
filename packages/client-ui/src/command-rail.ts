@@ -11,10 +11,9 @@ export interface CommandItem {
 
 export function setupKeyboardShortcuts(): void {
   window.addEventListener('keydown', (e) => {
-    // Ctrl + K or Cmd + K: Open Command Rail
+    // Ctrl + K or Cmd + K: Open Command Rail V2 (unified single shortcut)
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
       e.preventDefault();
-      clientStore.toggleCommandRail();
       return;
     }
 

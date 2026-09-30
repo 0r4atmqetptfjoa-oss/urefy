@@ -1,0 +1,11 @@
+import {readFile} from 'node:fs/promises';
+const content=await readFile(new URL('../../.env',import.meta.url),'utf8');
+const secret=content.match(/^CRON_SECRET=(.+)$/m)?.[1].trim().replace(/^(['"])(.*)\1$/,'$2');
+if(!secret)throw new Error('Missing cron secret');
+const before=await fetch('https://urefy.com/api/cron-backup').then(r=>r.json());
+console.log(JSON.stringify({before:{success:before.success,activeSnapshotsCount:before.activeSnapshotsCount}}));
+const started=Date.now();
+const response=await fetch('https://urefy.com/api/cron-backup',{method:'POST',headers:{'X-Cron-Secret':secret},signal:AbortSignal.timeout(90000)});
+const result=await response.json();
+console.log(JSON.stringify({httpStatus:response.status,success:result.success,error:result.error,elapsedMs:Date.now()-started,checksumSha256:result.checksumSha256,encryptedBytes:result.encryptedBytes,storage:result.storage,awsS3Backup:result.awsS3Backup,fullBackup:result.fullBackup}));
+if(!response.ok||!result.success||!result.awsS3Backup?.enabled)process.exitCode=1;

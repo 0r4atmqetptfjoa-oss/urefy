@@ -29,6 +29,7 @@ import {
 } from './storage.js';
 import { verifyAdminAuthorization } from './admin.js';
 import { mirrorEncryptedBackupToS3, type S3BackupResult } from './_aws-s3.js';
+import { executeFullBackup, FULL_DAILY_KEY } from './_full-backup.js';
 
 export const DAILY_BACKUP_KEY = 'backups/d1-snapshot-daily.enc';
 export const BACKUP_PREFIX = 'backups/';
@@ -85,6 +86,7 @@ export interface BackupExecutionResult {
   tableCounts: Record<string, number>;
   storage: 'Cloudflare-R2' | 'Edge-Isolate-Memory';
   awsS3Backup?: S3BackupResult;
+  fullBackup?: Awaited<ReturnType<typeof executeFullBackup>>;
   rotation: {
     rotatedCount: number;
     deletedKeys: string[];
@@ -296,6 +298,15 @@ export async function dumpD1Tables(env?: Env): Promise<{
           tables[table] = getInMemoryTableFallback(table);
         }
       } catch (err: any) {
+        // The deployed schema never defines a D1 nullifiers table. Its legacy
+        // in-memory registry is not durable production data. Preserve manifest
+        // compatibility with an empty array only for this known absent table;
+        // missing core tables and other query errors still fail closed.
+        if (table === 'nullifiers' && /no such table:\s*nullifiers\b/i.test(String(err?.message))) {
+          tables[table] = [];
+          counts[table] = 0;
+          continue;
+        }
         if (isProd) {
           throw new Error(`Production backup failed: error querying table ${table}: ${err?.message || err}`);
         }
@@ -502,6 +513,9 @@ export async function executeBackup(
   // S3 receives only the same AES-GCM ciphertext already persisted in R2.
   // It is an optional disaster-recovery mirror and never replaces Cloudflare storage.
   const awsS3Backup = await mirrorEncryptedBackupToS3(env, timestampedKey, encryptedPayload);
+  const fullBackup = env?.AWS_FULL_DR_ENABLED === 'true'
+    ? await executeFullBackup(env, async (plain) => encryptBackupPayload(await compressGzip(plain), backupSecret), isoTimestamp)
+    : undefined;
 
   const result: BackupExecutionResult = {
     success: true,
@@ -515,6 +529,7 @@ export async function executeBackup(
     tableCounts: counts,
     storage: storageType,
     awsS3Backup,
+    fullBackup,
     rotation: rotationResult,
     metadata,
   };
@@ -667,7 +682,7 @@ export async function onRequestPost(context: {
 
     // HTTP clients can forge CF-Cron, so only the configured secret or admin auth is trusted.
     const isCronAuthorized =
-      Boolean(configuredCronSecret && cronSecretHeader === configuredCronSecret);
+      Boolean(configuredCronSecret && cronSecretHeader === configuredCronSecret && url.searchParams.get('action') !== 'restore');
 
     if (!isCronAuthorized) {
       const auth = await verifyAdminAuthorization(req, context.env);
@@ -776,6 +791,8 @@ export async function onRequestGet(context: {
   }
 
   const activeSnapshots: string[] = [];
+  let lastBackup: Partial<BackupExecutionResult> | null = globalLastBackupMetadata;
+  let fullBackup: Record<string, unknown> | null = null;
 
   if (r2) {
     try {
@@ -783,7 +800,34 @@ export async function onRequestGet(context: {
       for (const obj of list.objects) {
         activeSnapshots.push(obj.key);
       }
-    } catch (_) {}
+      // Worker isolates do not share globals. Read the durable daily pointer's
+      // metadata so the admin status remains correct after a scheduled backup.
+      const daily = await r2.head(DAILY_BACKUP_KEY);
+      if (context.env?.AWS_FULL_DR_ENABLED === 'true') {
+        const full = await r2.head(FULL_DAILY_KEY);
+        const meta = full?.customMetadata;
+        if (meta && /^[a-f0-9]{64}$/.test(meta.sha256 || '') && Number.isFinite(Date.parse(meta.timestamp || ''))) {
+          fullBackup = { success: true, timestamp: meta.timestamp, tableCount: Number(meta.tables), totalRecords: Number(meta.records), objectCount: Number(meta.objects), mediaBytes: Number(meta.mediaBytes), checksumSha256: meta.sha256 };
+        }
+      }
+      const metadata = daily?.customMetadata;
+      if (metadata && /^[a-f0-9]{64}$/.test(metadata.sha256 || '') && Number.isFinite(Date.parse(metadata.timestamp || ''))) {
+        lastBackup = {
+          success: true,
+          key: DAILY_BACKUP_KEY,
+          timestamp: metadata.timestamp,
+          checksumSha256: metadata.sha256,
+          encryptedBytes: daily!.size,
+          storage: 'Cloudflare-R2',
+        };
+      } else if (isProd) {
+        lastBackup = null;
+      }
+    } catch {
+      return new Response(JSON.stringify({ success: false, error: 'Backup status storage unavailable' }), {
+        status: 503, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+      });
+    }
   }
 
   if (!isProd) {
@@ -796,8 +840,9 @@ export async function onRequestGet(context: {
     JSON.stringify(
       {
         success: true,
-        status: globalLastBackupMetadata ? 'SUCCESS' : 'IDLE',
-        lastBackup: globalLastBackupMetadata,
+        status: lastBackup ? 'SUCCESS' : 'IDLE',
+        lastBackup,
+        fullBackup,
         retentionDays: 7,
         retentionPeriodMs: RETENTION_PERIOD_MS,
         safeStorageCapGB: 8.0,

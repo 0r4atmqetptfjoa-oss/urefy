@@ -2179,10 +2179,14 @@ export class WebRTCFileTransfer {
     `;
   }
 
+  public isIndicatorDismissed: boolean = false;
+
   /**
    * Render floating status pill in bottom-right corner when active transfers exist
    */
   public renderFloatingWidget(): string {
+    if (this.isIndicatorDismissed) return '';
+
     // Only show the widget when there are ACTIVELY running transfers
     // Completed or errored transfers do NOT trigger the floating indicator
     const reallyActive = [...this.activeTransfers.values()].filter(
@@ -2203,7 +2207,7 @@ export class WebRTCFileTransfer {
     return `
       <div
         id="webrtc-floating-transfer-widget"
-        class="fixed left-4 bottom-28 md:bottom-14 z-40 font-mono select-none"
+        class="fixed left-4 md:left-[17.5rem] bottom-24 md:bottom-4 z-20 font-mono select-none"
         title="Click to open P2P Transfer Manager" data-action="open-download-manager"
       >
         <!-- Compact pill — always visible during active transfer -->
@@ -2247,14 +2251,14 @@ export class WebRTCFileTransfer {
             </div>
           </div>
 
-
           <!-- Close / minimize button (stops showing, does not cancel transfer) -->
           <button
             type="button"
-            class="opacity-0 group-hover:opacity-100 p-0.5 rounded-lg text-slate-500 hover:text-slate-200 transition-all shrink-0"
-            title="Dismiss indicator" data-action="stop-propagation"
+            id="btn-dismiss-webrtc-transfer"
+            class="opacity-60 md:opacity-0 md:group-hover:opacity-100 p-1 rounded-lg text-slate-400 hover:text-white transition-all shrink-0 cursor-pointer"
+            title="Dismiss indicator" data-action="dismiss-transfer-indicator"
           >
-            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/>
             </svg>
           </button>

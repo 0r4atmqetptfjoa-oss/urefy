@@ -39,6 +39,7 @@ export default defineConfig({
           includeDependenciesRecursively: false,
           groups: [
             { name: 'wallet-vendor', test: /node_modules[\\/](ethers|@adraffy)[\\/]/, priority: 20 },
+            { name: 'rum-vendor', test: /node_modules[\\/](aws-rum-web)[\\/]/, priority: 20 },
             { name: 'vendor', test: /node_modules/ },
             { name: 'theme-studio', test: /[\\/]src[\\/](custom-theme-builder)\.ts$/ },
             { name: 'media-capture', test: /[\\/]src[\\/](webrtc-voice|screenshare)\.ts$/ },

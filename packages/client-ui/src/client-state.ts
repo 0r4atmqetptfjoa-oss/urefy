@@ -16,7 +16,7 @@ import {
   SovereignKeyPairSet,
   SovereignSignedEnvelope,
 } from '@aetheris/core-crypto';
-import { inspectBinary, computeFileChecksums, createSwarmManifest, BinaryHygieneReport } from '@aetheris/vault-engine';
+import type { BinaryHygieneReport } from '@aetheris/vault-engine';
 import { serviceRegistry, SERVICES } from './service-registry.js';
 import { fetchWithRetry } from './dry-utils.js';
 import { offlineSync } from './offline-sync.js';
@@ -466,7 +466,7 @@ export class AetherisClientStore {
   }
 
   private seedInitialPostsAndMembers(): void {
-    if (!isDemoModeEnabled() || !isLocalDev()) {
+    if (!isLocalDev() && !isDemoModeEnabled()) {
       this.members = [
         { fingerprint: this.keypair.fingerprint, role: 'MEMBER', status: 'online', isZKVerified: true, avatarSeed: 'me' }
       ];
@@ -1544,6 +1544,7 @@ export class AetherisClientStore {
     const arrayBuffer = await file.arrayBuffer();
     const data = new Uint8Array(arrayBuffer);
 
+    const { computeFileChecksums, inspectBinary, createSwarmManifest } = await import('@aetheris/vault-engine');
     const checksums = computeFileChecksums(data);
     const hygiene = inspectBinary(data);
     const { manifest } = createSwarmManifest(data);

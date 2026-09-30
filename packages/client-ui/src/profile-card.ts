@@ -626,12 +626,12 @@ export class ProfileCardEngine {
 
           <!-- FEDERATED HANDLE & 1-CLICK COPY BUTTON -->
           <div class="flex items-center justify-between gap-1.5 bg-surface-base/80 p-2 rounded-xl border border-white/5 relative z-10 text-[11px] font-mono">
-            <span class="text-indigo-300 truncate font-semibold federated-handle" data-federated-handle="${cardFederatedHandle}" title="${cardFederatedHandle}">
+            <span class="text-amber-300/90 truncate font-semibold federated-handle" data-federated-handle="${cardFederatedHandle}" title="${cardFederatedHandle}">
               ${cardFederatedHandle}
             </span>
             <button
               type="button"
-              class="btn-copy-federated-handle px-2 py-1 rounded-lg bg-surface-overlay hover:bg-indigo-950 text-slate-300 hover:text-indigo-200 border border-white/10 hover:border-indigo-500/30 text-[10px] font-mono transition-all flex items-center gap-1 cursor-pointer shrink-0"
+              class="btn-copy-federated-handle px-2 py-1 rounded-lg bg-surface-overlay hover:bg-amber-950/40 text-slate-300 hover:text-amber-200 border border-white/10 hover:border-amber-500/30 text-[10px] font-mono transition-all flex items-center gap-1 cursor-pointer shrink-0"
               data-copy-handle="${cardFederatedHandle}"
               title="Copy standard federated handle for Mastodon and fediverse instances" data-action="call-global" data-raw-click="if(window.__aetheris_copy_federated_handle){window.__aetheris_copy_federated_handle('${cardFederatedHandle}');}else{navigator.clipboard&&navigator.clipboard.writeText('${cardFederatedHandle}');}"
             >

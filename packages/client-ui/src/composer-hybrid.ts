@@ -443,13 +443,13 @@ export class HybridComposer {
     const ratio = Math.min(1.2, currentLen / maxLen);
     const strokeDashoffset = Math.max(0, circumference * (1 - Math.min(1, ratio)));
     
-    let strokeColor = '#6366f1'; // cyphr/indigo
+    let strokeColor = '#e89e38'; // sovereign amber
     if (ratio >= 1) {
       strokeColor = '#ef4444'; // red (overflow)
     } else if (ratio >= 0.8) {
-      strokeColor = '#f59e0b'; // amber
+      strokeColor = '#f59e0b'; // amber warning
     } else if (ratio > 0) {
-      strokeColor = '#06b6d4'; // cyan
+      strokeColor = '#e89e38'; // sovereign accent
     }
 
     const remaining = maxLen - currentLen;
@@ -495,8 +495,7 @@ export class HybridComposer {
    * Main Modal Render Entry Point.
    */
   public renderComposerModal(): string {
-    const facets = clientStore.facets.length > 0 ? clientStore.facets : [];
-    const activeFacet = (this.selectedFacetId ? facets.find(f => f.id === this.selectedFacetId) : null) || clientStore.getActiveFacet() || {
+    const activeFacet = (this.selectedFacetId ? clientStore.facets.find(f => f.id === this.selectedFacetId) : null) || clientStore.getActiveFacet() || {
       id: 'default',
       handle: 'sovereign',
       displayName: 'Main Context',
@@ -506,49 +505,50 @@ export class HybridComposer {
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };
+    const facets = clientStore.facets.length > 0 ? clientStore.facets : [activeFacet];
 
     return `
       <div id="composer-modal-overlay" data-action="close-composer-backdrop" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-2 sm:p-4 select-none animate-in fade-in zoom-in-95 duration-150 overflow-y-auto">
         <div class="w-full max-w-[760px] bg-surface-base border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col my-auto max-h-[92vh]" data-action="stop-propagation">
           
           <!-- COMPOSER HEADER & TAB NAVIGATION -->
-          <div class="p-3 border-subtle-b bg-surface-raised/60 flex flex-wrap items-center justify-between gap-2">
+          <div class="p-3 border-subtle-b bg-surface-raised/60 flex items-center justify-between gap-2">
             
-            <!-- MULTI-TAB SWITCHER -->
-            <div class="flex items-center space-x-1 bg-surface-base/80 p-1 rounded-xl border border-white/5 overflow-x-auto">
-              <button type="button" data-composer-tab="pulse" class="btn-composer-tab px-3 py-1.5 text-xs rounded-lg font-semibold transition-all cursor-pointer flex items-center space-x-1.5 ${this.activeTab === 'pulse' ? 'bg-[var(--color-accent,#e89e38)]/15 text-[var(--color-accent,#e89e38)] border border-[var(--color-accent,#e89e38)]/30 shadow-sm font-bold' : 'text-slate-400 hover:text-slate-200'}">
+            <!-- MULTI-TAB SWITCHER (Horizontally Scrollable) -->
+            <div class="flex items-center space-x-1 bg-surface-base/80 p-1 rounded-xl border border-white/5 overflow-x-auto min-w-0 max-w-[calc(100%-80px)] sm:max-w-none custom-scrollbar">
+              <button type="button" data-composer-tab="pulse" class="btn-composer-tab shrink-0 px-3 py-1.5 text-xs rounded-lg font-semibold transition-all cursor-pointer flex items-center space-x-1.5 ${this.activeTab === 'pulse' ? 'bg-[var(--color-accent,#e89e38)]/15 text-[var(--color-accent,#e89e38)] border border-[var(--color-accent,#e89e38)]/30 shadow-sm font-bold' : 'text-slate-400 hover:text-slate-200'}">
                 <span>📝</span>
                 <span>Post</span>
               </button>
               
-              <button type="button" data-composer-tab="article" class="btn-composer-tab px-3 py-1.5 text-xs rounded-lg font-semibold transition-all cursor-pointer flex items-center space-x-1.5 ${this.activeTab === 'article' ? 'bg-[var(--color-accent,#e89e38)]/15 text-[var(--color-accent,#e89e38)] border border-[var(--color-accent,#e89e38)]/30 shadow-sm font-bold' : 'text-slate-400 hover:text-slate-200'}">
+              <button type="button" data-composer-tab="article" class="btn-composer-tab shrink-0 px-3 py-1.5 text-xs rounded-lg font-semibold transition-all cursor-pointer flex items-center space-x-1.5 ${this.activeTab === 'article' ? 'bg-[var(--color-accent,#e89e38)]/15 text-[var(--color-accent,#e89e38)] border border-[var(--color-accent,#e89e38)]/30 shadow-sm font-bold' : 'text-slate-400 hover:text-slate-200'}">
                 <span>📜</span>
                 <span>Article</span>
               </button>
               
-              <button type="button" data-composer-tab="media" class="btn-composer-tab px-3 py-1.5 text-xs rounded-lg font-semibold transition-all cursor-pointer flex items-center space-x-1.5 ${this.activeTab === 'media' ? 'bg-[var(--color-accent,#e89e38)]/15 text-[var(--color-accent,#e89e38)] border border-[var(--color-accent,#e89e38)]/30 shadow-sm font-bold' : 'text-slate-400 hover:text-slate-200'}">
+              <button type="button" data-composer-tab="media" class="btn-composer-tab shrink-0 px-3 py-1.5 text-xs rounded-lg font-semibold transition-all cursor-pointer flex items-center space-x-1.5 ${this.activeTab === 'media' ? 'bg-[var(--color-accent,#e89e38)]/15 text-[var(--color-accent,#e89e38)] border border-[var(--color-accent,#e89e38)]/30 shadow-sm font-bold' : 'text-slate-400 hover:text-slate-200'}">
                 <span>🖼️</span>
                 <span>Media (${this.mediaItems.length}/4)</span>
               </button>
               
-              <button type="button" data-composer-tab="poll" class="btn-composer-tab px-3 py-1.5 text-xs rounded-lg font-semibold transition-all cursor-pointer flex items-center space-x-1.5 ${this.activeTab === 'poll' ? 'bg-[var(--color-accent,#e89e38)]/15 text-[var(--color-accent,#e89e38)] border border-[var(--color-accent,#e89e38)]/30 shadow-sm font-bold' : 'text-slate-400 hover:text-slate-200'}">
+              <button type="button" data-composer-tab="poll" class="btn-composer-tab shrink-0 px-3 py-1.5 text-xs rounded-lg font-semibold transition-all cursor-pointer flex items-center space-x-1.5 ${this.activeTab === 'poll' ? 'bg-[var(--color-accent,#e89e38)]/15 text-[var(--color-accent,#e89e38)] border border-[var(--color-accent,#e89e38)]/30 shadow-sm font-bold' : 'text-slate-400 hover:text-slate-200'}">
                 <span>📊</span>
                 <span>Poll</span>
               </button>
               
-              <button type="button" data-composer-tab="code" class="btn-composer-tab px-3 py-1.5 text-xs rounded-lg font-semibold transition-all cursor-pointer flex items-center space-x-1.5 ${this.activeTab === 'code' || this.activeTab === 'vault' ? 'bg-[var(--color-accent,#e89e38)]/15 text-[var(--color-accent,#e89e38)] border border-[var(--color-accent,#e89e38)]/30 shadow-sm font-bold' : 'text-slate-400 hover:text-slate-200'}">
+              <button type="button" data-composer-tab="code" class="btn-composer-tab shrink-0 px-3 py-1.5 text-xs rounded-lg font-semibold transition-all cursor-pointer flex items-center space-x-1.5 ${this.activeTab === 'code' || this.activeTab === 'vault' ? 'bg-[var(--color-accent,#e89e38)]/15 text-[var(--color-accent,#e89e38)] border border-[var(--color-accent,#e89e38)]/30 shadow-sm font-bold' : 'text-slate-400 hover:text-slate-200'}">
                 <span>💻</span>
                 <span>Code & Diff</span>
               </button>
             </div>
 
             <!-- RIGHT CONTROLS: DRAFT STATUS & CLOSE -->
-            <div class="flex items-center space-x-2.5">
+            <div class="flex items-center space-x-2 shrink-0">
               <div id="composer-draft-badge" class="hidden sm:flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-white/5 text-[10px] font-mono text-slate-400 border border-white/5">
                 ${this.renderDraftStatusHtml()}
               </div>
 
-              <button type="button" id="btn-close-composer" data-action="close-composer" class="text-slate-400 hover:text-white font-mono w-7 h-7 flex items-center justify-center rounded-lg hover:bg-surface-overlay cursor-pointer transition-colors" title="${t('modal.close', undefined, 'Close')}">
+              <button type="button" id="btn-close-composer" data-action="close-composer" class="text-slate-400 hover:text-white font-mono w-8 h-8 flex items-center justify-center rounded-xl bg-surface-base/70 border border-white/10 hover:bg-surface-overlay cursor-pointer transition-colors shrink-0" title="${t('modal.close', undefined, 'Close')}">
                 ✕
               </button>
             </div>
@@ -685,7 +685,7 @@ export class HybridComposer {
             <span>🛡️</span>
             <span>Who will see this?</span>
           </span>
-          <span class="text-[10px] font-mono px-2 py-0.5 rounded-full ${this.postAudience === 'public' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20' : 'bg-amber-500/10 text-amber-300 border border-amber-500/20'}">
+          <span class="text-[10px] font-mono px-2 py-0.5 rounded-full ${this.postAudience === 'public' ? 'bg-[var(--color-accent,#e89e38)]/10 text-[var(--color-accent,#e89e38)] border border-[var(--color-accent,#e89e38)]/20' : 'bg-amber-500/10 text-amber-300 border border-amber-500/20'}">
             ${this.postAudience.toUpperCase()}
           </span>
         </div>
@@ -705,14 +705,14 @@ export class HybridComposer {
         <div class="text-[10px] text-slate-400 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 pt-1.5 border-t border-white/5 font-mono">
           <div class="flex items-center gap-1.5">
             ${this.postAudience === 'public' ? `
-              <span class="text-indigo-400">👤</span><span>Profile: Visible on public @${escapeHtml(facet.handle)}</span>
+              <span class="text-[var(--color-accent,#e89e38)]">👤</span><span>Profile: Visible on public @${escapeHtml(facet.handle)}</span>
             ` : `
               <span class="text-amber-400">🔒</span><span>Profile: Hidden from public profile visitors</span>
             `}
           </div>
           <div class="flex items-center gap-1.5">
             ${this.postAudience === 'public' ? `
-              <span class="text-indigo-400">🔍</span><span>Search: Indexed publicly</span>
+              <span class="text-[var(--color-accent,#e89e38)]">🔍</span><span>Search: Indexed publicly</span>
             ` : `
               <span class="text-slate-500">🚫</span><span>Search: Excluded from search & sitemaps</span>
             `}
@@ -815,14 +815,14 @@ export class HybridComposer {
               <div class="flex items-start space-x-3 group relative" data-segment-card="${index}">
                 <!-- THREAD CONNECTOR LINE & INDEX BADGE -->
                 <div class="flex flex-col items-center shrink-0 pt-2">
-                  <div class="w-6 h-6 rounded-full bg-indigo-600/30 border border-indigo-500/50 flex items-center justify-center text-[10px] font-bold text-indigo-300">
+                  <div class="w-6 h-6 rounded-full bg-[var(--color-accent,#e89e38)]/20 border border-[var(--color-accent,#e89e38)]/40 flex items-center justify-center text-[10px] font-bold text-[var(--color-accent,#e89e38)]">
                     ${index + 1}
                   </div>
-                  ${!isLast ? `<div class="w-0.5 bg-indigo-500/30 flex-1 my-1 min-h-[50px]"></div>` : ''}
+                  ${!isLast ? `<div class="w-0.5 bg-[var(--color-accent,#e89e38)]/30 flex-1 my-1 min-h-[50px]"></div>` : ''}
                 </div>
 
                 <!-- SEGMENT CARD -->
-                <div class="flex-1 bg-surface-raised border ${isOverflow ? 'border-rose-500/50' : 'border-white/10 focus-within:border-indigo-500'} rounded-xl p-3 space-y-2 transition-all">
+                <div class="flex-1 bg-surface-raised border ${isOverflow ? 'border-rose-500/50' : 'border-white/10 focus-within:border-[var(--color-accent,#e89e38)]'} rounded-xl p-3 space-y-2 transition-all">
                   
                   <div class="flex items-center justify-between text-[11px] text-slate-400">
                     <span class="font-semibold text-slate-300">Post ${index + 1} of ${this.threadSegments.length}<span class="sr-only">Pulse Segment ${index + 1} of ${this.threadSegments.length}</span></span>
@@ -843,8 +843,8 @@ export class HybridComposer {
                   >${escapeHtml(segment.content)}</textarea>
 
                   ${index === 0 && this.quotedPost ? `
-                    <div class="quoted-post-preview p-3 rounded-xl border border-indigo-500/30 bg-indigo-950/20 relative space-y-1 my-2">
-                      <div class="flex items-center justify-between text-xs text-indigo-300 font-medium">
+                    <div class="quoted-post-preview p-3 rounded-xl border border-[var(--color-accent,#e89e38)]/30 bg-[var(--color-accent,#e89e38)]/10 relative space-y-1 my-2">
+                      <div class="flex items-center justify-between text-xs text-[var(--color-accent,#e89e38)] font-medium">
                         <span class="flex items-center space-x-1.5">
                           <span>💬</span>
                           <span>Quoting <strong>@${escapeHtml(this.quotedPost.authorFingerprint.slice(0, 10))}</strong></span>
@@ -925,7 +925,7 @@ export class HybridComposer {
             id="composer-article-title" 
             value="${escapeHtml(this.articleTitle)}"
             placeholder="Write a clear, authoritative title for the sovereign publication..."
-            class="w-full bg-surface-raised border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors font-semibold"
+            class="w-full bg-surface-raised border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-[var(--color-accent,#e89e38)] transition-colors font-semibold"
           />
         </div>
 
@@ -933,7 +933,7 @@ export class HybridComposer {
         <div class="flex items-center space-x-3">
           <div class="flex-1">
             <label class="block text-[11px] font-mono text-slate-400 mb-1">Publication Category / Flair</label>
-            <select id="composer-article-category" class="w-full bg-surface-raised border border-white/10 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 cursor-pointer">
+            <select id="composer-article-category" class="w-full bg-surface-raised border border-white/10 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-[var(--color-accent,#e89e38)] cursor-pointer">
               <option value="TECH DISCUSSION" ${this.articleCategory === 'TECH DISCUSSION' ? 'selected' : ''}>💬 TECH DISCUSSION</option>
               <option value="SECURITY ADVISORY" ${this.articleCategory === 'SECURITY ADVISORY' ? 'selected' : ''}>🛡️ SECURITY ADVISORY</option>
               <option value="VERIFIED RELEASE" ${this.articleCategory === 'VERIFIED RELEASE' ? 'selected' : ''}>📦 VERIFIED RELEASE</option>
@@ -943,7 +943,7 @@ export class HybridComposer {
           </div>
 
           <div class="pt-5">
-            <button type="button" id="btn-toggle-article-preview" class="px-3.5 py-2 rounded-xl text-xs font-semibold cursor-pointer transition-all flex items-center space-x-1.5 ${this.isArticlePreviewMode ? 'bg-indigo-600 text-white' : 'bg-surface-raised text-slate-300 hover:text-white border border-white/10'}">
+            <button type="button" id="btn-toggle-article-preview" class="px-3.5 py-2 rounded-xl text-xs font-semibold cursor-pointer transition-all flex items-center space-x-1.5 ${this.isArticlePreviewMode ? 'bg-[var(--color-accent,#e89e38)] text-slate-950 font-bold' : 'bg-surface-raised text-slate-300 hover:text-white border border-white/10'}">
               <span>${this.isArticlePreviewMode ? '✏️ Edit Source' : '👁️ Live Preview'}</span>
             </button>
           </div>
@@ -1001,7 +1001,7 @@ export class HybridComposer {
         <!-- DROPZONE & UPLOAD TRIGGER -->
         <div 
           id="media-dropzone" 
-          class="border-2 border-dashed ${this.mediaItems.length >= this.maxMediaItems ? 'border-slate-600 bg-white/5 opacity-60 cursor-not-allowed' : 'border-indigo-500/40 hover:border-indigo-400 bg-surface-raised/40 hover:bg-surface-raised cursor-pointer'} rounded-2xl p-6 text-center transition-all"
+          class="border-2 border-dashed ${this.mediaItems.length >= this.maxMediaItems ? 'border-slate-600 bg-white/5 opacity-60 cursor-not-allowed' : 'border-[var(--color-accent,#e89e38)]/40 hover:border-[var(--color-accent,#e89e38)] bg-surface-raised/40 hover:bg-surface-raised cursor-pointer'} rounded-2xl p-6 text-center transition-all"
         >
           <input 
             type="file" 
@@ -1330,8 +1330,8 @@ export class HybridComposer {
     const epoch = Math.floor(Date.now() / 100000).toString();
 
     return `
-      <div class="p-3.5 rounded-xl bg-surface-base border border-indigo-500/30 space-y-2.5 font-mono text-xs select-none animate-in fade-in duration-150">
-        <div class="flex items-center justify-between text-indigo-300 font-bold">
+      <div class="p-3.5 rounded-xl bg-surface-base border border-[var(--color-accent,#e89e38)]/30 space-y-2.5 font-mono text-xs select-none animate-in fade-in duration-150">
+        <div class="flex items-center justify-between text-[var(--color-accent,#e89e38)] font-bold">
           <span class="flex items-center space-x-1.5">
             <span>🔐</span>
             <span>Cryptographic Proof & Anti-Sybil Signing Manifest</span>
@@ -1342,7 +1342,7 @@ export class HybridComposer {
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[10px]">
           <div class="bg-surface-raised p-2 rounded-lg border border-white/5 space-y-1">
             <span class="text-slate-400">Author Fingerprint:</span>
-            <div class="text-indigo-300 font-bold truncate">${fp}</div>
+            <div class="text-[var(--color-accent,#e89e38)] font-bold truncate">${fp}</div>
           </div>
 
           <div class="bg-surface-raised p-2 rounded-lg border border-white/5 space-y-1">

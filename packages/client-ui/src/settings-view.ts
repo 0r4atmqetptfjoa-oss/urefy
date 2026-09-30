@@ -406,7 +406,7 @@ export class SettingsView {
             </nav>
 
             <!-- RIGHT CONTENT AREA -->
-            <main class="workspace-settings__content flex-1 overflow-y-auto p-4 md:p-6 space-y-6 bg-surface-base/50 min-h-0" id="settings-tab-content">
+            <main class="workspace-settings__content flex-1 overflow-y-auto p-4 md:p-6 pb-16 space-y-6 bg-surface-base/50 min-h-0" id="settings-tab-content">
               ${contentHTML}
             </main>
           </div>

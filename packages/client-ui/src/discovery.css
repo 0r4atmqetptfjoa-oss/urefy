@@ -209,6 +209,7 @@
   .community-directory .journal-place-featured { grid-template-columns: minmax(0, 1fr); }
   .community-directory .journal-place-featured__dispatch { margin-left: 0; }
   .community-directory .journal-place-hub__search { width: 100%; max-width: none; }
+  .explore-workspace.journal-atlas .explore-search { width: 100%; max-width: none; }
 }
 @media (max-width: 639px) {
   .community-directory .journal-place-hub__header { align-items: start; }

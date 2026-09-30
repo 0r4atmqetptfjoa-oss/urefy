@@ -8,7 +8,6 @@ import './product.css';
 import './profile/profile-workspace.css';
 import './workspace-secondary.css';
 import { secureStorage } from './secure-storage.js';
-import { initUreFyRum } from './rum-monitor.js';
 
 
 
@@ -42,7 +41,9 @@ const start = async () => {
 
 const begin = () => {
   console.info('[UREfy] Booting Sovereign Client v1.0.1');
-  initUreFyRum();
+  if (typeof window !== 'undefined' && window.location.hostname === 'urefy.com') {
+    void import('./rum-monitor.js').then((m) => m.initUreFyRum()).catch(() => {});
+  }
   void start().catch(() => {
     const root = document.getElementById('app');
     if (!root) return;

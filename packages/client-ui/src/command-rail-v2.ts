@@ -618,6 +618,14 @@ export class CommandRailV2Engine {
 
   public attachEvents(root: HTMLElement = document.body, onClose?: () => void): void {
     if (!root) return;
+    const overlay = root.querySelector('#command-rail-v2-overlay') as HTMLElement | null;
+    overlay?.addEventListener('click', (e) => {
+      if (e.target === overlay) {
+        this.close();
+        if (onClose) onClose();
+      }
+    });
+
     const cancelBtn = root.querySelector('#btn-rail-v2-cancel');
     cancelBtn?.addEventListener('click', () => {
       this.close();
@@ -631,6 +639,24 @@ export class CommandRailV2Engine {
     const input = root.querySelector('#command-rail-v2-input') as HTMLInputElement | null;
     input?.addEventListener('input', (e) => {
       this.setQuery((e.target as HTMLInputElement).value);
+    });
+    input?.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        this.close();
+        if (onClose) onClose();
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        this.navigate('down');
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        this.navigate('up');
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        this.executeSelected();
+        if (onClose) onClose();
+      }
     });
     const clearBtn = root.querySelector('#btn-rail-clear-query');
     clearBtn?.addEventListener('click', () => {

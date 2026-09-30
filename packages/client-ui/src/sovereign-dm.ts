@@ -826,11 +826,27 @@ export class SovereignDMManager {
       timestamp: Date.now() - 1000 * 60 * 5,
       isRead: false,
     };
+    const react1: DirectMessage = {
+      id: generateId('react'),
+      senderFP: guardianFP,
+      receiverFP: defaultMyFP,
+      plaintext: '',
+      encryptedPayload: '',
+      timestamp: Date.now() - 1000 * 60 * 20,
+      isRead: true,
+      context: {
+        reaction: {
+          messageId: msg2.id,
+          emoji: '❤️',
+          active: true,
+        },
+      },
+    };
 
     this.conversations.set(guardianFP, {
       peerFingerprint: guardianFP,
       peerRole: 'GUARDIAN',
-      messages: [msg1, msg2, msg3],
+      messages: [msg1, msg2, react1, msg3],
       unreadCount: 1,
       lastMessageAt: msg3.timestamp,
     });
