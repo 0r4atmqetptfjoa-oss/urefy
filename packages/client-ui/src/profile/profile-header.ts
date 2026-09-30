@@ -108,6 +108,14 @@ export function renderProfileHeaderHTML(profile: UserProfileData, isOwnProfile: 
                 ${renderIcon('shield', { size: 15, className: 'text-emerald-400' })}
                 <span>Security</span>
               </button>
+              <button type="button" id="btn-quick-notifs" data-action="open-settings" data-subtab="notifications">
+                ${renderIcon('bell', { size: 15, className: 'text-sky-400' })}
+                <span>Notifications</span>
+              </button>
+              <button type="button" id="btn-quick-vault" data-action="open-settings" data-subtab="storage">
+                ${renderIcon('database', { size: 15, className: 'text-purple-400' })}
+                <span>Storage & Vault</span>
+              </button>
             </div>
           ` : ''}
         </div>

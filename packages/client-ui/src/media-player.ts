@@ -87,6 +87,8 @@ export class ObsidianMediaPlayer {
         thumbnail.addEventListener('error', () => {
           thumbnail.hidden = true;
           thumbnailFallback.hidden = false;
+          const playOverlay = container.querySelector<HTMLElement>('[data-video-play-overlay]');
+          if (playOverlay) playOverlay.hidden = true;
         }, { once: true });
       }
       const poster = container.querySelector<HTMLElement>('.media-poster-layer');
@@ -230,13 +232,15 @@ export class ObsidianMediaPlayer {
                 data-video-thumbnail
                 loading="lazy"
               />
-              <div data-video-thumbnail-fallback hidden class="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-black flex flex-col items-center justify-center gap-2 px-6 text-center">
-                <span class="text-3xl" aria-hidden="true">▶</span>
-                <strong class="text-sm text-white">Video preview unavailable</strong>
-                <span class="text-xs text-slate-300">Open the original video or press play to continue.</span>
+              <div data-video-thumbnail-fallback hidden class="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950/40 flex flex-col items-center justify-center gap-1.5 px-4 text-center">
+                <div class="w-12 h-12 rounded-full bg-[var(--color-accent,#e59b3c)] text-slate-950 flex items-center justify-center font-bold text-lg shadow-lg">
+                  ▶
+                </div>
+                <strong class="text-xs text-white mt-1">Play Video</strong>
+                <span class="text-[11px] text-slate-400">Tap to load player</span>
               </div>
-              <div class="absolute inset-0 bg-black/30 flex items-center justify-center">
-                <div class="w-14 h-14 rounded-full bg-black/70 backdrop-blur-md border border-white/20 flex items-center justify-center text-white text-xl shadow-xl transition-transform group-hover:scale-110">
+              <div data-video-play-overlay class="absolute inset-0 bg-black/25 flex items-center justify-center">
+                <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-black/70 backdrop-blur-md border border-white/20 flex items-center justify-center text-white text-lg sm:text-xl shadow-xl transition-transform group-hover:scale-110">
                   ▶
                 </div>
               </div>

@@ -308,8 +308,9 @@ export function renderPulsePostCard(post: ClientPost): string {
   const videoHtml = post.video
     ? obsidianMediaPlayer.renderVideoCard(post.id, post.video.src, post.video.poster)
     : (detectedVideo ? obsidianMediaPlayer.renderVideoCard(post.id, post.content) : '');
-  const imagesHtml = post.images?.length
-    ? `<div class="social-post__media">${obsidianMediaPlayer.renderImageMosaic(post.images)}</div>`
+  const uniqueImages = post.images?.filter(img => img && img !== post.video?.poster) || [];
+  const imagesHtml = uniqueImages.length
+    ? `<div class="social-post__media">${obsidianMediaPlayer.renderImageMosaic(uniqueImages)}</div>`
     : '';
   const hasMedia = Boolean(videoHtml || imagesHtml);
 

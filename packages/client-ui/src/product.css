@@ -239,37 +239,42 @@ body:has(#mobile-drawer:not([inert])) #proactive-ai-container {
 .workspace-update-notice button { min-width: 88px; min-height: 44px; color: var(--color-accent); }
 #profile-settings-nav button { min-height: 44px; }
 @media (max-width: 639px) {
-  .view-header { padding-inline: 16px; min-height: 56px; }
-  .feed-scroll { padding-inline: 16px; padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px)); }
+  .view-header { padding-inline: 14px; min-height: 52px; }
+  .feed-scroll { padding-inline: 10px !important; padding-top: 6px !important; padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px)) !important; }
   .social-post, .river-item {
     grid-template-columns: 36px minmax(0, 1fr) !important;
-    gap: 12px !important;
-    padding: 16px !important;
-    margin-bottom: 12px !important;
-    border-radius: 14px !important;
+    gap: 10px !important;
+    padding: 13px 12px 10px !important;
+    margin-bottom: 8px !important;
+    border-radius: 12px !important;
+    background: var(--bg-surface-base, #0d1117) !important;
+    border: 1px solid var(--premium-line, rgba(255, 255, 255, 0.07)) !important;
   }
-  .social-post__avatar img { width: 36px !important; height: 36px !important; }
+  .social-post__avatar img,
+  .social-post__avatar svg { width: 36px !important; height: 36px !important; }
   .social-post__header { flex-wrap: wrap; gap: 4px 6px; }
   .social-post__community { margin-left: 0; max-width: 100%; }
   #main-stage .social-post__community { display: inline-flex; }
   .social-post__author { max-width: 75%; }
+  .social-post__title { margin: 4px 0 !important; font-size: 15px !important; line-height: 1.35 !important; }
+  .video-container { margin-block: 6px !important; border-radius: 12px !important; }
   .post-actions {
     display: flex !important;
     justify-content: space-between !important;
     width: 100% !important;
     margin-left: 0 !important;
-    padding-top: 10px !important;
+    padding-top: 6px !important;
     gap: 2px !important;
   }
   .post-actions > button,
   .post-actions__repost > button,
   .post-actions__more > button {
-    min-height: 40px !important;
-    padding: 0 8px !important;
+    min-height: 38px !important;
+    padding: 0 6px !important;
     gap: 4px !important;
   }
-  .reactions-bar .add-reaction-btn, .reaction-pills button { min-height: 36px !important; }
-  .orbit-shortcuts { gap: 16px; }
+  .reactions-bar .add-reaction-btn, .reaction-pills button { min-height: 34px !important; }
+  .orbit-shortcuts { display: none !important; }
 }
 
 /* Community Field Journal: hierarchy comes from typography and alignment, not card chrome. */

@@ -1681,7 +1681,7 @@ function renderMainStage(): string {
   }
 
   return `
-    <div class="flex-1 flex flex-col overflow-hidden">
+    <div class="flex-1 flex flex-col overflow-hidden min-h-0 h-full">
       ${onboardingHTML}
       ${contentHTML}
     </div>

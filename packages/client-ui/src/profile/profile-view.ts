@@ -281,7 +281,7 @@ export class ProfileView {
     const publicIdentity = presentPublicIdentity(profile, target, isOwnProfile);
 
     return `
-      <div id="sovereign-profile-container" class="journal-profile flex-1 w-full h-full min-h-0 overflow-y-auto overflow-x-hidden p-3 sm:p-4 md:p-6 pb-28 lg:pb-12 scroll-smooth">
+      <div id="sovereign-profile-container" class="journal-profile flex-1 w-full h-full min-h-0 overflow-y-auto overflow-x-hidden p-3 sm:p-4 md:p-6 pb-28 lg:pb-12 scroll-smooth" style="-webkit-overflow-scrolling: touch; overscroll-behavior-y: contain;">
         <div class="journal-profile__layout max-w-4xl mx-auto space-y-6">
           <!-- 1. HERO HEADER -->
           ${publicIdentity.needsSetup && isOwnProfile ? `

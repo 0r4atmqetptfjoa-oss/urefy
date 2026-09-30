@@ -32,9 +32,9 @@ function escapeHtml(str: string): string {
 }
 
 export class CommunityView {
-  public activePillar: 'discuss' | 'live' | 'knowledge' = 'discuss';
+  public activePillar: 'discuss' | 'live' | 'knowledge' | 'about' = 'discuss';
 
-  public setActivePillar(pillar: 'discuss' | 'live' | 'knowledge'): void {
+  public setActivePillar(pillar: 'discuss' | 'live' | 'knowledge' | 'about'): void {
     this.activePillar = pillar;
   }
 
@@ -178,6 +178,184 @@ export class CommunityView {
       </div>
     `;
   }
+
+  private _renderCommunityContextRailContent(circle: SovereignCircle, channelPosts: ClientPost[], isMod: boolean): string {
+    return `
+      <div class="community-context-rail p-5 rounded-2xl bg-surface-base border border-[var(--surface-rule)] space-y-5">
+        
+        <!-- ABOUT SECTION -->
+        <div id="community-about" class="space-y-3">
+          <h3 class="text-sm font-bold text-white tracking-tight">About this community</h3>
+          <p class="text-xs text-slate-300 leading-relaxed">${escapeHtml(circle.description)}</p>
+          <div class="pt-3 border-t border-[var(--surface-rule)] space-y-2 text-xs font-mono text-slate-400">
+            <div class="flex justify-between">
+              <span>Category:</span>
+              <span class="text-white font-semibold">${escapeHtml(circle.category || 'General')}</span>
+            </div>
+            <div class="flex justify-between">
+              <span>Access:</span>
+              <span class="text-white font-semibold capitalize">${circle.communityType || 'Public'}</span>
+            </div>
+            <div class="flex justify-between">
+              <span>Total Posts:</span>
+              <span class="text-white font-semibold">${channelPosts.length}</span>
+            </div>
+            <div class="flex justify-between">
+              <span>Created:</span>
+              <span class="text-slate-300">${circle.createdAt || 'Genesis'}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- RULES ACCORDION -->
+        <div class="pt-4 border-t border-[var(--surface-rule)] space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="text-xs font-mono font-bold uppercase tracking-wider text-slate-400">
+              Community Rules (${(circle.rules || []).length})
+            </h3>
+          </div>
+          <div class="space-y-2">
+            ${(circle.rules || []).map((rule, idx) => `
+              <details class="group p-2.5 rounded-xl bg-surface-raised border border-[var(--surface-rule)] space-y-1" ${idx === 0 ? 'open' : ''}>
+                <summary class="btn-toggle-rule font-semibold text-xs text-slate-200 flex items-center justify-between cursor-pointer select-none min-h-[32px]" data-toggle-rule-circle="${circle.id}" data-rule-idx="${idx}">
+                  <span class="truncate pr-2">${idx + 1}. ${escapeHtml(rule.title)}</span>
+                  <span class="text-slate-500 text-[10px] group-open:rotate-180 transition-transform">▼</span>
+                </summary>
+                <p class="text-[11px] text-slate-400 leading-relaxed pt-2 border-t border-[var(--surface-rule)] mt-1">
+                  ${escapeHtml(rule.description)}
+                </p>
+              </details>
+            `).join('')}
+          </div>
+        </div>
+
+        <!-- GOVERNANCE & TRANSPARENCY (PROGRESSIVE DISCLOSURE) -->
+        <details class="group pt-4 border-t border-[var(--surface-rule)] space-y-3">
+          <summary class="flex items-center justify-between cursor-pointer select-none min-h-[32px]">
+            <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center space-x-1.5">
+              <span>🏛️</span>
+              <span>Governance &amp; Details</span>
+            </h3>
+            <span class="text-slate-500 text-[10px] group-open:rotate-180 transition-transform">▼</span>
+          </summary>
+          <div class="space-y-2 text-xs pt-2">
+            <div class="flex items-center justify-between p-2 rounded-xl bg-surface-raised border border-[var(--surface-rule)]">
+              <span class="text-slate-400">Consensus Model</span>
+              <span class="text-slate-200 font-medium">Community Council</span>
+            </div>
+            <div class="flex items-center justify-between p-2 rounded-xl bg-surface-raised border border-[var(--surface-rule)]">
+              <span class="text-slate-400">Storage Policy</span>
+              <span class="text-slate-200 font-medium">Local &amp; Relay Sync</span>
+            </div>
+            <div class="flex items-center justify-between p-2 rounded-xl bg-surface-raised border border-[var(--surface-rule)]">
+              <span class="text-slate-400">Zero Ad-Tracking</span>
+              <span class="text-emerald-400 font-medium">Client-Enforced</span>
+            </div>
+            <div class="pt-1">
+              <button
+                type="button"
+                data-action="open-mod-logs"
+                data-circle-id="${circle.id}"
+                class="w-full min-h-[40px] px-3 py-2 rounded-xl bg-surface-raised hover:bg-surface-overlay border border-white/10 text-xs font-medium text-slate-300 hover:text-white transition-colors cursor-pointer text-center flex items-center justify-center space-x-1.5"
+              >
+                <span>📜</span>
+                <span>View Audit Log</span>
+              </button>
+            </div>
+          </div>
+        </details>
+
+        ${isMod ? `
+          <!-- MODERATOR TOOLS -->
+          <div class="pt-4 border-t border-[var(--surface-rule)] space-y-3">
+            <div class="flex items-center justify-between">
+              <h3 class="text-xs font-mono font-bold uppercase tracking-wider text-[var(--color-accent,#e59b3c)] flex items-center space-x-1.5">
+                <span>🛡️</span>
+                <span>Mod Tools</span>
+              </h3>
+              <span class="text-[9px] font-mono px-2 py-0.5 rounded bg-[var(--color-accent,#e59b3c)]/20 text-[var(--color-accent,#e59b3c)] font-bold">AUTHORIZED</span>
+            </div>
+            <div class="grid grid-cols-2 gap-2 pt-1">
+              <button
+                type="button"
+                data-action="open-mod-queue"
+                data-circle-id="${circle.id}"
+                class="min-h-[40px] px-3 py-2 rounded-xl bg-surface-raised hover:bg-surface-overlay border border-white/10 text-xs font-semibold text-slate-200 transition-colors cursor-pointer text-center"
+              >
+                Reports Queue
+              </button>
+              <button
+                type="button"
+                data-action="open-mod-logs"
+                data-circle-id="${circle.id}"
+                class="min-h-[40px] px-3 py-2 rounded-xl bg-surface-raised hover:bg-surface-overlay border border-white/10 text-xs font-semibold text-slate-200 transition-colors cursor-pointer text-center"
+              >
+                Audit Log
+              </button>
+            </div>
+          </div>
+        ` : ''}
+
+        <!-- MODERATORS ROSTER -->
+        <div class="pt-4 border-t border-[var(--surface-rule)] space-y-3">
+          <h3 class="text-xs font-mono font-bold uppercase tracking-wider text-slate-400">Moderators</h3>
+          <div class="space-y-2">
+            <div class="flex items-center justify-between p-2 rounded-xl bg-surface-raised border border-[var(--surface-rule)]">
+              <div class="flex items-center space-x-2">
+                <span class="text-[var(--color-accent,#e59b3c)]">${renderIcon('award', { size: 14 })}</span>
+                <span class="text-xs font-semibold text-[var(--color-accent,#e59b3c)] truncate max-w-[140px]">
+                  Community Founder
+                </span>
+              </div>
+              <span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[var(--color-accent,#e59b3c)]/20 text-[var(--color-accent,#e59b3c)] font-bold">FOUNDER</span>
+            </div>
+            ${(circle.moderators || []).filter(m => m !== circle.creatorFingerprint).map(mFp => `
+              <div class="flex items-center justify-between p-2 rounded-xl bg-surface-raised border border-[var(--surface-rule)]">
+                <div class="flex items-center space-x-2">
+                  <span class="text-amber-400">${renderIcon('shield', { size: 14 })}</span>
+                  <span class="text-xs text-slate-300 truncate max-w-[140px]">Moderator</span>
+                </div>
+                <span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold">MOD</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+
+        <!-- DISCOVER MORE -->
+        <div class="pt-4 border-t border-[var(--surface-rule)] space-y-3">
+          <h3 class="text-xs font-mono font-bold uppercase tracking-wider text-slate-400">Explore Other Communities</h3>
+          <div class="space-y-2">
+            ${sovereignCircleEngine.getAllCircles()
+              .filter(c => c.id !== circle.id)
+              .slice(0, 3)
+              .map(other => `
+                <div class="flex items-center justify-between p-2 rounded-xl bg-surface-raised border border-[var(--surface-rule)] hover:border-white/15 transition-colors">
+                  <div class="flex items-center space-x-2 min-w-0">
+                    <span class="text-base">${other.icon || '🏛️'}</span>
+                    <div class="min-w-0">
+                      <button type="button" data-action="join-channel" data-channel="${other.channelId}" class="text-xs font-bold text-slate-200 hover:text-[var(--color-accent,#e59b3c)] truncate block text-left cursor-pointer">
+                        c/${escapeHtml(other.name)}
+                      </button>
+                      <span class="text-[10px] text-slate-400 font-mono">${(other.membersCount || 0).toLocaleString()} members</span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    data-action="toggle-join-circle"
+                    data-circle-id="${other.id}"
+                    class="min-h-[36px] px-3 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${other.isJoined ? 'bg-emerald-500/20 text-emerald-300' : 'bg-white/10 text-white hover:bg-white/20'}"
+                  >
+                    ${other.isJoined ? '✓' : '+ Join'}
+                  </button>
+                </div>
+              `).join('')}
+          </div>
+        </div>
+
+      </div>
+    `;
+  }
+
   /**
    * Renders the complete dedicated Community Workspace.
    */
@@ -290,6 +468,17 @@ export class CommunityView {
                 <span>Share</span>
               </button>
 
+              <button
+                type="button"
+                data-action="switch-community-pillar"
+                data-pillar="about"
+                class="min-h-[44px] px-3.5 py-2.5 rounded-xl bg-surface-raised hover:bg-surface-overlay border border-white/10 text-slate-300 hover:text-white text-xs font-semibold transition-all shadow-sm flex items-center space-x-1.5 cursor-pointer"
+                title="Community info, rules & settings"
+              >
+                ${renderIcon('shield', { size: 14 })}
+                <span>Rules &amp; Info</span>
+              </button>
+
               ${isMod ? `
                 <button
                   type="button"
@@ -306,7 +495,7 @@ export class CommunityView {
           </div>
         </div>
 
-        <!-- 3-PILLAR COMMUNITY NAVIGATION -->
+        <!-- 4-PILLAR COMMUNITY NAVIGATION -->
         <div class="max-w-6xl mx-auto w-full px-4 sm:px-6 mb-4">
           <div class="community-pillars" role="group" aria-label="Community spaces">
             <button
@@ -351,6 +540,20 @@ export class CommunityView {
               <span>${renderIcon('book', { size: 15 })}</span>
               <span>Wiki</span>
             </button>
+            <button
+              type="button"
+              data-action="switch-community-pillar"
+              data-pillar="about"
+              aria-pressed="${this.activePillar === 'about'}"
+              class="min-h-[44px] px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center space-x-2 ${
+                this.activePillar === 'about'
+                  ? 'bg-[var(--color-accent,#e59b3c)] text-slate-950 shadow-md font-bold'
+                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+              }"
+            >
+              <span>${renderIcon('shield', { size: 15 })}</span>
+              <span>About &amp; Rules</span>
+            </button>
           </div>
         </div>
 
@@ -364,7 +567,9 @@ export class CommunityView {
                 ? this._renderLiveRoom(circle)
                 : this.activePillar === 'knowledge'
                   ? this._renderKnowledgeBase(circle, channelPosts)
-                  : `
+                  : this.activePillar === 'about'
+                    ? `<div class="space-y-4">${this._renderCommunityContextRailContent(circle, channelPosts, isMod)}</div>`
+                    : `
                     <!-- PINNED POST (IF PRESENT) -->
                     ${pinnedPost ? `
                       <div class="p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-surface-raised to-surface-raised border border-amber-500/30 shadow-md space-y-2">
@@ -470,179 +675,8 @@ export class CommunityView {
           </div>
 
           <!-- RIGHT RAIL (4 Cols): COHESIVE COMMUNITY CONTEXT RAIL -->
-          <div class="lg:col-span-4">
-            <div class="community-context-rail p-5 rounded-2xl bg-surface-base border border-[var(--surface-rule)] space-y-5">
-              
-              <!-- ABOUT SECTION -->
-              <div id="community-about" class="space-y-3">
-                <h3 class="text-sm font-bold text-white tracking-tight">About this community</h3>
-                <p class="text-xs text-slate-300 leading-relaxed">${escapeHtml(circle.description)}</p>
-                <div class="pt-3 border-t border-[var(--surface-rule)] space-y-2 text-xs font-mono text-slate-400">
-                  <div class="flex justify-between">
-                    <span>Category:</span>
-                    <span class="text-white font-semibold">${escapeHtml(circle.category || 'General')}</span>
-                  </div>
-                  <div class="flex justify-between">
-                    <span>Access:</span>
-                    <span class="text-white font-semibold capitalize">${circle.communityType || 'Public'}</span>
-                  </div>
-                  <div class="flex justify-between">
-                    <span>Total Posts:</span>
-                    <span class="text-white font-semibold">${channelPosts.length}</span>
-                  </div>
-                  <div class="flex justify-between">
-                    <span>Created:</span>
-                    <span class="text-slate-300">${circle.createdAt || 'Genesis'}</span>
-                  </div>
-                </div>
-              </div>
-
-              <!-- RULES ACCORDION -->
-              <div class="pt-4 border-t border-[var(--surface-rule)] space-y-3">
-                <div class="flex items-center justify-between">
-                  <h3 class="text-xs font-mono font-bold uppercase tracking-wider text-slate-400">
-                    Community Rules (${(circle.rules || []).length})
-                  </h3>
-                </div>
-                <div class="space-y-2">
-                  ${(circle.rules || []).map((rule, idx) => `
-                    <details class="group p-2.5 rounded-xl bg-surface-raised border border-[var(--surface-rule)] space-y-1" ${idx === 0 ? 'open' : ''}>
-                      <summary class="btn-toggle-rule font-semibold text-xs text-slate-200 flex items-center justify-between cursor-pointer select-none min-h-[32px]" data-toggle-rule-circle="${circle.id}" data-rule-idx="${idx}">
-                        <span class="truncate pr-2">${idx + 1}. ${escapeHtml(rule.title)}</span>
-                        <span class="text-slate-500 text-[10px] group-open:rotate-180 transition-transform">▼</span>
-                      </summary>
-                      <p class="text-[11px] text-slate-400 leading-relaxed pt-2 border-t border-[var(--surface-rule)] mt-1">
-                        ${escapeHtml(rule.description)}
-                      </p>
-                    </details>
-                  `).join('')}
-                </div>
-              </div>
-
-              <!-- GOVERNANCE & TRANSPARENCY (PROGRESSIVE DISCLOSURE) -->
-              <details class="group pt-4 border-t border-[var(--surface-rule)] space-y-3">
-                <summary class="flex items-center justify-between cursor-pointer select-none min-h-[32px]">
-                  <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center space-x-1.5">
-                    <span>🏛️</span>
-                    <span>Governance &amp; Details</span>
-                  </h3>
-                  <span class="text-slate-500 text-[10px] group-open:rotate-180 transition-transform">▼</span>
-                </summary>
-                <div class="space-y-2 text-xs pt-2">
-                  <div class="flex items-center justify-between p-2 rounded-xl bg-surface-raised border border-[var(--surface-rule)]">
-                    <span class="text-slate-400">Consensus Model</span>
-                    <span class="text-slate-200 font-medium">Community Council</span>
-                  </div>
-                  <div class="flex items-center justify-between p-2 rounded-xl bg-surface-raised border border-[var(--surface-rule)]">
-                    <span class="text-slate-400">Storage Policy</span>
-                    <span class="text-slate-200 font-medium">Local &amp; Relay Sync</span>
-                  </div>
-                  <div class="flex items-center justify-between p-2 rounded-xl bg-surface-raised border border-[var(--surface-rule)]">
-                    <span class="text-slate-400">Zero Ad-Tracking</span>
-                    <span class="text-emerald-400 font-medium">Client-Enforced</span>
-                  </div>
-                  <div class="pt-1">
-                    <button
-                      type="button"
-                      data-action="open-mod-logs"
-                      data-circle-id="${circle.id}"
-                      class="w-full min-h-[40px] px-3 py-2 rounded-xl bg-surface-raised hover:bg-surface-overlay border border-white/10 text-xs font-medium text-slate-300 hover:text-white transition-colors cursor-pointer text-center flex items-center justify-center space-x-1.5"
-                    >
-                      <span>📜</span>
-                      <span>View Audit Log</span>
-                    </button>
-                  </div>
-                </div>
-              </details>
-
-              ${isMod ? `
-                <!-- MODERATOR TOOLS -->
-                <div class="pt-4 border-t border-[var(--surface-rule)] space-y-3">
-                  <div class="flex items-center justify-between">
-                    <h3 class="text-xs font-mono font-bold uppercase tracking-wider text-[var(--color-accent,#e59b3c)] flex items-center space-x-1.5">
-                      <span>🛡️</span>
-                      <span>Mod Tools</span>
-                    </h3>
-                    <span class="text-[9px] font-mono px-2 py-0.5 rounded bg-[var(--color-accent,#e59b3c)]/20 text-[var(--color-accent,#e59b3c)] font-bold">AUTHORIZED</span>
-                  </div>
-                  <div class="grid grid-cols-2 gap-2 pt-1">
-                    <button
-                      type="button"
-                      data-action="open-mod-queue"
-                      data-circle-id="${circle.id}"
-                      class="min-h-[40px] px-3 py-2 rounded-xl bg-surface-raised hover:bg-surface-overlay border border-white/10 text-xs font-semibold text-slate-200 transition-colors cursor-pointer text-center"
-                    >
-                      Reports Queue
-                    </button>
-                    <button
-                      type="button"
-                      data-action="open-mod-logs"
-                      data-circle-id="${circle.id}"
-                      class="min-h-[40px] px-3 py-2 rounded-xl bg-surface-raised hover:bg-surface-overlay border border-white/10 text-xs font-semibold text-slate-200 transition-colors cursor-pointer text-center"
-                    >
-                      Audit Log
-                    </button>
-                  </div>
-                </div>
-              ` : ''}
-
-              <!-- MODERATORS ROSTER -->
-              <div class="pt-4 border-t border-[var(--surface-rule)] space-y-3">
-                <h3 class="text-xs font-mono font-bold uppercase tracking-wider text-slate-400">Moderators</h3>
-                <div class="space-y-2">
-                  <div class="flex items-center justify-between p-2 rounded-xl bg-surface-raised border border-[var(--surface-rule)]">
-                    <div class="flex items-center space-x-2">
-                      <span class="text-[var(--color-accent,#e59b3c)]">${renderIcon('award', { size: 14 })}</span>
-                      <span class="text-xs font-semibold text-[var(--color-accent,#e59b3c)] truncate max-w-[140px]">
-                        Community Founder
-                      </span>
-                    </div>
-                    <span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[var(--color-accent,#e59b3c)]/20 text-[var(--color-accent,#e59b3c)] font-bold">FOUNDER</span>
-                  </div>
-                  ${(circle.moderators || []).filter(m => m !== circle.creatorFingerprint).map(mFp => `
-                    <div class="flex items-center justify-between p-2 rounded-xl bg-surface-raised border border-[var(--surface-rule)]">
-                      <div class="flex items-center space-x-2">
-                        <span class="text-amber-400">${renderIcon('shield', { size: 14 })}</span>
-                        <span class="text-xs text-slate-300 truncate max-w-[140px]">Moderator</span>
-                      </div>
-                      <span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold">MOD</span>
-                    </div>
-                  `).join('')}
-                </div>
-              </div>
-
-              <!-- DISCOVER MORE -->
-              <div class="pt-4 border-t border-[var(--surface-rule)] space-y-3">
-                <h3 class="text-xs font-mono font-bold uppercase tracking-wider text-slate-400">Explore Other Communities</h3>
-                <div class="space-y-2">
-                  ${sovereignCircleEngine.getAllCircles()
-                    .filter(c => c.id !== circle.id)
-                    .slice(0, 3)
-                    .map(other => `
-                      <div class="flex items-center justify-between p-2 rounded-xl bg-surface-raised border border-[var(--surface-rule)] hover:border-white/15 transition-colors">
-                        <div class="flex items-center space-x-2 min-w-0">
-                          <span class="text-base">${other.icon || '🏛️'}</span>
-                          <div class="min-w-0">
-                            <button type="button" data-action="join-channel" data-channel="${other.channelId}" class="text-xs font-bold text-slate-200 hover:text-[var(--color-accent,#e59b3c)] truncate block text-left cursor-pointer">
-                              c/${escapeHtml(other.name)}
-                            </button>
-                            <span class="text-[10px] text-slate-400 font-mono">${(other.membersCount || 0).toLocaleString()} members</span>
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          data-action="toggle-join-circle"
-                          data-circle-id="${other.id}"
-                          class="min-h-[36px] px-3 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${other.isJoined ? 'bg-emerald-500/20 text-emerald-300' : 'bg-white/10 text-white hover:bg-white/20'}"
-                        >
-                          ${other.isJoined ? '✓' : '+ Join'}
-                        </button>
-                      </div>
-                    `).join('')}
-                </div>
-              </div>
-
-            </div>
+          <div class="hidden lg:block lg:col-span-4">
+            ${this._renderCommunityContextRailContent(circle, channelPosts, isMod)}
           </div>
         </div>
       </div>
