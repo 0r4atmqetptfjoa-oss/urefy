@@ -466,7 +466,7 @@ export class AetherisClientStore {
   }
 
   private seedInitialPostsAndMembers(): void {
-    if (!isLocalDev() && !isDemoModeEnabled()) {
+    if (!isDemoModeEnabled() || !isLocalDev()) {
       this.members = [
         { fingerprint: this.keypair.fingerprint, role: 'MEMBER', status: 'online', isZKVerified: true, avatarSeed: 'me' }
       ];

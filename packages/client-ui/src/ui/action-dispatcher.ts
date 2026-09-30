@@ -1789,6 +1789,11 @@ export class ActionDispatcher {
 
       case 'set-profile-tab': {
         const tab = (el.getAttribute('data-tab') || el.getAttribute('data-profile-tab') || 'pulses') as any;
+        if (tab === 'settings') {
+          sovereignRouter.navigateTo('settings');
+          import('../settings-view.js').then(({ settingsView }) => settingsView.open('account')).catch(() => {});
+          break;
+        }
         profileView.setActiveTab(tab);
         clientStore.notifySync();
         break;

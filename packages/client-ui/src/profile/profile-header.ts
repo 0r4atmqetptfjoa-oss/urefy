@@ -48,7 +48,7 @@ export function renderProfileHeaderHTML(profile: UserProfileData, isOwnProfile: 
             <button type="button" id="btn-share-profile" data-action="share-profile" data-handle="${escapeAttr(handle)}" class="secondary-icon-button" title="Share profile" aria-label="Share profile">${renderIcon('share', { size: 18 })}</button>
             ${isOwnProfile ? `
               <button type="button" id="btn-open-edit-profile" data-action="open-edit-profile" class="secondary-button">Edit profile</button>
-              <button type="button" id="btn-profile-settings" data-action="set-profile-tab" data-tab="settings" class="secondary-icon-button" title="Settings" aria-label="Settings">${renderIcon('settings', { size: 18 })}</button>
+              <button type="button" id="btn-profile-settings" data-action="open-settings" data-subtab="account" class="secondary-icon-button" title="Settings & Preferences" aria-label="Settings">${renderIcon('settings', { size: 18 })}</button>
             ` : `
               <button type="button" data-action="open-dm" data-fingerprint="${profile.fingerprint}" class="secondary-icon-button" title="Message" aria-label="Message">${renderIcon('messages', { size: 18 })}</button>
               <button type="button" id="btn-toggle-follow" ${followPending ? 'disabled aria-busy="true"' : ''} aria-pressed="${isFollowing}" data-action="toggle-follow" data-fingerprint="${escapeAttr(profile.fingerprint)}" class="primary-button ${isFollowing ? 'is-following' : ''}">${isFollowing ? 'Following' : 'Follow'}</button>
@@ -94,6 +94,22 @@ export function renderProfileHeaderHTML(profile: UserProfileData, isOwnProfile: 
             <span class="trust-summary">${renderIcon('shield', { size: 15 })}<strong>${profile.trustScore}</strong><span>Trust <span class="sr-only">WoT Max-Flow: ${profile.trustScore}</span></span></span>
             ${isOwnProfile ? `<button type="button" data-action="open-settings" data-subtab="security" class="identity-security-link">Identity & security ${renderIcon('chevronRight', { size: 14 })}</button>` : ''}
           </div>
+          ${isOwnProfile ? `
+            <div class="profile-mobile-quick-actions flex items-center gap-2 mt-3 pt-2.5 border-t border-white/5 sm:hidden">
+              <button type="button" data-action="open-settings" data-subtab="account" class="flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-semibold bg-surface-raised hover:bg-surface-overlay border border-white/10 text-slate-200 cursor-pointer transition-all active:scale-95 shadow-xs">
+                ${renderIcon('settings', { size: 14, className: 'text-[var(--color-accent,#e59b3c)]' })}
+                <span>Settings</span>
+              </button>
+              <button type="button" data-action="open-settings" data-subtab="appearance" class="flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-semibold bg-surface-raised hover:bg-surface-overlay border border-white/10 text-slate-200 cursor-pointer transition-all active:scale-95 shadow-xs">
+                ${renderIcon('sliders', { size: 14, className: 'text-[var(--color-accent,#e59b3c)]' })}
+                <span>Themes</span>
+              </button>
+              <button type="button" data-action="open-settings" data-subtab="security" class="flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-semibold bg-surface-raised hover:bg-surface-overlay border border-white/10 text-slate-200 cursor-pointer transition-all active:scale-95 shadow-xs">
+                ${renderIcon('shield', { size: 14, className: 'text-emerald-400' })}
+                <span>Security</span>
+              </button>
+            </div>
+          ` : ''}
         </div>
       </div>
     </section>

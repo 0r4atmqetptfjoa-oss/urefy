@@ -568,6 +568,20 @@ body:has([role="dialog"]) #webrtc-floating-transfer-widget {
   transform: translateY(0) scale(1);
 }
 
+@media (max-width: 639px) {
+  .journal-dialogue-message,
+  .chat-bubble-modern {
+    max-width: 90% !important;
+    padding: 8px 12px 8px 12px !important;
+  }
+  .message-actions-bar {
+    top: -20px;
+    right: 4px;
+    transform: scale(0.9);
+    max-width: calc(100vw - 24px);
+  }
+}
+
 /* 2026 Floating Reaction Pills */
 .message-reactions-shelf {
   display: flex;

@@ -619,7 +619,7 @@ export function renderEmojiPopover(targetType: 'dm' | 'relay'): string {
       <div class="w-10 h-1 bg-white/20 rounded-full mx-auto mb-2.5 sm:hidden shrink-0"></div>
       <div class="flex items-center justify-between pb-2 mb-2 border-b border-white/5 text-xs text-slate-400 shrink-0">
         <span class="font-bold text-white flex items-center gap-1.5">
-          <span>😊</span>
+          <span>${renderIcon('smile', { size: 14, className: 'text-[var(--color-accent,#e59b3c)]' })}</span>
           <span>Emojis</span>
         </span>
         <button type="button" data-action="${targetType === 'dm' ? 'toggle-dm-emoji' : 'toggle-relay-emoji'}" class="text-slate-400 hover:text-white p-1 rounded-lg cursor-pointer text-xs transition-colors" aria-label="Close emoji picker">✕</button>
@@ -681,7 +681,7 @@ export function renderComposerMenu(targetType: 'dm' | 'relay'): string {
 
   return `
     <div class="composer-menu-backdrop fixed inset-0 z-30" data-action="close-composer-menu"></div>
-    <div class="composer-menu-dropdown absolute bottom-full mb-2 left-0 z-40 w-56 p-2 rounded-2xl bg-surface-base border border-white/10 shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in-95 duration-150 select-none">
+    <div class="composer-menu-dropdown absolute bottom-full mb-2 left-0 z-40 w-60 p-2 rounded-2xl bg-surface-base border border-white/10 shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in-95 duration-150 select-none">
       <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-2 py-1 mb-1 border-b border-white/5">
         Add to conversation
       </div>
@@ -691,7 +691,7 @@ export function renderComposerMenu(targetType: 'dm' | 'relay'): string {
           data-action="${targetType === 'dm' ? 'trigger-dm-attachment' : 'trigger-relay-attachment'}"
           class="w-full text-left px-2.5 py-2 rounded-xl hover:bg-surface-raised text-slate-200 hover:text-white flex items-center space-x-2.5 transition-colors cursor-pointer group"
         >
-          <span class="text-base group-hover:scale-110 transition-transform">📎</span>
+          <span class="shrink-0 group-hover:scale-110 transition-transform">${renderIcon('paperclip', { size: 16, className: 'text-amber-400' })}</span>
           <div>
             <div class="font-semibold text-slate-100">Attach File</div>
             <div class="text-[10px] text-slate-400">${targetType === 'dm' ? 'Encrypted media (up to 128 KiB)' : 'Media or doc (up to 50 MB)'}</div>
@@ -704,7 +704,7 @@ export function renderComposerMenu(targetType: 'dm' | 'relay'): string {
           data-target="${targetType}"
           class="w-full text-left px-2.5 py-2 rounded-xl hover:bg-surface-raised text-slate-200 hover:text-white flex items-center space-x-2.5 transition-colors cursor-pointer group"
         >
-          <span class="text-base group-hover:scale-110 transition-transform">🎙️</span>
+          <span class="shrink-0 group-hover:scale-110 transition-transform">${renderIcon('mic', { size: 16, className: 'text-emerald-400' })}</span>
           <div>
             <div class="font-semibold text-slate-100">Voice Note</div>
             <div class="text-[10px] text-slate-400">Record audio (Experimental · Max 30s)</div>
@@ -716,7 +716,7 @@ export function renderComposerMenu(targetType: 'dm' | 'relay'): string {
           data-action="toggle-outcome-picker"
           class="w-full text-left px-2.5 py-2 rounded-xl hover:bg-surface-raised text-slate-200 hover:text-white flex items-center space-x-2.5 transition-colors cursor-pointer group"
         >
-          <span class="text-base group-hover:scale-110 transition-transform">📋</span>
+          <span class="shrink-0 group-hover:scale-110 transition-transform">${renderIcon('tag', { size: 16, className: 'text-cyan-400' })}</span>
           <div>
             <div class="font-semibold text-slate-100">Structured Label</div>
             <div class="text-[10px] text-slate-400">Decision, question or task</div>
@@ -728,7 +728,7 @@ export function renderComposerMenu(targetType: 'dm' | 'relay'): string {
           data-action="open-capsule-creator"
           class="w-full text-left px-2.5 py-2 rounded-xl hover:bg-surface-raised text-slate-200 hover:text-white flex items-center space-x-2.5 transition-colors cursor-pointer group"
         >
-          <span class="text-base group-hover:scale-110 transition-transform">📦</span>
+          <span class="shrink-0 group-hover:scale-110 transition-transform">${renderIcon('layers', { size: 16, className: 'text-purple-400' })}</span>
           <div>
             <div class="font-semibold text-slate-100">Context Capsule</div>
             <div class="text-[10px] text-slate-400">Curate notes & save to Vault</div>
@@ -741,7 +741,7 @@ export function renderComposerMenu(targetType: 'dm' | 'relay'): string {
           data-target="${targetType}"
           class="w-full text-left px-2.5 py-2 rounded-xl hover:bg-surface-raised text-slate-200 hover:text-white flex items-center space-x-2.5 transition-colors cursor-pointer group"
         >
-          <span class="text-base group-hover:scale-110 transition-transform">💻</span>
+          <span class="shrink-0 group-hover:scale-110 transition-transform">${renderIcon('terminal', { size: 16, className: 'text-sky-400' })}</span>
           <div>
             <div class="font-semibold text-slate-100">Code Snippet</div>
             <div class="text-[10px] text-slate-400">Insert formatted code block</div>
@@ -757,10 +757,10 @@ export function renderStagedAttachmentChip(att: DirectMessageAttachment | null, 
   const sizeStr = att.size < 1024 * 1024 ? `${(att.size / 1024).toFixed(1)} KB` : `${(att.size / (1024 * 1024)).toFixed(1)} MB`;
 
   return `
-    <div class="flex items-center space-x-2 px-3 py-1.5 rounded-xl bg-indigo-950/60 border border-indigo-500/30 text-indigo-200 text-xs font-mono max-w-md animate-in fade-in">
-      <span class="shrink-0">📎</span>
+    <div class="flex items-center space-x-2 px-3 py-1.5 rounded-xl bg-amber-950/40 border border-amber-500/30 text-amber-200 text-xs font-mono max-w-md animate-in fade-in">
+      <span class="shrink-0">${renderIcon('paperclip', { size: 14, className: 'text-amber-400' })}</span>
       <span class="truncate font-bold">${escapeHtml(att.name)}</span>
-      <span class="text-indigo-400 text-[10px] shrink-0">(${sizeStr})</span>
+      <span class="text-amber-400/80 text-[10px] shrink-0">(${sizeStr})</span>
       <button 
         type="button" 
         data-action="${targetType === 'dm' ? 'clear-dm-attachment' : 'clear-relay-attachment'}" 
@@ -1092,10 +1092,10 @@ export function renderMessageItem(m: ClientMessage, prevMsg?: ClientMessage): st
           <button type="button" class="w-7 h-7 rounded-full hover:bg-white/15 flex items-center justify-center text-xs transition-transform hover:scale-130 active:scale-90 cursor-pointer" title="React 👍" data-action="toggle-relay-emoji">👍</button>
           <button type="button" class="w-7 h-7 rounded-full hover:bg-white/15 flex items-center justify-center text-xs transition-transform hover:scale-130 active:scale-90 cursor-pointer" title="React 🔥" data-action="toggle-relay-emoji">🔥</button>
           <div class="w-px h-3.5 bg-white/15 mx-1"></div>
-          <button type="button" class="p-1.5 rounded-full hover:bg-white/15 text-xs text-slate-300 hover:text-white transition-all cursor-pointer" title="Reply" data-action="reply-relay-message" data-message-id="${escapeHtml(m.id)}">↩</button>
-          <button type="button" class="p-1.5 rounded-full hover:bg-white/15 text-xs text-slate-300 hover:text-white transition-all cursor-pointer" title="Add to Context Capsule" data-action="add-to-capsule" data-message-id="${escapeHtml(m.id)}" data-sender-name="${escapeAttr(author.name)}" data-sender-handle="${escapeAttr(author.handle)}" data-text="${escapeAttr(m.text || '')}" data-timestamp="${m.createdAt}">📦</button>
-          <button type="button" class="p-1.5 rounded-full hover:bg-white/15 text-xs ${canonicalVault.isMessageSaved(m.id) ? 'text-[var(--color-accent,#e89e38)] font-bold' : 'text-slate-300 hover:text-white'} transition-all cursor-pointer" title="${canonicalVault.isMessageSaved(m.id) ? 'Remove from Vault' : 'Save to Vault'}" data-action="${canonicalVault.isMessageSaved(m.id) ? 'unsave-message-vault' : 'keep-live-message'}" data-message-id="${escapeHtml(m.id)}">${canonicalVault.isMessageSaved(m.id) ? '💾' : '🔒'}</button>
-          <button type="button" class="p-1.5 rounded-full hover:bg-white/15 text-xs text-slate-300 hover:text-white transition-all cursor-pointer" title="Copy text" data-action="copy-message-text" data-text="${escapeAttr(m.text || '')}">📋</button>
+          <button type="button" class="p-1.5 rounded-full hover:bg-white/15 text-xs text-slate-300 hover:text-white transition-all cursor-pointer flex items-center justify-center" title="Reply" data-action="reply-relay-message" data-message-id="${escapeHtml(m.id)}">${renderIcon('rotateCcw', { size: 12 })}</button>
+          <button type="button" class="p-1.5 rounded-full hover:bg-white/15 text-xs text-slate-300 hover:text-white transition-all cursor-pointer flex items-center justify-center" title="Add to Context Capsule" data-action="add-to-capsule" data-message-id="${escapeHtml(m.id)}" data-sender-name="${escapeAttr(author.name)}" data-sender-handle="${escapeAttr(author.handle)}" data-text="${escapeAttr(m.text || '')}" data-timestamp="${m.createdAt}">${renderIcon('layers', { size: 12 })}</button>
+          <button type="button" class="p-1.5 rounded-full hover:bg-white/15 text-xs ${canonicalVault.isMessageSaved(m.id) ? 'text-[var(--color-accent,#e89e38)] font-bold' : 'text-slate-300 hover:text-white'} transition-all cursor-pointer flex items-center justify-center" title="${canonicalVault.isMessageSaved(m.id) ? 'Remove from Vault' : 'Save to Vault'}" data-action="${canonicalVault.isMessageSaved(m.id) ? 'unsave-message-vault' : 'keep-live-message'}" data-message-id="${escapeHtml(m.id)}">${canonicalVault.isMessageSaved(m.id) ? renderIcon('save', { size: 12 }) : renderIcon('lock', { size: 12 })}</button>
+          <button type="button" class="p-1.5 rounded-full hover:bg-white/15 text-xs text-slate-300 hover:text-white transition-all cursor-pointer flex items-center justify-center" title="Copy text" data-action="copy-message-text" data-text="${escapeAttr(m.text || '')}">${renderIcon('copy', { size: 12 })}</button>
         </div>
       </div>
     `;
@@ -1134,10 +1134,10 @@ export function renderMessageItem(m: ClientMessage, prevMsg?: ClientMessage): st
         <button type="button" class="w-7 h-7 rounded-full hover:bg-white/15 flex items-center justify-center text-xs transition-transform hover:scale-130 active:scale-90 cursor-pointer" title="React 👍" data-action="toggle-relay-emoji">👍</button>
         <button type="button" class="w-7 h-7 rounded-full hover:bg-white/15 flex items-center justify-center text-xs transition-transform hover:scale-130 active:scale-90 cursor-pointer" title="React 🔥" data-action="toggle-relay-emoji">🔥</button>
         <div class="w-px h-3.5 bg-white/15 mx-1"></div>
-        <button type="button" class="p-1.5 rounded-full hover:bg-white/15 text-xs text-slate-300 hover:text-white transition-all cursor-pointer" title="Reply" data-action="reply-relay-message" data-message-id="${escapeHtml(m.id)}">↩</button>
-        <button type="button" class="p-1.5 rounded-full hover:bg-white/15 text-xs text-slate-300 hover:text-white transition-all cursor-pointer" title="Add to Context Capsule" data-action="add-to-capsule" data-message-id="${escapeHtml(m.id)}" data-sender-name="${escapeAttr(author.name)}" data-sender-handle="${escapeAttr(author.handle)}" data-text="${escapeAttr(m.text || '')}" data-timestamp="${m.createdAt}">📦</button>
-        <button type="button" class="p-1.5 rounded-full hover:bg-white/15 text-xs ${canonicalVault.isMessageSaved(m.id) ? 'text-[var(--color-accent,#e89e38)] font-bold' : 'text-slate-300 hover:text-white'} transition-all cursor-pointer" title="${canonicalVault.isMessageSaved(m.id) ? 'Remove from Vault' : 'Save to Vault'}" data-action="${canonicalVault.isMessageSaved(m.id) ? 'unsave-message-vault' : 'keep-live-message'}" data-message-id="${escapeHtml(m.id)}">${canonicalVault.isMessageSaved(m.id) ? '💾' : '🔒'}</button>
-        <button type="button" class="p-1.5 rounded-full hover:bg-white/15 text-xs text-slate-300 hover:text-white transition-all cursor-pointer" title="Copy text" data-action="copy-message-text" data-text="${escapeAttr(m.text || '')}">📋</button>
+        <button type="button" class="p-1.5 rounded-full hover:bg-white/15 text-xs text-slate-300 hover:text-white transition-all cursor-pointer flex items-center justify-center" title="Reply" data-action="reply-relay-message" data-message-id="${escapeHtml(m.id)}">${renderIcon('rotateCcw', { size: 12 })}</button>
+        <button type="button" class="p-1.5 rounded-full hover:bg-white/15 text-xs text-slate-300 hover:text-white transition-all cursor-pointer flex items-center justify-center" title="Add to Context Capsule" data-action="add-to-capsule" data-message-id="${escapeHtml(m.id)}" data-sender-name="${escapeAttr(author.name)}" data-sender-handle="${escapeAttr(author.handle)}" data-text="${escapeAttr(m.text || '')}" data-timestamp="${m.createdAt}">${renderIcon('layers', { size: 12 })}</button>
+        <button type="button" class="p-1.5 rounded-full hover:bg-white/15 text-xs ${canonicalVault.isMessageSaved(m.id) ? 'text-[var(--color-accent,#e89e38)] font-bold' : 'text-slate-300 hover:text-white'} transition-all cursor-pointer flex items-center justify-center" title="${canonicalVault.isMessageSaved(m.id) ? 'Remove from Vault' : 'Save to Vault'}" data-action="${canonicalVault.isMessageSaved(m.id) ? 'unsave-message-vault' : 'keep-live-message'}" data-message-id="${escapeHtml(m.id)}">${canonicalVault.isMessageSaved(m.id) ? renderIcon('save', { size: 12 }) : renderIcon('lock', { size: 12 })}</button>
+        <button type="button" class="p-1.5 rounded-full hover:bg-white/15 text-xs text-slate-300 hover:text-white transition-all cursor-pointer flex items-center justify-center" title="Copy text" data-action="copy-message-text" data-text="${escapeAttr(m.text || '')}">${renderIcon('copy', { size: 12 })}</button>
       </div>
     </div>
   `;
@@ -1551,11 +1551,11 @@ export function renderDirectMessagesWorkspace(): string {
               <button
                 type="button"
                 data-action="open-capsule-creator"
-                class="context-button hover:border-amber-500/40 hidden xs:flex"
+                class="context-button hover:border-amber-500/40 hidden xs:flex items-center gap-1.5"
                 title="Create Context Capsule"
                 aria-label="Create Context Capsule"
               >
-                <span class="text-xs">📦</span>
+                ${renderIcon('layers', { size: 14, className: 'text-[var(--color-accent,#e59b3c)]' })}
                 <span class="text-[11px] hidden xl:inline">Capsule</span>
               </button>
 
@@ -1886,10 +1886,10 @@ export function renderDirectMessagesWorkspace(): string {
                                     <button type="button" class="w-7 h-7 rounded-full hover:bg-white/15 flex items-center justify-center text-xs transition-transform hover:scale-130 active:scale-90 cursor-pointer" title="React 🔥" data-action="react-dm-message" data-message-id="${escapeHtml(msg.id)}" data-emoji="🔥">🔥</button>
                                     <button type="button" class="w-7 h-7 rounded-full hover:bg-white/15 flex items-center justify-center text-xs transition-transform hover:scale-130 active:scale-90 cursor-pointer" title="React 🚀" data-action="react-dm-message" data-message-id="${escapeHtml(msg.id)}" data-emoji="🚀">🚀</button>
                                     <div class="w-px h-3.5 bg-white/15 mx-1"></div>
-                                    <button type="button" class="p-1.5 rounded-full hover:bg-white/15 text-xs text-slate-300 hover:text-white transition-all cursor-pointer" title="Reply" data-action="reply-dm-message" data-message-id="${escapeHtml(msg.id)}">↩</button>
-                                    <button type="button" class="p-1.5 rounded-full hover:bg-white/15 text-xs text-slate-300 hover:text-white transition-all cursor-pointer" title="Add to Context Capsule" data-action="add-to-capsule" data-message-id="${escapeHtml(msg.id)}" data-sender-name="${escapeAttr(senderInfo.name)}" data-sender-handle="${escapeAttr(senderInfo.handle)}" data-text="${escapeAttr(msg.plaintext || '')}" data-timestamp="${msg.timestamp}">📦</button>
-                                    <button type="button" class="p-1.5 rounded-full hover:bg-white/15 text-xs ${canonicalVault.isMessageSaved(msg.id) ? 'text-[var(--color-accent,#e89e38)] font-bold' : 'text-slate-300 hover:text-white'} transition-all cursor-pointer" title="${canonicalVault.isMessageSaved(msg.id) ? 'Remove from Vault' : 'Save to Vault'}" data-action="${canonicalVault.isMessageSaved(msg.id) ? 'unsave-message-vault' : 'save-message-vault'}" data-message-id="${escapeHtml(msg.id)}">${canonicalVault.isMessageSaved(msg.id) ? '💾' : '🔒'}</button>
-                                    <button type="button" class="p-1.5 rounded-full hover:bg-white/15 text-xs text-slate-300 hover:text-white transition-all cursor-pointer" title="Copy text" data-action="copy-message-text" data-text="${escapeAttr(msg.plaintext || '')}">📋</button>
+                                    <button type="button" class="p-1.5 rounded-full hover:bg-white/15 text-xs text-slate-300 hover:text-white transition-all cursor-pointer flex items-center justify-center" title="Reply" data-action="reply-dm-message" data-message-id="${escapeHtml(msg.id)}">${renderIcon('rotateCcw', { size: 12 })}</button>
+                                    <button type="button" class="p-1.5 rounded-full hover:bg-white/15 text-xs text-slate-300 hover:text-white transition-all cursor-pointer flex items-center justify-center" title="Add to Context Capsule" data-action="add-to-capsule" data-message-id="${escapeHtml(msg.id)}" data-sender-name="${escapeAttr(senderInfo.name)}" data-sender-handle="${escapeAttr(senderInfo.handle)}" data-text="${escapeAttr(msg.plaintext || '')}" data-timestamp="${msg.timestamp}">${renderIcon('layers', { size: 12 })}</button>
+                                    <button type="button" class="p-1.5 rounded-full hover:bg-white/15 text-xs ${canonicalVault.isMessageSaved(msg.id) ? 'text-[var(--color-accent,#e89e38)] font-bold' : 'text-slate-300 hover:text-white'} transition-all cursor-pointer flex items-center justify-center" title="${canonicalVault.isMessageSaved(msg.id) ? 'Remove from Vault' : 'Save to Vault'}" data-action="${canonicalVault.isMessageSaved(msg.id) ? 'unsave-message-vault' : 'save-message-vault'}" data-message-id="${escapeHtml(msg.id)}">${canonicalVault.isMessageSaved(msg.id) ? renderIcon('save', { size: 12 }) : renderIcon('lock', { size: 12 })}</button>
+                                    <button type="button" class="p-1.5 rounded-full hover:bg-white/15 text-xs text-slate-300 hover:text-white transition-all cursor-pointer flex items-center justify-center" title="Copy text" data-action="copy-message-text" data-text="${escapeAttr(msg.plaintext || '')}">${renderIcon('copy', { size: 12 })}</button>
                                   </div>
                                 ` : ''}
 
@@ -1916,7 +1916,7 @@ export function renderDirectMessagesWorkspace(): string {
           </div>
 
           <!-- DM COMPOSER FORM -->
-          <div class="journal-dialogue-composer p-3 md:p-4 border-subtle-t bg-surface-base shrink-0 shadow-sm relative">
+          <div class="journal-dialogue-composer p-3 md:p-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-subtle-t bg-surface-base shrink-0 shadow-sm relative">
             ${sovereignDM.syncError ? `<div role="status" class="mb-2 text-xs text-amber-300">${escapeHtml(sovereignDM.syncError)}</div>` : ''}
             ${renderEmojiPopover('dm')}
             ${renderOutcomePopover()}
@@ -1940,11 +1940,11 @@ export function renderDirectMessagesWorkspace(): string {
                   type="button"
                   data-action="toggle-composer-menu"
                   data-target="dm"
-                  class="p-2.5 rounded-2xl bg-surface-raised hover:bg-surface-elevated text-slate-300 hover:text-white border border-white/10 transition-all cursor-pointer shrink-0 flex items-center justify-center font-bold text-sm"
+                  class="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-surface-raised hover:bg-surface-elevated text-slate-300 hover:text-white border border-white/10 transition-all cursor-pointer shrink-0 flex items-center justify-center"
                   title="Add media, voice note, context capsule, or formatting"
                   aria-label="Composer actions menu"
                 >
-                  <span class="${isDMComposerMenuOpen ? 'rotate-45' : ''} transition-transform inline-block">➕</span>
+                  ${renderIcon('plus', { size: 18, className: `${isDMComposerMenuOpen ? 'rotate-45' : ''} transition-transform` })}
                 </button>
                 ${renderComposerMenu('dm')}
               </div>
@@ -1953,10 +1953,11 @@ export function renderDirectMessagesWorkspace(): string {
               <button
                 type="button"
                 data-action="toggle-dm-emoji"
-                class="p-2.5 rounded-2xl bg-surface-raised hover:bg-surface-elevated text-slate-400 hover:text-amber-400 border border-white/10 transition-colors cursor-pointer shrink-0 text-sm"
+                class="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-surface-raised hover:bg-surface-elevated text-slate-400 hover:text-[var(--color-accent,#e59b3c)] border border-white/10 transition-colors cursor-pointer shrink-0 flex items-center justify-center"
                 title="Add emoji"
+                aria-label="Add emoji"
               >
-                😊
+                ${renderIcon('smile', { size: 18 })}
               </button>
 
               <div class="relative flex-1 min-w-0 flex items-center bg-surface-raised border border-white/10 rounded-2xl focus-within:border-[var(--color-accent,#e59b3c)] transition-all">
@@ -1966,14 +1967,16 @@ export function renderDirectMessagesWorkspace(): string {
                   data-input="update-dm-draft"
                   value="${escapeHtml(getMessageDraft('dm'))}"
                   placeholder="Write a private message to ${escapeHtml(resolveHumanDisplayName(activeConv.peerFingerprint).name)}..." aria-label="Private message"
-                  class="w-full bg-transparent border-0 px-2.5 py-2.5 sm:py-3 text-sm sm:text-[15px] text-slate-100 placeholder-slate-400 focus:outline-none font-sans"
+                  class="w-full bg-transparent border-0 px-3 py-2.5 sm:py-3 text-sm sm:text-[15px] text-slate-100 placeholder-slate-400 focus:outline-none font-sans"
                   autocomplete="off"
                 />
               </div>
               <button 
                 type="submit" 
-                class="px-5 py-2.5 sm:py-3 bg-[var(--color-accent,#e59b3c)] hover:brightness-105 text-slate-950 text-sm font-semibold rounded-2xl transition-all shadow-sm flex items-center space-x-1.5 cursor-pointer shrink-0"
+                class="h-10 sm:h-11 px-4 sm:px-5 bg-[var(--color-accent,#e59b3c)] hover:brightness-105 active:scale-95 text-slate-950 text-sm font-semibold rounded-2xl transition-all shadow-sm flex items-center space-x-1.5 cursor-pointer shrink-0"
+                aria-label="Send message"
               >
+                ${renderIcon('send', { size: 15 })}
                 <span>Send</span>
               </button>
             </form>
@@ -2150,7 +2153,7 @@ export function renderRelaysWorkspace(): string {
           </div>
 
           <!-- RELAYS COMPOSER -->
-          <div class="journal-dialogue-composer p-3 md:p-4 border-subtle-t bg-surface-base shrink-0 shadow-sm relative">
+          <div class="journal-dialogue-composer p-3 md:p-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-subtle-t bg-surface-base shrink-0 shadow-sm relative">
             ${renderEmojiPopover('relay')}
             ${renderStagedAttachmentChip(clientStore.pendingRelayAttachment, 'relay')}
             ${voiceNotesManager.renderRecorderBar()}
@@ -2171,11 +2174,11 @@ export function renderRelaysWorkspace(): string {
                   type="button"
                   data-action="toggle-composer-menu"
                   data-target="relay"
-                  class="p-2.5 rounded-2xl bg-surface-raised hover:bg-surface-elevated text-slate-300 hover:text-white border border-white/10 transition-all cursor-pointer shrink-0 flex items-center justify-center font-bold text-sm"
+                  class="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-surface-raised hover:bg-surface-elevated text-slate-300 hover:text-white border border-white/10 transition-all cursor-pointer shrink-0 flex items-center justify-center"
                   title="Add media, voice note, context capsule, or formatting"
                   aria-label="Composer actions menu"
                 >
-                  <span class="${isRelayComposerMenuOpen ? 'rotate-45' : ''} transition-transform inline-block">➕</span>
+                  ${renderIcon('plus', { size: 18, className: `${isRelayComposerMenuOpen ? 'rotate-45' : ''} transition-transform` })}
                 </button>
                 ${renderComposerMenu('relay')}
               </div>
@@ -2184,10 +2187,11 @@ export function renderRelaysWorkspace(): string {
               <button
                 type="button"
                 data-action="toggle-relay-emoji"
-                class="p-2.5 rounded-2xl bg-surface-raised hover:bg-surface-elevated text-slate-400 hover:text-amber-400 border border-white/10 transition-colors cursor-pointer shrink-0 text-sm"
+                class="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-surface-raised hover:bg-surface-elevated text-slate-400 hover:text-[var(--color-accent,#e59b3c)] border border-white/10 transition-colors cursor-pointer shrink-0 flex items-center justify-center"
                 title="Add emoji"
+                aria-label="Add emoji"
               >
-                😊
+                ${renderIcon('smile', { size: 18 })}
               </button>
 
               <div class="relative flex-1 min-w-0">
@@ -2202,7 +2206,12 @@ export function renderRelaysWorkspace(): string {
                   autocomplete="off"
                 />
               </div>
-              <button type="submit" class="px-5 py-2.5 sm:py-3 bg-[var(--color-accent,#e59b3c)] hover:brightness-105 text-slate-950 text-sm font-semibold rounded-2xl transition-all shadow-sm flex items-center space-x-1.5 cursor-pointer shrink-0">
+              <button 
+                type="submit" 
+                class="h-10 sm:h-11 px-4 sm:px-5 bg-[var(--color-accent,#e59b3c)] hover:brightness-105 active:scale-95 text-slate-950 text-sm font-semibold rounded-2xl transition-all shadow-sm flex items-center space-x-1.5 cursor-pointer shrink-0"
+                aria-label="Send message"
+              >
+                ${renderIcon('send', { size: 15 })}
                 <span>Send</span>
               </button>
             </form>

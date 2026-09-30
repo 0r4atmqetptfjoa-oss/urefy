@@ -2084,11 +2084,27 @@ function renderCommandRailModal(): string {
 
   let itemIndex = 0;
 
+  const renderCommandCategoryBadge = (category: string): string => {
+    switch (category) {
+      case 'Navigation':
+        return `<span class="inline-flex items-center gap-1 text-[9px] uppercase font-mono px-2 py-0.5 rounded-md bg-sky-500/10 text-sky-400 border border-sky-500/20 shrink-0">${renderIcon('compass', { size: 10 })} Nav</span>`;
+      case 'Layout & View':
+        return `<span class="inline-flex items-center gap-1 text-[9px] uppercase font-mono px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-400 border border-purple-500/20 shrink-0">${renderIcon('layout', { size: 10 })} View</span>`;
+      case 'Security & Crypto':
+        return `<span class="inline-flex items-center gap-1 text-[9px] uppercase font-mono px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/20 shrink-0">${renderIcon('shield', { size: 10 })} Crypto</span>`;
+      case 'Simulation':
+        return `<span class="inline-flex items-center gap-1 text-[9px] uppercase font-mono px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shrink-0">${renderIcon('sparkles', { size: 10 })} Sim</span>`;
+      default:
+        return `<span class="inline-flex items-center gap-1 text-[9px] uppercase font-mono px-2 py-0.5 rounded-md bg-white/5 text-slate-400 border border-white/10 shrink-0">${escapeHtml(category)}</span>`;
+    }
+  };
+
   return `
-    <div id="command-rail-overlay" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-start justify-center pt-20">
-      <div class="w-[560px] max-w-[94vw] bg-surface-base border border-white/10 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-        <div class="p-3.5 border-subtle-b flex items-center space-x-3 bg-surface-raised/40">
-          <svg class="w-4 h-4 text-cyan-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+    <div id="command-rail-overlay" class="fixed inset-0 bg-black/75 backdrop-blur-md z-50 flex items-start justify-center pt-16 sm:pt-20 p-2 sm:p-4">
+      <div class="w-[600px] max-w-[96vw] bg-surface-base/95 backdrop-blur-2xl border border-white/12 rounded-2xl shadow-[0_32px_80px_rgba(0,0,0,0.8)] overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        <!-- Search Bar -->
+        <div class="p-3 sm:p-3.5 border-b border-white/10 flex items-center space-x-3 bg-surface-raised/50">
+          <span class="text-[var(--color-accent,#e59b3c)] flex-shrink-0">${renderIcon('search', { size: 18 })}</span>
           <input 
             type="text" 
             id="command-rail-input"
@@ -2099,17 +2115,18 @@ function renderCommandRailModal(): string {
             aria-activedescendant="cmd-item-${activeCommandIndex}"
             value="${escapeHtml(currentFilter)}"
             placeholder="Search posts, circles, encrypted messages, or type / for commands..." 
-            class="flex-1 bg-transparent text-xs text-slate-200 placeholder-slate-500 focus:outline-none font-mono"
+            class="flex-1 bg-transparent text-xs sm:text-sm text-slate-100 placeholder-slate-400 focus:outline-none font-sans"
             autofocus
           />
-          <span class="kbd-badge">ESC</span>
+          <kbd class="hidden sm:inline-flex items-center text-[10px] font-mono px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-slate-400">ESC</kbd>
         </div>
 
-        <div id="command-rail-results-list" role="listbox" class="max-h-96 overflow-y-auto p-2.5 space-y-2">
+        <!-- Results List -->
+        <div id="command-rail-results-list" role="listbox" class="max-h-[60vh] sm:max-h-96 overflow-y-auto p-2.5 space-y-2 no-scrollbar">
           ${matchingPosts.length > 0 ? `
-            <div class="px-2 py-1 text-[10px] font-mono text-amber-400 font-bold uppercase tracking-wider flex items-center justify-between">
-              <span>📝 Sovereign Posts (BM25: ${matchingPosts.length})</span>
-              <span class="text-[9px] text-slate-500">Fuzzy Relevance</span>
+            <div class="px-2.5 py-1.5 text-[10px] font-mono text-amber-400/90 font-bold uppercase tracking-wider flex items-center justify-between">
+              <span class="flex items-center gap-1.5">${renderIcon('fileText', { size: 12, className: 'text-amber-400' })} Sovereign Posts (${matchingPosts.length})</span>
+              <span class="text-[9px] text-slate-500 font-normal">BM25 Relevance</span>
             </div>
             <div class="space-y-1">
               ${matchingPosts.map(p => {
@@ -2117,16 +2134,19 @@ function renderCommandRailModal(): string {
                 const displaySnippet = searchMatch ? searchMatch.snippet : escapeHtml(p.content ? p.content.slice(0, 110) : '');
                 const curIdx = itemIndex++;
                 const isSelected = curIdx === activeCommandIndex;
+                const itemClasses = isSelected
+                  ? 'border-[var(--color-accent,#e59b3c)]/60 bg-[var(--color-accent,#e59b3c)]/12 ring-1 ring-[var(--color-accent,#e59b3c)]/30 text-white shadow-sm'
+                  : 'border-white/5 text-slate-300 hover:border-white/15 hover:bg-surface-highlight hover:text-white';
                 return `
-                <button type="button" id="cmd-item-${curIdx}" data-cmd-index="${curIdx}" role="option" aria-selected="${isSelected ? 'true' : 'false'}" class="btn-open-post-detail w-full text-left p-2.5 rounded-xl bg-surface-overlay hover:bg-surface-highlight border text-xs space-y-1 transition-all cursor-pointer group ${isSelected ? 'border-indigo-500 bg-surface-highlight ring-1 ring-indigo-500/40 shadow-sm' : 'border-white/5'}" data-post-id="${p.id}">
-                  <div class="flex items-center justify-between text-[10px] font-mono text-slate-400">
-                    <span class="text-amber-300 font-bold group-hover:text-amber-200">${escapeHtml(p.title || 'Untitled Post')}</span>
-                    <div class="flex items-center space-x-2">
-                      ${searchMatch ? `<span class="text-[9px] font-mono text-cyan-400 font-bold">score: ${searchMatch.score.toFixed(1)}</span>` : ''}
-                      <span class="text-emerald-400 font-bold">▲ ${p.meritVotes || 0}</span>
+                <button type="button" id="cmd-item-${curIdx}" data-cmd-index="${curIdx}" role="option" aria-selected="${isSelected ? 'true' : 'false'}" class="btn-open-post-detail w-full text-left p-3 rounded-xl bg-surface-overlay border text-xs space-y-1.5 transition-all cursor-pointer group ${itemClasses}" data-post-id="${p.id}">
+                  <div class="flex items-center justify-between text-[11px] font-mono">
+                    <span class="text-amber-300 font-bold group-hover:text-amber-200 truncate pr-2">${escapeHtml(p.title || 'Untitled Post')}</span>
+                    <div class="flex items-center space-x-2 shrink-0">
+                      ${searchMatch ? `<span class="text-[9px] font-mono text-cyan-400 font-bold bg-cyan-950/60 px-1.5 py-0.5 rounded border border-cyan-500/20">score: ${searchMatch.score.toFixed(1)}</span>` : ''}
+                      <span class="text-emerald-400 font-bold bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-500/20">▲ ${p.meritVotes || 0}</span>
                     </div>
                   </div>
-                  <div class="text-slate-400 text-[11px] truncate">${displaySnippet}</div>
+                  <div class="text-slate-400 text-[11px] truncate leading-normal">${displaySnippet}</div>
                 </button>
               `;
               }).join('')}
@@ -2135,18 +2155,21 @@ function renderCommandRailModal(): string {
           ` : ''}
 
           ${matchingChannels.length > 0 ? `
-            <div class="px-2 py-1 text-[10px] text-emerald-400 font-bold uppercase tracking-wider flex items-center justify-between">
-              <span>🏛️ Communities (${matchingChannels.length})</span>
-              <span class="text-[9px] text-slate-500">Switch channel</span>
+            <div class="px-2.5 py-1.5 text-[10px] text-emerald-400/90 font-bold uppercase tracking-wider flex items-center justify-between">
+              <span class="flex items-center gap-1.5">${renderIcon('users', { size: 12, className: 'text-emerald-400' })} Communities & Channels (${matchingChannels.length})</span>
+              <span class="text-[9px] text-slate-500 font-normal">Switch channel</span>
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
               ${matchingChannels.map(c => {
                 const curIdx = itemIndex++;
                 const isSelected = curIdx === activeCommandIndex;
+                const itemClasses = isSelected
+                  ? 'border-[var(--color-accent,#e59b3c)]/60 bg-[var(--color-accent,#e59b3c)]/12 ring-1 ring-[var(--color-accent,#e59b3c)]/30 text-white shadow-sm'
+                  : 'border-white/5 text-slate-300 hover:border-white/15 hover:bg-surface-highlight hover:text-white';
                 return `
-                <button type="button" id="cmd-item-${curIdx}" data-cmd-index="${curIdx}" role="option" aria-selected="${isSelected ? 'true' : 'false'}" class="btn-channel text-left p-2 rounded-xl bg-surface-overlay hover:bg-surface-highlight border text-xs flex items-center justify-between transition-all cursor-pointer ${isSelected ? 'border-indigo-500 bg-surface-highlight ring-1 ring-indigo-500/40 shadow-sm' : 'border-white/5'}" data-channel-id="${c.id}">
-                  <span class="font-medium text-slate-200 truncate">${escapeHtml(c.name)}</span>
-                  <span class="text-[9px] uppercase px-1.5 py-0.5 rounded bg-surface-raised text-slate-400 font-mono">${c.space}</span>
+                <button type="button" id="cmd-item-${curIdx}" data-cmd-index="${curIdx}" role="option" aria-selected="${isSelected ? 'true' : 'false'}" class="btn-channel text-left p-2.5 rounded-xl bg-surface-overlay border text-xs flex items-center justify-between transition-all cursor-pointer ${itemClasses}" data-channel-id="${c.id}">
+                  <span class="font-medium text-slate-200 truncate pr-2">${escapeHtml(c.name)}</span>
+                  <span class="text-[9px] uppercase px-2 py-0.5 rounded-full bg-surface-raised text-slate-400 font-mono border border-white/5 shrink-0">${c.space}</span>
                 </button>
               `;
               }).join('')}
@@ -2155,11 +2178,12 @@ function renderCommandRailModal(): string {
           ` : ''}
 
           ${searchResults.length > 0 ? `
-            <div class="px-2 py-1 text-[10px] font-mono text-cyan-400 font-bold uppercase tracking-wider">
-              🔍 Decrypted Message Results (BM25)
+            <div class="px-2.5 py-1.5 text-[10px] font-mono text-cyan-400/90 font-bold uppercase tracking-wider flex items-center justify-between">
+              <span class="flex items-center gap-1.5">${renderIcon('messages', { size: 12, className: 'text-cyan-400' })} Encrypted Message Matches (${searchResults.length})</span>
+              <span class="text-[9px] text-slate-500 font-normal">Decrypted BM25</span>
             </div>
             ${searchResults.map(r => `
-              <div class="p-2 rounded-xl bg-surface-overlay hover:bg-surface-highlight border border-white/5 text-xs space-y-1 transition-all">
+              <div class="p-2.5 rounded-xl bg-surface-overlay hover:bg-surface-highlight border border-white/5 text-xs space-y-1 transition-all">
                 <div class="flex items-center justify-between text-[10px] font-mono text-slate-400">
                   <span class="text-cyan-400 font-bold">&lt;${r.doc.authorFingerprint}&gt;</span>
                   <span>Score: ${r.score.toFixed(2)}</span>
@@ -2170,22 +2194,38 @@ function renderCommandRailModal(): string {
             <div class="border-subtle-t my-1.5"></div>
           ` : ''}
 
-          <div class="px-2 py-1 text-[10px] font-mono text-slate-400 font-bold uppercase tracking-wider">
-            ⚡ Quick System Commands
+          <div class="px-2.5 py-1.5 text-[10px] font-mono text-slate-400 font-bold uppercase tracking-wider flex items-center justify-between">
+            <span class="flex items-center gap-1.5">${renderIcon('terminal', { size: 12, className: 'text-[var(--color-accent,#e59b3c)]' })} System Actions</span>
+            <span class="text-[9px] text-slate-500 font-normal">Shortcuts & Tools</span>
           </div>
           ${commands.map(c => {
             const curIdx = itemIndex++;
             const isSelected = curIdx === activeCommandIndex;
+            const itemClasses = isSelected
+              ? 'border-[var(--color-accent,#e59b3c)]/60 bg-[var(--color-accent,#e59b3c)]/12 ring-1 ring-[var(--color-accent,#e59b3c)]/30 text-white shadow-sm'
+              : 'border-white/5 text-slate-300 hover:border-white/15 hover:bg-surface-highlight hover:text-white';
             return `
-            <button type="button" id="cmd-item-${curIdx}" data-cmd-index="${curIdx}" role="option" aria-selected="${isSelected ? 'true' : 'false'}" data-cmd-id="${c.id}" class="btn-exec-cmd w-full text-left px-3 py-2 rounded-xl text-xs flex items-center justify-between hover:bg-surface-overlay text-slate-300 hover:text-white transition-all cursor-pointer border ${isSelected ? 'border-indigo-500 bg-surface-highlight ring-1 ring-indigo-500/40 shadow-sm text-white' : 'border-transparent'}">
-              <div class="flex items-center space-x-2">
-                <span class="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-surface-raised text-slate-400">${c.category}</span>
-                <span>${c.title}</span>
+            <button type="button" id="cmd-item-${curIdx}" data-cmd-index="${curIdx}" role="option" aria-selected="${isSelected ? 'true' : 'false'}" data-cmd-id="${c.id}" class="btn-exec-cmd w-full text-left px-3 py-2.5 rounded-xl text-xs flex items-center justify-between transition-all cursor-pointer border ${itemClasses}">
+              <div class="flex items-center space-x-2.5 min-w-0 pr-2">
+                ${renderCommandCategoryBadge(c.category)}
+                <span class="truncate font-medium">${c.title}</span>
               </div>
-              ${c.shortcut ? `<span class="kbd-badge">${c.shortcut}</span>` : ''}
+              ${c.shortcut ? `<kbd class="text-[10px] font-mono px-2 py-0.5 rounded bg-surface-raised border border-white/10 text-slate-400 shrink-0">${c.shortcut}</kbd>` : ''}
             </button>
           `;
           }).join('')}
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="p-2 sm:p-2.5 px-4 bg-surface-raised/40 border-t border-white/5 flex items-center justify-between text-[10px] sm:text-[11px] text-slate-400 font-mono select-none">
+          <div class="flex items-center gap-2">
+            <span><kbd class="px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-[9px] text-slate-300">↑</kbd><kbd class="px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-[9px] text-slate-300">↓</kbd> navigate</span>
+            <span>•</span>
+            <span><kbd class="px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-[9px] text-slate-300">↵</kbd> select</span>
+            <span>•</span>
+            <span><kbd class="px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-[9px] text-slate-300">Esc</kbd> close</span>
+          </div>
+          <span class="text-[9px] text-[var(--color-accent,#e59b3c)] font-semibold hidden xs:inline tracking-wider">UREfy Omnibar</span>
         </div>
       </div>
     </div>

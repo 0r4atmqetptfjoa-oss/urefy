@@ -6,6 +6,7 @@
 import { serviceRegistry, SERVICES } from './service-registry.js';
 import { clientStore } from './client-state.js';
 import { t } from './i18n.js';
+import { renderIcon } from './ui/icons.js';
 
 export type LegalTab = 'about' | 'terms' | 'privacy' | 'rules' | 'dsa' | 'contact';
 
@@ -205,12 +206,14 @@ export class LegalModal {
         <div class="relative w-full max-w-4xl lg:max-w-5xl max-h-[92vh] sm:max-h-[85vh] flex flex-col rounded-2xl bg-surface-base border border-white/10 shadow-2xl overflow-hidden font-sans text-xs pointer-events-auto cursor-default" data-action="stop-propagation">
           
           <!-- Header -->
-          <div class="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-white/10 bg-surface-raised/80">
-            <div class="flex items-center space-x-2.5 sm:space-x-3 min-w-0">
-              <span class="text-lg sm:text-xl shrink-0">⚖️</span>
+          <div class="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 border-b border-white/10 bg-surface-raised/80">
+            <div class="flex items-center space-x-3 min-w-0">
+              <div class="w-8 h-8 rounded-xl bg-[var(--color-accent,#e59b3c)]/12 border border-[var(--color-accent,#e59b3c)]/30 flex items-center justify-center text-[var(--color-accent,#e59b3c)] shrink-0">
+                ${renderIcon('scale', { size: 18 })}
+              </div>
               <div class="min-w-0">
                 <h3 class="font-bold text-xs sm:text-sm text-white tracking-wide truncate">Legal Framework, Terms & Privacy</h3>
-                <p class="text-[10px] sm:text-[11px] text-slate-400 truncate">EU Compliance: DSA Regulation (2022/2065) & GDPR</p>
+                <p class="text-[10px] sm:text-[11px] text-slate-400 truncate">EU Compliance: DSA Regulation (EU 2022/2065) & GDPR (EU 2016/679)</p>
               </div>
             </div>
             <button
@@ -219,7 +222,7 @@ export class LegalModal {
               title="${t('modal.close', undefined, 'Close')} (Esc)"
               aria-label="${t('modal.close', undefined, 'Close')}"
             >
-              ✕
+              ${renderIcon('close', { size: 18 })}
             </button>
           </div>
 
@@ -227,78 +230,83 @@ export class LegalModal {
           <div class="flex flex-wrap md:flex-nowrap border-b border-white/10 bg-black/40 px-3 sm:px-6 gap-1 pt-1.5 sm:pt-2 overflow-x-auto md:overflow-x-visible no-scrollbar">
             <button
               type="button" data-action="set-legal-tab" data-tab="about"
-              class="px-2.5 sm:px-3 py-1.5 sm:py-2 text-[11px] sm:text-xs font-semibold whitespace-nowrap transition-all border-b-2 cursor-pointer ${
+              class="px-2.5 sm:px-3 py-1.5 sm:py-2 text-[11px] sm:text-xs font-semibold whitespace-nowrap transition-all border-b-2 cursor-pointer flex items-center gap-1.5 ${
                 this._activeTab === 'about'
                   ? 'border-[var(--color-accent,#e59b3c)] text-[var(--color-accent,#e59b3c)] bg-[var(--color-accent,#e59b3c)]/10'
-                  : 'border-transparent text-slate-400 hover:text-slate-200'
+                  : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-white/5'
               }"
             >
-              ℹ️ ${t('footer.about', undefined, 'About')}
+              ${renderIcon('info', { size: 14 })}
+              <span>${t('footer.about', undefined, 'About')}</span>
             </button>
             <button
               type="button" data-action="set-legal-tab" data-tab="terms"
-              class="px-2.5 sm:px-3 py-1.5 sm:py-2 text-[11px] sm:text-xs font-semibold whitespace-nowrap transition-all border-b-2 cursor-pointer ${
+              class="px-2.5 sm:px-3 py-1.5 sm:py-2 text-[11px] sm:text-xs font-semibold whitespace-nowrap transition-all border-b-2 cursor-pointer flex items-center gap-1.5 ${
                 this._activeTab === 'terms'
                   ? 'border-[var(--color-accent,#e59b3c)] text-[var(--color-accent,#e59b3c)] bg-[var(--color-accent,#e59b3c)]/10'
-                  : 'border-transparent text-slate-400 hover:text-slate-200'
+                  : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-white/5'
               }"
             >
-              📜 ${'Terms of Service'}
+              ${renderIcon('fileText', { size: 14 })}
+              <span>Terms of Service</span>
             </button>
             <button
               type="button" data-action="set-legal-tab" data-tab="privacy"
-              class="px-2.5 sm:px-3 py-1.5 sm:py-2 text-[11px] sm:text-xs font-semibold whitespace-nowrap transition-all border-b-2 cursor-pointer ${
+              class="px-2.5 sm:px-3 py-1.5 sm:py-2 text-[11px] sm:text-xs font-semibold whitespace-nowrap transition-all border-b-2 cursor-pointer flex items-center gap-1.5 ${
                 this._activeTab === 'privacy'
                   ? 'border-[var(--color-accent,#e59b3c)] text-[var(--color-accent,#e59b3c)] bg-[var(--color-accent,#e59b3c)]/10'
-                  : 'border-transparent text-slate-400 hover:text-slate-200'
+                  : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-white/5'
               }"
             >
-              🛡️ ${'Privacy Policy (GDPR)'}
+              ${renderIcon('shield', { size: 14 })}
+              <span>Privacy Policy (GDPR)</span>
             </button>
             <button
               type="button" data-action="set-legal-tab" data-tab="rules"
-              class="px-2.5 sm:px-3 py-1.5 sm:py-2 text-[11px] sm:text-xs font-semibold whitespace-nowrap transition-all border-b-2 cursor-pointer ${
+              class="px-2.5 sm:px-3 py-1.5 sm:py-2 text-[11px] sm:text-xs font-semibold whitespace-nowrap transition-all border-b-2 cursor-pointer flex items-center gap-1.5 ${
                 this._activeTab === 'rules'
                   ? 'border-[var(--color-accent,#e59b3c)] text-[var(--color-accent,#e59b3c)] bg-[var(--color-accent,#e59b3c)]/10'
-                  : 'border-transparent text-slate-400 hover:text-slate-200'
+                  : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-white/5'
               }"
             >
-              ⚖️ ${t('footer.rules', undefined, 'Community Rules')}
+              ${renderIcon('scale', { size: 14 })}
+              <span>${t('footer.rules', undefined, 'Community Rules')}</span>
             </button>
             <button
               type="button" data-action="set-legal-tab" data-tab="dsa"
-              class="px-2.5 sm:px-3 py-1.5 sm:py-2 text-[11px] sm:text-xs font-semibold whitespace-nowrap transition-all border-b-2 cursor-pointer ${
+              class="px-2.5 sm:px-3 py-1.5 sm:py-2 text-[11px] sm:text-xs font-semibold whitespace-nowrap transition-all border-b-2 cursor-pointer flex items-center gap-1.5 ${
                 this._activeTab === 'dsa'
                   ? 'border-[var(--color-accent,#e59b3c)] text-[var(--color-accent,#e59b3c)] bg-[var(--color-accent,#e59b3c)]/10'
-                  : 'border-transparent text-slate-400 hover:text-slate-200'
+                  : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-white/5'
               }"
             >
-              <span>🚩</span>
-              <span class="hidden sm:inline">${'Notice & Takedown (DSA)'}</span>
+              ${renderIcon('flag', { size: 14 })}
+              <span class="hidden sm:inline">Notice & Takedown (DSA)</span>
               <span class="sm:hidden">Report (DSA)</span>
             </button>
             <button
               type="button" data-action="set-legal-tab" data-tab="contact"
-              class="px-2.5 sm:px-3 py-1.5 sm:py-2 text-[11px] sm:text-xs font-semibold whitespace-nowrap transition-all border-b-2 cursor-pointer ${
+              class="px-2.5 sm:px-3 py-1.5 sm:py-2 text-[11px] sm:text-xs font-semibold whitespace-nowrap transition-all border-b-2 cursor-pointer flex items-center gap-1.5 ${
                 this._activeTab === 'contact'
                   ? 'border-[var(--color-accent,#e59b3c)] text-[var(--color-accent,#e59b3c)] bg-[var(--color-accent,#e59b3c)]/10'
-                  : 'border-transparent text-slate-400 hover:text-slate-200'
+                  : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-white/5'
               }"
             >
-              📬 ${t('footer.contact', undefined, 'Contact')}
+              ${renderIcon('mail', { size: 14 })}
+              <span>${t('footer.contact', undefined, 'Contact')}</span>
             </button>
           </div>
 
           <!-- Body Content -->
           <div class="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6 space-y-4 text-slate-300 text-xs leading-relaxed font-sans select-text break-words">
-            <div class="flex items-center justify-between pb-3 border-b border-white/5">
-              <span class="text-xs font-mono text-[var(--color-accent,#e59b3c)] uppercase tracking-wider">${this._activeTab.toUpperCase()} OVERVIEW</span>
-              <button
-                type="button" data-action="close-feature"
-                class="px-3 sm:px-4 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white font-medium transition-colors cursor-pointer shrink-0"
-              >
-                Close
-              </button>
+            <div class="flex items-center justify-between pb-3 border-b border-white/8">
+              <span class="text-xs font-mono text-[var(--color-accent,#e59b3c)] font-bold uppercase tracking-wider flex items-center gap-2">
+                <span class="w-1.5 h-1.5 rounded-full bg-[var(--color-accent,#e59b3c)]"></span>
+                ${this._activeTab.toUpperCase()} OVERVIEW
+              </span>
+              <span class="inline-flex items-center gap-1.5 text-[10px] font-mono text-emerald-400 bg-emerald-950/60 border border-emerald-500/25 px-2.5 py-0.5 rounded-full">
+                ${renderIcon('shieldCheck', { size: 12 })} EU Sovereign Standard
+              </span>
             </div>
             ${this._renderTabContent()}
           </div>
@@ -389,7 +397,7 @@ export class LegalModal {
           <div class="space-y-4">
             <div class="p-3.5 rounded-xl bg-surface-raised/40 border border-white/5 space-y-2">
               <h4 class="font-bold text-xs text-white flex items-center space-x-2">
-                <span>⚖️</span>
+                <span>${renderIcon('scale', { size: 15, className: 'text-[var(--color-accent,#e59b3c)] shrink-0' })}</span>
                 <span>Notice and Takedown Procedure (DSA Art. 16)</span>
               </h4>
               <p class="text-[11px] text-slate-400">
@@ -399,7 +407,7 @@ export class LegalModal {
 
             ${this._reportSubmittedId ? `
               <div class="p-5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 space-y-3 text-center animate-in fade-in">
-                <span class="text-3xl">✅</span>
+                ${renderIcon('checkCircle', { size: 36, className: 'text-emerald-400 mx-auto' })}
                 <h4 class="font-bold text-sm text-emerald-400">Notice Successfully Registered</h4>
                 <p class="text-[11px] text-slate-300">
                   DSA Registration ID: <code class="px-2 py-0.5 rounded bg-black/40 text-emerald-300 font-mono">${this._reportSubmittedId}</code>
@@ -476,9 +484,9 @@ export class LegalModal {
                     id="btn-submit-dsa-report"
                     data-action="submit-dsa-report"
                     ${this._isSubmittingReport ? 'disabled' : ''}
-                    class="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-lg shadow-rose-600/20 transition-all cursor-pointer disabled:opacity-50"
+                    class="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-lg shadow-rose-600/20 transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
                   >
-                    ${this._isSubmittingReport ? 'Submitting report...' : '🚩 Submit DSA Report to Moderators'}
+                    ${this._isSubmittingReport ? 'Submitting report...' : `${renderIcon('flag', { size: 14 })} Submit DSA Report to Moderators`}
                   </button>
                 </div>
               </form>
@@ -497,8 +505,8 @@ export class LegalModal {
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div class="p-3.5 rounded-xl bg-surface-raised border border-white/5 space-y-2">
-                <span class="text-xs font-bold text-white flex items-center space-x-1.5">
-                  <span>🏛️</span>
+                <span class="text-xs font-bold text-white flex items-center space-x-2">
+                  <span>${renderIcon('landmark', { size: 15, className: 'text-[var(--color-accent,#e59b3c)] shrink-0' })}</span>
                   <span>For EU Member State Authorities & European Commission (Art. 11)</span>
                 </span>
                 <p class="text-[11px] text-slate-400">Designated point of contact for official communications:</p>
@@ -509,8 +517,8 @@ export class LegalModal {
               </div>
 
               <div class="p-3.5 rounded-xl bg-surface-raised border border-white/5 space-y-2">
-                <span class="text-xs font-bold text-white flex items-center space-x-1.5">
-                  <span>👥</span>
+                <span class="text-xs font-bold text-white flex items-center space-x-2">
+                  <span>${renderIcon('users', { size: 15, className: 'text-cyan-400 shrink-0' })}</span>
                   <span>For Users & Service Recipients (Art. 12)</span>
                 </span>
                 <p class="text-[11px] text-slate-400">For assistance, appeals, and legal inquiries:</p>

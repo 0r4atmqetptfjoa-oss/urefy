@@ -103,6 +103,12 @@ import {
   Landmark,
   Scroll,
   Tag,
+  Mic,
+  Scale,
+  Mail,
+  Archive,
+  ShieldCheck,
+  Layout,
 } from 'lucide';
 import type { IconNode } from 'lucide';
 
@@ -296,6 +302,12 @@ export const ICONS: Record<string, IconDefinition> = {
   landmark: Landmark,
   scroll: Scroll,
   tag: Tag,
+  mic: Mic,
+  scale: Scale,
+  mail: Mail,
+  archive: Archive,
+  shieldCheck: ShieldCheck,
+  layout: Layout,
 };
 
 export type IconName = keyof typeof ICONS | keyof typeof CUSTOM_ICONS;
