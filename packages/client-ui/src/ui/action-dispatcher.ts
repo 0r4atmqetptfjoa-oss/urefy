@@ -45,8 +45,7 @@ function getVV(): Promise<typeof import('../vault-view.js')> {
   });
 }
 
-import { exploreView } from '../explore-view.js';
-import { communityView } from '../community-view.js';
+import { communityView, exploreView, loadExploreView } from '../optional-workspaces.js';
 import { replaceEmoticons } from '../chat-rich-embed.js';
 import { setWorkspaceLayout } from '../workspace-layout.js';
 import { sovereignWebPush } from '../web-push.js';
@@ -367,6 +366,20 @@ export class ActionDispatcher {
         }
       }
 
+      // Direct post detail trigger delegation for [data-open-detail]
+      const openDetailTarget = target.closest?.<HTMLElement>('[data-open-detail]');
+      if (openDetailTarget && !target.closest?.('a, input, textarea, select, iframe, video, .reaction-row, [data-action="react-post"], .btn-pulse-merit, .btn-pulse-reply, .btn-pulse-boost, .btn-pulse-bookmark, .btn-pulse-award, .btn-pulse-share, .btn-pulse-more')) {
+        const postId = openDetailTarget.getAttribute('data-open-detail') || openDetailTarget.getAttribute('data-post-id') || openDetailTarget.getAttribute('data-post-card-id');
+        if (postId) {
+          event.preventDefault();
+          event.stopPropagation();
+          postDetailView.openPost(postId);
+          void import('../analytics-widget.js').then(({ localAnalytics }) => localAnalytics.recordPostView());
+          clientStore.notifySync();
+          return;
+        }
+      }
+
       let actionEl: HTMLElement | null = null;
       let curr: Element | null = target;
       while (curr && curr !== document.documentElement && curr !== document.body) {
@@ -557,12 +570,7 @@ export class ActionDispatcher {
 
       case 'open-settings': {
         const subtab = el.dataset.subtab || el.dataset.tab;
-        sovereignRouter.navigateTo('settings');
-        if (typeof window !== 'undefined' && (window as any).settingsView) {
-          (window as any).settingsView.open(subtab as any);
-        } else {
-          import('../settings-view.js').then(({ settingsView }) => settingsView.open(subtab as any)).catch(() => {});
-        }
+        sovereignRouter.navigateTo('settings', { subtab });
         break;
       }
 
@@ -971,6 +979,11 @@ export class ActionDispatcher {
         break;
       }
 
+      case 'load-more-feed-posts': {
+        void import('../feed-view.js').then(({ loadMoreFeedPosts }) => loadMoreFeedPosts());
+        break;
+      }
+
       case 'dismiss-home-intro': {
         try {
           localStorage.setItem('urefy_home_intro_dismissed', 'true');
@@ -1004,43 +1017,45 @@ export class ActionDispatcher {
 
       case 'filter-community-category': {
         const cat = el.getAttribute('data-category') || 'all';
-        communityView.setActiveCategory(cat);
+        communityView!.setActiveCategory(cat);
         clientStore.notifySync();
         break;
       }
 
       case 'filter-community-membership': {
         const membership = el.getAttribute('data-membership');
-        if (membership === 'all' || membership === 'joined') communityView.membershipFilter = membership;
+        if (membership === 'all' || membership === 'joined') communityView!.membershipFilter = membership;
         clientStore.notifySync();
         break;
       }
 
       case 'reset-community-filters': {
-        communityView.setSearchQuery('');
-        communityView.setActiveCategory('all');
-        communityView.membershipFilter = 'all';
+        communityView!.setSearchQuery('');
+        communityView!.setActiveCategory('all');
+        communityView!.membershipFilter = 'all';
         clientStore.notifySync();
         break;
       }
 
       case 'clear-community-search': {
-        communityView.setSearchQuery('');
+        communityView!.setSearchQuery('');
         clientStore.notifySync();
         break;
       }
 
       case 'open-explore-communities': {
-        exploreView.activeSubTab = 'communities';
-        sovereignRouter.navigateTo('explore');
-        clientStore.notifySync();
+        void loadExploreView().then(view => {
+          view.activeSubTab = 'communities';
+          sovereignRouter.navigateTo('explore');
+          clientStore.notifySync();
+        }).catch(() => clientStore.showToast('Unable to open Explore. Please try again.', 'warning'));
         break;
       }
 
       case 'set-explore-subtab': {
         const subtab = el.getAttribute('data-subtab') as 'pulses' | 'communities';
         if (subtab) {
-          exploreView.activeSubTab = subtab;
+          exploreView!.activeSubTab = subtab;
           clientStore.notifySync();
         }
         break;
@@ -1597,18 +1612,6 @@ export class ActionDispatcher {
         break;
       }
 
-      case 'open-settings': {
-        const category = (el.dataset.subtab || el.getAttribute('data-subtab') || el.dataset.category) as any;
-        if (typeof window !== 'undefined' && (window as any).settingsView) {
-          if (category) {
-            (window as any).settingsView.setActiveTab(category);
-          }
-        }
-        sovereignRouter.navigateTo('settings');
-        clientStore.notifySync();
-        break;
-      }
-
       case 'set-settings-tab': {
         const tab = el.getAttribute('data-settings-tab') as any;
         if (tab && typeof window !== 'undefined' && (window as any).settingsView) {
@@ -1826,8 +1829,7 @@ export class ActionDispatcher {
       case 'set-profile-tab': {
         const tab = (el.getAttribute('data-tab') || el.getAttribute('data-profile-tab') || 'pulses') as any;
         if (tab === 'settings') {
-          sovereignRouter.navigateTo('settings');
-          import('../settings-view.js').then(({ settingsView }) => settingsView.open('account')).catch(() => {});
+          sovereignRouter.navigateTo('settings', { subtab: 'account' });
           break;
         }
         profileView.setActiveTab(tab);
@@ -2410,7 +2412,7 @@ export class ActionDispatcher {
 
       case 'switch-community-pillar': {
         const pillar = (el.getAttribute('data-pillar') || 'discuss') as any;
-        communityView.setActivePillar(pillar);
+        communityView!.setActivePillar(pillar);
         clientStore.notifySync();
         break;
       }
@@ -3444,7 +3446,7 @@ export class ActionDispatcher {
         this.invokeMethodPath(method, [el.value, el]);
       }
     } else if (action === 'search-communities' || el.id === 'input-community-search') {
-      communityView.setSearchQuery(el.value);
+      communityView?.setSearchQuery(el.value);
       clientStore.notifySync();
       const updatedInput = document.getElementById('input-community-search') as HTMLInputElement | null;
       if (updatedInput) {

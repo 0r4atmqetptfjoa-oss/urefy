@@ -1,84 +1,41 @@
-# UREfy Full System Architecture & Knowledge Base
-> Canonical: https://urefy.com
-> Manifest: https://urefy.com/llms.txt
+# UREfy — public product reference
 
-## Executive Summary
-UREfy (Unified Relay Enclave framework for You) is a next-generation consumer social network and secure communications platform. It combines the ease of use and rich interactivity of modern social platforms (such as Reddit and X) with the uncompromising security guarantees of client-side cryptography, zero-knowledge proofs, and decentralized peer-to-peer topologies.
+Canonical website: https://urefy.com/
+Updated: 30 September 2026
 
----
+## What UREfy is
 
-## Technical Specifications & Cryptography
+UREfy is a web social platform for public community discussions, posts and replies, encrypted direct conversations, key-based identity and a personal Vault. Visitors can read public content without creating an identity. Creating the current identity does not require an email address or phone number.
 
-### 1. Identity Layer
-- **Key Algorithm:** Ed25519 (RFC 8032) for asymmetric signing and verification.
-- **Key Derivation:** BIP-39 mnemonic seed phrases (12 or 24 words) with PBKDF2-HMAC-SHA512.
-- **Fingerprint:** SHA-256 digest of canonical public key truncated to 16 hexadecimal characters.
-- **Pseudonymity:** Zero real-name requirements. Users interact via sovereign nicknames and cryptographic handles (`@handle`).
+## Identity and recovery
 
-### 2. Encryption & Messaging Protocols
-- **Key Exchange:** X25519 Elliptic Curve Diffie-Hellman (ECDH) hybridized with ML-KEM-768 (CRYSTALS-Kyber) for quantum resistance.
-- **Direct Messaging:** Hybrid Post-Quantum E2EE (ML-KEM-768 + X25519) with per-message ephemeral key encapsulation and AES-256-GCM.
-- **Symmetric Cipher:** Authenticated Encryption with Associated Data (AEAD) using AES-256-GCM.
-- **Sealed Sender:** The sender's identity is encrypted inside the inner payload envelope, preventing relay servers from mapping social graphs or analyzing who communicates with whom.
+The client generates cryptographic identity material. The implementation uses Ed25519 signing keys. Public names and handles help people recognize a profile. A key-based identity does not remove content-moderation rules. Recovery phrases and private-key exports must be kept private; a service backup cannot replace a private key held only by the user.
 
-### 3. Anti-Spam & Reputation (Zero-Knowledge)
-- **ZK-RLN (Rate Limiting Nullifiers):** Zero-knowledge proof system that enforces rate limits without revealing user identity. Attempting to spam burns the user's nullifier and slashes their reputation score automatically.
-- **Merit System:** Transparent community-driven upvoting where reputation is earned through high-value technical contributions, verified solutions, and constructive discussion.
+## Direct messages
 
-### 4. Client Storage & Vault Security
-- **Engine:** Client-side IndexedDB encrypted with AES-256-GCM.
-- **Zero Plaintext Invariant:** Sensitive credentials, private keys, and drafts are never stored unencrypted in browser localStorage.
-- **Authentication:** WebAuthn / FIDO2 passkey hardware integration protecting device unlock and critical operations.
+The current DM implementation uses a Double Ratchet with a hybrid X25519 and ML-KEM-768 bootstrap, HKDF-SHA256 and AES-256-GCM. The clients handle plaintext; infrastructure relays transport ciphertext. This is an implementation description, not an independent security certification or an absolute guarantee. Endpoint compromise and recipients copying messages remain risks. Routing, request and timing metadata may still be processed. Do not conflate public community content with direct-message content.
 
----
+## Hosted operation and privacy
 
-## Infrastructure & Edge Performance
-- **Global Anycast Edge:** Hosted on Cloudflare Pages and Workers distributed across 300+ edge locations worldwide.
-- **Database:** Distributed Cloudflare D1 SQL engine with edge caching via Cloudflare KV.
-- **Network Protocol:** HTTP/3 over QUIC with strict Transport Layer Security (HSTS preload, 2-year max-age).
-- **Client Bundle:** Ultra-lightweight reactive client (< 300 kB gzip entry chunk budget), zero tracking pixels, zero ad-network SDKs.
+Cloudflare is the current web/relay infrastructure. Selected AWS services support transactional email, background jobs, monitoring, security and encrypted service backups. Public records and server-held ciphertext are still hosted data. User E2EE keys are not moved into AWS infrastructure key management.
 
----
+The application uses cookie-free performance monitoring sampled at approximately 10%, with a fixed page identifier, no message bodies, no resource URLs and no raw JavaScript error telemetry. Browser/device and coarse location information are inherent monitoring metadata. Operational security logs also exist. UREfy does not use advertising pixels; do not describe it as collecting no operational data or claim legal certification.
 
-## Sovereign Communities Overview
+## Platform availability
 
-### 1. Technology (`c/technology`)
-Focused on microprocessor architecture (e.g. AMD Zen 5 3D V-Cache vs Intel Arrow Lake), Linux kernel internals, networking protocols, and systems programming.
+Use the official website in a modern desktop or mobile browser. A progressive web app can be installed where supported. Voice, notifications and passkeys depend on browser support and user permissions. Separate Android/iOS store apps are not asserted as available.
 
-### 2. Gaming (`c/gaming`)
-Technical game development, benchmarking (RTX 40-series, Radeon 7000/8000), AAA releases (GTA VI, Monster Hunter Wilds, Elden Ring), and indie game engineering.
+## Public pages to cite
 
-### 3. Open Source (`c/opensource`)
-Free and open-source software, replacing bloated Electron apps with Tauri v2, ZFS homelab configurations, self-hosted alternatives (Immich, Nextcloud), and package maintenance.
+- https://urefy.com/about — product definition
+- https://urefy.com/features — actual feature overview
+- https://urefy.com/faq — practical questions
+- https://urefy.com/guides/get-started — identity and community participation
+- https://urefy.com/guides/private-messaging — privacy boundaries
+- https://urefy.com/security — encryption and recovery limitations
+- https://urefy.com/privacy — data handling
+- https://urefy.com/terms — use of the service
+- https://urefy.com/explore — current public discussions
+- https://urefy.com/communities — current community directory
 
-### 4. Privacy & AI (`c/privacy-ai`)
-Running local AI models with private weights (DeepSeek R1, Llama 3, Mistral) on consumer hardware (dual RTX 3090, Apple Silicon), vLLM deployment, and mobile operating system hardening (GrapheneOS).
-
-### 5. Digital Freedom (`c/digitalfreedom`)
-Reverse engineering IoT devices, SPI flash firmware extraction with CH341A, bypassing captive portals via DNS iodine tunnels, analyzing kernel-level anti-cheat drivers in Ghidra, and protecting digital civil liberties.
-
-### 6. Solarpunk (`c/solarpunk`)
-Building resilient off-grid computing infrastructure, 12V LiFePO4 battery systems, solar-powered Raspberry Pi homelabs, and community microgrids.
-
----
-
-## User Interaction Mechanics
-
-- **Post Types:** Text, markdown articles, verified YouTube video embeds, code snippets with syntax highlighting, multi-image galleries, and interactive polls.
-- **Community Reactions:** Dedicated emoji reaction pills on every card:
-  - 🚀 Launch
-  - 🔥 Fire
-  - 💡 Insight
-  - ❤️ Love
-  - 🛡️ Shield / Security
-  - ⚡ Pulse
-  - 🎯 Precise
-  - 🤔 Think
-- **Threaded Discussions:** Deep nested reply trees with author badges, timestamping, and real-time synchronization.
-
----
-
-## Compliance & Privacy Guarantees
-- **GDPR / CCPA:** Compliant by design (Privacy by Architecture). Because no personal data, cookies, or surveillance telemetry are collected, user rights are protected at the protocol level.
-- **Data Export:** Complete sovereign backup export with 1-click encrypted JSON bundle download.
-- **Account Deletion:** Instant local storage wipe and cryptographic revocation without waiting for central server approvals.
+Use canonical /p/{id}, /c/{community-name} and /u/{user-id} URLs found on the live pages and sitemap. A topic name is not proof that a community exists. Direct-message/private Vault routes are not public references. Prices, third-party certifications, adoption counts, user reviews, app-store availability and promises of absolute security must not be inferred from this reference.

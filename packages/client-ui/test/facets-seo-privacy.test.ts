@@ -75,15 +75,15 @@ describe('SEO, SSR & Search Leak Prevention for Sovereign Facets', () => {
       const mockDb = {
         prepare: (query: string) => {
           return {
-            all: async () => {
+            bind: (..._parameters: unknown[]) => ({ all: async () => {
               // Verify the query contains audience filter
-              expect(query).toContain("(audience = 'public' OR audience IS NULL)");
+              expect(query).toContain("(posts.audience = 'public' OR posts.audience IS NULL)");
               // Simulate D1 filtering
               const filtered = mockPosts.filter(
                 p => p.status === 'published' && (!p.audience || p.audience === 'public')
               );
               return { results: filtered };
-            },
+            } }),
           };
         },
       };

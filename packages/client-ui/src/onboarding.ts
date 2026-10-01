@@ -19,6 +19,40 @@ import { sovereignCircleEngine } from './sovereign-circle.js';
 import { profileView } from './profile-view.js';
 import { feedPersonalization } from './feed-personalization.js';
 
+// Patch this wizard's DOM without removing focused controls. Replacing the
+// input on each keystroke closes/reopens mobile keyboards and restarts fades.
+function patchWizardNode(current: Node, next: Node): void {
+  if (current.nodeType !== next.nodeType ||
+      (current instanceof Element && next instanceof Element &&
+       (current.tagName !== next.tagName || current.id !== next.id))) {
+    current.parentNode?.replaceChild(next.cloneNode(true), current);
+    return;
+  }
+  if (!(current instanceof Element) || !(next instanceof Element)) {
+    if (current.nodeValue !== next.nodeValue) current.nodeValue = next.nodeValue;
+    return;
+  }
+  const editing = current === document.activeElement;
+  for (const attribute of Array.from(current.attributes)) {
+    if (!next.hasAttribute(attribute.name) && !(editing && attribute.name === 'value')) current.removeAttribute(attribute.name);
+  }
+  for (const attribute of Array.from(next.attributes)) {
+    if (editing && attribute.name === 'value') continue;
+    if (current.getAttribute(attribute.name) !== attribute.value) current.setAttribute(attribute.name, attribute.value);
+  }
+  if (current instanceof HTMLInputElement && next instanceof HTMLInputElement) {
+    if (!editing && current.value !== next.value) current.value = next.value;
+    current.checked = next.checked;
+  }
+  const children = Array.from(next.childNodes);
+  children.forEach((child, index) => {
+    const existing = current.childNodes[index];
+    if (existing) patchWizardNode(existing, child);
+    else current.appendChild(child.cloneNode(true));
+  });
+  while (current.childNodes.length > children.length) current.lastChild?.remove();
+}
+
 export type OnboardingStage =
   | 'PROFILE_REQUIRED'
   | 'INTERESTS_REQUIRED'
@@ -473,6 +507,7 @@ export class OnboardingWizard {
           this.handleCheckMessage = `✓ @${clean} is available`;
         } else if (res.ok) {
           const data = (await res.json().catch(() => null)) as any;
+          if (this.handle !== clean) return;
           const myFp = this.getActiveFingerprint();
           if (data?.profile && data.profile.userId !== myFp) {
             this.handleCheckState = 'taken';
@@ -775,9 +810,24 @@ export class OnboardingWizard {
    * Re-renders the onboarding modal in place or triggers store notification
    */
   public syncUI(): void {
-    const modalHost = typeof document !== 'undefined' ? document.getElementById('aetheris-onboarding-modal-host') : null;
+    let modalHost = typeof document !== 'undefined' ? document.getElementById('aetheris-onboarding-modal-host') : null;
+    if (!modalHost && typeof document !== 'undefined' && document.body) {
+      modalHost = document.createElement('div');
+      modalHost.id = 'aetheris-onboarding-modal-host';
+      document.body.appendChild(modalHost);
+    }
     if (modalHost) {
-      modalHost.innerHTML = this.renderWizardModal(this.getActiveFingerprint());
+      const previousStep = modalHost.dataset.step;
+      const template = document.createElement('template');
+      template.innerHTML = this.renderWizardModal(this.getActiveFingerprint());
+      const nextOverlay = template.content.querySelector('#aetheris-onboarding-overlay');
+      const currentOverlay = modalHost.querySelector('#aetheris-onboarding-overlay');
+      if (currentOverlay && nextOverlay) patchWizardNode(currentOverlay, nextOverlay);
+      else modalHost.replaceChildren(template.content);
+      modalHost.dataset.step = String(this.currentStep);
+      if (previousStep !== String(this.currentStep)) {
+        modalHost.querySelector('#onboarding-step-body')?.scrollTo({ top: 0, behavior: 'instant' });
+      }
     } else {
       const store = (typeof window !== 'undefined' ? (window as any).clientStore : null) || clientStore;
       if (store && typeof store.notify === 'function') {
@@ -829,7 +879,6 @@ export class OnboardingWizard {
                 autocomplete="name"
                 placeholder="Your name"
                 class="w-full rounded-xl bg-surface-raised border border-white/10 px-3.5 py-2.5 text-sm text-white placeholder:text-slate-500 placeholder:italic focus:border-[var(--color-accent,#e89e38)] focus:ring-1 focus:ring-[var(--color-accent,#e89e38)] outline-none transition-all"
-                onfocus="this.scrollIntoView({ behavior: 'smooth', block: 'center' })"
               />
             </div>
 
@@ -850,7 +899,6 @@ export class OnboardingWizard {
                   autocomplete="username"
                   placeholder="yourname"
                   class="min-w-0 flex-1 bg-transparent px-1.5 py-2 text-sm text-white font-mono placeholder:text-slate-500 placeholder:italic outline-none"
-                  onfocus="this.scrollIntoView({ behavior: 'smooth', block: 'center' })"
                 />
               </div>
 
@@ -1278,7 +1326,7 @@ export class OnboardingWizard {
           </div>
 
           <!-- Active Step Body -->
-          <div class="p-4 sm:p-7 flex-1 overflow-y-auto bg-surface-canvas/40">
+          <div id="onboarding-step-body" class="p-4 sm:p-7 flex-1 overflow-y-auto bg-surface-canvas/40">
             ${activeStep.componentHtml}
           </div>
 

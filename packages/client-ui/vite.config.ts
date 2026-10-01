@@ -2,7 +2,13 @@
 import { defineConfig } from 'vitest/config';
 import { resolve } from 'path';
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
+  resolve: {
+    alias: command === 'build' ? [{
+      find: './seed-profiles-data.js',
+      replacement: resolve(import.meta.dirname, 'src/profile/production-profiles-data.ts'),
+    }] : [],
+  },
   test: {
     setupFiles: ['./test/setup-explicit-demo.ts'],
     exclude: ['**/node_modules/**', '**/dist/**', '**/e2e/**', '**/.{idea,git,cache,output,temp}/**'],
@@ -38,6 +44,11 @@ export default defineConfig({
         codeSplitting: {
           includeDependenciesRecursively: false,
           groups: [
+            { name: 'interaction-runtime', test: /[\\/]src[\\/](?:ui[\\/]action-dispatcher|collections|bookmarks|draft-autosave|wot-slider|relays-manager|virtual-scroll|code-splitting)\.ts$/, priority: 10 },
+            { name: 'community-space', test: /[\\/]src[\\/]sovereign-circle\.ts$/, priority: 10 },
+            { name: 'rich-editor', test: /[\\/]src[\\/]rich-editor\.ts$/, priority: 10 },
+            { name: 'workspace-navigation', test: /[\\/]src[\\/](sidebar|breadcrumbs|onboarding|rapid-onboarding|mobile-flow|footer|context-menu|hashtag-explorer|flair-filter)\.ts$/, priority: 10 },
+            { name: 'post-rendering', test: /[\\/]src[\\/](post-detail|polls|stories|trending|pulse-actions|markdown-renderer|chat-rich-embed|link-preview|media-player)\.ts$/, priority: 10 },
             { name: 'wallet-vendor', test: /node_modules[\\/](ethers|@adraffy)[\\/]/, priority: 20 },
             { name: 'rum-vendor', test: /node_modules[\\/](aws-rum-web)[\\/]/, priority: 20 },
             { name: 'vendor', test: /node_modules/ },
@@ -49,7 +60,7 @@ export default defineConfig({
             { name: 'admin-core', test: /[\\/]src[\\/](admin-auth|admin-panel|admin-passkeys|admin)\.ts$/ },
             { name: 'backup-archive', test: /[\\/]src[\\/](export-backup|data-archive|archive-modal)\.ts$/ },
             { name: 'client-core', test: /[\\/]src[\\/](client-state|indexed-db|secure-storage|sovereign-dm|threads|themes|i18n)(\.ts|[\\/])/ },
-            { name: 'workspace-controls', test: /[\\/]src[\\/](composer(?:-hybrid)?|command-rail(?:-v2)?|settings-view|feed-controls|profile-view|explore-view)\.ts$/ },
+            { name: 'workspace-controls', test: /[\\/]src[\\/](composer(?:-hybrid)?|command-rail(?:-v2)?|feed-controls|profile-view)\.ts$/ },
             { name: 'workspace-views', test: /[\\/]src[\\/](feed-view)\.ts$/ },
             { name: 'messages-vault-view', test: /[\\/]src[\\/](messages-view|vault-view)\.ts$/ },
           ],
@@ -57,4 +68,4 @@ export default defineConfig({
       },
     },
   },
-});
+}));

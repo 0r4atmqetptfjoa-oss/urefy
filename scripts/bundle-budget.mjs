@@ -42,7 +42,7 @@ export function measureStartupBundle(manifest, readAsset, entry = 'index.html') 
   };
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+export function runStartupBudget() {
   try {
     const dist = fileURLToPath(new URL('../packages/client-ui/dist/', import.meta.url));
     const manifest = JSON.parse(readFileSync(resolve(dist, '.vite/manifest.json'), 'utf8'));
@@ -61,3 +61,5 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     process.exitCode = 1;
   }
 }
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) runStartupBudget();

@@ -24,19 +24,16 @@ export async function onRequestGet(context: { request: Request; env?: Env; param
           category: 'Privacy & Freedom',
           channel_id: 'pulse-global',
         };
-        const posts = await db.prepare("SELECT id, title FROM posts WHERE (channel_id = 'pulse-global' OR channel_id = 'c/zeroknowledge') AND (status IN ('published','pinned','locked') OR status IS NULL) ORDER BY created_at DESC LIMIT 20").all<any>().catch(() => ({ results: [] }));
+        const posts = await db.prepare("SELECT id, title FROM posts WHERE (channel_id = 'pulse-global' OR channel_id = 'c/zeroknowledge') AND (status IN ('published','pinned','locked') OR status IS NULL) AND (audience = 'public' OR audience IS NULL) AND NOT EXISTS (SELECT 1 FROM synthetic_fixtures sf WHERE sf.resource_type = 'post' AND sf.resource_id = posts.id) ORDER BY created_at DESC LIMIT 20").all<any>().catch(() => ({ results: [] }));
         const base = await env!.ASSETS.fetch(new URL('/', request.url));
         const response = injectCommunitySeo(base, { ...zkRow, posts: (posts as any)?.results || [] }, new URL(request.url));
         return new Response(response.body, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=60', 'X-Robots-Tag': 'index, follow' } });
-      }
-      if (env?.ASSETS?.fetch) {
-        return await env.ASSETS.fetch(new URL('/', request.url));
       }
       return seoError(404);
     }
     const redirect = canonicalRedirect(request, communityPath(row.name || row.id));
     if (redirect) return redirect;
-    const posts = await db.prepare("SELECT id, title FROM posts WHERE channel_id IN (?, ?, ?, ?) AND (status IN ('published','pinned','locked') OR status IS NULL) AND NOT EXISTS (SELECT 1 FROM synthetic_fixtures sf WHERE sf.resource_type = 'post' AND sf.resource_id = posts.id) ORDER BY created_at DESC LIMIT 20").bind(row.channel_id, row.id, 'c/' + row.name, row.name).all<any>();
+    const posts = await db.prepare("SELECT id, title FROM posts WHERE channel_id IN (?, ?, ?, ?) AND (status IN ('published','pinned','locked') OR status IS NULL) AND (audience = 'public' OR audience IS NULL) AND NOT EXISTS (SELECT 1 FROM synthetic_fixtures sf WHERE sf.resource_type = 'post' AND sf.resource_id = posts.id) ORDER BY created_at DESC LIMIT 20").bind(row.channel_id, row.id, 'c/' + row.name, row.name).all<any>();
     const base = await env!.ASSETS.fetch(new URL('/', request.url));
     const response = injectCommunitySeo(base, { ...row, posts: posts.results }, new URL(request.url));
     return new Response(response.body, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=60', 'X-Robots-Tag': 'index, follow' } });

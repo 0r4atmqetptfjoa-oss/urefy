@@ -1,0 +1,16 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "SendOnlyUrefyOperatorMailInFrankfurt",
+      "Effect": "Allow",
+      "Action": "ses:SendRawEmail",
+      "Resource": "arn:aws:ses:eu-central-1:579505322330:identity/urefy.com",
+      "Condition": {
+        "StringEquals": {
+          "ses:FromAddress": "razvan@urefy.com"
+        }
+      }
+    }
+  ]
+}

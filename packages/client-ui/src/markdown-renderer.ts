@@ -1,6 +1,7 @@
 import { serviceRegistry, SERVICES } from './service-registry.js';
 import { toastManager } from './toast.js';
 import { diagramRenderer } from './diagram-renderer.js';
+import { replaceInlineMath } from './inline-math.js';
 
 type SyntaxToken = {
   pattern: RegExp;
@@ -319,6 +320,14 @@ class MarkdownRenderer {
       return `\uFFF0CODE${idx}\uFFF1`;
     });
 
+    // Step 1b: Protect images ![alt](url) by tokenizing (MUST run before links)
+    const imageTokens: Array<{ alt: string; src: string }> = [];
+    out = out.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_m, altText, src) => {
+      const idx = imageTokens.length;
+      imageTokens.push({ alt: altText, src });
+      return `\uFFF0IMG${idx}\uFFF1`;
+    });
+
     // Step 2: Protect links [text](url) by tokenizing
     const linkTokens: Array<{ text: string; href: string }> = [];
     out = out.replace(/\[([^\]]*)\]\(([^)]*)\)/g, (_m, linkText, href) => {
@@ -329,10 +338,7 @@ class MarkdownRenderer {
 
     // Step 2b: Protect inline LaTeX math $...$ by tokenizing
     const mathTokens: string[] = [];
-    out = out.replace(/(?<!\$)\$(?!\$)(.+?)(?<!\$)\$(?!\$)/g, (match, math) => {
-      if (/^\s*\d+(?:\.\d{1,2})?\s*$/.test(math) || !math.trim()) {
-        return match; // preserve currency amounts
-      }
+    out = replaceInlineMath(out, math => {
       const idx = mathTokens.length;
       mathTokens.push(math);
       return `\uFFF0MATH${idx}\uFFF1`;
@@ -377,6 +383,15 @@ class MarkdownRenderer {
       /~~([^~\n]+)~~/g,
       (_m, t) => `<del class="text-slate-500">${t}</del>`
     );
+
+    // Step 4b: Restore images with sanitized URL and escaped alt
+    out = out.replace(/\uFFF0IMG(\d+)\uFFF1/g, (_m, idxStr) => {
+      const token = imageTokens[parseInt(idxStr, 10)];
+      if (!token) return '';
+      const safeSrc = this.sanitizeUrl(token.src);
+      const safeAlt = this.escapeHtml(token.alt);
+      return `<img src="${safeSrc}" alt="${safeAlt}" class="max-w-full h-auto rounded-xl border border-white/10 my-2 shadow-md block" loading="lazy" decoding="async" onerror="this.onerror=null; this.style.display='none';" />`;
+    });
 
     // Step 5: Restore links with sanitized URL and escaped link text
     out = out.replace(/\uFFF0LINK(\d+)\uFFF1/g, (_m, idxStr) => {
@@ -431,6 +446,75 @@ class MarkdownRenderer {
 
   private renderParagraph(text: string): string {
     return `<p class="text-slate-300 leading-relaxed my-1.5">${this.renderInline(text)}</p>`;
+  }
+
+  // ─── Block: Table ─────────────────────────────────────────────────────────
+
+  private parseTableRow(line: string): string[] {
+    const cells: string[] = [];
+    let cell = '', inCode = false;
+    for (let i = 0; i < line.length; i++) {
+      if (line[i] === '\\' && line[i + 1] === '|') { cell += '|'; i++; continue; }
+      if (line[i] === '`') inCode = !inCode;
+      if (line[i] === '|' && !inCode) { cells.push(cell.trim()); cell = ''; }
+      else cell += line[i];
+    }
+    cells.push(cell.trim());
+    if (line.trim().startsWith('|')) cells.shift();
+    if (line.trim().endsWith('|') && cells[cells.length - 1] === '') cells.pop();
+    return cells;
+  }
+
+  private isTableDelimiter(line: string): boolean {
+    const trimmed = line.trim();
+    if (!trimmed.includes('|')) return false;
+    const cells = this.parseTableRow(trimmed);
+    if (cells.length === 0) return false;
+    return cells.every((c) => /^\s*:?-{2,}:?\s*$/.test(c));
+  }
+
+  private renderTable(lines: string[]): string {
+    if (lines.length < 2) return '';
+    const parseRow = (line: string): string[] => this.parseTableRow(line);
+
+    const headerCells = parseRow(lines[0]);
+    const alignCells = parseRow(lines[1]);
+    const alignments = alignCells.map((cell) => {
+      const starts = cell.startsWith(':');
+      const ends = cell.endsWith(':');
+      if (starts && ends) return 'text-center';
+      if (ends) return 'text-right';
+      return 'text-left';
+    });
+
+    const thead = `<thead class="bg-surface-overlay/80 text-xs font-semibold text-slate-200 border-b border-white/10"><tr class="divide-x divide-white/5">` +
+      headerCells.map((h, idx) => {
+        const align = alignments[idx] || 'text-left';
+        return `<th scope="col" class="py-2.5 px-3.5 ${align} font-bold whitespace-nowrap tracking-wide">${this.renderInline(h)}</th>`;
+      }).join('') +
+      `</tr></thead>`;
+
+    const bodyRows = lines.slice(2).map((line) => {
+      const cells = parseRow(line);
+      return `<tr class="border-b border-white/5 hover:bg-white/[0.03] transition-colors divide-x divide-white/5">` +
+        headerCells.map((_, idx) => {
+          const c = cells[idx] ?? '';
+          const align = alignments[idx] || 'text-left';
+          return `<td class="py-2.5 px-3.5 text-xs text-slate-300 ${align}">${this.renderInline(c)}</td>`;
+        }).join('') +
+        `</tr>`;
+    }).join('');
+
+    return (
+      `<div class="markdown-table-wrapper my-3.5 overflow-x-auto rounded-xl border border-white/10 bg-surface-base" role="region" aria-label="Table" tabindex="0">` +
+      `<table class="w-full text-left border-collapse font-sans text-xs">` +
+      thead +
+      `<tbody class="divide-y divide-white/5">` +
+      bodyRows +
+      `</tbody>` +
+      `</table>` +
+      `</div>`
+    );
   }
 
   // ─── Public API ───────────────────────────────────────────────────────────
@@ -488,6 +572,22 @@ class MarkdownRenderer {
           i++;
         }
         htmlParts.push(diagramRenderer.renderBlockMath(mathLines.join('\n')));
+        continue;
+      }
+
+      // Table block (Header + Delimiter row)
+      if (
+        line.trim().includes('|') &&
+        i + 1 < lines.length &&
+        this.isTableDelimiter(lines[i + 1])
+      ) {
+        const tableLines: string[] = [line, lines[i + 1]];
+        i += 2;
+        while (i < lines.length && lines[i].trim() !== '' && lines[i].trim().includes('|')) {
+          tableLines.push(lines[i]);
+          i++;
+        }
+        htmlParts.push(this.renderTable(tableLines));
         continue;
       }
 
@@ -558,7 +658,8 @@ class MarkdownRenderer {
         !/^\s*[-*+]\s/.test(lines[i]) &&
         !/^\s*\d+\.\s/.test(lines[i]) &&
         !/^```/.test(lines[i]) &&
-        !lines[i].trim().startsWith('$$')
+        !lines[i].trim().startsWith('$$') &&
+        !(lines[i].trim().includes('|') && i + 1 < lines.length && this.isTableDelimiter(lines[i + 1]))
       ) {
         paraLines.push(lines[i]);
         i++;

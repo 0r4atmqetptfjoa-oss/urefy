@@ -206,6 +206,15 @@ export function dismissSinceYouWereAwayCard(): void {
   try { localStorage.setItem('urefy_last_active', String(Date.now())); } catch {}
 }
 
+const FEED_PAGE_SIZE = 20;
+let feedScope = '';
+let feedVisibleCount = FEED_PAGE_SIZE;
+
+export function loadMoreFeedPosts(): void {
+  feedVisibleCount += FEED_PAGE_SIZE;
+  clientStore.notifySync();
+}
+
 export function renderPulseWorkspace(): string {
   let posts = flairFilter.filterPosts(clientStore.posts);
   flairFilter.updateCounts(clientStore.posts);
@@ -215,9 +224,18 @@ export function renderPulseWorkspace(): string {
   if (activeCircle) posts = posts.filter(post => post.channelId === activeCircle.channelId || post.channelId === activeCircle.id || post.channelId === `c/${activeCircle.name}`);
   posts = feedControlsEngine.filterAndSortPosts(posts);
 
-  const isFlow = mobileFlowEngine.getMode() === 'flow';
+  const scope = JSON.stringify([clientStore.activeChannelId, flairFilter.activeFlair,
+    sovereignCircleEngine.selectedFlair, hashtagExplorer.activeTag,
+    feedControlsEngine.getStreamType(), feedControlsEngine.getSortType(), feedControlsEngine.getTopTimeframe()]);
+  if (scope !== feedScope) {
+    feedScope = scope;
+    feedVisibleCount = FEED_PAGE_SIZE;
+  }
+  const visiblePosts = posts.slice(0, feedVisibleCount);
+  const isFlow = mobileFlowEngine.getMode() === 'flow'
+    && typeof window !== 'undefined' && window.matchMedia('(max-width: 639px)').matches;
 
-  const classicStreamHtml = `
+  const classicStreamHtml = isFlow ? '' : `
     <div class="river-stream" aria-live="polite">
       ${clientStore.isSyncing && posts.length === 0
         ? renderPulseFeedSkeleton(3)
@@ -236,7 +254,7 @@ export function renderPulseWorkspace(): string {
                     : 'Explore UREfy',
                   actionType: activeCircle ? 'composer' : 'explore',
                 }))
-          : posts.map(renderPulsePostCard).join('')}
+          : visiblePosts.map(renderPulsePostCard).join('')}
     </div>
   `;
 
@@ -255,7 +273,7 @@ export function renderPulseWorkspace(): string {
         <div class="orbit-layout-tools">${renderWorkspaceLayoutControls()}</div>
       </header>
       ${hashtagExplorer.renderActiveTagBanner()}
-      <div id="main-feed-scroll" class="feed-scroll social-home__scroll">
+      <div id="main-feed-scroll" data-feed-scope="${escapeHtml(scope + (isFlow ? ':flow' : ':classic'))}" class="feed-scroll social-home__scroll">
         ${activeCircle ? renderCommunityHeaderBanner(activeCircle) : ''}
         <div class="feed-toolbar-wrap social-home__feed-switcher">${feedControlsEngine.renderFeedControlsToolbar()}</div>
         ${renderInlineQuickComposer()}
@@ -264,14 +282,8 @@ export function renderPulseWorkspace(): string {
         ${discoveryLayerHtml}
         ${!activeCircle ? renderHomeHorizon(posts, clientStore.isConnected, isDemoModeEnabled()) : ''}
         <div class="social-home__stream">
-          ${isFlow ? `
-            <div class="block sm:hidden">
-              ${mobileFlowEngine.renderFlowStream(posts)}
-            </div>
-            <div class="hidden sm:block">
-              ${classicStreamHtml}
-            </div>
-          ` : classicStreamHtml}
+          ${isFlow ? mobileFlowEngine.renderFlowStream(visiblePosts) : classicStreamHtml}
+          ${posts.length > visiblePosts.length ? `<div class="flex justify-center py-6"><button type="button" class="secondary-button" data-action="load-more-feed-posts">Load more posts <span class="sr-only">(${posts.length - visiblePosts.length} remaining)</span></button></div>` : ''}
         </div>
       </div>
     </div>`;

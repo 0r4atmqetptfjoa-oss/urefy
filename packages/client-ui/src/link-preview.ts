@@ -15,6 +15,7 @@ export interface LinkPreview {
 
 class LinkPreviewEngine {
   readonly previewCache: Map<string, LinkPreview> = new Map();
+  private readonly maxCachedPreviews = 256;
 
   // ---------------------------------------------------------------------------
   // Known-domain metadata registry
@@ -352,7 +353,12 @@ class LinkPreviewEngine {
 
   // Main preview resolver (cache-first, then generate locally)
   getPreview(url: string): LinkPreview {
-    if (this.previewCache.has(url)) return this.previewCache.get(url)!;
+    const cached = this.previewCache.get(url);
+    if (cached) {
+      this.previewCache.delete(url);
+      this.previewCache.set(url, cached);
+      return cached;
+    }
     const domain = this._extractDomain(url);
     const type = this.detectType(url, domain);
     const favicon = this.getFaviconEmoji(domain);
@@ -360,6 +366,10 @@ class LinkPreviewEngine {
     const description = this._generateDescription(url, domain, type);
     const preview: LinkPreview = { url, domain, title, description, favicon, type };
     this.previewCache.set(url, preview);
+    if (this.previewCache.size > this.maxCachedPreviews) {
+      const oldest = this.previewCache.keys().next().value;
+      if (oldest !== undefined) this.previewCache.delete(oldest);
+    }
     return preview;
   }
 
@@ -389,6 +399,10 @@ class LinkPreviewEngine {
    */
   renderLinkPreviewCard(url: string): string {
     const preview = this.getPreview(url);
+    try {
+      const destination = new URL(preview.url);
+      if (!['http:', 'https:'].includes(destination.protocol) || destination.username || destination.password) return '';
+    } catch { return ''; }
     const badgeClass = this._typeBadgeClass(preview.type);
     const safeUrl = this._escape(preview.url);
     const safeTitle = this._escape(preview.title);

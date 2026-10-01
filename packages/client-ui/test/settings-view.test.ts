@@ -1,4 +1,6 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { sovereignRouter } from '../src/router.js';
+vi.mock('../src/router.js', () => ({ sovereignRouter: { navigateTo: vi.fn() } }));
 import { SettingsView, settingsView, SETTINGS_SECTIONS } from '../src/settings-view.js';
 import { serviceRegistry, SERVICES } from '../src/service-registry.js';
 import { ProfileView } from '../src/profile-view.js';
@@ -112,15 +114,15 @@ describe('Unified Sovereign Settings Screen (SettingsView)', () => {
     expect(view.activeTab).toBe('appearance');
   });
 
-  it('5. should expose global window hooks for settings management', () => {
+  it('5. should route the global settings hook into the dedicated workspace', async () => {
     expect(typeof (window as any).__aetheris_open_settings).toBe('function');
     expect(typeof (window as any).__aetheris_close_settings).toBe('function');
     expect((window as any).settingsView).toBeDefined();
 
     // Call open via window helper
-    (window as any).__aetheris_open_settings('footprint');
-    expect(settingsView.isOpen).toBe(true);
-    expect(settingsView.activeTab).toBe('footprint');
+    await (window as any).__aetheris_open_settings('footprint');
+    expect(sovereignRouter.navigateTo).toHaveBeenCalledWith('settings', { subtab: 'footprint' });
+    expect(settingsView.isOpen).toBe(false);
 
     // Call close via window helper
     (window as any).__aetheris_close_settings();

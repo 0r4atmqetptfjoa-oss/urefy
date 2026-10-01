@@ -5,6 +5,7 @@
  */
 
 import { serviceRegistry, SERVICES } from './service-registry.js';
+import { replaceInlineMath } from './inline-math.js';
 
 // ─── Interfaces ─────────────────────────────────────────────────────────────
 
@@ -1563,17 +1564,7 @@ export class DiagramRenderer {
 
     // Step 3: Render Inline Math $ ... $
     // Take care not to match plain dollar currency (e.g. $100 or $50.00)
-    out = out.replace(/(?<!\$)\$(?!\$)(.+?)(?<!\$)\$(?!\$)/g, (match, math) => {
-      // Check if it's purely a currency number
-      if (/^\s*\d+(?:\.\d{1,2})?\s*$/.test(math)) {
-        return match;
-      }
-      // Check if it's empty
-      if (!math.trim()) {
-        return match;
-      }
-      return this.renderInlineMath(math);
-    });
+    out = replaceInlineMath(out, math => this.renderInlineMath(math));
 
     return out;
   }

@@ -34,6 +34,7 @@ describe('Security: Anti-Poisoning Nonce Verification Order', () => {
         prepare: () => ({
           bind: () => ({
             run: async () => ({ success: true }),
+            first: async () => null,
           }),
         }),
       },
@@ -77,7 +78,7 @@ describe('Security: Anti-Poisoning Nonce Verification Order', () => {
     });
 
     const genuineRes = await handlePostPost({ request: genuineReq, env: mockEnv });
-    expect(genuineRes.status).toBe(201);
+    expect(genuineRes.status, await genuineRes.clone().text()).toBe(201);
     const genuineJson = await genuineRes.json();
     expect(genuineJson.success).toBe(true);
 

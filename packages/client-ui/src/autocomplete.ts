@@ -11,6 +11,12 @@
 // ---------------------------------------------------------------------------
 
 import { searchEmojis } from './chat-rich-embed.js';
+import { isDemoModeEnabled } from './demo-mode.js';
+
+function escapeMarkup(text: string): string {
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
 
 export type AutocompleteItemType = 'mention' | 'tag' | 'emoji';
 
@@ -24,6 +30,7 @@ export interface AutocompleteItem {
   badgeColor?: string;
   count?: number;
   avatarSeed?: string;
+  isZKVerified?: boolean;
 }
 
 export interface MemberData {
@@ -150,8 +157,8 @@ export class AutocompleteEngine {
   public queryStartIndex: number = -1;
   public caretCoords: CaretCoordinates = { top: 0, left: 0, height: 20 };
 
-  private members: MemberData[] = [...DEFAULT_MEMBERS];
-  private tags: TagData[] = [...DEFAULT_TAGS];
+  private members: MemberData[] = isDemoModeEnabled() ? [...DEFAULT_MEMBERS] : [];
+  private tags: TagData[] = isDemoModeEnabled() ? [...DEFAULT_TAGS] : [];
   private popupContainer: HTMLElement | null = null;
   private attachedElements: WeakSet<HTMLElement> = new WeakSet();
   private selectCallbacks: AutocompleteSelectCallback[] = [];
@@ -201,10 +208,10 @@ export class AutocompleteEngine {
   ): void {
     if (!inputEl) return;
 
-    if (members && members.length > 0) {
+    if (members) {
       this.setMembers(members);
     }
-    if (tags && tags.length > 0) {
+    if (tags) {
       this.setTags(tags);
     }
 
@@ -216,7 +223,7 @@ export class AutocompleteEngine {
     // Keyboard navigation handlers
     inputEl.addEventListener('keydown', (e: Event) => {
       const keyEvent = e as KeyboardEvent;
-      if (this.isVisible) {
+      if (this.isVisible && this.activeInputElement === inputEl) {
         const handled = this.handleKeyDown(keyEvent);
         if (handled) {
           keyEvent.stopPropagation();
@@ -243,7 +250,7 @@ export class AutocompleteEngine {
     inputEl.addEventListener('blur', () => {
       // Delay hide to allow clicks on dropdown items to fire
       setTimeout(() => {
-        if (document.activeElement !== inputEl && !this.isMouseOverPopup()) {
+        if (this.activeInputElement === inputEl && document.activeElement !== inputEl && !this.isMouseOverPopup()) {
           this.hide();
         }
       }, 200);
@@ -254,18 +261,17 @@ export class AutocompleteEngine {
     this.members = members.map(m => ({
       fingerprint: m.fingerprint,
       role: m.role || 'Member',
-      isZKVerified: m.isZKVerified ?? true,
+      isZKVerified: m.isZKVerified === true,
       status: m.status || 'Active',
       avatarSeed: m.fingerprint
     }));
   }
 
   public setTags(tags: string[] | TagData[]): void {
-    if (tags.length === 0) return;
+    if (tags.length === 0) { this.tags = []; return; }
     if (typeof tags[0] === 'string') {
-      this.tags = (tags as string[]).map((t, idx) => ({
+      this.tags = (tags as string[]).map(t => ({
         tag: t.replace(/^#/, ''),
-        count: 50 + ((idx * 37) % 500),
         category: 'Topic'
       }));
     } else {
@@ -406,6 +412,7 @@ export class AutocompleteEngine {
         badge,
         badgeColor,
         avatarSeed: m.fingerprint,
+        isZKVerified: m.isZKVerified === true,
         icon: generateIdenticonSvg(m.fingerprint)
       };
     });
@@ -428,14 +435,14 @@ export class AutocompleteEngine {
     });
 
     return matches.slice(0, 7).map(t => {
-      const count = t.count || 1;
-      const isTrending = count > 300;
+      const count = typeof t.count === 'number' && Number.isFinite(t.count) && t.count >= 0 ? t.count : undefined;
+      const isTrending = count !== undefined && count > 300;
 
       return {
         type: 'tag',
         value: t.tag,
         displayLabel: `#${t.tag}`,
-        subtitle: `${count.toLocaleString()} posts • ${t.category || 'Topic'}`,
+        subtitle: count === undefined ? (t.category || 'Topic') : `${count.toLocaleString()} posts • ${t.category || 'Topic'}`,
         badge: isTrending ? 'TRENDING' : undefined,
         badgeColor: isTrending ? 'text-amber bg-amber-500/10 border border-amber-500/30' : undefined,
         count,
@@ -780,11 +787,11 @@ export class AutocompleteEngine {
                         <span class="font-mono font-semibold ${isSelected ? 'text-cyphr' : 'text-slate-200'} truncate">
                           ${this.highlightMatch(item.displayLabel, this.query)}
                         </span>
-                        ${item.type === 'mention' ? getVerifiedBadgeSvg() : ''}
+                        ${item.type === 'mention' && item.isZKVerified === true ? getVerifiedBadgeSvg() : ''}
                       </div>
                       ${
                         item.subtitle
-                          ? `<div class="text-[10px] text-slate-400 truncate">${item.subtitle}</div>`
+                          ? `<div class="text-[10px] text-slate-400 truncate">${escapeMarkup(item.subtitle)}</div>`
                           : ''
                       }
                     </div>
@@ -795,8 +802,8 @@ export class AutocompleteEngine {
                     ${
                       item.badge
                         ? `<span class="px-1.5 py-0.5 rounded text-[9px] font-mono uppercase font-bold tracking-tight ${
-                            item.badgeColor || 'bg-white/5 text-slate-300'
-                          }">${item.badge}</span>`
+                            escapeMarkup(item.badgeColor || 'bg-white/5 text-slate-300')
+                          }">${escapeMarkup(item.badge)}</span>`
                         : ''
                     }
                     ${
@@ -826,10 +833,13 @@ export class AutocompleteEngine {
   }
 
   private highlightMatch(text: string, query: string): string {
-    if (!query) return text;
+    if (!query) return escapeMarkup(text);
     const cleanQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const regex = new RegExp(`(${cleanQuery})`, 'gi');
-    return text.replace(regex, '<span class="text-cyphr font-bold underline decoration-cyphr/40">$1</span>');
+    // Match plain text first, then escape each piece so matches cannot split HTML entities.
+    return text.split(regex).map((part, index) => index % 2
+      ? `<span class="text-cyphr font-bold underline decoration-cyphr/40">${escapeMarkup(part)}</span>`
+      : escapeMarkup(part)).join('');
   }
 
   // -------------------------------------------------------------------------

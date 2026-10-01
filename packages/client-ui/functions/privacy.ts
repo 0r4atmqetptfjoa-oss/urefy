@@ -25,7 +25,7 @@ export async function onRequestGet(context: {
 
   const title = 'Privacy Policy & Cryptographic Architecture — UREfy';
   const description =
-    'UREfy Privacy Policy: Zero tracking, zero cookies, zero surveillance. Cryptographic client-side keys and full GDPR & EU DSA compliance by architectural design.';
+    'Read how UREfy handles key-based identity, public content, encrypted direct messages, cookie-free performance monitoring and service data.';
 
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -45,20 +45,25 @@ export async function onRequestGet(context: {
     <div style="max-width: 860px; width: min(100% - 32px, 860px); margin: 24px auto 64px; padding: clamp(16px, 4vw, 32px); box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #e2e8f0; background: #0c0906; border-radius: 16px; border: 1px solid rgba(255,255,255,0.1); line-height: 1.7;">
       <nav style="margin-bottom: 24px;"><a href="${origin}/" style="color: #6366f1; text-decoration: none;">&larr; Back to UREfy</a></nav>
       <h1 style="font-size: 32px; color: #f8fafc; margin-bottom: 12px;">UREfy Privacy Policy</h1>
-      <p style="font-size: 14px; color: #94a3b8;">EU General Data Protection Regulation (GDPR) &amp; Digital Services Act (DSA) Compliance</p>
+      <p style="font-size: 14px; color: #94a3b8;">Public content, private conversations and operational data</p>
       <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.1); margin: 24px 0;" />
       
       <section>
         <h2 style="color: #38bdf8; font-size: 20px;">1. Privacy by Cryptographic Design</h2>
-        <p>UREfy enforces data minimization and sovereign privacy at the architectural level. We do not collect, process, or sell personal identifying information.</p>
+        <p>UREfy enforces data minimization and sovereign privacy at the architectural level. Account creation does not require a legal name, email address or phone number. Public profile information and public posts are processed to provide community features. Hosting providers process request metadata for delivery and security.</p>
         <ul style="padding-left: 20px;">
-          <li><strong>Zero Personal Identifiers:</strong> We do not require, collect, or store your legal name, physical address, email address, or phone number.</li>
+          <li><strong>Zero Personal Identifiers:</strong> The current identity creation flow does not require a legal name, physical address, email address or phone number. Information you choose to publish in a profile or post is public.</li>
           <li><strong>Zero Tracking Cookies:</strong> UREfy does not set marketing cookies, third-party trackers, Google Analytics, Facebook Pixels, or fingerprinting scripts.</li>
           <li><strong>Local Key Generation:</strong> Cryptographic keys (Ed25519 and X25519) are generated in your browser memory and persisted only in your local encrypted IndexedDB.</li>
           <li><strong>End-to-End Encryption (E2EE):</strong> All direct messages and private communications are encrypted end-to-end. UREfy relay servers only route ciphertext envelopes and have zero access to plaintext contents.</li>
         </ul>
       </section>
 
+      <section style="margin-top: 28px;">
+        <h2 style="color: #38bdf8; font-size: 20px;">Operational monitoring and hosting</h2>
+        <p>UREfy uses Cloudflare for web hosting and relay infrastructure, and selected AWS services for operational tasks. CloudWatch RUM samples approximately 10% of sessions for performance monitoring with cookies disabled, a fixed page identifier, and no message bodies, resource URLs or raw JavaScript error telemetry. Browser/device information and coarse location are inherent monitoring metadata. This monitoring is not advertising profiling.</p>
+        <p>Operational security logs and encrypted service backups are used to maintain the service. Public posts and profile information may be indexed by search engines. Direct messages remain ciphertext in infrastructure backups; user-only recovery keys are not supplied by those backups.</p>
+      </section>
       <section style="margin-top: 28px;">
         <h2 style="color: #38bdf8; font-size: 20px;">2. Your Rights Under GDPR (Articles 15–22)</h2>
         <p>Because your account is cryptographically controlled by you, you maintain complete data sovereignty:</p>

@@ -1,4 +1,4 @@
-# Public discovery; administrative and private paths are not crawl targets.
+# Public search discovery. Access control is enforced separately by the application.
 User-agent: *
 Allow: /
 Disallow: /api/
@@ -6,6 +6,10 @@ Disallow: /admin
 Disallow: /messages
 Disallow: /vault
 Disallow: /profile
+Disallow: /settings
+Disallow: /notifications
+Disallow: /governance
+Disallow: /more
 Disallow: /wp-admin/
 Disallow: /wp-content/
 Disallow: /*.php

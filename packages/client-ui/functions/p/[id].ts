@@ -8,6 +8,7 @@ import { seoError } from '../_seo-response.js';
 import { Env, getD1Database, getKVStore } from '../api/_db.js';
 import { ensureSyntheticFixturesTable } from '../api/_synthetic.js';
 import { injectPostSeo, SeoPostData } from '../_seo.js';
+import { PUBLIC_POST_SQL } from '../_discovery.js';
 
 export async function onRequestGet(context: {
   request: Request;
@@ -50,7 +51,7 @@ export async function onRequestGet(context: {
       await ensureSyntheticFixturesTable(db).catch(() => {});
       const row = await db
         .prepare(
-          `SELECT p.id, p.title, p.content, p.flair, p.author_id, p.created_at,
+          `SELECT p.id, p.title, p.content, p.flair, p.author_id, p.created_at, p.channel_id,
                   p.merit_votes, p.reply_count, p.images_json, p.status, p.audience, p.facet_id,
                   f.is_publicly_linked, f.status AS facet_status,
                   CASE
@@ -90,7 +91,7 @@ export async function onRequestGet(context: {
             headers: {
               'Content-Type': 'text/plain; charset=utf-8',
               'Cache-Control': 'public, max-age=86400',
-              'X-Robots-Tag': 'noindex, nofollow, unavailable_after: 2026-09-19T00:00:00Z',
+              'X-Robots-Tag': 'noindex, nofollow',
             },
           });
         }
@@ -107,12 +108,15 @@ export async function onRequestGet(context: {
           authorName: row.display_name,
           authorHandle: row.handle,
           createdAt: Number(row.created_at) || Date.now(),
-          updatedAt: Number(row.created_at) || Date.now(),
           meritVotes: Number(row.merit_votes) || 0,
           replyCount: Number(row.reply_count) || 0,
           imagesJson: row.images_json,
           status: row.status,
         };
+
+        try {
+          post.relatedPosts = (await db.prepare(`SELECT id, title FROM posts WHERE channel_id = ? AND id != ? AND ${PUBLIC_POST_SQL} ORDER BY created_at DESC LIMIT 6`).bind(row.channel_id, postId).all<{ id: string; title: string }>()).results;
+        } catch { /* The post remains readable if optional related links are unavailable. */ }
 
         // Query top 5 comments for DiscussionForumPosting Schema & SSR thread
         try {
@@ -142,6 +146,7 @@ export async function onRequestGet(context: {
                LEFT JOIN facets f ON c.facet_id = f.id
                LEFT JOIN user_profiles u ON c.author_id = u.user_id
                WHERE c.post_id = ?
+                 AND NOT EXISTS (SELECT 1 FROM synthetic_fixtures sf WHERE sf.resource_type = 'comment' AND sf.resource_id = c.id)
                ORDER BY c.merit_votes DESC, c.created_at ASC
                LIMIT 5`
             )

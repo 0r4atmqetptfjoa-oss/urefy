@@ -185,7 +185,9 @@ export class SettingsView {
     const win = typeof window !== 'undefined' ? window : (globalThis as any).window;
     if (win) {
       (win as any).settingsView = this;
-      (win as any).__aetheris_open_settings = (tab?: SettingsTab) => this.open(tab);
+      (win as any).__aetheris_open_settings = (tab?: SettingsTab) => {
+        return import('./router.js').then(({ sovereignRouter }) => sovereignRouter.navigateTo('settings', { subtab: tab }));
+      };
       (win as any).__aetheris_close_settings = () => this.close();
     }
   }

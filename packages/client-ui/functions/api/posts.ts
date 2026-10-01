@@ -23,6 +23,8 @@ import type { Env, EdgePost } from './_db.js';
 import { requireAdmin, requireSignedEnvelope } from './_auth.js';
 import { dispatchOutboundPostFederation } from './federation.js';
 import { ensureSyntheticFixturesTable, parseSyntheticFixtureMetadata, registerSyntheticFixture } from './_synthetic.js';
+import { scheduleIndexNow } from '../_indexnow.js';
+import { postPath } from '../../src/public-urls.js';
 
 export type { EdgePost };
 
@@ -427,7 +429,7 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
   }
 }
 
-export async function onRequestPost(context: { request: Request; env?: Env }): Promise<Response> {
+export async function onRequestPost(context: { request: Request; env?: Env; waitUntil?: (task: Promise<unknown>) => void }): Promise<Response> {
   try {
     const rawBody = (await context.request.json()) as any;
     let body = rawBody;
@@ -1188,6 +1190,13 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
       globalPostsStore.splice(1000);
     }
 
+    // Notify only already-public URLs after successful persistence. No content or identities sent.
+    const publiclyVisible = (post: EdgePost | null | undefined) => !!post && (!post.audience || post.audience === 'public') && (!post.status || ['published', 'pinned', 'locked'].includes(post.status));
+    if (db && !body.syntheticTest && (publiclyVisible(newPost) || publiclyVisible(existingPost))) {
+      const fixture = await db.prepare("SELECT resource_id FROM synthetic_fixtures WHERE resource_type = 'post' AND resource_id = ?").bind(newPost.id).first().catch(() => ({ resource_id: newPost.id }));
+      if (!fixture) scheduleIndexNow(context, [postPath(newPost.id), '/explore']);
+    }
+
     // Trigger outbound ActivityPub federation asynchronously
     // Strict privacy rule: ONLY public posts from the default public facet participate in ActivityPub federation!
     if (newPost.status === 'published' && (!newPost.audience || newPost.audience === 'public') && isDefaultFacet) {
@@ -1242,6 +1251,7 @@ export async function onRequestDelete(context: {
   request: Request;
   env?: Env;
   params?: { id?: string | string[] };
+  waitUntil?: (task: Promise<unknown>) => void;
 }): Promise<Response> {
   try {
     const url = new URL(context.request.url);
@@ -1303,11 +1313,12 @@ export async function onRequestDelete(context: {
     }
 
     let channelId = '';
+    let wasPublic = false;
 
     if (db) {
       const postRow = await db.prepare(
-        'SELECT id, author_id, channel_id, status FROM posts WHERE id = ?'
-      ).bind(postId).first<{ id: string; author_id: string; channel_id: string; status: string }>();
+        'SELECT id, author_id, channel_id, status, audience FROM posts WHERE id = ?'
+      ).bind(postId).first<{ id: string; author_id: string; channel_id: string; status: string; audience?: string }>();
 
       if (!postRow || postRow.status === 'deleted') {
         return new Response(
@@ -1324,6 +1335,7 @@ export async function onRequestDelete(context: {
       }
 
       channelId = postRow.channel_id;
+      wasPublic = (!postRow.audience || postRow.audience === 'public') && (!postRow.status || ['published', 'pinned', 'locked'].includes(postRow.status));
 
       // Soft-delete post by marking status = 'deleted'
       await db.prepare("UPDATE posts SET status = 'deleted' WHERE id = ?").bind(postId).run();
@@ -1345,6 +1357,11 @@ export async function onRequestDelete(context: {
 
       channelId = post.channelId;
       post.status = 'deleted';
+    }
+
+    if (db && wasPublic) {
+      const fixture = await db.prepare("SELECT resource_id FROM synthetic_fixtures WHERE resource_type = 'post' AND resource_id = ?").bind(postId).first().catch(() => ({ resource_id: postId }));
+      if (!fixture) scheduleIndexNow(context, [postPath(postId), '/explore']);
     }
 
     // Purge KV cache so edge cache does not serve deleted content

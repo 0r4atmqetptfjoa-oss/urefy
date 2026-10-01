@@ -637,7 +637,7 @@ export function buildModalRootHTML(ctx: ModalStateContext): string {
     ${keyboardNavigator.isHelpModalOpen ? keyboardNavigator.renderModal() : ''}
     ${onboardingWizard.isOpen ? '' : sovereignWebPush.renderPushOptInBanner()}
     ${rapidOnboarding.isOpen ? rapidOnboarding.renderModalHTML() : ''}
-    ${onboardingWizard.renderWizardModal(fp)}
+    <!-- Onboarding owns a persistent body portal, outside reactive modal patches. -->
     ${commandRailV2.isOpen ? commandRailV2.renderModal() : ''}
     ${modalManager.getActiveFeatureHTML()}
   `;

@@ -122,11 +122,22 @@ export class ExploreView {
     const people = matches.slice(0, 6);
     if (!people.length) return '<div class="discovery-empty"><strong>No people to suggest yet</strong><span>Suggestions appear as public conversations arrive.</span></div>';
     return `<div class="people-grid">${people.map(person => {
+      const postForPerson = posts.find(p => p.authorFingerprint === person.fingerprint && (p.authorDisplayName || p.authorHandle));
       const profile = profileView.getProfile(person.fingerprint);
-      const name = profile?.name || profile?.handle || 'UREfy Member';
-      const handle = profile?.handle ? `@${profile.handle.replace(/^@/, '')}` : '@member';
+      let name = (profile?.name && profile.name !== 'Profile not set up')
+        ? profile.name
+        : (postForPerson?.authorDisplayName || postForPerson?.authorHandle || '');
+      let rawHandle = (profile?.handle || postForPerson?.authorHandle || '').replace(/^@/, '');
+      if (!name || name === 'Profile not set up') {
+        name = `Explorer ${person.fingerprint.slice(0, 6)}`;
+      }
+      if (!rawHandle) {
+        rawHandle = `node_${person.fingerprint.slice(0, 6)}`;
+      }
+      const handle = `@${rawHandle}`;
+      const avatar = (profile?.avatar && profile.avatar !== '') ? profile.avatar : (postForPerson?.authorAvatarUrl || '');
       const following = profileView.isFollowing(person.fingerprint);
-      return `<article class="person-card">${renderAvatar(profile?.avatar, person.fingerprint, { size: 48, className: 'w-12 h-12' })}<div><button type="button" data-author-profile="${escapeHtml(person.fingerprint)}">${escapeHtml(name)}</button><span>${escapeHtml(handle)}</span><small>${formatCount(person.posts, 'post')}</small></div><button type="button" data-action="toggle-follow" data-fingerprint="${escapeHtml(person.fingerprint)}" class="compact-follow-button" aria-pressed="${following}">${following ? 'Following' : 'Follow'}</button></article>`;
+      return `<article class="person-card">${renderAvatar(avatar, person.fingerprint, { size: 48, className: 'w-12 h-12' })}<div><button type="button" data-author-profile="${escapeHtml(person.fingerprint)}">${escapeHtml(name)}</button><span>${escapeHtml(handle)}</span><small>${formatCount(person.posts, 'post')}</small></div><button type="button" data-action="toggle-follow" data-fingerprint="${escapeHtml(person.fingerprint)}" class="compact-follow-button" aria-pressed="${following}">${following ? 'Following' : 'Follow'}</button></article>`;
     }).join('')}</div>`;
   }
 

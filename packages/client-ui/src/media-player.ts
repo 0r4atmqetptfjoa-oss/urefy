@@ -24,6 +24,7 @@ export class ObsidianMediaPlayer {
   private keydownListener: ((e: KeyboardEvent) => void) | null = null;
 
   private autoplayObserver: IntersectionObserver | null = null;
+  private observedAutoplayElements = new Set<Element>();
 
   constructor() {
     this._bindGlobalKeyboard();
@@ -69,12 +70,38 @@ export class ObsidianMediaPlayer {
 
   public fadePoster(poster: HTMLElement): void {
     if (!poster || poster.classList.contains('opacity-0')) return;
+    const container = poster.closest<HTMLElement>('.video-container');
+    if (container) this.activateEmbeddedPlayer(container);
     poster.classList.add('opacity-0');
     setTimeout(() => {
       if (poster && poster.parentElement) {
         poster.remove();
       }
     }, 350);
+  }
+
+  /** Template contents are inert: no third-party player exists until activation. */
+  public activateEmbeddedPlayer(container: HTMLElement, muted = false): HTMLIFrameElement | null {
+    const existing = container.querySelector<HTMLIFrameElement>('iframe.feed-video-frame');
+    if (existing) return existing;
+    const template = container.querySelector<HTMLTemplateElement>('template[data-video-frame]');
+    const iframe = template?.content.querySelector<HTMLIFrameElement>('iframe');
+    if (!template || !iframe) return null;
+    const player = iframe.cloneNode(true) as HTMLIFrameElement;
+    let url: URL;
+    try { url = new URL(player.src); } catch { return null; }
+    if (!['https://www.youtube.com', 'https://player.vimeo.com'].includes(url.origin)) return null;
+    url.searchParams.set('autoplay', '1');
+    if (muted) url.searchParams.set(url.hostname === 'player.vimeo.com' ? 'muted' : 'mute', '1');
+    player.src = url.href;
+    container.insertBefore(player, template);
+    template.remove();
+    return player;
+  }
+
+  private autoplayEnabled(): boolean {
+    try { return localStorage.getItem('aetheris_pref_autoplay_video') === 'true'; }
+    catch { return false; }
   }
 
   public initPosterFadeouts(): void {
@@ -92,7 +119,8 @@ export class ObsidianMediaPlayer {
         }, { once: true });
       }
       const poster = container.querySelector<HTMLElement>('.media-poster-layer');
-      if (poster) {
+      if (poster && !poster.dataset.fadeoutBound) {
+        poster.dataset.fadeoutBound = 'true';
         poster.addEventListener('click', (e) => {
           e.stopPropagation();
           this.fadePoster(poster);
@@ -113,28 +141,33 @@ export class ObsidianMediaPlayer {
    */
   public initAutoplayObserver(): void {
     if (typeof window === 'undefined' || !('IntersectionObserver' in window)) return;
-    if (this.autoplayObserver) {
-      this.autoplayObserver.disconnect();
-    }
-
-    this.autoplayObserver = new IntersectionObserver((entries) => {
+    if (!this.autoplayObserver) this.autoplayObserver = new IntersectionObserver((entries) => {
       entries.forEach(entry => {
         const target = entry.target as HTMLElement;
         const isVisible = entry.isIntersecting && entry.intersectionRatio >= 0.5;
 
         // Skip post detail modal - let modal retain user-directed controls
-        if (target.closest('#post-detail-modal-overlay')) {
+        if (target.closest('#post-detail-modal-overlay, #post-focus-view')) {
           return;
+        }
+
+        const autoplay = this.autoplayEnabled();
+        if (isVisible && autoplay) {
+          const player = this.activateEmbeddedPlayer(target, true);
+          if (player) {
+            const poster = target.querySelector<HTMLElement>('.media-poster-layer');
+            if (poster) this.fadePoster(poster);
+          }
         }
 
         // Native HTML5 <video> elements
         const video = target.tagName === 'VIDEO' ? (target as HTMLVideoElement) : target.querySelector('video');
         if (video) {
-          if (isVisible) {
+          if (isVisible && autoplay) {
             video.muted = true;
             const p = video.play();
             if (p !== undefined) p.catch(() => {});
-          } else {
+          } else if (!isVisible) {
             video.pause();
           }
         }
@@ -143,11 +176,17 @@ export class ObsidianMediaPlayer {
         const iframe = target.tagName === 'IFRAME' ? (target as HTMLIFrameElement) : target.querySelector('iframe');
         if (iframe && iframe.contentWindow) {
           try {
-            if (isVisible) {
-              iframe.contentWindow.postMessage('{"event":"command","func":"mute","args":""}', '*');
-              iframe.contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}', '*');
-            } else {
-              iframe.contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', '*');
+            const origin = new URL(iframe.src).origin;
+            if (origin === 'https://player.vimeo.com') {
+              if (isVisible && autoplay) {
+                iframe.contentWindow.postMessage({ method: 'setVolume', value: 0 }, origin);
+                iframe.contentWindow.postMessage({ method: 'play' }, origin);
+              } else if (!isVisible) iframe.contentWindow.postMessage({ method: 'pause' }, origin);
+            } else if (isVisible && autoplay) {
+              iframe.contentWindow.postMessage('{"event":"command","func":"mute","args":""}', origin);
+              iframe.contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}', origin);
+            } else if (!isVisible) {
+              iframe.contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', origin);
             }
           } catch {}
         }
@@ -157,8 +196,22 @@ export class ObsidianMediaPlayer {
       rootMargin: '0px 0px -40px 0px'
     });
 
-    const elements = document.querySelectorAll('.post-stream .video-container, .post-stream video, #main-feed-scroll .video-container, #main-feed-scroll video');
-    elements.forEach(el => this.autoplayObserver?.observe(el));
+    // Observe a video container once, rather than both it and its child video.
+    // Reuse the observer across store updates so unchanged players are not
+    // repeatedly paused/played when unrelated UI state changes.
+    const elements = new Set(document.querySelectorAll('.post-stream .video-container, .post-stream video:not(.video-container video), #main-feed-scroll .video-container, #main-feed-scroll video:not(.video-container video)'));
+    for (const element of this.observedAutoplayElements) {
+      if (!elements.has(element)) {
+        this.autoplayObserver.unobserve(element);
+        this.observedAutoplayElements.delete(element);
+      }
+    }
+    for (const element of elements) {
+      if (!this.observedAutoplayElements.has(element)) {
+        this.autoplayObserver.observe(element);
+        this.observedAutoplayElements.add(element);
+      }
+    }
     this.initPosterFadeouts();
   }
 
@@ -223,16 +276,16 @@ export class ObsidianMediaPlayer {
       const finalPoster = posterSrc || defaultPoster;
       return `
         <div class="video-container relative w-full aspect-video rounded-2xl overflow-hidden bg-black/90 border border-white/10 group select-none my-2.5 shadow-2xl" data-video-id="${videoId}">
-          ${finalPoster ? `
-            <div id="media-poster-${videoId}" data-action="fade-media-poster" data-video-id="${videoId}" class="media-poster-layer absolute inset-0 z-10 bg-black flex items-center justify-center transition-opacity duration-300 ease-out cursor-pointer pointer-events-auto">
+            <button type="button" aria-label="Play embedded video" id="media-poster-${videoId}" data-action="fade-media-poster" data-video-id="${videoId}" class="media-poster-layer absolute inset-0 z-10 bg-black flex items-center justify-center transition-opacity duration-300 ease-out cursor-pointer pointer-events-auto">
+              ${finalPoster ? `
               <img 
                 src="${finalPoster}" 
                 alt="Video poster thumbnail" 
                 class="w-full h-full object-cover" 
                 data-video-thumbnail
-                loading="lazy"
-              />
-              <div data-video-thumbnail-fallback hidden class="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950/40 flex flex-col items-center justify-center gap-1.5 px-4 text-center">
+                loading="lazy" decoding="async"
+              />` : ''}
+              <div data-video-thumbnail-fallback ${finalPoster ? 'hidden' : ''} class="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950/40 flex flex-col items-center justify-center gap-1.5 px-4 text-center">
                 <div class="w-12 h-12 rounded-full bg-[var(--color-accent,#e59b3c)] text-slate-950 flex items-center justify-center font-bold text-lg shadow-lg">
                   ▶
                 </div>
@@ -244,8 +297,8 @@ export class ObsidianMediaPlayer {
                   ▶
                 </div>
               </div>
-            </div>
-          ` : ''}
+            </button>
+          <template data-video-frame>
           <iframe 
             id="iframe-video-${videoId}"
             data-video-id="${videoId}"
@@ -257,6 +310,7 @@ export class ObsidianMediaPlayer {
             allowfullscreen 
             loading="lazy">
           </iframe>
+          </template>
           <div class="absolute bottom-2 right-2 z-20 flex items-center space-x-1 px-2 py-0.5 rounded bg-black/80 backdrop-blur-xs text-[10px] font-mono text-slate-300 pointer-events-auto shadow-md">
             <a href="${rawUrl}" target="_blank" rel="noopener noreferrer" class="hover:text-white underline">
               Watch on ${detected.type === 'youtube' ? 'YouTube' : 'Vimeo'} ↗
@@ -342,6 +396,10 @@ export class ObsidianMediaPlayer {
     `;
   }
 
+  private _escapeAttr(val: string): string {
+    return (val || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
   /**
    * Generates a Responsive Multi-Image Grid (1-4 images):
    * - 1 image: Hero layout (16:9 or 4:3, max-h-[480px], cover)
@@ -349,25 +407,43 @@ export class ObsidianMediaPlayer {
    * - 3 images: 1 large on left spanning full height + 2 stacked on right
    * - 4 images: 2x2 grid
    */
-  public renderImageMosaic(images: string[]): string {
+  public renderImageMosaic(images: any[]): string {
     if (!images || images.length === 0) return '';
 
-    const safeImagesJson = JSON.stringify(images).replace(/"/g, '&quot;');
+    // Normalize images: supports string[] or Array<{ url?: string; src?: string; link?: string; caption?: string; alt?: string }>
+    const normalized: Array<{ url: string; alt: string }> = images.map((item, idx) => {
+      if (typeof item === 'string') {
+        const u = item.trim();
+        return { url: u, alt: `Visual asset ${idx + 1}` };
+      }
+      if (item && typeof item === 'object') {
+        const u = (item.url || item.src || item.link || '').trim();
+        const a = item.alt || item.caption || `Visual asset ${idx + 1}`;
+        return { url: u, alt: a };
+      }
+      return { url: '', alt: '' };
+    }).filter(img => img.url && !img.url.startsWith('[object'));
+
+    if (normalized.length === 0) return '';
+
+    const safeUrls = normalized.map(img => img.url);
+    const safeImagesJson = JSON.stringify(safeUrls).replace(/"/g, '&quot;');
 
     // 1 IMAGE: FULL-BLEED 16:9 HERO CARD
-    if (images.length === 1) {
+    if (normalized.length === 1) {
       return `
         <div class="rounded-2xl overflow-hidden border border-white/10 my-2.5 shadow-lg cursor-pointer bg-surface-raised group">
           <div class="relative overflow-hidden aspect-video max-h-[480px]">
             <img 
-              src="${images[0]}" 
-              alt="Visual asset" 
+              src="${normalized[0].url}"
+              alt="${this._escapeAttr(normalized[0].alt)}"
               width="1280"
               height="720"
               class="btn-lightbox-img w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300" 
-              data-src="${images[0]}"
+              data-src="${normalized[0].url}"
               data-all-images="${safeImagesJson}"
-              loading="lazy"
+              loading="lazy" decoding="async"
+              onerror="this.onerror=null; this.parentElement.classList.add('opacity-0');"
             />
             <div class="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
               <span class="px-3.5 py-1.5 bg-black/70 backdrop-blur-md text-white rounded-full text-xs font-mono border border-white/10 shadow-lg">
@@ -380,31 +456,33 @@ export class ObsidianMediaPlayer {
     }
 
     // 2 IMAGES: 50/50 VERTICAL SPLIT
-    if (images.length === 2) {
+    if (normalized.length === 2) {
       return `
         <div class="grid grid-cols-2 gap-1.5 rounded-2xl overflow-hidden border border-white/10 my-2.5 shadow-lg bg-surface-raised aspect-[16/9] sm:aspect-[2/1] min-h-[16rem]">
           <div class="relative overflow-hidden aspect-[4/3] h-full cursor-pointer group">
             <img 
-              src="${images[0]}" 
-              alt="Visual asset 1" 
+              src="${normalized[0].url}"
+              alt="${this._escapeAttr(normalized[0].alt)}"
               width="800"
               height="600"
               class="btn-lightbox-img w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" 
-              data-src="${images[0]}"
+              data-src="${normalized[0].url}"
               data-all-images="${safeImagesJson}"
-              loading="lazy"
+              loading="lazy" decoding="async"
+              onerror="this.onerror=null; this.parentElement.classList.add('opacity-0');"
             />
           </div>
           <div class="relative overflow-hidden aspect-[4/3] h-full cursor-pointer group">
             <img 
-              src="${images[1]}" 
-              alt="Visual asset 2" 
+              src="${normalized[1].url}"
+              alt="${this._escapeAttr(normalized[1].alt)}"
               width="800"
               height="600"
               class="btn-lightbox-img w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" 
-              data-src="${images[1]}"
+              data-src="${normalized[1].url}"
               data-all-images="${safeImagesJson}"
-              loading="lazy"
+              loading="lazy" decoding="async"
+              onerror="this.onerror=null; this.parentElement.classList.add('opacity-0');"
             />
           </div>
         </div>
@@ -412,44 +490,47 @@ export class ObsidianMediaPlayer {
     }
 
     // 3 IMAGES: 1 LARGE HERO LEFT + 2 STACKED RIGHT
-    if (images.length === 3) {
+    if (normalized.length === 3) {
       return `
         <div class="grid grid-cols-2 gap-1.5 rounded-2xl overflow-hidden border border-white/10 my-2.5 shadow-lg bg-surface-raised h-72 sm:h-80">
           <div class="relative overflow-hidden h-full cursor-pointer group">
             <img 
-              src="${images[0]}" 
-              alt="Visual asset 1" 
+              src="${normalized[0].url}"
+              alt="${this._escapeAttr(normalized[0].alt)}"
               width="800"
               height="800"
               class="btn-lightbox-img w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" 
-              data-src="${images[0]}"
+              data-src="${normalized[0].url}"
               data-all-images="${safeImagesJson}"
-              loading="lazy"
+              loading="lazy" decoding="async"
+              onerror="this.onerror=null; this.parentElement.classList.add('opacity-0');"
             />
           </div>
           <div class="grid grid-rows-2 gap-1.5 h-full">
             <div class="relative overflow-hidden h-full cursor-pointer group">
               <img 
-                src="${images[1]}" 
-                alt="Visual asset 2" 
+                src="${normalized[1].url}"
+                alt="${this._escapeAttr(normalized[1].alt)}"
                 width="800"
                 height="400"
                 class="btn-lightbox-img w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" 
-                data-src="${images[1]}"
+                data-src="${normalized[1].url}"
                 data-all-images="${safeImagesJson}"
-                loading="lazy"
+                loading="lazy" decoding="async"
+              onerror="this.onerror=null; this.parentElement.classList.add('opacity-0');"
               />
             </div>
             <div class="relative overflow-hidden h-full cursor-pointer group">
               <img 
-                src="${images[2]}" 
-                alt="Visual asset 3" 
+                src="${normalized[2].url}"
+                alt="${this._escapeAttr(normalized[2].alt)}"
                 width="800"
                 height="400"
                 class="btn-lightbox-img w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" 
-                data-src="${images[2]}"
+                data-src="${normalized[2].url}"
                 data-all-images="${safeImagesJson}"
-                loading="lazy"
+                loading="lazy" decoding="async"
+              onerror="this.onerror=null; this.parentElement.classList.add('opacity-0');"
               />
             </div>
           </div>
@@ -460,17 +541,18 @@ export class ObsidianMediaPlayer {
     // 4 IMAGES: 2x2 EQUAL GRID
     return `
       <div class="grid grid-cols-2 grid-rows-2 gap-1.5 rounded-2xl overflow-hidden border border-white/10 my-2.5 shadow-lg bg-surface-raised h-72 sm:h-80">
-        ${images.slice(0, 4).map((img, idx) => `
+        ${normalized.slice(0, 4).map((img, idx) => `
           <div class="relative overflow-hidden h-full cursor-pointer group">
             <img 
-              src="${img}" 
-              alt="Visual asset ${idx + 1}" 
+              src="${img.url}"
+              alt="${this._escapeAttr(img.alt)}"
               width="600"
               height="600"
               class="btn-lightbox-img w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" 
-              data-src="${img}"
+              data-src="${img.url}"
               data-all-images="${safeImagesJson}"
-              loading="lazy"
+              loading="lazy" decoding="async"
+              onerror="this.onerror=null; this.parentElement.classList.add('opacity-0');"
             />
           </div>
         `).join('')}

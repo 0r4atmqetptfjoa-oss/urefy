@@ -37,6 +37,9 @@ const start = async () => {
   initApp();
   restoreWorkspaceLayout();
   installProductBranding();
+  clearTimeout((window as Window & { __urefyBootTimer?: number }).__urefyBootTimer);
+  document.documentElement.classList.remove('app-booting');
+  document.getElementById('boot-shell')?.remove();
 };
 
 const begin = () => {
@@ -45,6 +48,9 @@ const begin = () => {
     void import('./rum-monitor.js').then((m) => m.initUreFyRum()).catch(() => {});
   }
   void start().catch(() => {
+    clearTimeout((window as Window & { __urefyBootTimer?: number }).__urefyBootTimer);
+    document.documentElement.classList.remove('app-booting');
+    document.getElementById('boot-shell')?.remove();
     const root = document.getElementById('app');
     if (!root) return;
     root.replaceChildren();

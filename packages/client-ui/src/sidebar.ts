@@ -1,4 +1,4 @@
-import { communityPath } from './public-urls.js';
+import { communityPath, profilePath } from './public-urls.js';
 /** Consumer contextual rail. Everything shown here supports the active social task. */
 
 import { clientStore, ClientPost } from './client-state.js';
@@ -64,9 +64,11 @@ export class ContextualSidebar {
             <div class="space-y-2 mt-1">
               ${discussions.map(post => {
                 const author = profileView.getProfile(post.authorFingerprint);
-                const authorName = author?.name || post.authorDisplayName || post.authorHandle || `@${post.authorFingerprint.slice(0, 8)}`;
+                const authorName = (author?.name && author.name !== 'Profile not set up')
+                  ? author.name
+                  : (post.authorDisplayName || post.authorHandle || (author?.handle ? `@${author.handle}` : '') || `@${post.authorFingerprint.slice(0, 8)}`);
                 return `
-                  <button type="button" data-open-detail="${escapeHtml(post.id)}" class="w-full text-left p-2.5 rounded-xl bg-surface-raised/40 hover:bg-surface-raised border border-white/5 hover:border-white/10 transition-all cursor-pointer group">
+                  <button type="button" data-action="open-post-detail" data-post-id="${escapeHtml(post.id)}" data-open-detail="${escapeHtml(post.id)}" class="btn-open-detail w-full text-left p-2.5 rounded-xl bg-surface-raised/40 hover:bg-surface-raised border border-white/5 hover:border-white/10 transition-all cursor-pointer group">
                     <div class="text-xs font-semibold text-slate-200 group-hover:text-[var(--color-accent,#e89e38)] transition-colors line-clamp-2 leading-snug">
                       ${escapeHtml(post.title || post.content.slice(0, 70))}
                     </div>
@@ -134,7 +136,9 @@ export class ContextualSidebar {
   private renderPostDetailSidebar(post: ClientPost): string {
     const rootComments = threadManager.getRootCommentsForPost(post.id);
     const authorProfile = profileView.getProfile(post.authorFingerprint);
-    const authorName = authorProfile?.name || post.authorDisplayName || post.authorHandle || `@${post.authorFingerprint.slice(0, 8)}`;
+    const authorName = (authorProfile?.name && authorProfile.name !== 'Profile not set up')
+      ? authorProfile.name
+      : (post.authorDisplayName || post.authorHandle || (authorProfile?.handle ? `@${authorProfile.handle}` : '') || `@${post.authorFingerprint.slice(0, 8)}`);
     
     // Collect distinct participants (author + comment authors)
     const participantFPs = new Set<string>([post.authorFingerprint]);
@@ -143,11 +147,15 @@ export class ContextualSidebar {
     }
     const participants = Array.from(participantFPs).slice(0, 6).map(fp => {
       const p = profileView.getProfile(fp);
+      const isOP = fp === post.authorFingerprint;
+      const fallback = isOP && (post.authorDisplayName || post.authorHandle)
+        ? (post.authorDisplayName || post.authorHandle)
+        : `@${fp.slice(0, 8)}`;
       return {
         fp,
-        name: p?.name || `@${fp.slice(0, 8)}`,
-        avatar: p?.avatar,
-        isOP: fp === post.authorFingerprint,
+        name: (p?.name && p.name !== 'Profile not set up') ? p.name : fallback,
+        avatar: p?.avatar || (isOP ? post.authorAvatarUrl : undefined),
+        isOP,
       };
     });
 
@@ -193,7 +201,7 @@ export class ContextualSidebar {
             ${authorProfile?.bio ? `
               <p class="text-[11px] text-slate-300 line-clamp-2 leading-relaxed">${escapeHtml(authorProfile.bio)}</p>
             ` : ''}
-            <a href="/profile/${post.authorFingerprint}" data-public-link class="block text-center text-[11px] font-semibold py-1 px-2.5 rounded-lg bg-surface-raised hover:bg-surface-overlay text-slate-300 hover:text-white border border-white/5 transition-all">
+            <a href="${profilePath(post.authorFingerprint)}" data-public-link class="block text-center text-[11px] font-semibold py-1 px-2.5 rounded-lg bg-surface-raised hover:bg-surface-overlay text-slate-300 hover:text-white border border-white/5 transition-all">
               View Profile
             </a>
           </div>
@@ -220,13 +228,13 @@ export class ContextualSidebar {
             ${participants.map(part => `
               <div class="context-rail__participant-chip journal-thread-context__participant">
                 ${part.avatar ? `
-                  <img src="${escapeHtml(part.avatar)}" alt="${escapeHtml(part.name)}" class="w-4 h-4 rounded-full object-cover" />
+                  <img src="${escapeHtml(part.avatar)}" alt="${escapeHtml(part.name || 'Member')}" class="w-4 h-4 rounded-full object-cover" />
                 ` : `
                   <span class="w-4 h-4 rounded-full bg-surface-overlay text-[9px] font-mono flex items-center justify-center font-bold">
                     ${part.fp.slice(0, 2).toUpperCase()}
                   </span>
                 `}
-                <span class="truncate max-w-[90px] font-medium">${escapeHtml(part.name)}</span>
+                <span class="truncate max-w-[90px] font-medium">${escapeHtml(part.name || 'Member')}</span>
                 ${part.isOP ? `<span class="text-[8px] font-mono font-bold text-[var(--color-accent,#e89e38)]">OP</span>` : ''}
               </div>
             `).join('')}
@@ -291,7 +299,7 @@ export class ContextualSidebar {
             <span class="context-rail__title">More Discussions</span>
             <div class="space-y-2 mt-1">
               ${relatedInChannel.map(rp => `
-                <button type="button" data-open-detail="${escapeHtml(rp.id)}" class="w-full text-left p-2.5 rounded-xl bg-surface-raised/40 hover:bg-surface-raised border border-white/5 hover:border-white/10 transition-all cursor-pointer group">
+                <button type="button" data-action="open-post-detail" data-post-id="${escapeHtml(rp.id)}" data-open-detail="${escapeHtml(rp.id)}" class="btn-open-detail w-full text-left p-2.5 rounded-xl bg-surface-raised/40 hover:bg-surface-raised border border-white/5 hover:border-white/10 transition-all cursor-pointer group">
                   <div class="text-xs font-semibold text-slate-200 group-hover:text-[var(--color-accent,#e89e38)] transition-colors line-clamp-2 leading-snug">
                     ${escapeHtml(rp.title)}
                   </div>

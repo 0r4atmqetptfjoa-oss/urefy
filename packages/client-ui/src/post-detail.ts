@@ -1079,19 +1079,31 @@ export class PostDetailView {
     return obsidianMediaPlayer.renderVideoCard(postId, video.src, video.poster);
   }
 
-  private renderImageMosaicBlock(images: string[]): string {
-    const gridCols = images.length === 1 ? 'grid-cols-1' : images.length === 2 ? 'grid-cols-2' : 'grid-cols-2 md:grid-cols-3';
+  private renderImageMosaicBlock(images: any[]): string {
+    const normalized: Array<{ url: string; alt: string }> = (images || []).map((item, idx) => {
+      if (typeof item === 'string') return { url: item.trim(), alt: `Post attachment ${idx + 1}` };
+      if (item && typeof item === 'object') {
+        const u = (item.url || item.src || item.link || '').trim();
+        const a = item.alt || item.caption || `Post attachment ${idx + 1}`;
+        return { url: u, alt: a };
+      }
+      return { url: '', alt: '' };
+    }).filter(img => img.url && !img.url.startsWith('[object'));
+
+    if (normalized.length === 0) return '';
+    const gridCols = normalized.length === 1 ? 'grid-cols-1' : normalized.length === 2 ? 'grid-cols-2' : 'grid-cols-2 md:grid-cols-3';
     return `
       <div class="journal-thread-media my-3 space-y-2">
-        <div class="text-[10px] font-mono text-slate-500 uppercase tracking-wider">Attached Visual Artifacts (${images.length})</div>
+        <div class="text-[10px] font-mono text-slate-500 uppercase tracking-wider">Attached Visual Artifacts (${normalized.length})</div>
         <div class="grid ${gridCols} gap-2">
-          ${images.map((src, idx) => `
+          ${normalized.map((img, idx) => `
             <div class="relative rounded-xl overflow-hidden bg-surface-raised border border-white/10 group cursor-pointer aspect-video">
               <img 
-                src="${src}" 
-                alt="Post attachment ${idx + 1}"
+                src="${img.url}"
+                alt="${escapeHtml(img.alt)}"
                 class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                loading="lazy"
+                loading="lazy" decoding="async"
+                onerror="this.onerror=null; this.parentElement.classList.add('opacity-0');"
               />
               <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                 <span class="px-3 py-1 bg-black/70 text-white rounded-lg text-xs font-mono">🔍 View Fullscreen</span>

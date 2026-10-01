@@ -1,4 +1,5 @@
 import './window-augmentation.js';
+import { patchMessageWorkspace, patchFeedWorkspace, rememberWorkspaceMedia } from './ui/patch-message-workspace.js';
 import { serviceRegistry, SERVICES } from './service-registry.js';
 import { clientStore, ClientMessage, ClientPost, ClientNanopublication, SpaceType } from './client-state.js';
 import { setupKeyboardShortcuts, getAvailableCommands } from './command-rail.js';
@@ -9,7 +10,7 @@ import { obsidianMediaPlayer } from './media-player.js';
 import { pollEngine } from './polls.js';
 import { trendingEngine } from './trending.js';
 import { omniComposer, OmniComposer, hybridComposer, HybridComposer } from './composer-hybrid.js';
-import { exploreView } from './explore-view.js';
+import { exploreView, settingsView, communityView, loadSettingsView, loadExploreView, loadCommunityView } from './optional-workspaces.js';
 import { profileView } from './profile-view.js';
 import { pulseActionsEngine } from './pulse-actions.js';
 import { storiesEngine } from './stories.js';
@@ -89,6 +90,22 @@ function renderTransparencyHeaderToggle(): string {
     </button>
   `;
 }
+const workspaceLoads = new Map<string, 'pending' | 'failed'>();
+function renderLoadingWorkspace(name: string, load: () => Promise<unknown>): string {
+  if (!workspaceLoads.has(name)) {
+    workspaceLoads.set(name, 'pending');
+    void load().then(() => {
+      workspaceLoads.delete(name);
+      if (name === 'settings' && sovereignRouter.settingsSubtab) settingsView?.setActiveTab(sovereignRouter.settingsSubtab as any);
+      clientStore.notify();
+    }).catch(() => {
+      workspaceLoads.set(name, 'failed');
+      clientStore.notify();
+    });
+  }
+  return `<div class="flex-1 flex items-center justify-center p-8 text-slate-400" role="status">${workspaceLoads.get(name) === 'failed' ? 'Unable to load this page. Reload to try again.' : `Opening ${name}…`}</div>`;
+}
+
 let _messagesViewModule: typeof import('./messages-view.js') | null = null;
 let _vaultViewModule: typeof import('./vault-view.js') | null = null;
 
@@ -125,8 +142,6 @@ import { PRIMARY_NAV_ITEMS, ADVANCED_TOOLS_ITEMS, renderNavIcon } from './nav-co
 import { renderIcon, renderBrandLogoMark } from './ui/icons.js';
 import { contextualSidebar, hasContextualSidebar } from './sidebar.js';
 import { modalManager, buildModalRootHTML as orchestrateModalRootHTML } from './modal-manager.js';
-import { settingsView } from './settings-view.js';
-import { communityView } from './community-view.js';
 import { rapidOnboarding } from './rapid-onboarding.js';
 import { actionDispatcher } from './ui/action-dispatcher.js';
 import { renderHeaderPrimaryNav, renderHeaderTools, renderBroadcastBanner as renderHeaderBroadcastBanner } from './header.js';
@@ -214,12 +229,8 @@ serviceRegistry.registerInstance(SERVICES.SovereignOnboarding, sovereignOnboardi
 
 if (typeof window !== 'undefined') {
   (window as any).sovereignDialog = sovereignDialog;
-  (window as any).settingsView = settingsView;
-  (window as any).__aetheris_open_settings = (tab?: any) => { settingsView.open(tab); };
-  (window as any).__aetheris_close_settings = () => { settingsView.close(); };
-  if (window.location.pathname === '/settings' || window.location.hash.startsWith('#settings') || clientStore.activeChannelId === 'settings') {
-    settingsView.open();
-  }
+  (window as any).__aetheris_open_settings = (tab?: any) => { sovereignRouter.navigateTo('settings', { subtab: tab }); };
+  (window as any).__aetheris_close_settings = () => { settingsView?.close(); };
   // webTorrentSwarm is loaded on-demand
   // window.spatialAudioMesh initialized on demand
   // window.soundPacks initialized on demand
@@ -459,12 +470,8 @@ export function initApp(): void {
     clientStore.notifySync();
   });
 
-  // Background Edge Sync Interval (polls public announcements & live state every 30s)
-  setInterval(() => {
-    if (typeof navigator !== 'undefined' && navigator.onLine) {
-      clientStore.syncFromEdge();
-    }
-  }, 30000);
+  // ClientStore owns the periodic sync. A second timer here used to abort its
+  // in-flight requests and repeat feed work while the user was scrolling.
 
   // NeuralDSP starts on-demand
 
@@ -852,7 +859,10 @@ export function initApp(): void {
       return false;
     }
     _lastHtmlCache.set(id, html);
-    el.innerHTML = html;
+    if (id !== 'main-stage' || (!patchFeedWorkspace(el, html) && !patchMessageWorkspace(el, html))) {
+      el.innerHTML = html;
+    }
+    if (id === 'main-stage') rememberWorkspaceMedia(el);
     return true;
   };
 
@@ -1150,6 +1160,8 @@ export function initApp(): void {
       </div>
     `;
 
+    const initialStage = document.getElementById('main-stage');
+    if (initialStage) rememberWorkspaceMedia(initialStage);
     initVoiceCanvas();
     bindEvents();
     updateNavigationActiveClasses();
@@ -1321,6 +1333,7 @@ export function initApp(): void {
       const postFocusEl = document.getElementById('post-focus-view');
       const savedPostFocusScroll = postFocusEl ? postFocusEl.scrollTop : 0;
       const savedProfileScroll = document.getElementById('sovereign-profile-container')?.scrollTop ?? 0;
+      const savedDedicatedSettingsScroll = document.querySelector('.workspace-settings__content')?.scrollTop ?? 0;
       const savedSettingsNavScroll = document.getElementById('profile-settings-nav')?.scrollLeft ?? 0;
       const messageScrollSnapshot = captureMessageScroll();
       const dmContainerEl = document.getElementById('sovereign-dm-messages-container');
@@ -1366,6 +1379,7 @@ export function initApp(): void {
       restoreMessageSelection('relay', false);
       restoreMessageSelection('dm', false);
       document.getElementById('sovereign-profile-container')?.scrollTo({ top: savedProfileScroll, behavior: 'instant' });
+      document.querySelector('.workspace-settings__content')?.scrollTo({ top: savedDedicatedSettingsScroll, behavior: 'instant' });
       document.getElementById('profile-settings-nav')?.scrollTo({ left: savedSettingsNavScroll, behavior: 'instant' });
       patchEl('app-modal-root', buildModalRootHTML());
       document.getElementById('main-layout')?.setAttribute('data-ui-mode', clientStore.uiMode);
@@ -1458,7 +1472,7 @@ export function initApp(): void {
         const lr = document.getElementById('left-rail-scroll');
         if (lr && savedLeftScroll > 0) lr.scrollTop = savedLeftScroll;
         const mf = document.getElementById('main-feed-scroll');
-        if (mf && savedMainScroll > 0) {
+        if (mf && mf !== mainFeedEl && savedMainScroll > 0) {
           mf.scrollTop = savedMainScroll;
         }
         if (!postDetailView.isOpen() && postDetailView.savedFeedScrollTop > 0) {
@@ -1507,6 +1521,7 @@ export function initApp(): void {
 
   // 3. Register reactive store subscriber only after initial scaffold is mounted
   clientStore.subscribe(patchRender);
+  onboardingWizard.syncUI();
 }
 
 function renderToasts(): string {
@@ -1659,12 +1674,12 @@ function renderMainStage(): string {
   } else if (currentRoute === 'vault' || isVault) {
     contentHTML = renderVaultWorkspace();
   } else if (currentRoute === 'settings' || clientStore.activeChannelId === 'settings') {
-    contentHTML = settingsView.renderDedicatedWorkspace();
+    contentHTML = settingsView ? settingsView.renderDedicatedWorkspace() : renderLoadingWorkspace('settings', loadSettingsView);
   } else if (currentRoute === 'explore' || isExplore) {
-    contentHTML = exploreView.renderExploreView(clientStore.posts);
+    contentHTML = exploreView ? exploreView!.renderExploreView(clientStore.posts) : renderLoadingWorkspace('explore', loadExploreView);
   } else if (currentRoute === 'communities' || clientStore.activeChannelId.startsWith('c/')) {
     const activeCircle = sovereignCircleEngine.findCircle(clientStore.activeChannelId);
-    contentHTML = activeCircle 
+    contentHTML = !communityView ? renderLoadingWorkspace('communities', loadCommunityView) : activeCircle
       ? communityView.renderCommunityWorkspace(activeCircle) 
       : communityView.renderCommunitiesHub();
   } else if (currentRoute === 'profile' || isProfile) {
@@ -2330,6 +2345,8 @@ function bindEvents(): void {
 
   // Throttled resize handler (debounced to 150ms using rAF)
   if (!(window as any).__resizeThrottleBound) {
+    const mobileFeed = window.matchMedia('(max-width: 639px)');
+    mobileFeed.addEventListener('change', () => clientStore.notify());
     let resizeRAF: number | null = null;
     window.addEventListener('resize', () => {
       if (resizeRAF !== null) cancelAnimationFrame(resizeRAF);
@@ -2559,6 +2576,8 @@ function bindEvents(): void {
   const fallbackBtn = document.getElementById('btn-close-post-detail-fallback');
   if (fallbackBtn) fallbackBtn.addEventListener('click', handleClosePostDetail, { signal });
 
+  // Use current loaded member data; explicit empty data clears stale suggestions.
+  autocompleteEngine.setMembers(clientStore.members);
   // Attach intelligent autocomplete engine to chat, dm, and composer inputs
   const msgInput = document.getElementById('input-message') as HTMLInputElement | null;
   if (msgInput) autocompleteEngine.attach(msgInput);
@@ -3038,7 +3057,7 @@ function updateCommandRailHighlight(index: number): void {
     btn.addEventListener('click', () => {
       const cat = btn.getAttribute('data-explore-cat') as any;
       if (cat) {
-        exploreView.setActiveCategory(cat);
+        exploreView!.setActiveCategory(cat);
         clientStore.notify();
       }
     }, { signal });
@@ -3046,30 +3065,30 @@ function updateCommandRailHighlight(index: number): void {
   const exploreInput = document.getElementById('explore-search-input') as HTMLInputElement;
   if (exploreInput) {
     exploreInput.addEventListener('input', (e) => {
-      exploreView.setSearchQuery((e.target as HTMLInputElement).value, false);
+      exploreView!.setSearchQuery((e.target as HTMLInputElement).value, false);
       clientStore.notify();
     }, { signal });
     exploreInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && !e.isComposing) exploreView.saveRecentSearch(exploreInput.value);
+      if (e.key === 'Enter' && !e.isComposing) exploreView!.saveRecentSearch(exploreInput.value);
     }, { signal });
   }
   document.getElementById('btn-clear-explore-search')?.addEventListener('click', () => {
-    exploreView.clearSearch();
+    exploreView!.clearSearch();
     clientStore.notify();
   }, { signal });
   document.getElementById('btn-clear-explore-empty')?.addEventListener('click', () => {
-    exploreView.clearSearch();
+    exploreView!.clearSearch();
     clientStore.notify();
   }, { signal });
   document.getElementById('btn-clear-recent-searches')?.addEventListener('click', () => {
-    exploreView.clearRecentSearches();
+    exploreView!.clearRecentSearches();
     clientStore.notify();
   }, { signal });
   document.querySelectorAll('[data-search-result-tab]').forEach(btn => {
     btn.addEventListener('click', () => {
       const tab = btn.getAttribute('data-search-result-tab') as 'posts' | 'people' | 'communities' | 'topics' | null;
       if (tab) {
-        exploreView.setActiveSearchTab(tab);
+        exploreView!.setActiveSearchTab(tab);
         clientStore.notify();
       }
     }, { signal });
@@ -3078,7 +3097,7 @@ function updateCommandRailHighlight(index: number): void {
     btn.addEventListener('click', () => {
       const trend = btn.getAttribute('data-search-trend');
       if (trend) {
-        exploreView.setSearchQuery(trend);
+        exploreView!.setSearchQuery(trend);
         clientStore.notify();
       }
     }, { signal });
@@ -3087,7 +3106,7 @@ function updateCommandRailHighlight(index: number): void {
     btn.addEventListener('click', () => {
       const topic = btn.getAttribute('data-featured-topic');
       if (topic) {
-        exploreView.setSearchQuery(topic);
+        exploreView!.setSearchQuery(topic);
         clientStore.notify();
       }
     }, { signal });
@@ -4141,21 +4160,11 @@ function updateCommandRailHighlight(index: number): void {
     });
   }
 
-  // Preload interactive modules during idle cycles via moduleLoader
-  if (typeof window !== 'undefined' && !(window as any)._modulesPreloaded) {
-    (window as any)._modulesPreloaded = true;
-    moduleLoader.preloadOnIdle(
-      ['custom-theme-builder', 'slide-deck', 'cve-monitor'],
-      [
-        () => import('./custom-theme-builder.js'),
-        () => import('./slide-deck.js'),
-        () => import('./cve-monitor.js'),
-      ]
-    );
+  // Advanced tools already load when opened. Avoid evaluating their modules
+  // during the first scroll; only load the sandbox when code is actually shown.
+  if (document.querySelector('pre code')) {
+    void import('./code-sandbox.js').then(m => m.attachSandboxRunnersToDOM(document.body));
   }
-
-  // Code Sandbox: attach in-browser sandbox runner to any code blocks in posts
-  import('./code-sandbox.js').then(m => m.attachSandboxRunnersToDOM(document.body));
 
   // sovereignMnemonicModal binds on open
   // steganographyModal binds on open
@@ -4202,8 +4211,8 @@ function updateCommandRailHighlight(index: number): void {
           clientStore.notifySync('MODAL_CHANGE');
           return;
         }
-        if (settingsView.isOpen) {
-          settingsView.close();
+        if (settingsView?.isOpen) {
+          settingsView?.close();
           clientStore.notifySync('MODAL_CHANGE');
           return;
         }

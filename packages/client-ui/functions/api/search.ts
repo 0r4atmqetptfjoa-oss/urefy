@@ -16,6 +16,12 @@ import {
   globalFacetsStore,
 } from './_db.js';
 import { ensureSyntheticFixturesTable } from './_synthetic.js';
+import { PUBLIC_POST_SQL } from '../_discovery.js';
+
+const searchablePostSQL = PUBLIC_POST_SQL.replace(/\bposts\./g, 'p.');
+const isSearchablePost = (post: typeof globalPostsStore[number]): boolean =>
+  !post.syntheticTest && (!post.audience || post.audience === 'public') &&
+  (!post.status || ['published', 'pinned', 'locked'].includes(post.status));
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -43,7 +49,8 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
     const url = new URL(context.request.url);
     const query = (url.searchParams.get('q') || '').trim().slice(0, 100);
     const category = (url.searchParams.get('category') || 'all').trim().toLowerCase();
-    const limit = Math.min(Math.max(parseInt(url.searchParams.get('limit') || '15', 10), 1), 50);
+    const requestedLimit = Number(url.searchParams.get('limit') ?? '15');
+    const limit = Number.isFinite(requestedLimit) ? Math.min(Math.max(Math.trunc(requestedLimit), 1), 50) : 15;
     const userId = (url.searchParams.get('userId') || '').trim();
 
     if (!query) {
@@ -91,12 +98,13 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
         const postRes = await db
           .prepare(
             `SELECT p.id, p.channel_id, p.author_id, p.author_role, p.title, p.content, p.flair, p.merit_votes, p.reply_count, p.created_at, p.facet_id, p.audience,
-                    f.is_publicly_linked as facet_is_publicly_linked, f.handle as facet_handle, f.display_name as facet_display_name, f.avatar_url as facet_avatar_url
+                    f.is_publicly_linked as facet_is_publicly_linked,
+                    CASE WHEN f.status = 'deleted' THEN NULL ELSE f.handle END as facet_handle,
+                    CASE WHEN f.status = 'deleted' THEN '[Deleted Context]' ELSE f.display_name END as facet_display_name,
+                    CASE WHEN f.status = 'deleted' THEN NULL ELSE f.avatar_url END as facet_avatar_url
              FROM posts p
              LEFT JOIN facets f ON p.facet_id = f.id
-             WHERE (p.title LIKE ? OR p.content LIKE ? OR p.flair LIKE ?) AND p.status != 'archived'
-               AND (p.audience = 'public' OR p.audience IS NULL)
-               AND NOT EXISTS (SELECT 1 FROM synthetic_fixtures sf WHERE sf.resource_type = 'post' AND sf.resource_id = p.id)
+             WHERE (p.title LIKE ? OR p.content LIKE ? OR p.flair LIKE ?) AND ${searchablePostSQL}
              ORDER BY p.merit_votes DESC, p.created_at DESC
              LIMIT ?`
           )
@@ -115,7 +123,7 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
               authorFingerprint,
               authorRole: p.author_role,
               title: p.title,
-              content: p.content.slice(0, 300),
+              content: (p.content || '').slice(0, 300),
               flair: p.flair,
               meritVotes: Number(p.merit_votes) || 0,
               replyCount: Number(p.reply_count) || 0,
@@ -129,8 +137,7 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
           });
       } else {
         posts = globalPostsStore
-          .filter(p => !p.syntheticTest)
-          .filter(p => !p.audience || p.audience === 'public')
+          .filter(isSearchablePost)
           .filter(
             p =>
               !blockedSet.has(p.authorFingerprint) &&
@@ -149,7 +156,7 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
               authorFingerprint,
               authorRole: p.authorRole,
               title: p.title,
-              content: p.content.slice(0, 300),
+              content: (p.content || '').slice(0, 300),
               flair: p.flair,
               meritVotes: p.meritVotes,
               replyCount: p.replyCount,
@@ -324,16 +331,18 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
     // Search Topics
     if (['all', 'topics'].includes(category)) {
       if (db) {
+        const blockFilter = userId ? ' AND NOT EXISTS (SELECT 1 FROM user_blocks ub WHERE ub.blocker_id = ? AND ub.blocked_id = p.author_id)' : '';
         const tagRes = await db
           .prepare(
-            `SELECT tag, COUNT(*) as post_count
-             FROM post_tags
-             WHERE tag LIKE ?
-             GROUP BY tag
+            `SELECT pt.tag, COUNT(*) as post_count
+             FROM post_tags pt
+             JOIN posts p ON p.id = pt.post_id
+             WHERE pt.tag LIKE ? AND ${searchablePostSQL}${blockFilter}
+             GROUP BY pt.tag
              ORDER BY post_count DESC
              LIMIT ?`
           )
-          .bind(searchPattern, limit)
+          .bind(searchPattern, ...(userId ? [userId] : []), limit)
           .all<any>();
 
         topics = (tagRes.results || []).map(t => ({
@@ -344,6 +353,7 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
         // Collect flairs & tags from memory
         const tagCounts = new Map<string, number>();
         for (const post of globalPostsStore) {
+          if (!isSearchablePost(post) || blockedSet.has(post.authorFingerprint)) continue;
           if (post.flair && post.flair.toLowerCase().includes(searchToken)) {
             const tag = `#${post.flair.replace(/\s+/g, '')}`;
             tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
@@ -370,9 +380,9 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
       }),
       { status: 200, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
     );
-  } catch (err: any) {
+  } catch {
     return new Response(
-      JSON.stringify({ success: false, error: err?.message || 'Search execution failed' }),
+      JSON.stringify({ success: false, error: 'Search execution failed' }),
       { status: 500, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
     );
   }

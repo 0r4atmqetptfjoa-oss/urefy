@@ -84,8 +84,12 @@ test('100-message dialogue stays readable across direct and community layouts', 
   await page.screenshot({ path: resolve(output, 'direct-desktop-dense.png') });
   const firstVisibleMessage = page.locator('.dm-message').nth(45);
   await firstVisibleMessage.hover();
-  await firstVisibleMessage.getByLabel('More message actions').click();
+  // Message actions are exposed directly in the current action dock.
   await expect(firstVisibleMessage.getByRole('button', { name: 'Branch conversation' })).toBeVisible();
+  await firstVisibleMessage.getByRole('button', { name: 'Branch conversation' }).click();
+  await expect(page.locator('#sovereign-dialog-title')).toHaveText('Branch with context');
+  await expect(page.locator('#sovereign-dialog-input')).toHaveAttribute('placeholder', 'e.g. Weekend plans');
+  await page.locator('#sovereign-dialog-cancel-btn').click();
   await page.locator('.editorial-capsule-insert').first().scrollIntoViewIfNeeded();
   await page.screenshot({ path: resolve(output, 'context-capsule-desktop.png') });
   await page.evaluate(() => {

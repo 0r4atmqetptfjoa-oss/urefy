@@ -42,7 +42,7 @@ export class ProfileView {
       this.followingSet = new Set();
     }
 
-    this.seedDevProfiles();
+    if (isDemoModeEnabled()) this.seedDevProfiles();
   }
 
   private seedDevProfiles(): void {
@@ -77,19 +77,29 @@ export class ProfileView {
         try {
           const cached = localStorage.getItem(`aetheris_profile_${fp}`);
           if (cached) {
-            this.profileData.set(fp, JSON.parse(cached));
-            return this.profileData.get(fp)!;
+            const parsed = JSON.parse(cached);
+            if (parsed && parsed.name && parsed.name !== 'Profile not set up') {
+              this.profileData.set(fp, parsed);
+              return this.profileData.get(fp)!;
+            }
           }
         } catch (_) {}
       }
       const known = (typeof clientStore !== 'undefined' ? clientStore.members?.find((m: any) => m.fingerprint === fp) : null) as any;
-      const name = known?.name || (fp === 'genesis-core' ? 'Genesis Protocol Archon' : fp === 'c3dc28cb705e' ? 'Elena Rostova' : fp === 'a89104fa2211' ? 'David Chen' : fp === 'f40019bc88a2' ? 'Maya Patel' : fp === '9b22a011cd44' ? 'Samira Khan' : 'Profile not set up');
-      const handle = known?.handle?.replace(/^@/, '') || (fp === 'genesis-core' ? 'genesis-core' : fp === 'c3dc28cb705e' ? 'elena_r' : fp === 'a89104fa2211' ? 'david_c' : fp === 'f40019bc88a2' ? 'maya_p' : fp === '9b22a011cd44' ? 'samira' : '');
+      const knownPost = (typeof clientStore !== 'undefined' ? clientStore.posts?.find((p: any) => p.authorFingerprint === fp && (p.authorDisplayName || p.authorHandle)) : null) as any;
+      const postName = knownPost?.authorDisplayName || (knownPost?.authorHandle ? knownPost.authorHandle.replace(/^@/, '') : null);
+      const postHandle = knownPost?.authorHandle ? knownPost.authorHandle.replace(/^@/, '') : '';
+      const postAvatar = knownPost?.authorAvatarUrl || '';
+
+      const name = known?.name || postName || (!isDemoModeEnabled() ? 'Profile not set up' : fp === 'genesis-core' ? 'Genesis Protocol Archon' : fp === 'c3dc28cb705e' ? 'Elena Rostova' : fp === 'a89104fa2211' ? 'David Chen' : fp === 'f40019bc88a2' ? 'Maya Patel' : fp === '9b22a011cd44' ? 'Samira Khan' : 'Profile not set up');
+      const handle = known?.handle?.replace(/^@/, '') || postHandle || (!isDemoModeEnabled() ? '' : fp === 'genesis-core' ? 'genesis-core' : fp === 'c3dc28cb705e' ? 'elena_r' : fp === 'a89104fa2211' ? 'david_c' : fp === 'f40019bc88a2' ? 'maya_p' : fp === '9b22a011cd44' ? 'samira' : '');
+      const avatar = known?.avatar || postAvatar || '';
+
       this.profileData.set(fp, {
         fingerprint: fp,
         name,
         handle,
-        avatar: '',
+        avatar,
         banner: '',
         bio: '',
         location: '',
@@ -104,6 +114,16 @@ export class ProfileView {
         trustScore: 0,
         badges: [],
       });
+    } else {
+      const current = this.profileData.get(fp)!;
+      if (current.name === 'Profile not set up' || !current.handle) {
+        const knownPost = (typeof clientStore !== 'undefined' ? clientStore.posts?.find((p: any) => p.authorFingerprint === fp && (p.authorDisplayName || p.authorHandle)) : null) as any;
+        if (knownPost?.authorDisplayName || knownPost?.authorHandle) {
+          if (knownPost.authorDisplayName) current.name = knownPost.authorDisplayName;
+          if (knownPost.authorHandle) current.handle = knownPost.authorHandle.replace(/^@/, '');
+          if (knownPost.authorAvatarUrl && !current.avatar) current.avatar = knownPost.authorAvatarUrl;
+        }
+      }
     }
     return this.profileData.get(fp)!;
   }
@@ -168,7 +188,7 @@ export class ProfileView {
         return;
       }
       const p = data.profile;
-      if (p.updatedAt) this.updateProfile(fp, { name: p.displayName, handle: p.handle, bio: p.bio || '', avatar: p.avatarUrl || '', banner: p.bannerUrl || '', website: p.website || '', location: p.location || '', ...data.stats });
+      if (p.displayName || p.handle || p.updatedAt) this.updateProfile(fp, { name: p.displayName || p.handle || 'UREfy Member', handle: p.handle || '', bio: p.bio || '', avatar: p.avatarUrl || '', banner: p.bannerUrl || '', website: p.website || '', location: p.location || '', ...data.stats });
       else Object.assign(this.getProfile(fp), data.stats || {});
       clientStore.notify();
     } catch { /* keep cached identity while offline */ }

@@ -7,7 +7,8 @@
 // 2. Enforces global security and anti-tampering headers
 // ===========================================================================
 
-import { resolveLegacyRoute } from './_seo.js';
+import { resolveLegacyRoute, injectStaticPageSeo } from './_seo.js';
+import { SITE_ORIGIN } from './_discovery.js';
 import { seoError } from './_seo-response.js';
 
 interface EventContext<Env, P extends string, Data> {
@@ -24,6 +25,10 @@ export async function onRequest(context: EventContext<any, any, any>): Promise<R
   const { request, next } = context;
   const url = new URL(request.url);
 
+  if (url.hostname === 'www.urefy.com' || (url.hostname === 'urefy.com' && url.protocol !== 'https:')) {
+    return Response.redirect(SITE_ORIGIN + url.pathname + url.search, 301);
+  }
+
   if (url.pathname === '/feed' || url.pathname === '/index.html') {
     url.pathname = '/';
     return Response.redirect(url.toString(), 301);
@@ -36,9 +41,11 @@ export async function onRequest(context: EventContext<any, any, any>): Promise<R
   // Explicit app-only routes retain their shell without becoming indexable pages.
   if (['/messages', '/vault', '/profile', '/more', '/settings', '/governance', '/notifications'].includes(url.pathname)) {
     const shell = await context.env.ASSETS.fetch(new URL('/', url.origin));
-    const headers = new Headers(shell.headers);
+    const privateShell = injectStaticPageSeo(shell, { title: `${url.pathname.slice(1).replace(/^./, s => s.toUpperCase())} — UREfy`, description: 'Personal workspace on UREfy.', canonicalUrl: SITE_ORIGIN + url.pathname, origin: SITE_ORIGIN, robots: 'noindex, follow' });
+    const headers = new Headers(privateShell.headers);
     headers.set('X-Robots-Tag', 'noindex, follow');
-    return new Response(shell.body, { headers });
+    headers.set('Cache-Control', 'private, no-store');
+    return new Response(privateShell.body, { headers });
   }
 
   // 1. Check legacy route resolution
@@ -77,13 +84,14 @@ export async function onRequest(context: EventContext<any, any, any>): Promise<R
   const response = await next();
 
   // Unknown paths must never inherit the root SPA's successful HTML response.
-  const publicRoute = /^\/(?:$|explore$|communities$|about$|features$|privacy$|terms$|security$|admin(?:\.html)?$|(?:p|post|c|u)\/[^/]+$)/.test(url.pathname);
+  const publicRoute = /^\/(?:$|explore$|communities$|about$|features$|privacy$|terms$|security$|faq$|guides(?:\/(?:get-started|private-messaging))?$|admin(?:\.html)?$|(?:p|post|c|u)\/[^/]+$)/.test(url.pathname);
   if (!publicRoute && !url.pathname.startsWith('/api/') && response.headers.get('Content-Type')?.includes('text/html')) {
     return seoError(404);
   }
 
   // 3. Clone and attach essential security headers
   const newHeaders = new Headers(response.headers);
+  if (url.hostname.endsWith('.pages.dev')) newHeaders.set('X-Robots-Tag', 'noindex, nofollow');
   if (!newHeaders.has('X-Content-Type-Options')) {
     newHeaders.set('X-Content-Type-Options', 'nosniff');
   }

@@ -1,3 +1,4 @@
+import { INDEXABLE_PROFILE_SQL, SITE_ORIGIN } from './_discovery.js';
 import { getD1Database, type Env } from './api/_db.js';
 import { ensureSyntheticFixturesTable } from './api/_synthetic.js';
 import { escapeHtml, injectStaticPageSeo } from './_seo.js';
@@ -11,11 +12,11 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
   try {
     await ensureSyntheticFixturesTable(db).catch(() => {});
     const [posts, communities, profiles] = await Promise.all([
-      db.prepare("SELECT id, title FROM posts WHERE (status IN ('published','pinned','locked') OR status IS NULL) AND NOT EXISTS (SELECT 1 FROM synthetic_fixtures sf WHERE sf.resource_type = 'post' AND sf.resource_id = posts.id) ORDER BY created_at DESC LIMIT 20").all<any>(),
+      db.prepare("SELECT id, title FROM posts WHERE (status IN ('published','pinned','locked') OR status IS NULL) AND (audience = 'public' OR audience IS NULL) AND NOT EXISTS (SELECT 1 FROM synthetic_fixtures sf WHERE sf.resource_type = 'post' AND sf.resource_id = posts.id) ORDER BY created_at DESC LIMIT 20").all<any>(),
       db.prepare("SELECT id, name, description FROM communities WHERE NOT EXISTS (SELECT 1 FROM synthetic_fixtures sf WHERE sf.resource_type = 'community' AND sf.resource_id = communities.id) ORDER BY name LIMIT 30").all<any>(),
-      db.prepare('SELECT user_id, display_name, handle FROM user_profiles ORDER BY updated_at DESC LIMIT 12').all<any>(),
+      db.prepare(`SELECT user_id, display_name, handle FROM user_profiles WHERE ${INDEXABLE_PROFILE_SQL} ORDER BY updated_at DESC LIMIT 12`).all<any>(),
     ]);
-    const origin = new URL(request.url).origin;
+    const origin = SITE_ORIGIN;
     const title = 'Explore discussions, communities and people — UREfy';
     const description = 'Discover public conversations, browse communities, and find people to follow on UREfy.';
     const list = (items: any[], path: (row: any) => string, label: (row: any) => string) => `<ul>${items.map(row => `<li><a href="${escapeHtml(path(row))}">${escapeHtml(label(row))}</a></li>`).join('')}</ul>`;

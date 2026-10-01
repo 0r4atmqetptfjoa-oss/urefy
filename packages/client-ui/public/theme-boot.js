@@ -1,4 +1,12 @@
 (function() {
+  // Only the home/feed shell transitions into the app. Public deep links retain
+  // their server-rendered article while the client loads.
+  if (['/', '/feed', '/index.html'].indexOf(location.pathname) !== -1) {
+    document.documentElement.classList.add('app-booting');
+    window.__urefyBootTimer = setTimeout(function() {
+      document.documentElement.classList.remove('app-booting');
+    }, 15000);
+  }
   try {
     var savedLang = localStorage.getItem('aetheris_locale');
     if (savedLang) {

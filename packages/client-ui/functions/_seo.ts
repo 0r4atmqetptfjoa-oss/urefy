@@ -1,4 +1,5 @@
 import { postPath, profilePath, communityPath, communitySlug } from '../src/public-urls.js';
+import { SITE_ORIGIN, PUBLIC_ROBOTS } from './_discovery.js';
 // ===========================================================================
 // UREfy — Edge SEO & Social Graph Metadata Engine (_seo.ts)
 // Automatically renders dynamic OpenGraph, Twitter Cards, Schema.org JSON-LD
@@ -50,6 +51,7 @@ export interface SeoPostData {
     authorName?: string;
   };
   comments?: SeoCommentData[];
+  relatedPosts?: Array<{ id: string; title: string }>;
 }
 
 export interface SeoCommunityData {
@@ -103,14 +105,15 @@ export function extractPostImage(post: SeoPostData, origin: string): string {
     try {
       const parsed = JSON.parse(post.imagesJson);
       if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0] === 'string') {
-        return parsed[0].startsWith('http') ? parsed[0] : `${origin}${parsed[0]}`;
+        const image = new URL(parsed[0], origin);
+        if (image.protocol === 'https:' || image.protocol === 'http:') return image.toString();
       }
     } catch (_) {}
   }
   // Check for markdown image in content
   const imgMatch = post.content ? post.content.match(/!\[.*?\]\((https?:\/\/[^)]+)\)/i) : null;
   if (imgMatch && imgMatch[1]) {
-    return imgMatch[1];
+    try { return new URL(imgMatch[1]).toString(); } catch { /* Invalid public media has no crawler preview. */ }
   }
   return `${origin}/og-image.png`;
 }
@@ -123,7 +126,6 @@ export function buildPostJsonLd(post: SeoPostData, canonicalUrl: string, origin:
   const authorName = post.authorName || (post.authorHandle ? post.authorHandle.replace(/^@/, '') : `Member ${post.authorId.slice(0, 8)}`);
   const authorHandle = post.authorHandle ? (post.authorHandle.startsWith('@') ? post.authorHandle : `@${post.authorHandle}`) : `@${post.authorId.slice(0, 8)}`;
   const dateIso = new Date(post.createdAt || Date.now()).toISOString();
-  const dateModified = new Date(post.updatedAt || post.createdAt || Date.now()).toISOString();
 
   const jsonLd: any = {
     '@context': 'https://schema.org',
@@ -131,11 +133,12 @@ export function buildPostJsonLd(post: SeoPostData, canonicalUrl: string, origin:
     '@id': canonicalUrl,
     url: canonicalUrl,
     headline: post.title,
-    articleBody: description,
+    text: cleanMarkdown(post.content, 20000),
     datePublished: dateIso,
-    dateModified: dateModified,
-    commentCount: post.replyCount || 0,
+    ...(post.updatedAt ? { dateModified: new Date(post.updatedAt).toISOString() } : {}),
+    commentCount: Math.max(0, post.replyCount || 0),
     mainEntityOfPage: canonicalUrl,
+    ...(extractPostImage(post, origin) !== `${origin}/og-image.png` ? { image: extractPostImage(post, origin) } : {}),
     author: {
       '@type': 'Person',
       name: authorName,
@@ -155,12 +158,12 @@ export function buildPostJsonLd(post: SeoPostData, canonicalUrl: string, origin:
       {
         '@type': 'InteractionCounter',
         interactionType: 'https://schema.org/LikeAction',
-        userInteractionCount: post.meritVotes || 0,
+        userInteractionCount: Math.max(0, post.meritVotes || 0),
       },
       {
         '@type': 'InteractionCounter',
         interactionType: 'https://schema.org/CommentAction',
-        userInteractionCount: post.replyCount || 0,
+        userInteractionCount: Math.max(0, post.replyCount || 0),
       },
     ],
   };
@@ -200,7 +203,7 @@ export function buildPostJsonLd(post: SeoPostData, canonicalUrl: string, origin:
         {
           '@type': 'InteractionCounter',
           interactionType: 'https://schema.org/LikeAction',
-          userInteractionCount: c.upvotes || 0,
+          userInteractionCount: Math.max(0, c.upvotes || 0),
         },
       ],
     }));
@@ -223,7 +226,7 @@ export function injectPostSeo(
   post: SeoPostData,
   url: URL
 ): Response {
-  const origin = url.origin;
+  const origin = SITE_ORIGIN;
   const canonicalUrl = `${origin}${postPath(post.id)}`;
   const pageTitle = `${post.title} — UREfy`;
   const description = cleanMarkdown(post.content, 160);
@@ -234,13 +237,14 @@ export function injectPostSeo(
   // Server-rendered article content for crawlers and initial render (replaces #app to prevent homepage shell duplication)
   const articleSnippet = `
     <article style="max-width: 800px; margin: 40px auto; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #e2e8f0; background: #12151c; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08);">
-      <nav style="margin-bottom: 20px;"><a href="${origin}/" style="color: #e59b3c; text-decoration: none; font-weight: 500;">&larr; Back to UREfy Feed</a></nav>
+      <nav aria-label="Discussion navigation" style="margin-bottom: 20px;"><a href="${origin}/" style="color: #e59b3c;">UREfy</a> · <a href="/explore" style="color: #e59b3c;">Public discussions</a> · <a href="/communities" style="color: #e59b3c;">Communities</a></nav>
       <header style="margin-bottom: 24px;">
         <span style="font-size: 12px; color: #e59b3c; font-weight: bold; text-transform: uppercase; letter-spacing: 0.05em;">${escapeHtml(post.flair || 'DISCUSSION')}</span>
         <h1 style="font-size: 28px; line-height: 1.3; margin: 8px 0 12px 0; color: #f8fafc;">${escapeHtml(post.title)}</h1>
-        <p style="font-size: 14px; color: #94a3b8; margin: 0;">By <a href="${origin}${profilePath(post.authorId)}" style="color: #e59b3c; text-decoration: none;">${escapeHtml(authorName)}</a> &bull; ${new Date(post.createdAt).toLocaleDateString()} &bull; ${post.meritVotes || 0} Merit &bull; ${post.replyCount || 0} Replies</p>
+        <p style="font-size: 14px; color: #94a3b8; margin: 0;">By <a href="${origin}${profilePath(post.authorId)}" style="color: #e59b3c; text-decoration: none;">${escapeHtml(authorName)}</a> &bull; <time datetime="${new Date(post.createdAt).toISOString()}">${new Date(post.createdAt).toLocaleDateString('en-GB', { timeZone: 'UTC' })}</time> &bull; ${post.meritVotes || 0} Merit &bull; ${post.replyCount || 0} Replies</p>
       </header>
       <div style="font-size: 16px; line-height: 1.6; color: #cbd5e1;">
+        ${ogImage !== `${origin}/og-image.png` ? `<img src="${escapeHtml(ogImage)}" alt="${escapeHtml(post.title)}" loading="lazy" style="max-width:100%;height:auto;border-radius:8px">` : ''}
         ${escapeHtml(post.content).replace(/\n\n/g, '<br/><br/>')}
       </div>
       ${
@@ -250,7 +254,7 @@ export function injectPostSeo(
               <h2 style="font-size: 18px; color: #f8fafc; margin-bottom: 16px;">Comments (${post.comments.length})</h2>
               <div style="display: flex; flex-direction: column; gap: 16px;">
                 ${post.comments.map(c => `
-                  <div style="background: rgba(255,255,255,0.02); padding: 12px 16px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
+                  <div id="comment-${escapeHtml(c.id)}" style="background: rgba(255,255,255,0.02); padding: 12px 16px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
                     <div style="font-size: 12px; color: #94a3b8; margin-bottom: 6px;">
                       <strong>${escapeHtml(c.authorName || c.authorHandle || `Member ${c.authorId.slice(0, 8)}`)}</strong> &bull; ${new Date(c.createdAt).toLocaleDateString()}
                     </div>
@@ -262,6 +266,7 @@ export function injectPostSeo(
           `
           : ''
       }
+      ${post.relatedPosts?.length ? `<section><h2>More public discussions</h2><ul>${post.relatedPosts.map(p => `<li><a style="color:#e59b3c" href="${postPath(p.id)}">${escapeHtml(p.title)}</a></li>`).join('')}</ul></section>` : ''}
     </article>
   `;
 
@@ -337,7 +342,7 @@ export function injectPostSeo(
       element(e) {
         e.append(`\n  <meta property="article:published_time" content="${new Date(post.createdAt).toISOString()}" />`, { html: true });
         e.append(`\n  <meta property="article:section" content="${escapeHtml(post.flair || 'Technology')}" />`, { html: true });
-        e.append(`\n  <script type="application/ld+json">\n${JSON.stringify(jsonLd, null, 2).replace(/</g, '\\u003c')}\n  </script>\n`, { html: true });
+        e.append(`\n  <script type="application/ld+json">\n${JSON.stringify({ '@context': 'https://schema.org', '@graph': [jsonLd, { '@type': 'BreadcrumbList', itemListElement: [{ '@type': 'ListItem', position: 1, name: 'UREfy', item: origin + '/' }, { '@type': 'ListItem', position: 2, name: 'Public discussions', item: origin + '/explore' }, { '@type': 'ListItem', position: 3, name: post.title, item: canonicalUrl }] }] }, null, 2).replace(/</g, '\\u003c')}\n  </script>\n`, { html: true });
       },
     })
     .on('#app', {
@@ -356,10 +361,10 @@ export function injectCommunitySeo(
   community: SeoCommunityData,
   url: URL
 ): Response {
-  const origin = url.origin;
+  const origin = SITE_ORIGIN;
   const canonicalUrl = `${origin}${communityPath(community.name || community.id)}`;
   const pageTitle = `${community.name} (c/${communitySlug(community.name || community.id)}) — UREfy Community`;
-  const description = community.description || `Join the ${community.name} sovereign community on UREfy. Verified discussions, privacy-first discussions, zero tracking.`;
+  const description = cleanMarkdown(community.description || `Read public discussions and join the ${community.name} community on UREfy.`, 160);
   const ogImage = `${origin}/og-image.png`;
 
   const jsonLd = {
@@ -452,6 +457,7 @@ export interface SeoStaticPageOptions {
   jsonLd?: any;
   bodySnippet?: string;
   ogImage?: string;
+  robots?: string;
 }
 
 export interface SeoProfileData {
@@ -563,6 +569,7 @@ export function injectStaticPageSeo(
   const ogImage = opts.ogImage || `${opts.origin}/og-image.png`;
 
   let rewriter = new HTMLRewriter()
+    .on('meta[name="robots"], meta[name="googlebot"], meta[name="bingbot"]', { element(e) { e.setAttribute('content', opts.robots || PUBLIC_ROBOTS); } })
     .on('script[type="application/ld+json"]', { element(e) { e.remove(); } })
     .on('link[hreflang]', { element(e) { e.remove(); } })
     .on('title', {
@@ -653,7 +660,7 @@ export function injectProfileSeo(
   profile: SeoProfileData,
   url: URL
 ): Response {
-  const origin = url.origin;
+  const origin = SITE_ORIGIN;
   const canonicalUrl = `${origin}${profilePath(profile.userId)}`;
   const displayName = profile.displayName || profile.handle || `Sovereign Member ${profile.userId.slice(0, 8)}`;
   const handle = profile.handle ? (profile.handle.startsWith('@') ? profile.handle : `@${profile.handle}`) : `@${profile.userId.slice(0, 8)}`;
@@ -703,6 +710,7 @@ export function injectProfileSeo(
     jsonLd,
     bodySnippet: profileSnippet,
     ogImage,
+    robots: !profile.bio?.trim() && !profile.posts?.length ? 'noindex, follow' : PUBLIC_ROBOTS,
   });
 }
 

@@ -1,3 +1,4 @@
+import { SITE_ORIGIN } from './_discovery.js';
 import { getD1Database, type Env } from './api/_db.js';
 import { ensureSyntheticFixturesTable } from './api/_synthetic.js';
 import { escapeHtml, injectStaticPageSeo } from './_seo.js';
@@ -11,7 +12,7 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
   try {
     await ensureSyntheticFixturesTable(db).catch(() => {});
     const { results } = await db.prepare("SELECT id, name, display_name, description FROM communities WHERE NOT EXISTS (SELECT 1 FROM synthetic_fixtures sf WHERE sf.resource_type = 'community' AND sf.resource_id = communities.id) ORDER BY name LIMIT 1000").all<any>();
-    const origin = new URL(request.url).origin;
+    const origin = SITE_ORIGIN;
     const title = 'Browse communities — UREfy';
     const description = 'Find communities and public discussions on UREfy. Browse topics and open a community to read its recent posts.';
     const response = injectStaticPageSeo(await env!.ASSETS.fetch(new URL('/', request.url)), {

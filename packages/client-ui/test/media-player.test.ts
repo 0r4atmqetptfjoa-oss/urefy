@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { ObsidianMediaPlayer } from '../src/media-player';
 
 describe('ObsidianMediaPlayer — Video Player & Multi-Image Gallery Lightbox', () => {
@@ -6,6 +6,34 @@ describe('ObsidianMediaPlayer — Video Player & Multi-Image Gallery Lightbox', 
 
   beforeEach(() => {
     player = new ObsidianMediaPlayer();
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('keeps external frames in an inert template and offers a Vimeo fallback', () => {
+    const html = player.renderVideoCard('vm-lazy', 'https://vimeo.com/123456789');
+    expect(html).toMatch(/<template data-video-frame>\s*<iframe/);
+    expect(html).toContain('aria-label="Play embedded video"');
+    expect(html).toContain('data-video-thumbnail-fallback  class=');
+  });
+
+  it('does not pause manually played visible native video when autoplay is disabled', () => {
+    let receive: (entries: any[]) => void = () => {};
+    class Observer {
+      constructor(callback: (entries: any[]) => void) { receive = callback; }
+      observe() {} unobserve() {}
+    }
+    vi.stubGlobal('IntersectionObserver', Observer);
+    vi.stubGlobal('window', { IntersectionObserver: Observer });
+    vi.stubGlobal('document', { querySelectorAll: () => [] });
+    vi.stubGlobal('localStorage', { getItem: () => 'false' });
+    const video = { muted: false, play: vi.fn(), pause: vi.fn() };
+    const target = { tagName: 'DIV', closest: () => null, querySelector: (selector: string) => selector === 'video' ? video : null };
+    player.initAutoplayObserver();
+    receive([{ target, isIntersecting: true, intersectionRatio: 1 }]);
+    expect(video.play).not.toHaveBeenCalled();
+    expect(video.pause).not.toHaveBeenCalled();
+    receive([{ target, isIntersecting: false, intersectionRatio: 0 }]);
+    expect(video.pause).toHaveBeenCalledOnce();
   });
 
   it('should render an Obsidian video card with custom controls and NO native controls attribute', () => {

@@ -15,6 +15,7 @@ const SYNC_QUEUE    = 'aetheris-sync-queue';
 const PRECACHE = [
   '/',
   '/index.html',
+  '/theme-boot.js',
   '/manifest.json',
   '/favicon.svg',
   '/favicon.ico',

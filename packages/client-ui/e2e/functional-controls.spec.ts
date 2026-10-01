@@ -60,21 +60,28 @@ test('interface mode changes visible tools and survives a reload', async ({ page
   await expect(advancedTools).toBeHidden();
 });
 
-test('profile settings retain the selected section and its scroll position', async ({ page }) => {
+test('profile settings use one workspace and retain the selected section and scroll', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 800 });
   await page.locator('[data-testid="nav-item-profile"]').click();
   await page.locator('#btn-profile-settings').click();
-  await page.locator('#btn-settings-cat-security').click();
-  await expect(page.locator('[data-settings-section="security"]')).toBeVisible();
-  await expect(async () => {
-    await page.locator('#profile-settings-nav').scrollIntoViewIfNeeded();
-  }).toPass({ timeout: 5000 });
-  const before = await page.locator('#sovereign-profile-container').evaluate(element => element.scrollTop);
-  await page.locator('#btn-settings-cat-privacy').click();
-  await expect(page.locator('[data-settings-section="privacy"]')).toBeVisible();
-  await expect(page.locator('#btn-settings-cat-privacy')).toHaveAttribute('aria-selected', 'true');
-  const after = await page.locator('#sovereign-profile-container').evaluate(element => element.scrollTop);
-  expect(after).toBeGreaterThanOrEqual(Math.min(before, 100));
+  const workspace = page.locator('.workspace-settings--dedicated');
+  await expect(workspace).toBeVisible();
+  await expect(page.locator('#unified-settings-modal')).toHaveCount(0);
+  await expect(page.getByRole('tablist', { name: 'Settings categories' })).toHaveCount(1);
+  await workspace.locator('[data-settings-tab="security"]').click();
+  await expect(workspace.locator('[data-settings-tab="security"]')).toHaveAttribute('aria-selected', 'true');
+  await workspace.locator('[data-settings-tab="privacy"]').click();
+  await expect(workspace.locator('[data-settings-tab="privacy"]')).toHaveAttribute('aria-selected', 'true');
+  await workspace.locator('[data-settings-tab="appearance"]').click();
+  await expect(workspace.locator('[data-settings-tab="appearance"]')).toHaveAttribute('aria-selected', 'true');
+  const scroll = workspace.locator('.workspace-settings__content');
+  await scroll.evaluate(element => element.scrollTop = 150);
+  const before = await scroll.evaluate(element => element.scrollTop);
+  expect(before).toBeGreaterThan(0);
+  await page.evaluate(() => (window as any).clientStore.notify());
+  await expect(workspace.locator('[data-settings-tab="appearance"]')).toHaveAttribute('aria-selected', 'true');
+  await expect.poll(() => scroll.evaluate(element => element.scrollTop)).toBe(before);
+  await expect(page.locator('#unified-settings-modal')).toHaveCount(0);
 });
 
 test('wallet tabs and close controls work without a fabricated account', async ({ page }) => {

@@ -92,6 +92,8 @@ For a future authorized drill, prepare-recovery.mjs reuses the existing RSA reci
 
 ## Email and diagnostics
 
+Operator Gmail/receiving setup is tracked separately in `docs/EMAIL_OPERATOR_SETUP.md`. On 2026-09-30, Cloudflare receiving for notifications@urefy.com was added to the existing verified owner Gmail destination. A dedicated restricted Gmail SMTP identity/policy and one access key were created. Gmail authenticated through Frankfurt SES using port 587/TLS and confirmed the razvan@urefy.com sender alias. Its confirmation email arrived through Cloudflare routing. No newly composed outgoing manual message was sent. Never copy the runtime credential into Gmail.
+
 `_aws-request.ts` signs fixed Frankfurt SES/SQS/EventBridge endpoints with WebCrypto and 15-second timeout; no arbitrary destination host. `_aws-email.ts` validates explicit consent and bounded subject/text/recipient; never pass DM content or keys. No email collection is added to onboarding.
 Admin-only POST `/api/aws-healthcheck` supports fixed SESsimulator and minimalSQShealthcheck. UnauthenticatedPOST verified401. No arbitrary recipient/payload proxy.
 `infrastructure/aws/verify-email.mts` invokes the exact server helper with selected ignored local env fields and fixed AWS simulator. Accepted MessageId `010701a0eef83cdd-796e080f-e228-4d40-83a4-82b2aa820717-000000`. This proves API acceptance, not human inbox delivery.

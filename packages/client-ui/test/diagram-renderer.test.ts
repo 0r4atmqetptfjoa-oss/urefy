@@ -231,6 +231,30 @@ describe('DiagramRenderer - Mermaid Architecture Diagrams', () => {
 });
 
 describe('DiagramRenderer - renderRichContent & Markdown Integration', () => {
+  it('preserves multiple currency amounts before actual inline math', () => {
+    const content = 'They cost $650 each, or $1,300 total. Formula: $E = mc^2$.';
+    for (const html of [markdownRenderer.renderInline(content), diagramRenderer.renderRichContent(content)]) {
+      expect(html).toContain('$650 each, or $1,300 total.');
+      expect(html.match(/role="math"/g)).toHaveLength(1);
+      expect(html).toContain('aria-label="E = mc^2"');
+    }
+    expect(markdownRenderer.renderInline(String.raw`Escaped \$x\$ and $1,300$`)).not.toContain('role="math"');
+  });
+
+  it('renders safe accessible tables with escaped pipes and code cells', () => {
+    const html = markdownRenderer.renderMarkdown('Intro\n| Name | Cost | Code |\n| :--- | ---: | :---: |\n| A\\|B | $650 | `a|b` |\n| <script>bad</script> | $1,300 | **bold** |');
+    expect(html).toContain('<table');
+    expect(html).toContain('scope="col"');
+    expect(html).toContain('role="region"');
+    expect(html).toContain('A|B');
+    expect(html).toContain('a|b</code>');
+    expect(html).toContain('$650');
+    expect(html).toContain('$1,300');
+    expect(html).toContain('&lt;script&gt;');
+    expect(html).not.toContain('<script>');
+    expect(html.match(/<td /g)).toHaveLength(6);
+  });
+
   it('seamlessly renders markdown with inline math, block math, and mermaid code blocks', () => {
     const content = `
 # System Architecture

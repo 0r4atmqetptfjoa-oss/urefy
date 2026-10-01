@@ -14,6 +14,7 @@ export type SovereignRoute = 'feed' | 'explore' | 'communities' | 'messages' | '
 
 export class SovereignRouter {
   private currentRoute: SovereignRoute = 'feed';
+  public settingsSubtab: string | undefined;
   private listeners: Array<(route: SovereignRoute) => void> = [];
   private isInternalNavigating: boolean = false;
 
@@ -209,12 +210,12 @@ export class SovereignRouter {
         break;
       case 'settings':
         clientStore.activeChannelId = 'settings';
+        this.settingsSubtab = options.subtab;
         if (typeof window !== 'undefined') {
           const win = window as any;
-          if (win.settingsView && typeof win.settingsView.open === 'function') {
-            win.settingsView.open(options.subtab as any);
-          } else if (typeof win.__aetheris_open_settings === 'function') {
-            win.__aetheris_open_settings(options.subtab as any);
+          if (win.settingsView) {
+            if (win.settingsView.isOpen) win.settingsView.close();
+            if (options.subtab) win.settingsView.setActiveTab(options.subtab as any);
           }
         }
         break;
