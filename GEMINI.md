@@ -1,5 +1,9 @@
 # Instructions for Gemini / Antigravity
 
+## Latest production publication (2026-10-01)
+
+Optimization repairs are deployed to urefy.com in Pages deployment `4552215f`, code commit `6c947d9`. See `docs/DEPLOYMENT_2026-10-01.md` and `docs/OPTIMIZATION_REPAIRS_2026-10-01.md`. All 89 checked manifest/runtime assets match the local build by SHA-256. Startup JS is 642.58 KiB gzip; the sub-600 target remains open. Preserve bounded initial Home batches, inert video facades, stable feed/message nodes and the canonical Settings workspace. The owner explicitly forbids changes to user and post data: do not run seed scripts, migrations or cleanup. Existing seed scripts were committed as source only and were not executed. No Git remote is configured yet, so the code commit is local even though Cloudflare publication is complete.
+
 For the latest project repairs and performance changes, read `docs/PROJECT_REPAIRS_2026-09-30.md`. Production deployment `bb6caff0` includes the prior SEO/AWS code and the search/autocomplete/preview/profile repairs. Production builds exclude the 1,000 development persona fixtures via the Vite alias; do not reintroduce them. Final startup JavaScript: 665.56 KiB gzip. Unit suite: 2,605 passed. Browser rerun caveats are recorded in the report.
 
 For public discovery/SEO changes, read [`docs/SEO_DISCOVERY.md`](docs/SEO_DISCOVERY.md). SEO is deployed in Pages deployment `ccc38a54` (2026-09-30), preserving the AWS integrations below. Public post HTML/schema, paginated sitemaps, factual guides and IndexNow URL-only notifications are active. Preserve audience/fixture/facet privacy filters and the distinction between accepted crawl requests and actual indexing. Never invent ratings, certification, adoption, edit dates or AI-search guarantees.

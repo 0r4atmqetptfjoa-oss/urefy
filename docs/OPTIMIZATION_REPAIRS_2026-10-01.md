@@ -4,6 +4,8 @@
 
 Implementare verificată **local**, în continuarea [auditului](OPTIMIZATION_AUDIT_2026-10-01.md). Nu am publicat o versiune nouă și nu am modificat sau șters date de utilizatori, profiluri ori postări. Nu am executat scripturi seed, migrări, curățări de baze de date sau cereri API de scriere. Modificările preexistente din checkout au fost păstrate.
 
+**Actualizare ulterioară:** utilizatorul a cerut publicarea. Versiunea este acum publicată în deployment `4552215f`; [raportul de publicare](DEPLOYMENT_2026-10-01.md) consemnează commitul și verificările live. Restul acestui document păstrează rezultatele etapei locale.
+
 Testele noi folosesc numai fixture-uri sintetice în memoria unor contexte locale de browser care sunt închise după test. Numărul postărilor fixture rămâne 100 după paginație; doar prezentarea este limitată.
 
 ## Implementare

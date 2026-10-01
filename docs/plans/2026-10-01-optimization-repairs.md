@@ -21,3 +21,5 @@ Existing uncommitted work stays in place. Do not make broad commits containing o
 ## Implementation status
 
 Steps 1–7 implemented locally with focused verification. Results and remaining acceptance work are documented in [OPTIMIZATION_REPAIRS_2026-10-01.md](../OPTIMIZATION_REPAIRS_2026-10-01.md). Startup is 642.58 KiB gzip, so the audit's sub-600 target remains outstanding. Full theme/device and CPU/memory measurements remain outstanding. No user or post data was changed; no deployment was performed.
+
+Subsequent explicit publication request completed in Cloudflare Pages deployment `4552215f`; see [DEPLOYMENT_2026-10-01.md](../DEPLOYMENT_2026-10-01.md). No product data was changed. Git push remains pending the repository URL.
