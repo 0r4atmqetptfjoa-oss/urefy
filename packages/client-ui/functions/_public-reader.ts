@@ -14,6 +14,7 @@ export function publicReader(response: Response, workspace = false): Response {
     .on('head', { element(e) { e.append(`<style>
       :root{--reader-bg:var(--bg-canvas,#090a0f);--reader-text:var(--text-primary,#e2e8f0);--reader-muted:#a6b0be;--reader-link:#efb65c;--reader-border:rgba(128,128,128,.25)}
       html.light{--reader-muted:#57534e;--reader-link:#895200}
+      html[data-public-reader]{font:17px/1.7 'Segoe UI Variable','Segoe UI',Arial,sans-serif}
       html,body{height:auto!important;overflow-y:auto!important}html.app-booting #app{visibility:visible!important}
       .public-reader{margin:0;background:var(--reader-bg);color:var(--reader-text);font:17px/1.7 'Segoe UI Variable','Segoe UI',Arial,sans-serif}
       .public-reader #app{height:auto;min-height:100vh;contain:none}

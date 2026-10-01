@@ -40,6 +40,8 @@ Acestea sunt măsurători de laborator pentru un URL. PageSpeed nu oferă date d
 9. Eliminat apelul de creare a tabelului de fixtures din handler-ele publice GET. Filtrele de vizibilitate și excludere fixtures sunt păstrate; tabelul existent nu este modificat.
 10. Pagina arhivei și paginile informative standalone nu mai încarcă stylesheetul aplicației. Limbajul HTML al paginilor publice în engleză nu mai este suprascris de preferința locală de limbă a interfeței.
 11. Fotografiile Unsplash au `srcset`/`sizes` responsive, cu variante de lățime și format negociat de CDN. Adresa originală, cropul și parametrii de atribuire rămân păstrați; nu sunt schimbate înregistrările postărilor. Se folosesc [transformările documentate de Unsplash](https://unsplash.com/documentation#dynamically-resizable-images).
+12. Scorul Merit nu mai este prezentat în JSON-LD ca număr de LikeAction: un scor de vot nu certifică numărul de aprecieri. Contorul comentariilor rămâne, iar scorurile originale rămân vizibile în pagină.
+13. Corectat contrastul etichetelor Media/Poll/More, numerelor subiectelor și textului secundar din onboarding, folosind tokenul semantic al temei active. Fontul rădăcinii readerului corespunde fontului textului, astfel încât unitatea `ch` din `sizes` are aceeași măsură.
 
 ## Verificare înainte de publicare
 
@@ -55,11 +57,13 @@ Acestea sunt măsurători de laborator pentru un URL. PageSpeed nu oferă date d
 - Calitatea editorială a celor 37 titluri de forma `Load Post T...`, cele patru date de postare în viitor și imaginea externă 404 necesită decizii asupra datelor. Aceste date sunt păstrate conform instrucțiunii utilizatorului.
 - Conținutul sondajelor, atașamentelor și citărilor complexe are un link explicit către aplicație; nu sunt inventate rezumate sau metadate media necunoscute.
 - Activitățile interactive din aplicație și timpii reali pe dispozitive fizice sunt distincte de performanța paginilor publice de citire.
+- **Pagina principală interactivă rămâne mai lentă:** o măsurare separată pe mobil a indicat Performance 62, LCP 5,3 s și TBT 360 ms, cu SEO 100. Grafurile JavaScript și CSS ale aplicației complete încă au resurse nefolosite la primul ecran. Această observație nu este ascunsă de scorurile readerelor. O reducere substanțială presupune separarea suplimentară a runtime-ului de interacțiune și verificarea fluxurilor sale; auditul de față nu certifică Home 100 sau aplicația completă optimizată integral.
 
 ## Publicare și audit live
 
 - Commit inițial: `af0ea9c` — Optimize public reading pages and correct author and media SEO.
 - Deploy în proiectul existent `aetheris-omni-sphere`, branch `main`: `https://cda9a2c6.aetheris-omni-sphere.pages.dev`.
+- Commit pentru fotografii responsive: `1284f05`; publicare: `https://47167270.aetheris-omni-sphere.pages.dev`. Auditul integral GET/HEAD a fost repetat după această publicare cu aceleași rezultate.
 - Domeniul `https://urefy.com` verificat după publicare. Repository-ul nu are remote Git configurat; commitul este local și deploy-ul este direct prin Wrangler.
 - Auditul integral după publicare: **1.484 GET 200 + 1.484 HEAD 200**, corp HEAD zero și robots identic cu GET pe toate paginile. Canonical, H1, descriere, indexability, JSON-LD și coerență socială: zero erori.
 - Toate linkurile interne din HTML-ul auditat duc la pagini verificate. Cele 119 URL-uri false de profil nu mai sunt generate.
@@ -85,9 +89,11 @@ Măsurători noi, același Lighthouse 13.5.0, aproximativ 22:30–22:33 Europe/B
 | Profil — Accessibility / Best Practices / SEO | 100 / 100 / 100 | 100 / 100 / 100 |
 | `/p/post-drm-piracy-superior-product` — Performance, înainte de srcset | 99 | 100 |
 | Postare cu fotografie — LCP / TBT / CLS, înainte de srcset | 2,0 s / 0 ms / 0 | 0,5 s / 0 ms / 0 |
+| Postare cu fotografie — Performance, după srcset | **100** | verificat separat în captura raportului |
+| Postare cu fotografie — LCP / TBT / CLS, după srcset | **0,8 s / 0 ms / 0** | verificat separat în captura raportului |
 
 [Raportul postării reprezentative](https://pagespeed.web.dev/analysis/https-urefy-com-p-post-organic-1/qgk20pwbha?form_factor=mobile). Scorurile sunt pentru URL-urile măsurate, nu pentru toate paginile, toate temele sau interfața completă `?app=1`.
 
 ## Dovezi
 
-Fișiere locale în `outputs/seo/2026-10-01/`: `baseline-complete.json`, `final-complete.json`, `final-samples.json`, logurile typecheck/build/deploy, rapoartele PageSpeed în text și capturile `reader-live.jpg`, `pagespeed-after-mobile.jpg`, `rich-results-post.jpg`, `rich-results-profile.jpg`. Videoul YouTube real a fost verificat încărcat în pagina publică, fără erori console, cu link separat către sursa originală.
+Fișiere locale în `outputs/seo/2026-10-01/`: `baseline-complete.json`, `final-complete.json`, `final-responsive.json`, `final-samples.json`, logurile typecheck/build/deploy, rapoartele PageSpeed în text și capturile `reader-live.jpg`, `pagespeed-after-mobile.jpg`, `rich-results-post.jpg`, `rich-results-profile.jpg`. Videoul YouTube real a fost verificat încărcat în pagina publică, fără erori console, cu link separat către sursa originală.

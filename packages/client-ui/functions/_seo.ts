@@ -236,11 +236,6 @@ export function buildPostJsonLd(post: SeoPostData, canonicalUrl: string, origin:
     interactionStatistic: [
       {
         '@type': 'InteractionCounter',
-        interactionType: 'https://schema.org/LikeAction',
-        userInteractionCount: Math.max(0, post.meritVotes || 0),
-      },
-      {
-        '@type': 'InteractionCounter',
         interactionType: 'https://schema.org/CommentAction',
         userInteractionCount: Math.max(0, post.replyCount || 0),
       },
@@ -278,13 +273,6 @@ export function buildPostJsonLd(post: SeoPostData, canonicalUrl: string, origin:
         ...(c.authorHandle ? { alternateName: c.authorHandle } : {}),
         ...(authorProfileUrl(c, origin) ? { url: authorProfileUrl(c, origin) } : {}),
       },
-      interactionStatistic: [
-        {
-          '@type': 'InteractionCounter',
-          interactionType: 'https://schema.org/LikeAction',
-          userInteractionCount: Math.max(0, c.upvotes || 0),
-        },
-      ],
     }));
   }
 

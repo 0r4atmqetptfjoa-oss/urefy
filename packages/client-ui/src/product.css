@@ -1909,3 +1909,11 @@ body { font-family: var(--font-family-sans); }
     -webkit-backdrop-filter: none;
   }
 }
+
+/* Keep small, actionable labels readable in the active theme. */
+.quick-composer .composer-tools button,
+.quick-composer .composer-tools button span,
+.social-home-collapsed .text-slate-500,
+#onboarding-modal .text-slate-500 {
+  color: var(--text-secondary) !important;
+}
