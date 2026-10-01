@@ -117,6 +117,26 @@ export function extractPostImages(post: SeoPostData, origin: string): string[] {
   return [...new Set(values.map(value => publicMediaUrl(value, origin)).filter((value): value is string => !!value))];
 }
 
+/** Use the photo CDN's supported width variants; keep the stored source URL intact. */
+function responsivePhotoAttributes(image: string): string {
+  const source = new URL(image);
+  if (source.hostname !== 'images.unsplash.com' || !source.pathname.startsWith('/photo-')) return '';
+  const width = Number(source.searchParams.get('w')) || 1280;
+  const height = Number(source.searchParams.get('h'));
+  if (height && !source.searchParams.has('w')) return '';
+  const maxWidth = Math.min(1920, Math.max(1, width));
+  const widths = [...new Set([...([400, 640, 960, 1280, 1920].filter(w => w < maxWidth)), maxWidth])];
+  const srcset = widths.map(w => {
+    const variant = new URL(source);
+    variant.searchParams.set('w', String(w));
+    if (height) variant.searchParams.set('h', String(Math.max(1, Math.round(height * w / width))));
+    const auto = new Set((variant.searchParams.get('auto') || '').split(',').filter(Boolean));
+    auto.add('format'); variant.searchParams.set('auto', [...auto].join(','));
+    return `${variant.href} ${w}w`;
+  }).join(', ');
+  return `srcset="${escapeHtml(srcset)}" sizes="(max-width:540px) calc(100vw - 40px), (max-width:1080px) 90vw, 76ch"`;
+}
+
 function postVideo(post: SeoPostData, origin: string): { src: string; embed?: string; poster?: string; title: string } | undefined {
   try {
     const v = JSON.parse(post.videoJson || 'null');
@@ -306,7 +326,7 @@ export function injectPostSeo(
     <nav aria-label="Public navigation"><a href="/">UREfy</a><a href="/discussions">Discussions</a><a href="/communities">Communities</a><a href="${escapeHtml(appUrl)}">Open in app →</a></nav>
     <article><header><span class="reader-eyebrow">${escapeHtml(post.flair || 'Discussion')}</span><h1>${escapeHtml(visibleTitle)}</h1>
     <p class="reader-meta">By ${authorUrl ? `<a href="${escapeHtml(authorUrl)}">${escapeHtml(authorName)}</a>` : escapeHtml(authorName)} · <time datetime="${new Date(post.createdAt).toISOString()}">${new Date(post.createdAt).toLocaleDateString('en-GB', { timeZone: 'UTC' })}</time> · ${post.meritVotes || 0} Merit · ${post.replyCount || 0} Replies</p></header>
-    <div class="reader-content">${images.map((image, i) => `<figure class="reader-media"><img src="${escapeHtml(image)}" alt="${escapeHtml(visibleTitle)}${images.length > 1 ? ` — image ${i + 1}` : ''}" loading="${i ? 'lazy' : 'eager'}" ${i ? '' : 'fetchpriority="high"'} decoding="async"></figure>`).join('')}
+    <div class="reader-content">${images.map((image, i) => `<figure class="reader-media"><img src="${escapeHtml(image)}" ${responsivePhotoAttributes(image)} alt="${escapeHtml(visibleTitle)}${images.length > 1 ? ` — image ${i + 1}` : ''}" loading="${i ? 'lazy' : 'eager'}" ${i ? '' : 'fetchpriority="high"'} decoding="async"></figure>`).join('')}
     ${renderPublicText(post.content)}${!indexable ? `<p>${escapeHtml(description)}</p>` : ''}
     ${video ? `<section class="reader-video" aria-label="Post video">${video.embed ? `<iframe src="${escapeHtml(video.embed)}" title="${escapeHtml(video.title)}" loading="lazy" allow="fullscreen; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>` : /\.(mp4|webm|ogg)(?:\?|$)/i.test(video.src) ? `<video controls preload="none" ${video.poster ? `poster="${escapeHtml(video.poster)}"` : ''} src="${escapeHtml(video.src)}"></video>` : ''}<p><a href="${escapeHtml(video.src)}" rel="ugc nofollow noreferrer">Open original video</a></p></section>` : ''}
     ${post.pollId || post.attachmentJson || post.quotedPostJson ? `<p>Additional shared content is available <a href="${escapeHtml(appUrl)}">in the app</a>.</p>` : ''}</div>
