@@ -84,7 +84,7 @@ export async function onRequest(context: EventContext<any, any, any>): Promise<R
   const response = await next();
 
   // Unknown paths must never inherit the root SPA's successful HTML response.
-  const publicRoute = /^\/(?:$|explore$|communities$|about$|features$|privacy$|terms$|security$|faq$|guides(?:\/(?:get-started|private-messaging))?$|admin(?:\.html)?$|(?:p|post|c|u)\/[^/]+$)/.test(url.pathname);
+  const publicRoute = /^\/(?:$|explore$|discussions$|communities$|about$|features$|privacy$|terms$|security$|faq$|guides(?:\/(?:get-started|private-messaging))?$|admin(?:\.html)?$|(?:p|post|c|u)\/[^/]+$)/.test(url.pathname);
   if (!publicRoute && !url.pathname.startsWith('/api/') && response.headers.get('Content-Type')?.includes('text/html')) {
     return seoError(404);
   }

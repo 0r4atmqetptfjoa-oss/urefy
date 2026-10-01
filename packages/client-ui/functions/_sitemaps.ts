@@ -1,10 +1,10 @@
 import { getD1Database, type Env } from './api/_db.js';
-import { INDEXABLE_PROFILE_SQL, PUBLIC_POST_SQL, SITE_ORIGIN } from './_discovery.js';
+import { INDEXABLE_PROFILE_SQL, INDEXABLE_POST_SQL, SITE_ORIGIN } from './_discovery.js';
 import { escapeHtml } from './_seo.js';
 
 export const SITEMAP_PAGE_SIZE = 1000;
 export const STATIC_DISCOVERY_PAGES = [
-  { path: '/', modified: '2026-09-30' }, { path: '/explore' }, { path: '/communities' },
+  { path: '/', modified: '2026-09-30' }, { path: '/explore' }, { path: '/communities' }, { path: '/discussions' },
   { path: '/about', modified: '2026-09-30' }, { path: '/features', modified: '2026-09-30' },
   { path: '/security', modified: '2026-09-30' }, { path: '/privacy', modified: '2026-09-30' }, { path: '/terms' },
   { path: '/faq', modified: '2026-09-30' }, { path: '/guides', modified: '2026-09-30' },
@@ -30,7 +30,7 @@ export async function paginatedSitemap(env: Env | undefined, kind: 'posts' | 'pr
   try {
     const offset = (Number(rawPage) - 1) * SITEMAP_PAGE_SIZE;
     const query = kind === 'posts'
-      ? `SELECT posts.id, posts.created_at FROM posts WHERE ${PUBLIC_POST_SQL} ORDER BY posts.created_at DESC, posts.id LIMIT ? OFFSET ?`
+      ? `SELECT posts.id, posts.created_at FROM posts WHERE ${INDEXABLE_POST_SQL} ORDER BY posts.created_at DESC, posts.id LIMIT ? OFFSET ?`
       : `SELECT user_profiles.user_id, user_profiles.created_at, user_profiles.updated_at FROM user_profiles WHERE ${INDEXABLE_PROFILE_SQL} ORDER BY user_profiles.created_at DESC, user_profiles.user_id LIMIT ? OFFSET ?`;
     const { results } = await db.prepare(query).bind(SITEMAP_PAGE_SIZE, offset).all<any>();
     if (!results.length && offset > 0) return new Response('Not found', { status: 404 });

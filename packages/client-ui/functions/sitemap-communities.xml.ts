@@ -1,3 +1,4 @@
+import { headHandler } from './_head.js';
 import { SITE_ORIGIN } from './_discovery.js';
 import { getD1Database, type Env } from './api/_db.js';
 import { ensureSyntheticFixturesTable } from './api/_synthetic.js';
@@ -14,3 +15,5 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
     return new Response(xml, { headers: { 'Content-Type': 'application/xml; charset=utf-8', 'Cache-Control': 'public, max-age=300' } });
   } catch { return new Response('Sitemap temporarily unavailable', { status: 503 }); }
 }
+
+export const onRequestHead = headHandler(onRequestGet);

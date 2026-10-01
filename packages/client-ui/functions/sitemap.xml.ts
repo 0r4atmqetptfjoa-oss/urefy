@@ -1,12 +1,13 @@
+import { headHandler } from './_head.js';
 import { getD1Database, type Env } from './api/_db.js';
-import { PUBLIC_POST_SQL, INDEXABLE_PROFILE_SQL, SITE_ORIGIN } from './_discovery.js';
+import { INDEXABLE_POST_SQL, INDEXABLE_PROFILE_SQL, SITE_ORIGIN } from './_discovery.js';
 import { SITEMAP_PAGE_SIZE, sitemapResponse, sitemapUnavailable } from './_sitemaps.js';
 export async function onRequestGet(context: { env?: Env }): Promise<Response> {
   const db = getD1Database(context.env);
   if (!db) return sitemapUnavailable();
   try {
     const counts = await db.batch<any>([
-      db.prepare(`SELECT count(*) AS total FROM posts WHERE ${PUBLIC_POST_SQL}`),
+      db.prepare(`SELECT count(*) AS total FROM posts WHERE ${INDEXABLE_POST_SQL}`),
       db.prepare(`SELECT count(*) AS total FROM user_profiles WHERE ${INDEXABLE_PROFILE_SQL}`),
     ]);
     if (counts.length !== 2 || counts.some(result => !result.success || result.results?.[0]?.total === undefined)) return sitemapUnavailable();
@@ -20,3 +21,5 @@ export async function onRequestGet(context: { env?: Env }): Promise<Response> {
     return sitemapResponse('<?xml version="1.0" encoding="UTF-8"?><sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' + paths.map(p => `<sitemap><loc>${SITE_ORIGIN}${p}</loc></sitemap>`).join('') + '</sitemapindex>');
   } catch { return sitemapUnavailable(); }
 }
+
+export const onRequestHead = headHandler(onRequestGet);

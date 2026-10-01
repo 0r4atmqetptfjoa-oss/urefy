@@ -1,3 +1,4 @@
+import { headHandler } from '../_head.js';
 /**
  * @file webfinger.ts
  * @description RFC 7033 WebFinger endpoint for ActivityPub / Fediverse node and user discovery.
@@ -92,3 +93,5 @@ export async function onRequestOptions(): Promise<Response> {
     },
   });
 }
+
+export const onRequestHead = headHandler(onRequestGet);

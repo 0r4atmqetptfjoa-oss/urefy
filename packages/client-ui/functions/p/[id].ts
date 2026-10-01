@@ -1,3 +1,4 @@
+import { headHandler } from '../_head.js';
 import { seoError } from '../_seo-response.js';
 // ===========================================================================
 // UREfy — Cloudflare Pages Edge Function for /p/:id (Automatic Post SEO)
@@ -8,7 +9,7 @@ import { seoError } from '../_seo-response.js';
 import { Env, getD1Database, getKVStore } from '../api/_db.js';
 import { ensureSyntheticFixturesTable } from '../api/_synthetic.js';
 import { injectPostSeo, SeoPostData } from '../_seo.js';
-import { PUBLIC_POST_SQL } from '../_discovery.js';
+import { INDEXABLE_POST_SQL, hasPublicPostContent, PUBLIC_ROBOTS } from '../_discovery.js';
 
 export async function onRequestGet(context: {
   request: Request;
@@ -52,7 +53,8 @@ export async function onRequestGet(context: {
       const row = await db
         .prepare(
           `SELECT p.id, p.title, p.content, p.flair, p.author_id, p.created_at, p.channel_id,
-                  p.merit_votes, p.reply_count, p.images_json, p.status, p.audience, p.facet_id,
+                  p.merit_votes, p.reply_count, p.images_json, p.video_json, p.attachment_json,
+                  p.poll_id, p.quoted_post_json, p.status, p.audience, p.facet_id,
                   f.is_publicly_linked, f.status AS facet_status,
                   CASE
                     WHEN p.facet_id IS NOT NULL THEN (
@@ -111,11 +113,15 @@ export async function onRequestGet(context: {
           meritVotes: Number(row.merit_votes) || 0,
           replyCount: Number(row.reply_count) || 0,
           imagesJson: row.images_json,
+          videoJson: row.video_json,
+          attachmentJson: row.attachment_json,
+          quotedPostJson: row.quoted_post_json,
+          pollId: row.poll_id,
           status: row.status,
         };
 
         try {
-          post.relatedPosts = (await db.prepare(`SELECT id, title FROM posts WHERE channel_id = ? AND id != ? AND ${PUBLIC_POST_SQL} ORDER BY created_at DESC LIMIT 6`).bind(row.channel_id, postId).all<{ id: string; title: string }>()).results;
+          post.relatedPosts = (await db.prepare(`SELECT id, title FROM posts WHERE channel_id = ? AND id != ? AND ${INDEXABLE_POST_SQL} ORDER BY created_at DESC, id LIMIT 6`).bind(row.channel_id, postId).all<{ id: string; title: string }>()).results;
         } catch { /* The post remains readable if optional related links are unavailable. */ }
 
         // Query top 5 comments for DiscussionForumPosting Schema & SSR thread
@@ -170,7 +176,7 @@ export async function onRequestGet(context: {
         } catch (_) {}
 
         // Cache in KV for 5 minutes
-        if (kv && typeof context.waitUntil === 'function') {
+        if (request.method === 'GET' && kv && typeof context.waitUntil === 'function') {
           context.waitUntil(
             kv.put(`seo:post:${postId}`, JSON.stringify(post), { expirationTtl: 300 }).catch(() => {})
           );
@@ -190,10 +196,12 @@ export async function onRequestGet(context: {
 
   const headers = new Headers(modifiedResponse.headers);
   headers.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
-  headers.set('X-Robots-Tag', 'index, follow, max-image-preview:large, max-snippet:-1');
+  headers.set('X-Robots-Tag', hasPublicPostContent(post) ? PUBLIC_ROBOTS : 'noindex, follow');
 
   return new Response(modifiedResponse.body, {
     status: 200,
     headers,
   });
 }
+
+export const onRequestHead = headHandler(onRequestGet);

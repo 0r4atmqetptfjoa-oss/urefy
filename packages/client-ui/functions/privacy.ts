@@ -1,3 +1,4 @@
+import { headHandler } from './_head.js';
 // ===========================================================================
 // UREfy — Cloudflare Pages Edge Function for /privacy
 // Full semantic SSR HTML, canonical URLs & GDPR / DSA Compliance
@@ -97,3 +98,5 @@ export async function onRequestGet(context: {
     headers,
   });
 }
+
+export const onRequestHead = headHandler(onRequestGet);

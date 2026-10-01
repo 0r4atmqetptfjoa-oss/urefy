@@ -1,3 +1,4 @@
+import { headHandler } from './_head.js';
 // ===========================================================================
 // UREfy — Cloudflare Pages Edge Function for /terms
 // Full semantic SSR HTML, canonical URLs & Terms of Service
@@ -92,3 +93,5 @@ export async function onRequestGet(context: {
     headers,
   });
 }
+
+export const onRequestHead = headHandler(onRequestGet);

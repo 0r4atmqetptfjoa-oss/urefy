@@ -1,3 +1,4 @@
+import { headHandler } from './_head.js';
 import { SITE_ORIGIN } from './_discovery.js';
 import { getD1Database, type Env } from './api/_db.js';
 import { ensureSyntheticFixturesTable } from './api/_synthetic.js';
@@ -26,3 +27,5 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
     return new Response(response.body, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=60' } });
   } catch { return seoError(503); }
 }
+
+export const onRequestHead = headHandler(onRequestGet);

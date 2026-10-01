@@ -1,3 +1,4 @@
+import { headHandler } from '../_head.js';
 import { PROFILE_POST_SQL } from '../_discovery.js';
 import { getD1Database, type Env } from '../api/_db.js';
 import { ensureSyntheticFixturesTable } from '../api/_synthetic.js';
@@ -23,3 +24,5 @@ export async function onRequestGet(context: { request: Request; env?: Env; param
     return new Response(response.body, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=60', 'X-Robots-Tag': !row.bio?.trim() && !posts.results.length ? 'noindex, follow' : 'index, follow, max-image-preview:large' } });
   } catch { return seoError(503); }
 }
+
+export const onRequestHead = headHandler(onRequestGet);

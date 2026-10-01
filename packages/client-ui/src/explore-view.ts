@@ -216,6 +216,7 @@ export class ExploreView {
         <div class="explore-category-bar journal-atlas-filters" role="tablist" aria-label="Explore categories">
           ${this.categories.map(category => `<button type="button" data-explore-cat="${category.id}" role="tab" aria-selected="${this.activeSubTab === 'pulses' && this.activeCategory === category.id}" class="btn-explore-category ${this.activeSubTab === 'pulses' && this.activeCategory === category.id ? 'is-active' : ''}">${category.label}</button>`).join('')}
           <button type="button" role="tab" aria-selected="${this.activeSubTab === 'communities'}" data-action="set-explore-subtab" data-subtab="communities" class="${this.activeSubTab === 'communities' ? 'is-active' : ''}">All communities</button>
+          <a href="/discussions" class="public-archive-link">Browse all discussions →</a>
         </div>
 
         <div id="explore-feed-scroll" class="explore-scroll journal-atlas-scroll">

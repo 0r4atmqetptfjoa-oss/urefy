@@ -1,3 +1,6 @@
+import { headHandler } from './_head.js';
 import { paginatedSitemap } from './_sitemaps.js';
 import type { Env } from './api/_db.js';
 export const onRequestGet = (context: { env?: Env }) => paginatedSitemap(context.env, 'posts', '1');
+
+export const onRequestHead = headHandler(onRequestGet);

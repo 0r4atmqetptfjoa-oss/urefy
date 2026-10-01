@@ -1,5 +1,5 @@
 import { postPath, profilePath, communityPath, communitySlug } from '../src/public-urls.js';
-import { SITE_ORIGIN, PUBLIC_ROBOTS } from './_discovery.js';
+import { SITE_ORIGIN, PUBLIC_ROBOTS, hasPublicPostContent } from './_discovery.js';
 // ===========================================================================
 // UREfy — Edge SEO & Social Graph Metadata Engine (_seo.ts)
 // Automatically renders dynamic OpenGraph, Twitter Cards, Schema.org JSON-LD
@@ -42,6 +42,10 @@ export interface SeoPostData {
   meritVotes?: number;
   replyCount?: number;
   imagesJson?: string;
+  videoJson?: string;
+  attachmentJson?: string;
+  quotedPostJson?: string;
+  pollId?: string;
   status?: string;
   isAiGenerated?: boolean;
   sharedContent?: {
@@ -228,10 +232,16 @@ export function injectPostSeo(
 ): Response {
   const origin = SITE_ORIGIN;
   const canonicalUrl = `${origin}${postPath(post.id)}`;
-  const pageTitle = `${post.title} — UREfy`;
-  const description = cleanMarkdown(post.content, 160);
+  const indexable = hasPublicPostContent(post);
+  const postTitle = post.title?.trim() || cleanMarkdown(post.content, 100) || 'Public post';
+  const visibleTitle = indexable ? postTitle : 'Post without public content';
+  const pageTitle = `${visibleTitle} — UREfy`;
+  const description = cleanMarkdown(post.content, 160) || (indexable
+    ? (postTitle.toLowerCase() !== 'sovereign pulse' ? cleanMarkdown(postTitle, 160) : 'A public media post on UREfy.')
+    : 'This post does not contain public text, media or a poll. Browse other public discussions on UREfy.');
   const ogImage = extractPostImage(post, origin);
-  const jsonLd = buildPostJsonLd(post, canonicalUrl, origin, description);
+  const jsonLd = indexable ? buildPostJsonLd({ ...post, title: visibleTitle }, canonicalUrl, origin, description)
+    : { '@type': 'WebPage', '@id': canonicalUrl, url: canonicalUrl, name: visibleTitle, description };
   const authorName = post.authorName || `Member ${post.authorId.slice(0, 8)}`;
 
   // Server-rendered article content for crawlers and initial render (replaces #app to prevent homepage shell duplication)
@@ -240,12 +250,13 @@ export function injectPostSeo(
       <nav aria-label="Discussion navigation" style="margin-bottom: 20px;"><a href="${origin}/" style="color: #e59b3c;">UREfy</a> · <a href="/explore" style="color: #e59b3c;">Public discussions</a> · <a href="/communities" style="color: #e59b3c;">Communities</a></nav>
       <header style="margin-bottom: 24px;">
         <span style="font-size: 12px; color: #e59b3c; font-weight: bold; text-transform: uppercase; letter-spacing: 0.05em;">${escapeHtml(post.flair || 'DISCUSSION')}</span>
-        <h1 style="font-size: 28px; line-height: 1.3; margin: 8px 0 12px 0; color: #f8fafc;">${escapeHtml(post.title)}</h1>
+        <h1 style="font-size: 28px; line-height: 1.3; margin: 8px 0 12px 0; color: #f8fafc;">${escapeHtml(visibleTitle)}</h1>
         <p style="font-size: 14px; color: #94a3b8; margin: 0;">By <a href="${origin}${profilePath(post.authorId)}" style="color: #e59b3c; text-decoration: none;">${escapeHtml(authorName)}</a> &bull; <time datetime="${new Date(post.createdAt).toISOString()}">${new Date(post.createdAt).toLocaleDateString('en-GB', { timeZone: 'UTC' })}</time> &bull; ${post.meritVotes || 0} Merit &bull; ${post.replyCount || 0} Replies</p>
       </header>
       <div style="font-size: 16px; line-height: 1.6; color: #cbd5e1;">
         ${ogImage !== `${origin}/og-image.png` ? `<img src="${escapeHtml(ogImage)}" alt="${escapeHtml(post.title)}" loading="lazy" style="max-width:100%;height:auto;border-radius:8px">` : ''}
         ${escapeHtml(post.content).replace(/\n\n/g, '<br/><br/>')}
+        ${!indexable ? `<p>${escapeHtml(description)}</p>` : ''}
       </div>
       ${
         post.comments && post.comments.length > 0
@@ -271,6 +282,7 @@ export function injectPostSeo(
   `;
 
   return new HTMLRewriter()
+    .on('meta[name="robots"], meta[name="googlebot"], meta[name="bingbot"]', { element(e) { e.setAttribute('content', indexable ? PUBLIC_ROBOTS : 'noindex, follow'); } })
     .on('script[type="application/ld+json"]', { element(e) { e.remove(); } })
     .on('link[hreflang]', { element(e) { e.remove(); } })
     .on('title', {
@@ -285,7 +297,7 @@ export function injectPostSeo(
     })
     .on('meta[property="og:title"]', {
       element(e) {
-        e.setAttribute('content', post.title);
+        e.setAttribute('content', visibleTitle);
       },
     })
     .on('meta[property="og:description"]', {
@@ -315,12 +327,12 @@ export function injectPostSeo(
     })
     .on('meta[property="og:image:alt"]', {
       element(e) {
-        e.setAttribute('content', post.title);
+        e.setAttribute('content', visibleTitle);
       },
     })
     .on('meta[name="twitter:title"]', {
       element(e) {
-        e.setAttribute('content', post.title);
+        e.setAttribute('content', visibleTitle);
       },
     })
     .on('meta[name="twitter:description"]', {
@@ -342,7 +354,7 @@ export function injectPostSeo(
       element(e) {
         e.append(`\n  <meta property="article:published_time" content="${new Date(post.createdAt).toISOString()}" />`, { html: true });
         e.append(`\n  <meta property="article:section" content="${escapeHtml(post.flair || 'Technology')}" />`, { html: true });
-        e.append(`\n  <script type="application/ld+json">\n${JSON.stringify({ '@context': 'https://schema.org', '@graph': [jsonLd, { '@type': 'BreadcrumbList', itemListElement: [{ '@type': 'ListItem', position: 1, name: 'UREfy', item: origin + '/' }, { '@type': 'ListItem', position: 2, name: 'Public discussions', item: origin + '/explore' }, { '@type': 'ListItem', position: 3, name: post.title, item: canonicalUrl }] }] }, null, 2).replace(/</g, '\\u003c')}\n  </script>\n`, { html: true });
+        e.append(`\n  <script type="application/ld+json">\n${JSON.stringify({ '@context': 'https://schema.org', '@graph': [jsonLd, { '@type': 'BreadcrumbList', itemListElement: [{ '@type': 'ListItem', position: 1, name: 'UREfy', item: origin + '/' }, { '@type': 'ListItem', position: 2, name: 'Public discussions', item: origin + '/explore' }, { '@type': 'ListItem', position: 3, name: visibleTitle, item: canonicalUrl }] }] }, null, 2).replace(/</g, '\\u003c')}\n  </script>\n`, { html: true });
       },
     })
     .on('#app', {
@@ -392,6 +404,7 @@ export function injectCommunitySeo(
       <p style="font-size: 18px; color: #94a3b8;">${escapeHtml(community.description)}</p>
       <h2>Recent discussions</h2>
       <ul>${(community.posts || []).map(post => `<li><a href="${postPath(post.id)}" style="color: #e59b3c;">${escapeHtml(post.title)}</a></li>`).join('')}</ul>
+      <a href="/discussions?community=${encodeURIComponent(communitySlug(community.name || community.id))}" style="color:var(--color-accent,#e59b3c)">Browse the complete public archive →</a>
       <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.08); margin: 24px 0;" />
       <p style="color: #94a3b8; font-size: 14px;">Welcome to the sovereign <strong>${escapeHtml(community.name)}</strong> discussion circle on UREfy. Browse public posts and join the conversation.</p>
     </div>
@@ -458,6 +471,7 @@ export interface SeoStaticPageOptions {
   bodySnippet?: string;
   ogImage?: string;
   robots?: string;
+  standalone?: boolean;
 }
 
 export interface SeoProfileData {
@@ -623,12 +637,36 @@ export function injectStaticPageSeo(
       },
     });
 
-  if (/\/(about|features|privacy|terms|security)$/.test(new URL(opts.canonicalUrl).pathname)) {
+  if (opts.standalone || /\/(about|features|privacy|terms|security)$/.test(new URL(opts.canonicalUrl).pathname)) {
     rewriter = rewriter.on('script[type="module"]', { element(e) { e.remove(); } })
       .on('link[rel="modulepreload"]', { element(e) { e.remove(); } })
       .on('html', { element(e) { e.setAttribute('style', 'overflow-y: auto !important; height: auto !important; min-height: 100% !important;'); } })
       .on('body', { element(e) { e.setAttribute('style', 'overflow-y: auto !important; height: auto !important; min-height: 100% !important; -webkit-overflow-scrolling: touch; background: #090a0f; color: #e2e8f0; margin: 0; padding: 0;'); } })
       .on('#app', { element(e) { e.setAttribute('style', 'overflow-y: visible !important; height: auto !important; min-height: 100% !important; contain: none !important; padding-bottom: 5rem;'); } });
+  }
+
+  if (opts.standalone) {
+    rewriter = rewriter
+      .on('#boot-shell', { element(e) { e.remove(); } })
+      .on('head', { element(e) { e.append(`<style>
+        html.app-booting #app{visibility:visible!important}
+        body{background:var(--bg-canvas,#090a0f)!important;color:var(--text-primary,#e2e8f0)!important}
+        .discussion-archive{max-width:1080px;margin:auto;padding:24px clamp(20px,5vw,56px);font:16px/1.65 'Segoe UI Variable','Segoe UI',Arial,sans-serif}
+        .discussion-archive a{color:var(--color-accent,#e59b3c);text-decoration:none}
+        .discussion-archive a:hover{text-decoration:underline}
+        .discussion-archive a:focus-visible{outline:2px solid var(--color-accent,#e59b3c);outline-offset:5px}
+        .archive-top{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center;padding-bottom:24px;border-bottom:1px solid var(--border-subtle,rgba(128,128,128,.25))}
+        .archive-top a{display:inline-flex;align-items:center;min-height:44px}
+        .archive-top a:first-child{font-size:24px;font-weight:750;margin-right:auto}
+        .archive-heading{padding:32px 0 20px}.archive-heading h1{font:700 clamp(26px,4vw,42px)/1.2 'Segoe UI Variable','Segoe UI',Arial,sans-serif;letter-spacing:-.02em;margin:8px 0 12px;max-width:30ch}
+        .archive-eyebrow{color:var(--text-secondary,#94a3b8);font-size:13px;letter-spacing:.08em}
+        .archive-pagination{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;align-items:center;padding:16px 0;border-top:1px solid var(--border-subtle,rgba(128,128,128,.25));border-bottom:1px solid var(--border-subtle,rgba(128,128,128,.25))}
+        .archive-pagination a{display:inline-flex;align-items:center;min-height:44px}.archive-pagination span{color:var(--text-secondary,#94a3b8)}
+        .archive-posts{list-style:none;margin:0;padding:0}.archive-posts li{padding:24px 0;border-bottom:1px solid var(--border-subtle,rgba(128,128,128,.25))}
+        .archive-posts h2{font:650 clamp(19px,2.5vw,24px)/1.35 'Segoe UI Variable','Segoe UI',Arial,sans-serif;margin:0 0 8px;max-width:65ch;overflow-wrap:anywhere}
+        .archive-posts h2 a{color:var(--text-primary,#e2e8f0)}.archive-posts time{font-size:13px;color:var(--text-secondary,#94a3b8)}
+        .archive-posts p{max-width:76ch;overflow-wrap:anywhere;margin:12px 0 0;color:var(--text-secondary,#94a3b8)}
+      </style>`, { html: true }); } });
   }
 
   if (opts.jsonLd) {

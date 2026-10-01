@@ -1,6 +1,7 @@
+import { headHandler } from './_head.js';
 import { getD1Database, type Env } from './api/_db.js';
 import { escapeHtml, cleanMarkdown, injectStaticPageSeo } from './_seo.js';
-import { PUBLIC_POST_SQL, PUBLIC_ROBOTS, SITE_ORIGIN } from './_discovery.js';
+import { INDEXABLE_POST_SQL, PUBLIC_ROBOTS, SITE_ORIGIN } from './_discovery.js';
 import { HOME_DESCRIPTION, renderPublicHomeIntro } from '../src/public-home.js';
 
 export async function onRequestGet(context: { request: Request; env: Env & { ASSETS: { fetch(input: URL): Promise<Response> } } }): Promise<Response> {
@@ -8,7 +9,7 @@ export async function onRequestGet(context: { request: Request; env: Env & { ASS
   const db = getD1Database(context.env);
   let posts: Array<{ id: string; title: string; content: string }> = [];
   if (db) {
-    try { posts = (await db.prepare(`SELECT id, title, content FROM posts WHERE ${PUBLIC_POST_SQL} ORDER BY created_at DESC LIMIT 12`).all<any>()).results; }
+    try { posts = (await db.prepare(`SELECT id, title, content FROM posts WHERE ${INDEXABLE_POST_SQL} ORDER BY created_at DESC LIMIT 12`).all<any>()).results; }
     catch { /* A useful static introduction remains available during a database interruption. */ }
   }
   const title = 'UREfy — Communities and encrypted messaging';
@@ -24,3 +25,5 @@ export async function onRequestGet(context: { request: Request; env: Env & { ASS
   headers.set('X-Robots-Tag', PUBLIC_ROBOTS);
   return new Response(response.body, { status: response.status, headers });
 }
+
+export const onRequestHead = headHandler(onRequestGet);
