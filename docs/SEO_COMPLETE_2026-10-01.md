@@ -66,6 +66,7 @@ Acestea sunt măsurători de laborator pentru un URL. PageSpeed nu oferă date d
 - Deploy în proiectul existent `aetheris-omni-sphere`, branch `main`: `https://cda9a2c6.aetheris-omni-sphere.pages.dev`.
 - Commit pentru fotografii responsive: `1284f05`; publicare: `https://47167270.aetheris-omni-sphere.pages.dev`. Auditul integral GET/HEAD a fost repetat după această publicare cu aceleași rezultate.
 - Commit pentru corectitudinea metadatelor și contrast: `a2cd99b`; publicare: `https://a1d13eb3.aetheris-omni-sphere.pages.dev`. Auditul integral GET/HEAD a fost repetat la 22:52, cu aceleași rezultate.
+- Commit pentru Home: `8203487`; publicare finală: `https://20ca6a8e.aetheris-omni-sphere.pages.dev`. Domeniul live răspunde cu un H1 și legătura către arhivă. Browserul pe ultima publicare confirmă un H1 după încărcarea aplicației și introducerea H2; nu a fost completat onboardingul. Verificarea finală GET/HEAD pentru Home, arhivă și postarea reprezentativă este salvată în `final-home-live.json`, iar verificarea DOM în `final-home-browser.json`.
 - Domeniul `https://urefy.com` verificat după publicare. Repository-ul nu are remote Git configurat; commitul este local și deploy-ul este direct prin Wrangler.
 - Auditul integral după publicare: **1.484 GET 200 + 1.484 HEAD 200**, corp HEAD zero și robots identic cu GET pe toate paginile. Canonical, H1, descriere, indexability, JSON-LD și coerență socială: zero erori.
 - Toate linkurile interne din HTML-ul auditat duc la pagini verificate. Cele 119 URL-uri false de profil nu mai sunt generate.
