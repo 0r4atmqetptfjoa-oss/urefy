@@ -1,7 +1,6 @@
 import { headHandler } from '../_head.js';
 import { INDEXABLE_POST_SQL } from '../_discovery.js';
 import { getD1Database, type Env } from '../api/_db.js';
-import { ensureSyntheticFixturesTable } from '../api/_synthetic.js';
 import { injectCommunitySeo } from '../_seo.js';
 import { canonicalRedirect, seoError } from '../_seo-response.js';
 import { communityPath, communitySlug } from '../../src/public-urls.js';
@@ -13,7 +12,6 @@ export async function onRequestGet(context: { request: Request; env?: Env; param
   const db = getD1Database(env);
   if (!db) return seoError(503);
   try {
-    await ensureSyntheticFixturesTable(db).catch(() => {});
     const name = communitySlug(id);
     const row = await db.prepare("SELECT id, name, description, channel_id FROM communities WHERE (id = ? OR name = ? OR id = ?) AND NOT EXISTS (SELECT 1 FROM synthetic_fixtures sf WHERE sf.resource_type = 'community' AND sf.resource_id = communities.id) LIMIT 1").bind(id, name, 'c-' + name).first<any>();
     if (!row) {

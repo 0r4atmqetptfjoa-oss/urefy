@@ -7,7 +7,6 @@ import { seoError } from '../_seo-response.js';
 // ===========================================================================
 
 import { Env, getD1Database, getKVStore } from '../api/_db.js';
-import { ensureSyntheticFixturesTable } from '../api/_synthetic.js';
 import { injectPostSeo, SeoPostData } from '../_seo.js';
 import { INDEXABLE_POST_SQL, hasPublicPostContent, PUBLIC_ROBOTS } from '../_discovery.js';
 
@@ -49,13 +48,13 @@ export async function onRequestGet(context: {
   if (!db) return seoError(503);
   if (db) {
     try {
-      await ensureSyntheticFixturesTable(db).catch(() => {});
       const row = await db
         .prepare(
           `SELECT p.id, p.title, p.content, p.flair, p.author_id, p.created_at, p.channel_id,
                   p.merit_votes, p.reply_count, p.images_json, p.video_json, p.attachment_json,
                   p.poll_id, p.quoted_post_json, p.status, p.audience, p.facet_id,
                   f.is_publicly_linked, f.status AS facet_status,
+                  CASE WHEN u.user_id IS NOT NULL AND (p.facet_id IS NULL OR (f.is_publicly_linked = 1 AND f.status != 'deleted')) THEN u.user_id ELSE NULL END AS public_profile_id,
                   CASE
                     WHEN p.facet_id IS NOT NULL THEN (
                       CASE
@@ -109,6 +108,7 @@ export async function onRequestGet(context: {
           authorId,
           authorName: row.display_name,
           authorHandle: row.handle,
+          authorProfileId: row.public_profile_id || null,
           createdAt: Number(row.created_at) || Date.now(),
           meritVotes: Number(row.merit_votes) || 0,
           replyCount: Number(row.reply_count) || 0,
@@ -130,6 +130,7 @@ export async function onRequestGet(context: {
             .prepare(
               `SELECT c.id, c.author_id, c.content, c.created_at, c.merit_votes, c.facet_id,
                       f.is_publicly_linked, f.status AS facet_status,
+                      CASE WHEN u.user_id IS NOT NULL AND (c.facet_id IS NULL OR (f.is_publicly_linked = 1 AND f.status != 'deleted')) THEN u.user_id ELSE NULL END AS public_profile_id,
                       CASE
                         WHEN c.facet_id IS NOT NULL THEN (
                           CASE
@@ -167,6 +168,7 @@ export async function onRequestGet(context: {
                 authorId: (c.facet_id && !cLinked) ? c.facet_id : c.author_id,
                 authorName: c.display_name,
                 authorHandle: c.handle,
+                authorProfileId: c.public_profile_id || null,
                 content: c.content,
                 createdAt: Number(c.created_at) || Date.now(),
                 upvotes: Number(c.merit_votes) || 0,

@@ -9,7 +9,7 @@
   }
   try {
     var savedLang = localStorage.getItem('aetheris_locale');
-    if (savedLang) {
+    if (savedLang && !document.documentElement.hasAttribute('data-public-reader')) {
       document.documentElement.lang = savedLang;
       if (savedLang === 'ar') document.documentElement.dir = 'rtl';
     }
