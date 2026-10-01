@@ -12,7 +12,7 @@ export function renderHomeHorizon(_posts: readonly ClientPost[], _connected: boo
   const showIntro = !isDismissed && !_connected;
 
   return `
-    ${showIntro ? renderPublicHomeIntro() : ''}
+    ${showIntro ? renderPublicHomeIntro(2) : ''}
     <nav class="orbit-shortcuts" aria-label="Workspace shortcuts">
       <a href="/communities" data-public-link class="hover:text-white">
         ${renderIcon('users', { size: 18 })}<span>Communities</span>${renderIcon('chevronRight', { size: 16 })}
@@ -23,4 +23,3 @@ export function renderHomeHorizon(_posts: readonly ClientPost[], _connected: boo
     </nav>
   `;
 }
-

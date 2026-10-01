@@ -1,7 +1,7 @@
 /* Edition 27: quiet surfaces, editorial hierarchy, and a recognisable home. */
 :root { --orbit-radius: 20px; }
 .public-home-intro { margin: 0 0 16px; max-width: none; padding: 18px 20px; border: 1px solid var(--premium-line); border-radius: 16px; background: var(--bg-surface-raised); color: var(--text-secondary); font: inherit; }
-.public-home-intro h1 { margin: 0 0 8px; color: var(--text-primary); font-size: 18px; line-height: 1.4; }
+.public-home-intro h1, .public-home-intro #public-home-title { margin: 0 0 8px; color: var(--text-primary); font-size: 18px; line-height: 1.4; }
 .public-home-intro p { font-size: 13px; line-height: 1.65; }
 .public-home-intro nav { display: flex; flex-wrap: wrap; gap: 10px 18px; margin-top: 12px; font-size: 12px; }
 .public-home-intro a { color: var(--color-accent); text-decoration: underline; text-underline-offset: 3px; }
