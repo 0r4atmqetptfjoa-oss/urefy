@@ -2,7 +2,7 @@ import { getD1Database, getR2Bucket, type Env, type R2Bucket, type R2Object } fr
 import { mirrorEncryptedBackupToS3 } from './_aws-s3.js';
 
 export const FULL_DAILY_KEY = 'dr/full-snapshot-daily.enc';
-export const FULL_LIMITS = { objects: 200, mediaBytes: 128 * 1024 * 1024, databaseBytes: 12 * 1024 * 1024, rowsPerTable: 20000, tables: 100, partBytes: 4 * 1024 * 1024 };
+export const FULL_LIMITS = { objects: 200, mediaBytes: 128 * 1024 * 1024, allocatedDatabaseBytes: 16 * 1024 * 1024, databaseBytes: 12 * 1024 * 1024, rowsPerTable: 20000, tables: 100, partBytes: 4 * 1024 * 1024 };
 type Protector = (plain: Uint8Array) => Promise<{ encryptedPayload: Uint8Array; checksumSha256: string }>;
 const encoder = new TextEncoder();
 const quote = (name: string) => `"${name.replace(/"/g, '""')}"`;
@@ -33,8 +33,9 @@ export async function executeFullBackup(env: Env, protect: Protector, timestamp:
   if (!db || !archiveBucket || !env.STORAGE_BUCKET || !env.VAULT_BUCKET) throw new Error('FULL_DR_BINDINGS_UNAVAILABLE');
   const initial = await db.prepare(schemaSQL).all<any>();
   if (!initial.success || !Array.isArray(initial.results)) throw new Error('FULL_DR_SCHEMA_UNAVAILABLE');
-  // D1 restricts page_count/page_size PRAGMAs; its read-result metadata provides database size.
-  if (!Number.isSafeInteger(initial.meta?.size_after) || initial.meta.size_after <= 0 || initial.meta.size_after > FULL_LIMITS.databaseBytes) throw new Error('FULL_DR_DATABASE_SIZE_LIMIT');
+  // D1 size_after includes SQLite allocation and indexes, not the serialized row payload.
+  // Bound allocation independently; the existing 12 MiB JSON/manifest cap still applies below.
+  if (!Number.isSafeInteger(initial.meta?.size_after) || initial.meta.size_after <= 0 || initial.meta.size_after > FULL_LIMITS.allocatedDatabaseBytes) throw new Error('FULL_DR_DATABASE_SIZE_LIMIT');
   const names = initial.results.filter(s => s.type === 'table').map(s => s.name);
   if (!names.length || names.length > FULL_LIMITS.tables || names.some(n => typeof n !== 'string' || n.length > 200)) throw new Error('FULL_DR_TABLE_LIMIT');
   if (initial.results.some(s => /CREATE\s+VIRTUAL\s+TABLE/i.test(s.sql))) throw new Error('FULL_DR_VIRTUAL_TABLE_UNSUPPORTED');
