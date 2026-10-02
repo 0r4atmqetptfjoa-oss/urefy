@@ -1,6 +1,6 @@
 # UREfy AWS runtime and operations guide
 
-Verified 2026-09-30. Account `579505322330`, region `eu-central-1` (Frankfurt).
+Verified 2026-09-30, with a backup incident update on 2026-10-02 below. Account `579505322330`, region `eu-central-1` (Frankfurt).
 Production Pages deployment: `94e13e14`. Cloudflare remains DNS, edge, Pages, D1, R2, KV and Durable Objects. Full D1/application-media encrypted backups are enabled. Both temporary recovery downloads are disabled after the verified drill; status reads durable R2 metadata. Concurrent client UI edits belong to the developer/other agent and were preserved; this pass edited infrastructure/backend only.
 
 ## Rules for Antigravity and other agents
@@ -67,7 +67,7 @@ Role inline policies: `UREfyConsumeAsyncJobsOnly`, `UREfyBackupWorkerInfrastruct
 
 `AWS_FULL_DR_ENABLED=true` adds `_full-backup.ts` to the existing backup operation. The legacy five-table gzip/AES-GCM snapshot remains for compatibility. New manifest 2.0.0 captures all application D1 tables, schema objects and AUTOINCREMENT sequences, plus contents/HTTP/custom metadata of objects in STORAGE_BUCKET and VAULT_BUCKET. Internal SQLite/_cf_ tables and archive prefixes backups/ and dr/ are excluded. User DM/Vault ciphertext stays encrypted with original user keys. KV cache, transient DO relay state and client-only E2EE keys are outside this snapshot.
 
-D1 uses one read-only transactional batch; its official size_after metadata bounds the capture. R2 inventories/etags/sizes are checked before and after reading. There is no atomic shared D1/R2 snapshot. Current fail-closed limits: 12 MiB allocated database/manifest, 20,000 rows per table, 100 tables, 200 objects, 128 MiB media, 4 MiB encrypted parts. Larger datasets need paginated/resumable jobs before these limits are reached. Do not claim unlimited production scale.
+D1 uses one read-only transactional batch; its official size_after metadata bounds the capture. R2 inventories/etags/sizes are checked before and after reading. There is no atomic shared D1/R2 snapshot. Current fail-closed limits: 16 MiB allocated database and separately 12 MiB serialized database/manifest, 20,000 rows per table, 100 tables, 200 objects, 128 MiB media, 4 MiB encrypted parts. The allocation limit was separated from the payload limit on 2026-10-02 after the database reached 13,520,896 bytes and daily backups failed. Larger datasets need paginated/resumable jobs before these limits are reached. Do not claim unlimited production scale. See `docs/AWS_INCIDENT_2026-10-02.md` for diagnosis and live recovery evidence.
 
 Every part is AES-256-GCM encrypted before S3/R2 upload; encrypted manifest commits last. R2 full pointer is dr/full-snapshot-daily.enc; parts under dr/{snapshot-id}/. S3 has backups/full-dr/{snapshot-id}/manifest.enc and part-*.enc. Durable public status exposes counts/timestamp/hash only. Legacy R2 retention remains 7 days/space cap; new dr/ parts and S3 archives currently have no automatic expiry. Storage grows until a deliberate retention/lifecycle is implemented.
 
