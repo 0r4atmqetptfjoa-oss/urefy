@@ -27,7 +27,7 @@ import { secureStorage } from './secure-storage.js';
 import { DirectMessagingClient, type PrivateMessageTransport, type PrivateMessageDelivery } from './direct-messaging-client.js';
 import type { DirectMessageAttachment } from './client-state.js';
 import { socialSafety } from './social-safety.js';
-import { profileView } from './profile-view.js';
+import { profileStore as profileView } from './profile/profile-store.js';
 import { branchOf, validateMessageContext, type ConversationBranch, type MessageContext } from './conversation-context.js';
 import { processChatMessageContent, replaceEmoticons } from './chat-rich-embed.js';
 import { isDemoModeEnabled } from './demo-mode.js';

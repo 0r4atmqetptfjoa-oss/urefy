@@ -2,282 +2,144 @@
  * @file profile-view.ts
  * @package @aetheris/client-ui/profile
  * @description Sovereign Profile Master Orchestrator (ProfileView).
+ * Wraps the lightweight ProfileStore and provides HTML template rendering
+ * for profile hero, timeline tabs, and settings categories.
  */
 
-import { UserProfileData, ProfileTab, SettingsCategory, formatFederatedHandle, copyFederatedHandle } from './types.js';
+import { UserProfileData, ProfileTab, SettingsCategory } from './types.js';
 import { renderProfileHeaderHTML, renderEditProfileModalHTML } from './profile-header.js';
 import { renderProfileTabsHTML } from './profile-tabs.js';
-import { filterProfilePosts, renderProfileTimelinePostsHTML } from './profile-posts.js';
 import { renderProfileSettingsHTML, renderSettingsCategoryContentHTML } from './profile-settings.js';
+import { renderProfileTimelinePostsHTML, filterProfilePosts } from './profile-posts.js';
 import { ClientPost, clientStore } from '../client-state.js';
-import { isDemoModeEnabled } from '../demo-mode.js';
-import { SOVEREIGN_PERSONAS } from './seed-profiles-data.js';
 import { presentPublicIdentity } from '../public-identity.js';
+import { ProfileStore, profileStore } from './profile-store.js';
 
 export class ProfileView {
-  public activeTab: ProfileTab = 'pulses';
-  public activeSettingsCategory: SettingsCategory = 'account';
-  public targetFingerprint: string = '';
-  public isEditProfileModalOpen: boolean = false;
-  public lastTabSwitched: boolean = false;
-  public followingSet: Set<string>;
-  public profileData: Map<string, UserProfileData> = new Map();
-  private pendingFollows = new Set<string>();
-  private savingProfiles = new Set<string>();
-  public editDraft: Partial<UserProfileData> | null = null;
+  public _store: ProfileStore;
 
-  constructor() {
+  constructor(store?: ProfileStore) {
+    this._store = store || new ProfileStore();
     (globalThis as any).profileView = this;
     if (typeof window !== 'undefined') (window as any).profileView = this;
-    const savedFollowing = typeof localStorage !== 'undefined' ? localStorage.getItem('aetheris_following_set') : null;
-    if (savedFollowing) {
-      try {
-        this.followingSet = new Set(JSON.parse(savedFollowing));
-      } catch {
-        this.followingSet = new Set();
-      }
-    } else if (isDemoModeEnabled()) {
-      this.followingSet = new Set(['c3dc28cb705e', 'a89104fa2211', 'f40019bc88a2']);
-    } else {
-      this.followingSet = new Set();
-    }
-
-    if (isDemoModeEnabled()) this.seedDevProfiles();
   }
 
-  private seedDevProfiles(): void {
-    for (const p of SOVEREIGN_PERSONAS) {
-      this.profileData.set(p.fingerprint, p);
-    }
+  get followingSet(): Set<string> {
+    return this._store.followingSet;
+  }
+  set followingSet(v: Set<string>) {
+    this._store.followingSet = v;
+  }
 
-    this.profileData.set('genesis-core', {
-        fingerprint: 'genesis-core',
-        name: 'Genesis Protocol Archon',
-        handle: 'genesis-core',
-        avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=genesis-core&backgroundColor=0f172a,1e1b4b,180a3e',
-        banner: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1200&auto=format&fit=crop&q=80',
-        bio: 'Product engineer & privacy advocate. Building UREfy — the social network you actually own.',
-        location: 'San Francisco, CA',
-        website: 'https://urefy.com',
-        joinedEpoch: 'Early Member',
-        role: 'GUARDIAN',
-        status: 'online',
-        isZKVerified: true,
-        followingCount: 12,
-        followersCount: 1420,
-        meritScore: 9940,
-        trustScore: 98,
-        badges: ['🛡️ ZK-Human', '💎 Sovereign Archon', '🔑 Keymaster'],
-      });
+  get profileData(): Map<string, UserProfileData> {
+    return this._store.profileData;
+  }
+  set profileData(v: Map<string, UserProfileData>) {
+    this._store.profileData = v;
+  }
+
+  get pendingFollows(): Set<string> {
+    return this._store.pendingFollows;
+  }
+  set pendingFollows(v: Set<string>) {
+    this._store.pendingFollows = v;
+  }
+
+  get savingProfiles(): Set<string> {
+    return this._store.savingProfiles;
+  }
+  set savingProfiles(v: Set<string>) {
+    this._store.savingProfiles = v;
+  }
+
+  get targetFingerprint(): string {
+    return this._store.targetFingerprint;
+  }
+  set targetFingerprint(v: string) {
+    this._store.targetFingerprint = v;
+  }
+
+  get editDraft(): Partial<UserProfileData> | null {
+    return this._store.editDraft;
+  }
+  set editDraft(v: Partial<UserProfileData> | null) {
+    this._store.editDraft = v;
+  }
+
+  get isEditProfileModalOpen(): boolean {
+    return this._store.isEditProfileModalOpen;
+  }
+  set isEditProfileModalOpen(v: boolean) {
+    this._store.isEditProfileModalOpen = v;
+  }
+
+  get activeTab(): ProfileTab {
+    return this._store.activeTab;
+  }
+  set activeTab(v: ProfileTab) {
+    this._store.activeTab = v;
+  }
+
+  get activeSettingsCategory(): SettingsCategory {
+    return this._store.activeSettingsCategory;
+  }
+  set activeSettingsCategory(v: SettingsCategory) {
+    this._store.activeSettingsCategory = v;
+  }
+
+  get lastTabSwitched(): boolean {
+    return this._store.lastTabSwitched;
+  }
+  set lastTabSwitched(v: boolean) {
+    this._store.lastTabSwitched = v;
   }
 
   public getProfile(fp: string): UserProfileData {
-    if (!this.profileData.has(fp)) {
-      if (typeof localStorage !== 'undefined') {
-        try {
-          const cached = localStorage.getItem(`aetheris_profile_${fp}`);
-          if (cached) {
-            const parsed = JSON.parse(cached);
-            if (parsed && parsed.name && parsed.name !== 'Profile not set up') {
-              this.profileData.set(fp, parsed);
-              return this.profileData.get(fp)!;
-            }
-          }
-        } catch (_) {}
-      }
-      const known = (typeof clientStore !== 'undefined' ? clientStore.members?.find((m: any) => m.fingerprint === fp) : null) as any;
-      const knownPost = (typeof clientStore !== 'undefined' ? clientStore.posts?.find((p: any) => p.authorFingerprint === fp && (p.authorDisplayName || p.authorHandle)) : null) as any;
-      const postName = knownPost?.authorDisplayName || (knownPost?.authorHandle ? knownPost.authorHandle.replace(/^@/, '') : null);
-      const postHandle = knownPost?.authorHandle ? knownPost.authorHandle.replace(/^@/, '') : '';
-      const postAvatar = knownPost?.authorAvatarUrl || '';
-
-      const name = known?.name || postName || (!isDemoModeEnabled() ? 'Profile not set up' : fp === 'genesis-core' ? 'Genesis Protocol Archon' : fp === 'c3dc28cb705e' ? 'Elena Rostova' : fp === 'a89104fa2211' ? 'David Chen' : fp === 'f40019bc88a2' ? 'Maya Patel' : fp === '9b22a011cd44' ? 'Samira Khan' : 'Profile not set up');
-      const handle = known?.handle?.replace(/^@/, '') || postHandle || (!isDemoModeEnabled() ? '' : fp === 'genesis-core' ? 'genesis-core' : fp === 'c3dc28cb705e' ? 'elena_r' : fp === 'a89104fa2211' ? 'david_c' : fp === 'f40019bc88a2' ? 'maya_p' : fp === '9b22a011cd44' ? 'samira' : '');
-      const avatar = known?.avatar || postAvatar || '';
-
-      this.profileData.set(fp, {
-        fingerprint: fp,
-        name,
-        handle,
-        avatar,
-        banner: '',
-        bio: '',
-        location: '',
-        website: '',
-        joinedEpoch: 'Member',
-        role: 'MEMBER',
-        status: 'idle',
-        isZKVerified: false,
-        followingCount: 0,
-        followersCount: 0,
-        meritScore: 0,
-        trustScore: 0,
-        badges: [],
-      });
-    } else {
-      const current = this.profileData.get(fp)!;
-      if (current.name === 'Profile not set up' || !current.handle) {
-        const knownPost = (typeof clientStore !== 'undefined' ? clientStore.posts?.find((p: any) => p.authorFingerprint === fp && (p.authorDisplayName || p.authorHandle)) : null) as any;
-        if (knownPost?.authorDisplayName || knownPost?.authorHandle) {
-          if (knownPost.authorDisplayName) current.name = knownPost.authorDisplayName;
-          if (knownPost.authorHandle) current.handle = knownPost.authorHandle.replace(/^@/, '');
-          if (knownPost.authorAvatarUrl && !current.avatar) current.avatar = knownPost.authorAvatarUrl;
-        }
-      }
-    }
-    return this.profileData.get(fp)!;
+    return this._store.getProfile(fp);
   }
 
   public updateProfile(fp: string, updates: Partial<UserProfileData>): void {
-    const current = this.getProfile(fp);
-    const updated = { ...current, ...updates };
-    this.profileData.set(fp, updated);
-    if (typeof localStorage !== 'undefined') {
-      try {
-        localStorage.setItem(`aetheris_profile_${fp}`, JSON.stringify(updated));
-      } catch (_) {}
-    }
+    this._store.updateProfile(fp, updates);
   }
 
   public async saveProfile(fp: string, updates: Partial<UserProfileData>): Promise<boolean> {
-    if (this.savingProfiles.has(fp)) return false;
-    const before = { ...this.getProfile(fp) };
-    this.updateProfile(fp, updates);
-    if (typeof window === 'undefined') return true;
-    this.savingProfiles.add(fp);
-    clientStore.notify();
-    try {
-      if (fp !== clientStore.keypair.fingerprint) throw new Error('Only your own profile can be edited');
-      const profile = this.getProfile(fp);
-      const envelope = clientStore.createSignedEnvelope({ scope: 'urefy-profile-v1', action: 'save', displayName: profile.name, handle: profile.handle, bio: profile.bio, location: profile.location, website: profile.website, avatarUrl: profile.avatar, bannerUrl: profile.banner, pinnedPostId: profile.pinnedPostId });
-      const response = await fetch('/api/profiles', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(envelope) });
-      const result = await response.json();
-      if (!response.ok || !result.success) throw new Error(result.error || 'Profile could not be saved');
-      this.isEditProfileModalOpen = false;
-      this.editDraft = null;
-      clientStore.showToast('Profile saved', 'success');
-      return true;
-    } catch (error) {
-      this.editDraft = { ...before, ...updates };
-      this.updateProfile(fp, before);
-      clientStore.showToast(error instanceof Error ? error.message : 'Profile could not be saved', 'warning');
-      return false;
-    } finally { this.savingProfiles.delete(fp); clientStore.notify(); }
-  }
-
-  public async syncFollowing(): Promise<void> {
-    const owner = clientStore.keypair.fingerprint;
-    try {
-      const response = await fetch(`/api/follows?userId=${encodeURIComponent(owner)}`, { cache: 'no-store' });
-      const result = await response.json();
-      if (!response.ok || !result.success || !Array.isArray(result.following) || this.pendingFollows.size || owner !== clientStore.keypair.fingerprint) return;
-      this.followingSet = new Set(result.following);
-      localStorage.setItem('aetheris_following_set', JSON.stringify(result.following));
-      clientStore.notify();
-    } catch { /* retain the last known social graph while offline */ }
+    return this._store.saveProfileDirect(fp, updates);
   }
 
   public async loadPublicProfile(fp: string): Promise<void> {
-    try {
-      const response = await fetch(`/api/profiles?userId=${encodeURIComponent(fp)}`);
-      const data = await response.json();
-      if (!response.ok || !data.success || this.savingProfiles.has(fp)) return;
-      if (!data.profile) {
-        Object.assign(this.getProfile(fp), data.stats || {});
-        clientStore.notify();
-        return;
-      }
-      const p = data.profile;
-      if (p.displayName || p.handle || p.updatedAt) this.updateProfile(fp, { name: p.displayName || p.handle || 'UREfy Member', handle: p.handle || '', bio: p.bio || '', avatar: p.avatarUrl || '', banner: p.bannerUrl || '', website: p.website || '', location: p.location || '', ...data.stats });
-      else Object.assign(this.getProfile(fp), data.stats || {});
-      clientStore.notify();
-    } catch { /* keep cached identity while offline */ }
+    return this._store.loadPublicProfile(fp);
   }
 
   public setTargetFingerprint(fp: string): void {
-    if (this.targetFingerprint !== fp) {
-      this.lastTabSwitched = true;
-    }
-    this.targetFingerprint = fp;
-    if (typeof window !== 'undefined') void this.loadPublicProfile(fp);
-    this.activeTab = 'pulses';
+    this._store.setTargetFingerprint(fp);
   }
 
   public setActiveTab(tab: ProfileTab): void {
-    if (this.activeTab !== tab) {
-      this.lastTabSwitched = true;
-    }
-    this.activeTab = tab;
+    this._store.setActiveTab(tab);
   }
 
   public setActiveSettingsCategory(cat: SettingsCategory): void {
-    this.activeSettingsCategory = cat;
-    this.activeTab = 'settings';
+    this._store.setActiveSettingsCategory(cat);
   }
 
   public openSettings(category: SettingsCategory = 'account'): void {
-    this.setActiveSettingsCategory(category);
+    this._store.openSettings(category);
   }
 
   public toggleFollow(fp: string): boolean {
-    if (this.pendingFollows.has(fp) || fp === clientStore.keypair.fingerprint) return this.isFollowing(fp);
-    const wasFollowing = this.isFollowing(fp);
-    const beforeCount = this.getProfile(fp).followersCount;
-    let result = false;
-    if (this.followingSet.has(fp)) {
-      this.followingSet.delete(fp);
-      const profile = this.getProfile(fp);
-      profile.followersCount = Math.max(0, profile.followersCount - 1);
-      result = false;
-    } else {
-      this.followingSet.add(fp);
-      const profile = this.getProfile(fp);
-      profile.followersCount += 1;
-      result = true;
-    }
-
-    if (typeof localStorage !== 'undefined') {
-      try {
-        localStorage.setItem('aetheris_following_set', JSON.stringify(Array.from(this.followingSet)));
-      } catch {}
-    }
-    if (typeof window !== 'undefined') {
-      this.pendingFollows.add(fp);
-      const envelope = clientStore.createSignedEnvelope({ action: result ? 'follow' : 'unfollow', followingId: fp });
-      void fetch('/api/follows', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(envelope) }).then(async response => {
-        const data = await response.json();
-        if (!response.ok || !data.success) throw new Error(data.error || 'Follow change could not be saved');
-        data.isFollowing ? this.followingSet.add(fp) : this.followingSet.delete(fp);
-        clientStore.showToast(data.isFollowing ? 'Following this person' : 'Unfollowed', 'info');
-      }).catch(error => {
-        wasFollowing ? this.followingSet.add(fp) : this.followingSet.delete(fp);
-        this.getProfile(fp).followersCount = beforeCount;
-        clientStore.showToast(error.message || 'Follow change could not be saved', 'warning');
-      }).finally(() => {
-        this.pendingFollows.delete(fp);
-        try { localStorage.setItem('aetheris_following_set', JSON.stringify([...this.followingSet])); } catch {}
-        clientStore.notify();
-      });
-    }
-    return result;
+    return this._store.toggleFollow(fp);
   }
 
   public isFollowing(fp: string): boolean {
-    return this.followingSet.has(fp);
+    return this._store.isFollowing(fp);
   }
 
-  public getFederatedHandle(fp: string = this.targetFingerprint, fullFingerprint: boolean = false): string {
-    const profile = this.getProfile(fp);
-    if (fullFingerprint) {
-      return formatFederatedHandle(profile.fingerprint);
-    }
-    const identifier = profile.handle || (profile.fingerprint.length > 12 ? profile.fingerprint.substring(0, 12) : profile.fingerprint);
-    return formatFederatedHandle(identifier);
+  public getFederatedHandle(fp?: string, full?: boolean): string {
+    return this._store.getFederatedHandle(fp, full);
   }
 
   public async copyFederatedHandle(fp?: string): Promise<boolean> {
-    const handle = this.getFederatedHandle(fp);
-    return copyFederatedHandle(handle);
+    return this._store.copyFederatedHandle(fp);
   }
 
   public filterTimelinePosts(allPosts: ClientPost[], targetFp: string): ClientPost[] {
@@ -328,7 +190,7 @@ export class ProfileView {
   }
 }
 
-export const profileView = new ProfileView();
+export const profileView = new ProfileView(profileStore);
 
 if (typeof window !== 'undefined') {
   (window as any).profileView = profileView;

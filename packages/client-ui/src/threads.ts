@@ -1,4 +1,4 @@
-import { awardsSystem, PostAward } from './awards.js';
+import { awardsSystem, PostAward } from './awards-facade.js';
 import { markdownRenderer } from './markdown-renderer.js';
 import { t } from './i18n.js';
 import { isDemoModeEnabled } from './demo-mode.js';

@@ -11,7 +11,7 @@
 import { clientStore } from './client-state.js';
 import { feedPersonalization, ContentSignal } from './feed-personalization.js';
 import { sovereignCircleEngine } from './sovereign-circle.js';
-import { profileView } from './profile-view.js';
+import { profileStore as profileView } from './profile/profile-store.js';
 import { renderIcon } from './ui/icons.js';
 import { renderAvatar } from './ui/avatar-generator.js';
 

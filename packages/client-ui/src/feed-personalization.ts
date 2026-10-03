@@ -211,6 +211,9 @@ export class FeedPersonalizationEngine {
 
   constructor() {
     this.initializeState();
+    if (typeof globalThis !== 'undefined') {
+      (globalThis as any).feedPersonalization = this;
+    }
   }
 
   // ─── Facet Scoping & Storage Helpers ─────────────────────────────────────

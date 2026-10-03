@@ -5,7 +5,7 @@
 
 import { clientStore } from './client-state.js';
 import { pwaService } from './pwa-service.js';
-import { notificationCenter } from './notifications.js';
+import { notificationCenter } from './notifications-facade.js';
 import { i18n } from './i18n.js';
 import { renderIcon } from './ui/icons.js';
 import { facetSwitcher } from './facet-switcher.js';

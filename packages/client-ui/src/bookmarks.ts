@@ -1,7 +1,6 @@
 import { serviceRegistry, SERVICES } from './service-registry.js';
 import { isDemoModeEnabled } from './demo-mode.js';
 import { isLocalDev } from './env-check.js';
-import { canonicalVault } from './canonical-vault.js';
 
 /**
  * Interface representing an individual encrypted bookmark entry stored in local vault.
@@ -163,13 +162,15 @@ export class BookmarksVault {
     tags?: string[],
     note?: string
   ): void {
-    void canonicalVault.savePost({
-      id: post.id,
-      title: post.title,
-      content: note || '',
-      authorFingerprint: post.authorFingerprint,
-      channelId: post.channelId,
-    });
+    void import('./canonical-vault.js').then(({ canonicalVault }) => {
+      void canonicalVault.savePost({
+        id: post.id,
+        title: post.title,
+        content: note || '',
+        authorFingerprint: post.authorFingerprint,
+        channelId: post.channelId,
+      });
+    }).catch(() => {});
 
     const existingIndex = this.bookmarks.findIndex(b => b.postId === post.id || b.id === post.id);
     const cleanedTags = tags && tags.length > 0
@@ -212,7 +213,9 @@ export class BookmarksVault {
    * @param postId - ID of the post or bookmark to remove
    */
   public unsave(postId: string): void {
-    void canonicalVault.unsavePost(postId);
+    void import('./canonical-vault.js').then(({ canonicalVault }) => {
+      void canonicalVault.unsavePost(postId);
+    }).catch(() => {});
     const initialLen = this.bookmarks.length;
     this.bookmarks = this.bookmarks.filter(b => b.postId !== postId && b.id !== postId);
     if (this.bookmarks.length !== initialLen) {
@@ -226,7 +229,6 @@ export class BookmarksVault {
    * @param postId - ID of the post to check
    */
   public isSaved(postId: string): boolean {
-    if (canonicalVault.isSaved(postId)) return true;
     return this.bookmarks.some(b => b.postId === postId || b.id === postId);
   }
 

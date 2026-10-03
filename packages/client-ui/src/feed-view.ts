@@ -4,7 +4,7 @@ import { postPath, profilePath, communityPath } from './public-urls.js';
 import { clientStore, ClientPost } from './client-state.js';
 import { flairFilter } from './flair-filter.js';
 import { sovereignCircleEngine } from './sovereign-circle.js';
-import { profileView } from './profile-view.js';
+import { profileStore as profileView } from './profile/profile-store.js';
 import { presentPublicIdentity } from './public-identity.js';
 import { feedControlsEngine } from './feed-controls.js';
 import { hashtagExplorer } from './hashtag-explorer.js';

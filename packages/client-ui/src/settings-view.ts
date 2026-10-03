@@ -18,7 +18,7 @@ import { renderExportPanelHTML } from './export-backup-ui.js';
 import { localDiagnostics } from './local-diagnostics.js';
 import { themeEngine, THEMES } from './themes.js';
 import { clientStore } from './client-state.js';
-import { profileView } from './profile-view.js';
+import { profileStore as profileView } from './profile/profile-store.js';
 import { zenModeManager } from './zen-mode.js';
 import { i18n, t } from './i18n.js';
 

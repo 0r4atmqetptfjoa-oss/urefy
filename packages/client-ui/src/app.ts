@@ -10,16 +10,16 @@ import { obsidianMediaPlayer } from './media-player.js';
 import { pollEngine } from './polls.js';
 import { trendingEngine } from './trending.js';
 import { omniComposer, OmniComposer, hybridComposer, HybridComposer } from './composer-hybrid.js';
-import { exploreView, settingsView, communityView, loadSettingsView, loadExploreView, loadCommunityView } from './optional-workspaces.js';
-import { profileView } from './profile-view.js';
+import { exploreView, settingsView, communityView, profileView, loadSettingsView, loadExploreView, loadCommunityView, loadProfileView } from './optional-workspaces.js';
+import { profileStore } from './profile/profile-store.js';
 import { pulseActionsEngine } from './pulse-actions.js';
 import { storiesEngine } from './stories.js';
-import { notificationCenter } from './notifications.js';
+import { notificationCenter } from './notifications-facade.js';
 import { reactionsEngine, updateReactionBarDOM, bindReactionBarEvents } from './reactions.js';
 import { bookmarksVault } from './bookmarks.js';
 import { relaysManager } from './relays-manager.js';
 import { sovereignDialog } from './dialog-modal.js';
-import { awardsSystem, awardPopoverManager } from './awards.js';
+import { awardsSystem, awardPopoverManager } from './awards-facade.js';
 import { crossPostEngine } from './crosspost.js';
 import { keyboardNavigator } from './keyboard-nav.js';
 import { legalFooter } from './footer.js';
@@ -53,7 +53,6 @@ import { mobileTabBar } from './mobile-tab-bar.js';
 import { pwaService } from './pwa-service.js';
 import { viewTransitions } from './view-transitions.js';
 import { moduleLoader } from './code-splitting.js';
-import { feedPersonalization } from './feed-personalization.js';
 import { sovereignOnboarding } from './first-time-onboarding.js';
 import { offlineSync } from './offline-sync.js';
 import { errorBoundary, structuredLogger } from './error-boundary.js';
@@ -197,7 +196,7 @@ serviceRegistry.registerInstance(SERVICES.MarkdownRenderer, markdownRenderer);
 serviceRegistry.registerInstance(SERVICES.ZenMode, zenModeManager);
 serviceRegistry.registerInstance(SERVICES.ViewTransitions, viewTransitions);
 serviceRegistry.registerInstance(SERVICES.VirtualScroll, virtualScroll);
-serviceRegistry.registerInstance(SERVICES.FeedPersonalization, feedPersonalization);
+// feedPersonalization loaded on demand
 // exportBackup loaded on demand
 // governanceDAO loaded on demand
 // rssImporter loaded on demand
@@ -237,18 +236,22 @@ if (typeof window !== 'undefined') {
   // nodeFederationEngine is loaded on-demand
   window.__aetheris_open_global_scale = () => { modalManager.openFeature('global-scale'); };
   window.__aetheris_close_global_scale = () => { modalManager.closeFeature(); };
-  window.__aetheris_open_edit_profile = () => { profileView.isEditProfileModalOpen = true; clientStore.notifySync(); };
-  window.__aetheris_close_edit_profile = () => { profileView.isEditProfileModalOpen = false; clientStore.notifySync(); };
+  window.__aetheris_open_edit_profile = () => {
+    profileStore.isEditProfileModalOpen = true;
+    void loadProfileView().then(() => clientStore.notifySync());
+    clientStore.notifySync();
+  };
+  window.__aetheris_close_edit_profile = () => { profileStore.isEditProfileModalOpen = false; clientStore.notifySync(); };
   window.__aetheris_save_profile = async () => {
     const name = (document.getElementById('edit-profile-name') as HTMLInputElement)?.value.trim() || 'Sovereign Node';
-    const handle = (document.getElementById('edit-profile-handle') as HTMLInputElement)?.value.replace(/^@/, '').trim() || profileView.getProfile(clientStore.keypair.fingerprint).handle;
+    const handle = (document.getElementById('edit-profile-handle') as HTMLInputElement)?.value.replace(/^@/, '').trim() || profileStore.getProfile(clientStore.keypair.fingerprint).handle;
     const bio = (document.getElementById('edit-profile-bio') as HTMLTextAreaElement)?.value.trim() || '';
     const location = (document.getElementById('edit-profile-location') as HTMLInputElement)?.value.trim() || '';
     const website = (document.getElementById('edit-profile-website') as HTMLInputElement)?.value.trim() || '';
-    const avatar = (document.getElementById('edit-profile-avatar') as HTMLInputElement)?.value.trim() || profileView.getProfile(clientStore.keypair.fingerprint).avatar;
-    const banner = (document.getElementById('edit-profile-banner') as HTMLInputElement)?.value.trim() || profileView.getProfile(clientStore.keypair.fingerprint).banner;
+    const avatar = (document.getElementById('edit-profile-avatar') as HTMLInputElement)?.value.trim() || profileStore.getProfile(clientStore.keypair.fingerprint).avatar;
+    const banner = (document.getElementById('edit-profile-banner') as HTMLInputElement)?.value.trim() || profileStore.getProfile(clientStore.keypair.fingerprint).banner;
 
-    await profileView.saveProfile(clientStore.keypair.fingerprint, { name, handle, bio, location, website, avatar, banner });
+    await profileStore.saveProfile(clientStore.keypair.fingerprint, { name, handle, bio, location, website, avatar, banner });
     clientStore.notifySync();
   };
   window.__aetheris_open_gossip = () => { modalManager.openFeature('gossip'); };
@@ -1083,7 +1086,7 @@ export function initApp(): void {
               </div>
 
               <button type="button" id="btn-identity-info" data-action="nav-mode" data-mode="profile" class="header-profile-button" title="Open your profile" aria-label="Open your profile">
-                <span class="header-profile-button__avatar">${(profileView.getProfile(clientStore.keypair.fingerprint)?.handle ? profileView.getProfile(clientStore.keypair.fingerprint)!.handle.replace(/^@/, '').substring(0, 1).toUpperCase() : 'U')}</span>
+                <span class="header-profile-button__avatar">${(profileStore.getProfile(clientStore.keypair.fingerprint)?.handle ? profileStore.getProfile(clientStore.keypair.fingerprint)!.handle.replace(/^@/, '').substring(0, 1).toUpperCase() : 'U')}</span>
                 <span class="hidden xl:inline">Profile</span>
                 <span class="presence-dot ${clientStore.isConnected ? 'is-online' : 'is-offline'}" aria-hidden="true"></span>
               </button>
@@ -1106,7 +1109,7 @@ export function initApp(): void {
               <div class="flex items-center space-x-2.5">
                 <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-slate-700 p-0.5 shrink-0">
                   <div class="w-full h-full rounded-full bg-surface-base flex items-center justify-center font-mono text-[10px] font-bold text-white">
-                    ${(profileView.getProfile(clientStore.keypair.fingerprint)?.handle ? profileView.getProfile(clientStore.keypair.fingerprint)!.handle.replace(/^@/, '').substring(0, 2).toUpperCase() : 'U')}
+                    ${(profileStore.getProfile(clientStore.keypair.fingerprint)?.handle ? profileStore.getProfile(clientStore.keypair.fingerprint)!.handle.replace(/^@/, '').substring(0, 2).toUpperCase() : 'U')}
                   </div>
                 </div>
                 <div class="flex-1 min-w-0">
@@ -1683,7 +1686,7 @@ function renderMainStage(): string {
       ? communityView.renderCommunityWorkspace(activeCircle) 
       : communityView.renderCommunitiesHub();
   } else if (currentRoute === 'profile' || isProfile) {
-    contentHTML = profileView.renderProfileView(clientStore.posts, clientStore.keypair.fingerprint);
+    contentHTML = profileView ? profileView.renderProfileView(clientStore.posts, clientStore.keypair.fingerprint) : renderLoadingWorkspace('profile', loadProfileView);
   } else if (_initialSsrArticleHtml && typeof window !== 'undefined' && (window.location.pathname.startsWith('/p/') || window.location.pathname.startsWith('/post/'))) {
     contentHTML = `
       <div class="flex-1 overflow-y-auto px-4 py-6 max-w-3xl mx-auto w-full">
@@ -2911,7 +2914,7 @@ function updateCommandRailHighlight(index: number): void {
       } else if (mode === 'communities') {
         sovereignRouter.navigateTo('communities');
       } else if (mode === 'profile') {
-        profileView.setTargetFingerprint(clientStore.keypair.fingerprint);
+        profileStore.setTargetFingerprint(clientStore.keypair.fingerprint);
         sovereignRouter.navigateTo('profile');
       }
     }, { signal });
@@ -2926,7 +2929,7 @@ function updateCommandRailHighlight(index: number): void {
       e.stopPropagation();
       const fp = btn.getAttribute('data-author-profile');
       if (fp) {
-        profileView.setTargetFingerprint(fp);
+        profileStore.setTargetFingerprint(fp);
         clientStore.activeChannelId = 'profile';
         clientStore.notify();
       }
@@ -3125,7 +3128,7 @@ function updateCommandRailHighlight(index: number): void {
     btn.addEventListener('click', () => {
       const tab = btn.getAttribute('data-profile-tab') as any;
       if (tab) {
-        profileView.setActiveTab(tab);
+        profileStore.setActiveTab(tab);
         clientStore.notify();
       }
     }, { signal });
@@ -3134,7 +3137,7 @@ function updateCommandRailHighlight(index: number): void {
     btn.addEventListener('click', () => {
       const fp = btn.getAttribute('data-trust-fp');
       if (fp) {
-        profileView.toggleFollow(fp);
+        profileStore.toggleFollow(fp);
         clientStore.notify();
       }
     }, { signal });
@@ -3143,22 +3146,23 @@ function updateCommandRailHighlight(index: number): void {
     clientStore.joinChannel('pulse-global');
   }, { signal });
   document.getElementById('btn-open-edit-profile')?.addEventListener('click', () => {
-    profileView.isEditProfileModalOpen = true;
+    profileStore.isEditProfileModalOpen = true;
+    void loadProfileView().then(() => clientStore.notify());
     clientStore.notify();
   }, { signal });
   document.getElementById('btn-close-edit-profile')?.addEventListener('click', () => {
-    profileView.isEditProfileModalOpen = false;
+    profileStore.isEditProfileModalOpen = false;
     clientStore.notify();
   }, { signal });
   document.getElementById('btn-cancel-edit-profile')?.addEventListener('click', () => {
-    profileView.isEditProfileModalOpen = false;
+    profileStore.isEditProfileModalOpen = false;
     clientStore.notify();
   }, { signal });
   const formEditProf = document.getElementById('form-edit-profile') as HTMLFormElement;
   if (formEditProf) {
     formEditProf.addEventListener('input', () => {
       const field = (id: string) => (document.getElementById(id) as HTMLInputElement | null)?.value || '';
-      profileView.editDraft = { name: field('edit-profile-name'), handle: field('edit-profile-handle'), bio: field('edit-profile-bio'), location: field('edit-profile-location'), website: field('edit-profile-website'), avatar: field('edit-profile-avatar'), banner: field('edit-profile-banner') };
+      profileStore.editDraft = { name: field('edit-profile-name'), handle: field('edit-profile-handle'), bio: field('edit-profile-bio'), location: field('edit-profile-location'), website: field('edit-profile-website'), avatar: field('edit-profile-avatar'), banner: field('edit-profile-banner') };
     }, { signal });
     formEditProf.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -3170,7 +3174,7 @@ function updateCommandRailHighlight(index: number): void {
       const avatar = (document.getElementById('edit-profile-avatar') as HTMLInputElement)?.value;
       const banner = (document.getElementById('edit-profile-banner') as HTMLInputElement)?.value;
       const cleanHandle = handle ? handle.replace(/^@/, '').trim() : undefined;
-      const saved = await profileView.saveProfile(profileView.targetFingerprint || clientStore.keypair.fingerprint, {
+      const saved = await profileStore.saveProfile(profileStore.targetFingerprint || clientStore.keypair.fingerprint, {
         name: name || undefined,
         handle: cleanHandle || undefined,
         bio: bio || undefined,
@@ -3180,7 +3184,7 @@ function updateCommandRailHighlight(index: number): void {
         banner: banner || undefined,
       });
       if (!saved) return;
-      profileView.isEditProfileModalOpen = false;
+      profileStore.isEditProfileModalOpen = false;
       clientStore.notify();
     }, { signal });
   }
@@ -3651,22 +3655,24 @@ function updateCommandRailHighlight(index: number): void {
 
   // Profile Photo Upload Handlers
   document.getElementById('btn-open-edit-profile')?.addEventListener('click', () => {
-    profileView.isEditProfileModalOpen = true;
+    profileStore.isEditProfileModalOpen = true;
+    void loadProfileView().then(() => clientStore.notify());
     clientStore.notify();
   }, { signal });
 
   document.getElementById('btn-quick-change-avatar')?.addEventListener('click', () => {
-    profileView.isEditProfileModalOpen = true;
+    profileStore.isEditProfileModalOpen = true;
+    void loadProfileView().then(() => clientStore.notify());
     clientStore.notify();
   }, { signal });
 
   document.getElementById('btn-close-edit-profile')?.addEventListener('click', () => {
-    profileView.isEditProfileModalOpen = false;
+    profileStore.isEditProfileModalOpen = false;
     clientStore.notify();
   }, { signal });
 
   document.getElementById('btn-cancel-edit-profile')?.addEventListener('click', () => {
-    profileView.isEditProfileModalOpen = false;
+    profileStore.isEditProfileModalOpen = false;
     clientStore.notify();
   }, { signal });
 
@@ -3683,7 +3689,7 @@ function updateCommandRailHighlight(index: number): void {
         const uploaded = await clientStore.uploadVaultFile(file);
         if (!uploaded?.success || !uploaded.downloadUrl) return;
         const url = new URL(uploaded.downloadUrl, window.location.origin).href;
-        profileView.editDraft = { ...profileView.getProfile(clientStore.keypair.fingerprint), ...profileView.editDraft, [kind]: url };
+        profileStore.editDraft = { ...profileStore.getProfile(clientStore.keypair.fingerprint), ...profileStore.editDraft, [kind]: url };
         const field = document.getElementById(`edit-profile-${kind}`) as HTMLInputElement | null;
         if (field) field.value = url;
         clientStore.notify();
@@ -4265,8 +4271,8 @@ function updateCommandRailHighlight(index: number): void {
           clientStore.notifySync('MODAL_CHANGE');
           return;
         }
-        if (profileView.isEditProfileModalOpen) {
-          profileView.isEditProfileModalOpen = false;
+        if (profileStore.isEditProfileModalOpen) {
+          profileStore.isEditProfileModalOpen = false;
           clientStore.notifySync('MODAL_CHANGE');
           return;
         }

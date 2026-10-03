@@ -8,7 +8,6 @@
 export * from './profile/types.js';
 export * from './profile/profile-header.js';
 export * from './profile/profile-tabs.js';
-export * from './profile/profile-posts.js';
 export * from './profile/profile-settings.js';
 export * from './profile/profile-security.js';
 export * from './profile/profile-privacy.js';

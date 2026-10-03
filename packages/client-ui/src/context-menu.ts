@@ -18,7 +18,6 @@ export interface MenuAction {
   action: () => void;
 }
 
-import { canonicalVault } from './canonical-vault.js';
 import { clientStore } from './client-state.js';
 
 type MenuListener = () => void;
@@ -96,7 +95,7 @@ export class ContextMenuEngine {
   }
 
   public getPostActions(postId: string): MenuAction[] {
-    const isSaved = canonicalVault.isSaved(postId) || savedPosts.has(postId);
+    const isSaved = savedPosts.has(postId);
     return [
       {
         id: 'copy-link',
@@ -124,20 +123,24 @@ export class ContextMenuEngine {
         emoji: '🔖',
         shortcut: 'S',
         action: () => {
-          if (canonicalVault.isSaved(postId) || savedPosts.has(postId)) {
+          if (savedPosts.has(postId)) {
             savedPosts.delete(postId);
-            void canonicalVault.unsavePost(postId);
+            void import('./canonical-vault.js').then(({ canonicalVault }) => {
+              void canonicalVault.unsavePost(postId);
+            }).catch(() => {});
           } else {
             savedPosts.add(postId);
             const p = clientStore.posts.find(x => x.id === postId);
-            void canonicalVault.savePost({
-              id: postId,
-              title: p?.title || 'Saved Post',
-              content: p?.content || '',
-              authorFingerprint: p?.authorFingerprint || '',
-              channelId: p?.channelId || 'relays-general',
-              flair: p?.flair,
-            });
+            void import('./canonical-vault.js').then(({ canonicalVault }) => {
+              void canonicalVault.savePost({
+                id: postId,
+                title: p?.title || 'Saved Post',
+                content: p?.content || '',
+                authorFingerprint: p?.authorFingerprint || '',
+                channelId: p?.channelId || 'relays-general',
+                flair: p?.flair,
+              });
+            }).catch(() => {});
           }
           this.hide();
         },

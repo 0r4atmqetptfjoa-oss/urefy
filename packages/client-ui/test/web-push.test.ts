@@ -99,6 +99,18 @@ describe('UREfy Sovereign Web Push (VAPID) Engine', () => {
   let eventListenersMap: Map<string, Array<(event: any) => void>>;
 
   beforeEach(() => {
+    const localStoreMap = new Map<string, string>();
+    const sessionStoreMap = new Map<string, string>();
+    const createMockStorage = (map: Map<string, string>) => ({
+      getItem: (k: string) => map.get(k) ?? null,
+      setItem: (k: string, v: string) => map.set(k, String(v)),
+      removeItem: (k: string) => map.delete(k),
+      clear: () => map.clear(),
+      get length() { return map.size; },
+      key: (i: number) => Array.from(map.keys())[i] ?? null,
+    });
+    Object.defineProperty(globalThis, 'localStorage', { value: createMockStorage(localStoreMap), configurable: true, writable: true });
+    Object.defineProperty(globalThis, 'sessionStorage', { value: createMockStorage(sessionStoreMap), configurable: true, writable: true });
     eventListenersMap = new Map();
     globalPushSubscriptionsStore.length = 0;
 
@@ -503,6 +515,16 @@ describe('UREfy Sovereign Web Push (VAPID) Engine', () => {
   // ─── 6. HELPER UI COMPONENTS (BANNER & SETTINGS WIDGET) ─────────────────────
 
   describe('6. Helper UI Components & Sovereign Privacy Explanations', () => {
+    beforeEach(() => {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.clear();
+        localStorage.setItem('aetheris_onboarding_completed', 'true');
+      }
+      if (typeof sessionStorage !== 'undefined') {
+        sessionStorage.clear();
+      }
+    });
+
     it('should render Push Opt-In Banner containing the mandatory zero-tracking statement', () => {
       mockNotificationConstructor.permission = 'default';
       const push = new SovereignWebPush();

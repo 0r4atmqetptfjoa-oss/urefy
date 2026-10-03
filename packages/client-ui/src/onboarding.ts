@@ -16,8 +16,7 @@ import { i18n } from './i18n.js';
 import { clientStore } from './client-state.js';
 import { sovereignDialog } from './dialog-modal.js';
 import { sovereignCircleEngine } from './sovereign-circle.js';
-import { profileView } from './profile-view.js';
-import { feedPersonalization } from './feed-personalization.js';
+import { profileStore as profileView } from './profile/profile-store.js';
 
 // Patch this wizard's DOM without removing focused controls. Replacing the
 // input on each keystroke closes/reopens mobile keyboards and restarts fades.
@@ -405,7 +404,11 @@ export class OnboardingWizard {
     for (const d of defaults) {
       this.selectedInterests.add(d);
       const item = ONBOARDING_INTERESTS.find((i) => i.id === d);
-      if (item) feedPersonalization.setManualInterest(item.tag, 100);
+      if (item) {
+        const fp = (globalThis as any).feedPersonalization;
+        if (fp) fp.setManualInterest(item.tag, 100);
+        else void import('./feed-personalization.js').then(m => m.feedPersonalization.setManualInterest(item.tag, 100)).catch(() => {});
+      }
     }
     this.persistInterests();
     this.saveError = '';
@@ -436,12 +439,15 @@ export class OnboardingWizard {
     const item = ONBOARDING_INTERESTS.find((i) => i.id === interestId);
     if (!item) return;
 
+    const fp = (globalThis as any).feedPersonalization;
     if (this.selectedInterests.has(interestId)) {
       this.selectedInterests.delete(interestId);
-      feedPersonalization.setManualInterest(item.tag, 0);
+      if (fp) fp.setManualInterest(item.tag, 0);
+      else void import('./feed-personalization.js').then(m => m.feedPersonalization.setManualInterest(item.tag, 0)).catch(() => {});
     } else {
       this.selectedInterests.add(interestId);
-      feedPersonalization.setManualInterest(item.tag, 100);
+      if (fp) fp.setManualInterest(item.tag, 100);
+      else void import('./feed-personalization.js').then(m => m.feedPersonalization.setManualInterest(item.tag, 100)).catch(() => {});
     }
 
     this.persistInterests();

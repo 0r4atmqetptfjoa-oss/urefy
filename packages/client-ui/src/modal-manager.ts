@@ -15,7 +15,8 @@ import { contextMenuEngine } from './context-menu.js';
 import { themeEngine } from './themes.js';
 import { zenModeManager } from './zen-mode.js';
 import { offlineSync } from './offline-sync.js';
-import { profileView } from './profile-view.js';
+import { profileStore } from './profile/profile-store.js';
+import { profileView, loadProfileView } from './optional-workspaces.js';
 import { hybridComposer, omniComposer } from './composer-hybrid.js';
 import { keyboardNavigator } from './keyboard-nav.js';
 import { sovereignWebPush } from './web-push.js';
@@ -632,7 +633,7 @@ export function buildModalRootHTML(ctx: ModalStateContext): string {
     ${zenModeManager.isZenActive ? zenModeManager.renderZenFloatingExit() : ''}
     ${offlineSync.isOpen ? offlineSync.renderSyncManagerModal() : ''}
     ${ctx.isLangModalOpen ? `<div id="lang-modal-backdrop" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md" data-action="close-lang"><div data-action="stop-propagation">${i18n.renderLanguagePicker('dropdown')}</div></div>` : ''}
-    ${profileView.isEditProfileModalOpen ? profileView.renderEditProfileModal(profileView.getProfile(profileView.targetFingerprint)) : ''}
+    ${profileStore.isEditProfileModalOpen ? (profileView ? profileView.renderEditProfileModal(profileStore.getProfile(profileStore.targetFingerprint)) : (void loadProfileView().then(() => clientStore.notify()), '')) : ''}
     ${clientStore.isComposerOpen ? hybridComposer.renderComposerModal() : ''}
     ${keyboardNavigator.isHelpModalOpen ? keyboardNavigator.renderModal() : ''}
     ${onboardingWizard.isOpen ? '' : sovereignWebPush.renderPushOptInBanner()}

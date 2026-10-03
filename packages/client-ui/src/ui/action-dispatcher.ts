@@ -56,7 +56,7 @@ import { sharePostOrCopyLink } from '../dry-utils.js';
 import { sovereignDialog } from '../dialog-modal.js';
 import { pulseActionsEngine } from '../pulse-actions.js';
 import { feedControlsEngine } from '../feed-controls.js';
-import { profileView } from '../profile/profile-view.js';
+import { profileStore as profileView } from '../profile/profile-store.js';
 import { homeDiscoveryEngine } from '../home-discovery.js';
 import { hashtagExplorer } from '../hashtag-explorer.js';
 import { mobileFlowEngine } from '../mobile-flow.js';

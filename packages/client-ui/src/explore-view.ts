@@ -3,7 +3,7 @@
 import { ClientPost, clientStore } from './client-state.js';
 import { sovereignCircleEngine } from './sovereign-circle.js';
 import { socialSafety } from './social-safety.js';
-import { profileView } from './profile-view.js';
+import { profileStore as profileView } from './profile/profile-store.js';
 import { renderAvatar } from './ui/avatar-generator.js';
 import { renderIcon } from './ui/icons.js';
 import { renderPulsePostCard } from './feed-view.js';

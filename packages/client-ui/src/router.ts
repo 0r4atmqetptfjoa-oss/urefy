@@ -6,7 +6,7 @@
  */
 
 import { clientStore } from './client-state.js';
-import { profileView } from './profile-view.js';
+import { profileStore as profileView } from './profile/profile-store.js';
 import { sovereignCircleEngine } from './sovereign-circle.js';
 import { postDetailView } from './post-detail.js';
 

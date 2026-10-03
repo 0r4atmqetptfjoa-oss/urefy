@@ -1,9 +1,9 @@
-import { awardsSystem } from './awards.js';
+import { awardsSystem } from './awards-facade.js';
 import { clientStore } from './client-state.js';
 import { sharePostOrCopyLink, escapeHtml } from './dry-utils.js';
 import { markdownRenderer } from './markdown-renderer.js';
 import { t } from './i18n.js';
-import { profileView } from './profile-view.js';
+import { profileStore as profileView } from './profile/profile-store.js';
 import { obsidianMediaPlayer } from './media-player.js';
 import { reactionsEngine, bindReactionBarEvents } from './reactions.js';
 import { presentPublicIdentity } from './public-identity.js';

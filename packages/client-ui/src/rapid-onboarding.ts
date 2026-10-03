@@ -16,9 +16,8 @@
  */
 
 import { clientStore } from './client-state.js';
-import { profileView } from './profile-view.js';
+import { profileStore as profileView } from './profile/profile-store.js';
 import { sovereignCircleEngine } from './sovereign-circle.js';
-import { feedPersonalization } from './feed-personalization.js';
 import { renderIcon, renderBrandLogoMark } from './ui/icons.js';
 import { t } from './i18n.js';
 
@@ -204,8 +203,10 @@ export class RapidOnboardingModal {
     for (const interestId of this.selectedInterests) {
       const topic = POPULAR_INTERESTS.find(t => t.id === interestId);
       if (topic) {
-        feedPersonalization.setManualInterest(`#${topic.name.replace(/\s+/g, '')}`, 80);
-        feedPersonalization.setManualInterest(topic.category, 75);
+        void import('./feed-personalization.js').then(m => {
+          m.feedPersonalization.setManualInterest(`#${topic.name.replace(/\s+/g, '')}`, 80);
+          m.feedPersonalization.setManualInterest(topic.category, 75);
+        }).catch(() => {});
       }
     }
 

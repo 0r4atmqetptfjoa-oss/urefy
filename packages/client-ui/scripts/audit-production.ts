@@ -356,6 +356,7 @@ function classifySeedOccurrence(relPath: string, line: string): Category {
     relPath === 'ui/avatar-generator.ts' ||
     relPath === 'profile/seed-profiles-data.ts' ||
     relPath === 'profile/profile-view.ts' ||
+    relPath === 'profile/profile-store.ts' ||
     line.includes('seedDevProfiles') ||
     line.includes('seed-profiles-data') ||
     line.includes('SOVEREIGN_PERSONAS')

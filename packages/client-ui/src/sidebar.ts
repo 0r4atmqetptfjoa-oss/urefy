@@ -6,7 +6,7 @@ import { sovereignCircleEngine } from './sovereign-circle.js';
 import { renderIcon } from './ui/icons.js';
 import { postDetailView } from './post-detail.js';
 import { threadManager } from './threads.js';
-import { profileView } from './profile-view.js';
+import { profileStore as profileView } from './profile/profile-store.js';
 import { privacyLens } from './privacy-lens.js';
 
 function escapeHtml(value: string): string {

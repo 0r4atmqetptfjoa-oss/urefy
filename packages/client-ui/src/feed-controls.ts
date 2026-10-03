@@ -7,7 +7,7 @@
 import './window-augmentation.js';
 import { serviceRegistry, SERVICES } from './service-registry.js';
 import { clientStore, ClientPost } from './client-state.js';
-import { awardsSystem } from './awards.js';
+import { awardsSystem } from './awards-facade.js';
 import { bookmarksVault } from './bookmarks.js';
 import { crossPostEngine } from './crosspost.js';
 import { markdownRenderer } from './markdown-renderer.js';
@@ -19,8 +19,17 @@ import { collectionsEngine } from './collections.js';
 import { zkReputation } from './zk-reputation.js';
 import { threadManager } from './threads.js';
 import { sovereignCircleEngine } from './sovereign-circle.js';
-import { profileView } from './profile-view.js';
-import { feedPersonalization, type ContentSignal } from './feed-personalization.js';
+import { profileStore as profileView } from './profile/profile-store.js';
+let activePersonalizationEngine: typeof import('./feed-personalization.js').feedPersonalization | null = null;
+function getPersonalizationEngine() {
+  if (!activePersonalizationEngine) {
+    void import('./feed-personalization.js').then(m => {
+      activePersonalizationEngine = m.feedPersonalization;
+      clientStore.notify();
+    }).catch(() => {});
+  }
+  return activePersonalizationEngine;
+}
 import { renderAvatar } from './ui/avatar-generator.js';
 import { mobileFlowEngine } from './mobile-flow.js';
 import { presentPublicIdentity } from './public-identity.js';
@@ -142,22 +151,27 @@ export class FeedControlsEngine {
       });
     } else if (this.streamType === 'for-you' && this.sortType === 'hot') {
       // 3. For You algorithmic stream: local vector space TF-IDF topic affinity & freshness
-      try {
-        const signals: ContentSignal[] = list.map(p => ({
-          postId: p.id,
-          tags: (p as any).tags || [],
-          flair: p.flair || '',
-          channelId: p.channelId || '',
-          score: p.meritVotes || 0,
-          authorFP: p.authorFingerprint || '',
-          createdAt: p.createdAt,
-          title: p.title,
-        }));
-        const scored = feedPersonalization.sortFeed(signals);
-        const orderMap = new Map<string, number>();
-        scored.forEach((s, idx) => orderMap.set(s.postId, idx));
-        sorted = list.sort((a, b) => (orderMap.get(a.id) ?? 9999) - (orderMap.get(b.id) ?? 9999));
-      } catch (_) {
+      const engine = getPersonalizationEngine();
+      if (engine) {
+        try {
+          const signals = list.map(p => ({
+            postId: p.id,
+            tags: (p as any).tags || [],
+            flair: p.flair || '',
+            channelId: p.channelId || '',
+            score: p.meritVotes || 0,
+            authorFP: p.authorFingerprint || '',
+            createdAt: p.createdAt,
+            title: p.title,
+          }));
+          const scored = engine.sortFeed(signals);
+          const orderMap = new Map<string, number>();
+          scored.forEach((s, idx) => orderMap.set(s.postId, idx));
+          sorted = list.sort((a, b) => (orderMap.get(a.id) ?? 9999) - (orderMap.get(b.id) ?? 9999));
+        } catch (_) {
+          sorted = list;
+        }
+      } else {
         sorted = list;
       }
     } else {

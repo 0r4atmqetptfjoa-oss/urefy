@@ -14,7 +14,7 @@
 
 import { ClientPost, clientStore } from './client-state.js';
 import { sovereignCircleEngine } from './sovereign-circle.js';
-import { profileView } from './profile-view.js';
+import { profileStore as profileView } from './profile/profile-store.js';
 import { pulseActionsEngine } from './pulse-actions.js';
 import { threadManager } from './threads.js';
 import { markdownRenderer } from './markdown-renderer.js';

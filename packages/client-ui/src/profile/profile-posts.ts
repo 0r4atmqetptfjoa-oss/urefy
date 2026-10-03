@@ -10,7 +10,7 @@ import { pulseActionsEngine } from '../pulse-actions.js';
 import { obsidianMediaPlayer } from '../media-player.js';
 import { markdownRenderer } from '../markdown-renderer.js';
 import { sovereignCircleEngine } from '../sovereign-circle.js';
-import { profileView } from './profile-view.js';
+import { profileStore as profileView } from './profile-store.js';
 import { presentPublicIdentity } from '../public-identity.js';
 
 export function filterProfilePosts(allPosts: ClientPost[], activeTab: ProfileTab, targetFp: string): ClientPost[] {
