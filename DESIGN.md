@@ -19,6 +19,7 @@ Avoid copying Reddit's center feed with surrounding boxes. Also avoid the earlie
 - **Messages:** the active thread owns the workspace. Incoming and outgoing messages sit within one legible conversation lane. The composer stays attached to it. Opening a thread lands on the latest message; reading history does not jump with incoming updates.
 - **Profile:** a personal identity and activity view. The profile header, privacy state, posts, and settings have clear hierarchy and consistent controls.
 - **Vault, settings, and secondary tools:** use the same shell, type, tokens, focus styles, and responsive behavior while serving their own tasks.
+- **Admin:** put database-backed activity and the next useful action first. Show recent real records inline, define what a count represents, and link edits or additions to the existing audited admin workflows. Keep unconnected telemetry clearly unavailable.
 
 ## Typography and color
 
@@ -43,4 +44,9 @@ Review Home, Explore, Communities, Post detail, Messages, Profile, Vault, and Se
 
 ## Changelog
 
+- 2026-10-02: Added live recent-post and channel previews to the admin overview, with direct post editing and one-click routes to moderation and channel creation. Direction: technical and utilitarian admin tooling within UREfy's warm signal; visual verification remains pending.
 - 2026-09-29: Replaced the Field Journal direction after real desktop screenshots showed cramped post reading, wasted space in discovery, and scattered messaging. This specification guides the full UI rework and its visual review.
+
+## UI task audit
+
+- 2026-10-02, Admin dashboard: uses actual records from the existing 10-second server sync; no fabricated analytics, new gradients, or decorative chart elements. Labels expose that the preview is limited to currently loaded rows. Keyboard focus styles and mobile stacking are present in the new controls. Source review only; browser screenshots, responsive interaction checks, and screen-reader verification have not been run.

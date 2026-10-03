@@ -24,7 +24,7 @@ export function renderAdminOverview(overview: AdminOverview | null, syncing: boo
     <section class="rounded-3xl border border-amber/20 bg-gradient-to-br from-amber/10 via-surface-raised to-surface-base p-6 sm:p-8">
       <p class="text-xs tracking-widest uppercase text-amber font-mono">Workspace overview</p>
       <h2 class="mt-3 text-2xl sm:text-3xl font-bold text-white">A clear view of your workspace.</h2>
-      <p class="mt-3 text-sm text-slate-400 max-w-2xl">Recorded content, activity, and reports from your database. Traffic and security analytics are not connected.</p>
+      <p class="mt-3 text-sm text-slate-400 max-w-2xl">Database content and moderation activity, alongside Cloudflare zone traffic and firewall measurements when configured.</p>
       <div id="admin-overview-status" role="status" class="mt-5 text-xs text-slate-300">
         ${error ? `<span class="text-amber">${escape(error)}</span> ${overview ? 'Showing the last successful snapshot.' : 'No snapshot available.'}` : syncing ? 'Refreshing workspace data…' : overview ? overview.unavailable.length ? 'Some data is unavailable.' : 'Snapshot updated.' : 'Waiting for the first snapshot…'}
         ${stamp ? `<span class="block mt-2 text-slate-400">${escape(overview!.source)} · ${escape(stamp)} (local time)</span>` : ''}
@@ -44,9 +44,6 @@ export function renderAdminOverview(overview: AdminOverview | null, syncing: boo
       ${total === 0 ? '<p class="text-sm text-slate-400 mt-4">No stored activity in this window.</p>' : ''}
       <details class="mt-4 text-xs text-slate-400"><summary class="cursor-pointer">View hourly counts</summary><div class="overflow-x-auto mt-3"><table class="w-full text-left"><thead><tr><th>Hour (UTC)</th><th>Posts</th><th>Messages</th></tr></thead><tbody>${activity.map(item => `<tr><td class="py-1">${new Date(item.hour).toISOString().slice(0,16).replace('T', ' ')}</td><td>${item.posts}</td><td>${item.messages}</td></tr>`).join('')}</tbody></table></div></details>` : '<p class="py-10 text-center text-sm text-slate-400">Activity data is unavailable. Refresh to try again.</p>'}
     </section>
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-      <section class="rounded-2xl border border-white/10 bg-surface-raised p-6"><h3 class="font-bold text-white">Reports awaiting review</h3><p class="text-3xl text-amber font-bold my-3">${number(counts?.pendingReports)}</p><p class="text-sm text-slate-400">${counts?.pendingReports == null ? 'Report count unavailable.' : counts.pendingReports === 0 ? 'No pending reports in the database.' : 'Review the report details before taking action.'}</p><button class="admin-tab-btn mt-5 px-4 py-2 rounded-xl border border-amber/30 text-amber text-sm" data-admin-tab="dsa">Open reports</button></section>
-      <section class="rounded-2xl border border-white/10 bg-surface-raised p-6"><h3 class="font-bold text-white">Traffic & security analytics</h3><span class="inline-block my-3 px-2 py-1 rounded bg-white/5 text-xs text-slate-300">Not connected</span><p class="text-sm text-slate-400">Page views, bandwidth, live connections, request latency, and blocked attacks are unavailable. No incident feed is connected.</p><p class="mt-4 text-xs text-slate-400">Content counts above are database records, not visitor or traffic measurements.</p></section>
-    </div>
+    <section class="rounded-2xl border border-white/10 bg-surface-raised p-6"><h3 class="font-bold text-white">Reports awaiting review</h3><p class="text-3xl text-amber font-bold my-3">${number(counts?.pendingReports)}</p><p class="text-sm text-slate-400">${counts?.pendingReports == null ? 'Report count unavailable.' : counts.pendingReports === 0 ? 'No pending reports in the database.' : 'Review the report details before taking action.'}</p><button class="admin-tab-btn mt-5 px-4 py-2 rounded-xl border border-amber/30 text-amber text-sm" data-admin-tab="dsa">Open reports</button></section>
   </div>`;
 }

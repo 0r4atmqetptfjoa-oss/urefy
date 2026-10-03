@@ -3,7 +3,7 @@
  *
  * Full cryptographic observability and real-time P2P telemetry dashboard:
  * 1. Network Topology Map: Interactive SVG Radar with luminous nodes, animated connections, and propagation waves
- * 2. Real-Time Latency Chart: SVG Sparkline/Area Chart with last 60-100 points, jitter analysis, p95/p99
+ * 2. Reported network latency history from real telemetry or explicit simulation mode
  * 3. ZK-RLN Slashing Statistics: 7-day bar chart, penalty metrics, spammer identity extraction on BN254
  * 4. Top Contributors: Leaderboard of Top 5 nodes with Merit scores, validated ZK proofs, uptime, and bandwidth
  *
@@ -22,9 +22,9 @@ import { t } from './i18n.js';
 export interface NetworkMetrics {
   totalNodes: number;
   activeNodes: number;
-  messagesPerMinute: number;
-  avgLatencyMs: number;
-  totalSlashings: number;
+  messagesPerMinute: number | null;
+  avgLatencyMs: number | null;
+  totalSlashings: number | null;
   networkUptime: number | null; // Percentage (e.g. 99.98) or null if unmeasured
   topContributors: string[];
 }
@@ -46,11 +46,11 @@ export interface TopologyNode {
   y: number; // Y coordinate on viewBox 800x440
   role: NodeRole;
   status: NodeStatus;
-  latencyMs: number;
+  latencyMs: number | null;
   meritScore: number;
   region: string;
   countryCode: string;
-  uptime: number; // Percentage
+  uptime: number | null; // Percentage
   ipObfuscated: string;
   zkRlnEpoch: number;
   connections: string[]; // Directly connected node IDs
@@ -536,6 +536,7 @@ const SEED_TOP_CONTRIBUTORS: TopContributor[] = [
 
 export class NetworkObservatory {
   public metrics: NetworkMetrics;
+  public telemetryError = '';
   public latencyHistory: LatencyDataPoint[] = [];
   public isOpen: boolean = false;
 
@@ -552,6 +553,8 @@ export class NetworkObservatory {
   private liveUpdateIntervalId: number | null = null;
   private subscribers: Array<() => void> = [];
   private lastUpdateTime: number = Date.now();
+  private lastObservedMessagesProcessed: number | null = null;
+  private lastObservedTelemetryAt: number | null = null;
 
   constructor() {
     if (isSimulationModeEnabled()) {
@@ -581,9 +584,9 @@ export class NetworkObservatory {
       this.metrics = {
         totalNodes: 0,
         activeNodes: 0,
-        messagesPerMinute: 0,
-        avgLatencyMs: 0,
-        totalSlashings: 0,
+        messagesPerMinute: null,
+        avgLatencyMs: null,
+        totalSlashings: null,
         networkUptime: null,
         topContributors: [],
       };
@@ -602,20 +605,35 @@ export class NetworkObservatory {
     try {
       const res = await fetch('/api/analytics');
       if (!res.ok) {
-        this.nodes = [];
+        this.telemetryError = `Telemetry request returned HTTP ${res.status}.`;
+        if (this.isOpen) this.updateOpenModalDOM();
         return;
       }
       const data = await res.json();
       if (data && data.metrics) {
+        this.telemetryError = '';
+        const observedAt = typeof data.timestamp === 'number' ? data.timestamp : Date.now();
+        const currentMessages = Number.isFinite(data.metrics.messagesProcessed) ? Number(data.metrics.messagesProcessed) : null;
+        const messageRate = currentMessages !== null && this.lastObservedMessagesProcessed !== null && this.lastObservedTelemetryAt !== null &&
+          currentMessages >= this.lastObservedMessagesProcessed && observedAt > this.lastObservedTelemetryAt
+          ? Math.round(((currentMessages - this.lastObservedMessagesProcessed) / ((observedAt - this.lastObservedTelemetryAt) / 60_000)) * 10) / 10
+          : null;
         this.metrics = {
           totalNodes: Number(data.metrics.totalNodes) || 0,
           activeNodes: Number(data.metrics.activeNodes) || 0,
-          messagesPerMinute: Math.round((Number(data.metrics.messagesProcessed) || 0) / 60),
-          avgLatencyMs: Number(data.metrics.avgLatencyMs) || 0,
-          totalSlashings: 0,
+          messagesPerMinute: messageRate,
+          avgLatencyMs: typeof data.metrics.avgLatencyMs === 'number' && Number.isFinite(data.metrics.avgLatencyMs) ? data.metrics.avgLatencyMs : null,
+          totalSlashings: null,
           networkUptime: data.uptimePercentage !== undefined ? data.uptimePercentage : null,
           topContributors: Array.isArray(data.nodes) ? data.nodes.slice(0, 5).map((n: any) => n.name) : [],
         };
+        const reportedLatency = this.metrics.avgLatencyMs;
+        if (reportedLatency !== null) {
+          this.latencyHistory.push({ timestamp: observedAt, latencyMs: reportedLatency, nodeId: 'site-reported-average' });
+          if (this.latencyHistory.length > 100) this.latencyHistory.shift();
+        }
+        this.lastObservedMessagesProcessed = currentMessages;
+        this.lastObservedTelemetryAt = observedAt;
         if (Array.isArray(data.nodes) && data.nodes.length > 0) {
           this.nodes = data.nodes.map((n: any, idx: number) => ({
             id: n.nodeId || `node-${idx}`,
@@ -624,11 +642,11 @@ export class NetworkObservatory {
             y: 90 + ((idx * 85) % 260),
             role: (n.role as NodeRole) || 'relay',
             status: (n.status as NodeStatus) || 'active',
-            latencyMs: Number(n.latencyMs) || 15,
+            latencyMs: typeof n.latencyMs === 'number' && Number.isFinite(n.latencyMs) ? n.latencyMs : null,
             meritScore: Number(n.meritScore) || 100,
             region: n.region || 'Global',
             countryCode: n.countryCode || 'XX',
-            uptime: Number(n.uptime) || 100,
+            uptime: typeof n.uptime === 'number' && Number.isFinite(n.uptime) ? n.uptime : null,
             ipObfuscated: 'Encrypted Node Identity',
             zkRlnEpoch: Number(n.zkRlnEpoch) || 1,
             connections: Array.isArray(n.connections) ? n.connections : [],
@@ -643,11 +661,13 @@ export class NetworkObservatory {
           this.updateOpenModalDOM();
         }
       } else {
-        this.nodes = [];
+        this.telemetryError = 'Telemetry response did not include metrics.';
+        if (this.isOpen) this.updateOpenModalDOM();
       }
     } catch (err) {
       console.warn('[NetworkObservatory] Real telemetry fetch failed:', err);
-      this.nodes = [];
+      this.telemetryError = 'Telemetry could not be reached; the last successful sample is preserved.';
+      if (this.isOpen) this.updateOpenModalDOM();
     }
   }
 
@@ -719,8 +739,8 @@ export class NetworkObservatory {
     this.slashing7DayStats = stats;
   }
 
-  public calculateAvgLatency(): number {
-    if (this.latencyHistory.length === 0) return 0;
+  public calculateAvgLatency(): number | null {
+    if (this.latencyHistory.length === 0) return null;
     const sum = this.latencyHistory.reduce((acc, p) => acc + p.latencyMs, 0);
     return parseFloat((sum / this.latencyHistory.length).toFixed(1));
   }
@@ -741,7 +761,7 @@ export class NetworkObservatory {
 
     // 2. Messages per minute variation (between 4200 and 5900)
     const msgDrift = Math.floor((Math.random() - 0.48) * 140);
-    this.metrics.messagesPerMinute = Math.max(3800, Math.min(6500, this.metrics.messagesPerMinute + msgDrift));
+    this.metrics.messagesPerMinute = Math.max(3800, Math.min(6500, (this.metrics.messagesPerMinute ?? 0) + msgDrift));
 
     // 3. Generate new latency point with jitter
     const lastLatency = this.latencyHistory.length > 0 
@@ -772,7 +792,7 @@ export class NetworkObservatory {
     // 5. Update individual node telemetry
     this.nodes.forEach(node => {
       const nodeJitter = (Math.random() - 0.48) * 1.8;
-      node.latencyMs = parseFloat(Math.max(8.0, Math.min(65.0, node.latencyMs + nodeJitter)).toFixed(1));
+      if (node.latencyMs !== null) node.latencyMs = parseFloat(Math.max(8.0, Math.min(65.0, node.latencyMs + nodeJitter)).toFixed(1));
       node.messagesProcessed += Math.floor(Math.random() * 45) + 10;
     });
 
@@ -826,7 +846,7 @@ export class NetworkObservatory {
       this.slashingHistory.pop();
     }
 
-    this.metrics.totalSlashings += 1;
+    if (this.metrics.totalSlashings !== null) this.metrics.totalSlashings += 1;
 
     // Update statistics for today
     const todayStat = this.slashing7DayStats[this.slashing7DayStats.length - 1];
@@ -1075,12 +1095,12 @@ export class NetworkObservatory {
               <h2 class="text-base sm:text-lg font-bold text-white tracking-tight font-sans">
                 UREfy Observatory
               </h2>
-              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-cyphr/10 text-cyphr border border-cyphr/30">
-                v2.4 ZK-MESH
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-cyphr/10 text-cyphr border border-cyphr/30">
+                Admin view
               </span>
             </div>
             <p class="text-xs text-slate-400 font-sans">
-              Decentralized cryptographic telemetry · BFT Consensus & Zero-Knowledge MLS Ratchet
+              Site telemetry from the database · metrics without a source are shown as unavailable
             </p>
           </div>
         </div>
@@ -1092,7 +1112,7 @@ export class NetworkObservatory {
               <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-signal opacity-75"></span>
               <span class="relative inline-flex rounded-full h-2 w-2 bg-signal"></span>
             </span>
-            <span>LIVE SYNC</span>
+            <span>${isSimulationModeEnabled() ? 'DEMO DATA' : this.telemetryError ? (this.lastObservedTelemetryAt ? 'STALE DATA' : 'API ERROR') : this.lastObservedTelemetryAt ? 'SITE TELEMETRY' : 'CONNECTING'}</span>
           </div>
 
           <button data-action="call-global" data-raw-click="window.__aetheris_observatory_refresh && window.__aetheris_observatory_refresh()"
@@ -1150,8 +1170,7 @@ export class NetworkObservatory {
         <div class="flex flex-col p-2 rounded-lg bg-surface-raised/80 border border-white/5">
           <span class="text-[10px] uppercase tracking-wider text-slate-400">Mesh Traffic</span>
           <div class="flex items-baseline gap-1.5 mt-1">
-            <span class="text-lg font-bold text-cyphr">${this.metrics.messagesPerMinute.toLocaleString()}</span>
-            <span class="text-[10px] text-slate-400 font-sans">msg/min</span>
+            ${this.metrics.messagesPerMinute !== null ? `<span class="text-lg font-bold text-cyphr">${this.metrics.messagesPerMinute.toLocaleString()}</span><span class="text-[10px] text-slate-400 font-sans">msg/min</span>` : '<span class="text-xs font-semibold text-slate-400 font-sans">Rate needs two samples</span>'}
           </div>
         </div>
 
@@ -1159,10 +1178,7 @@ export class NetworkObservatory {
         <div class="flex flex-col p-2 rounded-lg bg-surface-raised/80 border border-white/5">
           <span class="text-[10px] uppercase tracking-wider text-slate-400">Average Latency</span>
           <div class="flex items-baseline gap-1.5 mt-1">
-            <span class="text-lg font-bold ${this.metrics.avgLatencyMs < 25 ? 'text-signal' : this.metrics.avgLatencyMs < 45 ? 'text-amber' : 'text-crimson'}">
-              ${this.metrics.avgLatencyMs}
-            </span>
-            <span class="text-[10px] text-slate-400 font-sans">ms</span>
+            ${this.metrics.avgLatencyMs !== null ? `<span class="text-lg font-bold ${this.metrics.avgLatencyMs < 25 ? 'text-signal' : this.metrics.avgLatencyMs < 45 ? 'text-amber' : 'text-crimson'}">${this.metrics.avgLatencyMs}</span><span class="text-[10px] text-slate-400 font-sans">ms</span>` : '<span class="text-xs font-semibold text-slate-400 font-sans">No node latency reported</span>'}
           </div>
         </div>
 
@@ -1170,8 +1186,7 @@ export class NetworkObservatory {
         <div class="flex flex-col p-2 rounded-lg bg-surface-raised/80 border border-white/5">
           <span class="text-[10px] uppercase tracking-wider text-slate-400">ZK-RLN Slashing</span>
           <div class="flex items-baseline gap-1.5 mt-1">
-            <span class="text-lg font-bold text-crimson">${this.metrics.totalSlashings}</span>
-            <span class="text-[10px] text-slate-400 font-sans">penalties</span>
+            ${this.metrics.totalSlashings !== null ? `<span class="text-lg font-bold text-crimson">${this.metrics.totalSlashings}</span><span class="text-[10px] text-slate-400 font-sans">penalties</span>` : '<span class="text-xs font-semibold text-slate-400 font-sans">No slashing event feed</span>'}
           </div>
         </div>
 
@@ -1211,7 +1226,7 @@ export class NetworkObservatory {
                 1. P2P Network Topology Map (Radar Mesh)
               </h3>
               <p class="text-xs text-slate-400 font-sans">
-                Interactive visualization of network nodes, mesh links, and anonymous packet routing
+                Node records and reported links; positions are schematic, not geographic.
               </p>
             </div>
           </div>
@@ -1448,12 +1463,12 @@ export class NetworkObservatory {
         <text
           y="${radius + 24}"
           text-anchor="middle"
-          fill="${node.latencyMs < 25 ? '#22c55e' : '#f59e0b'}"
+          fill="${node.latencyMs === null ? '#64748b' : node.latencyMs < 25 ? '#22c55e' : '#f59e0b'}"
           font-size="9"
           font-family="monospace"
           class="pointer-events-none select-none"
         >
-          ${node.latencyMs}ms
+          ${node.latencyMs === null ? '—' : `${node.latencyMs}ms`}
         </text>
       </g>
     `;
@@ -1485,7 +1500,7 @@ export class NetworkObservatory {
           </div>
           <div class="flex justify-between">
             <span class="text-slate-400">Live Latency:</span>
-            <span class="${node.latencyMs < 25 ? 'text-signal' : 'text-amber'} font-bold">${node.latencyMs} ms</span>
+            <span class="${node.latencyMs === null ? 'text-slate-400' : node.latencyMs < 25 ? 'text-signal' : 'text-amber'} font-bold">${node.latencyMs === null ? 'Not measured' : `${node.latencyMs} ms`}</span>
           </div>
           <div class="flex justify-between">
             <span class="text-slate-400">Merit Score:</span>
@@ -1493,7 +1508,7 @@ export class NetworkObservatory {
           </div>
           <div class="flex justify-between">
             <span class="text-slate-400">Node Uptime:</span>
-            <span class="text-signal">${node.uptime}%</span>
+            <span class="${node.uptime === null ? 'text-slate-400' : 'text-signal'}">${node.uptime === null ? 'Not measured' : `${node.uptime}%`}</span>
           </div>
           <div class="flex justify-between">
             <span class="text-slate-400">Link Bandwidth:</span>
@@ -1512,11 +1527,7 @@ export class NetworkObservatory {
         </div>
 
         <div class="mt-3 pt-2 border-t border-white/5 flex gap-2">
-          <button data-action="call-global" data-raw-click="if(window.clientStore) window.clientStore.showToast('ICMP Zero-Knowledge Ping to ${node.name}: ${node.latencyMs}ms', 'info');"
-            class="flex-1 py-1 rounded bg-cyphr/10 hover:bg-cyphr/20 border border-cyphr/30 text-cyphr text-center text-[10px] font-mono cursor-pointer"
-          >
-            ⚡ ZK Ping Test
-          </button>
+          <span class="flex-1 py-1 text-center text-[10px] font-mono text-slate-500">Latency from node telemetry; active ping is unavailable</span>
         </div>
       </div>
     `;
@@ -1536,10 +1547,10 @@ export class NetworkObservatory {
             <span class="text-signal text-lg">⚡</span>
             <div>
               <h3 class="text-sm font-bold text-white uppercase tracking-wider font-mono">
-                2. Real-Time Network Latency & Jitter Monitor
+                2. Reported Network Latency
               </h3>
               <p class="text-xs text-slate-400 font-sans">
-                Dynamic telemetry sampling across sovereign mesh relays
+                Waiting for reported average latency samples.
               </p>
             </div>
           </div>
@@ -1550,16 +1561,12 @@ export class NetworkObservatory {
       `;
     }
     
-    // Calculate Min / Max / Avg / P95 / P99
+    // These are sampled historical network averages, not per-request latency percentiles.
     const latencies = recentPoints.map(p => p.latencyMs);
     const minLatency = latencies.length > 0 ? Math.min(...latencies) : 15.0;
     const maxLatency = latencies.length > 0 ? Math.max(...latencies) : 45.0;
-    const avgLatency = this.calculateAvgLatency();
+    const avgLatency = this.calculateAvgLatency() ?? 0;
 
-    // Calcul P95 / P99
-    const sorted = [...latencies].sort((a, b) => a - b);
-    const p95 = sorted.length > 0 ? sorted[Math.floor(sorted.length * 0.95)] : avgLatency;
-    const p99 = sorted.length > 0 ? sorted[Math.floor(sorted.length * 0.99)] : maxLatency;
 
     // SVG Plot Dimensions
     const svgWidth = 640;
@@ -1621,10 +1628,10 @@ export class NetworkObservatory {
               <span class="text-signal text-lg">⚡</span>
               <div>
                 <h3 class="text-sm font-bold text-white uppercase tracking-wider font-mono">
-                  2. Real-Time Latency Chart (60 Points)
+                  2. Reported Average Latency (up to 60 samples)
                 </h3>
                 <p class="text-xs text-slate-400 font-sans">
-                  Monitoring jitter oscillation, propagation times, and ratcheting degradation
+                  Historical average latency reported by the site node telemetry endpoint
                 </p>
               </div>
             </div>
@@ -1699,11 +1706,11 @@ export class NetworkObservatory {
             <div class="font-bold text-amber">${avgLatency} ms</div>
           </div>
           <div class="p-1.5 rounded bg-surface-base border border-white/5">
-            <span class="text-[10px] text-slate-400 uppercase">P95</span>
-            <div class="font-bold text-cyphr">${p95} ms</div>
+            <span class="text-[10px] text-slate-400 uppercase">Range</span>
+            <div class="font-bold text-cyphr">${minLatency}–${maxLatency} ms</div>
           </div>
           <div class="p-1.5 rounded bg-surface-base border border-white/5">
-            <span class="text-[10px] text-slate-400 uppercase">Max (P99)</span>
+            <span class="text-[10px] text-slate-400 uppercase">Maximum</span>
             <div class="font-bold text-crimson">${maxLatency} ms</div>
           </div>
         </div>
@@ -1732,7 +1739,7 @@ export class NetworkObservatory {
             </div>
           </div>
           <div class="mt-4 p-8 rounded-xl bg-canvas border border-white/5 text-center text-slate-400 font-mono text-xs">
-            Data Unavailable (No historical slashing events registered)
+            ${isSimulationModeEnabled() ? 'No simulated slashing events in this window.' : 'Slashing event source is not connected; no records are confirmed.'}
           </div>
         </div>
       `;
@@ -1885,6 +1892,16 @@ export class NetworkObservatory {
   // ─── Section 4: Top Contributors & Merit Leaderboard ─────────────────────
 
   private renderTopContributorsSection(): string {
+    if (!isSimulationModeEnabled()) {
+      const nodes = [...this.nodes].sort((a, b) => b.meritScore - a.meritScore).slice(0, 5);
+      const entities: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+      const escape = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, ch => entities[ch] || ch);
+      return `<section class="rounded-xl bg-surface-raised border border-white/10 p-4 sm:p-5 shadow-lg">
+        <h3 class="text-sm font-bold text-white uppercase tracking-wider font-mono">4. Nodes by reported merit score</h3>
+        <p class="mt-1 text-xs text-slate-400">Live node records from site telemetry. Proof counts and contributor tiers are not available from this source.</p>
+        ${nodes.length ? `<div class="mt-4 overflow-x-auto"><table class="w-full text-left text-xs"><thead><tr class="text-slate-400"><th class="p-2">Node</th><th class="p-2">Role / status</th><th class="p-2">Merit</th><th class="p-2">Latency</th><th class="p-2">Uptime</th></tr></thead><tbody>${nodes.map((node, index) => `<tr class="border-t border-white/5"><td class="p-2 text-white">#${index + 1} · ${escape(node.name)}<span class="block text-slate-500">${escape(node.region)}</span></td><td class="p-2 text-slate-300">${escape(node.role)} · ${escape(node.status)}</td><td class="p-2">${node.meritScore.toLocaleString()}</td><td class="p-2">${node.latencyMs === null ? '—' : `${node.latencyMs} ms`}</td><td class="p-2">${node.uptime === null ? '—' : `${node.uptime}%`}</td></tr>`).join('')}</tbody></table></div>` : '<p class="mt-4 rounded-lg bg-canvas p-8 text-center text-sm text-slate-400">No node records are available from site telemetry.</p>'}
+      </section>`;
+    }
     const maxMerit = Math.max(...this.topContributorsList.map(c => c.meritScore), 10000);
 
     return `
@@ -1904,7 +1921,7 @@ export class NetworkObservatory {
           </div>
 
           <div class="text-xs font-mono text-slate-400">
-            Algorithm: <span class="text-aether font-semibold">EigenTrust + ZK-Multiplier</span>
+            ${isSimulationModeEnabled() ? 'Demo data: ' : 'Node source: '}<span class="text-aether font-semibold">${isSimulationModeEnabled() ? 'simulation mode' : '/api/analytics'}</span>
           </div>
         </div>
 
@@ -2017,11 +2034,11 @@ export class NetworkObservatory {
         <div class="flex items-center gap-4">
           <span class="flex items-center gap-1.5">
             <span class="w-2 h-2 rounded-full bg-signal"></span>
-            <span>BFT Consensus Finality: <strong class="text-white">&lt; 1.2s</strong></span>
+            <span>Telemetry refresh: <strong class="text-white">30 seconds while open</strong></span>
           </span>
           <span class="hidden md:inline text-white/20">|</span>
-          <span class="hidden md:flex items-center gap-1.5">
-            <span>Circom ZK Verifier: <strong class="text-cyphr">0.8ms / batch</strong></span>
+            <span class="hidden md:flex items-center gap-1.5">
+            <span>Data source: <strong class="text-cyphr">/api/analytics</strong></span>
           </span>
         </div>
 

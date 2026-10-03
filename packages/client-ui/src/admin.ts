@@ -155,7 +155,7 @@ export function normalizeR2QuotaResponse(data: any): R2QuotaMetrics {
 /**
  * Fetches real-time quota telemetry from /api/storage?action=quota and updates the DOM meters.
  */
-export async function fetchAndRenderR2Quota(): Promise<R2QuotaMetrics> {
+export async function fetchAndRenderR2Quota(): Promise<R2QuotaMetrics | null> {
   const refreshButtons = typeof document !== 'undefined' ? document.querySelectorAll('#btn-refresh-r2-quota') : [];
   refreshButtons.forEach((btn) => {
     btn.classList.add('opacity-50', 'pointer-events-none');
@@ -177,14 +177,15 @@ export async function fetchAndRenderR2Quota(): Promise<R2QuotaMetrics> {
     renderR2QuotaDOM(metrics);
     return metrics;
   } catch (err) {
-    // Offline / fallback protection baseline: ensure zero-overage safe display
-    const fallbackMetrics = normalizeR2QuotaResponse({
-      storage: { usedGB: 0.0, capGB: R2_FREE_TIER_LIMITS.storageCapGB, percentUsed: 0.0 },
-      classA: { used: 0, cap: R2_FREE_TIER_LIMITS.classACap, percentUsed: 0.0 },
-      classB: { used: 0, cap: R2_FREE_TIER_LIMITS.classBCap, percentUsed: 0.0 },
-    });
-    renderR2QuotaDOM(fallbackMetrics);
-    return fallbackMetrics;
+    if (typeof document !== 'undefined') {
+      ['#r2-storage-val', '#r2-storage-pct', '#r2-class-a-val', '#r2-class-a-pct', '#r2-class-b-val', '#r2-class-b-pct'].forEach(selector => {
+        document.querySelectorAll(selector).forEach(el => { el.textContent = 'Unavailable'; });
+      });
+      ['#r2-storage-bar', '#r2-class-a-bar', '#r2-class-b-bar'].forEach(selector => {
+        document.querySelectorAll<HTMLElement>(selector).forEach(el => { el.style.width = '0%'; });
+      });
+    }
+    return null;
   } finally {
     refreshButtons.forEach((btn) => {
       btn.classList.remove('opacity-50', 'pointer-events-none');
@@ -494,5 +495,4 @@ if (typeof document !== 'undefined') {
     initR2QuotaGuardian();
   }
 }
-
 

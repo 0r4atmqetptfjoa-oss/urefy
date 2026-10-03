@@ -19,14 +19,22 @@ export function initAdminApp(): void {
   if (!root) return;
 
   adminPanel.onSyncComplete = () => {
-    if (!adminAuth.isAdmin || adminPanel.activeTab !== 'dashboard') return;
+    if (!adminAuth.isAdmin || !['dashboard', 'waf'].includes(adminPanel.activeTab)) return;
     const content = document.getElementById('admin-tab-content');
     const scrollTop = content?.scrollTop || 0;
     const expanded = content?.querySelector('details')?.open;
+    const values = new Map<string, string>();
+    content?.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>('[id]').forEach(el => values.set(el.id, el.value));
+    const focusedId = document.activeElement instanceof HTMLElement ? document.activeElement.id : '';
     initAdminApp();
     const updated = document.getElementById('admin-tab-content');
     if (updated) {
       updated.scrollTop = scrollTop;
+      values.forEach((value, id) => {
+        const field = updated.querySelector<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(`#${CSS.escape(id)}`);
+        if (field) field.value = value;
+      });
+      if (focusedId) updated.querySelector<HTMLElement>(`#${CSS.escape(focusedId)}`)?.focus({ preventScroll: true });
       const details = updated.querySelector('details');
       if (details && expanded) details.open = true;
     }

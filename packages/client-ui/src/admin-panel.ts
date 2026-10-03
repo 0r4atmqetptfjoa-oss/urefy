@@ -5,10 +5,10 @@ import { sovereignDialog } from './dialog-modal.js';
 import { adminAuth } from './admin-auth.js';
 import { gossipViz } from './gossip-viz.js';
 import { cveMonitor } from './cve-monitor.js';
-import { networkObservatory } from './network-observatory.js';
+import { networkObservatory, type TopologyFilter } from './network-observatory.js';
 import { wotGraphViz } from './network-wot-graph.js';
 import { toastManager } from './toast.js';
-import { fetchAndRenderR2Quota } from './admin.js';
+import { fetchAndRenderR2Quota, fetchBackupStatus, triggerManualBackup } from './admin.js';
 
 export type AdminTab = 'dashboard' | 'users' | 'channels' | 'waf' | 'config' | 'moderation' | 'sql' | 'r2' | 'gossip' | 'cve' | 'observatory' | 'wot' | 'dsa' | 'audit';
 
@@ -74,6 +74,13 @@ export interface OperationalTelemetry {
   liveThroughputReqSec: number | null;
 }
 
+interface EdgeAnalyticsSnapshot {
+  observedAt: number;
+  traffic24h: { requests: number; visits: number; responseBytes: number; sampleInterval: number };
+  traffic5m: { requests: number; visits: number; responseBytes: number; sampleInterval: number; requestsPerMinute: number };
+  security24h: { actions: Record<string, number>; blockedOrChallenged: number; sampleInterval: number };
+}
+
 export type IncidentSeverity = 'ALL' | 'CRITICAL' | 'WARNING' | 'INFO';
 
 export interface AdminIncident {
@@ -107,6 +114,9 @@ export class AdminPanelManager {
     attacksBlocked: null, avgEdgeRttMs: null, liveThroughputReqSec: null,
   };
   public overview: AdminOverview | null = null;
+  public edgeAnalytics: EdgeAnalyticsSnapshot | null = null;
+  public edgeAnalyticsError = '';
+  public isEdgeAnalyticsSyncing = false;
   public syncError = '';
   public onSyncComplete: (() => void) | null = null;
   public auditLedger: AdminAuditLedgerEntry[] = [];
@@ -162,9 +172,13 @@ export class AdminPanelManager {
 
   public livePosts: any[] = [];
   public isSyncing: boolean = false;
+  public edgeProbeLatencyMs: number | null = null;
+  private observatoryEscapeListenerInstalled = false;
+  private observatoryClickListenerInstalled = false;
   public isAutoSync: boolean = true;
   public lastSyncTimestamp: number = 0;
   private autoSyncInterval: any = null;
+  private edgeAnalyticsInterval: any = null;
 
   public emergencyFreeze: boolean = false;
   public r2Objects: any[] = [];
@@ -175,19 +189,32 @@ export class AdminPanelManager {
   public open(): void {
     this.isOpen = true;
     this.syncWithServer().catch(() => {});
+    this.syncEdgeAnalytics().catch(() => {});
     this.startAutoSync();
+    this.startEdgeAnalyticsAutoSync();
   }
 
   public close(): void {
     this.isOpen = false;
     this.stopAutoSync();
+    if (this.edgeAnalyticsInterval) clearInterval(this.edgeAnalyticsInterval);
+    this.edgeAnalyticsInterval = null;
   }
 
   public setTab(tab: AdminTab): void {
+    const previousTab = this.activeTab;
+    if (previousTab === 'observatory' && tab !== 'observatory') networkObservatory.close();
     this.activeTab = tab;
+    if (tab === 'observatory') {
+      networkObservatory.isOpen = true;
+      networkObservatory.startLiveUpdates(30_000);
+      void networkObservatory.fetchRealTelemetry();
+    }
+    if (tab === 'dashboard' || tab === 'waf') this.syncEdgeAnalytics().catch(() => {});
     if (tab === 'waf' && typeof window !== 'undefined') {
       setTimeout(() => {
         fetchAndRenderR2Quota().catch(() => {});
+        fetchBackupStatus().catch(() => {});
       }, 0);
     }
     if (tab === 'r2') {
@@ -211,6 +238,32 @@ export class AdminPanelManager {
     if (this.autoSyncInterval) {
       clearInterval(this.autoSyncInterval);
       this.autoSyncInterval = null;
+    }
+  }
+
+  private startEdgeAnalyticsAutoSync(): void {
+    if (this.edgeAnalyticsInterval) clearInterval(this.edgeAnalyticsInterval);
+    this.edgeAnalyticsInterval = setInterval(() => {
+      if (this.isOpen && this.isAutoSync && (this.activeTab === 'dashboard' || this.activeTab === 'waf')) {
+        this.syncEdgeAnalytics().catch(() => {});
+      }
+    }, 60_000);
+  }
+
+  public async syncEdgeAnalytics(): Promise<void> {
+    if (typeof fetch === 'undefined' || this.isEdgeAnalyticsSyncing) return;
+    this.isEdgeAnalyticsSyncing = true;
+    this.edgeAnalyticsError = '';
+    try {
+      const response = await fetch('/api/edge-analytics', { headers: this._getAuthHeaders(), cache: 'no-store' });
+      const data = await response.json();
+      if (!response.ok || !data.success) throw new Error(data.error || 'Cloudflare analytics are unavailable.');
+      this.edgeAnalytics = data as EdgeAnalyticsSnapshot;
+    } catch (error) {
+      this.edgeAnalyticsError = error instanceof Error ? error.message : 'Cloudflare analytics are unavailable.';
+    } finally {
+      this.isEdgeAnalyticsSyncing = false;
+      if (this.activeTab === 'dashboard' || this.activeTab === 'waf') this.onSyncComplete?.();
     }
   }
 
@@ -497,7 +550,10 @@ export class AdminPanelManager {
 
   public async runDefenseSimulation(): Promise<string> {
     try {
+      const startedAt = typeof performance !== 'undefined' ? performance.now() : Date.now();
       const response = await fetch('/api/health', { cache: 'no-store', credentials: 'same-origin' });
+      const completedAt = typeof performance !== 'undefined' ? performance.now() : Date.now();
+      this.edgeProbeLatencyMs = Math.round((completedAt - startedAt) * 10) / 10;
       const required = ['x-content-type-options', 'x-frame-options', 'content-security-policy', 'referrer-policy'];
       const missing = required.filter((header) => !response.headers.get(header));
       this._log('EDGE_SECURITY_HEADERS_VERIFIED', response.ok ? 'PASS' : `HTTP_${response.status}`);
@@ -505,6 +561,7 @@ export class AdminPanelManager {
       if (missing.length > 0) return `Edge is online, but required headers are missing: ${missing.join(', ')}.`;
       return 'UREfy edge verified: API healthy and all mandatory browser security headers are active.';
     } catch {
+      this.edgeProbeLatencyMs = null;
       this._log('EDGE_SECURITY_HEADERS_VERIFIED', 'NETWORK_FAILURE');
       return 'Edge security verification could not reach the health endpoint.';
     }
@@ -1021,7 +1078,121 @@ export class AdminPanelManager {
   }
 
   private _renderDashboard(): string {
-    return renderAdminOverview(this.overview, this.isSyncing, this.syncError);
+    const posts = this.livePosts.slice(0, 5);
+    const channels = this.channels.slice(0, 4);
+    const recentPosts = posts.length ? `
+      <div class="divide-y divide-white/5">
+        ${posts.map((post: any) => `
+          <article class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
+            <div class="min-w-0">
+              <div class="flex items-center gap-2 text-[11px]">
+                <span class="font-mono text-slate-500">${this._escapeHtml(String(post.id || ''))}</span>
+                <span class="rounded px-1.5 py-0.5 bg-white/5 text-slate-300">${this._escapeHtml(String(post.status || 'published'))}</span>
+                <span class="text-slate-500">${this._escapeHtml(String(post.flair || 'General'))}</span>
+              </div>
+              <h4 class="mt-1 text-sm font-semibold text-white truncate">${this._escapeHtml(String(post.title || '(No title)'))}</h4>
+              <p class="mt-1 text-xs text-slate-400 line-clamp-2">${this._escapeHtml(String(post.content || '').slice(0, 180))}</p>
+            </div>
+            <button type="button" data-admin-dashboard-edit-post="${this._escapeHtml(String(post.id || ''))}" class="min-h-10 shrink-0 rounded-lg border border-white/10 px-3 text-xs font-semibold text-amber hover:bg-white/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber">Edit post</button>
+          </article>`).join('')}
+      </div>` : `<p class="py-5 text-sm text-slate-400">${this.lastSyncTimestamp ? 'No posts are present in the loaded database results.' : 'Post list will appear after the first successful sync.'}</p>`;
+    const recentChannels = channels.length ? `
+      <ul class="divide-y divide-white/5">
+        ${channels.map(channel => `
+          <li class="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
+            <div class="min-w-0"><p class="truncate text-sm font-semibold text-white">${this._escapeHtml(String(channel.name))}</p><p class="mt-1 text-xs text-slate-400">${this._escapeHtml(String(channel.space))} · ${channel.messagesCount.toLocaleString()} messages</p></div>
+            <span class="shrink-0 text-xs ${channel.isArchived ? 'text-slate-500' : 'text-emerald-300'}">${channel.isArchived ? 'Archived' : 'Active'}</span>
+          </li>`).join('')}
+      </ul>` : `<p class="py-5 text-sm text-slate-400">${this.lastSyncTimestamp ? 'No channels found.' : 'Channel list will appear after the first successful sync.'}</p>`;
+
+    return `${renderAdminOverview(this.overview, this.isSyncing, this.syncError)}
+      ${this._renderEdgeAnalytics()}
+      <section class="mt-6 grid grid-cols-1 xl:grid-cols-[minmax(0,1.6fr)_minmax(16rem,1fr)] gap-6" aria-label="Live workspace records">
+        <div class="min-w-0">
+          <div class="mb-3 flex flex-wrap items-end justify-between gap-2">
+            <div><h3 class="text-base font-bold text-white">Recent posts</h3><p class="mt-1 text-xs text-slate-400">Latest records from the current admin sync</p></div>
+            <button type="button" data-admin-tab="moderation" class="admin-tab-btn min-h-10 rounded-lg px-3 text-xs font-semibold text-amber hover:bg-white/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber">View all posts</button>
+          </div>
+          <div class="rounded-xl bg-surface-raised p-4 sm:p-5">${recentPosts}</div>
+        </div>
+        <div class="min-w-0">
+          <div class="mb-3 flex flex-wrap items-end justify-between gap-2">
+            <div><h3 class="text-base font-bold text-white">Channels</h3><p class="mt-1 text-xs text-slate-400">${this.channels.length.toLocaleString()} loaded</p></div>
+            <button type="button" data-admin-tab="channels" class="admin-tab-btn min-h-10 rounded-lg bg-amber px-3 text-xs font-bold text-slate-950 hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber">+ Add channel</button>
+          </div>
+          <div class="rounded-xl bg-surface-raised p-4 sm:p-5">${recentChannels}</div>
+        </div>
+      </section>`;
+  }
+
+  private _renderEdgeAnalytics(): string {
+    const snapshot = this.edgeAnalytics;
+    const bytes = (value: number | undefined) => {
+      if (typeof value !== 'number' || !Number.isFinite(value)) return '—';
+      const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+      let amount = value;
+      let index = 0;
+      while (amount >= 1024 && index < units.length - 1) { amount /= 1024; index += 1; }
+      return `${amount.toFixed(index ? 2 : 0)} ${units[index]}`;
+    };
+    const metric = (label: string, value: string, detail: string) => `
+      <div class="min-w-0 py-2">
+        <p class="text-xs text-slate-400">${label}</p>
+        <p class="mt-2 text-2xl font-bold tabular-nums text-white">${value}</p>
+        <p class="mt-1 text-[11px] text-slate-500">${detail}</p>
+      </div>`;
+    const stamp = snapshot ? new Date(snapshot.observedAt).toLocaleString() : '';
+    const status = snapshot
+      ? `Cloudflare Analytics · refreshed ${this._escapeHtml(stamp)}`
+      : this.isEdgeAnalyticsSyncing
+        ? 'Connecting to Cloudflare Analytics…'
+        : this.edgeAnalyticsError
+          ? this._escapeHtml(this.edgeAnalyticsError)
+          : 'Waiting for Cloudflare Analytics configuration.';
+    const actions = Object.entries(snapshot?.security24h.actions || {}).sort((a, b) => b[1] - a[1]);
+    return `<section class="mt-6 rounded-2xl bg-surface-raised p-5 sm:p-6" aria-labelledby="edge-analytics-title">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div><p class="text-xs font-mono uppercase tracking-widest text-amber">Cloudflare zone data</p><h3 id="edge-analytics-title" class="mt-1 text-base font-bold text-white">Traffic &amp; security analytics</h3><p class="mt-1 text-xs text-slate-400">Real Cloudflare Analytics API measurements. Request and firewall datasets may be adaptively sampled.</p></div>
+        <button id="btn-admin-edge-analytics-refresh" type="button" class="min-h-10 rounded-lg border border-white/10 px-3 text-xs font-semibold text-amber hover:bg-white/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber" ${this.isEdgeAnalyticsSyncing ? 'disabled' : ''}>${this.isEdgeAnalyticsSyncing ? 'Refreshing…' : 'Refresh zone data'}</button>
+      </div>
+      <p role="status" class="mt-3 text-xs ${snapshot ? 'text-emerald-300' : 'text-amber'}">${status}</p>
+      ${snapshot ? `<div class="mt-4 grid grid-cols-2 gap-x-5 gap-y-2 sm:grid-cols-3 xl:grid-cols-5">
+        ${metric('Requests · last 24h', snapshot.traffic24h.requests.toLocaleString(), `Sample interval ${snapshot.traffic24h.sampleInterval}`)}
+        ${metric('Cloudflare visits · 24h', snapshot.traffic24h.visits.toLocaleString(), 'Referer-based visit definition')}
+        ${metric('Edge response data · 24h', bytes(snapshot.traffic24h.responseBytes), 'Bytes served by Cloudflare')}
+        ${metric('Requests/min · last 5m', snapshot.traffic5m.requestsPerMinute.toLocaleString(), `${snapshot.traffic5m.requests.toLocaleString()} requests observed`)}
+        ${metric('Blocked / challenged · 24h', snapshot.security24h.blockedOrChallenged.toLocaleString(), `Firewall dataset · sample interval ${snapshot.security24h.sampleInterval}`)}
+      </div>
+      <div class="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-3 text-xs text-slate-400">
+        <span>${actions.length ? `Firewall action groups: ${actions.map(([action, count]) => `${this._escapeHtml(action)} ${count.toLocaleString()}`).join(' · ')}` : 'No firewall action groups in this time window.'}</span>
+        <span>Estimates when sample interval &gt; 1</span>
+      </div>` : `<div class="mt-4 rounded-lg bg-surface-base p-4 text-sm text-slate-300">
+        <p>${this.edgeAnalyticsError ? this._escapeHtml(this.edgeAnalyticsError) : 'Connect Cloudflare to populate this section with real requests, visits, response bytes, and firewall actions.'}</p>
+        <p class="mt-2 text-xs text-slate-400">Requires a Cloudflare API token with Account Analytics: Read, scoped to the UREfy zone, plus its Zone ID. Keep the token as a server secret.</p>
+      </div>`}
+    </section>`;
+  }
+
+  private _populatePostEditor(postId: string): void {
+    const post = this.livePosts.find((item: any) => item.id === postId);
+    if (!post) return;
+    const idInput = document.getElementById('admin-mod-edit-post-id') as HTMLInputElement | null;
+    const titleInput = document.getElementById('admin-mod-edit-post-title') as HTMLInputElement | null;
+    const flairInput = document.getElementById('admin-mod-edit-post-flair') as HTMLInputElement | null;
+    const statusSelect = document.getElementById('admin-mod-edit-post-status') as HTMLSelectElement | null;
+    const contentInput = document.getElementById('admin-mod-edit-post-content') as HTMLTextAreaElement | null;
+    const statusMsg = document.getElementById('admin-mod-edit-status-msg');
+    if (idInput) idInput.value = post.id;
+    if (titleInput) titleInput.value = post.title || '';
+    if (flairInput) flairInput.value = post.flair || '';
+    if (statusSelect) statusSelect.value = post.status || 'published';
+    if (contentInput) contentInput.value = post.content || '';
+    if (statusMsg) {
+      statusMsg.textContent = `Editing loaded post #${post.id}. Make changes and click Save.`;
+      statusMsg.className = 'text-xs font-mono text-cyan-300';
+    }
+    idInput?.scrollIntoView({ block: 'center' });
+    titleInput?.focus({ preventScroll: true });
   }
 
   private _renderUsers(): string {
@@ -1192,12 +1363,11 @@ export class AdminPanelManager {
   private _renderWAF(): string {
     return `
       <div class="space-y-5">
-        <!-- WAF STATS -->
-        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          ${this._statCard('💥', 'Attacks Blocked', '247', 'text-signal')}
-          ${this._statCard('📦', 'Packets Dropped', '18,420', 'text-cyphr')}
-          ${this._statCard('🚫', 'Banned IPs', String(this.bannedIPs.length), 'text-crimson')}
-          ${this._statCard('⏱️', 'Avg Latency', '0.24ms', 'text-amber')}
+        ${this._renderEdgeAnalytics()}
+        <div class="rounded-xl bg-surface-raised p-4 text-sm text-slate-300">
+          <h3 class="font-semibold text-white">Cloudflare WAF controls</h3>
+          <p class="mt-1 text-xs text-slate-400">This panel currently reads Cloudflare security events only. UREfy has no configured Cloudflare WAF write integration; IP notes below do not block traffic at the edge.</p>
+          <a class="mt-3 inline-flex min-h-10 items-center rounded-lg border border-white/10 px-3 text-xs font-semibold text-amber hover:bg-white/5" href="https://dash.cloudflare.com" target="_blank" rel="noreferrer">Open Cloudflare dashboard</a>
         </div>
 
         <!-- CLOUDFLARE R2 ZERO-OVERAGE QUOTA GUARDIAN -->
@@ -1207,10 +1377,10 @@ export class AdminPanelManager {
               <span class="text-2xl">🛡️</span>
               <div>
                 <h3 class="text-base font-bold text-white flex items-center space-x-2">
-                  <span>Cloudflare R2 Free Tier Guardian</span>
-                  <span class="px-2 py-0.5 rounded-full text-[10px] font-mono bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">100% FREE TIER PROTECTED</span>
+                  <span>R2 usage advisory</span>
+                  <span class="px-2 py-0.5 rounded-full text-[10px] font-mono bg-amber-500/20 text-amber-300 border border-amber-500/30">LOCAL COUNTERS</span>
                 </h3>
-                <p class="text-xs text-slate-400">Zero-overage circuit breaker preventing any Cloudflare storage billing</p>
+                <p class="text-xs text-slate-400">Application counters used by upload safeguards; these are not Cloudflare billing or account quota data.</p>
               </div>
             </div>
             <button type="button" id="btn-refresh-r2-quota" class="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-xs font-mono text-cyan-400 border border-white/10 transition-colors">
@@ -1222,45 +1392,45 @@ export class AdminPanelManager {
             <!-- Storage Cap Meter -->
             <div class="p-4 rounded-xl bg-surface-base/60 border border-white/5">
               <div class="flex justify-between text-xs mb-1.5 font-mono">
-                <span class="text-slate-400">💾 Storage (Max 10 GB Free)</span>
-                <span id="r2-storage-val" class="text-cyan-300 font-bold">0.00 GB / 8.0 GB</span>
+                <span class="text-slate-400">💾 Tracked storage (8 GB app limit)</span>
+                <span id="r2-storage-val" class="text-cyan-300 font-bold">Loading…</span>
               </div>
               <div class="w-full h-2 bg-white/10 rounded-full overflow-hidden">
                 <div id="r2-storage-bar" class="h-full bg-gradient-to-r from-cyan-500 to-emerald-400 transition-all duration-300" style="width: 1%"></div>
               </div>
               <div class="text-[10px] text-slate-500 mt-1.5 flex justify-between font-mono">
                 <span>Safe Cap: 8.0 GB</span>
-                <span id="r2-storage-pct" class="text-emerald-400">0.0% used</span>
+                <span id="r2-storage-pct" class="text-emerald-400">Loading…</span>
               </div>
             </div>
 
             <!-- Class A Ops Meter -->
             <div class="p-4 rounded-xl bg-surface-base/60 border border-white/5">
               <div class="flex justify-between text-xs mb-1.5 font-mono">
-                <span class="text-slate-400">⚡ Class A Writes (Max 1M Free)</span>
-                <span id="r2-class-a-val" class="text-amber-300 font-bold">0 / 750,000</span>
+                <span class="text-slate-400">⚡ Tracked Class A operations</span>
+                <span id="r2-class-a-val" class="text-amber-300 font-bold">Loading…</span>
               </div>
               <div class="w-full h-2 bg-white/10 rounded-full overflow-hidden">
                 <div id="r2-class-a-bar" class="h-full bg-gradient-to-r from-amber-500 to-emerald-400 transition-all duration-300" style="width: 1%"></div>
               </div>
               <div class="text-[10px] text-slate-500 mt-1.5 flex justify-between font-mono">
                 <span>Safe Cap: 750,000</span>
-                <span id="r2-class-a-pct" class="text-emerald-400">0.0% used</span>
+                <span id="r2-class-a-pct" class="text-emerald-400">Loading…</span>
               </div>
             </div>
 
             <!-- Class B Ops Meter -->
             <div class="p-4 rounded-xl bg-surface-base/60 border border-white/5">
               <div class="flex justify-between text-xs mb-1.5 font-mono">
-                <span class="text-slate-400">👁️ Class B Reads (Max 10M Free)</span>
-                <span id="r2-class-b-val" class="text-purple-300 font-bold">0 / 7,500,000</span>
+                <span class="text-slate-400">👁️ Tracked Class B operations</span>
+                <span id="r2-class-b-val" class="text-purple-300 font-bold">Loading…</span>
               </div>
               <div class="w-full h-2 bg-white/10 rounded-full overflow-hidden">
                 <div id="r2-class-b-bar" class="h-full bg-gradient-to-r from-purple-500 to-cyan-400 transition-all duration-300" style="width: 1%"></div>
               </div>
               <div class="text-[10px] text-slate-500 mt-1.5 flex justify-between font-mono">
                 <span>Safe Cap: 7,500,000</span>
-                <span id="r2-class-b-pct" class="text-emerald-400">0.0% used</span>
+                <span id="r2-class-b-pct" class="text-emerald-400">Loading…</span>
               </div>
             </div>
           </div>
@@ -1272,10 +1442,10 @@ export class AdminPanelManager {
                 <span class="text-2xl">💾</span>
                 <div>
                   <h4 class="text-sm font-bold text-white flex items-center space-x-2">
-                    <span>Automated D1 SQLite to R2 Encrypted Backup</span>
+                    <span>Manual D1 to R2 backup</span>
                     <span id="backup-status-badge" class="px-2 py-0.5 rounded-full text-[10px] font-mono bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">IDLE</span>
                   </h4>
-                  <p class="text-xs text-slate-400">AES-256-GCM encrypted daily snapshots with automatic 7-day retention</p>
+                  <p class="text-xs text-slate-400">Run an encrypted backup on demand. No scheduled trigger is configured in this project.</p>
                 </div>
               </div>
               <button type="button" id="btn-trigger-backup" class="px-3.5 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-xs font-mono text-amber-300 border border-amber-500/40 transition-all flex items-center space-x-1.5 cursor-pointer">
@@ -1289,7 +1459,7 @@ export class AdminPanelManager {
               <div class="p-3.5 rounded-xl bg-surface-base/60 border border-white/5">
                 <div class="text-xs text-slate-400 mb-1 font-mono">🕒 Last Backup Timestamp</div>
                 <div id="backup-last-timestamp" class="text-sm text-white font-mono font-bold truncate">Never</div>
-                <div class="text-[10px] text-slate-500 mt-1 font-mono">Cloudflare Cron: Daily (0 0 * * *)</div>
+                <div class="text-[10px] text-slate-500 mt-1 font-mono">Schedule: not configured</div>
               </div>
 
               <!-- Target & Encryption -->
@@ -1311,40 +1481,23 @@ export class AdminPanelManager {
 
         <div class="bg-surface-raised border border-white/10 rounded-2xl p-5 space-y-4">
           <div class="flex items-center justify-between">
-            <h3 class="text-sm font-bold text-white">WAF Configuration & Threat Mitigation</h3>
+            <h3 class="text-sm font-bold text-white">Edge health probe</h3>
             <button id="btn-admin-run-stress-test" class="px-3 py-1.5 text-xs rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 font-mono flex items-center space-x-1.5 transition-all cursor-pointer" title="Verify the live edge API and mandatory browser security headers">
               <span>⚡</span>
               <span>Verify Edge Security</span>
             </button>
           </div>
-          <div class="grid grid-cols-2 gap-4 text-sm">
-            <div class="space-y-1">
-              <label class="text-xs text-slate-400">Rate Limit (req/min)</label>
-              <input type="number" value="${this.serverConfig.rateLimitPerMinute}" class="w-full bg-surface-base border border-white/15 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-amber/50 transition-all" />
-            </div>
-            <div class="space-y-1">
-              <label class="text-xs text-slate-400">Max Connections per IP</label>
-              <input type="number" value="${this.serverConfig.maxConnectionsPerIP}" class="w-full bg-surface-base border border-white/15 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-amber/50 transition-all" />
-            </div>
-            <div class="space-y-1">
-              <label class="text-xs text-slate-400">PoW Difficulty (leading zeros)</label>
-              <input type="number" min="1" max="6" value="${this.serverConfig.powDifficulty}" class="w-full bg-surface-base border border-white/15 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-amber/50 transition-all" />
-            </div>
-            <div class="flex items-end">
-              <button class="w-full py-2.5 rounded-xl bg-amber text-black font-bold text-sm hover:bg-amber/90 transition-all cursor-pointer">
-                Apply WAF Settings
-              </button>
-            </div>
-          </div>
+          <p class="mb-2 text-xs font-mono text-slate-300">Last browser probe: ${this.edgeProbeLatencyMs === null ? 'not measured' : `${this.edgeProbeLatencyMs} ms`}</p>
+          <p class="text-xs text-slate-400">Measures this admin browser's round-trip time to the UREfy health endpoint and checks required security headers. It is not Cloudflare's average request latency.</p>
         </div>
 
         <!-- BANNED IP MANAGER -->
         <div class="bg-surface-raised border border-white/10 rounded-2xl overflow-hidden">
           <div class="p-4 border-b border-white/10 flex items-center justify-between">
-            <h3 class="text-sm font-bold text-white">Banned IP Addresses</h3>
+            <div><h3 class="text-sm font-bold text-white">Admin IP notes</h3><p class="mt-1 text-[11px] text-amber">Temporary edge-isolate ledger only; these entries do not block requests.</p></div>
             <div class="flex items-center space-x-2">
               <input id="admin-ban-ip-input" type="text" placeholder="IP address..." class="bg-surface-base border border-white/15 rounded-lg px-3 py-1.5 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-amber/50 transition-all" />
-              <button id="btn-admin-ban-ip" class="px-3 py-1.5 rounded-lg bg-crimson text-white text-xs font-bold hover:bg-crimson/90 cursor-pointer transition-all">Ban IP</button>
+              <button id="btn-admin-ban-ip" class="px-3 py-1.5 rounded-lg bg-surface-overlay text-slate-200 text-xs font-bold hover:bg-white/10 cursor-pointer transition-all">Record note</button>
             </div>
           </div>
           <div class="divide-y divide-white/5">
@@ -1352,27 +1505,16 @@ export class AdminPanelManager {
               <div class="px-4 py-8 text-center text-slate-600 text-sm">No banned IPs</div>
             ` : this.bannedIPs.map(ban => `
               <div class="grid grid-cols-[120px_1fr_140px_80px] items-center px-4 py-3 text-xs">
-                <span class="font-mono text-crimson font-bold">${ban.ip}</span>
-                <span class="text-slate-400">${ban.reason}</span>
+                <span class="font-mono text-crimson font-bold">${this._escapeHtml(String(ban.ip))}</span>
+                <span class="text-slate-400">${this._escapeHtml(String(ban.reason))}</span>
                 <span class="text-slate-600 font-mono">${new Date(ban.expiresAt).toLocaleString()}</span>
-                <button data-admin-unban="${ban.ip}" class="px-2 py-1 rounded-lg bg-signal/10 text-signal text-[10px] hover:bg-signal/20 cursor-pointer transition-all">Unban</button>
+                <button data-admin-unban="${this._escapeHtml(String(ban.ip))}" class="px-2 py-1 rounded-lg bg-signal/10 text-signal text-[10px] hover:bg-signal/20 cursor-pointer transition-all">Unban</button>
               </div>
             `).join('')}
           </div>
         </div>
 
-        <!-- HONEYPOT DECOY PATHS -->
-        <div class="bg-surface-raised border border-white/10 rounded-2xl p-5 space-y-3">
-          <h3 class="text-sm font-bold text-white">🍯 Active Honeypot Decoy Paths</h3>
-          <div class="grid grid-cols-3 gap-2 font-mono text-xs">
-            ${['/.env', '/.git/config', '/admin', '/wp-login.php', '/actuator/health', '/graphql_debug', '/phpinfo.php', '/config.yml'].map(p => `
-              <div class="px-3 py-2 bg-surface-base border border-crimson/20 rounded-lg text-crimson/80 flex items-center justify-between">
-                <span>${p}</span>
-                <span class="text-[9px] text-signal">ACTIVE</span>
-              </div>
-            `).join('')}
-          </div>
-        </div>
+        <div class="rounded-xl bg-surface-raised p-4"><h3 class="text-sm font-semibold text-white">Honeypot telemetry</h3><p class="mt-1 text-xs text-slate-400">No dedicated honeypot event source is connected, so this panel does not claim decoy paths are active.</p></div>
       </div>
     `;
   }
@@ -1579,20 +1721,20 @@ export class AdminPanelManager {
           ` : !result.success ? `
             <div class="p-6 bg-rose-950/20 text-rose-300 font-mono text-xs border-l-4 border-rose-500">
               <div class="font-bold mb-1">SQL Execution Error:</div>
-              <div>${result.error || 'Unknown database error occurred.'}</div>
+              <div>${this._escapeHtml(String(result.error || 'Unknown database error occurred.'))}</div>
             </div>
           ` : result.results && result.results.length > 0 ? `
             <div class="overflow-x-auto max-h-96">
               <table class="w-full text-left text-xs font-mono">
                 <thead class="bg-black/40 text-slate-400 uppercase text-[10px] sticky top-0">
                   <tr>
-                    ${Object.keys(result.results[0]).map(col => `<th class="px-4 py-2.5 border-b border-white/10">${col}</th>`).join('')}
+                    ${Object.keys(result.results[0]).map(col => `<th class="px-4 py-2.5 border-b border-white/10">${this._escapeHtml(String(col))}</th>`).join('')}
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-white/5 text-slate-300">
                   ${result.results.map((row: any) => `
                     <tr class="hover:bg-white/[0.02]">
-                      ${Object.values(row).map(val => `<td class="px-4 py-2 truncate max-w-xs" title="${String(val)}">${val === null ? '<span class=\"text-slate-600\">NULL</span>' : String(val)}</td>`).join('')}
+                      ${Object.values(row).map(val => `<td class="px-4 py-2 truncate max-w-xs" title="${this._escapeHtml(String(val ?? 'NULL'))}">${val === null ? '<span class="text-slate-600">NULL</span>' : this._escapeHtml(String(val))}</td>`).join('')}
                     </tr>
                   `).join('')}
                 </tbody>
@@ -1675,18 +1817,18 @@ export class AdminPanelManager {
           <!-- Card 3: Class B Operations (Reads) -->
           <div class="p-4 rounded-2xl bg-surface-raised border border-emerald-500/30 space-y-2 shadow-sm">
             <div class="flex items-center justify-between text-[11px] font-mono">
-              <span class="text-slate-400 font-bold uppercase">Class B Operations</span>
-              <span class="px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-500/30 font-bold">READS</span>
+              <span class="text-slate-400 font-bold uppercase">Billing and quota source</span>
+              <span class="px-2 py-0.5 rounded-full bg-amber-950 text-amber-300 border border-amber-500/30 font-bold">NOT CONNECTED</span>
             </div>
             <div class="text-xl font-bold font-mono text-emerald-400">
-              1,420 <span class="text-xs text-slate-500 font-normal">/ 7.5M safe</span>
+              — <span class="text-xs text-slate-500 font-normal">Cloudflare account billing data unavailable</span>
             </div>
             <div class="w-full bg-surface-base rounded-full h-1.5 overflow-hidden border border-white/5">
-              <div class="bg-emerald-500 h-1.5 rounded-full" style="width: 1%"></div>
+              <div class="bg-amber-500 h-1.5 rounded-full" style="width: 0%"></div>
             </div>
             <div class="flex items-center justify-between text-[10px] text-slate-400 font-mono">
-              <span>Cost: $0.00</span>
-              <span class="text-emerald-400">0 Egress Fees</span>
+              <span>Current cost: unavailable</span>
+              <span class="text-amber-300">No billing API connected</span>
             </div>
           </div>
 
@@ -1735,12 +1877,12 @@ export class AdminPanelManager {
                 <tbody class="divide-y divide-white/5 text-slate-300">
                   ${this.r2Objects.map(obj => `
                     <tr class="hover:bg-white/[0.02]">
-                      <td class="px-4 py-3 font-mono font-bold text-cyan-300 truncate max-w-sm" title="${obj.key}">${obj.key}</td>
+                      <td class="px-4 py-3 font-mono font-bold text-cyan-300 truncate max-w-sm" title="${this._escapeHtml(String(obj.key))}">${this._escapeHtml(String(obj.key))}</td>
                       <td class="px-4 py-3 text-slate-400">${(obj.size / 1024).toFixed(1)} KB</td>
                       <td class="px-4 py-3 text-slate-500">${obj.uploaded ? new Date(obj.uploaded).toLocaleString() : 'N/A'}</td>
                       <td class="px-4 py-3 text-right">
                         <button
-                          data-admin-delete-r2="${obj.key}"
+                          data-admin-delete-r2="${this._escapeHtml(String(obj.key))}"
                           class="px-2.5 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 text-xs font-mono transition-all cursor-pointer"
                           title="Delete object from R2"
                         >
@@ -2204,6 +2346,61 @@ export class AdminPanelManager {
 
   /** Bind all admin panel event listeners */
   public bindEvents(onStateChange: () => void): void {
+    if (this.activeTab === 'observatory') {
+      if (!this.observatoryEscapeListenerInstalled && typeof window !== 'undefined') {
+        this.observatoryEscapeListenerInstalled = true;
+        window.addEventListener('keydown', event => {
+          if (event.key === 'Escape' && this.activeTab === 'observatory') {
+            networkObservatory.close();
+            this.activeTab = 'dashboard';
+            onStateChange();
+          }
+        });
+      }
+      if (!this.observatoryClickListenerInstalled) {
+        this.observatoryClickListenerInstalled = true;
+        document.addEventListener('click', event => {
+          const target = event.target instanceof Element ? event.target : null;
+          const observatoryRoot = target?.closest<HTMLElement>('#network-observatory-modal-root');
+          if (!observatoryRoot || this.activeTab !== 'observatory') return;
+          const closeButton = target?.closest('[data-action="close-feature"], #btn-close-observatory-modal');
+          if (closeButton || event.target === observatoryRoot) {
+            networkObservatory.close();
+            this.activeTab = 'dashboard';
+            onStateChange();
+            return;
+          }
+          const button = target?.closest<HTMLElement>('[data-action="call-global"][data-raw-click]');
+          if (!button) return;
+          const raw = button.getAttribute('data-raw-click') || '';
+          if (raw.includes('__aetheris_observatory_refresh')) {
+            void networkObservatory.fetchRealTelemetry();
+          } else if (raw.includes('__aetheris_observatory_export')) {
+            window.__aetheris_observatory_export?.();
+          } else if (raw.includes('__aetheris_observatory_set_filter')) {
+            const filter = raw.match(/set_filter\('([^']+)'\)/)?.[1] as TopologyFilter | undefined;
+            if (filter && ['all', 'relay', 'validator', 'storage', 'gateway'].includes(filter)) networkObservatory.setFilter(filter);
+          } else if (raw.includes('__aetheris_observatory_select_node')) {
+            const nodeId = raw.match(/select_node\('([\w:-]+)'\)/)?.[1] || null;
+            if (!nodeId || networkObservatory.nodes.some(node => node.id === nodeId)) networkObservatory.selectNode(nodeId);
+          }
+        });
+      }
+    }
+
+    document.getElementById('btn-admin-edge-analytics-refresh')?.addEventListener('click', async () => {
+      await this.syncEdgeAnalytics();
+      onStateChange();
+    });
+    document.getElementById('btn-refresh-r2-quota')?.addEventListener('click', () => {
+      void fetchAndRenderR2Quota();
+    });
+    document.getElementById('btn-trigger-backup')?.addEventListener('click', () => {
+      void triggerManualBackup().catch(error => {
+        toastManager.error(error instanceof Error ? error.message : 'Backup request failed.');
+      });
+    });
+
     // Tab switching
     document.querySelectorAll('.admin-tab-btn').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -2523,28 +2720,17 @@ export class AdminPanelManager {
       btn.addEventListener('click', () => {
         const id = btn.getAttribute('data-admin-edit-post');
         if (!id) return;
-        const post = this.livePosts.find((p: any) => p.id === id);
-        if (!post) return;
+        this._populatePostEditor(id);
+      });
+    });
 
-        const idInput = document.getElementById('admin-mod-edit-post-id') as HTMLInputElement;
-        const titleInput = document.getElementById('admin-mod-edit-post-title') as HTMLInputElement;
-        const flairInput = document.getElementById('admin-mod-edit-post-flair') as HTMLInputElement;
-        const statusSelect = document.getElementById('admin-mod-edit-post-status') as HTMLSelectElement;
-        const contentInput = document.getElementById('admin-mod-edit-post-content') as HTMLTextAreaElement;
-        const statusMsg = document.getElementById('admin-mod-edit-status-msg');
-
-        if (idInput) idInput.value = post.id;
-        if (titleInput) titleInput.value = post.title || '';
-        if (flairInput) flairInput.value = post.flair || '';
-        if (statusSelect) statusSelect.value = post.status || 'published';
-        if (contentInput) contentInput.value = post.content || '';
-
-        if (statusMsg) {
-          statusMsg.textContent = `Editing loaded post #${post.id}. Make changes and click Save.`;
-          statusMsg.className = 'text-xs font-mono text-cyan-300';
-        }
-
-        idInput?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    document.querySelectorAll('[data-admin-dashboard-edit-post]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-admin-dashboard-edit-post');
+        if (!id || !this.livePosts.some((post: any) => post.id === id)) return;
+        this.activeTab = 'moderation';
+        onStateChange();
+        this._populatePostEditor(id);
       });
     });
 
