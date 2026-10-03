@@ -41,24 +41,30 @@ describe('SEO, SSR & Search Leak Prevention for Sovereign Facets', () => {
         return this;
       }
       transform(response: Response) {
-        let injected = '';
+        let html = (response as any)._rawHtml || '<!DOCTYPE html><html><head></head><body><div id="app"></div></body></html>';
         for (const h of this.handlers) {
           if (h.selector === 'head') {
             const mockEl = {
-              append: (content: string) => { injected += content; },
+              append: (content: string) => {
+                html = html.replace('</head>', `${content}</head>`);
+              },
             };
             h.handler.element?.(mockEl);
           } else if (h.selector === '#app') {
             const mockEl = {
-              setInnerContent: (content: string) => { injected += content; },
+              setInnerContent: (content: string) => {
+                html = html.replace(/<div id="app">[\s\S]*?<\/div>/, `<div id="app">${content}</div>`);
+              },
             };
             h.handler.element?.(mockEl);
           }
         }
-        return new Response(`<!DOCTYPE html><html><head>${injected}</head><body><div id="app">${injected}</div></body></html>`, {
+        const res = new Response(html, {
           status: response.status,
           headers: response.headers,
         });
+        (res as any)._rawHtml = html;
+        return res;
       }
     };
   });

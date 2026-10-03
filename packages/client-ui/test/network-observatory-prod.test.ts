@@ -42,16 +42,16 @@ describe('Network Observatory Production Clean Initialization (Finding 4)', () =
       // Baseline metrics in production
       expect(observatory.metrics.totalNodes).toBe(0);
       expect(observatory.metrics.activeNodes).toBe(0);
-      expect(observatory.metrics.messagesPerMinute).toBe(0);
-      expect(observatory.metrics.totalSlashings).toBe(0);
+      expect(observatory.metrics.messagesPerMinute).toBeNull();
+      expect(observatory.metrics.totalSlashings).toBeNull();
       expect(observatory.metrics.networkUptime).toBeNull();
       expect(observatory.metrics.topContributors).toEqual([]);
     });
 
-    it('returns 0 for avgLatency when empty (NEVER 21.4)', () => {
-      expect(observatory.calculateAvgLatency()).toBe(0);
+    it('returns null for avgLatency when empty (NEVER 21.4)', () => {
+      expect(observatory.calculateAvgLatency()).toBeNull();
       expect(observatory.calculateAvgLatency()).not.toBe(21.4);
-      expect(observatory.metrics.avgLatencyMs).toBe(0);
+      expect(observatory.metrics.avgLatencyMs).toBeNull();
       expect(observatory.metrics.avgLatencyMs).not.toBe(21.4);
     });
 

@@ -154,8 +154,8 @@ describe('Admin Dashboard — Cloudflare R2 Free Tier Quota Guardian', () => {
       const renderedHtml = adminPanel.renderAdminPanel('genesis-core', '25m');
 
       expect(renderedHtml).toContain('CLOUDFLARE R2 ZERO-OVERAGE QUOTA GUARDIAN');
-      expect(renderedHtml).toContain('Cloudflare R2 Free Tier Guardian');
-      expect(renderedHtml).toContain('100% FREE TIER PROTECTED');
+      expect(renderedHtml).toContain('R2 usage advisory');
+      expect(renderedHtml).toContain('LOCAL COUNTERS');
       expect(renderedHtml).toContain('btn-refresh-r2-quota');
       expect(renderedHtml).toContain('r2-storage-val');
       expect(renderedHtml).toContain('r2-class-a-val');
@@ -226,19 +226,16 @@ describe('Admin Dashboard — Cloudflare R2 Free Tier Quota Guardian', () => {
       expect(classBPct.textContent).toBe('10.0% used');
     });
 
-    it('falls back safely to zero-overage baseline upon network error without crashing', async () => {
+    it('falls back safely to unavailable state upon network error without crashing', async () => {
       global.fetch = vi.fn().mockRejectedValue(new Error('Network offline or edge unreachable'));
 
       const metrics = await fetchAndRenderR2Quota();
 
-      expect(metrics).toBeDefined();
-      expect(metrics.storage.usedGB).toBe(0);
-      expect(metrics.classA.used).toBe(0);
-      expect(metrics.classB.used).toBe(0);
+      expect(metrics).toBeNull();
 
-      expect(getMockElement('r2-storage-val').textContent).toBe('0.00 GB / 8.0 GB');
-      expect(getMockElement('r2-class-a-val').textContent).toBe('0 / 750,000');
-      expect(getMockElement('r2-class-b-val').textContent).toBe('0 / 7,500,000');
+      expect(getMockElement('r2-storage-val').textContent).toBe('Unavailable');
+      expect(getMockElement('r2-class-a-val').textContent).toBe('Unavailable');
+      expect(getMockElement('r2-class-b-val').textContent).toBe('Unavailable');
     });
 
     it('normalizes various payload schemas from storage endpoint', () => {

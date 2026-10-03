@@ -234,6 +234,13 @@ export function buildPostJsonLd(post: SeoPostData, canonicalUrl: string, origin:
       },
     },
     interactionStatistic: [
+      ...(post.meritVotes !== undefined ? [
+        {
+          '@type': 'InteractionCounter',
+          interactionType: 'https://schema.org/LikeAction',
+          userInteractionCount: Math.max(0, post.meritVotes || 0),
+        },
+      ] : []),
       {
         '@type': 'InteractionCounter',
         interactionType: 'https://schema.org/CommentAction',
@@ -273,6 +280,15 @@ export function buildPostJsonLd(post: SeoPostData, canonicalUrl: string, origin:
         ...(c.authorHandle ? { alternateName: c.authorHandle } : {}),
         ...(authorProfileUrl(c, origin) ? { url: authorProfileUrl(c, origin) } : {}),
       },
+      ...(c.upvotes !== undefined ? {
+        interactionStatistic: [
+          {
+            '@type': 'InteractionCounter',
+            interactionType: 'https://schema.org/LikeAction',
+            userInteractionCount: Math.max(0, c.upvotes || 0),
+          },
+        ],
+      } : {}),
     }));
   }
 

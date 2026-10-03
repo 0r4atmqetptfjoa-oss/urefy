@@ -29,6 +29,10 @@ export default defineConfig(({ command }) => ({
     reportCompressedSize: true,
     minify: 'oxc',
     rolldownOptions: {
+      onwarn(warning, warn) {
+        if (warning.code === 'INEFFECTIVE_DYNAMIC_IMPORT') return;
+        warn(warning);
+      },
       treeshake: {
         moduleSideEffects: 'no-external',
       },

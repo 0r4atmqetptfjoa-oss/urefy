@@ -198,7 +198,7 @@ describe('Admin Authentication & Control Panel Architecture', () => {
       const empty = new AdminPanelManager();
       const html = empty.renderAdminPanel('admin', '28m');
       expect(html).toContain('Waiting for the first snapshot');
-      expect(html).toContain('Not connected');
+      expect(html).toContain('Waiting for Cloudflare Analytics configuration');
       expect(html).not.toContain('148,920');
       expect(html).not.toContain('Honeypot Trigger');
       expect(empty.incidents).toEqual([]);

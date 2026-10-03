@@ -33,9 +33,9 @@ describe('Network Observatory Telemetry & Cryptographic Monitoring System', () =
     it('initializes with strictly zero fake metrics and empty node lists in production', () => {
       expect(prodObservatory.metrics.totalNodes).toBe(0);
       expect(prodObservatory.metrics.activeNodes).toBe(0);
-      expect(prodObservatory.metrics.messagesPerMinute).toBe(0);
-      expect(prodObservatory.metrics.avgLatencyMs).toBe(0);
-      expect(prodObservatory.metrics.totalSlashings).toBe(0);
+      expect(prodObservatory.metrics.messagesPerMinute).toBeNull();
+      expect(prodObservatory.metrics.avgLatencyMs).toBeNull();
+      expect(prodObservatory.metrics.totalSlashings).toBeNull();
       expect(prodObservatory.metrics.networkUptime).toBeNull();
       expect(prodObservatory.metrics.topContributors).toEqual([]);
 
@@ -60,10 +60,10 @@ describe('Network Observatory Telemetry & Cryptographic Monitoring System', () =
       expect(html).toContain('Data Unavailable (No active telemetry ping samples recorded yet)');
 
       // Slashing should show Data Unavailable
-      expect(html).toContain('Data Unavailable (No historical slashing events registered)');
+      expect(html).toContain('Slashing event source is not connected; no records are confirmed.');
 
       // Top contributors should show Data Unavailable
-      expect(html).toContain('Data Unavailable (No active node contributors found)');
+      expect(html).toContain('No node records are available from site telemetry.');
     });
 
     it('suppresses Math.random() simulation loops during updateMetrics in production', () => {
@@ -113,7 +113,7 @@ describe('Network Observatory Telemetry & Cryptographic Monitoring System', () =
 
         expect(prodObservatory.metrics.totalNodes).toBe(8);
         expect(prodObservatory.metrics.activeNodes).toBe(7);
-        expect(prodObservatory.metrics.messagesPerMinute).toBe(60); // 3600 / 60
+        expect(prodObservatory.metrics.messagesPerMinute).toBeNull(); // Rate requires two samples
         expect(prodObservatory.metrics.avgLatencyMs).toBe(14.2);
         expect(prodObservatory.metrics.networkUptime).toBe(99.95);
         expect(prodObservatory.metrics.topContributors).toEqual(['Frankfurt-Edge-01']);
@@ -342,8 +342,7 @@ describe('Network Observatory Telemetry & Cryptographic Monitoring System', () =
       // Modal container and headers
       expect(html).toContain('id="network-observatory-modal-root"');
       expect(html).toContain('UREfy Observatory');
-      expect(html).toContain('ZK-MESH');
-      expect(html).toContain('LIVE SYNC');
+      expect(html).toContain('Admin view');
 
       // Global KPI ribbon
       expect(html).toContain('Total Nodes');
@@ -361,13 +360,13 @@ describe('Network Observatory Telemetry & Cryptographic Monitoring System', () =
       expect(html).toContain('radarSweepGrad');
 
       // Section 2: Latency Real-Time Chart
-      expect(html).toContain('2. Real-Time Latency Chart');
+      expect(html).toContain('2. Reported Average Latency');
       expect(html).toContain('latencyAreaGrad');
       expect(html).toContain('Current Latency:');
       expect(html).toContain('Min');
       expect(html).toContain('Average');
-      expect(html).toContain('P95');
-      expect(html).toContain('Max (P99)');
+      expect(html).toContain('Range');
+      expect(html).toContain('Maximum');
 
       // Section 3: Slashing ZK-RLN Bar Chart
       expect(html).toContain('3. ZK-RLN Slashing Statistics (7 Days)');
@@ -386,8 +385,8 @@ describe('Network Observatory Telemetry & Cryptographic Monitoring System', () =
       expect(html).toContain('Sentinel');
 
       // Footer
-      expect(html).toContain('BFT Consensus Finality');
-      expect(html).toContain('Circom ZK Verifier');
+      expect(html).toContain('Telemetry refresh');
+      expect(html).toContain('Data source');
       expect(html).toContain('Close Observatory');
     });
 
@@ -419,7 +418,7 @@ describe('Network Observatory Telemetry & Cryptographic Monitoring System', () =
       expect(modalWithDrawer).toContain('Frankfurt Core');
       expect(modalWithDrawer).toContain('Nym Mixnet L3');
       expect(modalWithDrawer).toContain('ZK-RLN Epoch');
-      expect(modalWithDrawer).toContain('ZK Ping Test');
+      expect(modalWithDrawer).toContain('Latency from node telemetry; active ping is unavailable');
 
       // Deselect node
       observatory.selectNode('node-prime-gw');

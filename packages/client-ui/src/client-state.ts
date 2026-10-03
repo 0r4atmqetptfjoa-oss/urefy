@@ -29,6 +29,7 @@ import { pulseActionsEngine } from './pulse-actions.js';
 import { isLocalDev } from './env-check.js';
 import { isDemoModeEnabled } from './demo-mode.js';
 import { secureStorage } from './secure-storage.js';
+import { aethDB } from './indexed-db.js';
 
 export type SpaceType = 'relays' | 'vault' | 'pulse';
 export type DensityMode = 'compact' | 'balanced' | 'media';
@@ -356,35 +357,33 @@ export class AetherisClientStore {
 
     // Async hydration from IndexedDB storage
     if (typeof window !== 'undefined') {
-      import('./indexed-db.js').then(({ aethDB }) => {
-        aethDB.open().then(() => {
-          aethDB.getAll<any>('messages').then((dbMsgs: any[]) => {
-            if (Array.isArray(dbMsgs) && dbMsgs.length > 0) {
-              let updated = false;
-              for (const dbm of dbMsgs) {
-                const chId = dbm.channelId || 'relays-general';
-                const chMsgs = this.messages.get(chId) || [];
-                const msgText = dbm.content || dbm.text || '';
-                if (!chMsgs.some((x) => x.id === dbm.id || (x.text === msgText && x.authorFingerprint === dbm.authorFP && Math.abs(x.createdAt - (dbm.timestamp || 0)) < 15000))) {
-                  chMsgs.push({
-                    id: dbm.id,
-                    channelId: chId,
-                    authorFingerprint: dbm.authorFP || 'anon-peer',
-                    text: msgText,
-                    epoch: dbm.epoch || '#1',
-                    status: dbm.status || 'verified',
-                    createdAt: dbm.timestamp || Date.now(),
-                    isMine: dbm.authorFP === this.keypair.fingerprint,
-                  });
-                  this.messages.set(chId, chMsgs);
-                  updated = true;
-                }
-              }
-              if (updated) {
-                this.notify();
+      aethDB.open().then(() => {
+        aethDB.getAll<any>('messages').then((dbMsgs: any[]) => {
+          if (Array.isArray(dbMsgs) && dbMsgs.length > 0) {
+            let updated = false;
+            for (const dbm of dbMsgs) {
+              const chId = dbm.channelId || 'relays-general';
+              const chMsgs = this.messages.get(chId) || [];
+              const msgText = dbm.content || dbm.text || '';
+              if (!chMsgs.some((x) => x.id === dbm.id || (x.text === msgText && x.authorFingerprint === dbm.authorFP && Math.abs(x.createdAt - (dbm.timestamp || 0)) < 15000))) {
+                chMsgs.push({
+                  id: dbm.id,
+                  channelId: chId,
+                  authorFingerprint: dbm.authorFP || 'anon-peer',
+                  text: msgText,
+                  epoch: dbm.epoch || '#1',
+                  status: dbm.status || 'verified',
+                  createdAt: dbm.timestamp || Date.now(),
+                  isMine: dbm.authorFP === this.keypair.fingerprint,
+                });
+                this.messages.set(chId, chMsgs);
+                updated = true;
               }
             }
-          }).catch(() => {});
+            if (updated) {
+              this.notify();
+            }
+          }
         }).catch(() => {});
       }).catch(() => {});
     }
