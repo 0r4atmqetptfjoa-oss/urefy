@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@aetheris/core-crypto": "*",
-    "@noble/hashes": "^1.7.1"
+    "@noble/hashes": "^2.4.0"
   },
   "devDependencies": {
     "typescript": "^7.0.2",
