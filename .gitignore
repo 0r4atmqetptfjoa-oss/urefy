@@ -45,6 +45,7 @@ release-manifest.json
 # Testing reports
 **/playwright-report/
 **/test-results/
+**/test-screenshots/
 .serena/
 .vscode/
 git-status-baseline.txt

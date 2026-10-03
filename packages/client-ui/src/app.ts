@@ -1799,7 +1799,7 @@ function renderMobileBottomNav(): string {
       type="button"
       id="btn-mobile-fab-composer"
       data-action="open-composer"
-      class="${hideFab ? 'hidden ' : ''}fixed bottom-20 right-4 z-40 lg:hidden w-13 h-13 rounded-full bg-[var(--color-accent,#e59b3c)] hover:brightness-110 text-slate-950 flex items-center justify-center text-xl font-bold shadow-2xl shadow-black/40 border border-white/20 active:scale-95 transition-all cursor-pointer"
+      class="${hideFab ? 'hidden ' : ''}fixed bottom-20 right-4 z-40 lg:hidden w-14 h-14 rounded-full bg-[var(--color-accent,#e59b3c)] hover:brightness-110 text-slate-950 flex items-center justify-center text-xl font-bold shadow-2xl shadow-black/40 border border-white/20 active:scale-95 transition-all cursor-pointer"
       title="Create Publication"
       aria-label="Create Publication"
     >
@@ -1837,7 +1837,7 @@ function renderMobileDrawer(): string {
         </div>
 
         <!-- DRAWER SCROLLABLE BODY -->
-        <div class="flex-1 overflow-y-auto p-3 space-y-4">
+        <div class="flex-1 overflow-y-auto p-3 pb-10 space-y-4">
           <!-- NAVIGATION -->
           <div class="space-y-1">
             <div class="text-[10px] uppercase font-bold text-slate-500 tracking-wider mb-2 px-2 flex items-center justify-between">

@@ -1484,10 +1484,13 @@ button:active { transform: scale(0.98); }
   .section-heading h2 { font-size:17px; }
   .profile-hero__banner { height:125px; }
   .profile-hero__content { padding:0 15px 18px; }
-  .profile-avatar-wrap { margin-top:-42px; }
-  .profile-avatar-wrap .avatar { width:84px !important; height:84px !important; }
-  .profile-actions { gap:5px; }
+  .profile-avatar-wrap { margin-top:-42px; display:inline-flex; position:relative; }
+  .profile-avatar-wrap .avatar { width:72px !important; height:72px !important; }
+  .profile-avatar-wrap .profile-presence { right:2px; bottom:2px; width:14px; height:14px; border-width:2.5px; }
+  .profile-actions { gap:5px; flex-wrap:nowrap; }
   .profile-actions .secondary-button { padding-inline:10px; }
+  .profile-actions .profile-settings-btn { min-width:36px; width:36px; height:36px; padding:0; justify-content:center; }
+  .profile-actions .profile-settings-btn .profile-settings-btn__label { display:none; }
   .profile-name-row h1 { font-size:21px; }
   .profile-media-fields,
   .form-grid { grid-template-columns:1fr; }
