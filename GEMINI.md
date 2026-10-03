@@ -1,6 +1,10 @@
 # Instructions for Gemini / Antigravity
 
-## Latest production publication (2026-10-01)
+## Latest production publication (2026-10-03)
+
+Startup JS optimization below 600 KiB budget deployed to urefy.com in Pages deployment `686579a0`, code commit `af51892`. Remote GitHub repository `https://github.com/0r4atmqetptfjoa-oss/urefy.git` is synchronized on `origin/main`. See `docs/DEPLOYMENT_2026-10-03.md`. Startup JavaScript is officially **599.38 KiB gzip** across 23 chunks (meeting the sub-600 KiB target). Startup CSS is 69.65 KiB gzip. Decoupled `ProfileStore` and made `profile-view` an optional on-demand workspace. Added `awards-facade` and `notifications-facade`. Verified all 23 production gates passed (`npm run audit:production`), structural UX passed (5/5), smoke tests passed (6/6), branding check passed (4/4), and 82/82 touched unit tests passed. Live domain `urefy.com` serves `main-DCj7-JAP.js` and all tested routes return HTTP 200. Zero user and post data modified.
+
+## Prior production publication (2026-10-01)
 
 Optimization repairs are deployed to urefy.com in Pages deployment `4552215f`, code commit `6c947d9`. See `docs/DEPLOYMENT_2026-10-01.md` and `docs/OPTIMIZATION_REPAIRS_2026-10-01.md`. All 89 checked manifest/runtime assets match the local build by SHA-256. Startup JS is 642.58 KiB gzip; the sub-600 target remains open. Preserve bounded initial Home batches, inert video facades, stable feed/message nodes and the canonical Settings workspace. The owner explicitly forbids changes to user and post data: do not run seed scripts, migrations or cleanup. Existing seed scripts were committed as source only and were not executed. No Git remote is configured yet, so the code commit is local even though Cloudflare publication is complete.
 
