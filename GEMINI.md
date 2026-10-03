@@ -2,7 +2,7 @@
 
 ## Latest production publication (2026-10-03)
 
-Production deployment `a0adbf82` (code commit `a4cd53b`) deployed to urefy.com. Remote GitHub repository `https://github.com/0r4atmqetptfjoa-oss/urefy.git` is synchronized on `origin/main`. See `docs/DEPLOYMENT_2026-10-03.md`. Unit suite: 100% green across monorepo (242/242 files, 2,751/2,751 tests passed, 0 failures). Cleaned up Vite INEFFECTIVE_DYNAMIC_IMPORT warnings (0 build warnings). Startup JavaScript: **599.34 KiB gzip** across 23 chunks (strictly below 600 KiB budget). Startup CSS: 69.65 KiB gzip. All 23 production gates passed (`npm run audit:production`), structural UX passed (5/5), smoke tests passed (6/6), branding check passed (4/4). Live domain `urefy.com` serves `main-XuKwYM_D.js` and all tested routes return HTTP 200. Zero user and post data modified.
+Production deployment `2bff8401` (code commit `76c6330`) deployed to urefy.com. Remote GitHub repository `https://github.com/0r4atmqetptfjoa-oss/urefy.git` is synchronized on `origin/main`. See `docs/DEPLOYMENT_2026-10-03.md`. Unit suite: 100% green across monorepo (242/242 files, 2,751/2,751 tests passed, 0 failures). Cleaned up mobile profile grid blowout, anchored avatar presence indicator, made mobile Settings button a 36x36px icon button, and added mobile drawer scroll clearance. Startup JavaScript: **599.38 KiB gzip** across 23 chunks (strictly below 600 KiB budget). Startup CSS: 69.95 KiB gzip. All 23 production gates passed (`npm run audit:production`), structural UX passed (5/5), smoke tests passed (6/6), branding check passed (4/4). Live domain `urefy.com` serves `main-BLlVtrmy.js` and all tested routes return HTTP 200. Zero user and post data modified.
 
 ## Prior production publication (2026-10-01)
 
