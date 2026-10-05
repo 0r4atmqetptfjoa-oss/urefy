@@ -60,6 +60,23 @@ describe('Messages persistence against the canonical SQLite schema', () => {
     expect((await response.json()).messages).toMatchObject([{ id: 'sqlite-test-read', ciphertext: 'encrypted-original-author' }]);
   });
 
+  it('returns the most recent messages in chronological order on initial load without since', async () => {
+    sqlite.exec("INSERT INTO messages (id, channel_id, author_id, ciphertext, created_at) VALUES ('msg-old-1', 'relays-general', 'u1', 'oldest', 100)");
+    sqlite.exec("INSERT INTO messages (id, channel_id, author_id, ciphertext, created_at) VALUES ('msg-old-2', 'relays-general', 'u1', 'middle', 200)");
+    sqlite.exec("INSERT INTO messages (id, channel_id, author_id, ciphertext, created_at) VALUES ('msg-new-1', 'relays-general', 'u1', 'recent', 300)");
+    sqlite.exec("INSERT INTO messages (id, channel_id, author_id, ciphertext, created_at) VALUES ('msg-new-2', 'relays-general', 'u1', 'latest', 400)");
+
+    const response = await onRequestGet({
+      env: { DB: database },
+      request: new Request('https://example.test/api/messages?channelId=relays-general&limit=2'),
+    });
+    expect(response.status).toBe(200);
+    const data = await response.json();
+    expect(data.messages).toHaveLength(2);
+    expect(data.messages[0].id).toBe('msg-new-1');
+    expect(data.messages[1].id).toBe('msg-new-2');
+  });
+
   it('rejects a conflicting ID without overwriting its author or ciphertext', async () => {
     expect((await post('sqlite-test-conflict')).status).toBe(201);
     expect((await post('sqlite-test-conflict', 'different-author')).status).toBe(409);

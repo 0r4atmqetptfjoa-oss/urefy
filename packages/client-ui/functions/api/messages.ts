@@ -69,10 +69,12 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
         if (since !== null && !isNaN(since)) {
           query += ' AND created_at > ?';
           params.push(since);
+          query += ' ORDER BY created_at ASC LIMIT ?';
+          params.push(limit);
+        } else {
+          query = `SELECT * FROM (${query} ORDER BY created_at DESC LIMIT ?) sub ORDER BY created_at ASC`;
+          params.push(limit);
         }
-
-        query += ' ORDER BY created_at ASC LIMIT ?';
-        params.push(limit);
 
         const stmt = db.prepare(query).bind(...params);
         const { results } = await stmt.all<any>();
@@ -83,7 +85,8 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
           messages = [];
         } else if (since === null || isNaN(since)) {
           // If D1 is empty on initial migration in dev/test, fallback to in-memory seed messages
-          messages = globalMessagesStore.filter((m) => (channelId === 'all' ? true : m.channelId === channelId));
+          const matching = globalMessagesStore.filter((m) => (channelId === 'all' ? true : m.channelId === channelId));
+          messages = matching.slice(-limit);
         }
       } catch (dbErr: any) {
         if (isProd) {
@@ -93,7 +96,8 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
           );
         }
         console.warn('[D1 Messages Fallback]', dbErr);
-        messages = globalMessagesStore.filter((m) => (channelId === 'all' ? true : m.channelId === channelId));
+        const matching = globalMessagesStore.filter((m) => (channelId === 'all' ? true : m.channelId === channelId));
+        messages = matching.slice(-limit);
       }
     } else if (isProd) {
       return createD1UnavailableResponse();
@@ -110,7 +114,7 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
       }
 
       filtered.sort((a, b) => a.createdAt - b.createdAt);
-      messages = filtered.slice(0, limit);
+      messages = since !== null && !isNaN(since) ? filtered.slice(0, limit) : filtered.slice(-limit);
     }
 
     return new Response(
