@@ -113,9 +113,15 @@ export class ObsidianMediaPlayer {
         thumbnail.dataset.fallbackBound = 'true';
         thumbnail.addEventListener('error', () => {
           thumbnail.hidden = true;
+          thumbnail.classList.add('hidden');
           thumbnailFallback.hidden = false;
+          thumbnailFallback.classList.remove('!hidden', 'hidden');
+          thumbnailFallback.classList.add('flex');
           const playOverlay = container.querySelector<HTMLElement>('[data-video-play-overlay]');
-          if (playOverlay) playOverlay.hidden = true;
+          if (playOverlay) {
+            playOverlay.hidden = true;
+            playOverlay.classList.add('hidden');
+          }
         }, { once: true });
       }
       const poster = container.querySelector<HTMLElement>('.media-poster-layer');
@@ -275,8 +281,8 @@ export class ObsidianMediaPlayer {
         : '';
       const finalPoster = posterSrc || defaultPoster;
       return `
-        <div class="video-container relative w-full aspect-video rounded-2xl overflow-hidden bg-black/90 border border-white/10 group select-none my-2.5 shadow-2xl" data-video-id="${videoId}">
-            <button type="button" aria-label="Play embedded video" id="media-poster-${videoId}" data-action="fade-media-poster" data-video-id="${videoId}" class="media-poster-layer absolute inset-0 z-10 bg-black flex items-center justify-center transition-opacity duration-300 ease-out cursor-pointer pointer-events-auto">
+        <div class="video-container relative w-full aspect-video rounded-2xl overflow-hidden bg-black/90 border border-white/10 group select-none my-2.5 shadow-2xl" data-video-id="${videoId}" ${finalPoster ? `style="background-image: url('${finalPoster}'); background-size: cover; background-position: center;"` : ''}>
+            <button type="button" aria-label="Play embedded video" id="media-poster-${videoId}" data-action="fade-media-poster" data-video-id="${videoId}" class="media-poster-layer absolute inset-0 z-10 bg-black/40 flex items-center justify-center transition-opacity duration-300 ease-out cursor-pointer pointer-events-auto">
               ${finalPoster ? `
               <img 
                 src="${finalPoster}" 
@@ -285,7 +291,7 @@ export class ObsidianMediaPlayer {
                 data-video-thumbnail
                 loading="lazy" decoding="async"
               />` : ''}
-              <div data-video-thumbnail-fallback ${finalPoster ? 'hidden' : ''} class="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950/40 flex flex-col items-center justify-center gap-1.5 px-4 text-center">
+              <div data-video-thumbnail-fallback ${finalPoster ? 'hidden' : ''} class="${finalPoster ? '!hidden hidden' : 'flex'} absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950/40 flex-col items-center justify-center gap-1.5 px-4 text-center">
                 <div class="w-12 h-12 rounded-full bg-[var(--color-accent,#e59b3c)] text-slate-950 flex items-center justify-center font-bold text-lg shadow-lg">
                   ▶
                 </div>
