@@ -380,6 +380,26 @@ export class ActionDispatcher {
         }
       }
 
+      // Direct search trend trigger delegation for [data-search-trend]
+      const trendTarget = target.closest?.<HTMLElement>('[data-search-trend]');
+      if (trendTarget && !target.closest?.('a, input, textarea, select')) {
+        const trend = trendTarget.getAttribute('data-search-trend') || trendTarget.getAttribute('data-topic');
+        if (trend) {
+          event.preventDefault();
+          event.stopPropagation();
+          void loadExploreView().then(view => {
+            view.selectTopic(trend);
+            if (sovereignRouter.route !== 'explore') {
+              sovereignRouter.navigateTo('explore');
+            }
+            clientStore.notifySync();
+            const scrollContainer = document.getElementById('explore-feed-scroll');
+            if (scrollContainer) scrollContainer.scrollTop = 0;
+          }).catch(() => clientStore.showToast('Unable to open Explore. Please try again.', 'warning'));
+          return;
+        }
+      }
+
       let actionEl: HTMLElement | null = null;
       let curr: Element | null = target;
       while (curr && curr !== document.documentElement && curr !== document.body) {
@@ -1005,13 +1025,58 @@ export class ActionDispatcher {
         break;
       }
 
-      case 'filter-by-topic': {
-        const topic = el.getAttribute('data-topic');
+      case 'filter-by-topic':
+      case 'select-search-trend': {
+        const topic = el.getAttribute('data-search-trend') || el.getAttribute('data-topic');
         if (topic) {
-          const cleanTag = topic.replace(/^#/, '');
-          hashtagExplorer.activeTag = cleanTag;
-          clientStore.notifySync();
+          void loadExploreView().then(view => {
+            view.selectTopic(topic);
+            if (sovereignRouter.route !== 'explore') {
+              sovereignRouter.navigateTo('explore');
+            }
+            clientStore.notifySync();
+            const scrollContainer = document.getElementById('explore-feed-scroll');
+            if (scrollContainer) scrollContainer.scrollTop = 0;
+          }).catch(() => clientStore.showToast('Unable to open Explore. Please try again.', 'warning'));
         }
+        break;
+      }
+
+      case 'select-explore-category': {
+        const cat = el.getAttribute('data-explore-cat') as any;
+        if (cat) {
+          void loadExploreView().then(view => {
+            view.setActiveCategory(cat);
+            clientStore.notifySync();
+          });
+        }
+        break;
+      }
+
+      case 'set-search-result-tab': {
+        const tab = el.getAttribute('data-search-result-tab') as 'posts' | 'people' | 'communities' | 'topics' | null;
+        if (tab) {
+          void loadExploreView().then(view => {
+            view.setActiveSearchTab(tab);
+            clientStore.notifySync();
+          });
+        }
+        break;
+      }
+
+      case 'clear-explore-search': {
+        void loadExploreView().then(view => {
+          view.clearSearch();
+          clientStore.notifySync();
+        });
+        break;
+      }
+
+      case 'clear-recent-searches': {
+        void loadExploreView().then(view => {
+          view.clearRecentSearches();
+          clientStore.notifySync();
+        });
         break;
       }
 
@@ -2377,15 +2442,6 @@ export class ActionDispatcher {
         break;
       }
 
-      case 'filter-by-topic': {
-        const topic = el.getAttribute('data-topic');
-        if (topic) {
-          hashtagExplorer.setActiveTag(topic);
-          clientStore.notifySync();
-        }
-        break;
-      }
-
       case 'set-mobile-mode': {
         const mode = el.getAttribute('data-mobile-mode') as 'flow' | 'classic';
         if (mode) {
@@ -3453,6 +3509,16 @@ export class ActionDispatcher {
         updatedInput.focus({ preventScroll: true });
         updatedInput.setSelectionRange(updatedInput.value.length, updatedInput.value.length);
       }
+    } else if (action === 'explore-search' || el.id === 'explore-search-input') {
+      void loadExploreView().then(view => {
+        view.setSearchQuery(el.value, false);
+        clientStore.notifySync();
+        const updatedInput = document.getElementById('explore-search-input') as HTMLInputElement | null;
+        if (updatedInput) {
+          updatedInput.focus({ preventScroll: true });
+          updatedInput.setSelectionRange(updatedInput.value.length, updatedInput.value.length);
+        }
+      });
     } else if (action === 'search-dm-peers') {
       void getMV().then(m => {
         m.setDMSearchQuery(el.value);

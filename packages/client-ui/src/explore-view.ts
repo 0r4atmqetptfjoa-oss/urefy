@@ -92,14 +92,37 @@ export class ExploreView {
     if (remember && query.trim()) this.saveRecentSearch(query.trim());
   }
 
-  public setActiveCategory(category: ExploreCategory): void { this.activeCategory = category; this.activeSubTab = 'pulses'; }
+  public selectTopic(topic: string): void {
+    this.activeCategory = 'all';
+    this.activeSubTab = 'pulses';
+    this.activeSearchTab = 'posts';
+    this.setSearchQuery(topic, true);
+  }
+
+  public setActiveCategory(category: ExploreCategory): void {
+    this.activeCategory = category;
+    this.activeSubTab = 'pulses';
+    this.searchQuery = '';
+  }
   public setActiveSearchTab(tab: 'posts' | 'people' | 'communities' | 'topics'): void { this.activeSearchTab = tab; }
   public clearSearch(): void { this.searchQuery = ''; }
 
   public filterPosts(allPosts: ClientPost[]): ClientPost[] {
     let posts = allPosts.filter(post => !socialSafety.isBlocked(post.authorFingerprint));
     const query = this.searchQuery.trim().toLowerCase();
-    if (query) posts = posts.filter(post => [post.title, post.content, post.authorFingerprint, post.flair, post.channelId].some(value => String(value || '').toLowerCase().includes(query)));
+    if (query) {
+      const cleanTag = query.replace(/^#/, '');
+      posts = posts.filter(post => [
+        post.title,
+        post.content,
+        post.authorFingerprint,
+        post.flair,
+        post.channelId,
+      ].some(value => {
+        const str = String(value || '').toLowerCase();
+        return str.includes(query) || (cleanTag && str.includes(cleanTag));
+      }));
+    }
     if (this.activeCategory === 'trending') posts = [...posts].sort((a, b) => (b.meritVotes + b.replyCount) - (a.meritVotes + a.replyCount));
     if (this.activeCategory === 'cryptography') posts = posts.filter(post => /technology|code|software|crypto|zk|web/i.test(`${post.title} ${post.content} ${post.flair} ${post.channelId}`));
     if (this.activeCategory === 'privacy') posts = posts.filter(post => /privacy|private|identity|recovery|airgap|ghost|vault|forensic/i.test(`${post.title} ${post.content} ${post.flair} ${post.channelId}`));
@@ -144,11 +167,21 @@ export class ExploreView {
   private renderTopics(posts: ClientPost[]): string {
     const topics = this.getComputedTrendingTopics(posts);
     if (!topics.length) return '<div class="journal-empty"><strong>No subjects have surfaced yet.</strong><span>Topics are drawn from public conversations as they arrive.</span></div>';
+    const activeSearch = this.searchQuery.trim().toLowerCase();
     return `
       <ol class="journal-topic-atlas">
-        ${topics.map((topic, index) => `
-          <li><button type="button" data-search-trend="${escapeHtml(topic.topic)}"><span class="journal-topic-atlas__index">${String(index + 1).padStart(2, '0')}</span><span class="journal-topic-atlas__name">${escapeHtml(topic.topic)}</span><span class="journal-topic-atlas__count">${topic.postCount}</span></button></li>
-        `).join('')}
+        ${topics.map((topic, index) => {
+          const isSelected = Boolean(activeSearch && (topic.topic.toLowerCase() === activeSearch || topic.topic.toLowerCase().replace(/^#/, '') === activeSearch.replace(/^#/, '')));
+          return `
+          <li>
+            <button type="button" class="btn-select-trend ${isSelected ? 'is-active' : ''}" data-action="select-search-trend" data-search-trend="${escapeHtml(topic.topic)}" title="Explore ${escapeHtml(topic.topic)}">
+              <span class="journal-topic-atlas__index">${String(index + 1).padStart(2, '0')}</span>
+              <span class="journal-topic-atlas__name">${escapeHtml(topic.topic)}</span>
+              <span class="journal-topic-atlas__count">${topic.postCount}</span>
+            </button>
+          </li>
+        `;
+        }).join('')}
       </ol>
     `;
   }
@@ -180,8 +213,8 @@ export class ExploreView {
 
     const counts = { posts: posts.length, people: people.length, communities: communities.length, topics: topics.length };
     return `
-      <div class="search-result-tabs explore-search-results-tabs" role="tablist" aria-label="Search categories">${(['posts', 'people', 'communities', 'topics'] as const).map(tab => `<button type="button" role="tab" data-search-result-tab="${tab}" aria-selected="${this.activeSearchTab === tab}" class="${this.activeSearchTab === tab ? 'is-active' : ''}">${tab[0].toUpperCase() + tab.slice(1)}<span>${counts[tab]}</span></button>`).join('')}</div>
-      ${this.activeSearchTab === 'posts' ? (posts.length ? `<div class="river-stream journal-dispatch-river pt-2">${posts.map(renderPulsePostCard).join('')}</div>` : `<div class="journal-empty"><strong>No dispatches found for “${escapeHtml(this.searchQuery)}”.</strong><span class="sr-only">No pulses found matching "${escapeHtml(this.searchQuery)}"</span><span>Try another word, person, or community.</span><button type="button" id="btn-clear-explore-empty">Clear search</button></div>`) : ''}
+      <div class="search-result-tabs explore-search-results-tabs" role="tablist" aria-label="Search categories">${(['posts', 'people', 'communities', 'topics'] as const).map(tab => `<button type="button" role="tab" data-action="set-search-result-tab" data-search-result-tab="${tab}" aria-selected="${this.activeSearchTab === tab}" class="${this.activeSearchTab === tab ? 'is-active' : ''}">${tab[0].toUpperCase() + tab.slice(1)}<span>${counts[tab]}</span></button>`).join('')}</div>
+      ${this.activeSearchTab === 'posts' ? (posts.length ? `<div class="river-stream journal-dispatch-river pt-2">${posts.map(renderPulsePostCard).join('')}</div>` : `<div class="journal-empty"><strong>No dispatches found for “${escapeHtml(this.searchQuery)}”.</strong><span class="sr-only">No pulses found matching "${escapeHtml(this.searchQuery)}"</span><span>Try another word, person, or community.</span><button type="button" id="btn-clear-explore-empty" data-action="clear-explore-search">Clear search</button></div>`) : ''}
       ${this.activeSearchTab === 'people' ? `<div class="journal-people-atlas">${this.renderPeople(allPosts, people)}</div>` : ''}
       ${this.activeSearchTab === 'communities' ? this.renderCommunitiesDirectory() : ''}
       ${this.activeSearchTab === 'topics' ? (topics.length ? this.renderTopics(allPosts) : '<div class="discovery-empty"><strong>No matching topics</strong><span>Try another search.</span></div>') : ''}`;
@@ -210,17 +243,30 @@ export class ExploreView {
           <h1>Explore</h1>
           <p>Follow conversations, meet people, and find communities worth joining.</p>
           </div>
-          <label class="explore-search">${renderIcon('search', { size: 19 })}<input type="search" id="explore-search-input" aria-label="Search UREfy" placeholder="Search discussions, people, or communities…" value="${escapeHtml(this.searchQuery)}" autocomplete="off" />${this.searchQuery ? `<button type="button" id="btn-clear-explore-search" aria-label="Clear search">${renderIcon('close', { size: 16 })}</button>` : ''}</label>
+          <label class="explore-search">${renderIcon('search', { size: 19 })}<input type="search" id="explore-search-input" data-input="explore-search" aria-label="Search UREfy" placeholder="Search discussions, people, or communities…" value="${escapeHtml(this.searchQuery)}" autocomplete="off" />${this.searchQuery ? `<button type="button" id="btn-clear-explore-search" data-action="clear-explore-search" aria-label="Clear search">${renderIcon('close', { size: 16 })}</button>` : ''}</label>
         </header>
 
         <div class="explore-category-bar journal-atlas-filters" role="tablist" aria-label="Explore categories">
-          ${this.categories.map(category => `<button type="button" data-explore-cat="${category.id}" role="tab" aria-selected="${this.activeSubTab === 'pulses' && this.activeCategory === category.id}" class="btn-explore-category ${this.activeSubTab === 'pulses' && this.activeCategory === category.id ? 'is-active' : ''}">${category.label}</button>`).join('')}
+          ${this.categories.map(category => `<button type="button" data-action="select-explore-category" data-explore-cat="${category.id}" role="tab" aria-selected="${this.activeSubTab === 'pulses' && this.activeCategory === category.id}" class="btn-explore-category ${this.activeSubTab === 'pulses' && this.activeCategory === category.id ? 'is-active' : ''}">${category.label}</button>`).join('')}
           <button type="button" role="tab" aria-selected="${this.activeSubTab === 'communities'}" data-action="set-explore-subtab" data-subtab="communities" class="${this.activeSubTab === 'communities' ? 'is-active' : ''}">All communities</button>
           <a href="/discussions" class="public-archive-link">Browse all discussions →</a>
         </div>
 
         <div id="explore-feed-scroll" class="explore-scroll journal-atlas-scroll">
-          ${this.searchQuery ? this.renderSearchResults(allPosts) : this.activeSubTab === 'communities' ? this.renderCommunitiesDirectory() : `
+          ${this.searchQuery ? `
+            <div class="journal-atlas-layout">
+              <main class="journal-atlas-main">
+                ${this.renderSearchResults(allPosts)}
+              </main>
+              <aside class="journal-atlas-rail" aria-label="Trending topics">
+                <section class="journal-index-section">
+                  <span class="journal-eyebrow">Topics in motion</span>
+                  <h2>What people are discussing</h2>
+                  ${this.renderTopics(allPosts)}
+                </section>
+              </aside>
+            </div>
+          ` : this.activeSubTab === 'communities' ? this.renderCommunitiesDirectory() : `
             <nav class="directional-pathway mb-6 p-3 sm:p-4 rounded-2xl bg-surface-raised/40 border border-white/5 flex items-center justify-between gap-3 text-xs overflow-x-auto select-none" aria-label="Discovery shortcuts">
               <div class="flex items-center gap-2 shrink-0">
                 <span class="w-6 h-6 rounded-lg bg-[var(--color-accent,#e89e38)]/20 text-[var(--color-accent,#e89e38)] flex items-center justify-center font-bold text-xs">1</span>
@@ -242,7 +288,7 @@ export class ExploreView {
                 <span class="text-slate-300 font-medium">Spaces</span>
               </div>
             </nav>
-            ${recentSearches.length ? `<section class="recent-searches journal-recent-notes"><span>Recent searches</span>${recentSearches.slice(0, 5).map(item => `<button type="button" class="btn-select-trend" data-search-trend="${escapeHtml(item)}">${escapeHtml(item)}</button>`).join('')}<button type="button" id="btn-clear-recent-searches">Clear</button></section>` : ''}
+            ${recentSearches.length ? `<section class="recent-searches journal-recent-notes"><span>Recent searches</span>${recentSearches.slice(0, 5).map(item => `<button type="button" class="btn-select-trend" data-action="select-search-trend" data-search-trend="${escapeHtml(item)}">${escapeHtml(item)}</button>`).join('')}<button type="button" id="btn-clear-recent-searches" data-action="clear-recent-searches">Clear</button></section>` : ''}
             <div class="journal-atlas-layout">
               <main class="journal-atlas-main">
                 <section class="discovery-section journal-atlas-section journal-atlas-conversations">

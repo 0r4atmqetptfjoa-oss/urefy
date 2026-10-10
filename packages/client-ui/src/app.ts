@@ -3096,12 +3096,14 @@ function updateCommandRailHighlight(index: number): void {
       }
     }, { signal });
   });
-  document.querySelectorAll('.btn-select-trend').forEach(btn => {
+  document.querySelectorAll('[data-search-trend], .btn-select-trend').forEach(btn => {
     btn.addEventListener('click', () => {
       const trend = btn.getAttribute('data-search-trend');
       if (trend) {
-        exploreView!.setSearchQuery(trend);
+        exploreView!.selectTopic(trend);
         clientStore.notify();
+        const scrollContainer = document.getElementById('explore-feed-scroll');
+        if (scrollContainer) scrollContainer.scrollTop = 0;
       }
     }, { signal });
   });
