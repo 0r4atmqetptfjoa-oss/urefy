@@ -227,6 +227,14 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
           params.push(flair);
         }
 
+        if (userFingerprint) {
+          query += `
+            AND NOT EXISTS (SELECT 1 FROM user_blocks ub WHERE ub.blocker_id = ? AND ub.blocked_id = posts.author_id)
+            AND NOT EXISTS (SELECT 1 FROM user_mutes um WHERE um.muter_id = ? AND um.muted_id = posts.author_id)
+          `;
+          params.push(userFingerprint, userFingerprint);
+        }
+
         if (sort === 'new' || sort === 'chrono') {
           query += ' ORDER BY posts.created_at DESC';
         } else if (sort === 'top') {
@@ -252,17 +260,6 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
             }
             return p;
           });
-          if (userFingerprint) {
-            try {
-              const blocks = await db.prepare('SELECT blocked_id FROM user_blocks WHERE blocker_id = ?').bind(userFingerprint).all<{ blocked_id: string }>();
-              const mutes = await db.prepare('SELECT muted_id FROM user_mutes WHERE muter_id = ?').bind(userFingerprint).all<{ muted_id: string }>();
-              const blockedSet = new Set((blocks.results || []).map(r => r.blocked_id));
-              const mutedSet = new Set((mutes.results || []).map(r => r.muted_id));
-              if (blockedSet.size > 0 || mutedSet.size > 0) {
-                posts = posts.filter(p => !blockedSet.has(p.authorFingerprint) && !mutedSet.has(p.authorFingerprint));
-              }
-            } catch (_) {}
-          }
         } else if (isProd) {
           posts = [];
         } else {

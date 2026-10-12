@@ -19,7 +19,7 @@
     "@aetheris/core-crypto": "*",
     "@aetheris/vault-engine": "*",
     "@simplewebauthn/browser": "^14.0.0",
-    "@simplewebauthn/server": "^14.0.2",
+    "@simplewebauthn/server": "^14.0.3",
     "aws-rum-web": "^3.2.1",
     "ethers": "^6.17.0",
     "lucide": "^1.42.0"
@@ -30,8 +30,8 @@
     "postcss": "^8.5.28",
     "tailwindcss": "^3.4.17",
     "typescript": "^7.0.2",
-    "vite": "^8.2.2",
-    "vitest": "^5.0.0",
-    "wrangler": "^4.129.1"
+    "vite": "^8.3.4",
+    "vitest": "^5.0.4",
+    "wrangler": "^4.149.0"
   }
 }

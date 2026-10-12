@@ -1160,8 +1160,7 @@ export class AetherisClientStore {
 
   // Frame-batched notify for browser (60fps rendering), sync execution for Node.js / test suites
   private _notifyTimer: any = null;
-  private _pendingEvent: string | undefined = undefined;
-  private _pendingData: any = undefined;
+  private _pendingEvents: Array<{ event?: string; data?: any }> = [];
 
   public notify(event?: string, data?: any): void {
     if (typeof window === 'undefined' || typeof requestAnimationFrame !== 'function') {
@@ -1171,24 +1170,35 @@ export class AetherisClientStore {
     }
 
     // Browser environment: batch using requestAnimationFrame for zero-flicker 60fps rendering
-    if (event !== undefined) {
-      this._pendingEvent = event;
-      this._pendingData = data;
-    } else {
-      // General re-render request clears event fast-paths (like TOAST) to guarantee full DOM patch
-      this._pendingEvent = undefined;
-      this._pendingData = undefined;
-    }
+    this._pendingEvents.push({ event, data });
 
     if (this._notifyTimer !== null) return;
 
     this._notifyTimer = requestAnimationFrame(() => {
       this._notifyTimer = null;
-      const ev = this._pendingEvent;
-      const d = this._pendingData;
-      this._pendingEvent = undefined;
-      this._pendingData = undefined;
-      this.listeners.forEach((fn) => fn(ev, d));
+      const events = this._pendingEvents;
+      this._pendingEvents = [];
+
+      let hasGeneralRender = false;
+      const specificEvents: Array<{ event?: string; data?: any }> = [];
+
+      for (const ev of events) {
+        if (ev.event === undefined) {
+          hasGeneralRender = true;
+        } else {
+          specificEvents.push(ev);
+        }
+      }
+
+      // Dispatch specific fast-path events first (e.g. TOAST, VOTE)
+      for (const { event: ev, data: d } of specificEvents) {
+        this.listeners.forEach((fn) => fn(ev, d));
+      }
+
+      // If a general re-render was also requested in this frame, dispatch it once
+      if (hasGeneralRender || specificEvents.length === 0) {
+        this.listeners.forEach((fn) => fn(undefined, undefined));
+      }
     });
   }
 
@@ -1203,8 +1213,7 @@ export class AetherisClientStore {
       }
       this._notifyTimer = null;
     }
-    this._pendingEvent = undefined;
-    this._pendingData = undefined;
+    this._pendingEvents = [];
     this.listeners.forEach((fn) => fn(event, data));
   }
 

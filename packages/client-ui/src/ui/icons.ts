@@ -6,110 +6,108 @@
  * proprietary sovereign glyphs (Merit Prism, Repost), and active/solid state variants.
  */
 
-import {
-  Newspaper,
-  Compass,
-  MessageCircle,
-  Vault,
-  User,
-  MoreHorizontal,
-  Bell,
-  Shield,
-  Settings,
-  Search,
-  Plus,
-  Trash2,
-  Share2,
-  Bookmark,
-  Sparkles,
-  Check,
-  CheckCheck,
-  AlertTriangle,
-  X,
-  ChevronDown,
-  ChevronUp,
-  ChevronRight,
-  ArrowUp,
-  ArrowDown,
-  Lock,
-  Unlock,
-  Wifi,
-  WifiOff,
-  Activity,
-  FileText,
-  Layers,
-  Columns2,
-  ExternalLink,
-  Copy,
-  RefreshCw,
-  Sliders,
-  SlidersHorizontal,
-  Terminal,
-  Key,
-  Cpu,
-  Network,
-  Radio,
-  Database,
-  Eye,
-  EyeOff,
-  Upload,
-  Download,
-  Info,
-  Globe,
-  Filter,
-  Maximize2,
-  Minimize2,
-  Play,
-  Pause,
-  Volume2,
-  VolumeX,
-  Users,
-  MessageSquare,
-  Paperclip,
-  Send,
-  HelpCircle,
-  LogOut,
-  Moon,
-  Sun,
-  Laptop,
-  Smartphone,
-  Tablet,
-  CheckCircle2,
-  XCircle,
-  RotateCcw,
-  Smile,
-  Heart,
-  Menu,
-  Rss,
-  Vote,
-  FileKey,
-  Image,
-  Link,
-  Hash,
-  Flame,
-  Clock,
-  TrendingUp,
-  LayoutGrid,
-  List,
-  Pin,
-  Wallet,
-  Trophy,
-  Award,
-  Repeat,
-  Flag,
-  Crown,
-  Ban,
-  Save,
-  Landmark,
-  Scroll,
-  Tag,
-  Mic,
-  Scale,
-  Mail,
-  Archive,
-  ShieldCheck,
-  Layout,
-} from 'lucide';
+import Newspaper from 'lucide/dist/esm/icons/newspaper.mjs';
+import Compass from 'lucide/dist/esm/icons/compass.mjs';
+import MessageCircle from 'lucide/dist/esm/icons/message-circle.mjs';
+import Vault from 'lucide/dist/esm/icons/vault.mjs';
+import User from 'lucide/dist/esm/icons/user.mjs';
+import MoreHorizontal from 'lucide/dist/esm/icons/ellipsis.mjs';
+import Bell from 'lucide/dist/esm/icons/bell.mjs';
+import Shield from 'lucide/dist/esm/icons/shield.mjs';
+import Settings from 'lucide/dist/esm/icons/settings.mjs';
+import Search from 'lucide/dist/esm/icons/search.mjs';
+import Plus from 'lucide/dist/esm/icons/plus.mjs';
+import Trash2 from 'lucide/dist/esm/icons/trash.mjs';
+import Share2 from 'lucide/dist/esm/icons/share-2.mjs';
+import Bookmark from 'lucide/dist/esm/icons/bookmark.mjs';
+import Sparkles from 'lucide/dist/esm/icons/sparkles.mjs';
+import Check from 'lucide/dist/esm/icons/check.mjs';
+import CheckCheck from 'lucide/dist/esm/icons/check-check.mjs';
+import AlertTriangle from 'lucide/dist/esm/icons/triangle-alert.mjs';
+import X from 'lucide/dist/esm/icons/x.mjs';
+import ChevronDown from 'lucide/dist/esm/icons/chevron-down.mjs';
+import ChevronUp from 'lucide/dist/esm/icons/chevron-up.mjs';
+import ChevronRight from 'lucide/dist/esm/icons/chevron-right.mjs';
+import ArrowUp from 'lucide/dist/esm/icons/arrow-up.mjs';
+import ArrowDown from 'lucide/dist/esm/icons/arrow-down.mjs';
+import Lock from 'lucide/dist/esm/icons/lock.mjs';
+import Unlock from 'lucide/dist/esm/icons/lock-open.mjs';
+import Wifi from 'lucide/dist/esm/icons/wifi.mjs';
+import WifiOff from 'lucide/dist/esm/icons/wifi-off.mjs';
+import Activity from 'lucide/dist/esm/icons/activity.mjs';
+import FileText from 'lucide/dist/esm/icons/file-text.mjs';
+import Layers from 'lucide/dist/esm/icons/layers.mjs';
+import Columns2 from 'lucide/dist/esm/icons/columns-2.mjs';
+import ExternalLink from 'lucide/dist/esm/icons/external-link.mjs';
+import Copy from 'lucide/dist/esm/icons/copy.mjs';
+import RefreshCw from 'lucide/dist/esm/icons/refresh-cw.mjs';
+import Sliders from 'lucide/dist/esm/icons/sliders-vertical.mjs';
+import SlidersHorizontal from 'lucide/dist/esm/icons/sliders-horizontal.mjs';
+import Terminal from 'lucide/dist/esm/icons/terminal.mjs';
+import Key from 'lucide/dist/esm/icons/key.mjs';
+import Cpu from 'lucide/dist/esm/icons/cpu.mjs';
+import Network from 'lucide/dist/esm/icons/network.mjs';
+import Radio from 'lucide/dist/esm/icons/radio.mjs';
+import Database from 'lucide/dist/esm/icons/database.mjs';
+import Eye from 'lucide/dist/esm/icons/eye.mjs';
+import EyeOff from 'lucide/dist/esm/icons/eye-off.mjs';
+import Upload from 'lucide/dist/esm/icons/upload.mjs';
+import Download from 'lucide/dist/esm/icons/download.mjs';
+import Info from 'lucide/dist/esm/icons/info.mjs';
+import Globe from 'lucide/dist/esm/icons/globe.mjs';
+import Filter from 'lucide/dist/esm/icons/funnel.mjs';
+import Maximize2 from 'lucide/dist/esm/icons/maximize-2.mjs';
+import Minimize2 from 'lucide/dist/esm/icons/minimize-2.mjs';
+import Play from 'lucide/dist/esm/icons/play.mjs';
+import Pause from 'lucide/dist/esm/icons/pause.mjs';
+import Volume2 from 'lucide/dist/esm/icons/volume-2.mjs';
+import VolumeX from 'lucide/dist/esm/icons/volume-x.mjs';
+import Users from 'lucide/dist/esm/icons/users.mjs';
+import MessageSquare from 'lucide/dist/esm/icons/message-square.mjs';
+import Paperclip from 'lucide/dist/esm/icons/paperclip.mjs';
+import Send from 'lucide/dist/esm/icons/send.mjs';
+import HelpCircle from 'lucide/dist/esm/icons/circle-question-mark.mjs';
+import LogOut from 'lucide/dist/esm/icons/log-out.mjs';
+import Moon from 'lucide/dist/esm/icons/moon.mjs';
+import Sun from 'lucide/dist/esm/icons/sun.mjs';
+import Laptop from 'lucide/dist/esm/icons/laptop.mjs';
+import Smartphone from 'lucide/dist/esm/icons/smartphone.mjs';
+import Tablet from 'lucide/dist/esm/icons/tablet.mjs';
+import CheckCircle2 from 'lucide/dist/esm/icons/circle-check.mjs';
+import XCircle from 'lucide/dist/esm/icons/circle-x.mjs';
+import RotateCcw from 'lucide/dist/esm/icons/rotate-ccw.mjs';
+import Smile from 'lucide/dist/esm/icons/face-slightly-smiling.mjs';
+import Heart from 'lucide/dist/esm/icons/heart.mjs';
+import Menu from 'lucide/dist/esm/icons/menu.mjs';
+import Rss from 'lucide/dist/esm/icons/rss.mjs';
+import Vote from 'lucide/dist/esm/icons/vote.mjs';
+import FileKey from 'lucide/dist/esm/icons/file-key.mjs';
+import Image from 'lucide/dist/esm/icons/image.mjs';
+import Link from 'lucide/dist/esm/icons/link.mjs';
+import Hash from 'lucide/dist/esm/icons/hash.mjs';
+import Flame from 'lucide/dist/esm/icons/flame.mjs';
+import Clock from 'lucide/dist/esm/icons/clock.mjs';
+import TrendingUp from 'lucide/dist/esm/icons/trending-up.mjs';
+import LayoutGrid from 'lucide/dist/esm/icons/layout-grid.mjs';
+import List from 'lucide/dist/esm/icons/list.mjs';
+import Pin from 'lucide/dist/esm/icons/pin.mjs';
+import Wallet from 'lucide/dist/esm/icons/wallet.mjs';
+import Trophy from 'lucide/dist/esm/icons/trophy.mjs';
+import Award from 'lucide/dist/esm/icons/award.mjs';
+import Repeat from 'lucide/dist/esm/icons/repeat.mjs';
+import Flag from 'lucide/dist/esm/icons/flag.mjs';
+import Crown from 'lucide/dist/esm/icons/crown.mjs';
+import Ban from 'lucide/dist/esm/icons/ban.mjs';
+import Save from 'lucide/dist/esm/icons/save.mjs';
+import Landmark from 'lucide/dist/esm/icons/landmark.mjs';
+import Scroll from 'lucide/dist/esm/icons/scroll.mjs';
+import Tag from 'lucide/dist/esm/icons/tag.mjs';
+import Mic from 'lucide/dist/esm/icons/mic.mjs';
+import Scale from 'lucide/dist/esm/icons/scale.mjs';
+import Mail from 'lucide/dist/esm/icons/mail.mjs';
+import Archive from 'lucide/dist/esm/icons/archive.mjs';
+import ShieldCheck from 'lucide/dist/esm/icons/shield-check.mjs';
+import Layout from 'lucide/dist/esm/icons/panels-top-left.mjs';
 import type { IconNode } from 'lucide';
 
 export type IconDefinition = IconNode;

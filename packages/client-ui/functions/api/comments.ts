@@ -149,8 +149,13 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
                   FROM comments
                   LEFT JOIN facets ON facets.id = comments.facet_id
                   LEFT JOIN user_profiles p ON p.user_id = comments.author_id
-                  WHERE comments.post_id = ? ORDER BY ${orderBy} LIMIT 200`)
-        .bind(postId)
+                  WHERE comments.post_id = ?
+                  ${userFingerprint ? `
+                    AND NOT EXISTS (SELECT 1 FROM user_blocks ub WHERE ub.blocker_id = ? AND ub.blocked_id = comments.author_id)
+                    AND NOT EXISTS (SELECT 1 FROM user_mutes um WHERE um.muter_id = ? AND um.muted_id = comments.author_id)
+                  ` : ''}
+                  ORDER BY ${orderBy} LIMIT 200`)
+        .bind(...(userFingerprint ? [postId, userFingerprint, userFingerprint] : [postId]))
         .all<any>();
 
       comments = (res.results || []).map(r => {
@@ -174,17 +179,6 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
       });
 
       if (comments.length > 0) {
-        if (userFingerprint) {
-          try {
-            const blocksRes = await db.prepare('SELECT blocked_id FROM user_blocks WHERE blocker_id = ?').bind(userFingerprint).all<{ blocked_id: string }>();
-            const mutesRes = await db.prepare('SELECT muted_id FROM user_mutes WHERE muter_id = ?').bind(userFingerprint).all<{ muted_id: string }>();
-            const blockedSet = new Set((blocksRes.results || []).map(r => r.blocked_id));
-            const mutedSet = new Set((mutesRes.results || []).map(r => r.muted_id));
-            if (blockedSet.size > 0 || mutedSet.size > 0) {
-              comments = comments.filter(c => !blockedSet.has(c.authorId) && !mutedSet.has(c.authorId));
-            }
-          } catch (_) {}
-        }
         const commentIds = comments.map(c => c.id);
         const placeholders = commentIds.map(() => '?').join(',');
 
