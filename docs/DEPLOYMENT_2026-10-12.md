@@ -4,7 +4,8 @@
 
 - **Domeniu live**: https://urefy.com
 - **Cloudflare Pages**: `aetheris-omni-sphere`, branch de producție `main`
-- **Repository Git**: https://github.com/0r4atmqetptfjoa-oss/urefy.git pe branch-ul `main`
+- **Pages Deployment ID**: `e7135ded` (https://e7135ded.aetheris-omni-sphere.pages.dev)
+- **Commit Git sincronizat**: `e1d567f` (pe `origin/main` https://github.com/0r4atmqetptfjoa-oss/urefy.git)
 
 ---
 
