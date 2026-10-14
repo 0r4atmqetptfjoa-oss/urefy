@@ -75,15 +75,17 @@ function renderTransparencyHeaderToggle(): string {
   return `
     <button
       type="button"
-      id="btn-toggle-transparency-mode" data-action="call-global" data-raw-click="if(window.__aetherisTransparency) { window.__aetherisTransparency.toggle(); if(window.clientStore) window.clientStore.notify(); } else { import('./transparency-mode.js').then(m => { m.transparencyMode.toggle(); if(window.clientStore) window.clientStore.notify(); }); }"
-      class="flex items-center space-x-1.5 px-2.5 py-1.5 text-xs rounded-xl border transition-all shadow-sm cursor-pointer ${
+      id="btn-toggle-transparency-mode"
+      data-action="toggle-transparency-mode"
+      aria-pressed="${isEnabled ? 'true' : 'false'}"
+      class="flex items-center space-x-1.5 px-2.5 py-1.5 min-h-[36px] text-xs rounded-xl border transition-all shadow-sm cursor-pointer ${
         isEnabled
-          ? 'border-sky-500/40 bg-sky-500/15 text-sky-300 hover:bg-sky-500/25'
-          : 'border-white/5 bg-surface-raised/80 hover:bg-surface-overlay text-slate-300'
+          ? 'border-sky-500/45 bg-sky-500/15 text-sky-300 hover:bg-sky-500/25'
+          : 'border-white/8 bg-surface-raised/80 hover:bg-surface-overlay text-slate-300'
       }"
       title="Unified Transparency Mode — Live Cryptographic Pipeline Inspector (Ctrl+Shift+T)"
     >
-      <span class="text-xs">👁️</span>
+      ${renderIcon('eye', { size: 14, className: isEnabled ? 'text-sky-300' : 'text-slate-400' })}
       <span class="hidden xl:inline font-sans font-medium">Transparency</span>
       <span class="w-1.5 h-1.5 rounded-full ${isEnabled ? 'bg-sky-400 animate-ping' : 'bg-slate-500'}"></span>
     </button>
@@ -414,6 +416,14 @@ export function initApp(): void {
   keyboardNavigator.bindGlobalShortcuts();
   touchGestureEngine.init();
   crossTabSync.init();
+
+  // One-time V4 Subsystem Initialization (Moved out of bindEvents to prevent re-init on every render)
+  pwaService.register();
+  void aethDB.open();
+  cryptoWorkerPool.init();
+  viewTransitions.injectTransitionStyles();
+  pwaService.detectInstallability();
+  pwaService.detectOnlineStatus();
 
   // Proactive Local AI Assistant Observer
   if (clientStore.proactiveAiEnabled) {
@@ -2068,58 +2078,182 @@ function renderComposerModal(): string {
   return hybridComposer.renderComposerModal();
 }
 
-function renderCommandRailModal(): string {
-  if (!clientStore.isCommandRailOpen) return '';
+function renderCommandCategoryBadge(category: string): string {
+  switch (category) {
+    case 'Navigation':
+      return `<span class="inline-flex items-center gap-1 text-[9px] uppercase font-mono px-2 py-0.5 rounded-md bg-sky-500/10 text-sky-400 border border-sky-500/20 shrink-0">${renderIcon('compass', { size: 10 })} Nav</span>`;
+    case 'Layout & View':
+      return `<span class="inline-flex items-center gap-1 text-[9px] uppercase font-mono px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-400 border border-purple-500/20 shrink-0">${renderIcon('layout', { size: 10 })} View</span>`;
+    case 'Security & Crypto':
+      return `<span class="inline-flex items-center gap-1 text-[9px] uppercase font-mono px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/20 shrink-0">${renderIcon('shield', { size: 10 })} Crypto</span>`;
+    case 'Simulation':
+      return `<span class="inline-flex items-center gap-1 text-[9px] uppercase font-mono px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shrink-0">${renderIcon('sparkles', { size: 10 })} Sim</span>`;
+    default:
+      return `<span class="inline-flex items-center gap-1 text-[9px] uppercase font-mono px-2 py-0.5 rounded-md bg-white/5 text-slate-400 border border-white/10 shrink-0">${escapeHtml(category)}</span>`;
+  }
+}
 
+function renderCommandRailResultsHTML(): string {
   const filter = currentFilter.trim().toLowerCase();
-  const searchResults = filter.length > 1 && !filter.startsWith('/')
-    ? localSearchIndex.searchPosts(filter, 4)
-    : [];
+  const searchResults =
+    filter.length > 1 && !filter.startsWith('/')
+      ? localSearchIndex.searchPosts(filter, 4)
+      : [];
 
-  // Omni-Search: Match feed posts (BM25 fuzzy search with substring fallback)
-  const matchingPosts = searchResults.length > 0
-    ? searchResults.map(r => (r.doc.metadata as ClientPost) || clientStore.posts.find(p => p.id === r.doc.id)!).filter(Boolean)
-    : (filter.length > 1 && !filter.startsWith('/')
-        ? clientStore.posts.filter(p =>
-            (p.title && p.title.toLowerCase().includes(filter)) ||
-            (p.content && p.content.toLowerCase().includes(filter)) ||
-            (p.authorFingerprint && p.authorFingerprint.toLowerCase().includes(filter))
-          ).slice(0, 4)
-        : []);
+  const matchingPosts =
+    searchResults.length > 0
+      ? searchResults
+          .map((r) => (r.doc.metadata as ClientPost) || clientStore.posts.find((p) => p.id === r.doc.id)!)
+          .filter(Boolean)
+      : filter.length > 1 && !filter.startsWith('/')
+      ? clientStore.posts
+          .filter(
+            (p) =>
+              (p.title && p.title.toLowerCase().includes(filter)) ||
+              (p.content && p.content.toLowerCase().includes(filter)) ||
+              (p.authorFingerprint && p.authorFingerprint.toLowerCase().includes(filter))
+          )
+          .slice(0, 4)
+      : [];
 
-  // Omni-Search: Match sovereign circles & channels
-  const matchingChannels = filter.length > 1 && !filter.startsWith('/')
-    ? clientStore.channels.filter(c =>
-        c.name.toLowerCase().includes(filter) ||
-        c.id.toLowerCase().includes(filter)
-      ).slice(0, 3)
-    : [];
+  const matchingChannels =
+    filter.length > 1 && !filter.startsWith('/')
+      ? clientStore.channels
+          .filter((c) => c.name.toLowerCase().includes(filter) || c.id.toLowerCase().includes(filter))
+          .slice(0, 3)
+      : [];
 
-  const commands = getAvailableCommands().filter(c => 
-    c.title.toLowerCase().includes(filter) || 
-    c.category.toLowerCase().includes(filter)
+  const commands = getAvailableCommands().filter(
+    (c) => c.title.toLowerCase().includes(filter) || c.category.toLowerCase().includes(filter)
   );
 
   let itemIndex = 0;
 
-  const renderCommandCategoryBadge = (category: string): string => {
-    switch (category) {
-      case 'Navigation':
-        return `<span class="inline-flex items-center gap-1 text-[9px] uppercase font-mono px-2 py-0.5 rounded-md bg-sky-500/10 text-sky-400 border border-sky-500/20 shrink-0">${renderIcon('compass', { size: 10 })} Nav</span>`;
-      case 'Layout & View':
-        return `<span class="inline-flex items-center gap-1 text-[9px] uppercase font-mono px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-400 border border-purple-500/20 shrink-0">${renderIcon('layout', { size: 10 })} View</span>`;
-      case 'Security & Crypto':
-        return `<span class="inline-flex items-center gap-1 text-[9px] uppercase font-mono px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/20 shrink-0">${renderIcon('shield', { size: 10 })} Crypto</span>`;
-      case 'Simulation':
-        return `<span class="inline-flex items-center gap-1 text-[9px] uppercase font-mono px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shrink-0">${renderIcon('sparkles', { size: 10 })} Sim</span>`;
-      default:
-        return `<span class="inline-flex items-center gap-1 text-[9px] uppercase font-mono px-2 py-0.5 rounded-md bg-white/5 text-slate-400 border border-white/10 shrink-0">${escapeHtml(category)}</span>`;
+  return `
+    ${
+      matchingPosts.length > 0
+        ? `
+      <div class="px-2.5 py-1.5 text-[10px] font-mono text-amber-400/90 font-bold uppercase tracking-wider flex items-center justify-between">
+        <span class="flex items-center gap-1.5">${renderIcon('fileText', { size: 12, className: 'text-amber-400' })} Sovereign Posts (${matchingPosts.length})</span>
+        <span class="text-[9px] text-slate-500 font-normal">BM25 Relevance</span>
+      </div>
+      <div class="space-y-1">
+        ${matchingPosts
+          .map((p) => {
+            const searchMatch = searchResults.find((r) => r.doc.id === p.id);
+            const displaySnippet = searchMatch
+              ? searchMatch.snippet
+              : escapeHtml(p.content ? p.content.slice(0, 110) : '');
+            const curIdx = itemIndex++;
+            const isSelected = curIdx === activeCommandIndex;
+            const itemClasses = isSelected
+              ? 'border-[var(--color-accent,#e59b3c)]/60 bg-[var(--color-accent,#e59b3c)]/12 ring-1 ring-[var(--color-accent,#e59b3c)]/30 text-white shadow-sm'
+              : 'border-white/5 text-slate-300 hover:border-white/15 hover:bg-surface-highlight hover:text-white';
+            return `
+            <button type="button" id="cmd-item-${curIdx}" data-cmd-index="${curIdx}" role="option" aria-selected="${isSelected ? 'true' : 'false'}" class="btn-open-post-detail w-full text-left p-3 rounded-xl bg-surface-overlay border text-xs space-y-1.5 transition-all cursor-pointer group ${itemClasses}" data-post-id="${escapeHtml(p.id)}">
+              <div class="flex items-center justify-between text-[11px] font-mono tabular-nums">
+                <span class="text-amber-300 font-bold group-hover:text-amber-200 truncate pr-2">${escapeHtml(p.title || 'Untitled Post')}</span>
+                <div class="flex items-center space-x-2 shrink-0">
+                  ${searchMatch ? `<span class="text-[9px] font-mono text-cyan-400 font-bold bg-cyan-950/60 px-1.5 py-0.5 rounded border border-cyan-500/20">score: ${searchMatch.score.toFixed(1)}</span>` : ''}
+                  <span class="text-emerald-400 font-bold bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-500/20">▲ ${p.meritVotes || 0}</span>
+                </div>
+              </div>
+              <div class="text-slate-400 text-[11px] truncate leading-normal">${displaySnippet}</div>
+            </button>
+          `;
+          })
+          .join('')}
+      </div>
+      <div class="border-subtle-t my-1.5"></div>
+    `
+        : ''
     }
-  };
+
+    ${
+      matchingChannels.length > 0
+        ? `
+      <div class="px-2.5 py-1.5 text-[10px] text-emerald-400/90 font-bold uppercase tracking-wider flex items-center justify-between">
+        <span class="flex items-center gap-1.5">${renderIcon('users', { size: 12, className: 'text-emerald-400' })} Communities & Channels (${matchingChannels.length})</span>
+        <span class="text-[9px] text-slate-500 font-normal">Switch channel</span>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+        ${matchingChannels
+          .map((c) => {
+            const curIdx = itemIndex++;
+            const isSelected = curIdx === activeCommandIndex;
+            const itemClasses = isSelected
+              ? 'border-[var(--color-accent,#e59b3c)]/60 bg-[var(--color-accent,#e59b3c)]/12 ring-1 ring-[var(--color-accent,#e59b3c)]/30 text-white shadow-sm'
+              : 'border-white/5 text-slate-300 hover:border-white/15 hover:bg-surface-highlight hover:text-white';
+            return `
+            <button type="button" id="cmd-item-${curIdx}" data-cmd-index="${curIdx}" role="option" aria-selected="${isSelected ? 'true' : 'false'}" class="btn-channel text-left p-2.5 rounded-xl bg-surface-overlay border text-xs flex items-center justify-between transition-all cursor-pointer ${itemClasses}" data-channel-id="${escapeHtml(c.id)}">
+              <span class="font-medium text-slate-200 truncate pr-2">${escapeHtml(c.name)}</span>
+              <span class="text-[9px] uppercase px-2 py-0.5 rounded-full bg-surface-raised text-slate-400 font-mono border border-white/5 shrink-0">${escapeHtml(c.space)}</span>
+            </button>
+          `;
+          })
+          .join('')}
+      </div>
+      <div class="border-subtle-t my-1.5"></div>
+    `
+        : ''
+    }
+
+    ${
+      searchResults.length > 0
+        ? `
+      <div class="px-2.5 py-1.5 text-[10px] font-mono text-cyan-400/90 font-bold uppercase tracking-wider flex items-center justify-between">
+        <span class="flex items-center gap-1.5">${renderIcon('messages', { size: 12, className: 'text-cyan-400' })} Encrypted Message Matches (${searchResults.length})</span>
+        <span class="text-[9px] text-slate-500 font-normal">Decrypted BM25</span>
+      </div>
+      ${searchResults
+        .map(
+          (r) => `
+        <div class="p-2.5 rounded-xl bg-surface-overlay hover:bg-surface-highlight border border-white/5 text-xs space-y-1 transition-all">
+          <div class="flex items-center justify-between text-[10px] font-mono tabular-nums text-slate-400">
+            <span class="text-cyan-400 font-bold">&lt;${escapeHtml(r.doc.authorFingerprint)}&gt;</span>
+            <span>Score: ${r.score.toFixed(2)}</span>
+          </div>
+          <div class="text-slate-200">${escapeHtml(r.snippet)}</div>
+        </div>
+      `
+        )
+        .join('')}
+      <div class="border-subtle-t my-1.5"></div>
+    `
+        : ''
+    }
+
+    <div class="px-2.5 py-1.5 text-[10px] font-mono text-slate-400 font-bold uppercase tracking-wider flex items-center justify-between">
+      <span class="flex items-center gap-1.5">${renderIcon('terminal', { size: 12, className: 'text-[var(--color-accent,#e59b3c)]' })} System Actions</span>
+      <span class="text-[9px] text-slate-500 font-normal">Shortcuts & Tools</span>
+    </div>
+    ${commands
+      .map((c) => {
+        const curIdx = itemIndex++;
+        const isSelected = curIdx === activeCommandIndex;
+        const itemClasses = isSelected
+          ? 'border-[var(--color-accent,#e59b3c)]/60 bg-[var(--color-accent,#e59b3c)]/12 ring-1 ring-[var(--color-accent,#e59b3c)]/30 text-white shadow-sm'
+          : 'border-white/5 text-slate-300 hover:border-white/15 hover:bg-surface-highlight hover:text-white';
+        return `
+        <button type="button" id="cmd-item-${curIdx}" data-cmd-index="${curIdx}" role="option" aria-selected="${isSelected ? 'true' : 'false'}" data-cmd-id="${escapeHtml(c.id)}" class="btn-exec-cmd w-full text-left px-3 py-2.5 rounded-xl text-xs flex items-center justify-between transition-all cursor-pointer border ${itemClasses}">
+          <div class="flex items-center space-x-2.5 min-w-0 pr-2">
+            ${renderCommandCategoryBadge(c.category)}
+            <span class="truncate font-medium">${escapeHtml(c.title)}</span>
+          </div>
+          ${c.shortcut ? `<kbd class="text-[10px] font-mono tabular-nums px-2 py-0.5 rounded bg-surface-raised border border-white/10 text-slate-400 shrink-0">${escapeHtml(c.shortcut)}</kbd>` : ''}
+        </button>
+      `;
+      })
+      .join('')}
+  `;
+}
+
+function renderCommandRailModal(): string {
+  if (!clientStore.isCommandRailOpen) return '';
 
   return `
-    <div id="command-rail-overlay" class="fixed inset-0 bg-black/75 backdrop-blur-md z-50 flex items-start justify-center pt-16 sm:pt-20 p-2 sm:p-4">
-      <div class="w-[600px] max-w-[96vw] bg-surface-base/95 backdrop-blur-2xl border border-white/12 rounded-2xl shadow-[0_32px_80px_rgba(0,0,0,0.8)] overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+    <div id="command-rail-overlay" class="sovereign-modal-backdrop fixed inset-0 bg-black/75 backdrop-blur-md z-50 flex items-start justify-center pt-16 sm:pt-20 p-2 sm:p-4">
+      <div class="sovereign-glass-surface w-[600px] max-w-[96vw] bg-surface-base/95 backdrop-blur-2xl border border-white/12 rounded-2xl shadow-[0_32px_80px_rgba(0,0,0,0.8)] overflow-hidden">
         <!-- Search Bar -->
         <div class="p-3 sm:p-3.5 border-b border-white/10 flex items-center space-x-3 bg-surface-raised/50">
           <span class="text-[var(--color-accent,#e59b3c)] flex-shrink-0">${renderIcon('search', { size: 18 })}</span>
@@ -2141,97 +2275,7 @@ function renderCommandRailModal(): string {
 
         <!-- Results List -->
         <div id="command-rail-results-list" role="listbox" class="max-h-[60vh] sm:max-h-96 overflow-y-auto p-2.5 space-y-2 no-scrollbar">
-          ${matchingPosts.length > 0 ? `
-            <div class="px-2.5 py-1.5 text-[10px] font-mono text-amber-400/90 font-bold uppercase tracking-wider flex items-center justify-between">
-              <span class="flex items-center gap-1.5">${renderIcon('fileText', { size: 12, className: 'text-amber-400' })} Sovereign Posts (${matchingPosts.length})</span>
-              <span class="text-[9px] text-slate-500 font-normal">BM25 Relevance</span>
-            </div>
-            <div class="space-y-1">
-              ${matchingPosts.map(p => {
-                const searchMatch = searchResults.find(r => r.doc.id === p.id);
-                const displaySnippet = searchMatch ? searchMatch.snippet : escapeHtml(p.content ? p.content.slice(0, 110) : '');
-                const curIdx = itemIndex++;
-                const isSelected = curIdx === activeCommandIndex;
-                const itemClasses = isSelected
-                  ? 'border-[var(--color-accent,#e59b3c)]/60 bg-[var(--color-accent,#e59b3c)]/12 ring-1 ring-[var(--color-accent,#e59b3c)]/30 text-white shadow-sm'
-                  : 'border-white/5 text-slate-300 hover:border-white/15 hover:bg-surface-highlight hover:text-white';
-                return `
-                <button type="button" id="cmd-item-${curIdx}" data-cmd-index="${curIdx}" role="option" aria-selected="${isSelected ? 'true' : 'false'}" class="btn-open-post-detail w-full text-left p-3 rounded-xl bg-surface-overlay border text-xs space-y-1.5 transition-all cursor-pointer group ${itemClasses}" data-post-id="${p.id}">
-                  <div class="flex items-center justify-between text-[11px] font-mono">
-                    <span class="text-amber-300 font-bold group-hover:text-amber-200 truncate pr-2">${escapeHtml(p.title || 'Untitled Post')}</span>
-                    <div class="flex items-center space-x-2 shrink-0">
-                      ${searchMatch ? `<span class="text-[9px] font-mono text-cyan-400 font-bold bg-cyan-950/60 px-1.5 py-0.5 rounded border border-cyan-500/20">score: ${searchMatch.score.toFixed(1)}</span>` : ''}
-                      <span class="text-emerald-400 font-bold bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-500/20">▲ ${p.meritVotes || 0}</span>
-                    </div>
-                  </div>
-                  <div class="text-slate-400 text-[11px] truncate leading-normal">${displaySnippet}</div>
-                </button>
-              `;
-              }).join('')}
-            </div>
-            <div class="border-subtle-t my-1.5"></div>
-          ` : ''}
-
-          ${matchingChannels.length > 0 ? `
-            <div class="px-2.5 py-1.5 text-[10px] text-emerald-400/90 font-bold uppercase tracking-wider flex items-center justify-between">
-              <span class="flex items-center gap-1.5">${renderIcon('users', { size: 12, className: 'text-emerald-400' })} Communities & Channels (${matchingChannels.length})</span>
-              <span class="text-[9px] text-slate-500 font-normal">Switch channel</span>
-            </div>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-              ${matchingChannels.map(c => {
-                const curIdx = itemIndex++;
-                const isSelected = curIdx === activeCommandIndex;
-                const itemClasses = isSelected
-                  ? 'border-[var(--color-accent,#e59b3c)]/60 bg-[var(--color-accent,#e59b3c)]/12 ring-1 ring-[var(--color-accent,#e59b3c)]/30 text-white shadow-sm'
-                  : 'border-white/5 text-slate-300 hover:border-white/15 hover:bg-surface-highlight hover:text-white';
-                return `
-                <button type="button" id="cmd-item-${curIdx}" data-cmd-index="${curIdx}" role="option" aria-selected="${isSelected ? 'true' : 'false'}" class="btn-channel text-left p-2.5 rounded-xl bg-surface-overlay border text-xs flex items-center justify-between transition-all cursor-pointer ${itemClasses}" data-channel-id="${c.id}">
-                  <span class="font-medium text-slate-200 truncate pr-2">${escapeHtml(c.name)}</span>
-                  <span class="text-[9px] uppercase px-2 py-0.5 rounded-full bg-surface-raised text-slate-400 font-mono border border-white/5 shrink-0">${c.space}</span>
-                </button>
-              `;
-              }).join('')}
-            </div>
-            <div class="border-subtle-t my-1.5"></div>
-          ` : ''}
-
-          ${searchResults.length > 0 ? `
-            <div class="px-2.5 py-1.5 text-[10px] font-mono text-cyan-400/90 font-bold uppercase tracking-wider flex items-center justify-between">
-              <span class="flex items-center gap-1.5">${renderIcon('messages', { size: 12, className: 'text-cyan-400' })} Encrypted Message Matches (${searchResults.length})</span>
-              <span class="text-[9px] text-slate-500 font-normal">Decrypted BM25</span>
-            </div>
-            ${searchResults.map(r => `
-              <div class="p-2.5 rounded-xl bg-surface-overlay hover:bg-surface-highlight border border-white/5 text-xs space-y-1 transition-all">
-                <div class="flex items-center justify-between text-[10px] font-mono text-slate-400">
-                  <span class="text-cyan-400 font-bold">&lt;${r.doc.authorFingerprint}&gt;</span>
-                  <span>Score: ${r.score.toFixed(2)}</span>
-                </div>
-                <div class="text-slate-200">${escapeHtml(r.snippet)}</div>
-              </div>
-            `).join('')}
-            <div class="border-subtle-t my-1.5"></div>
-          ` : ''}
-
-          <div class="px-2.5 py-1.5 text-[10px] font-mono text-slate-400 font-bold uppercase tracking-wider flex items-center justify-between">
-            <span class="flex items-center gap-1.5">${renderIcon('terminal', { size: 12, className: 'text-[var(--color-accent,#e59b3c)]' })} System Actions</span>
-            <span class="text-[9px] text-slate-500 font-normal">Shortcuts & Tools</span>
-          </div>
-          ${commands.map(c => {
-            const curIdx = itemIndex++;
-            const isSelected = curIdx === activeCommandIndex;
-            const itemClasses = isSelected
-              ? 'border-[var(--color-accent,#e59b3c)]/60 bg-[var(--color-accent,#e59b3c)]/12 ring-1 ring-[var(--color-accent,#e59b3c)]/30 text-white shadow-sm'
-              : 'border-white/5 text-slate-300 hover:border-white/15 hover:bg-surface-highlight hover:text-white';
-            return `
-            <button type="button" id="cmd-item-${curIdx}" data-cmd-index="${curIdx}" role="option" aria-selected="${isSelected ? 'true' : 'false'}" data-cmd-id="${c.id}" class="btn-exec-cmd w-full text-left px-3 py-2.5 rounded-xl text-xs flex items-center justify-between transition-all cursor-pointer border ${itemClasses}">
-              <div class="flex items-center space-x-2.5 min-w-0 pr-2">
-                ${renderCommandCategoryBadge(c.category)}
-                <span class="truncate font-medium">${c.title}</span>
-              </div>
-              ${c.shortcut ? `<kbd class="text-[10px] font-mono px-2 py-0.5 rounded bg-surface-raised border border-white/10 text-slate-400 shrink-0">${c.shortcut}</kbd>` : ''}
-            </button>
-          `;
-          }).join('')}
+          ${renderCommandRailResultsHTML()}
         </div>
 
         <!-- Modal Footer -->
@@ -2464,20 +2508,6 @@ function bindEvents(): void {
   }, { signal });
 
 
-  document.querySelectorAll('.btn-open-story').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const storyId = btn.getAttribute('data-story-id');
-      if (storyId) {
-        storiesEngine.openStory(storyId);
-        clientStore.notify();
-      }
-    }, { signal });
-  });
-  document.getElementById('btn-close-story')?.addEventListener('click', () => {
-    storiesEngine.closeStory();
-    clientStore.notify();
-  }, { signal });
-
   // 3. Bookmarks Modal Toggle & Inline Toggle
   document.getElementById('btn-open-bookmarks-modal')?.addEventListener('click', () => {
     isBookmarkModalOpen = !isBookmarkModalOpen;
@@ -2645,28 +2675,6 @@ function bindEvents(): void {
     }
   });
 
-  // Lightbox Open
-  document.querySelectorAll('.btn-lightbox-img').forEach(img => {
-    img.addEventListener('click', () => {
-      const src = img.getAttribute('data-src');
-      if (src) {
-        obsidianMediaPlayer.openLightbox(src);
-        clientStore.setSortMode(clientStore.sortMode); // trigger re-render
-      }
-    }, { signal });
-  });
-
-  // Lightbox Close
-  document.getElementById('btn-close-lightbox')?.addEventListener('click', () => {
-    obsidianMediaPlayer.closeLightbox();
-    clientStore.setSortMode(clientStore.sortMode);
-  }, { signal });
-  document.getElementById('lightbox-overlay')?.addEventListener('click', (e) => {
-    if (e.target === document.getElementById('lightbox-overlay')) {
-      obsidianMediaPlayer.closeLightbox();
-      clientStore.setSortMode(clientStore.sortMode);
-    }
-  }, { signal });
 
   // Poll Voting
   document.querySelectorAll('.btn-vote-poll').forEach(btn => {
@@ -2746,7 +2754,47 @@ function updateCommandRailHighlight(index: number): void {
   }
 }
 
-  const cmdInput = document.getElementById('command-rail-input') as HTMLInputElement;
+  const resultsListEl = document.getElementById('command-rail-results-list');
+  if (resultsListEl) {
+    resultsListEl.addEventListener('click', (e) => {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+
+      const execBtn = target.closest<HTMLElement>('.btn-exec-cmd');
+      if (execBtn) {
+        const id = execBtn.getAttribute('data-cmd-id');
+        const cmd = getAvailableCommands().find((c) => c.id === id);
+        if (cmd) {
+          cmd.run();
+          clientStore.toggleCommandRail();
+        }
+        return;
+      }
+
+      const postBtn = target.closest<HTMLElement>('.btn-open-post-detail');
+      if (postBtn) {
+        const postId = postBtn.getAttribute('data-post-id');
+        if (postId) {
+          clientStore.isCommandRailOpen = false;
+          postDetailView.openPost(postId);
+          clientStore.notify();
+        }
+        return;
+      }
+
+      const chBtn = target.closest<HTMLElement>('.btn-channel');
+      if (chBtn) {
+        const channelId = chBtn.getAttribute('data-channel-id');
+        if (channelId) {
+          clientStore.isCommandRailOpen = false;
+          clientStore.joinChannel(channelId);
+          clientStore.notify();
+        }
+      }
+    }, { signal });
+  }
+
+  const cmdInput = document.getElementById('command-rail-input') as HTMLInputElement | null;
   if (cmdInput) {
     cmdInput.focus({ preventScroll: true });
     cmdInput.addEventListener('keydown', (e) => {
@@ -2765,9 +2813,7 @@ function updateCommandRailHighlight(index: number): void {
       } else if (e.key === 'Enter') {
         e.preventDefault();
         const activeBtn = document.getElementById(`cmd-item-${activeCommandIndex}`) as HTMLElement | null;
-        if (activeBtn) {
-          activeBtn.click();
-        }
+        activeBtn?.click();
       } else if (e.key === 'Escape') {
         e.preventDefault();
         clientStore.toggleCommandRail();
@@ -2775,57 +2821,28 @@ function updateCommandRailHighlight(index: number): void {
     }, { signal });
 
     cmdInput.addEventListener('input', (e) => {
-      const cursor = (e.target as HTMLInputElement).selectionStart;
       currentFilter = (e.target as HTMLInputElement).value;
       activeCommandIndex = 0;
-      const railModal = document.getElementById('command-rail-overlay');
-      if (railModal) {
-        railModal.outerHTML = renderCommandRailModal();
-        bindEvents();
-        const refreshedInput = document.getElementById('command-rail-input') as HTMLInputElement | null;
-        if (refreshedInput) {
-          refreshedInput.focus();
-          if (cursor !== null) {
-            refreshedInput.setSelectionRange(cursor, cursor);
-          }
-        }
+      const listContainer = document.getElementById('command-rail-results-list');
+      if (listContainer) {
+        listContainer.innerHTML = renderCommandRailResultsHTML();
+        cmdInput.setAttribute('aria-activedescendant', 'cmd-item-0');
       }
     }, { signal });
   }
 
-  document.querySelectorAll('.btn-exec-cmd').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const id = btn.getAttribute('data-cmd-id');
-      const cmd = getAvailableCommands().find(c => c.id === id);
-      if (cmd) {
-        cmd.run();
-        clientStore.toggleCommandRail();
-      }
-    }, { signal });
-  });
-
-  // Jump to post or switch channel from Command Rail
-  document.querySelectorAll('#command-rail-overlay .btn-open-post-detail').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const postId = btn.getAttribute('data-post-id');
-      if (postId) {
-        clientStore.isCommandRailOpen = false;
-        postDetailView.openPost(postId);
+  document.getElementById('btn-toggle-transparency-mode')?.addEventListener('click', () => {
+    if ((window as any).__aetherisTransparency) {
+      (window as any).__aetherisTransparency.toggle();
+      clientStore.notify();
+    } else {
+      void import('./transparency-mode.js').then((m) => {
+        (window as any).__aetherisTransparency = m.transparencyMode;
+        m.transparencyMode.toggle();
         clientStore.notify();
-      }
-    }, { signal });
-  });
-
-  document.querySelectorAll('#command-rail-overlay .btn-channel').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const channelId = btn.getAttribute('data-channel-id');
-      if (channelId) {
-        clientStore.isCommandRailOpen = false;
-        clientStore.joinChannel(channelId);
-        clientStore.notify();
-      }
-    }, { signal });
-  });
+      });
+    }
+  }, { signal });
 
   // Density & View Mode buttons
   document.getElementById('density-compact')?.addEventListener('click', () => clientStore.setDensity('compact'), { signal });
@@ -2840,14 +2857,6 @@ function updateCommandRailHighlight(index: number): void {
       if (mode) clientStore.setViewMode(mode);
     }, { signal });
   });
-
-  // Attach Sovereign Sandbox runners to rendered code blocks
-  import('./code-sandbox.js').then(m => m.attachSandboxRunnersToDOM());
-
-  // Identity info modal -> ZK Passport
-  document.getElementById('btn-identity-info')?.addEventListener('click', () => {
-    modalManager.openFeature('reputation');
-  }, { signal });
 
   // Voice toggle
   document.getElementById('btn-toggle-voice')?.addEventListener('click', async () => {
@@ -3656,27 +3665,12 @@ function updateCommandRailHighlight(index: number): void {
   }, { signal });
 
   // Profile Photo Upload Handlers
-  document.getElementById('btn-open-edit-profile')?.addEventListener('click', () => {
-    profileStore.isEditProfileModalOpen = true;
-    void loadProfileView().then(() => clientStore.notify());
-    clientStore.notify();
-  }, { signal });
-
   document.getElementById('btn-quick-change-avatar')?.addEventListener('click', () => {
     profileStore.isEditProfileModalOpen = true;
     void loadProfileView().then(() => clientStore.notify());
     clientStore.notify();
   }, { signal });
 
-  document.getElementById('btn-close-edit-profile')?.addEventListener('click', () => {
-    profileStore.isEditProfileModalOpen = false;
-    clientStore.notify();
-  }, { signal });
-
-  document.getElementById('btn-cancel-edit-profile')?.addEventListener('click', () => {
-    profileStore.isEditProfileModalOpen = false;
-    clientStore.notify();
-  }, { signal });
 
   for (const kind of ['avatar', 'banner'] as const) {
     document.getElementById(`edit-profile-${kind}-file`)?.addEventListener('change', async (event) => {
@@ -3823,19 +3817,6 @@ function updateCommandRailHighlight(index: number): void {
 
   // V4 Active Modal DOM Listeners are orchestrated dynamically by ModalManager
 
-  // V4 Services Init
-  pwaService.register();
-  aethDB.open();
-  cryptoWorkerPool.init();
-  viewTransitions.injectTransitionStyles();
-  pwaService.detectInstallability();
-  pwaService.detectOnlineStatus();
-
-  // ZK Reputation Passport Listeners
-  document.getElementById('btn-identity-info')?.addEventListener('click', () => {
-    zkReputation.open();
-    clientStore.notify();
-  }, { signal });
   document.getElementById('btn-close-reputation-modal')?.addEventListener('click', () => {
     modalManager.closeFeature();
   }, { signal });
@@ -4170,8 +4151,8 @@ function updateCommandRailHighlight(index: number): void {
 
   // Advanced tools already load when opened. Avoid evaluating their modules
   // during the first scroll; only load the sandbox when code is actually shown.
-  if (document.querySelector('pre code')) {
-    void import('./code-sandbox.js').then(m => m.attachSandboxRunnersToDOM(document.body));
+  if (document.querySelector('pre code:not([data-sandbox-attached="true"])')) {
+    void import('./code-sandbox.js').then((m) => m.attachSandboxRunnersToDOM(document.body));
   }
 
   // sovereignMnemonicModal binds on open
@@ -4331,7 +4312,12 @@ function updateCommandRailHighlight(index: number): void {
 }
 
 function escapeHtml(text: string): string {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
+  if (!text) return '';
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 }
+

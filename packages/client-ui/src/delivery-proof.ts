@@ -1,20 +1,17 @@
 /**
  * @file delivery-proof.ts
  * @package @aetheris/client-ui
- * @description Client-side Zero-Metadata Delivery Proofs & Read Receipts Engine (Innovation 3).
+ * @description 2027 Zero-Metadata Delivery Proofs & Read Receipts Engine.
  *
- * Provides cryptographic delivery attestation without metadata leakage:
- * - Emits unlinkable HMAC-SHA256 delivery nullifiers on message read events.
- * - Proves recipient set authorization via ZK Merkle inclusion proofs.
- * - Neutralizes double-ACK replay attacks through the client delivery proof guard.
- * - Renders the subtle double-shield icon [🛡️🛡️ ZK Verified Delivery] on messages.
+ * Upgrades:
+ * - Non-blocking idle-scheduled persistence (eliminates main-thread JSON serialization jank)
+ * - De-slopped vector SVG iconography (replaces raw emoji 🛡️🛡️ with crisp 16px geometric SVG)
+ * - Tabular-numeral cryptographic inspector badge
  */
 
 import {
   ZkDeliveryProof,
-  deriveDeliveryNullifier,
   generateZkDeliveryProof,
-  verifyZkDeliveryProof,
   DeliveryProofGuard,
   defaultDeliveryProofGuard,
 } from '@aetheris/core-crypto';
@@ -30,22 +27,19 @@ export interface DeliveryAttestationRecord {
   isVerified: boolean;
 }
 
-/**
- * Client-side Zero-Knowledge Delivery Proofs Manager.
- */
+const DUAL_SHIELD_SVG = `<svg class="w-3.5 h-3.5 shrink-0 inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>`;
+
 export class ZKDeliveryManager {
   private records: Map<string, DeliveryAttestationRecord> = new Map();
   public guard: DeliveryProofGuard = defaultDeliveryProofGuard;
   private isInitialized: boolean = false;
+  private saveScheduled: boolean = false;
 
   constructor() {
     this.loadFromStorage();
     this.setupEventListeners();
   }
 
-  /**
-   * Load stored delivery proofs from local persistence.
-   */
   private loadFromStorage(): void {
     if (typeof localStorage === 'undefined') return;
     try {
@@ -55,7 +49,6 @@ export class ZKDeliveryManager {
         for (const item of list) {
           if (item?.messageId && item?.proof) {
             this.records.set(item.messageId, item);
-            // Pre-seed the guard to prevent replay across browser reloads
             if (item.proof.nullifier && !this.guard.isSpent(item.proof.nullifier)) {
               this.guard.verifyAndConsume(item.proof);
             }
@@ -66,32 +59,39 @@ export class ZKDeliveryManager {
   }
 
   /**
-   * Persist current delivery proofs to localStorage.
+   * Coalesces storage writes onto an idle callback / microtask so batch-reading
+   * 50 messages never triggers 50 synchronous localStorage serializations.
    */
   private saveToStorage(): void {
-    if (typeof localStorage === 'undefined') return;
-    try {
-      const array = Array.from(this.records.values()).slice(-200); // keep last 200 records
-      localStorage.setItem(STORAGE_KEY_ZK_DELIVERY_PROOFS, JSON.stringify(array));
-    } catch (_) {}
+    if (typeof localStorage === 'undefined' || this.saveScheduled) return;
+    this.saveScheduled = true;
+
+    const flush = () => {
+      this.saveScheduled = false;
+      try {
+        const array = Array.from(this.records.values()).slice(-200);
+        localStorage.setItem(STORAGE_KEY_ZK_DELIVERY_PROOFS, JSON.stringify(array));
+      } catch (_) {}
+    };
+
+    // Keep synchronous fallback in unit-test environments without requestIdleCallback
+    if (typeof window !== 'undefined' && typeof (window as any).requestIdleCallback === 'function') {
+      (window as any).requestIdleCallback(flush, { timeout: 300 });
+    } else {
+      flush();
+    }
   }
 
-  /**
-   * Automatically bind event listeners for sovereign DM and relay message read events.
-   */
   private setupEventListeners(): void {
     if (this.isInitialized || typeof window === 'undefined') return;
     this.isInitialized = true;
 
-    // Listen to DM marked-read events
     window.addEventListener('aetheris:dm:marked_read', ((e: CustomEvent) => {
       const peerFP = e.detail?.peerFP;
       if (!peerFP) return;
-      // Emit delivery receipts for any unacknowledged messages
       this.acknowledgeConversation(peerFP);
     }) as EventListener);
 
-    // Listen to direct delivery ack packets received over P2P mesh
     window.addEventListener('aetheris:delivery:incoming_ack', ((e: CustomEvent) => {
       const proof: ZkDeliveryProof = e.detail?.proof;
       if (proof) {
@@ -100,9 +100,6 @@ export class ZKDeliveryManager {
     }) as EventListener);
   }
 
-  /**
-   * Acknowledge all messages read in a sovereign peer conversation.
-   */
   public acknowledgeConversation(peerFP: string): void {
     if (typeof window === 'undefined' || !(window as any).__aetherisDM) return;
     const dm = (window as any).__aetherisDM;
@@ -116,14 +113,6 @@ export class ZKDeliveryManager {
     }
   }
 
-  /**
-   * Emits an unlinkable Zero-Knowledge Delivery Proof for a message read receipt.
-   *
-   * @param messageId Unique ID of the read message.
-   * @param recipientPrivateKey Optional recipient private key (defaults to current active keypair).
-   * @param groupLeaves Optional list of authorized group member commitments.
-   * @returns Generated and verified ZkDeliveryProof.
-   */
   public emitDeliveryProof(
     messageId: string,
     recipientPrivateKey?: Uint8Array | string,
@@ -137,7 +126,6 @@ export class ZKDeliveryManager {
       groupLeaves,
     });
 
-    // Record in local guard
     const consumeRes = this.guard.verifyAndConsume(proof);
     const now = Date.now();
 
@@ -152,7 +140,6 @@ export class ZKDeliveryManager {
     this.records.set(messageId, record);
     this.saveToStorage();
 
-    // Broadcast delivery ack event on DOM
     if (typeof window !== 'undefined') {
       window.dispatchEvent(
         new CustomEvent('aetheris:delivery:ack_emitted', {
@@ -164,12 +151,6 @@ export class ZKDeliveryManager {
     return proof;
   }
 
-  /**
-   * Process and verify an incoming delivery proof from a remote peer or server relay.
-   *
-   * @param proof The received ZkDeliveryProof.
-   * @returns True if the proof was cryptographically verified and consumed without double-ACK.
-   */
   public processIncomingProof(proof: ZkDeliveryProof): boolean {
     if (!proof || !proof.messageId) return false;
 
@@ -202,36 +183,20 @@ export class ZKDeliveryManager {
     return true;
   }
 
-  /**
-   * Check if a message has a valid Zero-Knowledge verified delivery proof.
-   */
   public isZKVerified(messageId: string): boolean {
     const record = this.records.get(messageId);
     if (record?.isVerified) return true;
     return this.guard.isZKVerified(messageId);
   }
 
-  /**
-   * Retrieve the delivery attestation record for a message.
-   */
   public getRecord(messageId: string): DeliveryAttestationRecord | undefined {
     return this.records.get(messageId);
   }
 
-  /**
-   * Retrieve the stored delivery proof for a message.
-   */
   public getProof(messageId: string): ZkDeliveryProof | undefined {
     return this.records.get(messageId)?.proof || this.guard.getProof(messageId);
   }
 
-  /**
-   * Renders the subtle double-shield icon [🛡️🛡️ ZK Verified Delivery] next to a message.
-   *
-   * @param messageId The message identifier.
-   * @param options Rendering configuration options.
-   * @returns HTML string representation of the delivery badge.
-   */
   public renderDeliveryBadge(
     messageId: string,
     options?: { compact?: boolean; verified?: boolean }
@@ -246,29 +211,33 @@ export class ZKDeliveryManager {
 
     if (options?.compact) {
       return `
-        <span class="zk-delivery-badge inline-flex items-center gap-0.5 text-xs text-cyan-400 hover:text-cyan-300 transition-colors cursor-help select-none" title="${tooltip}">
-          <span>🛡️🛡️</span>
+        <span
+          class="zk-delivery-badge inline-flex items-center gap-1 text-xs text-cyan-400 hover:text-cyan-300 transition-colors cursor-help select-none tabular-nums"
+          title="${tooltip}"
+          aria-label="Zero-Knowledge Verified Delivery"
+        >
+          ${DUAL_SHIELD_SVG}
+          <span class="sr-only">🛡️🛡️</span>
         </span>
       `;
     }
 
     return `
-      <span class="zk-delivery-badge inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-[10px] font-mono text-cyan-300 bg-cyan-950/40 border border-cyan-500/30 hover:border-cyan-400/60 transition-all shadow-sm shadow-cyan-950/20 cursor-help select-none group" title="${tooltip}">
-        <span class="text-xs group-hover:scale-110 transition-transform">🛡️🛡️</span>
+      <span
+        class="zk-delivery-badge inline-flex items-center gap-1.5 px-2 py-0.5 rounded-sm text-[10px] font-mono tabular-nums text-cyan-300 bg-cyan-950/50 border border-cyan-500/35 hover:border-cyan-400/70 transition-colors cursor-help select-none group"
+        title="${tooltip}"
+        aria-label="${tooltip}"
+      >
+        ${DUAL_SHIELD_SVG}
+        <span class="sr-only">🛡️🛡️</span>
         <span class="font-semibold tracking-tight text-cyan-200">ZK Verified Delivery</span>
       </span>
     `;
   }
 }
 
-/**
- * Shared singleton instance of ZKDeliveryManager.
- */
 export const zkDeliveryManager = new ZKDeliveryManager();
 
-/**
- * Exported helper to render the ZK Verified Delivery double-shield badge.
- */
 export function renderZKDeliveryBadge(
   messageId: string,
   options?: { compact?: boolean; verified?: boolean }

@@ -118,31 +118,47 @@ export function initReceiverSession(localKeyPair: HybridKemKeyPair, sharedSecret
   };
 }
 
-async function performDHRatchetStep(session: DoubleRatchetSession, peerDHPublicKey: Uint8Array, peerPqPublicKey: Uint8Array): Promise<{ session: DoubleRatchetSession; pqCiphertext: Uint8Array }> {
+const ML_KEM_768_PUBKEY_BYTES = 1184;
+const ML_KEM_768_CIPHERTEXT_BYTES = 1088;
+const PACKED_PQ_HEADER_BYTES = ML_KEM_768_PUBKEY_BYTES + ML_KEM_768_CIPHERTEXT_BYTES; // 2272 bytes
+
+async function performDHRatchetStep(
+  session: DoubleRatchetSession,
+  peerDHPublicKey: Uint8Array,
+  peerPqPublicKey: Uint8Array
+): Promise<{ session: DoubleRatchetSession; pqCiphertext: Uint8Array }> {
+  // 1. Generate fresh classical X25519 ephemeral keypair
   const newClassicalPriv = x25519.utils.randomPrivateKey();
   const newClassicalPub = x25519.getPublicKey(newClassicalPriv);
-  
+
+  // 2. Generate fresh Post-Quantum ML-KEM-768 keypair for true PQ Post-Compromise Security
+  const newPqKeys = ml_kem768.keygen();
+
+  // 3. Hybrid X25519 + ML-KEM-768 encapsulation against peer's current public keys
   const classical_ss = x25519.getSharedSecret(newClassicalPriv, peerDHPublicKey);
   const pqEnc = ml_kem768.encapsulate(peerPqPublicKey);
-  
+
   const ikm = new Uint8Array(64);
   ikm.set(classical_ss, 0);
   ikm.set(pqEnc.sharedSecret, 32);
   const dhOutput = sha256(ikm);
-  
+
   const { newRootKey, chainKey } = kdfRootKey(session.rootKey, dhOutput);
-  
+
+  // Zeroize ephemeral shared secrets immediately
   zeroize(classical_ss);
   zeroize(pqEnc.sharedSecret);
   zeroize(ikm);
-  
+  zeroize(dhOutput);
+
   const newSession: DoubleRatchetSession = {
     ...session,
+    epoch: session.epoch + 1,
     DHSendingKeyPair: {
       publicKey: newClassicalPub,
       privateKey: newClassicalPriv,
-      pqPublicKey: new Uint8Array(session.DHSendingKeyPair.pqPublicKey),
-      pqPrivateKey: new Uint8Array(session.DHSendingKeyPair.pqPrivateKey),
+      pqPublicKey: new Uint8Array(newPqKeys.publicKey),
+      pqPrivateKey: new Uint8Array(newPqKeys.secretKey),
     },
     rootKey: newRootKey,
     sendingChainKey: chainKey,
@@ -151,9 +167,9 @@ async function performDHRatchetStep(session: DoubleRatchetSession, peerDHPublicK
     DHReceivingPublicKey: new Uint8Array(peerDHPublicKey),
     DHReceivingPqPublicKey: new Uint8Array(peerPqPublicKey),
     skippedMessageKeys: new Map(session.skippedMessageKeys),
-    currentPqCiphertext: bytesToHex(session.DHSendingKeyPair.pqPublicKey) + bytesToHex(pqEnc.cipherText)
+    currentPqCiphertext: bytesToHex(newPqKeys.publicKey) + bytesToHex(pqEnc.cipherText),
   };
-  
+
   return { session: newSession, pqCiphertext: pqEnc.cipherText };
 }
 
@@ -293,8 +309,11 @@ export async function ratchetDecrypt(session: DoubleRatchetSession, envelope: Ra
     }
     
     const payload = hexToBytes(envelope.senderPqCiphertext);
-    const pqPub = payload.subarray(0, 1184);
-    const pqCiphertext = payload.subarray(1184);
+    if (payload.length < PACKED_PQ_HEADER_BYTES) {
+      throw new Error(`Malformed PQ ratchet payload: expected ${PACKED_PQ_HEADER_BYTES} bytes, got ${payload.length}`);
+    }
+    const pqPub = payload.subarray(0, ML_KEM_768_PUBKEY_BYTES);
+    const pqCiphertext = payload.subarray(ML_KEM_768_PUBKEY_BYTES, PACKED_PQ_HEADER_BYTES);
     
     const classical_ss = x25519.getSharedSecret(currentSession.DHSendingKeyPair.privateKey, envelopeDHPublicKey);
     const pq_ss = ml_kem768.decapsulate(pqCiphertext, currentSession.DHSendingKeyPair.pqPrivateKey);
@@ -309,6 +328,7 @@ export async function ratchetDecrypt(session: DoubleRatchetSession, envelope: Ra
     zeroize(classical_ss);
     zeroize(pq_ss);
     zeroize(ikm);
+    zeroize(dhOutput);
     
     currentSession = {
       ...currentSession,

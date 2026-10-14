@@ -934,48 +934,47 @@ export async function handleFileAttachment(file: File, targetType: 'dm' | 'relay
   }
 }
 
+let globalChatDropzoneBound = false;
+
 export function attachChatDropzoneListeners(): void {
-  if (typeof document === 'undefined') return;
+  if (typeof document === 'undefined' || globalChatDropzoneBound) return;
+  globalChatDropzoneBound = true;
 
-  const dmContainer = document.getElementById('dm-thread-messages');
-  if (dmContainer && !(dmContainer as any).__dropzoneBound) {
-    (dmContainer as any).__dropzoneBound = true;
-    dmContainer.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      dmContainer.classList.add('ring-2', 'ring-indigo-500', 'bg-indigo-950/20');
-    });
-    dmContainer.addEventListener('dragleave', (e) => {
-      e.preventDefault();
-      dmContainer.classList.remove('ring-2', 'ring-indigo-500', 'bg-indigo-950/20');
-    });
-    dmContainer.addEventListener('drop', (e) => {
-      e.preventDefault();
-      dmContainer.classList.remove('ring-2', 'ring-indigo-500', 'bg-indigo-950/20');
-      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-        handleFileAttachment(e.dataTransfer.files[0], 'dm');
-      }
-    });
-  }
+  const resolveDropzone = (target: EventTarget | null): { el: HTMLElement; type: 'dm' | 'relay' } | null => {
+    if (!(target instanceof Element)) return null;
+    const dmEl = target.closest<HTMLElement>('#dm-thread-messages');
+    if (dmEl) return { el: dmEl, type: 'dm' };
+    const relayEl = target.closest<HTMLElement>('#messages-container');
+    if (relayEl) return { el: relayEl, type: 'relay' };
+    return null;
+  };
 
-  const relayContainer = document.getElementById('messages-container');
-  if (relayContainer && !(relayContainer as any).__dropzoneBound) {
-    (relayContainer as any).__dropzoneBound = true;
-    relayContainer.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      relayContainer.classList.add('ring-2', 'ring-indigo-500', 'bg-indigo-950/20');
-    });
-    relayContainer.addEventListener('dragleave', (e) => {
-      e.preventDefault();
-      relayContainer.classList.remove('ring-2', 'ring-indigo-500', 'bg-indigo-950/20');
-    });
-    relayContainer.addEventListener('drop', (e) => {
-      e.preventDefault();
-      relayContainer.classList.remove('ring-2', 'ring-indigo-500', 'bg-indigo-950/20');
-      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-        handleFileAttachment(e.dataTransfer.files[0], 'relay');
-      }
-    });
-  }
+  document.addEventListener('dragover', (e: DragEvent) => {
+    const zone = resolveDropzone(e.target);
+    if (!zone) return;
+    e.preventDefault();
+    zone.el.classList.add('ring-2', 'ring-[var(--color-accent,#e59b3c)]', 'bg-amber-950/15');
+  });
+
+  document.addEventListener('dragleave', (e: DragEvent) => {
+    const zone = resolveDropzone(e.target);
+    if (!zone) return;
+    const related = e.relatedTarget as Node | null;
+    if (!related || !zone.el.contains(related)) {
+      zone.el.classList.remove('ring-2', 'ring-[var(--color-accent,#e59b3c)]', 'bg-amber-950/15');
+    }
+  });
+
+  document.addEventListener('drop', (e: DragEvent) => {
+    const zone = resolveDropzone(e.target);
+    if (!zone) return;
+    e.preventDefault();
+    zone.el.classList.remove('ring-2', 'ring-[var(--color-accent,#e59b3c)]', 'bg-amber-950/15');
+    const file = e.dataTransfer?.files?.[0];
+    if (file) {
+      void handleFileAttachment(file, zone.type);
+    }
+  });
 }
 
 function isSameSenderWithin5Min(
@@ -2226,7 +2225,5 @@ export function renderRelaysWorkspace(): string {
   `;
 }
 
-// Schedule dropzone attachment after rendering
-setTimeout(() => {
-  attachChatDropzoneListeners();
-}, 50);
+attachChatDropzoneListeners();
+

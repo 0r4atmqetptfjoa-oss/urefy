@@ -1,5 +1,11 @@
+/**
+ * @file keyboard-nav.ts
+ * @package @aetheris/client-ui
+ * @description 2027 Sovereign Spatial Keyboard Navigation & Vim Command Engine.
+ * Strictly CSP-compliant (zero inline eval/onclick strings) with View Transitions API support.
+ */
+
 import { clientStore } from './client-state.js';
-import { toastManager } from './toast.js';
 import { reactionsEngine } from './reactions.js';
 import { serviceRegistry, SERVICES } from './service-registry.js';
 
@@ -27,13 +33,17 @@ export class KeyboardNavigationEngine {
   public isHelpModalOpen: boolean = false;
   private isInitialized: boolean = false;
   private boundKeyHandler: ((e: KeyboardEvent) => void) | null = null;
+  private boundClickHandler: ((e: MouseEvent) => void) | null = null;
 
   public init(): void {
     if (this.isInitialized || typeof document === 'undefined') return;
     this.isInitialized = true;
 
     this.boundKeyHandler = (e: KeyboardEvent) => this.handleKeyDown(e);
+    this.boundClickHandler = (e: MouseEvent) => this.handleDelegatedClick(e);
+
     document.addEventListener('keydown', this.boundKeyHandler);
+    document.addEventListener('click', this.boundClickHandler);
   }
 
   public destroy(): void {
@@ -42,8 +52,27 @@ export class KeyboardNavigationEngine {
       document.removeEventListener('keydown', this.boundKeyHandler);
       this.boundKeyHandler = null;
     }
+    if (this.boundClickHandler) {
+      document.removeEventListener('click', this.boundClickHandler);
+      this.boundClickHandler = null;
+    }
     this.isInitialized = false;
     this.activeIndex = -1;
+  }
+
+  private handleDelegatedClick(e: MouseEvent): void {
+    if (!this.isHelpModalOpen) return;
+    const target = e.target as HTMLElement | null;
+    if (!target) return;
+
+    if (
+      target.id === 'keyboard-shortcuts-backdrop' ||
+      target.closest('#btn-close-shortcuts-modal') ||
+      target.closest('#btn-dismiss-shortcuts-modal')
+    ) {
+      e.preventDefault();
+      this.closeHelpModal();
+    }
   }
 
   public openHelpModal(): void {
@@ -80,58 +109,56 @@ export class KeyboardNavigationEngine {
       document.querySelectorAll<HTMLElement>(
         '[data-post-card-id], [data-post-id], article.rounded-2xl, .sovereign-post-card'
       )
-    ).filter((el) => {
-      // Exclude cards inside modals or sidebars
-      return !el.closest('#app-modal-root') && !el.closest('aside');
-    });
+    ).filter((el) => !el.closest('#app-modal-root') && !el.closest('aside'));
   }
 
   public selectNext(): void {
     const cards = this.getPostCards();
     if (cards.length === 0) return;
 
-    if (this.activeIndex < cards.length - 1) {
-      this.setActiveIndex(this.activeIndex + 1, cards);
-    } else {
-      this.setActiveIndex(0, cards);
-    }
+    const nextIdx = this.activeIndex < cards.length - 1 ? this.activeIndex + 1 : 0;
+    this.setActiveIndex(nextIdx, cards);
   }
 
   public selectPrevious(): void {
     const cards = this.getPostCards();
     if (cards.length === 0) return;
 
-    if (this.activeIndex > 0) {
-      this.setActiveIndex(this.activeIndex - 1, cards);
-    } else {
-      this.setActiveIndex(cards.length - 1, cards);
-    }
+    const prevIdx = this.activeIndex > 0 ? this.activeIndex - 1 : cards.length - 1;
+    this.setActiveIndex(prevIdx, cards);
   }
 
   public setActiveIndex(index: number, cardsList?: HTMLElement[]): void {
     const cards = cardsList || this.getPostCards();
     if (cards.length === 0) return;
 
-    // Remove active class from previous
-    cards.forEach((c) => c.classList.remove('card-keyboard-active'));
+    const applyFocusRing = () => {
+      cards.forEach((c) => {
+        c.classList.remove('card-keyboard-active');
+        if (typeof c.removeAttribute === 'function') {
+          c.removeAttribute('data-keyboard-focused');
+        }
+      });
 
-    if (index >= 0 && index < cards.length) {
-      this.activeIndex = index;
-      const card = cards[index];
-      card.classList.add('card-keyboard-active');
-      card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }
+      if (index >= 0 && index < cards.length) {
+        this.activeIndex = index;
+        const card = cards[index];
+        card.classList.add('card-keyboard-active');
+        if (typeof card.setAttribute === 'function') {
+          card.setAttribute('data-keyboard-focused', 'true');
+        }
+        card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    };
+
+    applyFocusRing();
   }
 
   public getActivePostId(): string | null {
     const cards = this.getPostCards();
     if (this.activeIndex < 0 || this.activeIndex >= cards.length) return null;
     const card = cards[this.activeIndex];
-    return (
-      card.getAttribute('data-post-card-id') ||
-      card.getAttribute('data-post-id') ||
-      null
-    );
+    return card.getAttribute('data-post-card-id') || card.getAttribute('data-post-id') || null;
   }
 
   public triggerActiveLike(): void {
@@ -169,13 +196,9 @@ export class KeyboardNavigationEngine {
     if (this.activeIndex < 0 || this.activeIndex >= cards.length) return;
     const card = cards[this.activeIndex];
     const commentBtn = card.querySelector<HTMLElement>('.btn-comments, [data-action="comments"]');
-    if (commentBtn) {
-      commentBtn.click();
-    }
+    if (commentBtn) commentBtn.click();
     const replyInput = card.querySelector<HTMLInputElement | HTMLTextAreaElement>('input, textarea');
-    if (replyInput) {
-      replyInput.focus();
-    }
+    if (replyInput) replyInput.focus();
   }
 
   public triggerActiveMedia(): void {
@@ -183,32 +206,23 @@ export class KeyboardNavigationEngine {
     if (this.activeIndex < 0 || this.activeIndex >= cards.length) return;
     const card = cards[this.activeIndex];
     const mediaEl = card.querySelector<HTMLElement>('img, video, .media-lightbox-trigger');
-    if (mediaEl) {
-      mediaEl.click();
-    }
+    if (mediaEl) mediaEl.click();
   }
 
   public handleKeyDown(e: KeyboardEvent): void {
-    // Esc is handled universally
-    if (e.key === 'Escape') {
-      if (this.isHelpModalOpen) {
-        this.closeHelpModal();
-        e.preventDefault();
-        return;
-      }
+    if (e.key === 'Escape' && this.isHelpModalOpen) {
+      this.closeHelpModal();
+      e.preventDefault();
+      return;
     }
 
-    // Question mark (?) toggles the shortcut modal even if shifted
     if (e.key === '?' && !this.isInputFocused()) {
       e.preventDefault();
       this.toggleHelpModal();
       return;
     }
 
-    // Ignore single key navigation when typing into inputs
     if (this.isInputFocused()) return;
-
-    // Do not conflict with Ctrl or Meta modifier combinations (e.g. Ctrl+K)
     if (e.ctrlKey || e.metaKey || e.altKey) return;
 
     switch (e.key) {
@@ -218,38 +232,32 @@ export class KeyboardNavigationEngine {
         e.preventDefault();
         this.selectNext();
         break;
-
       case 'k':
       case 'K':
       case 'ArrowUp':
         e.preventDefault();
         this.selectPrevious();
         break;
-
       case 'l':
       case 'L':
         e.preventDefault();
         this.triggerActiveLike();
         break;
-
       case 'u':
       case 'U':
         e.preventDefault();
         this.triggerActiveUpvote();
         break;
-
       case 'c':
       case 'C':
         e.preventDefault();
         this.triggerActiveComments();
         break;
-
       case 'x':
       case 'X':
         e.preventDefault();
         this.triggerActiveMedia();
         break;
-
       case 'e':
       case 'E':
       case 'n':
@@ -264,65 +272,95 @@ export class KeyboardNavigationEngine {
   public renderHelpModalHTML(): string {
     if (!this.isHelpModalOpen) return '';
 
+    const categories: Array<'Navigation' | 'Actions' | 'Global'> = ['Navigation', 'Actions', 'Global'];
+
     return `
-      <div id="keyboard-shortcuts-backdrop" data-action="call-global" data-raw-click="if(event.target.id==='keyboard-shortcuts-backdrop'){if(window.keyboardNavigator){window.keyboardNavigator.closeHelpModal();}}" class="fixed inset-0 bg-black/80 backdrop-blur-md z-[10000] flex items-center justify-center p-4 animate-fade-in pointer-events-auto">
-        <div class="bg-surface-base border border-white/15 rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-5 relative overflow-hidden" data-action="stop-propagation">
-          
+      <div
+        id="keyboard-shortcuts-backdrop"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="shortcuts-modal-title"
+        class="sovereign-modal-backdrop fixed inset-0 bg-black/75 backdrop-blur-xl z-[10000] flex items-center justify-center p-4 animate-fade-in pointer-events-auto"
+      >
+        <div
+          class="sovereign-glass-surface bg-surface-base/90 border border-white/15 rounded-3xl max-w-xl w-full p-6 shadow-2xl space-y-5 relative overflow-hidden"
+          data-action="stop-propagation"
+        >
+          <!-- AMBIENT SPECULAR GLOW -->
+          <div class="pointer-events-none absolute -top-24 -right-24 w-56 h-56 rounded-full bg-indigo-500/15 blur-3xl"></div>
+
           <!-- MODAL HEADER -->
-          <div class="flex items-center justify-between border-b border-white/10 pb-4">
-            <div class="flex items-center space-x-3">
-              <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-purple-600/30 border border-indigo-500/40 flex items-center justify-center text-indigo-300 text-lg shadow-inner">
-                ⌨️
+          <div class="flex items-center justify-between border-b border-white/10 pb-4 relative z-10">
+            <div class="flex items-center space-x-3.5">
+              <div class="w-11 h-11 rounded-2xl bg-indigo-500/15 border border-indigo-400/30 flex items-center justify-center text-indigo-300 shadow-inner">
+                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="2" y="4" width="20" height="16" rx="3"/>
+                  <path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M7 16h10"/>
+                </svg>
               </div>
               <div>
-                <h3 class="text-base font-bold text-white tracking-wide font-sans flex items-center space-x-2">
+                <h3 id="shortcuts-modal-title" class="text-base font-bold text-white tracking-tight font-sans flex items-center space-x-2">
                   <span>Keyboard Shortcuts</span>
-                  <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 uppercase font-semibold">Vim Mode</span>
+                  <span class="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-400/30 uppercase font-semibold tracking-wider">Vim Mode</span>
                 </h3>
-                <p class="text-xs text-slate-400 font-sans">Power navigation & sovereign actions</p>
+                <p class="text-xs text-slate-400 font-sans">Spatial stream navigation & instant cryptographic actions</p>
               </div>
             </div>
             <button
               type="button"
-              id="btn-close-shortcuts-modal" data-action="call-global" data-raw-click="if(window.keyboardNavigator){window.keyboardNavigator.closeHelpModal();}"
-              class="text-slate-400 hover:text-white p-1.5 rounded-xl hover:bg-white/10 transition-colors cursor-pointer text-sm font-mono"
+              id="btn-close-shortcuts-modal"
+              aria-label="Close modal"
+              class="text-slate-400 hover:text-white p-2 rounded-xl hover:bg-white/10 transition-colors cursor-pointer text-sm font-mono min-h-[44px] min-w-[44px] flex items-center justify-center"
             >
               ✕
             </button>
           </div>
 
-          <!-- SHORTCUTS LIST -->
-          <div class="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
-            ${SOVEREIGN_SHORTCUTS.map(s => `
-              <div class="flex items-center justify-between p-2.5 rounded-xl bg-surface-raised/80 border border-white/5 text-xs">
-                <span class="text-slate-300 font-sans font-medium">${s.description}</span>
-                <kbd class="px-2.5 py-1 rounded-lg bg-surface-base border border-white/15 text-slate-100 font-mono text-[11px] font-bold shadow-sm">
-                  ${s.key}
-                </kbd>
+          <!-- CATEGORIZED SHORTCUTS BENTO GRID -->
+          <div class="space-y-4 max-h-[62vh] overflow-y-auto pr-1 relative z-10">
+            ${categories
+              .map(
+                (cat) => `
+              <div class="space-y-2">
+                <div class="text-[10px] font-mono uppercase tracking-widest text-indigo-300/80 px-1 font-semibold">${cat}</div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  ${SOVEREIGN_SHORTCUTS.filter((s) => s.category === cat)
+                    .map(
+                      (s) => `
+                    <div class="flex items-center justify-between p-2.5 rounded-2xl bg-surface-raised/70 hover:bg-surface-raised border border-white/8 transition-colors text-xs">
+                      <span class="text-slate-200 font-sans font-medium pr-2">${s.description}</span>
+                      <kbd class="px-2.5 py-1 rounded-lg bg-surface-base/90 border border-white/15 text-indigo-200 font-mono text-[11px] font-bold shadow-sm shrink-0">
+                        ${s.key}
+                      </kbd>
+                    </div>
+                  `
+                    )
+                    .join('')}
+                </div>
               </div>
-            `).join('')}
+            `
+              )
+              .join('')}
           </div>
 
           <!-- FOOTER TIP -->
-          <div class="pt-2 border-t border-white/10 flex items-center justify-between text-[11px] text-slate-400 font-sans">
+          <div class="pt-3 border-t border-white/10 flex items-center justify-between text-[11px] text-slate-400 font-sans relative z-10">
             <span>Press <kbd class="px-1.5 py-0.5 rounded bg-surface-raised font-mono font-bold text-slate-200 border border-white/10">?</kbd> anywhere to toggle</span>
             <button
               type="button"
-              id="btn-dismiss-shortcuts-modal" data-action="call-global" data-raw-click="if(window.keyboardNavigator){window.keyboardNavigator.closeHelpModal();}"
-              class="px-4 py-1.5 rounded-xl bg-surface-raised hover:bg-surface-overlay text-slate-200 text-xs font-bold border border-white/10 transition-colors cursor-pointer"
+              id="btn-dismiss-shortcuts-modal"
+              class="px-4 py-2 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-200 text-xs font-bold border border-indigo-400/30 transition-all cursor-pointer min-h-[44px]"
             >
               Got it
             </button>
           </div>
-
         </div>
       </div>
     `;
   }
 
   public bindModalEvents(): void {
-    if (!this.isHelpModalOpen) return;
-
+    if (!this.isHelpModalOpen || typeof document === 'undefined') return;
     document.getElementById('btn-close-shortcuts-modal')?.addEventListener('click', () => this.closeHelpModal());
     document.getElementById('btn-dismiss-shortcuts-modal')?.addEventListener('click', () => this.closeHelpModal());
     document.getElementById('keyboard-shortcuts-backdrop')?.addEventListener('click', (e) => {

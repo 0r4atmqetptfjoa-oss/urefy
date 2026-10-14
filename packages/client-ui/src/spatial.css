@@ -1,0 +1,115 @@
+/* ===========================================================================
+   UREfy / UREFY — 2027 SPATIAL DESIGN SYSTEM (OKLCH + SPECULAR BENTO)
+   =========================================================================== */
+
+:root {
+  /* Perceptual OKLCH Color Palette (HDR Wide-Gamut Ready) */
+  --surface-void: oklch(0.11 0.015 265);
+  --surface-base: oklch(0.14 0.02 265);
+  --surface-raised: oklch(0.18 0.025 265);
+  --surface-overlay: oklch(0.22 0.03 265 / 0.82);
+
+  /* Sovereign Neon Accents */
+  --accent-cyphr: oklch(0.82 0.17 205);     /* Electric Cyan */
+  --accent-aether: oklch(0.68 0.23 285);    /* Quantum Violet */
+  --accent-signal: oklch(0.80 0.19 155);    /* Verified Emerald */
+  --accent-crimson: oklch(0.65 0.24 22);    /* Threat Rose */
+
+  /* Dynamic Specular Border Coordinates (Updated via lightweight pointermove) */
+  --pointer-x: 50%;
+  --pointer-y: 50%;
+
+  /* 2027 Spring Physics Easing via linear() */
+  --ease-spring-2027: linear(
+    0, 0.009, 0.035 2.1%, 0.141, 0.281 6.7%, 0.723 12.9%, 0.938 16.7%,
+    1.017, 1.077, 1.121, 1.149 24.3%, 1.159, 1.163, 1.161, 1.154 29.9%,
+    1.129 32.8%, 1.051 39.6%, 1.017 43.1%, 0.991, 0.977 51%, 0.974 53.8%,
+    0.975 57.1%, 0.997 69.8%, 1.003 76.9%, 1
+  );
+}
+
+/* 1. Specular Glassmorphism & Bento Surfaces */
+.sovereign-glass-surface,
+.sovereign-post-card,
+article.rounded-2xl {
+  position: relative;
+  background: linear-gradient(
+    145deg,
+    oklch(0.19 0.025 265 / 0.78) 0%,
+    oklch(0.13 0.018 265 / 0.92) 100%
+  );
+  backdrop-filter: blur(24px) saturate(190%);
+  -webkit-backdrop-filter: blur(24px) saturate(190%);
+  border: 1px solid oklch(1 0 0 / 0.08);
+  box-shadow:
+    0 18px 40px -15px oklch(0 0 0 / 0.65),
+    inset 0 1px 0 0 oklch(1 0 0 / 0.14);
+  transition:
+    transform 380ms var(--ease-spring-2027),
+    border-color 220ms ease,
+    box-shadow 220ms ease;
+}
+
+/* Interactive Rim Light on Hover */
+.sovereign-post-card:hover,
+article.rounded-2xl:hover {
+  border-color: oklch(0.82 0.17 205 / 0.32);
+  box-shadow:
+    0 22px 48px -12px oklch(0 0 0 / 0.75),
+    0 0 24px -6px oklch(0.82 0.17 205 / 0.18),
+    inset 0 1px 0 0 oklch(1 0 0 / 0.22);
+}
+
+/* 2. Keyboard Navigation Focus Ring (Vim Mode J/K) */
+.card-keyboard-active {
+  outline: none !important;
+  border-color: var(--accent-cyphr) !important;
+  box-shadow:
+    0 0 0 2px oklch(0.82 0.17 205 / 0.35),
+    0 16px 36px -8px oklch(0.82 0.17 205 / 0.25) !important;
+  transform: translateY(-2px);
+}
+
+/* 3. Native 2027 @starting-style Modal & Dialog Entry Animations (Zero JS Timers) */
+.sovereign-modal-backdrop {
+  opacity: 1;
+  transition:
+    opacity 240ms cubic-bezier(0.16, 1, 0.3, 1),
+    backdrop-filter 240ms cubic-bezier(0.16, 1, 0.3, 1);
+
+  @starting-style {
+    opacity: 0;
+    backdrop-filter: blur(0px);
+  }
+}
+
+.sovereign-modal-backdrop > .sovereign-glass-surface {
+  transform: scale(1) translateY(0);
+  opacity: 1;
+  transition:
+    transform 420ms var(--ease-spring-2027),
+    opacity 220ms ease;
+
+  @starting-style {
+    transform: scale(0.94) translateY(14px);
+    opacity: 0;
+  }
+}
+
+/* 4. Off-Screen Rendering Optimization for Long Feeds (120Hz Scroll Guarantee) */
+.sovereign-post-card,
+article.rounded-2xl {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 240px;
+}
+
+/* 5. Hardware-Accelerated View Transitions */
+@view-transition {
+  navigation: auto;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 220ms;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}

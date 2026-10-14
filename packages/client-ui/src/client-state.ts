@@ -628,7 +628,6 @@ export class AetherisClientStore {
   public async syncFromEdge(): Promise<void> {
     if (typeof fetch === 'undefined') return;
 
-    // Abort previous in-flight sync operation if still pending
     if (this.syncAbortController) {
       this.syncAbortController.abort();
     }
@@ -638,11 +637,34 @@ export class AetherisClientStore {
     this.isSyncing = true;
     let hasChanged = false;
 
-    // 0. Sync Public Server Announcement & Status from /api/admin?public=true
+    const activeChannel = this.activeChannelId;
+
     try {
-      const pubRes = await fetchWithRetry('/api/admin?public=true', { signal, maxRetries: 1 });
-      if (pubRes.ok) {
-        const pubData = await pubRes.json();
+      // Execute all independent Edge API reads concurrently in a single network wave
+      const [
+        pubSettled,
+        chSettled,
+        stSettled,
+        anSettled,
+        postsSettled,
+        msgsSettled,
+        nanoSettled,
+      ] = await Promise.allSettled([
+        fetchWithRetry('/api/admin?public=true', { signal, maxRetries: 1 }),
+        fetch('/api/channels', { signal }),
+        fetch('/api/storage', { signal }),
+        fetch('/api/analytics', { signal }),
+        fetch('/api/posts?limit=100', { signal }),
+        fetch(`/api/messages?channelId=${encodeURIComponent(activeChannel)}`, { signal }),
+        fetchWithRetry('/api/nanopublications', { signal, maxRetries: 1 }),
+        this.fetchFacets(),
+      ]);
+
+      if (signal.aborted) return;
+
+      // 0. Public Broadcast Status
+      if (pubSettled.status === 'fulfilled' && pubSettled.value.ok) {
+        const pubData = await pubSettled.value.json().catch(() => null);
         if (pubData && typeof pubData.broadcastMessage === 'string') {
           if (this.broadcastAnnouncement !== pubData.broadcastMessage) {
             this.broadcastAnnouncement = pubData.broadcastMessage;
@@ -653,56 +675,50 @@ export class AetherisClientStore {
           }
         }
       }
-    } catch (err: any) {
-      if (err?.name === 'AbortError') return;
-      // Offline fallback
-    }
 
-    // 1. Sync Channels from /api/channels
-    try {
-      const chRes = await fetch('/api/channels', { signal });
-      if (chRes.ok) {
-        const chData = await chRes.json();
-        const storageHdr = chRes.headers.get('X-Edge-Storage') || (chData.storage ? chData.storage : '');
-        if (storageHdr.includes('D1')) {
-          this.d1Status = 'connected';
-        } else if (storageHdr.includes('Memory') || storageHdr.includes('Fallback')) {
-          this.d1Status = 'fallback';
-        }
+      // 1. Channels (O(1) Map lookup)
+      if (chSettled.status === 'fulfilled' && chSettled.value.ok) {
+        const chRes = chSettled.value;
+        const chData = await chRes.json().catch(() => null);
+        const storageHdr = chRes.headers.get('X-Edge-Storage') || (chData?.storage ?? '');
+        if (storageHdr.includes('D1')) this.d1Status = 'connected';
+        else if (storageHdr.includes('Memory') || storageHdr.includes('Fallback')) this.d1Status = 'fallback';
 
-        if (chData.success && Array.isArray(chData.channels) && chData.channels.length > 0) {
-          const edgeChannels: ChannelItem[] = chData.channels.map((c: any) => ({
-            id: c.id,
-            space: c.space || 'relays',
-            name: c.name,
-            description: c.description || '',
-            isEncrypted: c.isEncrypted === true || c.is_encrypted === 1,
-          }));
-
-          for (const ec of edgeChannels) {
-            const localIdx = this.channels.findIndex((c) => c.id === ec.id);
-            if (localIdx === -1) {
+        if (chData?.success && Array.isArray(chData.channels) && chData.channels.length > 0) {
+          const channelMap = new Map(this.channels.map((c, idx) => [c.id, idx]));
+          for (const c of chData.channels) {
+            const ec: ChannelItem = {
+              id: c.id,
+              space: c.space || 'relays',
+              name: c.name,
+              description: c.description || '',
+              isEncrypted: c.isEncrypted === true || c.is_encrypted === 1,
+            };
+            const localIdx = channelMap.get(ec.id);
+            if (localIdx === undefined) {
+              channelMap.set(ec.id, this.channels.length);
               this.channels.push(ec);
               hasChanged = true;
-            } else if (this.channels[localIdx].name !== ec.name || this.channels[localIdx].description !== ec.description) {
+            } else if (
+              this.channels[localIdx].name !== ec.name ||
+              this.channels[localIdx].description !== ec.description
+            ) {
               this.channels[localIdx] = ec;
               hasChanged = true;
             }
           }
         }
       }
-    } catch (err: any) {
-      if (err?.name === 'AbortError') return;
-      // Offline / local mesh fallback
-    }
 
-    // 2. Sync Cloudflare R2 Vault Objects from /api/storage
-    try {
-      const stRes = await fetch('/api/storage', { signal });
-      if (stRes.ok) {
-        const stData = await stRes.json();
-        const stBackendHdr = stRes.headers.get('X-Storage-Backend') || stData.storage;
-        if (stBackendHdr && stBackendHdr.includes('R2')) {
+      // 2. Cloudflare R2 Storage Objects (O(1) Set lookup by SHA-256)
+      const knownNanoHashes = new Set(this.nanopublications.map((np) => np.sha256));
+      const knownNanoIds = new Set(this.nanopublications.map((np) => np.id));
+
+      if (stSettled.status === 'fulfilled' && stSettled.value.ok) {
+        const stRes = stSettled.value;
+        const stData = await stRes.json().catch(() => null);
+        const stBackendHdr = stRes.headers.get('X-Storage-Backend') || stData?.storage;
+        if (stBackendHdr?.includes('R2')) {
           this.r2Status = 'connected';
           this.edgeStorageBackend = 'Cloudflare-D1 / Cloudflare-R2';
         } else if (stBackendHdr && (stBackendHdr.includes('Fallback') || stBackendHdr.includes('Memory'))) {
@@ -710,12 +726,15 @@ export class AetherisClientStore {
           this.edgeStorageBackend = 'Edge-Isolate-Memory Fallback';
         }
 
-        if (stData.success && Array.isArray(stData.objects)) {
+        if (stData?.success && Array.isArray(stData.objects)) {
           this.vaultObjects = stData.objects;
           for (const obj of stData.objects) {
-            if (obj.sha256 && !this.nanopublications.some((np) => np.sha256 === obj.sha256)) {
+            if (obj.sha256 && !knownNanoHashes.has(obj.sha256)) {
+              const id = `vault-nano-${obj.key}`;
+              knownNanoHashes.add(obj.sha256);
+              knownNanoIds.add(id);
               this.nanopublications.push({
-                id: `vault-nano-${obj.key}`,
+                id,
                 channelId: 'vault-releases',
                 title: obj.fileName || obj.key,
                 fileName: obj.fileName || obj.key,
@@ -733,17 +752,12 @@ export class AetherisClientStore {
           }
         }
       }
-    } catch (err: any) {
-      if (err?.name === 'AbortError') return;
-      // Offline / local mesh fallback
-    }
 
-    // 3. Sync Telemetry & Metrics from /api/analytics
-    try {
-      const anRes = await fetch('/api/analytics', { signal });
-      if (anRes.ok) {
-        const anData = await anRes.json();
-        if (anData.status === 'healthy' || anData.metrics) {
+      // 3. Edge Telemetry
+      if (anSettled.status === 'fulfilled' && anSettled.value.ok) {
+        const anRes = anSettled.value;
+        const anData = await anRes.json().catch(() => null);
+        if (anData && (anData.status === 'healthy' || anData.metrics)) {
           this.edgeTelemetry = anData;
           if (typeof anData.metrics?.avgLatencyMs === 'number' && this.latencyMs !== anData.metrics.avgLatencyMs) {
             this.latencyMs = anData.metrics.avgLatencyMs;
@@ -751,84 +765,88 @@ export class AetherisClientStore {
           if (typeof anData.metrics?.activeNodes === 'number') {
             this.peersOnline = Math.max(anData.metrics.activeNodes, this.peersOnline);
           }
-          const d1Hdr = anRes.headers.get('X-Edge-Storage');
-          if (d1Hdr?.includes('D1')) {
+          if (anRes.headers.get('X-Edge-Storage')?.includes('D1')) {
             this.d1Status = 'connected';
           }
           this.doMeshStatus = 'synchronized';
         }
       }
-    } catch (err: any) {
-      if (err?.name === 'AbortError') return;
-      // Offline / local mesh fallback
-    }
 
-    // 3b. Sync Sovereign Facets from /api/facets
-    void this.fetchFacets();
+      // 4. Posts (O(1) Map lookup + selective search indexing)
+      if (postsSettled.status === 'fulfilled') {
+        const res = postsSettled.value;
+        if (res.ok) {
+          const data = await res.json().catch(() => null);
+          if (data?.success && Array.isArray(data.posts)) {
+            const postIndexMap = new Map(this.posts.map((p, i) => [p.id, i]));
+            const newlyAddedPosts: ClientPost[] = [];
 
-    // 4. Sync Posts from /api/posts
-    try {
-      const res = await fetch('/api/posts?limit=100', { signal });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success && Array.isArray(data.posts)) {
-          const edgePosts: ClientPost[] = data.posts;
-          for (const ep of edgePosts) {
-            const localIndex = this.posts.findIndex((p) => p.id === ep.id);
-            if (localIndex === -1) {
-              this.posts.push({
-                ...ep,
-                userVoted: ep.authorFingerprint === this.keypair.fingerprint ? 1 : 0,
-              });
-              hasChanged = true;
-            } else {
-              const lp = this.posts[localIndex];
-              if (ep.meritVotes !== lp.meritVotes || ep.boostCount !== lp.boostCount || ep.replyCount !== lp.replyCount) {
-                lp.meritVotes = ep.meritVotes;
-                lp.boostCount = ep.boostCount;
-                lp.replyCount = ep.replyCount;
+            for (const ep of data.posts as ClientPost[]) {
+              const localIndex = postIndexMap.get(ep.id);
+              if (localIndex === undefined) {
+                const hydrated: ClientPost = {
+                  ...ep,
+                  userVoted: ep.authorFingerprint === this.keypair.fingerprint ? 1 : 0,
+                };
+                postIndexMap.set(ep.id, this.posts.length);
+                this.posts.push(hydrated);
+                newlyAddedPosts.push(hydrated);
                 hasChanged = true;
+              } else {
+                const lp = this.posts[localIndex];
+                if (
+                  ep.meritVotes !== lp.meritVotes ||
+                  ep.boostCount !== lp.boostCount ||
+                  ep.replyCount !== lp.replyCount
+                ) {
+                  lp.meritVotes = ep.meritVotes;
+                  lp.boostCount = ep.boostCount;
+                  lp.replyCount = ep.replyCount;
+                  hasChanged = true;
+                }
               }
             }
+
+            for (const np of newlyAddedPosts) {
+              localSearchIndex.indexPost(np);
+            }
+            if (this.posts.length > 0) {
+              pulseActionsEngine.syncInteractions(
+                this.posts.map((p) => p.id),
+                this.keypair?.fingerprint
+              );
+            }
           }
-          if (hasChanged) {
-            localSearchIndex.indexPosts(this.posts);
-          }
-          if (this.posts.length > 0) {
-            pulseActionsEngine.syncInteractions(this.posts.map((p) => p.id), this.keypair?.fingerprint);
-          }
+        } else if (res.status === 429) {
+          const retryAfter = res.headers.get('Retry-After');
+          if (retryAfter) this.setRateLimitCooldown(parseInt(retryAfter, 10) || 60);
         }
-      } else if (res.status === 429) {
-        const retryAfter = res.headers.get('Retry-After');
-        if (retryAfter) this.setRateLimitCooldown(parseInt(retryAfter, 10) || 60);
-        console.warn('[FeedSync] Edge rate limit (429) encountered. Preserving local feed content intact.');
       }
-    } catch (err: any) {
-      if (err?.name === 'AbortError') return;
-      // Offline / local mesh fallback: preserve local feed
-    }
 
-    // 4b. Sync Communities from /api/communities
-    if (typeof window !== 'undefined') void (window as any).profileView?.syncFollowing?.();
-    void import('./notifications.js').then(({ notificationCenter }) => notificationCenter.syncFromApi(this.keypair.fingerprint));
-    try {
-      if (typeof window !== 'undefined' && (window as any).sovereignCircleEngine?.syncCommunitiesFromApi) {
-        await (window as any).sovereignCircleEngine.syncCommunitiesFromApi();
+      // 4b. Background social graph & notifications sync
+      if (typeof window !== 'undefined') {
+        void (window as any).profileView?.syncFollowing?.();
+        void (window as any).sovereignCircleEngine?.syncCommunitiesFromApi?.();
       }
-    } catch (_) {}
+      void import('./notifications.js')
+        .then(({ notificationCenter }) => notificationCenter.syncFromApi(this.keypair.fingerprint))
+        .catch(() => {});
 
-    // 5. Sync Messages for current channel from /api/messages
-    try {
-      const res = await fetch(`/api/messages?channelId=${encodeURIComponent(this.activeChannelId)}`, { signal });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success && Array.isArray(data.messages)) {
+      // 5. Channel Messages
+      if (msgsSettled.status === 'fulfilled' && msgsSettled.value.ok) {
+        const data = await msgsSettled.value.json().catch(() => null);
+        if (data?.success && Array.isArray(data.messages)) {
+          let msgsChanged = false;
           for (const em of data.messages) {
-            const targetChannel = em.channelId || this.activeChannelId;
+            const targetChannel = em.channelId || activeChannel;
             const channelMsgs = this.messages.get(targetChannel) || [];
             const emText = em.text || em.ciphertext || '';
             const isDuplicate = channelMsgs.some(
-              (x) => x.id === em.id || (x.text === emText && x.authorFingerprint === em.authorFingerprint && Math.abs(x.createdAt - (em.createdAt || 0)) < 15000)
+              (x) =>
+                x.id === em.id ||
+                (x.text === emText &&
+                  x.authorFingerprint === em.authorFingerprint &&
+                  Math.abs(x.createdAt - (em.createdAt || 0)) < 15000)
             );
             if (!isDuplicate) {
               channelMsgs.push({
@@ -842,28 +860,24 @@ export class AetherisClientStore {
                 isMine: em.authorFingerprint === this.keypair.fingerprint,
               });
               this.messages.set(targetChannel, channelMsgs);
+              msgsChanged = true;
               hasChanged = true;
             }
           }
-          if (hasChanged) {
+          if (msgsChanged) {
             this.persistMessagesLocally();
           }
         }
       }
-    } catch (err: any) {
-      if (err?.name === 'AbortError') return;
-      // Offline / local mesh fallback
-    }
 
-    // 6. Sync Nanopublications from /api/nanopublications
-    try {
-      const nanoRes = await fetchWithRetry('/api/nanopublications', { signal, maxRetries: 1 });
-      if (nanoRes.ok) {
-        const nanoData = await nanoRes.json();
-        if (nanoData.success && Array.isArray(nanoData.nanopublications)) {
+      // 6. Nanopublications
+      if (nanoSettled.status === 'fulfilled' && nanoSettled.value.ok) {
+        const nanoData = await nanoSettled.value.json().catch(() => null);
+        if (nanoData?.success && Array.isArray(nanoData.nanopublications)) {
           for (const en of nanoData.nanopublications) {
-            const localIndex = this.nanopublications.findIndex((n) => n.id === en.id || n.sha256 === en.sha256);
-            if (localIndex === -1) {
+            if (!knownNanoIds.has(en.id) && !knownNanoHashes.has(en.sha256)) {
+              knownNanoIds.add(en.id);
+              if (en.sha256) knownNanoHashes.add(en.sha256);
               this.nanopublications.push({
                 id: en.id,
                 channelId: en.channelId || 'vault-releases',
@@ -883,9 +897,6 @@ export class AetherisClientStore {
           }
         }
       }
-    } catch (err: any) {
-      if (err?.name === 'AbortError') return;
-      // Offline / local mesh fallback
     } finally {
       this.isSyncing = false;
     }

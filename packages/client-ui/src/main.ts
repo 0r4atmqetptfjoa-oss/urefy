@@ -1,5 +1,7 @@
 import './theme-boot.js';
 import './style.css';
+import './sovereign-console.css';
+import './spatial.css';
 import './premium.css';
 import './orbit.css';
 import './discovery.css';

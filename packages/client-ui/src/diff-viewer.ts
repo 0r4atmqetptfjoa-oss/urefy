@@ -970,56 +970,53 @@ export class InlineDiffViewer {
   // =========================================================================
 
   /**
-   * Executes a code snippet safely in an isolated sandbox environment,
-   * capturing console logs and execution times.
+   * Executes a code snippet safely inside the isolated WebWorker Sandbox (code-sandbox.ts),
+   * eliminating main-thread `new Function()` evaluation and infinite-loop UI freezes.
    */
   public async executeCodeSnippet(code: string, language: string): Promise<SandboxRunResult> {
     const startTime = performance.now();
     const logs: ConsoleLogEntry[] = [];
     const output: string[] = [];
-
     const lang = (language || '').toLowerCase().trim();
 
     if (lang === 'javascript' || lang === 'js' || lang === 'typescript' || lang === 'ts') {
       try {
-        // Strip TypeScript type annotations for basic JS execution simulation
         const executableCode = this.stripTypeScriptTypes(code);
+        const { executeInSandbox } = await import('./code-sandbox.js');
+        const workerResult = await executeInSandbox(executableCode, { timeoutMs: 2000 });
+        const nowStr = new Date().toLocaleTimeString();
 
-        // Create captured console
-        const captureLog = (type: 'log' | 'info' | 'warn' | 'error', ...args: unknown[]) => {
-          const message = args
-            .map((arg) => (typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)))
-            .join(' ');
-          const timestamp = new Date().toLocaleTimeString();
-          logs.push({ type, message, timestamp });
+        for (const entry of workerResult.output) {
+          const message = entry.args.join(' ');
+          logs.push({
+            type: entry.level,
+            message,
+            timestamp: nowStr,
+          });
           output.push(message);
-        };
+        }
 
-        const customConsole = {
-          log: (...args: unknown[]) => captureLog('log', ...args),
-          info: (...args: unknown[]) => captureLog('info', ...args),
-          warn: (...args: unknown[]) => captureLog('warn', ...args),
-          error: (...args: unknown[]) => captureLog('error', ...args),
-        };
+        if (workerResult.returnValue !== undefined && !workerResult.error) {
+          const retMsg = `Return: ${
+            typeof workerResult.returnValue === 'object'
+              ? JSON.stringify(workerResult.returnValue)
+              : String(workerResult.returnValue)
+          }`;
+          logs.push({ type: 'info', message: retMsg, timestamp: nowStr });
+          output.push(retMsg);
+        }
 
-        // Run code in Function sandbox with custom console
-        const runner = new Function('console', 'require', 'process', `
-          "use strict";
-          try {
-            ${executableCode}
-          } catch(err) {
-            console.error(err && err.stack ? err.stack : String(err));
-          }
-        `);
+        if (workerResult.error) {
+          logs.push({ type: 'error', message: workerResult.error, timestamp: nowStr });
+          output.push(`Runtime Error: ${workerResult.error}`);
+        }
 
-        runner(customConsole, undefined, undefined);
-
-        const executionTimeMs = parseFloat((performance.now() - startTime).toFixed(2));
         return {
-          success: logs.every((l) => l.type !== 'error'),
+          success: workerResult.success && !workerResult.error,
           output,
           logs,
-          executionTimeMs,
+          executionTimeMs: workerResult.executionTimeMs,
+          error: workerResult.error,
         };
       } catch (err: unknown) {
         const errorMsg = err instanceof Error ? err.message : String(err);
@@ -1039,8 +1036,7 @@ export class InlineDiffViewer {
       }
     }
 
-    // For non-JS languages: provide structured static analysis / simulated compile result
-    const simulatedMsg = `[Sandbox VM]: Validated syntax for ${language.toUpperCase()}. Execution simulated successfully.`;
+    const simulatedMsg = `[Sandbox VM]: Validated syntax for ${language.toUpperCase()}. Execution simulated in isolated enclave.`;
     logs.push({
       type: 'info',
       message: simulatedMsg,

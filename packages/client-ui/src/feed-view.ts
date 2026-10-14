@@ -289,6 +289,57 @@ export function renderPulseWorkspace(): string {
     </div>`;
 }
 
+interface CachedPostBody {
+  rawContent: string;
+  hasExplicitVideo: boolean;
+  detectedVideo: ReturnType<typeof obsidianMediaPlayer.extractVideo>;
+  cleanedContent: string;
+  renderedMarkdown: string;
+  isClamped: boolean;
+}
+
+const postBodyCache = new Map<string, CachedPostBody>();
+const VIDEO_URL_STRIP_REGEX =
+  /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)[a-zA-Z0-9_-]{11}[^\s]*|(?:https?:\/\/)?(?:www\.)?vimeo\.com\/\d+[^\s]*|https?:\/\/[^\s"'<>]+\.(?:mp4|webm|ogg)(?:\?[^\s"'<>]*)?/gi;
+
+function getMemoizedPostBody(post: ClientPost, hasImages: boolean): CachedPostBody {
+  const rawContent = post.content || '';
+  const hasExplicitVideo = Boolean(post.video);
+  const cached = postBodyCache.get(post.id);
+
+  if (cached && cached.rawContent === rawContent && cached.hasExplicitVideo === hasExplicitVideo) {
+    return cached;
+  }
+
+  const detectedVideo = obsidianMediaPlayer.extractVideo(rawContent);
+  const cleanedContent =
+    detectedVideo && !hasExplicitVideo
+      ? rawContent.replace(VIDEO_URL_STRIP_REGEX, '').trim()
+      : rawContent;
+
+  const hasMedia = hasExplicitVideo || Boolean(detectedVideo) || hasImages;
+  const newlineCount = (cleanedContent.match(/\n/g) || []).length;
+  const isClamped = hasMedia
+    ? cleanedContent.length > 120 || newlineCount >= 2
+    : cleanedContent.length > 280 || newlineCount >= 4;
+
+  const entry: CachedPostBody = {
+    rawContent,
+    hasExplicitVideo,
+    detectedVideo,
+    cleanedContent,
+    renderedMarkdown: cleanedContent ? markdownRenderer.renderMarkdown(cleanedContent) : '',
+    isClamped,
+  };
+
+  if (postBodyCache.size > 300) {
+    const oldestKey = postBodyCache.keys().next().value;
+    if (oldestKey) postBodyCache.delete(oldestKey);
+  }
+  postBodyCache.set(post.id, entry);
+  return entry;
+}
+
 export function renderPulsePostCard(post: ClientPost): string {
   const circle = sovereignCircleEngine.findCircle(post.channelId);
   const circleName = circle ? `c/${circle.name}` : (post.channelId.startsWith('c/') ? post.channelId : 'c/technology');
@@ -315,30 +366,19 @@ export function renderPulsePostCard(post: ClientPost): string {
     `;
   }
 
-  // Media detection
-  const detectedVideo = obsidianMediaPlayer.extractVideo(post.content);
+  // Media detection & Memoized Content
+  const uniqueImages = post.images?.filter(img => img && img !== post.video?.poster) || [];
+  const memoBody = getMemoizedPostBody(post, uniqueImages.length > 0);
+  const detectedVideo = memoBody.detectedVideo;
   const videoHtml = post.video
     ? obsidianMediaPlayer.renderVideoCard(post.id, post.video.src, post.video.poster)
     : (detectedVideo ? obsidianMediaPlayer.renderVideoCard(post.id, post.content) : '');
-  const uniqueImages = post.images?.filter(img => img && img !== post.video?.poster) || [];
   const imagesHtml = uniqueImages.length
     ? `<div class="social-post__media">${obsidianMediaPlayer.renderImageMosaic(uniqueImages)}</div>`
     : '';
   const hasMedia = Boolean(videoHtml || imagesHtml);
-
-  // Content clean-up
-  let displayContent = post.content || '';
-  if (detectedVideo && !post.video) {
-    displayContent = displayContent
-      .replace(/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)[a-zA-Z0-9_-]{11}[^\s]*/gi, '')
-      .replace(/(?:https?:\/\/)?(?:www\.)?vimeo\.com\/\d+[^\s]*/gi, '')
-      .replace(/https?:\/\/[^\s"'<>]+\.(?:mp4|webm|ogg)(?:\?[^\s"'<>]*)?/gi, '')
-      .trim();
-  }
-
-  const isClamped = hasMedia
-    ? (displayContent.length > 120 || (displayContent.match(/\n/g) || []).length >= 2)
-    : (displayContent.length > 280 || (displayContent.match(/\n/g) || []).length >= 4);
+  const displayContent = memoBody.cleanedContent;
+  const isClamped = memoBody.isClamped;
 
   // Restrained Content Grammar
   const replyCount = post.replyCount ?? 0;
@@ -390,7 +430,7 @@ export function renderPulsePostCard(post: ClientPost): string {
         ${imagesHtml}
         ${displayContent ? `
           <div class="social-post__body-wrapper ${hasMedia ? 'has-media' : 'text-only'} ${isClamped ? 'is-clamped' : ''}">
-            <div data-action="open-post-detail" data-post-id="${post.id}" class="social-post__body cursor-pointer text-[15px] sm:text-base leading-relaxed text-slate-200">${markdownRenderer.renderMarkdown(displayContent)}</div>
+            <div data-action="open-post-detail" data-post-id="${post.id}" class="social-post__body cursor-pointer text-[15px] sm:text-base leading-relaxed text-slate-200">${memoBody.renderedMarkdown}</div>
             ${isClamped ? `
               <button type="button" data-action="open-post-detail" data-post-id="${escapeHtml(post.id)}" class="social-post__see-more" aria-label="Read full post">
                 <span>Read full post</span>

@@ -2067,3 +2067,88 @@ article[data-post-card-id] {
     min-height: 44px;
   }
 }
+
+/* ─── 2027 SPATIAL REFINEMENT LAYER (OKLCH + SPECULAR HAIRLINES + TABULAR METRICS) ─── */
+
+:root {
+  --surface-specular-top: inset 0 1px 0 0 rgba(255, 255, 255, 0.075);
+  --surface-elevated-2027: color-mix(in oklch, var(--bg-surface-base) 92%, white 3%);
+}
+
+[data-theme="alabaster-light"] {
+  --surface-specular-top: inset 0 1px 0 0 rgba(255, 255, 255, 0.8);
+  --surface-elevated-2027: color-mix(in oklch, var(--bg-surface-base) 96%, #0f172a 2%);
+}
+
+/* Tabular numeral discipline across all counters, timestamps, and cryptographic badges */
+.post-actions b,
+.profile-stats strong,
+.composer-count,
+.reaction-pill span:last-child,
+.message-meta-inline,
+.social-post__time,
+time {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Subtle Zenith Specular Edge on Cards, Composer & Context Shelves */
+.quick-composer,
+.context-card,
+.community-card,
+.person-card,
+.topic-card,
+.feed-community-banner {
+  box-shadow: var(--surface-specular-top), 0 4px 20px -4px rgba(0, 0, 0, 0.28);
+}
+
+/* Responsive Container Queries for Feed Stream & Chat Thread */
+.feed-scroll,
+#dm-thread-messages {
+  container-type: inline-size;
+}
+
+@container (min-width: 680px) {
+  .social-post {
+    padding: 18px 20px 12px;
+    border-radius: 14px;
+    margin-bottom: 10px;
+    border: 1px solid var(--premium-line);
+    background: var(--bg-surface-base);
+    box-shadow: var(--surface-specular-top);
+  }
+
+  .social-post:hover {
+    border-color: color-mix(in oklch, var(--color-accent) 32%, var(--premium-line));
+  }
+}
+
+/* Crisp Chat Bubbles in Direct Messages (2027 Living Dialogue) */
+.chat-bubble-modern {
+  padding: 8px 12px;
+  border-radius: 14px;
+  border: 1px solid transparent;
+}
+
+.chat-bubble--incoming {
+  background: var(--bg-surface-raised);
+  border-color: var(--premium-line);
+  box-shadow: var(--surface-specular-top);
+}
+
+.chat-bubble--outgoing {
+  background: color-mix(in oklch, var(--color-accent) 14%, var(--bg-surface-raised));
+  border-color: color-mix(in oklch, var(--color-accent) 28%, transparent);
+}
+
+.reaction-pill--mine {
+  background: color-mix(in oklch, var(--color-accent) 18%, var(--bg-surface-raised));
+  border: 1px solid color-mix(in oklch, var(--color-accent) 45%, transparent);
+  color: var(--text-primary);
+}
+
+.reaction-pill--peer {
+  background: var(--bg-surface-raised);
+  border: 1px solid var(--premium-line);
+  color: var(--text-secondary);
+}
+
