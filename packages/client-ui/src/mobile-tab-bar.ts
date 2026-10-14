@@ -1,13 +1,17 @@
 /**
  * @file mobile-tab-bar.ts
  * @package @aetheris/client-ui
- * @description 2027 Spatial Ergonomic Mobile Navigation Bar (≥44px Tap Targets & Full ARIA Landmarks).
+ * @description Native Mobile Bottom Tab Bar (Feed, Explore, Messages, Vault, Profile) for viewports < 1024px (lg:hidden).
+ * Provides clean, progressive disclosure on mobile devices conforming to Master UX Specification (Section 18).
+ * Eliminates emojis in favor of crisp Lucide vector icons. Touch target >= 44px.
  */
 
+import './window-augmentation.js';
 import { serviceRegistry, SERVICES } from './service-registry.js';
 import { clientStore } from './client-state.js';
 import { renderIcon, IconName } from './ui/icons.js';
 import { sovereignRouter } from './router.js';
+import { t } from './i18n.js';
 
 export type MobileTab = 'feed' | 'explore' | 'communities' | 'messages' | 'profile' | 'vault' | 'circle';
 
@@ -18,32 +22,29 @@ export interface MobileTabDefinition {
   channelTarget?: string;
 }
 
-export const MOBILE_TABS: MobileTabDefinition[] = [
-  { id: 'feed', label: 'Feed', iconName: 'newspaper', channelTarget: 'pulse-global' },
-  { id: 'explore', label: 'Explore', iconName: 'compass' },
-  { id: 'messages', label: 'Messages', iconName: 'message-circle', channelTarget: 'relays-general' },
-  { id: 'vault', label: 'Vault', iconName: 'vault', channelTarget: 'vault-releases' },
-  { id: 'profile', label: 'Profile', iconName: 'user' },
-];
-
 export class MobileTabBar {
-  public activeTab: MobileTab = 'feed';
-  public tabs: MobileTabDefinition[] = MOBILE_TABS;
+  public activeTab: MobileTab | null = 'feed';
+  private readonly tabsOrder: MobileTab[] = ['feed', 'explore', 'messages', 'vault', 'profile'];
+  private touchStartX: number = 0;
+  private touchStartY: number = 0;
 
   constructor() {
     this.syncActiveTabWithStore();
     this.bindStoreSync();
     this.bindTouchSwipe();
-  }
 
-  private syncActiveTabWithStore(): void {
-    const resolved = this.resolveTabFromChannel(clientStore?.activeChannelId || 'pulse-global');
-    if (resolved) {
-      this.activeTab = resolved;
+    if (typeof window !== 'undefined') {
+      (window as any).mobileTabBar = this;
     }
   }
 
+  private syncActiveTabWithStore(): void {
+    const channel = clientStore?.activeChannelId || 'pulse-global';
+    this.activeTab = this.resolveTabFromChannel(channel);
+  }
+
   private bindStoreSync(): void {
+    if (typeof window === 'undefined') return;
     if (clientStore && typeof clientStore.subscribe === 'function') {
       clientStore.subscribe(() => {
         this.syncActiveTabWithStore();
@@ -51,159 +52,288 @@ export class MobileTabBar {
     }
   }
 
+  /**
+   * Derives active MobileTab from current channel ID
+   */
   public resolveTabFromChannel(channelId: string): MobileTab | null {
-    if (!channelId) return 'feed';
-    if (channelId.startsWith('vault')) return 'vault';
-    if (channelId.startsWith('relays')) return 'messages';
-    if (channelId.startsWith('pulse')) return 'feed';
-    return null;
+    if (channelId === 'settings' || channelId.startsWith('settings')) {
+      return null;
+    }
+    if (channelId.startsWith('c/') || channelId === 'communities') {
+      return 'communities';
+    }
+    if (channelId.startsWith('vault-') || channelId === 'vault') {
+      return 'vault';
+    }
+    if (channelId.startsWith('explore-') || channelId === 'explore') {
+      return 'explore';
+    }
+    if (channelId.startsWith('relays-') || channelId.startsWith('relay-') || channelId.startsWith('dm-') || channelId === 'circle' || channelId === 'messages' || channelId === 'message') {
+      return 'messages';
+    }
+    if (channelId.startsWith('profile')) {
+      return 'profile';
+    }
+    return 'feed';
   }
 
+  /**
+   * Sets the active tab and navigates the store via the sovereign router.
+   * IMPORTANT: all navigation MUST go through sovereignRouter.navigateTo() so
+   * that renderMainStage() picks up the correct route (it reads sovereignRouter.route first).
+   */
   public setTab(tab: MobileTab): void {
+    // If post detail is currently open, closing it is required regardless of whether activeTab matches
+    let wasPostOpen = false;
+    if (typeof window !== 'undefined' && (window as any).postDetailView?.isOpen?.()) {
+      wasPostOpen = true;
+      (window as any).postDetailView.closePost({ skipHistory: true });
+    }
+
+    // Dismiss any open feature modals or mobile drawer
+    if (typeof window !== 'undefined') {
+      if ((window as any).modalManager?.closeFeature) {
+        (window as any).modalManager.closeFeature();
+      }
+    }
+
+    // If tapping the already active tab AND post was NOT open, scroll feed to top
+    if (this.activeTab === tab && !wasPostOpen) {
+      if (typeof window !== 'undefined') {
+        const feedScroll = document.getElementById('main-feed-scroll');
+        if (feedScroll) {
+          feedScroll.scrollTo({ top: 0, behavior: 'smooth' });
+        } else {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      }
+      return;
+    }
+
     this.activeTab = tab;
+
     switch (tab) {
       case 'feed':
         sovereignRouter.navigateTo('feed');
+        clientStore.activeChannelId = 'pulse-global';
         break;
       case 'explore':
         sovereignRouter.navigateTo('explore');
+        clientStore.activeChannelId = 'explore';
         break;
       case 'communities':
-      case 'circle':
         sovereignRouter.navigateTo('communities');
+        clientStore.activeChannelId = 'communities';
         break;
       case 'messages':
+      case 'circle':
         sovereignRouter.navigateTo('messages');
+        clientStore.activeChannelId = 'relays-general';
         break;
       case 'vault':
         sovereignRouter.navigateTo('vault');
+        clientStore.activeChannelId = 'vault-releases';
         break;
       case 'profile':
+        if (typeof window !== 'undefined' && (window as any).profileView) {
+          (window as any).profileView.setTargetFingerprint(
+            clientStore.keypair?.fingerprint || ''
+          );
+        }
         sovereignRouter.navigateTo('profile');
+        clientStore.activeChannelId = 'profile';
         break;
     }
-    this.syncActiveTabDOM();
+
+    if (clientStore && typeof clientStore.notify === 'function') {
+      clientStore.notify('MOBILE_TAB_CHANGE');
+    }
   }
 
+  /**
+   * Advances to next tab (e.g. on swipe left)
+   */
   public nextTab(): void {
-    const idx = this.tabs.findIndex((t) => t.id === this.activeTab);
-    const nextIdx = (idx + 1) % this.tabs.length;
-    this.setTab(this.tabs[nextIdx].id);
+    const currentIndex = this.activeTab ? this.tabsOrder.indexOf(this.activeTab) : -1;
+    const nextIndex = (currentIndex + 1) % this.tabsOrder.length;
+    this.setTab(this.tabsOrder[nextIndex]);
   }
 
+  /**
+   * Reverses to previous tab (e.g. on swipe right)
+   */
   public previousTab(): void {
-    const idx = this.tabs.findIndex((t) => t.id === this.activeTab);
-    const prevIdx = (idx - 1 + this.tabs.length) % this.tabs.length;
-    this.setTab(this.tabs[prevIdx].id);
+    const currentIndex = this.activeTab ? this.tabsOrder.indexOf(this.activeTab) : 0;
+    const prevIndex = (currentIndex - 1 + this.tabsOrder.length) % this.tabsOrder.length;
+    this.setTab(this.tabsOrder[prevIndex]);
   }
 
+  private isTouchIgnored: boolean = false;
+
+  /**
+   * Returns true if a touch started within a component that handles its own horizontal
+   * scrolling, sub-tabs, form controls, or modals (e.g. profile view sub-tabs).
+   */
   private isSwipeExcluded(target: EventTarget | null): boolean {
-    if (!target || typeof (target as HTMLElement).closest !== 'function') return false;
-    const el = target as HTMLElement;
-    return Boolean(
-      el.closest('input, textarea, select, pre, code, [data-no-swipe="true"], #mesh-radar-canvas')
-    );
+    if (!target || !(target instanceof Element)) return false;
+    // Don't switch global tabs when user is actively inside the profile view
+    if (this.activeTab === 'profile') return true;
+    // Don't switch global tabs when interacting inside profile view or its sub-tabs
+    if (target.closest('#sovereign-profile-container, #profile-view, [data-view="profile"], .profile-container, [data-profile-tabs], #profile-container, #profile-tab-content-area')) return true;
+    // Don't switch global tabs inside post cards or post action bars (prevents gesture collision with card swipe)
+    if (target.closest('article, [data-post-card-id], .pulse-action-bar, .post-card, [data-open-detail]')) return true;
+    // Don't switch global tabs inside modals, drawers, slide-overs
+    if (target.closest('#mobile-drawer, [role="dialog"], .modal, #app-modal-root, #composer-modal-overlay')) return true;
+    // Don't switch global tabs inside horizontal scrolling containers or tab lists
+    if (target.closest('.overflow-x-auto, [role="tablist"], [role="tab"], nav[aria-label]')) return true;
+    // Don't switch global tabs on interactive form controls and media
+    if (target.closest('button, input, textarea, select, pre, code, canvas, audio, video')) return true;
+    return false;
   }
 
+  /**
+   * Binds horizontal touch swipe listeners on mobile viewports (< 1024px)
+   */
   private bindTouchSwipe(): void {
-    if (typeof window === 'undefined' || typeof window.addEventListener !== 'function') return;
-    let startX = 0;
-    let startY = 0;
+    if (typeof window === 'undefined' || typeof document === 'undefined') return;
 
-    window.addEventListener(
-      'touchstart',
-      (e: TouchEvent) => {
-        if (this.isSwipeExcluded(e.target)) return;
-        const touch = e.touches?.[0];
-        if (touch) {
-          startX = touch.clientX;
-          startY = touch.clientY;
-        }
-      },
-      { passive: true }
-    );
+    document.addEventListener('touchstart', (e: TouchEvent) => {
+      if (window.innerWidth >= 1024 || e.touches.length !== 1) return;
+      if (this.isSwipeExcluded(e.target)) {
+        this.isTouchIgnored = true;
+        return;
+      }
+      this.isTouchIgnored = false;
+      this.touchStartX = e.touches[0].clientX;
+      this.touchStartY = e.touches[0].clientY;
+    }, { passive: true });
 
-    window.addEventListener(
-      'touchend',
-      (e: TouchEvent) => {
-        if (this.isSwipeExcluded(e.target)) return;
-        const touch = e.changedTouches?.[0];
-        if (!touch) return;
-        const dx = touch.clientX - startX;
-        const dy = Math.abs(touch.clientY - startY);
-        if (Math.abs(dx) > 95 && dy < 45) {
-          if (dx < 0) this.nextTab();
-          else this.previousTab();
+    document.addEventListener('touchend', (e: TouchEvent) => {
+      if (window.innerWidth >= 1024 || e.changedTouches.length !== 1) return;
+      if (this.isTouchIgnored) {
+        this.isTouchIgnored = false;
+        return;
+      }
+      const deltaX = e.changedTouches[0].clientX - this.touchStartX;
+      const deltaY = e.changedTouches[0].clientY - this.touchStartY;
+
+      // Ensure horizontal swipe with minimal vertical drift
+      if (Math.abs(deltaX) > 75 && Math.abs(deltaY) < 45) {
+        if (deltaX < 0) {
+          this.nextTab();
+        } else {
+          this.previousTab();
         }
-      },
-      { passive: true }
-    );
+      }
+    }, { passive: true });
   }
 
+  /**
+   * Computes unread count for messages
+   */
   public getUnreadMessagesCount(): number {
-    return 0;
+    let unread = 0;
+    if (clientStore?.messages) {
+      for (const [channelId, msgs] of clientStore.messages.entries()) {
+        if (channelId.startsWith('dm-') || channelId.startsWith('relays-')) {
+          unread += msgs.filter(m => !m.isMine).length;
+        }
+      }
+    }
+    return Math.min(unread, 99);
   }
 
+  /**
+   * Computes unread/new publications count
+   */
   public getUnreadFeedCount(): number {
-    return 0;
+    if (!clientStore?.posts) return 0;
+    const oneHourAgo = Date.now() - 3600000;
+    return Math.min(clientStore.posts.filter(p => (p.createdAt || 0) > oneHourAgo).length, 9);
   }
 
   public syncActiveTabDOM(channelId?: string): void {
-    if (channelId) {
-      const resolved = this.resolveTabFromChannel(channelId);
-      if (resolved) this.activeTab = resolved;
-    }
-    if (typeof document === 'undefined' || typeof document.querySelectorAll !== 'function') return;
-    const buttons = document.querySelectorAll<HTMLElement>('[data-mobile-tab]');
-    buttons.forEach((btn) => {
-      const tabId = btn.getAttribute('data-mobile-tab');
-      const isCurrent = tabId === this.activeTab;
-      btn.setAttribute('aria-current', isCurrent ? 'page' : 'false');
+    if (typeof document === 'undefined') return;
+    const currentTab = this.resolveTabFromChannel(channelId || clientStore?.activeChannelId || 'pulse-global');
+    this.activeTab = currentTab;
+    const nav = document.getElementById('native-mobile-tab-bar');
+    if (!nav) return;
+
+    this.tabsOrder.forEach(tabId => {
+      const btn = nav.querySelector(`[data-tab="${tabId}"]`) as HTMLElement | null;
+      if (!btn) return;
+      const isActive = currentTab !== null && tabId === currentTab;
+      if (isActive) {
+        btn.classList.add('font-bold', 'scale-105', 'is-active', 'text-[var(--color-accent,#e59b3c)]');
+        btn.classList.remove('text-slate-400');
+        if (!btn.querySelector('.tab-indicator-dot')) {
+          const dot = document.createElement('span');
+          dot.className = 'tab-indicator-dot w-1 h-1 rounded-full bg-[var(--color-accent,#e59b3c)] -mt-0.5';
+          btn.appendChild(dot);
+        }
+      } else {
+        btn.classList.remove('font-bold', 'scale-105', 'is-active', 'text-[var(--color-accent,#e59b3c)]');
+        btn.classList.add('text-slate-400');
+        btn.querySelector('.tab-indicator-dot')?.remove();
+      }
     });
   }
 
+  /**
+   * Renders the native bottom tab bar HTML markup for mobile devices
+   */
   public renderTabBarHTML(): string {
-    const unreadMsgs = this.getUnreadMessagesCount();
+    const currentTab = this.resolveTabFromChannel(clientStore?.activeChannelId || 'pulse-global');
+    this.activeTab = currentTab;
 
-    return `<nav
-      id="mobile-sovereign-tab-bar"
-      role="navigation"
-      aria-label="Mobile Sovereign Navigation"
-      class="fixed bottom-0 inset-x-0 z-40 md:hidden bg-[#0a0d16]/90 backdrop-blur-2xl border-t border-white/10 px-2 pb-[env(safe-area-inset-bottom)] gpu-accelerated no-flicker"
-    >
-      <div class="flex items-center justify-around max-w-md mx-auto">
-        ${this.tabs
-          .map((tab) => {
-            const isActive = this.activeTab === tab.id;
-            const showBadge = tab.id === 'messages' && unreadMsgs > 0;
-            return `<button
+    const unreadMessages = this.getUnreadMessagesCount();
+    const unreadFeed = this.getUnreadFeedCount();
+
+    const tabs: Array<{ id: MobileTab; label: string; defaultLabel: string; iconName: IconName; title: string; defaultTitle: string; badge?: number }> = [
+      { id: 'feed', label: 'Feed', defaultLabel: 'Feed', iconName: 'feed', title: 'Feed (Pulse Stream)', defaultTitle: 'Feed', badge: unreadFeed > 0 ? unreadFeed : undefined },
+      { id: 'explore', label: 'Explore', defaultLabel: 'Explore', iconName: 'explore', title: 'Explore · Trending Topics & Creators', defaultTitle: 'Explore' },
+      { id: 'messages', label: 'Messages', defaultLabel: 'Messages Relays', iconName: 'messages', title: 'Relays · Relay Servers & Chat Channels', defaultTitle: 'Messages', badge: unreadMessages > 0 ? unreadMessages : undefined },
+      { id: 'vault', label: 'Vault', defaultLabel: 'Vault', iconName: 'vault', title: 'Vault · Sovereign Releases & Cryptographic Keys', defaultTitle: 'Vault' },
+      { id: 'profile', label: 'Profile', defaultLabel: 'Profile', iconName: 'profile', title: 'Profile · Sovereign Identity', defaultTitle: 'Profile' },
+    ];
+
+    return `
+      <!-- NATIVE MOBILE BOTTOM TAB BAR (lg:hidden) -->
+      <nav 
+        id="native-mobile-tab-bar" 
+        role="navigation"
+        class="fixed bottom-0 left-0 right-0 z-50 lg:hidden bg-surface-base/95 backdrop-blur-xl border-t border-white/10 pb-[env(safe-area-inset-bottom)] flex items-center justify-around px-1 select-none shadow-2xl transition-all"
+        style="min-height: 3.5rem; height: calc(3.5rem + env(safe-area-inset-bottom, 0px)); padding-bottom: max(env(safe-area-inset-bottom, 0px), 0px);"
+        aria-label="Mobile Sovereign Navigation"
+      >
+        ${tabs.map(tab => {
+          const isActive = currentTab !== null && tab.id === currentTab;
+          return `
+            <button
               type="button"
-              id="mobile-tab-btn-${tab.id}"
-              data-mobile-tab="${tab.id}"
-              data-action="nav.primary"
-              data-nav-id="${tab.id}"
-              aria-label="${tab.label}"
-              title="${tab.label}"
-              aria-current="${isActive ? 'page' : 'false'}"
-              class="relative flex flex-col items-center justify-center flex-1 min-h-[44px] py-2 px-1 rounded-xl text-[11px] font-semibold transition-all duration-200 cursor-pointer ${
-                isActive ? 'text-cyan-300' : 'text-slate-400 hover:text-white'
-              }"
+              id="btn-mobile-tab-${tab.id}"
+              data-tab="${tab.id}"
+              data-nav-label="${tab.defaultLabel}"
+              data-nav-title="${tab.defaultTitle}"
+              class="relative flex-1 min-h-[44px] flex flex-col items-center justify-center py-1 transition-all cursor-pointer active:scale-95 ${isActive ? 'font-bold scale-105 is-active text-[var(--color-accent,#e59b3c)]' : 'text-slate-400 hover:text-slate-200'}"
+              title="${tab.title}"
+              aria-label="${tab.id === 'messages' ? 'Relays' : tab.label}"
             >
-              ${renderIcon(tab.iconName, {
-                size: 19,
-                variant: isActive ? 'solid' : 'outline',
-                ariaHidden: true,
-              })}
-              <span class="mt-0.5 tracking-tight">${tab.label}</span>${
-                showBadge
-                  ? `<span class="absolute top-1.5 right-4 min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-[10px] font-bold text-white flex items-center justify-center">${unreadMsgs}</span>`
-                  : ''
-              }
-            </button>`;
-          })
-          .join('')}
-      </div>
-    </nav>`;
+              <div class="relative flex items-center justify-center">
+                ${renderIcon(tab.iconName, { size: 19, variant: 'outline', strokeWidth: 1.8 })}
+                ${tab.badge !== undefined && tab.badge > 0 ? `
+                  <span class="absolute -top-1 -right-2 px-1.5 py-0.2 rounded-full bg-[var(--color-accent,#e59b3c)] text-slate-950 text-[9px] font-mono font-bold shadow-xs">
+                    ${tab.badge}
+                  </span>
+                ` : ''}
+              </div>
+              <span class="text-[10px] font-medium font-sans mt-0.5">${tab.label}</span>
+              ${isActive ? `<span class="tab-indicator-dot w-1 h-1 rounded-full bg-[var(--color-accent,#e59b3c)] -mt-0.5"></span>` : ''}
+            </button>
+          `;
+        }).join('')}
+      </nav>
+    `;
   }
 }
 

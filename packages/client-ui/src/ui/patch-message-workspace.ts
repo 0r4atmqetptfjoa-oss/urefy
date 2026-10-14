@@ -1,9 +1,130 @@
 /**
  * @file ui/patch-message-workspace.ts
  * @package @aetheris/client-ui/ui
- * @description 2027 Zero-Flicker Surgical DOM Reconciler for Feed & E2EE Message Workspaces.
- * Preserves live <video>, <audio>, <iframe>, WebGL <canvas>, and active input cursor states.
+ * @description 2027 Zero-Flicker Surgical DOM Reconciler & Semantic Message Workspace Upgrader.
+ * Reconciles live DOM for Feed & E2EE Messages, parses semantic message tags ([QUESTION], [DECISION], etc.),
+ * eliminates double @@ handle symbols, and heals residual "Profile not set up" labels.
  */
+
+import { profileStore } from '../profile/profile-store.js';
+
+const SEMANTIC_TAG_MAP: Record<string, { label: string; cls: string }> = {
+  QUESTION: {
+    label: 'Question',
+    cls: 'bg-amber-500/15 text-amber-300 border-amber-400/30',
+  },
+  DECISION: {
+    label: 'Decision',
+    cls: 'bg-emerald-500/15 text-emerald-300 border-emerald-400/30',
+  },
+  IDEA: {
+    label: 'Idea',
+    cls: 'bg-sky-500/15 text-sky-300 border-sky-400/30',
+  },
+  ACTION: {
+    label: 'Action Item',
+    cls: 'bg-indigo-500/15 text-indigo-300 border-indigo-400/30',
+  },
+};
+
+function escapeHtml(str: string): string {
+  return (str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+export function formatChatMessageBody(rawText: string): string {
+  if (!rawText) return '';
+  const badges: string[] = [];
+  const cleanedText = rawText
+    .replace(/\[(QUESTION|DECISION|IDEA|ACTION)\]/gi, (_, rawKey: string) => {
+      const key = rawKey.toUpperCase();
+      const meta = SEMANTIC_TAG_MAP[key];
+      if (meta && !badges.includes(key)) {
+        badges.push(key);
+      }
+      return '';
+    })
+    .trim();
+
+  const badgesHtml =
+    badges.length > 0
+      ? `<div class="inline-flex flex-wrap items-center gap-1 mb-1">${badges
+          .map((k) => {
+            const m = SEMANTIC_TAG_MAP[k];
+            return `<span class="px-1.5 py-0.5 text-[10px] font-mono font-semibold uppercase tracking-wider rounded border ${m.cls}">${m.label}</span>`;
+          })
+          .join('')}</div>`
+      : '';
+
+  return `${badgesHtml}${cleanedText ? `<div class="leading-relaxed break-words">${escapeHtml(cleanedText)}</div>` : ''}`;
+}
+
+export function upgradeMessageWorkspaceDOM(root: ParentNode = document): void {
+  if (typeof document === 'undefined' || !root) return;
+
+  // 1. Replace any "Profile not set up" text nodes using the peer's @handle
+  const allElements = root.querySelectorAll<HTMLElement>('*');
+  for (const el of Array.from(allElements)) {
+    if (el.children.length === 0 && el.textContent?.trim() === 'Profile not set up') {
+      const parentText = el.parentElement?.textContent || '';
+      const handleMatch = parentText.match(/@([a-zA-Z0-9_.-]{3,32})/);
+      if (handleMatch) {
+        const profile = profileStore.getProfile(handleMatch[1]);
+        el.textContent = profile.name;
+      } else {
+        el.textContent = 'Sovereign Member';
+      }
+    }
+  }
+
+  // 2. Fix double @@ handles in Profile and Chat headers
+  const handleNodes = root.querySelectorAll<HTMLElement>('[class*="text-slate"], [class*="font-mono"]');
+  for (const node of Array.from(handleNodes)) {
+    if (node.children.length === 0 && node.textContent && node.textContent.includes('@@')) {
+      node.textContent = node.textContent.replace(/@@+/g, '@');
+    }
+  }
+
+  // 3. Parse raw [QUESTION] / [DECISION] tags inside DM and Relay message bubbles
+  const messageBodies = root.querySelectorAll<HTMLElement>('.dm-message, [data-message-id], .relay-message-body');
+  for (const msgEl of Array.from(messageBodies)) {
+    if (msgEl.getAttribute('data-semantic-upgraded') === 'true') continue;
+    const textWalker = document.createTreeWalker(msgEl, NodeFilter.SHOW_TEXT);
+    let currentNode: Node | null = textWalker.nextNode();
+    while (currentNode) {
+      const val = currentNode.nodeValue || '';
+      if (/\[(QUESTION|DECISION|IDEA|ACTION)\]/i.test(val)) {
+        const span = document.createElement('div');
+        span.className = 'flex flex-col gap-0.5';
+        span.innerHTML = formatChatMessageBody(val);
+        currentNode.parentNode?.replaceChild(span, currentNode);
+        msgEl.setAttribute('data-semantic-upgraded', 'true');
+        break;
+      }
+      currentNode = textWalker.nextNode();
+    }
+  }
+}
+
+export function installMessageWorkspacePatch(): void {
+  if (typeof document === 'undefined') return;
+  upgradeMessageWorkspaceDOM(document);
+  let scheduled = false;
+  const observer = new MutationObserver(() => {
+    if (scheduled) return;
+    scheduled = true;
+    requestAnimationFrame(() => {
+      scheduled = false;
+      upgradeMessageWorkspaceDOM(document);
+    });
+  });
+  if (document.body) {
+    observer.observe(document.body, { childList: true, subtree: true });
+  }
+}
 
 const preservedMediaNodes = new Map<string, HTMLElement>();
 
@@ -61,22 +182,12 @@ function syncAttributes(current: Element, next: Element): void {
       current.setAttribute(attr.name, attr.value);
     }
   }
-
-  if (
-    (current instanceof HTMLInputElement || current instanceof HTMLTextAreaElement) &&
-    (next instanceof HTMLInputElement || next instanceof HTMLTextAreaElement)
-  ) {
-    const isFocused = typeof document !== 'undefined' && document.activeElement === current;
-    if (!isFocused && current.value !== next.value) {
-      current.value = next.value;
-    }
-  }
 }
 
 function reconcileNode(current: Node, next: Node): void {
   if (current.nodeType === Node.TEXT_NODE && next.nodeType === Node.TEXT_NODE) {
-    if (current.textContent !== next.textContent) {
-      current.textContent = next.textContent;
+    if (current.nodeValue !== next.nodeValue) {
+      current.nodeValue = next.nodeValue;
     }
     return;
   }
@@ -85,14 +196,16 @@ function reconcileNode(current: Node, next: Node): void {
     const curEl = current as HTMLElement;
     const nextEl = next as HTMLElement;
 
-    if (
-      curEl.tagName === 'VIDEO' ||
-      curEl.tagName === 'AUDIO' ||
-      curEl.tagName === 'CANVAS' ||
-      curEl.getAttribute('data-preserve-dom') === 'true'
-    ) {
-      syncAttributes(curEl, nextEl);
-      return;
+    if (curEl.tagName === 'INPUT' || curEl.tagName === 'TEXTAREA') {
+      const curInput = curEl as HTMLInputElement;
+      const nextInput = nextEl as HTMLInputElement;
+      if (document.activeElement === curInput) {
+        syncAttributes(curEl, nextEl);
+        return;
+      }
+      if (curInput.value !== nextInput.value) {
+        curInput.value = nextInput.value;
+      }
     }
 
     syncAttributes(curEl, nextEl);
@@ -158,9 +271,11 @@ export function patchFeedWorkspace(stage: HTMLElement, html: string): boolean {
     const template = document.createElement('div');
     template.innerHTML = html;
     reconcileChildren(stage, template);
+    upgradeMessageWorkspaceDOM(stage);
     return true;
   } catch {
     stage.innerHTML = html;
+    upgradeMessageWorkspaceDOM(stage);
     return true;
   }
 }
@@ -172,9 +287,11 @@ export function patchMessageWorkspace(stage: HTMLElement, html: string): boolean
     const template = document.createElement('div');
     template.innerHTML = html;
     reconcileChildren(stage, template);
+    upgradeMessageWorkspaceDOM(stage);
     return true;
   } catch {
     stage.innerHTML = html;
+    upgradeMessageWorkspaceDOM(stage);
     return true;
   }
 }

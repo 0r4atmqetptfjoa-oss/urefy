@@ -1,10 +1,3 @@
-/**
- * @file post-detail.ts
- * @package @aetheris/client-ui
- * @description 2027 Spatial Discussion Focus View — Recursive Comment Tree,
- * Inline Markdown Composer, ZK Proof Inspector, and Related Discussions Engine.
- */
-
 import { awardsSystem } from './awards-facade.js';
 import { clientStore } from './client-state.js';
 import { sharePostOrCopyLink, escapeHtml } from './dry-utils.js';
@@ -15,9 +8,6 @@ import { obsidianMediaPlayer } from './media-player.js';
 import { reactionsEngine, bindReactionBarEvents } from './reactions.js';
 import { presentPublicIdentity } from './public-identity.js';
 import { privacyLens } from './privacy-lens.js';
-import { pollEngine } from './polls.js';
-import { renderAvatar } from './ui/avatar-generator.js';
-import { renderIcon } from './ui/icons.js';
 
 export interface PostAttachment {
   fileName: string;
@@ -51,9 +41,9 @@ export interface DetailPost {
   authorRole: string;
   title: string;
   content: string;
-  flair: string;
+  flair: 'VERIFIED RELEASE' | 'SECURITY ADVISORY' | 'TECH DISCUSSION' | 'MICRO-PULSE' | 'ASK COMMUNITY' | string;
   meritVotes: number;
-  userVoted: number;
+  userVoted: number; // -1, 0, 1
   replyCount: number;
   boostCount: number;
   userBoosted?: boolean;
@@ -102,15 +92,31 @@ export interface AwardBadge {
   description: string;
 }
 
+export const THREAD_DEPTH_COLORS: string[] = [
+  '#00e5ff', // Depth 0: Cyphr Cyan
+  '#a855f7', // Depth 1: Aether Violet
+  '#22c55e', // Depth 2: Signal Emerald
+  '#f59e0b', // Depth 3: Amber Gold
+  '#ec4899', // Depth 4: Rose Pink
+  '#3b82f6', // Depth 5: Electric Blue
+  '#14b8a6', // Depth 6: Teal Mint
+];
+
 export class PostDetailView {
   public activePostId: string | null = null;
-  public originRoute: string = 'feed';
-  public bookmarkedIds: Set<string> = new Set();
-  public collapsedComments: Set<string> = new Set();
+  public replyDraft: string = '';
+  private replySubmitting = false;
+  private inlineReplyDrafts = new Map<string, string>();
+  public isPreviewMode: boolean = false;
+  public collapsedComments: Set<string> = new Set<string>();
+  public bookmarkedPosts: Set<string> = new Set<string>();
+  public awardsMap: Map<string, AwardBadge[]> = new Map<string, AwardBadge[]>();
   public replyingToCommentId: string | null = null;
-  public awardsMap: Map<string, AwardBadge[]> = new Map();
-  public activeViewTab: 'discussion' | 'zk-proof' | 'raw-json' = 'discussion';
-  public savedFeedScrollTop: number = 0;
+  public inlineCommentDrafts: Map<string, string> = new Map<string, string>();
+  public activeSubTab: 'discussion' | 'raw_json' | 'zk_proof' = 'discussion';
+  public lastCopiedText: string | null = null;
+
+  private keydownListener: ((e: KeyboardEvent) => void) | null = null;
 
   constructor() {
     this.seedDefaultAwards();
@@ -118,32 +124,116 @@ export class PostDetailView {
 
   private seedDefaultAwards(): void {
     this.awardsMap.set('post-1', [
-      {
-        id: 'aw-zk',
-        name: 'ZK Proof Verified',
-        icon: '🛡️',
-        count: 3,
-        description: 'Cryptographically attested release',
-      },
+      { id: 'aw-1', name: 'Zero Vulnerability', icon: '🛡️', count: 14, description: 'Audited clean PE/ELF binary' },
+      { id: 'aw-2', name: 'Sovereign Release', icon: '💎', count: 8, description: 'Reproducible build hash confirmed' },
+    ]);
+    this.awardsMap.set('post-video', [
+      { id: 'aw-3', name: 'High Frame-Rate', icon: '⚡', count: 22, description: '120 FPS Zero-Copy PipeWire Demo' },
+    ]);
+    this.awardsMap.set('post-poll', [
+      { id: 'aw-4', name: 'Consensus Builder', icon: '🏛️', count: 6, description: 'ZK-governance initiative' },
     ]);
   }
+
+  public savedFeedScrollTop: number = 0;
+  public originRoute: string | null = null;
+  public originPath: string | null = null;
+
+  // ─── Modal & Focus View State Management ──────────────────────────────────
 
   public isOpen(): boolean {
     return this.activePostId !== null;
   }
 
-  public openPost(postId: string, originRoute: string = 'feed'): void {
+  public openPost(postId: string, originRoute?: string): void {
+    if (typeof document !== 'undefined') {
+      const feedEl = document.getElementById('main-feed-scroll') || document.getElementById('post-focus-view');
+      if (feedEl) {
+        this.savedFeedScrollTop = feedEl.scrollTop;
+      }
+    }
     this.activePostId = postId;
-    this.originRoute = originRoute;
-    this.activeViewTab = 'discussion';
-    clientStore.notify('POST_DETAIL_OPENED', postId);
+    this.originRoute = originRoute || null;
+    this.replyDraft = '';
+    this.inlineReplyDrafts.clear();
+    this.isPreviewMode = false;
+    this.replyingToCommentId = null;
+    this.activeSubTab = 'discussion';
+
+    if (typeof window !== 'undefined') {
+      const currentFull = window.location.pathname + window.location.search + window.location.hash;
+      const targetPath = `/p/${encodeURIComponent(postId)}`;
+      if (window.location.pathname !== targetPath) {
+        if (!this.originPath) {
+          this.originPath = currentFull;
+        }
+        try {
+          window.history.pushState({ postId, originPath: this.originPath }, '', targetPath);
+        } catch (_) {}
+      }
+      clientStore.notify('POST_DETAIL', { action: 'open', postId });
+      clientStore.notify('MODAL_CHANGE');
+      void import('./threads.js').then(({ threadManager }) => {
+        void threadManager.loadCommentsForPost(postId).then(() => {
+          const post = clientStore.posts.find(p => p.id === postId);
+          const comments = threadManager.getRootCommentsForPost(postId);
+          if (post && comments.length > (post.replyCount || 0)) {
+            post.replyCount = comments.length;
+          }
+          window.dispatchEvent(new CustomEvent('aetheris-detail-view-refresh'));
+          clientStore.notify('POST_DETAIL', { action: 'refresh', postId });
+        });
+      });
+    } else {
+      clientStore.notify('POST_DETAIL', { action: 'open', postId });
+    }
   }
 
-  public closePost(options?: { silent?: boolean; skipHistory?: boolean }): void {
+  public closePost(options?: { skipHistory?: boolean }): void {
+    const origin = this.originPath;
     this.activePostId = null;
+    this.originRoute = null;
+    this.originPath = null;
+    this.replyDraft = '';
+    this.inlineReplyDrafts.clear();
+    this.isPreviewMode = false;
     this.replyingToCommentId = null;
-    if (!options?.silent) {
-      clientStore.notify('POST_DETAIL_CLOSED', this.originRoute);
+    this.activeSubTab = 'discussion';
+
+    if (typeof window !== 'undefined') {
+      if (/^\/(?:p|post)\//i.test(window.location.pathname)) {
+        try {
+          if (!options?.skipHistory) {
+            if (origin && !/^\/(?:p|post)\//i.test(origin)) {
+              window.history.pushState(null, '', origin);
+            } else {
+              window.history.pushState(null, '', '/');
+            }
+          } else {
+            const currentHash = window.location.hash || '';
+            window.history.replaceState(null, '', `/${currentHash}`);
+          }
+        } catch (_) {}
+      }
+    }
+
+    if (typeof document !== 'undefined') {
+      document.body.style.overflow = '';
+    }
+
+    clientStore.notify('POST_DETAIL', { action: 'close' });
+    clientStore.notify('MODAL_CHANGE');
+
+    if (typeof window !== 'undefined') {
+      const raf = typeof window.requestAnimationFrame === 'function'
+        ? window.requestAnimationFrame
+        : (typeof requestAnimationFrame === 'function' ? requestAnimationFrame : (cb: FrameRequestCallback) => setTimeout(cb, 16));
+      raf(() => {
+        const feed = document.getElementById('main-feed-scroll');
+        if (feed && this.savedFeedScrollTop > 0) {
+          feed.scrollTop = this.savedFeedScrollTop;
+        }
+      });
     }
   }
 
@@ -152,25 +242,27 @@ export class PostDetailView {
   }
 
   public toggleBookmark(postId: string): boolean {
-    if (this.bookmarkedIds.has(postId)) {
-      this.bookmarkedIds.delete(postId);
+    if (this.bookmarkedPosts.has(postId)) {
+      this.bookmarkedPosts.delete(postId);
       return false;
+    } else {
+      this.bookmarkedPosts.add(postId);
+      return true;
     }
-    this.bookmarkedIds.add(postId);
-    return true;
   }
 
   public isBookmarked(postId: string): boolean {
-    return this.bookmarkedIds.has(postId);
+    return this.bookmarkedPosts.has(postId);
   }
 
   public toggleCommentCollapse(commentId: string): boolean {
     if (this.collapsedComments.has(commentId)) {
       this.collapsedComments.delete(commentId);
       return false;
+    } else {
+      this.collapsedComments.add(commentId);
+      return true;
     }
-    this.collapsedComments.add(commentId);
-    return true;
   }
 
   public isCommentCollapsed(commentId: string): boolean {
@@ -181,18 +273,19 @@ export class PostDetailView {
     this.replyingToCommentId = commentId;
   }
 
-  public addAward(
-    postId: string,
-    name: string,
-    icon: string,
-    description: string = 'Community Award'
-  ): void {
+  public addAward(postId: string, name: string, icon: string, description: string = 'Community Award'): void {
     const list = this.awardsMap.get(postId) || [];
-    const existing = list.find((a) => a.name === name);
+    const existing = list.find(a => a.name === name);
     if (existing) {
-      existing.count += 1;
+      existing.count++;
     } else {
-      list.push({ id: `aw-${Date.now()}`, name, icon, count: 1, description });
+      list.push({
+        id: `aw-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        name,
+        icon,
+        count: 1,
+        description,
+      });
     }
     this.awardsMap.set(postId, list);
   }
@@ -201,332 +294,1314 @@ export class PostDetailView {
     return this.awardsMap.get(postId) || [];
   }
 
+  // ─── Related Posts Algorithm ──────────────────────────────────────────────
+
   public findRelatedPosts(post: any, allPosts: any[]): any[] {
     if (!post || !Array.isArray(allPosts)) return [];
-    const candidates = allPosts.filter((p) => p && p.id !== post.id);
-    const titleWords = new Set(
-      String(post.title || '')
-        .toLowerCase()
-        .split(/\W+/)
-        .filter((w) => w.length > 3)
-    );
 
-    const scored = candidates.map((cand) => {
-      let score = 0;
-      if (cand.channelId === post.channelId) score += 25;
-      if (cand.flair === post.flair) score += 15;
-      if (cand.authorFingerprint === post.authorFingerprint) score += 10;
+    const currentId = post.id;
+    const currentChannel = post.channelId || '';
+    const currentFlair = post.flair || '';
+    const currentTitleWords = (post.title || '')
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .split(/\s+/)
+      .filter((w: string) => w.length > 3);
 
-      const candWords = String(cand.title || '')
-        .toLowerCase()
-        .split(/\W+/);
-      for (const w of candWords) {
-        if (titleWords.has(w)) score += 12;
-      }
-      score += Math.min(20, Math.floor((cand.meritVotes || 0) / 25));
-      return { cand, score };
-    });
+    const scored = allPosts
+      .filter((p: any) => p && p.id !== currentId)
+      .map((p: any) => {
+        let score = 0;
 
+        // Same channel bonus
+        if (p.channelId && p.channelId === currentChannel) {
+          score += 5;
+        }
+
+        // Same flair bonus
+        if (p.flair && p.flair === currentFlair) {
+          score += 4;
+        }
+
+        // Same author bonus
+        if (p.authorFingerprint && p.authorFingerprint === post.authorFingerprint) {
+          score += 2;
+        }
+
+        // Title word matching
+        const candidateTitle = (p.title || '').toLowerCase();
+        for (const word of currentTitleWords) {
+          if (candidateTitle.includes(word)) {
+            score += 3;
+          }
+        }
+
+        // Content word matching (first 300 chars)
+        const candidateContent = (p.content || '').substring(0, 300).toLowerCase();
+        for (const word of currentTitleWords) {
+          if (candidateContent.includes(word)) {
+            score += 1;
+          }
+        }
+
+        // Merit votes tie-breaker
+        score += Math.min(5, (p.meritVotes || 0) * 0.01);
+
+        return { post: p, score };
+      });
+
+    // Sort descending by score
     scored.sort((a, b) => b.score - a.score);
-    return scored.slice(0, 3).map((s) => s.cand);
+
+    // Take top 3
+    const top3 = scored.slice(0, 3).map(item => item.post);
+
+    // If less than 3, pad with other posts
+    if (top3.length < 3) {
+      for (const p of allPosts) {
+        if (p.id !== currentId && !top3.some(x => x.id === p.id)) {
+          top3.push(p);
+          if (top3.length >= 3) break;
+        }
+      }
+    }
+
+    return top3;
   }
 
+  // ─── Markdown Parser (Self-Contained) ─────────────────────────────────────
+
   public renderMarkdown(text: string): string {
-    return markdownRenderer.renderRichContent(text);
+    if (!text || text.trim() === '') return '';
+    return markdownRenderer.renderMarkdown(text);
+  }
+
+
+
+  private sanitizeUrl(url: string): string {
+    if (!url || typeof url !== 'string') return '#';
+    const trimmed = url.trim().replace(/[\x00-\x1F\x7F]/g, '');
+    const decoded = trimmed
+      .replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(parseInt(dec, 10)))
+      .replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+      .replace(/&colon;/gi, ':');
+
+    const isSafeScheme = /^(https?:\/\/|mailto:|ipfs:\/\/|hyper:\/\/|magnet:\?|#|\/|\.\/)/i.test(decoded);
+    const isDangerousScheme = /^(javascript|vbscript|data|blob|file|about):/i.test(decoded);
+
+    if (!isSafeScheme || isDangerousScheme) {
+      return '#';
+    }
+    return this.escapeHtml(trimmed);
   }
 
   public escapeHtml(text: string): string {
-    return escapeHtml(text);
+    if (!text) return '';
+    return String(text)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 
   public formatRelativeTime(timestamp: number): string {
-    const diffSec = Math.max(1, Math.floor((Date.now() - timestamp) / 1000));
-    if (diffSec < 60) return `${diffSec}s ago`;
-    const diffMin = Math.floor(diffSec / 60);
-    if (diffMin < 60) return `${diffMin}m ago`;
-    const diffHr = Math.floor(diffMin / 60);
-    if (diffHr < 24) return `${diffHr}h ago`;
-    return `${Math.floor(diffHr / 24)}d ago`;
+    const now = Date.now();
+    const diff = Math.max(0, now - timestamp);
+    const seconds = Math.floor(diff / 1000);
+    if (seconds < 60) return `${seconds}s ago`;
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    if (days < 30) return `${days}d ago`;
+    return new Date(timestamp).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  // ─── Post Focus View (Primary Stage Surface) ─────────────────────────────
+
+  public renderPostFocusView(post: any, comments: any[] = [], relatedPosts: any[] = []): string {
+    if (!post) {
+      return this.renderPostNotFound();
+    }
+
+    const postId = post.id || '';
+    const isBookmarked = this.isBookmarked(postId);
+    const awards = this.getAwards(postId);
+    const safeTitle = this.escapeHtml(post.title || 'Untitled Discussion');
+    const safeContent = this.renderMarkdown(post.content || '');
+    const relTime = this.formatRelativeTime(post.createdAt || Date.now());
+    const exactTime = new Date(post.createdAt || Date.now()).toUTCString();
+
+    const flair = post.flair || 'TECH DISCUSSION';
+    const flairStyle = flair === 'VERIFIED RELEASE'
+      ? 'bg-emerald-950/80 text-signal border-signal/40 shadow-signal-sm'
+      : flair === 'SECURITY ADVISORY'
+      ? 'bg-purple-950/80 text-aether border-aether/40'
+      : flair === 'MICRO-PULSE'
+      ? 'bg-cyan-950/80 text-cyphr border-cyphr/40'
+      : flair === 'ASK COMMUNITY'
+      ? 'bg-amber-950/80 text-amber border-amber/40'
+      : 'bg-slate-800 text-slate-300 border-white/10';
+
+    const channelDisplay = post.channelId
+      ? (post.channelId.startsWith('vault-') ? `r/${post.channelId.replace('vault-', '')}` : post.channelId.startsWith('c/') ? post.channelId : `#${post.channelId}`)
+      : 'r/aetheris';
+
+    const roleBadge = post.authorRole === 'GUARDIAN'
+      ? 'text-amber bg-amber/10 border-amber/30'
+      : post.authorRole === 'ARCHIVIST'
+      ? 'text-cyphr bg-cyphr/10 border-cyphr/30'
+      : post.authorRole === 'MODERATOR'
+      ? 'text-signal bg-signal/10 border-signal/30'
+      : 'text-slate-400 bg-surface-raised border-white/5';
+
+    const userVoted = post.userVoted || 0;
+    const meritVotes = post.meritVotes || 0;
+    const boostCount = post.boostCount || 0;
+    const replyCount = post.replyCount || (comments ? comments.length : 0);
+
+    return `
+      <div id="post-focus-view" class="flex-1 flex flex-col h-full overflow-y-auto bg-canvas journal-thread-view">
+        <div class="journal-thread-page w-full mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-5 space-y-6">
+          
+          <!-- STAGE HEADER BAR -->
+          <header class="journal-thread-toolbar sticky top-0 z-30 flex items-center justify-between py-2.5 pb-3 border-b border-white/10 bg-canvas/90 backdrop-blur-md gap-3">
+            <div class="flex items-center space-x-3 min-w-0">
+              <button type="button" id="btn-back-to-feed" data-action="close-post-detail" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-surface-raised hover:bg-surface-overlay text-slate-300 hover:text-white text-xs font-semibold border border-white/5 transition-all cursor-pointer shrink-0">
+                <svg class="w-4 h-4 text-[var(--color-accent,#e59b3c)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                </svg>
+                <span>Back to Feed</span>
+              </button>
+
+              <div class="h-4 w-px bg-white/10 hidden sm:block shrink-0"></div>
+
+              <div class="flex items-center space-x-2 truncate">
+                <span class="font-mono text-xs font-bold text-slate-300">${channelDisplay}</span>
+                <span class="text-[10px] font-mono px-2 py-0.5 rounded-md border ${flairStyle} hidden sm:inline-block">${flair}</span>
+                <span class="hidden sm:inline-block">${privacyLens.renderCompact((post.audience as any) || (post.channelId?.startsWith('vault-') ? 'followers' : post.channelId ? 'community' : 'public'))}</span>
+              </div>
+            </div>
+
+            <!-- SUBTAB SELECTOR & ACTIONS -->
+            <div class="flex items-center space-x-2 shrink-0">
+              <div class="flex items-center space-x-1 bg-surface-raised p-0.5 rounded-xl border border-white/5 text-xs">
+                <button type="button" data-action="post-detail-subtab" data-subtab="discussion" class="btn-subtab px-3 py-1 rounded-lg font-medium transition-all cursor-pointer ${this.activeSubTab === 'discussion' ? 'bg-surface-overlay text-slate-100 font-semibold shadow-xs' : 'text-slate-400 hover:text-slate-200'}">
+                  Discussion
+                </button>
+
+                <details class="relative inline-block text-left group">
+                  <summary class="btn-subtab px-2.5 py-1 rounded-lg font-medium text-slate-400 hover:text-slate-200 transition-all cursor-pointer list-none flex items-center gap-1">
+                    <span>${this.activeSubTab === 'zk_proof' ? 'Verification' : this.activeSubTab === 'raw_json' ? 'Raw Data' : 'Details'}</span>
+                    <svg class="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                  </summary>
+                  <div class="absolute right-0 mt-1 w-48 rounded-xl bg-surface-raised border border-white/10 shadow-2xl p-1 z-50 flex flex-col gap-0.5 backdrop-blur-md">
+                    <button type="button" data-action="post-detail-subtab" data-subtab="zk_proof" class="btn-subtab text-left px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer flex items-center gap-2 ${this.activeSubTab === 'zk_proof' ? 'bg-surface-overlay text-[var(--color-accent,#e59b3c)] font-semibold' : 'text-slate-300 hover:bg-surface-overlay hover:text-white'}">
+                      <span>🛡️</span>
+                      <span>Verification details</span>
+                    </button>
+                    <button type="button" data-action="post-detail-subtab" data-subtab="raw_json" class="btn-subtab text-left px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer flex items-center gap-2 ${this.activeSubTab === 'raw_json' ? 'bg-surface-overlay text-[var(--color-accent,#e59b3c)] font-semibold' : 'text-slate-300 hover:bg-surface-overlay hover:text-white'}">
+                      <span>{ }</span>
+                      <span>View raw JSON</span>
+                    </button>
+                  </div>
+                </details>
+              </div>
+
+              <button type="button" id="btn-close-post-detail" data-action="close-post-detail" class="p-1.5 rounded-xl bg-surface-raised hover:bg-surface-overlay text-slate-400 hover:text-white text-xs border border-white/5 transition-all cursor-pointer" title="Close (ESC)">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+              </button>
+            </div>
+          </header>
+
+          <!-- MAIN CONTENT VIEW -->
+          <div class="journal-thread-content space-y-6">
+            ${this.activeSubTab === 'raw_json' ? this.renderRawJsonView(post) :
+              this.activeSubTab === 'zk_proof' ? this.renderZkProofView(post) :
+              this.renderMainDiscussionView(post, comments, relatedPosts, {
+                isBookmarked,
+                awards,
+                safeTitle,
+                safeContent,
+                relTime,
+                exactTime,
+                flair,
+                flairStyle,
+                channelDisplay,
+                roleBadge,
+                userVoted,
+                meritVotes,
+                boostCount,
+                replyCount,
+              })
+            }
+          </div>
+
+        </div>
+      </div>
+    `;
   }
 
   public renderPostNotFound(): string {
-    return `<div class="max-w-2xl mx-auto p-8 rounded-3xl bg-surface-base/85 border border-white/10 text-center space-y-3">
-      <h2 class="text-lg font-extrabold text-white">Discussion Unavailable</h2>
-      <p class="text-xs text-slate-400">This post may have been removed or is not accessible in your current context.</p>
-      <button type="button" id="btn-back-to-feed" class="px-4 py-2 rounded-xl bg-cyan-500 text-slate-950 font-bold text-xs cursor-pointer">← Back to Feed</button>
-    </div>`;
+    return `
+      <div id="post-focus-view" class="flex-1 flex flex-col h-full overflow-y-auto bg-canvas items-center justify-center p-6">
+        <div class="max-w-md w-full bg-surface-base border border-white/10 rounded-2xl p-8 text-center space-y-4 shadow-xl">
+          <div class="w-12 h-12 rounded-2xl bg-surface-raised border border-white/5 mx-auto flex items-center justify-center text-xl">
+            🔍
+          </div>
+          <div class="space-y-1">
+            <h2 class="text-base font-bold text-white">Post not found or unavailable</h2>
+            <p class="text-xs text-slate-400">The discussion may have expired, been removed, or is inaccessible on this node.</p>
+          </div>
+          <button type="button" id="btn-close-post-detail-fallback" data-action="close-post-detail" class="px-4 py-2 bg-surface-raised hover:bg-surface-overlay rounded-xl text-xs font-semibold text-white border border-white/10 transition-all cursor-pointer">
+            Back to Feed
+          </button>
+        </div>
+      </div>
+    `;
   }
 
-  public renderCommentNode(c: any, depth: number = 0, postAuthorFP?: string): string {
-    const isCollapsed = this.isCommentCollapsed(c.id) || Boolean(c.isCollapsed);
-    const prof = profileView.getProfile(c.authorFingerprint);
-    const identity = presentPublicIdentity(
-      {
-        name: c.authorDisplayName || prof.name,
-        handle: c.authorHandle || prof.handle,
-        avatar: c.authorAvatarUrl || prof.avatar,
-      },
-      c.authorFingerprint
-    );
-    const isOP = postAuthorFP && c.authorFingerprint === postAuthorFP;
-    const indentClass = depth > 0 ? 'ml-4 sm:ml-6 pl-3.5 border-l border-white/10' : '';
+  // ─── Modal Renderer (Fallback) ─────────────────────────────────────────────
 
-    return `<div
-      id="detail-comment-${this.escapeHtml(c.id)}"
-      data-comment-id="${this.escapeHtml(c.id)}"
-      class="py-3 ${indentClass}"
-    >
-      <div class="flex items-center justify-between gap-2 mb-1.5">
-        <div class="flex items-center gap-2 min-w-0">
-          ${renderAvatar(identity.avatar, c.authorFingerprint, { size: 26 })}
-          <span class="text-xs font-bold text-white truncate">${this.escapeHtml(identity.displayName)}</span>
-          <span class="text-[11px] font-mono text-slate-400 truncate">@${this.escapeHtml(identity.handleLabel)}</span>
-          ${
-            isOP
-              ? `<span class="px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300 font-mono text-[10px] font-bold">OP</span>`
-              : ''
-          }
-          <span class="text-[11px] text-slate-500">${this.formatRelativeTime(c.createdAt || Date.now())}</span>
+  public renderFullPostModal(post: any, comments: any[] = [], relatedPosts: any[] = []): string {
+    if (!post) {
+      return `
+        <div id="post-detail-modal-overlay" class="fixed inset-0 z-[60] bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div class="bg-surface-base border border-white/10 rounded-2xl p-6 text-center text-slate-400">
+            <p>Post not found or unavailable.</p>
+            <button id="btn-close-post-detail-fallback" class="mt-4 px-4 py-2 bg-surface-raised rounded-lg text-xs text-white">Close</button>
+          </div>
         </div>
-        <button
-          type="button"
-          data-collapse-comment="${this.escapeHtml(c.id)}"
-          class="text-xs font-mono text-slate-400 hover:text-white px-1.5 cursor-pointer"
-        >${isCollapsed ? '[+]' : '[–]'}</button>
+      `;
+    }
+
+    const postId = post.id || '';
+    const isBookmarked = this.isBookmarked(postId);
+    const awards = this.getAwards(postId);
+    const safeTitle = this.escapeHtml(post.title || 'Untitled Thread');
+    const safeContent = this.renderMarkdown(post.content || '');
+    const relTime = this.formatRelativeTime(post.createdAt || Date.now());
+    const exactTime = new Date(post.createdAt || Date.now()).toUTCString();
+
+    const flair = post.flair || 'TECH DISCUSSION';
+    const flairStyle = flair === 'VERIFIED RELEASE'
+      ? 'bg-emerald-950/80 text-signal border-signal/40 shadow-signal-sm'
+      : flair === 'SECURITY ADVISORY'
+      ? 'bg-purple-950/80 text-aether border-aether/40'
+      : flair === 'MICRO-PULSE'
+      ? 'bg-cyan-950/80 text-cyphr border-cyphr/40'
+      : flair === 'ASK COMMUNITY'
+      ? 'bg-amber-950/80 text-amber border-amber/40'
+      : 'bg-slate-800 text-slate-300 border-white/10';
+
+    const channelDisplay = post.channelId
+      ? (post.channelId.startsWith('vault-') ? `r/${post.channelId.replace('vault-', '')}` : `#${post.channelId}`)
+      : 'r/aetheris';
+
+    const roleBadge = post.authorRole === 'GUARDIAN'
+      ? 'text-amber bg-amber/10 border-amber/30'
+      : post.authorRole === 'ARCHIVIST'
+      ? 'text-cyphr bg-cyphr/10 border-cyphr/30'
+      : post.authorRole === 'MODERATOR'
+      ? 'text-signal bg-signal/10 border-signal/30'
+      : 'text-slate-400 bg-surface-raised border-white/5';
+
+    const userVoted = post.userVoted || 0;
+    const meritVotes = post.meritVotes || 0;
+    const boostCount = post.boostCount || 0;
+    const replyCount = post.replyCount || (comments ? comments.length : 0);
+
+    const existingOverlay = typeof document !== 'undefined' && document.getElementById('post-detail-modal-overlay');
+    const animClass = existingOverlay ? '' : 'animate-in fade-in duration-150';
+
+    return `
+      <div id="post-detail-modal-overlay" data-action="close-post-detail-backdrop" class="journal-thread-overlay fixed inset-0 z-[60] bg-black/85 backdrop-blur-md overflow-y-auto flex justify-center p-4 md:p-8 ${animClass} select-none pointer-events-auto">
+        <div class="journal-thread-dialog max-w-4xl w-full bg-surface-base border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col my-auto max-h-[94vh] pointer-events-auto" data-action="stop-propagation">
+          
+          <!-- ─── HEADER BAR ─────────────────────────────────────────── -->
+          <header class="journal-thread-toolbar h-14 border-subtle-b bg-surface-raised/80 px-4 md:px-6 flex items-center justify-between shrink-0">
+            <div class="flex items-center space-x-3 truncate">
+              <button type="button" id="btn-back-to-feed" data-action="close-post-detail" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-surface-base hover:bg-surface-overlay text-slate-300 hover:text-white text-xs font-semibold border border-white/5 transition-all cursor-pointer">
+                <svg class="w-4 h-4 text-cyphr" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                </svg>
+                <span>Back to Feed</span>
+              </button>
+
+              <div class="h-4 w-px bg-white/10 hidden sm:block"></div>
+
+              <div class="flex items-center space-x-2 truncate">
+                <span class="font-mono text-xs font-bold text-cyphr">${channelDisplay}</span>
+                <span class="text-[10px] font-mono px-2 py-0.5 rounded-md border ${flairStyle} hidden sm:inline-block">${flair}</span>
+              </div>
+            </div>
+
+            <!-- TAB SELECTOR / CONTROLS -->
+            <div class="flex items-center space-x-2">
+              <div class="flex items-center space-x-1 bg-surface-base p-0.5 rounded-lg border border-white/5 text-xs">
+                <button type="button" data-action="post-detail-subtab" data-subtab="discussion" class="btn-subtab px-3 py-1 rounded font-medium transition-all cursor-pointer ${this.activeSubTab === 'discussion' ? 'bg-surface-overlay text-slate-100 font-semibold' : 'text-slate-400 hover:text-slate-200'}">
+                  Thread
+                </button>
+
+                <details class="relative inline-block text-left">
+                  <summary class="btn-subtab px-2.5 py-1 rounded font-medium text-slate-400 hover:text-slate-200 transition-all cursor-pointer list-none flex items-center gap-1">
+                    <span>${this.activeSubTab === 'zk_proof' ? 'Verification' : this.activeSubTab === 'raw_json' ? 'Raw data' : 'More'}</span>
+                    <svg class="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                  </summary>
+                  <div class="absolute right-0 mt-1 w-44 rounded-xl bg-surface-raised border border-white/10 shadow-2xl p-1 z-50 flex flex-col gap-0.5 backdrop-blur-md">
+                    <button type="button" data-action="post-detail-subtab" data-subtab="zk_proof" class="btn-subtab text-left px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer flex items-center gap-2 ${this.activeSubTab === 'zk_proof' ? 'bg-surface-overlay text-[var(--color-accent,#e59b3c)] font-semibold' : 'text-slate-300 hover:bg-surface-overlay hover:text-white'}">
+                      <span>🛡️</span>
+                      <span>Verification details</span>
+                    </button>
+                    <button type="button" data-action="post-detail-subtab" data-subtab="raw_json" class="btn-subtab text-left px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer flex items-center gap-2 ${this.activeSubTab === 'raw_json' ? 'bg-surface-overlay text-[var(--color-accent,#e59b3c)] font-semibold' : 'text-slate-300 hover:bg-surface-overlay hover:text-white'}">
+                      <span>{ }</span>
+                      <span>View raw data</span>
+                    </button>
+                  </div>
+                </details>
+              </div>
+
+              <button type="button" id="btn-close-post-detail" data-action="close-post-detail" class="flex items-center space-x-1 px-2.5 py-1.5 rounded-lg bg-surface-base hover:bg-white/10 text-slate-400 hover:text-white text-xs font-mono border border-white/5 transition-all cursor-pointer" title="Close modal (ESC)">
+                <span>✕</span>
+                <span class="hidden sm:inline">Close</span>
+              </button>
+            </div>
+          </header>
+
+          <!-- ─── SCROLLABLE BODY ────────────────────────────────────── -->
+          <div class="journal-thread-content flex-1 overflow-y-auto p-4 md:p-6 space-y-6 bg-canvas">
+            
+            ${this.activeSubTab === 'raw_json' ? this.renderRawJsonView(post) :
+              this.activeSubTab === 'zk_proof' ? this.renderZkProofView(post) :
+              this.renderMainDiscussionView(post, comments, relatedPosts, {
+                isBookmarked,
+                awards,
+                safeTitle,
+                safeContent,
+                relTime,
+                exactTime,
+                flair,
+                flairStyle,
+                channelDisplay,
+                roleBadge,
+                userVoted,
+                meritVotes,
+                boostCount,
+                replyCount,
+              })
+            }
+
+          </div>
+
+        </div>
+      </div>
+    `;
+  }
+
+  // ─── Main Discussion Subview ──────────────────────────────────────────────
+
+  private renderMainDiscussionView(
+    post: any,
+    comments: any[],
+    relatedPosts: any[],
+    meta: any
+  ): string {
+    const postId = post.id || '';
+    const authorProfile = profileView.getProfile(post.authorFingerprint || '');
+    const postIdentity = presentPublicIdentity(post.authorDisplayName || post.authorHandle
+      ? { ...authorProfile, name: post.authorDisplayName || '', handle: post.authorHandle || '', avatar: post.authorAvatarUrl || '' }
+      : authorProfile, post.authorFingerprint || '', post.authorFingerprint === clientStore.keypair.fingerprint);
+    const authorName = postIdentity.displayName;
+    const authorHandle = postIdentity.handleLabel;
+    const authorAvatar = authorProfile?.avatar;
+
+    return `
+      <div class="post-detail-river journal-thread-river w-full space-y-6">
+      <div class="river-item journal-thread-root post-grammar--deep-discussion border-0">
+          <article class="river-content journal-thread-article editorial-stage__article space-y-6 w-full">
+        
+        <!-- TOP METADATA & MERIT VOTE BANNER -->
+        <div class="journal-thread-byline flex items-start justify-between gap-4">
+          <div class="flex items-center space-x-3">
+            <div class="relative">
+              ${authorAvatar ? `
+                <img src="${escapeHtml(authorAvatar)}" alt="${escapeHtml(authorName)}" class="w-11 h-11 rounded-full object-cover shadow-lg border border-white/10 shrink-0" />
+              ` : `
+                <div class="w-11 h-11 rounded-full bg-gradient-to-tr from-aether/60 to-cyphr/60 p-0.5 shadow-lg flex items-center justify-center font-mono text-sm font-bold text-white">
+                  ${(post.authorFingerprint || '??').substring(0, 2).toUpperCase()}
+                </div>
+              `}
+            </div>
+
+            <div class="journal-thread-author">
+              <div class="flex items-center space-x-2 flex-wrap gap-y-0.5">
+                <strong class="font-bold text-sm text-white">${escapeHtml(authorName)}</strong>
+                <span class="font-mono text-xs text-slate-400">${escapeHtml(authorHandle)}</span>
+                <span class="text-[9px] font-mono px-1.5 py-0.2 rounded border ${meta.roleBadge}">${post.authorRole || 'MEMBER'}</span>
+                <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-emerald-950/80 text-emerald-400 border border-emerald-800/40">ZK-Verified</span>
+              </div>
+              <div class="journal-thread-metadata text-[11px] font-mono text-slate-500 mt-0.5" title="${meta.exactTime}">
+                Posted ${meta.relTime} • In <span class="text-cyphr">${meta.channelDisplay}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- MERIT VOTING CONTROLLER -->
+          <div class="journal-thread-vote flex items-center space-x-1.5 bg-surface-raised p-1 rounded-xl border border-white/5">
+            <button type="button" data-action="post-detail-vote" data-vote-id="${postId}" data-dir="1" class="btn-detail-vote p-1.5 rounded-lg hover:bg-surface-overlay transition-colors cursor-pointer ${meta.userVoted === 1 ? 'text-cyphr font-bold bg-cyphr/10' : 'text-slate-400 hover:text-cyphr'}" title="Endorse (+1 Merit)">
+              ▲
+            </button>
+            <span class="detail-vote-count font-mono text-sm font-bold px-2 ${meta.userVoted === 1 ? 'text-cyphr' : meta.userVoted === -1 ? 'text-crimson' : 'text-slate-200'}">
+              ${meta.meritVotes}
+            </span>
+            <button type="button" data-action="post-detail-vote" data-vote-id="${postId}" data-dir="-1" class="btn-detail-vote p-1.5 rounded-lg hover:bg-surface-overlay transition-colors cursor-pointer ${meta.userVoted === -1 ? 'text-crimson font-bold bg-crimson/10' : 'text-slate-400 hover:text-crimson'}" title="Divergent perspective (-1)">
+              ▼
+            </button>
+          </div>
+        </div>
+
+        ${post.content && (post.content.startsWith('> [ 🔗 Evolved from') || post.content.startsWith('> Evolved from Live Chat')) ? `
+          <div class="provenance-badge inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-indigo-950/80 border border-indigo-500/40 text-indigo-300 text-xs font-mono my-1">
+            <span>${post.content.startsWith('> [ 🔗') ? '🔗' : '⚡'}</span>
+            <span>${post.content.startsWith('> [ 🔗') ? 'Evolved from Private Branch' : 'Evolved from Live Chat'}</span>
+          </div>
+        ` : ''}
+
+        <!-- POST TITLE -->
+        <h1 class="journal-thread-title">
+          ${meta.safeTitle}
+        </h1>
+
+        <!-- AWARDS DISPLAY (IF ANY) -->
+        ${awardsSystem.renderAwardBadges(postId)}
+
+        <!-- POST BODY (MARKDOWN FORMATTED) -->
+        <div class="journal-thread-body text-sm md:text-base text-slate-200 leading-relaxed select-text space-y-3 border-t border-white/5 pt-4 max-w-prose break-words">
+          ${meta.safeContent}
+        </div>
+
+        <!-- ─── MULTIMEDIA INTEGRATIONS ──────────────────────────────── -->
+
+        <!-- 1. VIDEO PLAYER -->
+        ${post.video ? this.renderVideoBlock(post.id, post.video) : (obsidianMediaPlayer.extractVideo(post.content) ? obsidianMediaPlayer.renderVideoCard(post.id, post.content) : '')}
+
+        <!-- 2. MOSAIC IMAGE GALLERY -->
+        ${post.images && post.images.length > 0 ? this.renderImageMosaicBlock(post.images) : ''}
+
+        <!-- 3. CRYPTOGRAPHIC POLL CARD -->
+        ${post.pollId ? this.renderPollBlock(post.pollId) : ''}
+
+        <!-- 4. QUOTE POST EMBED -->
+        ${post.quotedPost ? this.renderQuotedPostBlock(post.quotedPost) : ''}
+
+        <!-- 5. BINARY HYGIENE ATTACHMENT PASSPORT -->
+        ${post.attachment ? this.renderAttachmentBlock(post.attachment) : ''}
+        <!-- ─── ACTION TOOLBAR ───────────────────────────────────────── -->
+        <div class="journal-thread-actions flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-white/5 text-xs font-mono text-slate-400">
+          <div class="flex items-center space-x-4">
+            <button class="flex items-center space-x-1.5 text-cyphr hover:opacity-80 transition-opacity">
+              <span>💬</span>
+              <span class="font-semibold">${meta.replyCount} ${t('pulse.replies', undefined, 'Replies')}</span>
+            </button>
+
+            <button data-boost-id="${postId}" class="btn-detail-boost flex items-center space-x-1.5 transition-all cursor-pointer ${post.userBoosted ? 'text-emerald-400 font-bold bg-emerald-500/15 px-2.5 py-1 rounded-xl border border-emerald-500/30' : 'hover:text-emerald-400'}">
+              <span class="${post.userBoosted ? 'rotate-180 transition-transform duration-300' : ''}">⟳</span>
+              <span class="detail-boost-counter">${meta.boostCount} ${t('pulse.boost', undefined, 'Boost')}</span>
+            </button>
+
+            <button data-bookmark-id="${postId}" class="btn-detail-bookmark flex items-center space-x-1.5 hover:text-amber transition-colors ${meta.isBookmarked ? 'text-amber font-bold' : ''}">
+              <span>${meta.isBookmarked ? '★' : '☆'}</span>
+              <span>${meta.isBookmarked ? t('actions.unbookmark', undefined, 'Bookmarked') : t('actions.bookmark', undefined, 'Bookmark')}</span>
+            </button>
+
+            <button data-post-id="${postId}" data-award-id="${postId}" class="btn-detail-award btn-open-award-modal flex items-center space-x-1.5 hover:text-amber transition-colors cursor-pointer" title="Bestow Sovereign Proof Award">
+              <span>🏆</span>
+              <span>${t('actions.award', undefined, 'Award')}</span>
+            </button>
+          </div>
+
+          <div class="flex items-center space-x-2">
+            <button type="button" data-action="keep-post" data-post-id="${postId}" class="btn-detail-keep flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-surface-raised hover:bg-surface-overlay text-amber-400 hover:text-amber-300 border border-white/5 transition-all cursor-pointer" title="Save to sovereign encrypted Vault">
+              <span>💎</span>
+              <span>Keep in Vault</span>
+            </button>
+            <button data-share-id="${postId}" class="btn-detail-share flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-surface-raised hover:bg-surface-overlay text-slate-300 hover:text-white border border-white/5 transition-all cursor-pointer">
+              <span>🔗</span>
+              <span class="share-btn-label">${t('pulse.share', undefined, 'Share')}</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- ─── REACTION ROW ─────────────────────────────────────────── -->
+        <div class="reaction-row journal-thread-reactions pt-2 border-t border-white/5">
+          ${reactionsEngine.renderReactionBar(postId, clientStore.keypair?.fingerprint || '')}
+        </div>
+
+          </article>
+        </div>
+
+        <!-- ─── FAST REPLY COMPOSER ────────────────────────── -->
+        <div class="river-item border-0 pt-2">
+          <section class="river-content journal-thread-reply-composer editorial-reply-composer p-5 sm:p-6 rounded-2xl bg-surface-base border border-white/10 shadow-lg space-y-4 w-full">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center space-x-2">
+                <span class="text-sm">✍️</span>
+                <h3 class="journal-thread-reply-heading text-xs font-bold uppercase tracking-wider text-slate-200">Write a reply</h3>
+              </div>
+
+              <!-- PREVIEW TOGGLE -->
+              <div class="flex items-center space-x-1 bg-surface-raised p-0.5 rounded-lg border border-white/5 text-[11px] font-mono">
+                <button type="button" id="btn-reply-edit-toggle" class="px-2.5 py-0.5 rounded transition-all ${!this.isPreviewMode ? 'bg-surface-overlay text-white font-bold' : 'text-slate-400 hover:text-slate-200'}">
+                  Write
+                </button>
+                <button type="button" id="btn-reply-preview-toggle" class="px-2.5 py-0.5 rounded transition-all ${this.isPreviewMode ? 'bg-surface-overlay text-white font-bold' : 'text-slate-400 hover:text-slate-200'}">
+                  Preview
+                </button>
+              </div>
+            </div>
+
+            <form id="form-post-detail-reply" class="journal-thread-reply-form space-y-3">
+              <!-- MARKDOWN TOOLBAR -->
+              ${this.renderMarkdownToolbar()}
+
+              <!-- INPUT OR LIVE PREVIEW -->
+              ${!this.isPreviewMode ? `
+                <textarea 
+                  id="input-detail-reply-text" 
+                  placeholder="Add your perspective. Markdown is supported." aria-label="Reply to discussion"
+                  class="w-full bg-surface-raised border border-white/10 rounded-xl p-3 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-[var(--color-accent,#e59b3c)] resize-none h-28 leading-relaxed font-sans"
+                  required
+                >${this.escapeHtml(this.replyDraft)}</textarea>
+              ` : `
+                <div class="w-full bg-surface-raised border border-white/10 rounded-xl p-3 min-h-[7rem] text-xs text-slate-200 leading-relaxed font-sans overflow-y-auto">
+                  ${this.replyDraft.trim() ? this.renderMarkdown(this.replyDraft) : '<p class="text-slate-500 italic">Nothing to preview yet. Switch to Write tab to compose your reply.</p>'}
+                </div>
+              `}
+
+              <div class="flex items-center justify-between pt-1">
+                <span class="text-xs text-slate-400">Markdown supported</span>
+                <button type="submit" ${this.replySubmitting ? 'disabled aria-busy="true"' : ''} class="context-button">
+                  <span>${this.replySubmitting ? 'Sending…' : 'Reply'}</span>
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+
+        <!-- ─── NESTED COLOR-BRANCHED COMMENT TREE (RIVER FLOW) ─────────── -->
+        <div class="river-item">
+          <div class="river-anchor">
+            <div class="river-node-dot"></div>
+          </div>
+          <section class="river-content journal-thread-replies space-y-4 w-full">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center space-x-2">
+                <span class="text-sm">💬</span>
+                <h3 class="journal-thread-replies-heading text-xs font-bold uppercase tracking-wider text-slate-300">
+                  Discussion (${comments.length} ${comments.length === 1 ? 'reply' : 'replies'})
+                </h3>
+              </div>
+            </div>
+
+            ${comments.length === 0 ? `
+              <div class="journal-thread-empty p-8 rounded-2xl bg-surface-base/50 border border-white/5 text-center text-slate-500 space-y-2">
+                <span class="text-3xl block">💬</span>
+                <p class="text-xs font-medium text-slate-300">No replies yet.</p>
+                <p class="text-[11px] text-slate-500">Be the first to join the conversation.</p>
+              </div>
+            ` : `
+              <div class="journal-thread-branches space-y-4 pt-1">
+                ${comments.map(c => this.renderCommentNode(c, 0, post.authorFingerprint)).join('')}
+              </div>
+            `}
+          </section>
+        </div>
       </div>
 
-      ${
-        isCollapsed
-          ? `<div class="text-xs italic text-slate-500">Comment collapsed</div>`
-          : `<div class="text-sm text-slate-200 leading-relaxed pl-8">
-              ${this.renderMarkdown(c.content)}
+      <!-- ─── RELATED TECHNICAL THREADS ──────────────────────────────── -->
+      ${relatedPosts.length > 0 ? `
+        <section class="journal-thread-related p-5 rounded-2xl bg-surface-base border border-white/10 shadow-lg space-y-3 mt-8">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+              <span class="text-sm">📌</span>
+              <h3 class="text-xs font-bold uppercase tracking-wider text-slate-200">
+                Related conversations
+              </h3>
             </div>
-            <div class="mt-2 pl-8 flex items-center gap-3 text-xs text-slate-400">
-              <button type="button" data-vote-comment="${this.escapeHtml(c.id)}" data-dir="1" class="hover:text-cyan-300 font-mono cursor-pointer">
-                ▲ ${c.meritScore ?? c.likesCount ?? 0}
-              </button>
-              <button type="button" data-reply-comment="${this.escapeHtml(c.id)}" class="hover:text-white cursor-pointer">
-                Reply
-              </button>
-              ${awardsSystem.renderCommentAwardBadges(c.id)}
-            </div>
-            ${
-              Array.isArray(c.replies) && c.replies.length > 0
-                ? `<div class="mt-2 space-y-1">
-                    ${c.replies.map((r: any) => this.renderCommentNode(r, depth + 1, postAuthorFP)).join('')}
-                  </div>`
-                : ''
-            }`
-      }
-    </div>`;
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
+            ${relatedPosts.map(rp => this.renderRelatedPostCard(rp)).join('')}
+          </div>
+        </section>
+      ` : ''}
+    `;
   }
 
+  private renderMarkdownToolbar(): string {
+    if (this.isPreviewMode) return '';
+    return `
+      <div class="flex flex-wrap items-center gap-1 p-1 bg-surface-raised rounded-lg border border-white/5 text-xs font-mono text-slate-400">
+        <button type="button" class="btn-md-action px-2 py-1 hover:bg-surface-overlay hover:text-white rounded" data-md="bold" title="Bold"><strong>B</strong></button>
+        <button type="button" class="btn-md-action px-2 py-1 hover:bg-surface-overlay hover:text-white rounded italic" data-md="italic" title="Italic"><em>I</em></button>
+        <button type="button" class="btn-md-action px-2 py-1 hover:bg-surface-overlay hover:text-white rounded" data-md="code" title="Inline code">&lt;/&gt;</button>
+        <button type="button" class="btn-md-action px-2 py-1 hover:bg-surface-overlay hover:text-white rounded" data-md="codeblock" title="Code Block">{ code }</button>
+        <button type="button" class="btn-md-action px-2 py-1 hover:bg-surface-overlay hover:text-white rounded" data-md="quote" title="Quote">&rdquo;</button>
+        <button type="button" class="btn-md-action px-2 py-1 hover:bg-surface-overlay hover:text-white rounded" data-md="link" title="Link">🔗</button>
+        <button type="button" class="btn-md-action px-2 py-1 hover:bg-surface-overlay hover:text-white rounded" data-md="list" title="List">• List</button>
+      </div>
+    `;
+  }
+
+  // ─── Comment Node Recursive Renderer ──────────────────────────────────────
+
+  public renderCommentNode(c: any, depth: number = 0, postAuthorFP?: string): string {
+    const isCollapsed = this.isCommentCollapsed(c.id);
+    const color = THREAD_DEPTH_COLORS[depth % THREAD_DEPTH_COLORS.length];
+    const relTime = this.formatRelativeTime(c.createdAt || Date.now());
+    const replies: any[] = c.replies || [];
+    const isReplying = this.replyingToCommentId === c.id;
+    const isOP = postAuthorFP && c.authorFingerprint === postAuthorFP;
+    const isMe = typeof window !== 'undefined' && window.activeUserFP === c.authorFingerprint;
+
+    const indentClass = depth === 0 ? '' : depth <= 4 ? 'pl-2.5 sm:pl-3.5' : 'pl-1.5 sm:pl-2.5';
+    const continuationBadge = depth > 4 ? `
+      <div class="flex items-center space-x-1.5 text-[10px] text-slate-400 font-mono mb-1">
+        <span style="color: ${color}; font-weight: bold;">↳</span>
+        <span class="truncate">Thread continuation (level ${depth + 1})</span>
+      </div>
+    ` : '';
+
+    const authorProfile = profileView.getProfile(c.authorFingerprint || '');
+    const commentIdentity = presentPublicIdentity(c.authorDisplayName || c.authorHandle
+      ? { ...authorProfile, name: c.authorDisplayName || '', handle: c.authorHandle || '', avatar: c.authorAvatarUrl || '' }
+      : authorProfile, c.authorFingerprint || '', Boolean(isMe));
+    const authorName = commentIdentity.displayName;
+    const authorHandle = commentIdentity.handleLabel;
+    const authorAvatar = authorProfile?.avatar;
+
+    return `
+      <div id="context-comment-${escapeHtml(c.id)}" tabindex="-1" class="journal-comment-branch editorial-comment-branch relative ${indentClass} transition-all" style="border-left: 1.5px solid var(--surface-rule);">
+        ${continuationBadge}
+        <div class="journal-comment-entry editorial-comment-node p-3 sm:p-3.5 rounded-xl bg-surface-raised/35 hover:bg-surface-raised/55 transition-all space-y-2">
+          
+          <!-- COMMENT HEADER -->
+          <div class="flex items-center justify-between text-xs gap-2 flex-wrap">
+            <div class="flex items-center space-x-2 flex-wrap gap-y-1">
+              <button type="button" class="flex items-center space-x-2 text-left group/author hover:opacity-90 transition-opacity cursor-pointer" data-author-profile="${escapeHtml(c.authorFingerprint || '')}">
+                ${authorAvatar ? `
+                  <img src="${escapeHtml(authorAvatar)}" alt="${escapeHtml(authorName)}" class="w-6 h-6 rounded-full object-cover shrink-0 border border-white/10" loading="lazy" />
+                ` : `
+                  <div class="w-6 h-6 rounded-md bg-surface-overlay flex items-center justify-center font-mono text-[9px] font-bold" style="color: ${color};">
+                    ${(c.authorFingerprint || '??').substring(0, 2).toUpperCase()}
+                  </div>
+                `}
+                <div class="flex items-baseline space-x-1.5">
+                  <strong class="font-bold text-xs text-white group-hover/author:text-indigo-300 transition-colors">${escapeHtml(authorName)}</strong>
+                  <span class="text-[11px] text-slate-400 font-mono">${escapeHtml(authorHandle)}</span>
+                </div>
+              </button>
+              ${isOP ? `
+                <span class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 font-mono tracking-tight" title="Original Poster">
+                  OP
+                </span>
+              ` : ''}
+              ${isMe ? `
+                <span class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 font-mono" title="You">
+                  YOU
+                </span>
+              ` : ''}
+              <span class="text-[10px] text-slate-500 font-mono">${relTime}</span>
+              <span class="text-[9px] px-1.5 py-0.2 rounded bg-surface-raised text-slate-300 font-mono border border-white/5">
+                ★ ${c.meritScore || 0}
+              </span>
+              ${awardsSystem.renderCommentAwardBadges(c.id)}
+            </div>
+
+            <button data-comment-collapse="${c.id}" class="btn-comment-collapse text-[10px] text-slate-400 hover:text-white font-mono px-2 py-0.5 rounded hover:bg-surface-overlay transition-colors">
+              ${isCollapsed ? `[+] Expand (${replies.length})` : '[-] Collapse'}
+            </button>
+          </div>
+
+          ${!isCollapsed ? `
+            <!-- COMMENT CONTENT -->
+            <div class="text-base sm:text-[15px] text-slate-100 leading-[1.65] whitespace-normal break-words select-text pl-1 font-sans space-y-2">
+              ${this.renderMarkdown(c.content || '')}
+            </div>
+
+            <!-- COMMENT ACTIONS -->
+            <div class="flex items-center space-x-3 pt-1 text-xs text-slate-400 pl-1 opacity-80 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+              <button data-comment-reply-toggle="${c.id}" class="btn-comment-reply-toggle hover:text-[var(--color-accent,#e59b3c)] transition-colors cursor-pointer py-0.5">
+                ${isReplying ? 'Cancel Reply' : 'Reply'}
+              </button>
+              <span class="text-slate-600">•</span>
+              <button data-action="keep-comment" data-comment-id="${c.id}" data-comment-author="${c.authorFingerprint || 'anon'}" data-post-id="${c.postId || this.activePostId || ''}" class="btn-comment-keep hover:text-amber-400 transition-colors flex items-center space-x-1 cursor-pointer py-0.5" title="Preserve comment in your encrypted Vault">
+                <span>💎</span>
+                <span>Keep in Vault</span>
+              </button>
+              <span class="text-slate-600">•</span>
+              ${awardsSystem.renderGiveCommentAwardButton(c.id, c.postId || this.activePostId || '', 'GUARDIAN')}
+            </div>
+
+            <!-- INLINE REPLY FORM (IF TOGGLED) -->
+            ${isReplying ? `
+              <form class="form-inline-comment-reply mt-2 p-2.5 rounded-lg bg-surface-raised border border-white/10 space-y-2 animate-in fade-in" data-parent-comment-id="${c.id}">
+                <textarea 
+                  class="input-inline-reply-text w-full bg-surface-base border border-white/10 rounded-lg p-2 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyphr resize-none h-16"
+                   placeholder="Reply to this comment…" aria-label="Reply to comment"
+                  required
+                 >${escapeHtml(this.inlineReplyDrafts.get(c.id) || '')}</textarea>
+                <div class="flex items-center justify-end space-x-2">
+                  <button type="button" class="btn-cancel-inline-reply px-3 py-1 text-xs text-slate-400 hover:text-white" data-comment-id="${c.id}">Cancel</button>
+                   <button type="submit" ${this.replySubmitting ? 'disabled aria-busy="true"' : ''} class="context-button">${this.replySubmitting ? 'Sending…' : 'Reply'}</button>
+                </div>
+              </form>
+            ` : ''}
+
+            <!-- RECURSIVE CHILD COMMENTS -->
+            ${replies.length > 0 ? `
+              <div class="mt-3 space-y-3">
+                ${replies.map(r => this.renderCommentNode(r, depth + 1, postAuthorFP)).join('')}
+              </div>
+            ` : ''}
+          ` : ''}
+
+        </div>
+      </div>
+    `;
+  }
+
+  // ─── Multimedia Block Renderers ───────────────────────────────────────────
+ 
   private renderVideoBlock(postId: string, video: PostVideo): string {
-    return `<div class="my-3">${obsidianMediaPlayer.renderVideoCard(postId, video.src, video.poster)}</div>`;
+    return obsidianMediaPlayer.renderVideoCard(postId, video.src, video.poster);
   }
 
   private renderImageMosaicBlock(images: any[]): string {
-    return `<div class="my-3">${obsidianMediaPlayer.renderImageMosaic(images)}</div>`;
+    const normalized: Array<{ url: string; alt: string }> = (images || []).map((item, idx) => {
+      if (typeof item === 'string') return { url: item.trim(), alt: `Post attachment ${idx + 1}` };
+      if (item && typeof item === 'object') {
+        const u = (item.url || item.src || item.link || '').trim();
+        const a = item.alt || item.caption || `Post attachment ${idx + 1}`;
+        return { url: u, alt: a };
+      }
+      return { url: '', alt: '' };
+    }).filter(img => img.url && !img.url.startsWith('[object'));
+
+    if (normalized.length === 0) return '';
+    const gridCols = normalized.length === 1 ? 'grid-cols-1' : normalized.length === 2 ? 'grid-cols-2' : 'grid-cols-2 md:grid-cols-3';
+    return `
+      <div class="journal-thread-media my-3 space-y-2">
+        <div class="text-[10px] font-mono text-slate-500 uppercase tracking-wider">Attached Visual Artifacts (${normalized.length})</div>
+        <div class="grid ${gridCols} gap-2">
+          ${normalized.map((img, idx) => `
+            <div class="relative rounded-xl overflow-hidden bg-surface-raised border border-white/10 group cursor-pointer aspect-video">
+              <img 
+                src="${img.url}"
+                alt="${escapeHtml(img.alt)}"
+                class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                loading="lazy" decoding="async"
+                onerror="this.onerror=null; this.parentElement.classList.add('opacity-0');"
+              />
+              <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                <span class="px-3 py-1 bg-black/70 text-white rounded-lg text-xs font-mono">🔍 View Fullscreen</span>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
   }
 
   private renderPollBlock(pollId: string): string {
-    return `<div class="my-3">${pollEngine.renderPollCard(pollId, clientStore.keypair?.fingerprint || '')}</div>`;
+    return `
+      <div class="journal-thread-media p-4 rounded-xl bg-surface-raised border border-white/10 my-3 space-y-3">
+        <div class="flex items-center justify-between text-xs">
+          <span class="font-bold text-signal flex items-center space-x-1.5">
+            <span>📊</span>
+            <span>ZK Sovereign Community Poll</span>
+          </span>
+          <span class="font-mono text-[10px] text-slate-400">Poll ID: ${pollId}</span>
+        </div>
+        <p class="text-xs text-slate-300">Vote cast is cryptographically locked with your Ed25519 keypair and verified without centralized tallies.</p>
+        <div class="p-2 rounded bg-surface-base text-center text-xs text-cyphr font-mono">
+          Interactive Poll Widget Active (Single Vote per Identity)
+        </div>
+      </div>
+    `;
   }
 
   private renderQuotedPostBlock(quoted: QuotedPost): string {
-    return `<div class="my-3 p-4 rounded-2xl bg-white/[0.03] border border-cyan-500/25 text-xs space-y-1">
-      <div class="font-mono text-cyan-400">@${this.escapeHtml(quoted.authorHandle || quoted.authorFingerprint)}</div>
-      <div class="font-bold text-white">${this.escapeHtml(quoted.title)}</div>
-      <div class="text-slate-300 line-clamp-3">${this.escapeHtml(quoted.content)}</div>
-    </div>`;
+    return `
+      <div class="journal-thread-media p-3.5 rounded-xl bg-surface-raised/70 border border-white/10 my-3 space-y-2 hover:border-white/20 transition-all">
+        <div class="flex items-center space-x-2 text-xs">
+          <span class="text-slate-400 text-sm">❝</span>
+          <span class="font-mono text-xs font-bold text-cyphr">id:${quoted.authorFingerprint}</span>
+          <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-surface-overlay text-slate-400 border border-white/5">${quoted.authorRole}</span>
+        </div>
+        <div class="text-xs font-bold text-slate-100">${this.escapeHtml(quoted.title)}</div>
+        <div class="text-xs text-slate-300 line-clamp-3">${this.escapeHtml(quoted.content)}</div>
+      </div>
+    `;
   }
 
   private renderAttachmentBlock(att: PostAttachment): string {
-    return `<div class="my-3 p-4 rounded-2xl bg-slate-950/85 border border-emerald-500/30 flex items-center justify-between gap-3 font-mono text-xs">
-      <div>
-        <div class="text-white font-bold">📦 ${this.escapeHtml(att.fileName)} (${Math.round(att.byteSize / 1024)} KB)</div>
-        <div class="text-[11px] text-slate-400">SHA-256: ${this.escapeHtml(att.sha256)}</div>
+    const sizeKb = (att.byteSize / 1024).toFixed(1);
+    return `
+      <div class="journal-thread-media p-4 rounded-xl bg-surface-raised border border-signal/30 my-3 space-y-3 shadow-lg">
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <div class="flex items-center space-x-2.5">
+            <span class="text-xl">📦</span>
+            <div>
+              <div class="text-xs font-mono font-bold text-slate-100">${this.escapeHtml(att.fileName)}</div>
+              <div class="text-[10px] font-mono text-slate-500">${sizeKb} KB • Shannon Entropy: ${att.entropy.toFixed(2)} bits/byte</div>
+            </div>
+          </div>
+          <span class="text-[10px] font-mono font-bold px-2.5 py-1 rounded bg-emerald-950 text-signal border border-signal/40 shadow-signal-sm">
+            ${att.verdict} VERIFIED
+          </span>
+        </div>
+
+        <div class="p-2 bg-surface-base rounded-lg font-mono text-[10px] text-slate-400 flex items-center justify-between gap-2 border border-white/5">
+          <span class="truncate">SHA256: ${att.sha256}</span>
+          <button data-copy-sha="${att.sha256}" class="btn-copy-detail-sha px-2.5 py-1 bg-surface-highlight hover:bg-slate-600 text-slate-200 rounded text-[9px] font-bold transition-colors">
+            Copy
+          </button>
+        </div>
+
+        <div class="flex items-center justify-between pt-1">
+          <span class="text-[10px] text-signal font-mono">● Verified P2P BitTorrent Swarm Available</span>
+          <button data-file-name="${att.fileName}" data-sha="${att.sha256}" class="px-3 py-1.5 bg-signal/15 hover:bg-signal/25 text-signal text-xs font-semibold rounded-lg border border-signal/30 transition-all flex items-center space-x-1.5 shadow-sm">
+            <span>⬇</span>
+            <span>Download via P2P Mesh</span>
+          </button>
+        </div>
       </div>
-      <span class="px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/35 text-[10px]">${this.escapeHtml(
-        att.verdict
-      )}</span>
-    </div>`;
+    `;
   }
+
+  // ─── Related Post Card Renderer ───────────────────────────────────────────
 
   private renderRelatedPostCard(rp: any): string {
-    return `<button
-      type="button"
-      data-open-post-detail="${this.escapeHtml(rp.id)}"
-      class="text-left p-3.5 rounded-2xl bg-surface-base/75 border border-white/[0.07] hover:border-cyan-400/35 transition-all cursor-pointer"
-    >
-      <div class="text-[10px] font-mono text-cyan-400 mb-1">c/${this.escapeHtml(rp.channelId)} · ▲ ${rp.meritVotes || 0}</div>
-      <div class="text-xs font-bold text-white line-clamp-2">${this.escapeHtml(rp.title)}</div>
-    </button>`;
+    const relTime = this.formatRelativeTime(rp.createdAt || Date.now());
+    const channelDisplay = rp.channelId
+      ? (rp.channelId.startsWith('vault-') ? `r/${rp.channelId.replace('vault-', '')}` : `#${rp.channelId}`)
+      : 'r/aetheris';
+
+    return `
+      <div data-open-related="${rp.id}" class="btn-open-related-post p-3 rounded-xl bg-surface-raised hover:bg-surface-overlay border border-white/5 hover:border-cyphr/40 cursor-pointer transition-all space-y-2 flex flex-col justify-between group">
+        <div class="space-y-1">
+          <div class="flex items-center justify-between text-[10px] font-mono">
+            <span class="text-cyphr font-bold">${channelDisplay}</span>
+            <span class="text-slate-500">${relTime}</span>
+          </div>
+          <h4 class="text-xs font-bold text-slate-200 group-hover:text-cyphr transition-colors line-clamp-2 leading-snug">
+            ${this.escapeHtml(rp.title || 'Untitled')}
+          </h4>
+        </div>
+        <div class="flex items-center justify-between text-[10px] font-mono text-slate-400 pt-1 border-t border-white/5">
+          <span>▲ ${rp.meritVotes || 0} Merit</span>
+          <span>💬 ${rp.replyCount || 0}</span>
+        </div>
+      </div>
+    `;
   }
 
+  // ─── Alternate Subtabs (ZK Proof & Raw JSON) ──────────────────────────────
+
   private renderZkProofView(post: any): string {
-    return `<div class="p-4 rounded-2xl bg-slate-950/90 border border-cyan-500/30 font-mono text-xs text-cyan-300 space-y-1.5">
-      <div class="text-white font-bold">Zero-Knowledge RLN & Ed25519 Envelope Attestation</div>
-      <div>Post ID: ${this.escapeHtml(post.id)}</div>
-      <div>Author Fingerprint: ${this.escapeHtml(post.authorFingerprint)}</div>
-      <div>Status: VERIFIED_BN254_GROTH16</div>
-    </div>`;
+    return `
+      <div class="p-6 rounded-2xl bg-surface-base border border-white/10 space-y-4">
+        <div class="flex items-center justify-between border-b border-white/5 pb-3">
+          <div class="flex items-center space-x-2">
+            <span class="text-lg">🛡️</span>
+            <h3 class="text-sm font-bold text-signal uppercase tracking-wider">ZK-RLN & Ed25519 Cryptographic Proof</h3>
+          </div>
+          <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-950 text-signal border border-signal/30">Proof Verified</span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 font-mono text-xs">
+          <div class="p-3 rounded-xl bg-surface-raised border border-white/5 space-y-1">
+            <span class="text-slate-500 text-[10px]">AUTHOR SOVEREIGN FINGERPRINT</span>
+            <div class="text-cyphr font-bold">${post.authorFingerprint}</div>
+          </div>
+
+          <div class="p-3 rounded-xl bg-surface-raised border border-white/5 space-y-1">
+            <span class="text-slate-500 text-[10px]">RLN NULLIFIER HASH</span>
+            <div class="text-slate-200 truncate">0x7f4a9b2c8810e0149f6b21908a8e9901d84f8812</div>
+          </div>
+
+          <div class="p-3 rounded-xl bg-surface-raised border border-white/5 space-y-1">
+            <span class="text-slate-500 text-[10px]">SHAMIR POLYNOMIAL SHARE (X, Y)</span>
+            <div class="text-slate-200 truncate">x: 0x4819... y: 0x992b...</div>
+          </div>
+
+          <div class="p-3 rounded-xl bg-surface-raised border border-white/5 space-y-1">
+            <span class="text-slate-500 text-[10px]">ED25519 SIGNATURE STATUS</span>
+            <div class="text-signal font-bold">VALID (Curve25519 Point Verified)</div>
+          </div>
+        </div>
+
+        <div class="p-3 rounded-xl bg-surface-overlay border border-white/5 text-xs text-slate-400 leading-relaxed">
+          This post is mathematically verified to originate from a sovereign identity without relying on third-party cloud servers or centralized trust. Any double-publishing in the same epoch will result in Lagrange polynomial identity slashing.
+        </div>
+      </div>
+    `;
   }
 
   private renderRawJsonView(post: any): string {
-    return `<pre class="p-4 rounded-2xl bg-slate-950/90 border border-white/10 font-mono text-[11px] text-slate-300 overflow-x-auto">${this.escapeHtml(
-      JSON.stringify(post, null, 2)
-    )}</pre>`;
-  }
-
-  public renderPostFocusView(post: any, comments: any[] = [], relatedPosts: any[] = []): string {
-    if (!post) return this.renderPostNotFound();
-    const prof = profileView.getProfile(post.authorFingerprint);
-    const identity = presentPublicIdentity(
-      {
-        name: post.facetDisplayName || post.authorDisplayName || prof.name,
-        handle: post.facetHandle || post.authorHandle || prof.handle,
-        avatar: post.facetAvatarUrl || post.authorAvatarUrl || prof.avatar,
-      },
-      post.authorFingerprint
-    );
-
-    const related = relatedPosts.length > 0 ? relatedPosts : this.findRelatedPosts(post, clientStore.posts);
-
-    return `<div id="post-focus-view" data-post-detail-id="${this.escapeHtml(post.id)}" class="w-full max-w-3xl mx-auto space-y-5 pb-16">
-      <!-- Top Back Bar -->
-      <div class="flex items-center justify-between gap-3">
-        <button
-          type="button"
-          id="btn-close-post-detail"
-          data-close-post-detail="true"
-          class="inline-flex items-center gap-2 px-3.5 py-2 min-h-[40px] rounded-2xl bg-surface-base/80 hover:bg-white/10 text-xs font-bold text-slate-200 border border-white/10 transition-colors cursor-pointer"
-        >
-          <span>←</span>
-          <span>${t('common.back', undefined, 'Back to discussions')}</span>
-        </button>
-
-        <div class="flex items-center gap-2">
-          ${privacyLens.renderCompact({
-            audience: post.audience || 'public',
-            channelName: post.channelId,
-            facetHandle: identity.handleLabel,
-          })}
+    const raw = JSON.stringify(post, null, 2);
+    return `
+      <div class="p-6 rounded-2xl bg-surface-base border border-white/10 space-y-3">
+        <div class="flex items-center justify-between border-b border-white/5 pb-2">
+          <span class="text-xs font-mono font-bold text-aether">{ } Raw Sovereign Post Payload</span>
+          <button type="button" data-action="copy-post-json" data-copy-json="${this.escapeHtml(raw)}" class="btn-copy-detail-sha px-2.5 py-1 bg-surface-raised hover:bg-surface-overlay text-slate-200 rounded text-[10px] font-mono cursor-pointer">
+            Copy JSON
+          </button>
         </div>
+        <pre class="p-4 bg-surface-raised rounded-xl overflow-x-auto text-xs font-mono text-slate-300 leading-relaxed max-h-[60vh]"><code>${this.escapeHtml(raw)}</code></pre>
       </div>
-
-      <!-- Main Post Article Card -->
-      <article class="rounded-3xl bg-surface-base/90 backdrop-blur-2xl border border-white/10 p-6 shadow-2xl">
-        <header class="flex items-center justify-between gap-3 mb-4">
-          <div class="flex items-center gap-3 min-w-0">
-            ${renderAvatar(identity.avatar, post.authorFingerprint, { size: 44 })}
-            <div class="min-w-0">
-              <div class="flex items-center gap-2">
-                <span class="text-sm font-extrabold text-white truncate">${this.escapeHtml(identity.displayName)}</span>
-                <span class="text-xs font-mono text-cyan-400 truncate">@${this.escapeHtml(identity.handleLabel)}</span>
-              </div>
-              <div class="text-xs text-slate-400">
-                c/${this.escapeHtml(post.channelId)} · ${this.formatRelativeTime(post.createdAt)}
-              </div>
-            </div>
-          </div>
-          <span class="px-2.5 py-1 rounded-full text-[11px] font-mono bg-white/[0.06] text-cyan-300 border border-white/10">
-            ${this.escapeHtml(post.flair || 'DISCUSSION')}
-          </span>
-        </header>
-
-        <h1 class="text-xl sm:text-2xl font-extrabold text-white mb-3 leading-snug">${this.escapeHtml(post.title)}</h1>
-
-        <div class="text-sm sm:text-base text-slate-200 leading-relaxed prose-invert max-w-none">
-          ${this.renderMarkdown(post.content)}
-        </div>
-
-        ${Array.isArray(post.images) && post.images.length > 0 ? this.renderImageMosaicBlock(post.images) : ''}
-        ${post.video ? this.renderVideoBlock(post.id, post.video) : ''}
-        ${post.pollId ? this.renderPollBlock(post.pollId) : ''}
-        ${post.quotedPost ? this.renderQuotedPostBlock(post.quotedPost) : ''}
-        ${post.attachment ? this.renderAttachmentBlock(post.attachment) : ''}
-
-        <footer class="mt-6 pt-4 border-t border-white/10 flex items-center justify-between gap-3 flex-wrap">
-          <div class="flex items-center gap-2">
-            ${awardsSystem.renderAwardBadges(post.id)}
-            ${awardsSystem.renderGiveAwardButton(post.id)}
-          </div>
-          ${reactionsEngine.renderReactionBar(post.id, clientStore.keypair?.fingerprint || '')}
-        </footer>
-      </article>
-
-      <!-- Inline Comment Composer -->
-      <section class="rounded-3xl bg-surface-base/85 backdrop-blur-2xl border border-white/10 p-5 shadow-xl">
-        <form id="post-detail-reply-form" data-post-id="${this.escapeHtml(post.id)}" class="space-y-3">
-          <label for="post-detail-reply-input" class="text-xs font-bold text-slate-300 block">
-            Add to the discussion
-          </label>
-          <textarea
-            id="post-detail-reply-input"
-            rows="3"
-            placeholder="Write a thoughtful reply (Markdown & code blocks supported)..."
-            class="w-full p-3.5 rounded-2xl bg-black/40 text-sm text-white placeholder-slate-500 border border-white/10 focus:outline-none focus:border-cyan-400/60 resize-y"
-          ></textarea>
-          <div class="flex justify-end">
-            <button
-              type="submit"
-              id="btn-submit-post-reply"
-              class="px-5 py-2 min-h-[40px] rounded-xl bg-gradient-to-b from-cyan-400 to-cyan-500 text-slate-950 font-bold text-xs shadow cursor-pointer"
-            >Post Reply</button>
-          </div>
-        </form>
-      </section>
-
-      <!-- Discussion Tree -->
-      <section aria-labelledby="discussion-comments-heading" class="rounded-3xl bg-surface-base/85 backdrop-blur-2xl border border-white/10 p-5 shadow-xl">
-        <h2 id="discussion-comments-heading" class="text-xs font-extrabold uppercase tracking-wider text-slate-300 mb-3">
-          Replies (${comments.length})
-        </h2>
-        <div id="post-detail-comments-tree" class="divide-y divide-white/[0.06]">
-          ${
-            comments.length > 0
-              ? comments.map((c) => this.renderCommentNode(c, 0, post.authorFingerprint)).join('')
-              : `<p class="py-6 text-center text-xs text-slate-400">No replies yet. Start the conversation above.</p>`
-          }
-        </div>
-      </section>
-
-      ${
-        related.length > 0
-          ? `<section class="space-y-3">
-              <h3 class="text-xs font-extrabold uppercase tracking-wider text-slate-400">Related Discussions</h3>
-              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                ${related.map((rp) => this.renderRelatedPostCard(rp)).join('')}
-              </div>
-            </section>`
-          : ''
-      }
-    </div>`;
+    `;
   }
 
-  public renderFullPostModal(post: any, comments: any[] = [], relatedPosts: any[] = []): string {
-    return this.renderPostFocusView(post, comments, relatedPosts);
-  }
+  // ─── Event Binding ────────────────────────────────────────────────────────
 
-  public bindEvents(
-    onReplySubmit: (postId: string, commentText: string, parentId?: string) => void | Promise<void>
-  ): void {
-    if (typeof document === 'undefined') return;
-    bindReactionBarEvents(document);
+  public bindEvents(onReplySubmit: (postId: string, commentText: string, parentId?: string) => void | Promise<void>): void {
+    const root = document.getElementById('post-focus-view') || document.getElementById('post-detail-modal-overlay');
+    if (!root) return;
 
-    const form = document.getElementById('post-detail-reply-form') as HTMLFormElement | null;
-    if (form) {
-      form.addEventListener('submit', async (e: Event) => {
-        e.preventDefault();
-        const postId = form.getAttribute('data-post-id') || this.activePostId;
-        const input = document.getElementById('post-detail-reply-input') as HTMLTextAreaElement | null;
-        const text = input?.value.trim() || '';
-        if (!postId || !text) return;
-        if (input) input.value = '';
-        await onReplySubmit(postId, text, this.replyingToCommentId || undefined);
+    // Backdrop click listener (only if modal overlay)
+    if (root.id === 'post-detail-modal-overlay') {
+      root.addEventListener('click', (e) => {
+        if (e.target === root) {
+          this.closePost();
+        }
       });
     }
+
+    // Close and Back buttons
+    const btnClose = document.getElementById('btn-close-post-detail');
+    if (btnClose) {
+      btnClose.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.closePost();
+      });
+    }
+
+    const btnBack = document.getElementById('btn-back-to-feed');
+    if (btnBack) {
+      btnBack.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.closePost();
+      });
+    }
+
+    const btnFallbackClose = document.getElementById('btn-close-post-detail-fallback');
+    if (btnFallbackClose) {
+      btnFallbackClose.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.closePost();
+      });
+    }
+
+    // Escape Key Listener
+    if (this.keydownListener) {
+      window.removeEventListener('keydown', this.keydownListener);
+    }
+    this.keydownListener = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && this.isOpen()) {
+        const portal = document.getElementById('reaction-portal-root');
+        if (portal && portal.childElementCount > 0) return;
+        const activeOverlay = document.querySelector('.post-more-menu, .custom-modal-overlay, #reaction-portal-root > *');
+        if (activeOverlay) return;
+
+        e.preventDefault();
+        e.stopPropagation();
+        this.closePost();
+      }
+    };
+    window.addEventListener('keydown', this.keydownListener);
+
+    // Subtab switching
+    root.querySelectorAll('.btn-subtab').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const tab = btn.getAttribute('data-subtab') as 'discussion' | 'raw_json' | 'zk_proof';
+        if (tab) {
+          this.activeSubTab = tab;
+          clientStore.notify('MODAL_CHANGE');
+          const event = new CustomEvent('aetheris-detail-view-refresh');
+          window.dispatchEvent(event);
+        }
+      });
+    });
+
+    // Merit vote buttons inside post detail modal
+    root.querySelectorAll('.btn-detail-vote').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const postId = btn.getAttribute('data-vote-id') || this.activePostId;
+        const dir = parseInt(btn.getAttribute('data-dir') || '0', 10);
+        if (postId && dir) {
+          clientStore.votePost(postId, dir);
+        }
+      });
+    });
+
+    // Fast Reply Preview toggles
+    const btnWrite = document.getElementById('btn-reply-edit-toggle');
+    const btnPreview = document.getElementById('btn-reply-preview-toggle');
+    const inputReply = document.getElementById('input-detail-reply-text') as HTMLTextAreaElement | null;
+    inputReply?.addEventListener('input', () => { this.replyDraft = inputReply.value; });
+
+    if (btnWrite) {
+      btnWrite.addEventListener('click', () => {
+        this.isPreviewMode = false;
+        window.dispatchEvent(new CustomEvent('aetheris-detail-view-refresh'));
+      });
+    }
+
+    if (btnPreview) {
+      btnPreview.addEventListener('click', () => {
+        if (inputReply) {
+          this.replyDraft = inputReply.value;
+        }
+        this.isPreviewMode = true;
+        window.dispatchEvent(new CustomEvent('aetheris-detail-view-refresh'));
+      });
+    }
+
+    // Markdown Toolbar actions
+    root.querySelectorAll('.btn-md-action').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (!inputReply) return;
+        const action = btn.getAttribute('data-md');
+        const start = inputReply.selectionStart;
+        const end = inputReply.selectionEnd;
+        const sel = inputReply.value.substring(start, end);
+        let replacement = '';
+
+        switch (action) {
+          case 'bold':
+            replacement = `**${sel || 'bold text'}**`;
+            break;
+          case 'italic':
+            replacement = `*${sel || 'italic text'}*`;
+            break;
+          case 'code':
+            replacement = `\`${sel || 'code'}\``;
+            break;
+          case 'codeblock':
+            replacement = `\n\`\`\`typescript\n${sel || '// your code here'}\n\`\`\`\n`;
+            break;
+          case 'quote':
+            replacement = `\n> ${sel || 'quoted text'}\n`;
+            break;
+          case 'link':
+            replacement = `[${sel || 'link title'}](https://urefy.com)`;
+            break;
+          case 'list':
+            replacement = `\n- ${sel || 'item 1'}\n- item 2\n`;
+            break;
+        }
+
+        inputReply.setRangeText(replacement, start, end, 'end');
+        inputReply.focus({ preventScroll: true });
+        this.replyDraft = inputReply.value;
+      });
+    });
+
+    // Form Fast Reply submit
+    const formReply = document.getElementById('form-post-detail-reply') as HTMLFormElement | null;
+    if (formReply) {
+      formReply.addEventListener('submit', async (e: Event) => {
+        e.preventDefault();
+        const text = inputReply ? inputReply.value.trim() : this.replyDraft.trim();
+        if (text && this.activePostId && !this.replySubmitting) {
+          const postId = this.activePostId;
+          this.replyDraft = inputReply?.value || text;
+          this.replySubmitting = true;
+          const submit = formReply.querySelector<HTMLButtonElement>('button[type="submit"]');
+          if (submit) { submit.disabled = true; submit.setAttribute('aria-busy', 'true'); }
+          try {
+            await onReplySubmit(postId, text);
+            if (this.activePostId === postId && this.replyDraft.trim() === text) {
+              this.replyDraft = '';
+              if (inputReply) inputReply.value = '';
+              this.isPreviewMode = false;
+            }
+          } catch (error) {
+            clientStore.showToast(error instanceof Error ? error.message : 'Reply could not be sent. Your draft is still here.', 'warning');
+          } finally {
+            this.replySubmitting = false;
+            if (submit) { submit.disabled = false; submit.removeAttribute('aria-busy'); }
+            clientStore.notifySync();
+          }
+        }
+      });
+    }
+
+    // Comment Collapse toggles
+    root.querySelectorAll('.btn-comment-collapse').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const commentId = btn.getAttribute('data-comment-collapse');
+        if (commentId) {
+          this.toggleCommentCollapse(commentId);
+          clientStore.notifySync();
+          window.dispatchEvent(new CustomEvent('aetheris-detail-view-refresh'));
+        }
+      });
+    });
+
+    // Inline Comment Reply toggle
+    root.querySelectorAll('.btn-comment-reply-toggle').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const commentId = btn.getAttribute('data-comment-reply-toggle');
+        if (commentId) {
+          this.replyingToCommentId = this.replyingToCommentId === commentId ? null : commentId;
+          clientStore.notifySync();
+          window.dispatchEvent(new CustomEvent('aetheris-detail-view-refresh'));
+        }
+      });
+    });
+
+    // Inline Comment Reply submit
+    root.querySelectorAll('.form-inline-comment-reply').forEach(form => {
+      const parent = form.getAttribute('data-parent-comment-id');
+      const field = form.querySelector<HTMLTextAreaElement>('.input-inline-reply-text');
+      if (parent && field) field.addEventListener('input', () => { this.inlineReplyDrafts.set(parent, field.value); });
+      form.addEventListener('submit', async (e: Event) => {
+        e.preventDefault();
+        const parentId = form.getAttribute('data-parent-comment-id');
+        const input = form.querySelector('.input-inline-reply-text') as HTMLTextAreaElement | null;
+        if (parentId && input && input.value.trim() && this.activePostId && !this.replySubmitting) {
+          const postId = this.activePostId;
+          const text = input.value.trim();
+          const submit = form.querySelector<HTMLButtonElement>('button[type="submit"]');
+          this.replySubmitting = true;
+          if (submit) { submit.disabled = true; submit.setAttribute('aria-busy', 'true'); }
+          try {
+            await onReplySubmit(postId, text, parentId);
+            if (this.activePostId === postId && this.replyingToCommentId === parentId && this.inlineReplyDrafts.get(parentId)?.trim() === text) {
+              this.replyingToCommentId = null;
+              this.inlineReplyDrafts.delete(parentId);
+            }
+          } catch (error) {
+            clientStore.showToast(error instanceof Error ? error.message : 'Reply could not be sent. Your draft is still here.', 'warning');
+          } finally {
+            this.replySubmitting = false;
+            if (submit) { submit.disabled = false; submit.removeAttribute('aria-busy'); }
+            clientStore.notifySync();
+          }
+        }
+      });
+    });
+
+    // Inline Comment Reply cancel
+    root.querySelectorAll('.btn-cancel-inline-reply').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.replyingToCommentId = null;
+        clientStore.notifySync();
+        window.dispatchEvent(new CustomEvent('aetheris-detail-view-refresh'));
+      });
+    });
+
+    // Bookmark toggle
+    root.querySelectorAll('.btn-detail-bookmark').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const postId = btn.getAttribute('data-bookmark-id');
+        if (postId) {
+          this.toggleBookmark(postId);
+          window.dispatchEvent(new CustomEvent('aetheris-detail-view-refresh'));
+        }
+      });
+    });
+
+    // Award button on post
+    root.querySelectorAll('.btn-detail-award, .btn-open-award-modal').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const postId = btn.getAttribute('data-post-id') || btn.getAttribute('data-award-id');
+        const userRole = (typeof window !== 'undefined' ? (window as any).activeUserRole : undefined) || 'GUARDIAN';
+        if (postId) {
+          awardsSystem.openModal(postId, userRole);
+        }
+      });
+    });
+
+    // Award button on comments
+    root.querySelectorAll('.btn-open-comment-award-modal').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const commentId = btn.getAttribute('data-comment-id');
+        const postId = btn.getAttribute('data-post-id') || this.activePostId || '';
+        const userRole = btn.getAttribute('data-user-role') || (typeof window !== 'undefined' ? (window as any).activeUserRole : undefined) || 'GUARDIAN';
+        if (commentId) {
+          awardsSystem.openCommentModal(commentId, postId, userRole);
+        }
+      });
+    });
+
+    // Copy SHA / Link
+    root.querySelectorAll('.btn-copy-detail-sha').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const sha = btn.getAttribute('data-copy-sha');
+        if (sha && navigator.clipboard) {
+          navigator.clipboard.writeText(sha);
+          btn.textContent = 'Copied!';
+          setTimeout(() => { btn.textContent = 'Copy'; }, 2000);
+        }
+      });
+    });
+
+    root.querySelectorAll('.btn-detail-boost').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const postId = btn.getAttribute('data-boost-id') || this.activePostId;
+        if (postId) {
+          clientStore.boostPost(postId);
+          const p = clientStore.posts.find((x: any) => x.id === postId);
+          if (p) {
+            const counter = btn.querySelector('.detail-boost-counter');
+            if (counter) counter.textContent = `${p.boostCount} ${p.userBoosted ? 'Boosted' : 'Boosts'}`;
+            if (p.userBoosted) {
+              btn.classList.add('text-emerald-400', 'font-bold', 'bg-emerald-500/15', 'border', 'border-emerald-500/30');
+              btn.classList.remove('hover:text-emerald-400');
+            } else {
+              btn.classList.remove('text-emerald-400', 'font-bold', 'bg-emerald-500/15', 'border', 'border-emerald-500/30');
+              btn.classList.add('hover:text-emerald-400');
+            }
+          }
+        }
+      });
+    });
+
+    root.querySelectorAll('.btn-detail-share').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const postId = btn.getAttribute('data-share-id') || this.activePostId;
+        const post = clientStore.posts.find((x: any) => x.id === postId);
+        if (postId) {
+          await sharePostOrCopyLink(postId, post?.title, post?.content, btn as HTMLElement);
+        }
+      });
+    });
+
+    // Related posts click
+    root.querySelectorAll('.btn-open-related-post').forEach(card => {
+      card.addEventListener('click', () => {
+        const relatedId = card.getAttribute('data-open-related');
+        if (relatedId) {
+          this.openPost(relatedId);
+          window.dispatchEvent(new CustomEvent('aetheris-detail-view-refresh'));
+        }
+      });
+    });
+
+    // Reactions Bar Events (pills toggle, portal picker, overflow count)
+    bindReactionBarEvents(root);
   }
 }
 

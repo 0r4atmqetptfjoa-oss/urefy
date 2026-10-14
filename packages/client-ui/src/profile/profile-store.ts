@@ -1,16 +1,42 @@
-/**
- * @file profile-store.ts
- * @package @aetheris/client-ui/profile
- * @description Sovereign Profile Data & Follows Store.
- * Contains in-memory profile cache, following sets, identity resolution,
- * and social graph persistence without dragging in heavy profile timeline
- * renderers or settings HTML.
- */
-
 import { UserProfileData, ProfileTab, SettingsCategory, formatFederatedHandle, copyFederatedHandle } from './types.js';
 import { clientStore } from '../client-state.js';
 import { isDemoModeEnabled } from '../demo-mode.js';
 import { SOVEREIGN_PERSONAS } from './seed-profiles-data.js';
+
+const KNOWN_NODE_ALIASES: Record<string, { name: string; handle: string; role?: UserProfileData['role'] }> = {
+  'genesis-core': { name: 'Genesis Protocol Archon', handle: 'genesis-core', role: 'GUARDIAN' },
+  'genesis-co': { name: 'Genesis Core Relay', handle: 'genesis-co', role: 'GUARDIAN' },
+  'c3dc28cb705e': { name: 'Elena Rostova', handle: 'elena_r', role: 'ARCHIVIST' },
+  'c3dc28cb70': { name: 'Elena Rostova', handle: 'elena_r', role: 'ARCHIVIST' },
+  'a89104fa2211': { name: 'David Chen', handle: 'david_c', role: 'MEMBER' },
+  'a89104fa22': { name: 'David Chen', handle: 'david_c', role: 'MEMBER' },
+  'f40019bc88a2': { name: 'Maya Patel', handle: 'maya_p', role: 'MODERATOR' },
+  '9b22a011cd44': { name: 'Samira Khan', handle: 'samira', role: 'MEMBER' },
+};
+
+function sanitizeHandle(rawHandle?: string, fallbackFp?: string): string {
+  const cleaned = (rawHandle || '').trim().replace(/^@+/, '');
+  if (cleaned) return cleaned;
+  if (!fallbackFp) return '';
+  const fpClean = fallbackFp.trim().replace(/^@+/, '');
+  return fpClean.length > 10 ? fpClean.slice(0, 10) : fpClean;
+}
+
+function humanizeIdentifier(handleOrFp: string): string {
+  const clean = handleOrFp.trim().replace(/^@+/, '');
+  if (!clean) return 'Sovereign Member';
+  if (KNOWN_NODE_ALIASES[clean]) return KNOWN_NODE_ALIASES[clean].name;
+
+  // If it looks like a hex fingerprint (e.g., 640c401d87), format cleanly as a Member Callsign
+  if (/^[0-9a-f]{8,}$/i.test(clean)) {
+    return `Member · ${clean.slice(0, 6).toUpperCase()}`;
+  }
+
+  // Convert snake_case or kebab-case handle into Title Case name
+  return clean
+    .replace(/[._-]+/g, ' ')
+    .replace(/\b\w/g, (l) => l.toUpperCase());
+}
 
 export class ProfileStore {
   public followingSet: Set<string>;
@@ -37,9 +63,9 @@ export class ProfileStore {
     } else {
       this.followingSet = new Set();
     }
-
-    if (isDemoModeEnabled()) this.seedDevProfiles();
-
+    if (isDemoModeEnabled()) {
+      this.seedDevProfiles();
+    }
     if (typeof globalThis !== 'undefined') {
       (globalThis as any).profileStore = this;
       if (!(globalThis as any).profileView) {
@@ -50,19 +76,21 @@ export class ProfileStore {
 
   protected seedDevProfiles(): void {
     for (const p of SOVEREIGN_PERSONAS) {
-      this.profileData.set(p.fingerprint, p);
+      this.profileData.set(p.fingerprint, {
+        ...p,
+        handle: sanitizeHandle(p.handle, p.fingerprint),
+      });
     }
-
     this.profileData.set('genesis-core', {
       fingerprint: 'genesis-core',
       name: 'Genesis Protocol Archon',
       handle: 'genesis-core',
-      avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=genesis-core&backgroundColor=0f172a,1e1b4b,180a3e',
-      banner: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1200&auto=format&fit=crop&q=80',
-      bio: 'Product engineer & privacy advocate. Building UREfy — the social network you actually own.',
-      location: 'San Francisco, CA',
+      avatar: '',
+      banner: '',
+      bio: 'Systems architect & cryptography maintainer. Building UREfy — the social network you actually own.',
+      location: 'Zurich · Mesh',
       website: 'https://urefy.com',
-      joinedEpoch: 'Early Member',
+      joinedEpoch: 'Genesis Member',
       role: 'GUARDIAN',
       status: 'online',
       isZKVerified: true,
@@ -70,37 +98,60 @@ export class ProfileStore {
       followersCount: 1420,
       meritScore: 9940,
       trustScore: 98,
-      badges: ['🛡️ ZK-Human', '💎 Sovereign Archon', '🔑 Keymaster'],
+      badges: ['🛡️ ZK-Human', '💎 Sovereign Archon', '🔑 Keymaster', '🛡️ Verified Identity', '💎 Core Maintainer'],
     });
   }
 
   public getProfile(fp: string): UserProfileData {
-    if (!this.profileData.has(fp)) {
+    const normalizedFp = (fp || '').trim();
+    if (!this.profileData.has(normalizedFp)) {
       if (typeof localStorage !== 'undefined') {
         try {
-          const cached = localStorage.getItem(`aetheris_profile_${fp}`);
+          const cached = localStorage.getItem(`aetheris_profile_${normalizedFp}`);
           if (cached) {
             const parsed = JSON.parse(cached);
             if (parsed && parsed.name && parsed.name !== 'Profile not set up') {
-              this.profileData.set(fp, parsed);
-              return this.profileData.get(fp)!;
+              parsed.handle = sanitizeHandle(parsed.handle, normalizedFp);
+              this.profileData.set(normalizedFp, parsed);
+              return this.profileData.get(normalizedFp)!;
             }
           }
-        } catch (_) {}
+        } catch {}
       }
-      const known = (typeof clientStore !== 'undefined' ? clientStore.members?.find((m: any) => m.fingerprint === fp) : null) as any;
-      const knownPost = (typeof clientStore !== 'undefined' ? clientStore.posts?.find((p: any) => p.authorFingerprint === fp && (p.authorDisplayName || p.authorHandle)) : null) as any;
-      const postName = knownPost?.authorDisplayName || (knownPost?.authorHandle ? knownPost.authorHandle.replace(/^@/, '') : null);
-      const postHandle = knownPost?.authorHandle ? knownPost.authorHandle.replace(/^@/, '') : '';
-      const postAvatar = knownPost?.authorAvatarUrl || '';
 
-      const name = known?.name || postName || (!isDemoModeEnabled() ? 'Profile not set up' : fp === 'genesis-core' ? 'Genesis Protocol Archon' : fp === 'c3dc28cb705e' ? 'Elena Rostova' : fp === 'a89104fa2211' ? 'David Chen' : fp === 'f40019bc88a2' ? 'Maya Patel' : fp === '9b22a011cd44' ? 'Samira Khan' : 'Profile not set up');
-      const handle = known?.handle?.replace(/^@/, '') || postHandle || (!isDemoModeEnabled() ? '' : fp === 'genesis-core' ? 'genesis-core' : fp === 'c3dc28cb705e' ? 'elena_r' : fp === 'a89104fa2211' ? 'david_c' : fp === 'f40019bc88a2' ? 'maya_p' : fp === '9b22a011cd44' ? 'samira' : '');
-      const avatar = known?.avatar || postAvatar || '';
+      const known = (
+        typeof clientStore !== 'undefined'
+          ? clientStore.members?.find((m: any) => m.fingerprint === normalizedFp)
+          : null
+      ) as any;
+      const knownPost = (
+        typeof clientStore !== 'undefined'
+          ? clientStore.posts?.find(
+              (p: any) => p.authorFingerprint === normalizedFp && (p.authorDisplayName || p.authorHandle)
+            )
+          : null
+      ) as any;
 
-      this.profileData.set(fp, {
-        fingerprint: fp,
-        name,
+      const isDemo = isDemoModeEnabled();
+      const alias = isDemo ? KNOWN_NODE_ALIASES[normalizedFp] : undefined;
+      const rawHandle =
+        known?.handle ||
+        knownPost?.authorHandle ||
+        (isDemo ? alias?.handle || normalizedFp : '');
+      const handle = rawHandle ? sanitizeHandle(rawHandle, isDemo ? normalizedFp : undefined) : '';
+
+      const rawName =
+        (known?.name && known.name !== 'Profile not set up' ? known.name : null) ||
+        (knownPost?.authorDisplayName && knownPost.authorDisplayName !== 'Profile not set up'
+          ? knownPost.authorDisplayName
+          : null) ||
+        (isDemo ? alias?.name || humanizeIdentifier(handle || normalizedFp) : 'Profile not set up');
+
+      const avatar = known?.avatar || knownPost?.authorAvatarUrl || '';
+
+      this.profileData.set(normalizedFp, {
+        fingerprint: normalizedFp,
+        name: rawName,
         handle,
         avatar,
         banner: '',
@@ -108,37 +159,44 @@ export class ProfileStore {
         location: '',
         website: '',
         joinedEpoch: 'Member',
-        role: 'MEMBER',
-        status: 'idle',
-        isZKVerified: false,
+        role: alias?.role || 'MEMBER',
+        status: 'online',
+        isZKVerified: Boolean(alias),
         followingCount: 0,
         followersCount: 0,
         meritScore: 0,
-        trustScore: 0,
+        trustScore: alias ? 95 : 50,
         badges: [],
       });
     } else {
-      const current = this.profileData.get(fp)!;
+      const current = this.profileData.get(normalizedFp)!;
       if (current.name === 'Profile not set up' || !current.handle) {
-        const knownPost = (typeof clientStore !== 'undefined' ? clientStore.posts?.find((p: any) => p.authorFingerprint === fp && (p.authorDisplayName || p.authorHandle)) : null) as any;
+        const knownPost = (typeof clientStore !== 'undefined' ? clientStore.posts?.find((p: any) => p.authorFingerprint === normalizedFp && (p.authorDisplayName || p.authorHandle)) : null) as any;
         if (knownPost?.authorDisplayName || knownPost?.authorHandle) {
           if (knownPost.authorDisplayName) current.name = knownPost.authorDisplayName;
-          if (knownPost.authorHandle) current.handle = knownPost.authorHandle.replace(/^@/, '');
+          if (knownPost.authorHandle) current.handle = sanitizeHandle(knownPost.authorHandle);
           if (knownPost.authorAvatarUrl && !current.avatar) current.avatar = knownPost.authorAvatarUrl;
         }
       }
     }
-    return this.profileData.get(fp)!;
+    return this.profileData.get(normalizedFp)!;
   }
 
   public updateProfile(fp: string, updates: Partial<UserProfileData>): void {
     const current = this.getProfile(fp);
-    const updated = { ...current, ...updates };
+    const cleanUpdates = { ...updates };
+    if (typeof cleanUpdates.handle === 'string') {
+      cleanUpdates.handle = sanitizeHandle(cleanUpdates.handle, fp);
+    }
+    if (cleanUpdates.name === 'Profile not set up') {
+      cleanUpdates.name = humanizeIdentifier(cleanUpdates.handle || current.handle || fp);
+    }
+    const updated = { ...current, ...cleanUpdates };
     this.profileData.set(fp, updated);
     if (typeof localStorage !== 'undefined') {
       try {
         localStorage.setItem(`aetheris_profile_${fp}`, JSON.stringify(updated));
-      } catch (_) {}
+      } catch {}
     }
   }
 
@@ -164,29 +222,37 @@ export class ProfileStore {
       profile.followersCount += 1;
       result = true;
     }
-
     if (typeof localStorage !== 'undefined') {
       try {
         localStorage.setItem('aetheris_following_set', JSON.stringify(Array.from(this.followingSet)));
-      } catch (_) {}
+      } catch {}
     }
     if (typeof window !== 'undefined' && typeof clientStore !== 'undefined' && clientStore.createSignedEnvelope) {
       this.pendingFollows.add(fp);
       const envelope = clientStore.createSignedEnvelope({ action: result ? 'follow' : 'unfollow', followingId: fp });
-      void fetch('/api/follows', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(envelope) }).then(async response => {
-        const data = await response.json();
-        if (!response.ok || !data.success) throw new Error(data.error || 'Follow change could not be saved');
-        data.isFollowing ? this.followingSet.add(fp) : this.followingSet.delete(fp);
-        clientStore.showToast(data.isFollowing ? 'Following this person' : 'Unfollowed', 'info');
-      }).catch(error => {
-        wasFollowing ? this.followingSet.add(fp) : this.followingSet.delete(fp);
-        this.getProfile(fp).followersCount = beforeCount;
-        clientStore.showToast(error.message || 'Follow change could not be saved', 'warning');
-      }).finally(() => {
-        this.pendingFollows.delete(fp);
-        try { localStorage.setItem('aetheris_following_set', JSON.stringify([...this.followingSet])); } catch (_) {}
-        clientStore.notify();
-      });
+      void fetch('/api/follows', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(envelope),
+      })
+        .then(async (response) => {
+          const data = await response.json();
+          if (!response.ok || !data.success) throw new Error(data.error || 'Follow change could not be saved');
+          data.isFollowing ? this.followingSet.add(fp) : this.followingSet.delete(fp);
+          clientStore.showToast(data.isFollowing ? 'Following member' : 'Unfollowed', 'info');
+        })
+        .catch((error) => {
+          wasFollowing ? this.followingSet.add(fp) : this.followingSet.delete(fp);
+          this.getProfile(fp).followersCount = beforeCount;
+          clientStore.showToast(error.message || 'Follow change could not be saved', 'warning');
+        })
+        .finally(() => {
+          this.pendingFollows.delete(fp);
+          try {
+            localStorage.setItem('aetheris_following_set', JSON.stringify([...this.followingSet]));
+          } catch {}
+          clientStore.notify();
+        });
     }
     return result;
   }
@@ -213,15 +279,19 @@ export class ProfileStore {
         scope: 'urefy-profile-v1',
         action: 'save',
         displayName: profile.name,
-        handle: profile.handle,
+        handle: sanitizeHandle(profile.handle, fp),
         bio: profile.bio,
         location: profile.location,
         website: profile.website,
         avatarUrl: profile.avatar,
         bannerUrl: profile.banner,
-        pinnedPostId: profile.pinnedPostId
+        pinnedPostId: profile.pinnedPostId,
       });
-      const response = await fetch('/api/profiles', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(envelope) });
+      const response = await fetch('/api/profiles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(envelope),
+      });
       const result = await response.json();
       if (!response.ok || !result.success) throw new Error(result.error || 'Profile could not be saved');
       this.isEditProfileModalOpen = false;
@@ -245,11 +315,12 @@ export class ProfileStore {
     try {
       const response = await fetch(`/api/follows?userId=${encodeURIComponent(owner)}`, { cache: 'no-store' });
       const result = await response.json();
-      if (!response.ok || !result.success || !Array.isArray(result.following) || this.pendingFollows.size || owner !== clientStore.keypair?.fingerprint) return;
+      if (!response.ok || !result.success || !Array.isArray(result.following) || this.pendingFollows.size || owner !== clientStore.keypair?.fingerprint)
+        return;
       this.followingSet = new Set(result.following);
       localStorage.setItem('aetheris_following_set', JSON.stringify(result.following));
       clientStore.notify();
-    } catch { /* retain the last known social graph while offline */ }
+    } catch {}
   }
 
   public async loadPublicProfile(fp: string): Promise<void> {
@@ -263,22 +334,24 @@ export class ProfileStore {
         return;
       }
       const p = data.profile;
-      if (p.displayName || p.handle || p.updatedAt) {
-        this.updateProfile(fp, {
-          name: p.displayName || p.handle || 'UREfy Member',
-          handle: p.handle || '',
-          bio: p.bio || '',
-          avatar: p.avatarUrl || '',
-          banner: p.bannerUrl || '',
-          website: p.website || '',
-          location: p.location || '',
-          ...data.stats
-        });
-      } else {
-        Object.assign(this.getProfile(fp), data.stats || {});
-      }
+      const cleanHandle = sanitizeHandle(p.handle, fp);
+      const resolvedName =
+        p.displayName && p.displayName !== 'Profile not set up'
+          ? p.displayName
+          : humanizeIdentifier(cleanHandle || fp);
+
+      this.updateProfile(fp, {
+        name: resolvedName,
+        handle: cleanHandle,
+        bio: p.bio || '',
+        avatar: p.avatarUrl || '',
+        banner: p.bannerUrl || '',
+        website: p.website || '',
+        location: p.location || '',
+        ...data.stats,
+      });
       clientStore.notify();
-    } catch { /* keep cached identity while offline */ }
+    } catch {}
   }
 
   public setTargetFingerprint(fp: string): void {
@@ -311,8 +384,8 @@ export class ProfileStore {
     if (fullFingerprint) {
       return formatFederatedHandle(profile.fingerprint);
     }
-    const identifier = profile.handle || (profile.fingerprint.length > 12 ? profile.fingerprint.substring(0, 12) : profile.fingerprint);
-    return formatFederatedHandle(identifier);
+    const clean = sanitizeHandle(profile.handle, profile.fingerprint);
+    return formatFederatedHandle(clean);
   }
 
   public async copyFederatedHandle(fp?: string): Promise<boolean> {

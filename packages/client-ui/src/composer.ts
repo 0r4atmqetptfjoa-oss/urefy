@@ -33,25 +33,74 @@ export class OmniComposer extends HybridComposer {
     length: number = this.currentTextLength,
     max: number = this.maxPulseLength
   ): {
-    remaining: number;
-    percentage: number;
+    radius: number;
+    circumference: number;
+    strokeDashoffset: number;
     strokeColor: string;
+    charsLeft: number;
+    progressPercent: number;
     isWarning: boolean;
     isExceeded: boolean;
+    remaining: number;
+    percentage: number;
   } {
-    const remaining = max - length;
-    const percentage = Math.min(100, Math.max(0, Math.round((length / Math.max(1, max)) * 100)));
-    const isExceeded = remaining < 0;
-    const isWarning = !isExceeded && remaining <= 20;
-    const strokeColor = isExceeded ? '#f43f5e' : isWarning ? '#f59e0b' : '#00e5ff';
+    const radius = 12;
+    const circumference = 2 * Math.PI * radius;
+    const charsLeft = max - length;
+    const progressPercent = Math.min(100, Math.max(0, Math.round((length / Math.max(1, max)) * 100)));
+    const strokeDashoffset = circumference * (1 - Math.min(1, Math.max(0, length) / Math.max(1, max)));
+
+    let strokeColor = '#6366f1';
+    const isWarning = charsLeft <= 20 && charsLeft >= 0;
+    const isExceeded = charsLeft < 0;
+
+    if (isExceeded || charsLeft <= 10) {
+      strokeColor = '#ef4444';
+    } else if (isWarning) {
+      strokeColor = '#f59e0b';
+    }
 
     return {
-      remaining,
-      percentage,
+      radius,
+      circumference,
+      strokeDashoffset,
       strokeColor,
+      charsLeft,
+      progressPercent,
       isWarning,
       isExceeded,
+      remaining: charsLeft,
+      percentage: progressPercent,
     };
+  }
+
+  public renderCircularCountdownRing(
+    length: number = this.currentTextLength,
+    max: number = this.maxPulseLength
+  ): string {
+    const metrics = this.getCharacterRingMetrics(length, max);
+    return `
+      <div class="relative w-8 h-8 flex items-center justify-center select-none" title="${metrics.charsLeft} characters remaining">
+        <svg class="w-7 h-7 transform -rotate-90" viewBox="0 0 32 32">
+          <circle cx="16" cy="16" r="${metrics.radius}" stroke="#2f3336" stroke-width="2.5" fill="transparent" />
+          <circle
+            cx="16"
+            cy="16"
+            r="${metrics.radius}"
+            stroke="${metrics.strokeColor}"
+            stroke-width="2.5"
+            stroke-dasharray="${metrics.circumference}"
+            stroke-dashoffset="${metrics.strokeDashoffset}"
+            stroke-linecap="round"
+            fill="transparent"
+            class="transition-all duration-150"
+          />
+        </svg>
+        <span class="absolute text-[10px] font-mono font-bold" style="color: ${metrics.strokeColor}">
+          ${metrics.charsLeft <= 20 ? metrics.charsLeft : ''}
+        </span>
+      </div>
+    `;
   }
 
   public addMedia(url: string, alt: string = 'Visual attachment'): void {

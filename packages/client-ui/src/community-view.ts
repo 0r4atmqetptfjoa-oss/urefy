@@ -28,6 +28,7 @@ export class CommunityView {
   public activePillar: 'discuss' | 'live' | 'knowledge' | 'about' = 'discuss';
   public searchQuery: string = '';
   public activeCategory: string = 'All';
+  public membershipFilter: 'all' | 'joined' = 'all';
 
   public setActivePillar(pillar: 'discuss' | 'live' | 'knowledge' | 'about'): void {
     this.activePillar = pillar;
@@ -42,7 +43,7 @@ export class CommunityView {
           <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
           <h3 class="text-sm font-bold text-white">Live E2EE Relay Room · #${escapeHtml(circle.name)}</h3>
         </div>
-        <span class="text-xs font-mono text-emerald-300">${circle.onlineCount || 12} peers online</span>
+        <span class="text-xs font-mono text-emerald-300">${circle.onlineCount ?? 0} online</span>
       </div>
       <div class="space-y-2.5 max-h-96 overflow-y-auto pr-1">
         ${
@@ -164,6 +165,12 @@ export class CommunityView {
         <div class="h-28 w-full bg-gradient-to-r from-cyan-900/50 via-indigo-950/60 to-emerald-900/50 relative">
           <div class="absolute -bottom-7 left-6 w-16 h-16 rounded-2xl bg-surface-raised border-2 border-[#08090d] flex items-center justify-center text-3xl shadow-xl">
             ${escapeHtml(circle.icon || '🌐')}
+          </div>
+          <div class="absolute top-3 right-4 flex items-center gap-2">
+            <span class="px-2.5 py-1 rounded-xl bg-black/60 backdrop-blur-md text-xs text-slate-300 border border-white/10 ${circle.onlineCount && circle.onlineCount > 0 ? 'flex' : 'hidden'} items-center space-x-1.5">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+              <span>${circle.onlineCount ?? 0} online</span>
+            </span>
           </div>
         </div>
         <div class="pt-9 pb-5 px-6">

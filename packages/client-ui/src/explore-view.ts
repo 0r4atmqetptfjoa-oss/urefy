@@ -57,6 +57,15 @@ export class ExploreView {
   public searchQuery: string = '';
   public activeCategory: ExploreCategory = 'all';
   public activeSearchTab: 'posts' | 'people' | 'communities' | 'topics' = 'posts';
+  get activeSubTab(): string {
+    return this.activeSearchTab === 'posts' ? 'pulses' : this.activeSearchTab;
+  }
+  set activeSubTab(v: string) {
+    if (v === 'pulses' || v === 'posts') this.activeSearchTab = 'posts';
+    else if (v === 'communities') this.activeSearchTab = 'communities';
+    else if (v === 'people') this.activeSearchTab = 'people';
+    else if (v === 'topics') this.activeSearchTab = 'topics';
+  }
   public categories: Array<{ id: ExploreCategory; label: string; count: string; emoji: string }> = [
     { id: 'all', label: 'All Signals', count: '', emoji: '🌐' },
     { id: 'trending', label: 'Trending', count: '', emoji: '🔥' },
