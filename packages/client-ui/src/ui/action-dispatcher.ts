@@ -47,9 +47,10 @@ function getVV(): Promise<typeof import('../vault-view.js')> {
 
 import { communityView, exploreView, loadExploreView } from '../optional-workspaces.js';
 import { replaceEmoticons } from '../chat-rich-embed.js';
-import { setWorkspaceLayout } from '../workspace-layout.js';
+import { setWorkspaceLayout, setSplitSecondaryPane, type SplitSecondaryPane } from '../workspace-layout.js';
 import { sovereignWebPush } from '../web-push.js';
-import { dismissSinceYouWereAwayCard, submitQuickPost } from '../feed-view.js';
+import { dismissSinceYouWereAwayCard, submitQuickPost, loadMoreFeedPosts, quickPostDraft } from '../feed-view.js';
+import { commandRailV2 } from '../command-rail-v2.js';
 import { reportModalManager } from '../report-modal.js';
 import { postDetailView } from '../post-detail.js';
 import { sharePostOrCopyLink } from '../dry-utils.js';
@@ -1135,6 +1136,85 @@ export class ActionDispatcher {
       case 'workspace.setLayout':
       case 'set-workspace-layout': {
         setWorkspaceLayout(el.getAttribute('data-layout'));
+        break;
+      }
+
+      case 'workspace.setSplitPane':
+      case 'set-split-pane': {
+        const pane = el.getAttribute('data-pane') as SplitSecondaryPane | null;
+        if (pane) {
+          setSplitSecondaryPane(pane);
+        }
+        break;
+      }
+
+      case 'command.open':
+      case 'open-command-rail': {
+        commandRailV2.open();
+        break;
+      }
+
+      case 'command.close':
+      case 'close-command-rail': {
+        commandRailV2.close();
+        break;
+      }
+
+      case 'theme.open': {
+        themeEngine.openModal();
+        break;
+      }
+
+      case 'theme.close': {
+        themeEngine.closeModal();
+        break;
+      }
+
+      case 'theme.apply': {
+        const themeId = el.getAttribute('data-theme-id');
+        if (themeId) themeEngine.setTheme(themeId);
+        break;
+      }
+
+      case 'theme.setAccent': {
+        const hex = el.getAttribute('data-accent-hex');
+        if (hex) themeEngine.setAccentColor(hex);
+        break;
+      }
+
+      case 'header.toggleOverflow': {
+        if (typeof (window as any).__aetheris_toggle_advanced_overflow === 'function') {
+          (window as any).__aetheris_toggle_advanced_overflow();
+        }
+        break;
+      }
+
+      case 'header.dismissBroadcast': {
+        (clientStore as any).broadcastDismissed = true;
+        if (typeof (window as any).__aetheris_dismiss_broadcast === 'function') {
+          (window as any).__aetheris_dismiss_broadcast();
+        }
+        el.closest('#system-broadcast-banner')?.remove();
+        break;
+      }
+
+      case 'feed.submitQuickPost': {
+        submitQuickPost();
+        break;
+      }
+
+      case 'feed.dismissAwayCard': {
+        dismissSinceYouWereAwayCard();
+        break;
+      }
+
+      case 'feed.loadMore': {
+        loadMoreFeedPosts();
+        break;
+      }
+
+      case 'toggle-sound': {
+        soundEffects.toggleSound();
         break;
       }
 
@@ -3484,6 +3564,10 @@ export class ActionDispatcher {
   }
 
   public dispatchInput(action: string, el: HTMLInputElement | HTMLTextAreaElement, event: Event): void {
+    if (el.id === 'inline-quick-post-input') {
+      quickPostDraft.content = el.value;
+      return;
+    }
     if (action === 'settings-set-trust-threshold') {
       const val = parseInt((el as HTMLInputElement).value, 10);
       if (!isNaN(val)) {
@@ -3519,7 +3603,7 @@ export class ActionDispatcher {
       } else if (method) {
         this.invokeMethodPath(method, [el.value, el]);
       }
-    } else if (action === 'search-communities' || el.id === 'input-community-search') {
+    } else if (action === 'search-communities' || action === 'community.search' || el.id === 'input-community-search') {
       communityView?.setSearchQuery(el.value);
       clientStore.notifySync();
       const updatedInput = document.getElementById('input-community-search') as HTMLInputElement | null;
@@ -3527,7 +3611,7 @@ export class ActionDispatcher {
         updatedInput.focus({ preventScroll: true });
         updatedInput.setSelectionRange(updatedInput.value.length, updatedInput.value.length);
       }
-    } else if (action === 'explore-search' || el.id === 'explore-search-input') {
+    } else if (action === 'explore-search' || action === 'explore.search' || el.id === 'explore-search-input') {
       void loadExploreView().then(view => {
         view.setSearchQuery(el.value, false);
         clientStore.notifySync();
@@ -3537,7 +3621,7 @@ export class ActionDispatcher {
           updatedInput.setSelectionRange(updatedInput.value.length, updatedInput.value.length);
         }
       });
-    } else if (action === 'search-dm-peers') {
+    } else if (action === 'search-dm-peers' || action === 'dm.search') {
       void getMV().then(m => {
         m.setDMSearchQuery(el.value);
         clientStore.notifySync();
@@ -3552,7 +3636,7 @@ export class ActionDispatcher {
           updatedInput.setSelectionRange(updatedInput.value.length, updatedInput.value.length);
         }
       });
-    } else if (action === 'search-vault' || el.id === 'input-vault-search') {
+    } else if (action === 'search-vault' || action === 'vault.search' || el.id === 'input-vault-search') {
       void getVV().then(v => {
         v.setVaultSearchQuery(el.value);
         clientStore.notifySync();

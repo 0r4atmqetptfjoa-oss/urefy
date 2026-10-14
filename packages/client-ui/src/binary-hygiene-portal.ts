@@ -1,19 +1,9 @@
-/**
- * @file binary-hygiene-portal.ts
- * @package @aetheris/client-ui
- * @description Pillar 4: Binary Hygiene Free Web Portal & API (/scan Micro-SaaS).
- * Client-side sovereign binary static hygiene inspector. Computes exact Shannon
- * entropy across byte blocks, inspects PE/ELF/Mach-O headers, detects UPX/packer
- * byte signatures and RWX section anomalies with zero server infrastructure costs.
- */
-
 import {
   calculateShannonEntropy,
   scanPackerSignatures,
   inspectBinary,
   computeFileChecksums,
   BinarySectionInfo,
-  BinaryFormat,
   PackerSignatureMatch,
 } from '@aetheris/vault-engine';
 import { clientStore } from './client-state.js';
@@ -68,26 +58,85 @@ export class BinaryHygienePortal {
   public scanReport: ScanReportData | null = null;
   public isScanning: boolean = false;
   public error: string | null = null;
+  private delegationBound: boolean = false;
 
   constructor() {
     if (typeof window !== 'undefined') {
       (window as any).binaryHygienePortal = this;
       (window as any).__aetheris_open_binary_hygiene = () => this.open();
       (window as any).__aetheris_close_binary_hygiene = () => this.close();
+      this.bindModalDelegation();
     }
+  }
+
+  private bindModalDelegation(): void {
+    if (this.delegationBound || typeof document === 'undefined') return;
+    this.delegationBound = true;
+
+    document.addEventListener('click', (e: MouseEvent) => {
+      if (!this.isOpen) return;
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+
+      if (target.id === 'binary-hygiene-backdrop' || target.closest('[data-action="close-binary-hygiene"]')) {
+        e.preventDefault();
+        this.close();
+        return;
+      }
+
+      if (target.closest('[data-action="trigger-binary-file-select"]')) {
+        const input = document.getElementById('binary-hygiene-file-input') as HTMLInputElement | null;
+        if (input && target !== input) {
+          input.click();
+        }
+        return;
+      }
+
+      if (target.closest('[data-action="scan-sample-clean"]')) {
+        e.preventDefault();
+        void this.scanSampleBinary('clean');
+        return;
+      }
+
+      if (target.closest('[data-action="scan-sample-upx"]')) {
+        e.preventDefault();
+        void this.scanSampleBinary('upx');
+        return;
+      }
+
+      if (target.closest('[data-action="scan-sample-suspicious"]')) {
+        e.preventDefault();
+        void this.scanSampleBinary('suspicious');
+        return;
+      }
+
+      if (target.closest('[data-action="clear-binary-report"]')) {
+        e.preventDefault();
+        this.clearReport();
+        return;
+      }
+
+      if (target.closest('[data-action="download-binary-audit-cert"]')) {
+        e.preventDefault();
+        this.downloadAuditCertificate();
+        return;
+      }
+    });
   }
 
   public attachDropzoneListeners(): void {
     if (typeof document === 'undefined') return;
+    this.bindModalDelegation();
     const dropzone = document.getElementById('binary-hygiene-dropzone');
     const fileInput = document.getElementById('binary-hygiene-file-input') as HTMLInputElement | null;
     if (!dropzone) return;
 
-    if (fileInput) {
+    if (fileInput && !fileInput.hasAttribute('data-bound')) {
+      fileInput.setAttribute('data-bound', 'true');
       fileInput.addEventListener('change', (e: Event) => {
         const target = e.target as HTMLInputElement;
         if (target.files && target.files[0]) {
-          this.scanFile(target.files[0], target.files[0].name);
+          void this.scanFile(target.files[0], target.files[0].name);
         }
       });
     }
@@ -110,7 +159,7 @@ export class BinaryHygienePortal {
       dropzone.classList.remove('border-cyan-400', 'bg-cyan-950/20');
       if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
         const file = e.dataTransfer.files[0];
-        this.scanFile(file, file.name);
+        void this.scanFile(file, file.name);
       }
     });
   }
@@ -118,59 +167,45 @@ export class BinaryHygienePortal {
   public generateSampleBinary(type: 'clean' | 'upx' | 'suspicious'): Uint8Array {
     const size = 1024;
     const buffer = new Uint8Array(size);
-
-    // 1. DOS Header 'MZ'
     buffer[0] = 0x4d;
     buffer[1] = 0x5a;
     const peOffset = 0x80;
     buffer[0x3c] = peOffset;
-
-    // 2. PE Signature: "PE\0\0"
     buffer[peOffset] = 0x50;
     buffer[peOffset + 1] = 0x45;
     buffer[peOffset + 2] = 0x00;
     buffer[peOffset + 3] = 0x00;
-
-    // 3. COFF Header
     const view = new DataView(buffer.buffer);
-    view.setUint16(peOffset + 4, 0x8664, true); // Machine x86_64
-    view.setUint16(peOffset + 6, 1, true); // NumberOfSections = 1
-    view.setUint16(peOffset + 20, 240, true); // SizeOfOptionalHeader = 240
-
-    // 4. Section Header at peOffset + 24 + 240
+    view.setUint16(peOffset + 4, 0x8664, true);
+    view.setUint16(peOffset + 6, 1, true);
+    view.setUint16(peOffset + 20, 240, true);
     const secOffset = peOffset + 24 + 240;
     const sectionName = type === 'upx' ? 'UPX0' : type === 'suspicious' ? '.hack' : '.text';
     for (let i = 0; i < Math.min(sectionName.length, 8); i++) {
       buffer[secOffset + i] = sectionName.charCodeAt(i);
     }
-
-    view.setUint32(secOffset + 8, 512, true); // VirtualSize
-    view.setUint32(secOffset + 16, 512, true); // RawSize
+    view.setUint32(secOffset + 8, 512, true);
+    view.setUint32(secOffset + 16, 512, true);
     const rawPointer = 512;
     view.setUint32(secOffset + 20, rawPointer, true);
-
-    // Characteristics
-    let chars = 0x20000000; // Executable
+    let chars = 0x20000000;
     if (type === 'suspicious') {
-      chars |= 0x80000000; // Writable + Executable = RWX anomaly
+      chars |= 0x80000000;
     }
     view.setUint32(secOffset + 36, chars, true);
-
-    // 5. Section Data
     if (type === 'upx') {
       for (let i = rawPointer; i < rawPointer + 512; i++) {
         buffer[i] = (i * 181 + 17) % 256;
       }
-      buffer[peOffset + 10] = 0x55; // 'U'
-      buffer[peOffset + 11] = 0x50; // 'P'
-      buffer[peOffset + 12] = 0x58; // 'X'
-      buffer[peOffset + 13] = 0x21; // '!'
+      buffer[peOffset + 10] = 0x55;
+      buffer[peOffset + 11] = 0x50;
+      buffer[peOffset + 12] = 0x58;
+      buffer[peOffset + 13] = 0x21;
     } else {
       for (let i = rawPointer; i < rawPointer + 512; i++) {
-        buffer[i] = 0x90; // NOP sled
+        buffer[i] = 0x90;
       }
     }
-
     return buffer;
   }
 
@@ -220,18 +255,16 @@ export class BinaryHygienePortal {
     }
   }
 
-  /**
-   * Performs client-side static binary hygiene analysis on a file or raw byte array.
-   */
-  public async scanFile(file: File | Uint8Array | ArrayBuffer, fileName: string = 'unknown.bin'): Promise<ScanReportData> {
+  public async scanFile(
+    file: File | Uint8Array | ArrayBuffer,
+    fileName: string = 'unknown.bin'
+  ): Promise<ScanReportData> {
     this.isScanning = true;
     this.error = null;
     try {
       clientStore?.notifySync?.();
     } catch (_) {}
-
     try {
-      // 1. Read binary data as Uint8Array via ArrayBuffer
       let data: Uint8Array;
       if (file instanceof Uint8Array) {
         data = file;
@@ -246,17 +279,11 @@ export class BinaryHygienePortal {
       } else {
         throw new Error('Unsupported file payload type: expected File, ArrayBuffer, or Uint8Array');
       }
-
-      // 2. Compute SHA-256 and CRC-32 digests
       const checksums = computeFileChecksums(data);
-
-      // 3. Compute exact Shannon entropy (overall and across byte blocks)
       const overallEntropy = calculateShannonEntropy(data);
-
       const blockCount = Math.min(16, Math.max(1, Math.floor(data.length / 512)));
       const blockSize = Math.max(1, Math.floor(data.length / blockCount));
       const blockEntropies: BlockEntropyInfo[] = [];
-
       for (let i = 0; i < blockCount; i++) {
         const offset = i * blockSize;
         const end = i === blockCount - 1 ? data.length : offset + blockSize;
@@ -269,27 +296,21 @@ export class BinaryHygienePortal {
           entropy,
         });
       }
-
-      // 4. Inspect binary headers (PE / ELF / Mach-O)
       const inspection = inspectBinary(data);
       let format: string = inspection.format;
       let architecture: string = inspection.architecture;
-
-      // Mach-O header detection if unknown format
       if (format === 'UNKNOWN' && data.length >= 4) {
         const b0 = data[0];
         const b1 = data[1];
         const b2 = data[2];
         const b3 = data[3];
-
-        // 0xFEEDFACE (32-bit Mach-O) or 0xFEEDFACF (64-bit Mach-O)
         if (
           (b0 === 0xfe && b1 === 0xed && b2 === 0xfa && (b3 === 0xce || b3 === 0xcf)) ||
           (b0 === 0xcf && b1 === 0xfa && b2 === 0xed && b3 === 0xfe) ||
           (b0 === 0xce && b1 === 0xfa && b2 === 0xed && b3 === 0xfe)
         ) {
           format = 'Mach-O';
-          architecture = (b3 === 0xcf || b0 === 0xcf) ? 'x86_64 / ARM64 (64-bit)' : 'x86 / ARM (32-bit)';
+          architecture = b3 === 0xcf || b0 === 0xcf ? 'x86_64 / ARM64 (64-bit)' : 'x86 / ARM (32-bit)';
         } else if (
           (b0 === 0xca && b1 === 0xfe && b2 === 0xba && b3 === 0xbe) ||
           (b0 === 0xbe && b1 === 0xba && b2 === 0xfe && b3 === 0xca)
@@ -298,20 +319,14 @@ export class BinaryHygienePortal {
           architecture = 'Universal Fat Binary (Multi-Architecture)';
         }
       }
-
-      // 5. Detect UPX and packer signatures and section anomalies
       const packerSignatures = scanPackerSignatures(data);
       const anomalies = [...inspection.anomalies];
-
       for (const p of packerSignatures) {
         anomalies.push(`PACKER_SIGNATURE_DETECTED:${p.packer}:${p.signature}`);
       }
-
-      // 6. Produce final hygiene verdict
       let verdict: 'CLEAN' | 'SUSPICIOUS' | 'PACKED' = 'CLEAN';
       const hasRWX = anomalies.some((a) => a.includes('RWX_SECTION'));
       const hasPackerSig = packerSignatures.length > 0;
-
       if (hasPackerSig || inspection.verdict === 'PACKED' || overallEntropy >= 7.3) {
         verdict = 'PACKED';
       } else if (hasRWX || inspection.verdict === 'SUSPICIOUS' || overallEntropy >= 6.85) {
@@ -319,8 +334,6 @@ export class BinaryHygienePortal {
       } else {
         verdict = 'CLEAN';
       }
-
-      // 7. Construct signed audit certificate
       const auditCertificate: BinaryAuditCertificate = {
         protocol: 'UREfy Sovereign Binary Hygiene v1.0',
         version: '1.0',
@@ -338,7 +351,6 @@ export class BinaryHygienePortal {
         sections: inspection.sections,
         attestationSignature: `SOVEREIGN_ATTESTATION_SHA256:${checksums.sha256.slice(0, 16)}:ED25519_AUDIT_PASS`,
       };
-
       const report: ScanReportData = {
         fileName,
         byteSize: data.length,
@@ -356,14 +368,14 @@ export class BinaryHygienePortal {
         scannedAt: Date.now(),
         auditCertificate,
       };
-
       this.scanReport = report;
-
       if (typeof window !== 'undefined' && toastManager) {
         const icon = verdict === 'CLEAN' ? '🛡️' : verdict === 'PACKED' ? '📦' : '⚠️';
-        toastManager.success(`Binary inspection complete: Verdict ${verdict} (Entropy ${overallEntropy} b/B)`, icon);
+        toastManager.success(
+          `Binary inspection complete: Verdict ${verdict} (Entropy ${overallEntropy} b/B)`,
+          icon
+        );
       }
-
       return report;
     } catch (err: any) {
       this.error = err.message || 'Inspection failed';
@@ -382,9 +394,6 @@ export class BinaryHygienePortal {
     }
   }
 
-  /**
-   * Downloads the signed audit certificate as a formatted JSON document.
-   */
   public downloadAuditCertificate(): void {
     if (!this.scanReport) return;
     const jsonStr = JSON.stringify(this.scanReport.auditCertificate, null, 2);
@@ -397,23 +406,16 @@ export class BinaryHygienePortal {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-
     if (typeof window !== 'undefined' && toastManager) {
       toastManager.success('Signed Audit Certificate downloaded!', '📜');
     }
   }
 
-  /**
-   * Renders the complete HTML structure of the Binary Hygiene Web Portal.
-   */
   public renderModalHTML(): string {
     if (!this.isOpen) return '';
-
     const report = this.scanReport;
     const entropy = report ? report.overallEntropy : 0;
     const entropyPercent = Math.min(100, Math.max(0, (entropy / 8.0) * 100));
-
-    // Color gradient calculation
     let verdictBadge = '';
     if (report) {
       if (report.verdict === 'CLEAN') {
@@ -439,12 +441,9 @@ export class BinaryHygienePortal {
           </div>`;
       }
     }
-
     return `
       <div id="binary-hygiene-backdrop" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md select-none animate-in fade-in duration-150 font-sans" data-action="close-binary-hygiene-backdrop">
         <div class="relative w-full max-w-3xl max-h-[92vh] overflow-y-auto bg-slate-900 border border-white/10 rounded-2xl p-6 shadow-2xl space-y-5 text-slate-200">
-          
-          <!-- MODAL HEADER -->
           <div class="flex items-center justify-between pb-3 border-b border-white/10">
             <div class="flex items-center space-x-3">
               <div class="w-10 h-10 rounded-2xl flex items-center justify-center text-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 shadow-lg">
@@ -462,16 +461,12 @@ export class BinaryHygienePortal {
               ✕
             </button>
           </div>
-
-          <!-- SECURITY NOTICE & HYGIENE DISCLAIMER -->
           <div class="p-3 rounded-xl bg-amber-950/40 border border-amber-500/30 text-amber-200 text-xs flex items-start space-x-2.5">
             <span class="text-base shrink-0">⚠️</span>
             <div class="text-[11px] leading-relaxed">
               <span class="font-bold">Security Notice:</span> Static Shannon entropy metrics and header inspection provide heuristic structural hygiene indicators, but do <strong>NOT</strong> substitute for full antivirus scanning or dynamic behavioral sandbox analysis.
             </div>
           </div>
-
-          <!-- DROPZONE -->
           <div
             id="binary-hygiene-dropzone"
             class="relative border-2 border-dashed border-cyan-500/30 hover:border-cyan-400/60 rounded-2xl p-6 text-center bg-slate-800/40 hover:bg-slate-800/70 transition-all cursor-pointer group space-y-2"
@@ -493,8 +488,6 @@ export class BinaryHygienePortal {
               Files are inspected 100% locally in your browser memory. Zero bytes transmitted to third-party servers.
             </p>
           </div>
-
-          <!-- SAMPLE BENCHMARK TEST BUTTONS -->
           <div class="flex flex-wrap items-center justify-center gap-2 pt-1 pb-1">
             <span class="text-[10px] font-mono text-slate-400">1-Click Test Benchmarks:</span>
             <button type="button" data-action="scan-sample-clean" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[10px] font-mono font-bold text-emerald-400 border border-emerald-500/30 hover:border-emerald-500/60 transition-all cursor-pointer">
@@ -507,14 +500,10 @@ export class BinaryHygienePortal {
               ⚠️ RWX Suspicious
             </button>
           </div>
-
-          <!-- SCAN REPORT CONTENT -->
           ${
             report
               ? `
             <div class="space-y-4 animate-in fade-in">
-              
-              <!-- VERDICT AND ESSENTIAL METRICS -->
               <div class="flex flex-wrap items-center justify-between gap-3 p-4 rounded-xl bg-slate-800/60 border border-white/5">
                 <div>
                   <div class="text-xs font-mono font-bold text-white flex items-center space-x-2">
@@ -530,8 +519,6 @@ export class BinaryHygienePortal {
                   ${verdictBadge}
                 </div>
               </div>
-
-              <!-- SHANNON ENTROPY BREAKDOWN BAR -->
               <div class="p-4 rounded-xl bg-slate-800/60 border border-white/5 space-y-3">
                 <div class="flex items-center justify-between font-mono text-xs">
                   <span class="font-bold text-slate-300 flex items-center space-x-1.5">
@@ -542,22 +529,17 @@ export class BinaryHygienePortal {
                     ${entropy.toFixed(3)} / 8.000 b/B
                   </span>
                 </div>
-
-                <!-- Gradient Bar -->
                 <div class="relative w-full h-3 rounded-full bg-slate-900 overflow-hidden border border-white/10">
                   <div
                     class="h-full transition-all duration-500 bg-gradient-to-r from-emerald-500 via-amber-500 to-rose-500"
                     style="width: ${entropyPercent}%;"
                   ></div>
                 </div>
-
-                <!-- Legend & Block Chips -->
                 <div class="flex items-center justify-between text-[9px] font-mono text-slate-400">
                   <span>0.0 (Uniform text / code)</span>
                   <span>6.0 - 7.0 (Compiled executable)</span>
                   <span>7.4+ (Encrypted / UPX Packed)</span>
                 </div>
-
                 ${
                   report.blockEntropies && report.blockEntropies.length > 0
                     ? `
@@ -588,42 +570,6 @@ export class BinaryHygienePortal {
                     : ''
                 }
               </div>
-
-              <!-- PACKER SIGNATURES & ANOMALIES -->
-              ${
-                report.packerSignatures.length > 0 || report.anomalies.length > 0
-                  ? `
-                <div class="p-3.5 rounded-xl bg-slate-800/60 border border-white/5 space-y-2">
-                  <div class="text-xs font-mono font-bold text-amber-400 flex items-center space-x-2">
-                    <span>⚠️</span>
-                    <span>Packer Signatures & Heuristic Indicators</span>
-                  </div>
-                  <div class="flex flex-wrap gap-1.5">
-                    ${report.packerSignatures
-                      .map(
-                        (p) => `
-                      <span class="px-2 py-0.5 rounded bg-indigo-950 border border-indigo-500/30 text-indigo-300 font-mono text-[10px]">
-                        Packer: ${p.packer} (${p.signature}) @ ${p.location}
-                      </span>
-                    `
-                      )
-                      .join('')}
-                    ${report.anomalies
-                      .map(
-                        (a) => `
-                      <span class="px-2 py-0.5 rounded bg-slate-900 border border-white/10 text-slate-300 font-mono text-[10px]">
-                        ${a}
-                      </span>
-                    `
-                      )
-                      .join('')}
-                  </div>
-                </div>
-              `
-                  : ''
-              }
-
-              <!-- TECHNICAL SECTION TABLE -->
               <div class="p-4 rounded-xl bg-slate-800/60 border border-white/5 space-y-2">
                 <div class="text-xs font-mono font-bold text-slate-300">Technical Section Headers (${report.sections.length} Sections)</div>
                 <div class="overflow-x-auto">
@@ -677,8 +623,6 @@ export class BinaryHygienePortal {
                   </table>
                 </div>
               </div>
-
-              <!-- ACTIONS -->
               <div class="flex items-center justify-between pt-2">
                 <button
                   type="button"
@@ -697,12 +641,10 @@ export class BinaryHygienePortal {
                   <span>📜 Download Signed Audit Certificate</span>
                 </button>
               </div>
-
             </div>
           `
               : ''
           }
-
         </div>
       </div>
     `;
@@ -710,7 +652,6 @@ export class BinaryHygienePortal {
 }
 
 export const binaryHygienePortal = new BinaryHygienePortal();
-
 declare global {
   interface Window {
     binaryHygienePortal?: BinaryHygienePortal;

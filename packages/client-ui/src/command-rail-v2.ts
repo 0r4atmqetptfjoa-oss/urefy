@@ -4,12 +4,7 @@
  * @description 2027 Spatial Command & Split-Preview Palette (Ctrl+K / Cmd+K) with WoT Trust Telemetry.
  */
 
-import {
-  clientStore,
-  ClientPost,
-  CommunityMember,
-  ClientNanopublication,
-} from './client-state.js';
+import { clientStore } from './client-state.js';
 import { sovereignCircleEngine } from './sovereign-circle.js';
 import { sovereignRouter } from './router.js';
 import { canonicalVault } from './canonical-vault.js';
@@ -76,14 +71,6 @@ function escapeHtml(str: string): string {
     .replace(/'/g, '&#39;');
 }
 
-function formatBytes(bytes: number): string {
-  if (!bytes || bytes <= 0) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.min(sizes.length - 1, Math.floor(Math.log(bytes) / Math.log(k)));
-  return `${+(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
-}
-
 export class CommandRailV2Engine {
   public isOpen: boolean = false;
   public query: string = '';
@@ -94,6 +81,10 @@ export class CommandRailV2Engine {
 
   constructor() {
     this._initCommands();
+    if (typeof window !== 'undefined') {
+      (window as any).commandRailV2 = this;
+      this.attachEvents();
+    }
   }
 
   private _initCommands(): void {
@@ -162,12 +153,27 @@ export class CommandRailV2Engine {
     this.results = this.search(this.query, this.activeFilter);
     clientStore.isCommandRailOpen = true;
     clientStore.notify('COMMAND_RAIL_OPENED');
+    if (typeof document !== 'undefined') {
+      let modal = document.getElementById('command-rail-v2-modal');
+      if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'command-rail-v2-modal';
+        document.body.appendChild(modal);
+      }
+      modal.outerHTML = this.renderModal(this.results);
+      const input = document.getElementById('command-rail-v2-input') as HTMLInputElement | null;
+      input?.focus();
+    }
   }
 
   public close(): void {
     this.isOpen = false;
     clientStore.isCommandRailOpen = false;
     clientStore.notify('COMMAND_RAIL_CLOSED');
+    if (typeof document !== 'undefined') {
+      const modal = document.getElementById('command-rail-v2-modal');
+      modal?.remove();
+    }
   }
 
   public setQuery(query: string): void {
@@ -301,15 +307,37 @@ export class CommandRailV2Engine {
 
   public renderUpdate(root?: HTMLElement): void {
     const container =
-      root || (typeof document !== 'undefined' ? document.getElementById('command-rail-v2-modal') : null);
+      root ||
+      (typeof document !== 'undefined'
+        ? document.getElementById('command-rail-v2-modal') || document.getElementById('command-rail-v2')
+        : null);
     if (!container) return;
+    const scrollPos = container.querySelector('.max-h-\\[65vh\\]')?.scrollTop || 0;
     container.outerHTML = this.renderModal(this.results);
+    const updated = document.getElementById('command-rail-v2-modal');
+    const scrollEl = updated?.querySelector('.max-h-\\[65vh\\]');
+    if (scrollEl) scrollEl.scrollTop = scrollPos;
+    const input = document.getElementById('command-rail-v2-input') as HTMLInputElement | null;
+    input?.focus();
   }
 
-  public attachEvents(root: HTMLElement = document.body, onClose?: () => void): void {
+  public attachEvents(root: HTMLElement = typeof document !== 'undefined' ? document.body : (undefined as any), onClose?: () => void): void {
     if (!root || typeof root.addEventListener !== 'function') return;
-    root.addEventListener('keydown', (e: KeyboardEvent) => {
+
+    window.addEventListener('keydown', (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        e.stopPropagation();
+        if (this.isOpen) {
+          this.close();
+        } else {
+          this.open();
+        }
+        return;
+      }
+
       if (!this.isOpen) return;
+
       if (e.key === 'ArrowDown') {
         e.preventDefault();
         this.navigate('down');
@@ -325,6 +353,45 @@ export class CommandRailV2Engine {
         if (onClose) onClose();
       }
     });
+
+    document.addEventListener('click', (e: MouseEvent) => {
+      if (!this.isOpen) return;
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+
+      const filterBtn = target.closest<HTMLElement>('[data-cmd-filter]');
+      if (filterBtn) {
+        e.preventDefault();
+        const f = filterBtn.getAttribute('data-cmd-filter') as CommandRailFilter;
+        if (f) this.setFilter(f);
+        return;
+      }
+
+      const indexBtn = target.closest<HTMLElement>('[data-cmd-index]');
+      if (indexBtn) {
+        e.preventDefault();
+        const idx = Number(indexBtn.getAttribute('data-cmd-index'));
+        if (!isNaN(idx)) {
+          this.selectIndex(idx);
+          this.executeSelected();
+        }
+        return;
+      }
+
+      if (target.id === 'command-rail-v2-modal' || target.closest('#btn-close-command-rail')) {
+        e.preventDefault();
+        this.close();
+        if (onClose) onClose();
+      }
+    });
+
+    document.addEventListener('input', (e: Event) => {
+      if (!this.isOpen) return;
+      const target = e.target as HTMLInputElement | null;
+      if (target && target.id === 'command-rail-v2-input') {
+        this.setQuery(target.value);
+      }
+    });
   }
 
   public renderModal(results: SearchItem[] = this.search(this.query, this.activeFilter)): string {
@@ -337,13 +404,13 @@ export class CommandRailV2Engine {
       role="dialog"
       aria-modal="true"
       aria-label="Universal Command and Search Palette"
-      class="fixed inset-0 z-50 flex items-start justify-center bg-black/70 backdrop-blur-xl pt-14 px-4"
+      class="command-rail fixed inset-0 z-50 flex items-start justify-center bg-black/70 backdrop-blur-xl pt-14 px-4 select-none animate-in fade-in duration-150"
     >
-      <div class="w-full max-w-4xl rounded-3xl bg-[#0b0f19]/95 border border-cyan-500/30 shadow-[0_24px_80px_rgba(0,0,0,0.75)] overflow-hidden">
+      <div id="command-rail-v2" class="w-full max-w-4xl rounded-3xl bg-[#0b0f19]/95 border border-cyan-500/30 shadow-[0_24px_80px_rgba(0,0,0,0.75)] overflow-hidden">
         <div class="p-4 border-b border-white/10 flex items-center gap-3">
-          <span class="text-cyan-400 font-mono text-sm">⌘K</span>
+          <span class="text-cyan-400 font-mono text-sm font-bold">⌘K</span>
           <input
-            id="command-rail-input"
+            id="command-rail-v2-input"
             type="text"
             value="${escapeHtml(this.query)}"
             placeholder="Type a command or search discussions, communities, vault notes..."
@@ -354,7 +421,7 @@ export class CommandRailV2Engine {
           <button
             type="button"
             id="btn-close-command-rail"
-            data-action="clientStore.toggleCommandRail()"
+            data-action="command.close"
             class="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-[11px] font-mono text-slate-400 hover:text-white cursor-pointer"
           >ESC</button>
         </div>
@@ -387,7 +454,9 @@ export class CommandRailV2Engine {
                         type="button"
                         data-cmd-index="${idx}"
                         class="w-full text-left p-3 rounded-2xl flex items-center justify-between gap-3 transition-all cursor-pointer ${
-                          isSel ? 'bg-cyan-500/15 border border-cyan-500/35' : 'hover:bg-white/[0.04] border border-transparent'
+                          isSel
+                            ? 'bg-cyan-500/15 border border-cyan-500/35'
+                            : 'hover:bg-white/[0.04] border border-transparent'
                         }"
                       >
                         <div class="flex items-center gap-3 min-w-0">
