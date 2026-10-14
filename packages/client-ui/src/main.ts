@@ -42,6 +42,7 @@ const start = async () => {
   clearTimeout((window as Window & { __urefyBootTimer?: number }).__urefyBootTimer);
   document.documentElement.classList.remove('app-booting');
   document.getElementById('boot-shell')?.remove();
+  void import('./ui/studio-runtime-fixes.js').then((m) => m.studioRuntime.init());
 };
 
 const begin = () => {
@@ -70,3 +71,14 @@ if (document.readyState === 'loading') document.addEventListener('DOMContentLoad
 else begin();
 
 // UREfy Consumer Polish - Release v1.0.1
+
+if (typeof window !== 'undefined') {
+  const mountStudioRuntime = () => {
+    void import('./ui/studio-runtime-fixes.js').then((m) => m.studioRuntime.init());
+  };
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', mountStudioRuntime);
+  } else {
+    mountStudioRuntime();
+  }
+}

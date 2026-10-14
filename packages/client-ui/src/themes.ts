@@ -34,8 +34,8 @@ export interface SovereignTheme {
 }
 
 export const SOVEREIGN_THEMES: Record<string, SovereignTheme> = {
-  obsidian: {
-    id: 'obsidian',
+  'obsidian-cyber': {
+    id: 'obsidian-cyber',
     name: 'Obsidian Studio',
     tagline: 'Neutral deep graphite with warm titanium gold precision',
     mode: 'dark',
@@ -44,8 +44,8 @@ export const SOVEREIGN_THEMES: Record<string, SovereignTheme> = {
       surfaceBase: '#0E1015',
       surfaceRaised: '#14171F',
       surfaceOverlay: '#1C202B',
-      borderSubtle: 'rgba(255, 255, 255, 0.07)',
-      borderStrong: 'rgba(255, 255, 255, 0.14)',
+      borderSubtle: 'rgba(255, 255, 255, 0.08)',
+      borderStrong: 'rgba(255, 255, 255, 0.16)',
       textPrimary: '#F3F4F6',
       textSecondary: '#9CA3AF',
       textMuted: '#64748B',
@@ -57,22 +57,91 @@ export const SOVEREIGN_THEMES: Record<string, SovereignTheme> = {
       signalDanger: '#F43F5E',
     },
   },
-  daylight: {
-    id: 'daylight',
-    name: 'Nordic Alabaster',
-    tagline: 'Editorial warm stone paper with crisp ink typography',
+  'matrix-monolith': {
+    id: 'matrix-monolith',
+    name: 'Matrix Monolith',
+    tagline: 'Pure OLED black with hardware emerald telemetry',
+    mode: 'dark',
+    colors: {
+      canvas: '#030605',
+      surfaceBase: '#09110E',
+      surfaceRaised: '#101C17',
+      surfaceOverlay: '#172820',
+      borderSubtle: 'rgba(52, 211, 153, 0.1)',
+      borderStrong: 'rgba(52, 211, 153, 0.22)',
+      textPrimary: '#ECFDF5',
+      textSecondary: '#A7F3D0',
+      textMuted: '#6EE7B7',
+      accentPrimary: '#10B981',
+      accentPrimaryText: '#030705',
+      accentSecondary: '#2DD4BF',
+      signalSuccess: '#34D399',
+      signalWarning: '#F59E0B',
+      signalDanger: '#F87171',
+    },
+  },
+  'tokyo-neon': {
+    id: 'tokyo-neon',
+    name: 'Tokyo Midnight',
+    tagline: 'Deep nocturnal slate with optical indigo-violet accents',
+    mode: 'dark',
+    colors: {
+      canvas: '#04050A',
+      surfaceBase: '#0A0D16',
+      surfaceRaised: '#111625',
+      surfaceOverlay: '#192034',
+      borderSubtle: 'rgba(129, 140, 248, 0.1)',
+      borderStrong: 'rgba(129, 140, 248, 0.24)',
+      textPrimary: '#F8FAFC',
+      textSecondary: '#94A3B8',
+      textMuted: '#64748B',
+      accentPrimary: '#818CF8',
+      accentPrimaryText: '#04050A',
+      accentSecondary: '#F472B6',
+      signalSuccess: '#34D399',
+      signalWarning: '#FBBF24',
+      signalDanger: '#FB7185',
+    },
+  },
+  'solar-amber': {
+    id: 'solar-amber',
+    name: 'Solar Amber',
+    tagline: 'Warm carbon espresso with high-contrast amber gold',
+    mode: 'dark',
+    colors: {
+      canvas: '#0C0A08',
+      surfaceBase: '#14110E',
+      surfaceRaised: '#1D1914',
+      surfaceOverlay: '#27211B',
+      borderSubtle: 'rgba(245, 158, 11, 0.1)',
+      borderStrong: 'rgba(245, 158, 11, 0.24)',
+      textPrimary: '#FEF3C7',
+      textSecondary: '#D6D3D1',
+      textMuted: '#A8A29E',
+      accentPrimary: '#F59E0B',
+      accentPrimaryText: '#0C0A08',
+      accentSecondary: '#FB923C',
+      signalSuccess: '#10B981',
+      signalWarning: '#F59E0B',
+      signalDanger: '#EF4444',
+    },
+  },
+  'alabaster-light': {
+    id: 'alabaster-light',
+    name: 'Alabaster Light',
+    tagline: 'Daylight editorial paper with crisp ink typography',
     mode: 'light',
     colors: {
       canvas: '#F4F3EF',
       surfaceBase: '#FFFFFF',
       surfaceRaised: '#ECEAE4',
       surfaceOverlay: '#E2DFD7',
-      borderSubtle: 'rgba(15, 23, 42, 0.08)',
-      borderStrong: 'rgba(15, 23, 42, 0.16)',
+      borderSubtle: 'rgba(15, 23, 42, 0.09)',
+      borderStrong: 'rgba(15, 23, 42, 0.18)',
       textPrimary: '#111318',
-      textSecondary: '#4B5563',
+      textSecondary: '#374151',
       textMuted: '#6B7280',
-      accentPrimary: '#18181B',
+      accentPrimary: '#D97706',
       accentPrimaryText: '#FFFFFF',
       accentSecondary: '#0284C7',
       signalSuccess: '#059669',
@@ -80,76 +149,47 @@ export const SOVEREIGN_THEMES: Record<string, SovereignTheme> = {
       signalDanger: '#E11D48',
     },
   },
-  oled: {
-    id: 'oled',
-    name: 'Tokyo Midnight OLED',
-    tagline: 'True zero-nit pitch black with optical periwinkle accents',
+  'nordic-frost': {
+    id: 'nordic-frost',
+    name: 'Nordic Frost',
+    tagline: 'Arctic blue-grey slate with glacial cyan highlights',
     mode: 'dark',
     colors: {
-      canvas: '#020305',
-      surfaceBase: '#080A0F',
-      surfaceRaised: '#0F131C',
-      surfaceOverlay: '#171C28',
-      borderSubtle: 'rgba(148, 163, 184, 0.08)',
-      borderStrong: 'rgba(129, 140, 248, 0.22)',
-      textPrimary: '#F8FAFC',
-      textSecondary: '#94A3B8',
-      textMuted: '#475569',
-      accentPrimary: '#818CF8',
-      accentPrimaryText: '#030407',
-      accentSecondary: '#38BDF8',
+      canvas: '#0B1017',
+      surfaceBase: '#111823',
+      surfaceRaised: '#182232',
+      surfaceOverlay: '#202D42',
+      borderSubtle: 'rgba(56, 189, 248, 0.1)',
+      borderStrong: 'rgba(56, 189, 248, 0.24)',
+      textPrimary: '#F0F9FF',
+      textSecondary: '#BAE6FD',
+      textMuted: '#7DD3FC',
+      accentPrimary: '#38BDF8',
+      accentPrimaryText: '#081018',
+      accentSecondary: '#818CF8',
       signalSuccess: '#34D399',
       signalWarning: '#FBBF24',
       signalDanger: '#FB7185',
     },
   },
-  verdant: {
-    id: 'verdant',
-    name: 'Verdant Enclave',
-    tagline: 'Botanical dark slate with hardware emerald telemetry',
-    mode: 'dark',
-    colors: {
-      canvas: '#060B09',
-      surfaceBase: '#0B1310',
-      surfaceRaised: '#111D18',
-      surfaceOverlay: '#182821',
-      borderSubtle: 'rgba(52, 211, 153, 0.09)',
-      borderStrong: 'rgba(52, 211, 153, 0.2)',
-      textPrimary: '#ECFDF5',
-      textSecondary: '#A7F3D0',
-      textMuted: '#6EE7B7',
-      accentPrimary: '#10B981',
-      accentPrimaryText: '#04100B',
-      accentSecondary: '#2DD4BF',
-      signalSuccess: '#34D399',
-      signalWarning: '#F59E0B',
-      signalDanger: '#F87171',
-    },
-  },
-  monochrome: {
-    id: 'monochrome',
-    name: 'Titanium Mono',
-    tagline: 'Pure industrial grayscale for zero-distraction engineering',
-    mode: 'dark',
-    colors: {
-      canvas: '#0A0A0A',
-      surfaceBase: '#121212',
-      surfaceRaised: '#1A1A1A',
-      surfaceOverlay: '#242424',
-      borderSubtle: 'rgba(255, 255, 255, 0.08)',
-      borderStrong: 'rgba(255, 255, 255, 0.18)',
-      textPrimary: '#FAFAFA',
-      textSecondary: '#A1A1AA',
-      textMuted: '#71717A',
-      accentPrimary: '#FAFAFA',
-      accentPrimaryText: '#09090B',
-      accentSecondary: '#D4D4D8',
-      signalSuccess: '#A1A1AA',
-      signalWarning: '#D4D4D8',
-      signalDanger: '#F87171',
-    },
-  },
 };
+
+export const THEME_ALIASES: Record<string, string> = {
+  obsidian: 'obsidian-cyber',
+  daylight: 'alabaster-light',
+  light: 'alabaster-light',
+  oled: 'matrix-monolith',
+  verdant: 'matrix-monolith',
+  monochrome: 'obsidian-cyber',
+};
+
+// Aliases mapped into SOVEREIGN_THEMES for transparent direct lookup
+SOVEREIGN_THEMES['obsidian'] = SOVEREIGN_THEMES['obsidian-cyber'];
+SOVEREIGN_THEMES['daylight'] = SOVEREIGN_THEMES['alabaster-light'];
+SOVEREIGN_THEMES['light'] = SOVEREIGN_THEMES['alabaster-light'];
+SOVEREIGN_THEMES['oled'] = SOVEREIGN_THEMES['matrix-monolith'];
+SOVEREIGN_THEMES['verdant'] = SOVEREIGN_THEMES['matrix-monolith'];
+SOVEREIGN_THEMES['monochrome'] = SOVEREIGN_THEMES['obsidian-cyber'];
 
 // ─── INTERFACES & TYPES ─────────────────────────────────────────────────────────
 
@@ -360,13 +400,37 @@ export class ThemeEngine {
 
   constructor() {
     this.displaySettingsModal = new DisplaySettingsModal(this);
+    if (typeof localStorage !== 'undefined') {
+      const saved =
+        localStorage.getItem('aetheris_theme_2027') ||
+        localStorage.getItem('aetheris_theme') ||
+        localStorage.getItem(this.STORAGE_KEY);
+      if (saved) {
+        try {
+          if (saved.startsWith('{')) {
+            const parsed = JSON.parse(saved);
+            if (parsed?.themeId) this.currentThemeId = this.resolveId(parsed.themeId);
+            else if (parsed?.theme) this.currentThemeId = this.resolveId(parsed.theme);
+          } else {
+            this.currentThemeId = this.resolveId(saved);
+          }
+        } catch {}
+      }
+    }
     this.loadPreferences();
     this.applyCurrentStyles();
+    this.applyToDOM(this.currentThemeId);
     this.registerGlobalInstance();
     this.attachGlobalKeyboardListeners();
   }
 
   // ─── GETTERS & ACCESSORS ───────────────────────────────────────────────────────
+
+  public resolveId(id: string): string {
+    if (SOVEREIGN_THEMES[id]) return SOVEREIGN_THEMES[id].id;
+    if (THEME_ALIASES[id]) return THEME_ALIASES[id];
+    return 'obsidian-cyber';
+  }
 
   /**
    * Returns full list of available themes.
@@ -380,8 +444,19 @@ export class ThemeEngine {
   }
 
   public getTheme(id?: string): SovereignTheme {
-    const targetId = id || this.currentThemeId;
-    return SOVEREIGN_THEMES[targetId] || SOVEREIGN_THEMES.obsidian;
+    const targetId = this.resolveId(id || this.currentThemeId);
+    return SOVEREIGN_THEMES[targetId] || SOVEREIGN_THEMES['obsidian-cyber'];
+  }
+
+  public getAllThemes(): SovereignTheme[] {
+    return [
+      SOVEREIGN_THEMES['obsidian-cyber'],
+      SOVEREIGN_THEMES['matrix-monolith'],
+      SOVEREIGN_THEMES['tokyo-neon'],
+      SOVEREIGN_THEMES['solar-amber'],
+      SOVEREIGN_THEMES['alabaster-light'],
+      SOVEREIGN_THEMES['nordic-frost'],
+    ];
   }
 
   /**
@@ -422,15 +497,18 @@ export class ThemeEngine {
    * Sets active theme, updates DOM, injects CSS variables, and persists setting.
    */
   public setTheme(themeId: string): void {
-    const exists = this.THEMES.some((t) => t.id === themeId);
-    if (!exists) {
-      console.warn(`[ThemeEngine] Theme with id "${themeId}" was not found. Falling back to obsidian-cyber.`);
-      this.currentThemeId = 'obsidian-cyber';
-    } else {
-      this.currentThemeId = themeId;
+    const resolved = this.resolveId(themeId);
+    this.currentThemeId = resolved;
+
+    if (typeof localStorage !== 'undefined') {
+      try {
+        localStorage.setItem('aetheris_theme_2027', resolved);
+        localStorage.setItem('aetheris_theme', resolved);
+      } catch {}
     }
 
     this.applyCurrentStyles();
+    this.applyToDOM(resolved);
     this.savePreferences();
     this.dispatchThemeEvent('aetheris:theme-changed', {
       theme: this.getCurrentTheme(),
@@ -601,25 +679,51 @@ export class ThemeEngine {
    */
 
   public cycleTheme(): SovereignTheme {
-    const keys = Object.keys(SOVEREIGN_THEMES);
-    const currKey = keys.find(k => k === this.currentThemeId || SOVEREIGN_THEMES[k].id === this.currentThemeId) || keys[0];
-    const nextIdx = (keys.indexOf(currKey) + 1) % keys.length;
-    const nextKey = keys[nextIdx];
-    if (nextKey === 'obsidian') this.setTheme('obsidian-cyber');
-    else if (nextKey === 'daylight') this.setTheme('alabaster-light');
-    else if (nextKey === 'oled') this.setTheme('matrix-monolith');
-    else if (nextKey === 'verdant') this.setTheme('matrix-monolith');
-    else if (nextKey === 'monochrome') this.setTheme('nordic-frost');
-    else this.setTheme(nextKey);
-    return SOVEREIGN_THEMES[nextKey];
+    const canonicalKeys = [
+      'obsidian-cyber',
+      'matrix-monolith',
+      'tokyo-neon',
+      'solar-amber',
+      'alabaster-light',
+      'nordic-frost',
+    ];
+    const currentCanonical = this.resolveId(this.currentThemeId);
+    const currentIdx = Math.max(0, canonicalKeys.indexOf(currentCanonical));
+    const nextIdx = (currentIdx + 1) % canonicalKeys.length;
+    const nextThemeId = canonicalKeys[nextIdx];
+    this.setTheme(nextThemeId);
+    return this.getTheme();
+  }
+
+  public applyToDOM(themeId: string): void {
+    if (typeof document === 'undefined') return;
+    const theme = this.getTheme(themeId);
+    const root = document.documentElement;
+    root.setAttribute('data-theme', theme.id);
+    root.setAttribute('data-color-scheme', theme.mode);
+    root.style.colorScheme = theme.mode;
+
+    const c = theme.colors;
+    root.style.setProperty('--bg-canvas', c.canvas);
+    root.style.setProperty('--bg-surface-base', c.surfaceBase);
+    root.style.setProperty('--bg-surface-raised', c.surfaceRaised);
+    root.style.setProperty('--bg-surface-overlay', c.surfaceOverlay);
+    root.style.setProperty('--border-subtle', c.borderSubtle);
+    root.style.setProperty('--border-strong', c.borderStrong);
+    root.style.setProperty('--text-primary', c.textPrimary);
+    root.style.setProperty('--text-secondary', c.textSecondary);
+    root.style.setProperty('--text-muted', c.textMuted);
+    root.style.setProperty('--accent-primary', c.accentPrimary);
+    root.style.setProperty('--accent-primary-text', c.accentPrimaryText);
+    root.style.setProperty('--accent-secondary', c.accentSecondary);
   }
 
   public renderThemePickerModal(): string {
     return `
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3" role="radiogroup" aria-label="Interface Theme">
-        ${Object.values(SOVEREIGN_THEMES)
+        ${this.getAllThemes()
           .map((t) => {
-            const active = t.id === this.currentThemeId || (t.id === 'obsidian' && this.currentThemeId === 'obsidian-cyber');
+            const active = t.id === this.currentThemeId;
             return `
               <button
                 type="button"
@@ -1052,6 +1156,8 @@ export class ThemeEngine {
     const theme = this.getCurrentTheme();
     const effectiveAccent = this.getEffectiveAccentColor();
     const docEl = document.documentElement;
+
+    this.applyToDOM(theme.id);
 
     // 1. Set attributes on <html> for CSS and Tailwind selectors
     docEl.setAttribute('data-theme', theme.id);
@@ -1793,6 +1899,9 @@ export class DisplaySettingsModal {
 // ─── SINGLETON EXPORTS ──────────────────────────────────────────────────────────
 
 export const themeEngine = new ThemeEngine();
+if (typeof window !== 'undefined') {
+  (window as any).themeEngine = themeEngine;
+}
 export const displaySettingsModal = themeEngine.displaySettingsModal;
 export const THEMES = themeEngine.THEMES;
 export const CURATED_THEMES = THEMES;
