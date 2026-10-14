@@ -64,3 +64,4 @@ __pycache__/
 /.aws-recovery/
 outputs/
 **/outputs/
+*.xml

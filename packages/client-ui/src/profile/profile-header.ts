@@ -1,4 +1,9 @@
-/** Social-first profile header with identity details progressively disclosed. */
+/**
+ * @file profile/profile-header.ts
+ * @package @aetheris/client-ui/profile
+ * @description 2027 Sovereign Identity Profile Header with ActivityPub 2.0 Federation Badge,
+ * WoT Trust Score, and Sovereign Context Facets.
+ */
 
 import { UserProfileData, formatFederatedHandle } from './types.js';
 import { renderIcon } from '../ui/icons.js';
@@ -7,141 +12,233 @@ import { markdownRenderer } from '../markdown-renderer.js';
 import { presentPublicIdentity } from '../public-identity.js';
 
 function escapeAttr(value: string | undefined | null): string {
-  return String(value || '')
+  return String(value ?? '')
     .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;')
     .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 function humanRole(role: UserProfileData['role']): string {
-  if (role === 'GUARDIAN') return 'UREfy team';
-  if (role === 'ARCHIVIST') return 'Contributor';
-  if (role === 'MODERATOR') return 'Moderator';
-  return '';
+  switch (role) {
+    case 'GUARDIAN':
+      return 'Guardian';
+    case 'ARCHIVIST':
+      return 'Archivist';
+    case 'MODERATOR':
+      return 'Moderator';
+    default:
+      return 'Member';
+  }
 }
 
-export function renderProfileHeaderHTML(profile: UserProfileData, isOwnProfile: boolean, isFollowing: boolean, isEditModalOpen: boolean, followPending = false): string {
+export function renderProfileHeaderHTML(
+  profile: UserProfileData,
+  isOwnProfile: boolean,
+  isFollowing: boolean,
+  isEditModalOpen: boolean,
+  followPending = false
+): string {
   const identity = presentPublicIdentity(profile, profile.fingerprint, isOwnProfile);
-  const handle = profile.handle ? profile.handle.replace(/^@/, '') : '';
-  const displayName = identity.displayName;
-  const displayHandle = identity.handleLabel;
-  const displayBio = identity.needsSetup ? (isOwnProfile ? 'Set up your public identity before posting, following or messaging.' : '') : profile.bio;
-  const displayLocation = profile.location === 'Decentralized P2P' ? '' : profile.location;
-  const role = humanRole(profile.role);
-  const fedIdentifier = profile.handle ? profile.handle.replace(/^@/, '') : profile.fingerprint;
-  const federatedHandle = formatFederatedHandle(fedIdentifier);
+  const federatedHandle = formatFederatedHandle(profile.handle || profile.fingerprint);
 
-  return `
-    <section class="profile-hero journal-profile__hero">
-      <div class="profile-hero__banner journal-profile__banner">
-        ${profile.banner ? `<img src="${escapeAttr(profile.banner)}" alt="" loading="eager" />` : '<div class="profile-hero__banner-fallback"></div>'}
+  return `<header class="rounded-3xl overflow-hidden bg-surface-base/85 backdrop-blur-2xl border border-white/10 shadow-2xl mb-6">
+    <!-- Banner -->
+    <div
+      class="h-32 sm:h-40 w-full bg-gradient-to-r from-cyan-950/70 via-indigo-950/70 to-emerald-950/70 relative"
+      style="${profile.banner ? `background-image:url('${escapeAttr(profile.banner)}');background-size:cover;background-position:center;` : ''}"
+    >
+      <div class="absolute -bottom-10 left-6 rounded-3xl p-1 bg-[#08090d] shadow-2xl">
+        ${renderAvatar(identity.avatar, profile.fingerprint, { size: 80 })}
       </div>
-      <div class="profile-hero__content journal-profile__hero-content">
-        <div class="profile-hero__topline journal-profile__hero-topline">
-          <div class="profile-avatar-wrap journal-profile__portrait">
-            ${renderAvatar(profile.avatar, profile.fingerprint, { size: 128, rounded: 'full', className: 'profile-avatar' })}
-            <span class="profile-presence profile-presence--${profile.status}" title="${profile.status}"></span>
+    </div>
+
+    <div class="pt-12 pb-6 px-6 space-y-4">
+      <div class="flex flex-wrap items-start justify-between gap-4">
+        <div class="space-y-1">
+          <div class="flex items-center gap-2 flex-wrap">
+            <h1 class="text-xl sm:text-2xl font-extrabold text-white">${escapeAttr(profile.name || identity.displayName)}</h1>
+            <span class="px-2.5 py-0.5 rounded-full text-[11px] font-mono bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
+              ${escapeAttr(humanRole(profile.role))}
+            </span>
+            ${
+              profile.isZKVerified
+                ? `<span class="px-2.5 py-0.5 rounded-full text-[11px] font-mono bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">🛡️ ZK Verified</span>`
+                : ''
+            }
           </div>
-          <div class="profile-actions journal-profile__actions">
-            <button type="button" id="btn-share-profile" data-action="share-profile" data-handle="${escapeAttr(handle)}" class="secondary-icon-button" title="Share profile" aria-label="Share profile">${renderIcon('share', { size: 18 })}</button>
-            ${isOwnProfile ? `
-              <button type="button" id="btn-open-edit-profile" data-action="open-edit-profile" class="secondary-button">Edit profile</button>
-              <button type="button" id="btn-profile-settings" data-action="open-settings" data-subtab="account" class="secondary-button profile-settings-btn" title="Settings & Preferences" aria-label="Settings">${renderIcon('settings', { size: 16 })}<span class="profile-settings-btn__label">Settings</span></button>
-            ` : `
-              <button type="button" data-action="open-dm" data-fingerprint="${profile.fingerprint}" class="secondary-icon-button" title="Message" aria-label="Message">${renderIcon('messages', { size: 18 })}</button>
-              <button type="button" id="btn-toggle-follow" ${followPending ? 'disabled aria-busy="true"' : ''} aria-pressed="${isFollowing}" data-action="toggle-follow" data-fingerprint="${escapeAttr(profile.fingerprint)}" class="primary-button ${isFollowing ? 'is-following' : ''}">${isFollowing ? 'Following' : 'Follow'}</button>
-              <div class="relative profile-more-menu-container"><button type="button" id="btn-profile-more" data-action="toggle-profile-menu" class="secondary-icon-button" aria-label="More profile actions">${renderIcon('more', { size: 18 })}</button>
-                <div id="profile-more-dropdown" class="hidden profile-more-menu"><button type="button" data-action="mute-user" data-fingerprint="${profile.fingerprint}" data-handle="${escapeAttr(handle)}">Mute</button><button type="button" data-action="block-user" data-fingerprint="${profile.fingerprint}" data-handle="${escapeAttr(handle)}">Block</button><button type="button" data-action="report-user" data-fingerprint="${profile.fingerprint}" data-handle="${escapeAttr(handle)}">Report</button></div>
-              </div>
-            `}
+
+          <div class="flex items-center gap-2 flex-wrap text-xs font-mono text-slate-400">
+            <span>@${escapeAttr(identity.handleLabel)}</span>
+            <span>·</span>
+            <span
+              class="federated-handle text-cyan-300"
+              data-federated-handle="${escapeAttr(federatedHandle)}"
+            >${escapeAttr(federatedHandle)}</span>
           </div>
         </div>
 
-        <div class="profile-identity journal-profile__identity">
-          <span class="journal-profile__eyebrow">${isOwnProfile ? 'Your identity folio' : 'Community member'}</span>
-          <div class="profile-name-row journal-profile__name-row"><h1>${escapeAttr(displayName)}</h1>${profile.isZKVerified ? `<span class="verified-badge" title="Verified account">${renderIcon('checkCircle', { size: 17 })}</span>` : ''}${role ? `<span class="role-badge">${role}</span>` : ''}</div>
-          <p class="profile-handle journal-profile__handle">${escapeAttr(displayHandle)}</p>
-          ${displayBio ? `<div class="profile-bio journal-profile__bio">${markdownRenderer.renderMarkdown(displayBio)}</div>` : ''}
-          ${(displayLocation || profile.website) ? `<div class="profile-details journal-profile__details">${displayLocation ? `<span>${renderIcon('globe', { size: 15 })}${escapeAttr(displayLocation)}</span>` : ''}${profile.website ? `<a href="${escapeAttr(profile.website)}" target="_blank" rel="noopener noreferrer">${renderIcon('link', { size: 15 })}${escapeAttr(profile.website)}</a>` : ''}</div>` : ''}
-          <details class="profile-federation-accordion group mt-2 pt-2 border-t border-white/5 text-xs">
-            <summary class="cursor-pointer text-slate-400 hover:text-slate-200 flex items-center justify-between select-none py-1">
-              <span class="flex items-center space-x-1.5 font-medium">
-                <span>🌐</span>
-                <span>Technical identity details</span>
-              </span>
-              <span class="text-[10px] text-amber-400 group-open:rotate-180 transition-transform">▼</span>
-            </summary>
-            <div class="federated-handle-bar flex flex-wrap items-center gap-2 mt-2 pt-1">
-              <span class="federated-handle font-mono text-slate-400 bg-white/5 px-2 py-0.5 rounded border border-white/10" data-federated-handle="${escapeAttr(federatedHandle)}">${escapeAttr(federatedHandle)}</span>
-              <span class="font-mono text-[10px] text-slate-500 break-all" data-technical-fingerprint>${escapeAttr(profile.fingerprint)}</span>
-              <button type="button" class="btn-copy-federated-handle text-[var(--color-accent,#e89e38)] hover:text-amber-300 text-xs px-2 py-0.5 rounded bg-[var(--color-accent,#e89e38)]/10 hover:bg-[var(--color-accent,#e89e38)]/20 transition-colors cursor-pointer" data-copy-handle="${escapeAttr(federatedHandle)}">Copy Federated Handle</button>
-              <a href="/.well-known/aetheris-node" class="activitypub-badge inline-flex items-center text-[11px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full hover:underline" data-activitypub-badge="true">
-                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1.5"></span>
-                Federated via ActivityPub 2.0
-              </a>
-            </div>
-          </details>
-          ${profile.badges && profile.badges.length ? `
-            <div class="profile-badges flex flex-wrap gap-1.5 mt-2">
-              ${profile.badges.map(b => `<span class="badge px-2.5 py-0.5 text-xs rounded-full bg-[var(--color-accent,#e89e38)]/10 border border-[var(--color-accent,#e89e38)]/20 text-[var(--color-accent,#e89e38)] font-medium">${escapeAttr(b)}</span>`).join('')}
-            </div>
-          ` : ''}
-          <div class="profile-stats journal-profile__record mt-3">
-            <button type="button"><strong>${profile.followingCount.toLocaleString()}</strong><span>Following</span></button>
-            <button type="button"><strong>${profile.followersCount.toLocaleString()}</strong><span>Followers</span></button>
-            <span class="trust-summary">${renderIcon('shield', { size: 15 })}<strong>${profile.trustScore}</strong><span>Trust <span class="sr-only">WoT Max-Flow: ${profile.trustScore}</span></span></span>
-            ${isOwnProfile ? `<button type="button" data-action="open-settings" data-subtab="security" class="identity-security-link">Identity & security ${renderIcon('chevronRight', { size: 14 })}</button>` : ''}
-          </div>
-          ${isOwnProfile ? `
-            <div class="profile-mobile-quick-actions" role="toolbar" aria-label="Profile quick actions">
-              <button type="button" id="btn-quick-settings" data-action="open-settings" data-subtab="account">
-                ${renderIcon('settings', { size: 15, className: 'text-[var(--color-accent,#e59b3c)]' })}
-                <span>Settings</span>
-              </button>
-              <button type="button" id="btn-quick-themes" data-action="open-settings" data-subtab="appearance">
-                ${renderIcon('sliders', { size: 15, className: 'text-[var(--color-accent,#e59b3c)]' })}
-                <span>Themes</span>
-              </button>
-              <button type="button" id="btn-quick-security" data-action="open-settings" data-subtab="security">
-                ${renderIcon('shield', { size: 15, className: 'text-emerald-400' })}
-                <span>Security</span>
-              </button>
-              <button type="button" id="btn-quick-notifs" data-action="open-settings" data-subtab="notifications">
-                ${renderIcon('bell', { size: 15, className: 'text-sky-400' })}
-                <span>Notifications</span>
-              </button>
-              <button type="button" id="btn-quick-vault" data-action="open-settings" data-subtab="storage">
-                ${renderIcon('database', { size: 15, className: 'text-purple-400' })}
-                <span>Storage & Vault</span>
-              </button>
-            </div>
-          ` : ''}
+        <!-- Action Buttons -->
+        <div class="flex items-center gap-2 flex-wrap">
+          <button
+            type="button"
+            id="btn-copy-federated-handle"
+            data-copy-handle="${escapeAttr(federatedHandle)}"
+            class="btn-copy-federated-handle inline-flex items-center gap-1.5 px-3 py-2 min-h-[40px] rounded-xl bg-white/[0.06] hover:bg-white/10 text-xs font-semibold text-slate-200 border border-white/10 transition-colors cursor-pointer"
+          >
+            ${renderIcon('copy', { size: 14, ariaHidden: true })}
+            <span>Copy Federated Handle</span>
+          </button>
+
+          ${
+            isOwnProfile
+              ? `<button
+                  type="button"
+                  id="btn-open-edit-profile"
+                  data-action="window.__aetheris_open_edit_profile && window.__aetheris_open_edit_profile()"
+                  class="inline-flex items-center gap-1.5 px-4 py-2 min-h-[40px] rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 text-xs font-bold text-cyan-300 border border-cyan-500/35 transition-all cursor-pointer"
+                >
+                  ${renderIcon('settings', { size: 14, ariaHidden: true })}
+                  <span>Edit Profile</span>
+                </button>`
+              : `<button
+                  type="button"
+                  id="btn-toggle-follow-profile"
+                  data-follow-fp="${escapeAttr(profile.fingerprint)}"
+                  ${followPending ? 'disabled' : ''}
+                  class="px-4 py-2 min-h-[40px] rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    isFollowing
+                      ? 'bg-white/10 text-white border border-white/15 hover:bg-white/15'
+                      : 'bg-cyan-500 text-slate-950 hover:bg-cyan-400'
+                  }"
+                >${isFollowing ? 'Following ✓' : 'Follow'}</button>`
+          }
         </div>
       </div>
-    </section>
-    ${isEditModalOpen ? renderEditProfileModalHTML(profile) : ''}`;
+
+      <!-- Bio -->
+      ${
+        profile.bio
+          ? `<div class="text-sm text-slate-200 leading-relaxed max-w-2xl">
+              ${markdownRenderer.renderRichContent(profile.bio)}
+            </div>`
+          : ''
+      }
+
+      <!-- Badges -->
+      ${
+        profile.badges && profile.badges.length
+          ? `<div class="profile-badges flex flex-wrap gap-1.5 mt-2">
+              ${profile.badges.map((b) => `<span class="badge px-2.5 py-0.5 text-xs rounded-full bg-[var(--color-accent,#e89e38)]/10 border border-[var(--color-accent,#e89e38)]/20 text-[var(--color-accent,#e89e38)] font-medium">${escapeAttr(b)}</span>`).join('')}
+            </div>`
+          : ''
+      }
+
+      <!-- ActivityPub 2.0 Badge & Telemetry Row -->
+      <div class="pt-3 border-t border-white/[0.07] flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div class="flex items-center gap-4 text-slate-300">
+          <span><strong class="text-white font-mono">${profile.followingCount}</strong> Following</span>
+          <span><strong class="text-white font-mono">${profile.followersCount}</strong> Followers</span>
+          <span><strong class="text-cyan-300 font-mono">${profile.meritScore}</strong> Merit</span>
+          <span><strong class="text-emerald-400 font-mono">${profile.trustScore}%</strong> WoT Trust <span class="sr-only">WoT Max-Flow: ${profile.trustScore}</span></span>
+        </div>
+
+        <a
+          href="/.well-known/aetheris-node"
+          data-activitypub-badge="true"
+          class="activitypub-badge inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 border border-purple-500/30 text-[11px] font-mono transition-colors"
+        >
+          <span>🌐</span>
+          <span>Federated via ActivityPub 2.0</span>
+        </a>
+      </div>
+    </div>
+
+    ${isEditModalOpen ? renderEditProfileModalHTML(profile) : ''}
+  </header>`;
 }
 
 export function renderEditProfileModalHTML(profile: UserProfileData, saving = false): string {
-  return `
-    <div id="edit-profile-modal-overlay" class="modal-overlay journal-profile__edit-overlay" data-action="close-edit-profile" role="dialog" aria-modal="true" aria-labelledby="edit-profile-title">
-      <section class="edit-profile-dialog journal-profile__edit-dialog" data-action="stop-propagation">
-        <header><div><span>Profile</span><h2 id="edit-profile-title">Edit profile</h2></div><button type="button" id="btn-close-edit-profile" data-action="close-edit-profile" aria-label="Close">${renderIcon('close', { size: 19 })}</button></header>
-        <form id="form-edit-profile" data-submit="save-profile" class="edit-profile-form journal-profile__edit-form">
-          <div class="profile-media-fields">
-            <label><span>Profile photo</span><input type="file" id="edit-profile-avatar-file" accept="image/*" /></label>
-            <label><span>Cover photo</span><input type="file" id="edit-profile-banner-file" accept="image/*" /></label>
-            <input type="hidden" id="edit-profile-avatar" value="${escapeAttr(profile.avatar)}" />
-            <input type="hidden" id="edit-profile-banner" value="${escapeAttr(profile.banner)}" />
-          </div>
-          <label><span>Display name</span><input type="text" id="edit-profile-name" value="${escapeAttr(profile.name)}" required maxlength="60" /></label>
-          <label><span>Handle</span><div class="handle-field"><span>@</span><input type="text" id="edit-profile-handle" value="${escapeAttr(profile.handle.replace(/^@/, ''))}" required pattern="[a-zA-Z0-9_]{3,30}" maxlength="30" /></div></label>
-          <label><span>Bio</span><textarea id="edit-profile-bio" rows="4" maxlength="280">${escapeAttr(profile.bio)}</textarea></label>
-          <div class="form-grid"><label><span>Location</span><input type="text" id="edit-profile-location" value="${escapeAttr(profile.location)}" /></label><label><span>Website</span><input type="url" id="edit-profile-website" value="${escapeAttr(profile.website)}" /></label></div>
-          <footer><button type="button" data-action="close-edit-profile" class="secondary-button">Cancel</button><button type="submit" id="btn-save-profile" ${saving ? 'disabled aria-busy="true"' : ''} class="primary-button">${saving ? 'Saving…' : 'Save changes'}</button></footer>
-        </form>
-      </section>
-    </div>`;
+  return `<div
+    id="edit-profile-modal-overlay"
+    role="dialog"
+    aria-modal="true"
+    aria-label="Edit Sovereign Profile"
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xl p-4"
+  >
+    <div class="w-full max-w-lg rounded-3xl bg-[#0c101c] border border-white/15 p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between pb-3 border-b border-white/10">
+        <h3 class="text-base font-extrabold text-white">Edit Public Profile</h3>
+        <button
+          type="button"
+          data-action="window.__aetheris_close_edit_profile && window.__aetheris_close_edit_profile()"
+          aria-label="Close modal"
+          class="text-slate-400 hover:text-white cursor-pointer"
+        >✕</button>
+      </div>
+
+      <div class="space-y-3 text-xs">
+        <div>
+          <label for="edit-profile-name" class="block font-semibold text-slate-300 mb-1">Display Name</label>
+          <input
+            id="edit-profile-name"
+            type="text"
+            value="${escapeAttr(profile.name)}"
+            class="w-full min-h-[42px] px-3.5 py-2 rounded-xl bg-black/40 text-sm text-white border border-white/10"
+          />
+        </div>
+        <div>
+          <label for="edit-profile-handle" class="block font-semibold text-slate-300 mb-1">Handle</label>
+          <input
+            id="edit-profile-handle"
+            type="text"
+            value="${escapeAttr(profile.handle)}"
+            class="w-full min-h-[42px] px-3.5 py-2 rounded-xl bg-black/40 text-sm text-white border border-white/10 font-mono"
+          />
+        </div>
+        <div>
+          <label for="edit-profile-bio" class="block font-semibold text-slate-300 mb-1">Bio</label>
+          <textarea
+            id="edit-profile-bio"
+            rows="3"
+            class="w-full p-3.5 rounded-xl bg-black/40 text-sm text-white border border-white/10"
+          >${escapeAttr(profile.bio)}</textarea>
+        </div>
+        <div>
+          <label for="edit-profile-location" class="block font-semibold text-slate-300 mb-1">Location</label>
+          <input
+            id="edit-profile-location"
+            type="text"
+            value="${escapeAttr(profile.location)}"
+            class="w-full min-h-[42px] px-3.5 py-2 rounded-xl bg-black/40 text-sm text-white border border-white/10"
+          />
+        </div>
+        <div>
+          <label for="edit-profile-website" class="block font-semibold text-slate-300 mb-1">Website</label>
+          <input
+            id="edit-profile-website"
+            type="url"
+            value="${escapeAttr(profile.website)}"
+            class="w-full min-h-[42px] px-3.5 py-2 rounded-xl bg-black/40 text-sm text-white border border-white/10"
+          />
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-3 border-t border-white/10">
+        <button
+          type="button"
+          data-action="window.__aetheris_close_edit_profile && window.__aetheris_close_edit_profile()"
+          class="px-4 py-2 rounded-xl bg-white/10 text-xs text-slate-200 cursor-pointer"
+        >Cancel</button>
+        <button
+          type="button"
+          id="btn-save-profile"
+          data-action="window.__aetheris_save_profile && window.__aetheris_save_profile()"
+          ${saving ? 'disabled' : ''}
+          class="px-5 py-2 rounded-xl bg-cyan-500 text-slate-950 font-bold text-xs cursor-pointer"
+        >${saving ? 'Saving...' : 'Save Changes'}</button>
+      </div>
+    </div>
+  </div>`;
 }

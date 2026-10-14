@@ -290,7 +290,7 @@ export function getPrimaryNavItemByMode(mode: string): NavItemConfig | undefined
   return PRIMARY_NAV_ITEMS.find(item => item.mode === mode || item.id === mode);
 }
 
-export function renderNavIcon(item: NavItemConfig, options = { size: 20 }): string {
+export function renderNavIcon(item: NavItemConfig, options: { size?: number; isActive?: boolean; [key: string]: any } = { size: 20 }): string {
   if (item.iconName) {
     return renderIcon(item.iconName, options);
   }

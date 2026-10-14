@@ -1,4 +1,9 @@
-/** Consumer discovery and search surface backed only by real application data. */
+/**
+ * @file explore-view.ts
+ * @package @aetheris/client-ui
+ * @description 2027 Spatial Bento Explore & Discovery Engine — Multi-dimensional search
+ * across Discussions, Sovereign Identities, Communities, and Cryptographic Topics.
+ */
 
 import { ClientPost, clientStore } from './client-state.js';
 import { sovereignCircleEngine } from './sovereign-circle.js';
@@ -8,7 +13,7 @@ import { renderAvatar } from './ui/avatar-generator.js';
 import { renderIcon } from './ui/icons.js';
 import { renderPulsePostCard } from './feed-view.js';
 import { collectTopics, parseRecentSearches } from './discovery-data.js';
-import { getLatestCommunityPost, getPublicCommunityDescription, renderDiscoveryCard } from './discovery-card.js';
+import { renderDiscoveryCard } from './discovery-card.js';
 
 export type ExploreCategory = 'all' | 'trending' | 'cryptography' | 'privacy' | 'p2p' | 'security' | 'ai';
 
@@ -32,8 +37,10 @@ export interface FeaturedStory {
   topic: string;
 }
 
+const RECENT_SEARCHES_KEY = 'urefy_recent_searches_v1';
+
 function escapeHtml(value: string): string {
-  return String(value || '')
+  return String(value ?? '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
@@ -42,273 +49,445 @@ function escapeHtml(value: string): string {
 }
 
 function formatCount(value: number, singular: string): string {
-  return `${value.toLocaleString()} ${value === 1 ? singular : `${singular}s`}`;
+  const plural = singular === 'community' ? 'communities' : `${singular}s`;
+  return `${value.toLocaleString()} ${value === 1 ? singular : plural}`;
 }
 
 export class ExploreView {
-  public searchQuery = '';
+  public searchQuery: string = '';
   public activeCategory: ExploreCategory = 'all';
-  public activeSubTab: 'pulses' | 'communities' = 'pulses';
   public activeSearchTab: 'posts' | 'people' | 'communities' | 'topics' = 'posts';
-  public featuredStory: FeaturedStory | null = null;
-  public trendingTopics: TrendingItem[] = [];
-
-  public categories: Array<{ id: ExploreCategory; label: string; count: string }> = [
-    { id: 'all', label: 'For you', count: '' },
-    { id: 'trending', label: 'Trending', count: '' },
-    { id: 'cryptography', label: 'Technology', count: '' },
-    { id: 'privacy', label: 'Privacy', count: '' },
-    { id: 'p2p', label: 'Communities', count: '' },
-    { id: 'security', label: 'Safety', count: '' },
-    { id: 'ai', label: 'AI', count: '' },
+  public categories: Array<{ id: ExploreCategory; label: string; count: string; emoji: string }> = [
+    { id: 'all', label: 'All Signals', count: '', emoji: '🌐' },
+    { id: 'trending', label: 'Trending', count: '', emoji: '🔥' },
+    { id: 'cryptography', label: 'Cryptography & ZK', count: '', emoji: '🔐' },
+    { id: 'privacy', label: 'Privacy', count: '', emoji: '🛡️' },
+    { id: 'p2p', label: 'P2P & Mesh', count: '', emoji: '📡' },
+    { id: 'security', label: 'SecOps', count: '', emoji: '⚡' },
+    { id: 'ai', label: 'Local AI', count: '', emoji: '✨' },
   ];
 
   public getRecentSearches(): string[] {
-    try { return parseRecentSearches(localStorage.getItem('aetheris_recent_searches_v1')); } catch { return []; }
+    try {
+      if (typeof localStorage !== 'undefined') {
+        return parseRecentSearches(localStorage.getItem(RECENT_SEARCHES_KEY));
+      }
+    } catch {
+      // ignore storage errors
+    }
+    return [];
   }
 
   public saveRecentSearch(query: string): void {
-    query = query.trim().slice(0, 200);
-    if (!query) return;
+    const clean = query.trim();
+    if (!clean || clean.length < 2) return;
     try {
-      const next = [query, ...this.getRecentSearches().filter(item => item.toLowerCase() !== query.toLowerCase())].slice(0, 8);
-      localStorage.setItem('aetheris_recent_searches_v1', JSON.stringify(next));
-    } catch {}
+      if (typeof localStorage !== 'undefined') {
+        const current = this.getRecentSearches().filter((item) => item.toLowerCase() !== clean.toLowerCase());
+        current.unshift(clean);
+        localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(current.slice(0, 8)));
+      }
+    } catch {
+      // ignore
+    }
   }
 
   public clearRecentSearches(): void {
-    try { localStorage.removeItem('aetheris_recent_searches_v1'); } catch {}
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem(RECENT_SEARCHES_KEY);
+      }
+    } catch {
+      // ignore
+    }
   }
 
   public getComputedTrendingTopics(sourcePosts: ClientPost[] = clientStore.posts): TrendingItem[] {
-    return collectTopics(sourcePosts.filter(post => !socialSafety.isBlocked(post.authorFingerprint))).map(({ topic, count }, index) => ({
-      id: `trend-${index + 1}`, rank: index + 1, category: topic.startsWith('#') ? 'Topic' : 'Post type',
-      topic, description: 'From available posts', postCount: formatCount(count, 'post'), numericPosts: count,
+    const unblocked = sourcePosts.filter((post) => !socialSafety.isBlocked(post.authorFingerprint));
+    const topics = collectTopics(unblocked);
+    if (topics.length === 0) return [];
+
+    return topics.slice(0, 8).map((item, idx) => ({
+      id: `trend-${idx + 1}`,
+      rank: idx + 1,
+      category: item.topic.startsWith('#') ? 'Topic' : 'Sovereign Pulse',
+      topic: item.topic.startsWith('#') ? item.topic : `#${item.topic}`,
+      description: `Active discussions & verified insights around ${item.topic}`,
+      postCount: formatCount(item.count, 'post'),
+      numericPosts: item.count,
     }));
   }
 
   public setSearchQuery(query: string, remember = true): void {
     this.searchQuery = query;
-    if (remember && query.trim()) this.saveRecentSearch(query.trim());
+    if (remember && query.trim().length >= 2) {
+      this.saveRecentSearch(query);
+    }
   }
 
   public selectTopic(topic: string): void {
-    this.activeCategory = 'all';
-    this.activeSubTab = 'pulses';
+    const normalized = topic.replace(/^#/, '');
+    this.searchQuery = normalized;
     this.activeSearchTab = 'posts';
-    this.setSearchQuery(topic, true);
   }
 
   public setActiveCategory(category: ExploreCategory): void {
     this.activeCategory = category;
-    this.activeSubTab = 'pulses';
+  }
+
+  public setActiveSearchTab(tab: 'posts' | 'people' | 'communities' | 'topics'): void {
+    this.activeSearchTab = tab;
+  }
+
+  public clearSearch(): void {
     this.searchQuery = '';
   }
-  public setActiveSearchTab(tab: 'posts' | 'people' | 'communities' | 'topics'): void { this.activeSearchTab = tab; }
-  public clearSearch(): void { this.searchQuery = ''; }
 
   public filterPosts(allPosts: ClientPost[]): ClientPost[] {
-    let posts = allPosts.filter(post => !socialSafety.isBlocked(post.authorFingerprint));
-    const query = this.searchQuery.trim().toLowerCase();
-    if (query) {
-      const cleanTag = query.replace(/^#/, '');
-      posts = posts.filter(post => [
-        post.title,
-        post.content,
-        post.authorFingerprint,
-        post.flair,
-        post.channelId,
-      ].some(value => {
-        const str = String(value || '').toLowerCase();
-        return str.includes(query) || (cleanTag && str.includes(cleanTag));
-      }));
-    }
+    let posts = allPosts.filter((post) => !socialSafety.isBlocked(post.authorFingerprint) && !socialSafety.isMuted(post.authorFingerprint));
+    const q = this.searchQuery.trim().toLowerCase();
+
     if (this.activeCategory === 'trending') posts = [...posts].sort((a, b) => (b.meritVotes + b.replyCount) - (a.meritVotes + a.replyCount));
-    if (this.activeCategory === 'cryptography') posts = posts.filter(post => /technology|code|software|crypto|zk|web/i.test(`${post.title} ${post.content} ${post.flair} ${post.channelId}`));
-    if (this.activeCategory === 'privacy') posts = posts.filter(post => /privacy|private|identity|recovery|airgap|ghost|vault|forensic/i.test(`${post.title} ${post.content} ${post.flair} ${post.channelId}`));
-    if (this.activeCategory === 'p2p') posts = posts.filter(post => /community|mesh|p2p|webrtc/i.test(`${post.title} ${post.content} ${post.flair} ${post.channelId}`));
-    if (this.activeCategory === 'security') posts = posts.filter(post => /security|safe|moderation|verified/i.test(`${post.title} ${post.content} ${post.flair}`));
-    if (this.activeCategory === 'ai') posts = posts.filter(post => /\bai\b|artificial intelligence|machine learning|neural/i.test(`${post.title} ${post.content}`));
-    return posts;
+    else if (this.activeCategory === 'cryptography') posts = posts.filter(post => /technology|code|software|crypto|zk|web/i.test(`${post.title} ${post.content} ${post.flair} ${post.channelId}`));
+    else if (this.activeCategory === 'privacy') posts = posts.filter(post => /privacy|private|identity|recovery|airgap|ghost|vault|forensic/i.test(`${post.title} ${post.content} ${post.flair} ${post.channelId}`));
+    else if (this.activeCategory === 'p2p') posts = posts.filter(post => /community|mesh|p2p|webrtc/i.test(`${post.title} ${post.content} ${post.flair} ${post.channelId}`));
+    else if (this.activeCategory === 'security') posts = posts.filter(post => /security|safe|moderation|verified/i.test(`${post.title} ${post.content} ${post.flair}`));
+    else if (this.activeCategory === 'ai') posts = posts.filter(post => /\bai\b|artificial intelligence|machine learning|neural/i.test(`${post.title} ${post.content}`));
+
+    if (!q) return posts;
+    const cleanTag = q.replace(/^#/, '');
+    return posts.filter(
+      (post) =>
+        post.title.toLowerCase().includes(q) ||
+        post.content.toLowerCase().includes(q) ||
+        post.authorFingerprint.toLowerCase().includes(q) ||
+        (post.authorDisplayName && post.authorDisplayName.toLowerCase().includes(q)) ||
+        (post.authorHandle && post.authorHandle.toLowerCase().includes(q)) ||
+        (post.flair && post.flair.toLowerCase().includes(q)) ||
+        (cleanTag && (post.title.toLowerCase().includes(cleanTag) || post.content.toLowerCase().includes(cleanTag)))
+    );
   }
 
-  private getPeople(posts: ClientPost[]): Array<{ fingerprint: string; posts: number }> {
-    const counts = new Map<string, number>();
+  private getPeople(posts: ClientPost[]): Array<{
+    fingerprint: string;
+    name: string;
+    handle: string;
+    bio: string;
+    avatar: string;
+    role: string;
+    postCount: number;
+  }> {
+    const map = new Map<
+      string,
+      {
+        fingerprint: string;
+        name: string;
+        handle: string;
+        bio: string;
+        avatar: string;
+        role: string;
+        postCount: number;
+      }
+    >();
+
     for (const post of posts) {
-      if (socialSafety.isBlocked(post.authorFingerprint) || post.authorFingerprint === clientStore.keypair.fingerprint) continue;
-      counts.set(post.authorFingerprint, (counts.get(post.authorFingerprint) || 0) + 1);
+      const fp = post.authorFingerprint;
+      if (!fp || socialSafety.isBlocked(fp)) continue;
+      const existing = map.get(fp);
+      if (existing) {
+        existing.postCount += 1;
+      } else {
+        const prof = profileView.getProfile(fp);
+        map.set(fp, {
+          fingerprint: fp,
+          name: post.authorDisplayName || prof.name || fp.slice(0, 10),
+          handle: post.authorHandle || prof.handle || fp.slice(0, 10),
+          bio: prof.bio || 'Sovereign network participant',
+          avatar: post.authorAvatarUrl || prof.avatar || '',
+          role: post.authorRole || prof.role || 'MEMBER',
+          postCount: 1,
+        });
+      }
     }
-    return [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([fingerprint, count]) => ({ fingerprint, posts: count }));
+
+    const q = this.searchQuery.trim().toLowerCase();
+    const list = Array.from(map.values());
+    if (!q) return list.slice(0, 12);
+    return list.filter(
+      (p) =>
+        p.name.toLowerCase().includes(q) ||
+        p.handle.toLowerCase().includes(q) ||
+        p.bio.toLowerCase().includes(q) ||
+        p.fingerprint.toLowerCase().includes(q)
+    );
   }
 
   private renderPeople(posts: ClientPost[], matches = this.getPeople(posts)): string {
-    const people = matches.slice(0, 6);
-    if (!people.length) return '<div class="discovery-empty"><strong>No people to suggest yet</strong><span>Suggestions appear as public conversations arrive.</span></div>';
-    return `<div class="people-grid">${people.map(person => {
-      const postForPerson = posts.find(p => p.authorFingerprint === person.fingerprint && (p.authorDisplayName || p.authorHandle));
-      const profile = profileView.getProfile(person.fingerprint);
-      let name = (profile?.name && profile.name !== 'Profile not set up')
-        ? profile.name
-        : (postForPerson?.authorDisplayName || postForPerson?.authorHandle || '');
-      let rawHandle = (profile?.handle || postForPerson?.authorHandle || '').replace(/^@/, '');
-      if (!name || name === 'Profile not set up') {
-        name = `Explorer ${person.fingerprint.slice(0, 6)}`;
-      }
-      if (!rawHandle) {
-        rawHandle = `node_${person.fingerprint.slice(0, 6)}`;
-      }
-      const handle = `@${rawHandle}`;
-      const avatar = (profile?.avatar && profile.avatar !== '') ? profile.avatar : (postForPerson?.authorAvatarUrl || '');
-      const following = profileView.isFollowing(person.fingerprint);
-      return `<article class="person-card">${renderAvatar(avatar, person.fingerprint, { size: 48, className: 'w-12 h-12' })}<div><button type="button" data-author-profile="${escapeHtml(person.fingerprint)}">${escapeHtml(name)}</button><span>${escapeHtml(handle)}</span><small>${formatCount(person.posts, 'post')}</small></div><button type="button" data-action="toggle-follow" data-fingerprint="${escapeHtml(person.fingerprint)}" class="compact-follow-button" aria-pressed="${following}">${following ? 'Following' : 'Follow'}</button></article>`;
-    }).join('')}</div>`;
+    if (matches.length === 0) {
+      return `<div class="p-6 rounded-2xl bg-surface-base/60 border border-white/10 text-center text-xs text-slate-400">No matching people found.</div>`;
+    }
+
+    return `<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+      ${matches
+        .map(
+          (person) => `<div class="p-4 rounded-2xl bg-surface-base/80 backdrop-blur-xl border border-white/[0.08] hover:border-cyan-400/35 flex items-center justify-between gap-3 transition-all">
+            <div class="flex items-center gap-3 min-w-0">
+              ${renderAvatar(person.avatar, person.fingerprint, { size: 42 })}
+              <div class="min-w-0">
+                <div class="text-sm font-bold text-white truncate">${escapeHtml(person.name)}</div>
+                <div class="text-xs font-mono text-cyan-400 truncate">@${escapeHtml(person.handle)}</div>
+                <div class="text-[11px] text-slate-400 line-clamp-1 mt-0.5">${escapeHtml(person.bio)}</div>
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-[11px] font-mono text-slate-400">${formatCount(person.postCount, 'post')}</span>
+              <button
+                type="button"
+                data-fingerprint="${escapeHtml(person.fingerprint)}"
+                data-open-profile="${escapeHtml(person.fingerprint)}"
+                class="px-3 py-1.5 min-h-[36px] rounded-xl bg-white/[0.06] hover:bg-cyan-500/20 text-xs font-semibold text-slate-200 hover:text-cyan-300 border border-white/10 shrink-0 cursor-pointer"
+              >View</button>
+            </div>
+          </div>`
+        )
+        .join('')}
+    </div>`;
   }
 
   private renderTopics(posts: ClientPost[]): string {
-    const topics = this.getComputedTrendingTopics(posts);
-    if (!topics.length) return '<div class="journal-empty"><strong>No subjects have surfaced yet.</strong><span>Topics are drawn from public conversations as they arrive.</span></div>';
-    const activeSearch = this.searchQuery.trim().toLowerCase();
-    return `
-      <ol class="journal-topic-atlas">
-        ${topics.map((topic, index) => {
-          const isSelected = Boolean(activeSearch && (topic.topic.toLowerCase() === activeSearch || topic.topic.toLowerCase().replace(/^#/, '') === activeSearch.replace(/^#/, '')));
-          return `
-          <li>
-            <button type="button" class="btn-select-trend ${isSelected ? 'is-active' : ''}" data-action="select-search-trend" data-search-trend="${escapeHtml(topic.topic)}" title="Explore ${escapeHtml(topic.topic)}">
-              <span class="journal-topic-atlas__index">${String(index + 1).padStart(2, '0')}</span>
-              <span class="journal-topic-atlas__name">${escapeHtml(topic.topic)}</span>
-              <span class="journal-topic-atlas__count">${topic.postCount}</span>
-            </button>
-          </li>
-        `;
-        }).join('')}
-      </ol>
-    `;
+    const trending = this.getComputedTrendingTopics(posts);
+    const q = this.searchQuery.trim().toLowerCase();
+    const filtered = q
+      ? trending.filter(
+          (t) =>
+            t.topic.toLowerCase().includes(q) ||
+            t.category.toLowerCase().includes(q) ||
+            t.description.toLowerCase().includes(q)
+        )
+      : trending;
+
+    return `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      ${filtered
+        .map(
+          (item) => `<button
+            type="button"
+            data-explore-topic="${escapeHtml(item.topic)}"
+            class="text-left p-4 rounded-2xl bg-surface-base/80 backdrop-blur-xl border border-white/[0.08] hover:border-cyan-400/40 transition-all group cursor-pointer"
+          >
+            <div class="flex items-center justify-between text-[10px] font-mono uppercase tracking-wider text-slate-400 mb-1">
+              <span>#${item.rank} · ${escapeHtml(item.category)}</span>
+              <span class="text-cyan-400">${escapeHtml(item.postCount)}</span>
+            </div>
+            <div class="text-sm font-extrabold text-white group-hover:text-cyan-300 transition-colors">${escapeHtml(
+              item.topic
+            )}</div>
+            <p class="text-xs text-slate-400 mt-1 line-clamp-2">${escapeHtml(item.description)}</p>
+          </button>`
+        )
+        .join('')}
+    </div>`;
   }
 
   public renderCommunitiesDirectory(): string {
-    const query = this.searchQuery.trim().toLowerCase();
-    const communities = sovereignCircleEngine.getAllCircles()
-      .filter(circle => !query || `${circle.name} ${circle.displayName} ${getPublicCommunityDescription(circle.description)} ${circle.category}`.toLowerCase().includes(query))
-      .sort((a, b) => {
-        const aTimestamp = Number(getLatestCommunityPost(a)?.createdAt || 0);
-        const bTimestamp = Number(getLatestCommunityPost(b)?.createdAt || 0);
-        return bTimestamp - aTimestamp || (b.membersCount || 0) - (a.membersCount || 0);
-      });
-    return `
-      <section class="discovery-section journal-atlas-section journal-atlas-places explore-community-results">
-        <div class="section-heading journal-section-heading"><div><span class="journal-eyebrow">Community directory</span><h2>Find your people</h2></div><button type="button" data-action="open-create-circle">${renderIcon('plus', { size: 16 })}Create community</button></div>
-        ${communities.length ? `<div class="living-spaces-grid journal-place-grid">${communities.map(renderDiscoveryCard).join('')}</div>` : '<div class="journal-empty"><strong>No communities found.</strong><span>Try another term or create the first community.</span></div>'}
-      </section>`;
+    const q = this.searchQuery.trim().toLowerCase();
+    const circles = sovereignCircleEngine.getAllCircles().filter((c) => {
+      if (!q) return true;
+      return (
+        c.name.toLowerCase().includes(q) ||
+        c.displayName.toLowerCase().includes(q) ||
+        c.description.toLowerCase().includes(q) ||
+        c.category.toLowerCase().includes(q)
+      );
+    });
+
+    if (circles.length === 0) {
+      return `<div class="p-6 rounded-2xl bg-surface-base/60 border border-white/10 text-center text-xs text-slate-400">No communities match your filter.</div>`;
+    }
+
+    return `<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      ${circles.map((circle) => renderDiscoveryCard(circle)).join('')}
+    </div>`;
   }
 
   private renderSearchResults(allPosts: ClientPost[]): string {
-    const posts = this.filterPosts(allPosts);
-    const people = this.getPeople(allPosts).filter(person => {
-      const profile = profileView.getProfile(person.fingerprint);
-      return `${profile?.name || ''} ${profile?.handle || ''} ${person.fingerprint}`.toLowerCase().includes(this.searchQuery.toLowerCase());
-    });
-    const communities = sovereignCircleEngine.getAllCircles().filter(circle => `${circle.name} ${circle.displayName} ${getPublicCommunityDescription(circle.description)}`.toLowerCase().includes(this.searchQuery.toLowerCase()));
-    const topics = this.getComputedTrendingTopics(allPosts).filter(topic => topic.topic.toLowerCase().includes(this.searchQuery.toLowerCase()));
+    const matchingPosts = this.filterPosts(allPosts);
+    const matchingPeople = this.getPeople(allPosts);
+    const tabs: Array<{ id: 'posts' | 'people' | 'communities' | 'topics'; label: string }> = [
+      { id: 'posts', label: `Discussions (${matchingPosts.length})` },
+      { id: 'communities', label: 'Communities' },
+      { id: 'people', label: `People (${matchingPeople.length})` },
+      { id: 'topics', label: 'Topics' },
+    ];
 
-    const counts = { posts: posts.length, people: people.length, communities: communities.length, topics: topics.length };
-    return `
-      <div class="search-result-tabs explore-search-results-tabs" role="tablist" aria-label="Search categories">${(['posts', 'people', 'communities', 'topics'] as const).map(tab => `<button type="button" role="tab" data-action="set-search-result-tab" data-search-result-tab="${tab}" aria-selected="${this.activeSearchTab === tab}" class="${this.activeSearchTab === tab ? 'is-active' : ''}">${tab[0].toUpperCase() + tab.slice(1)}<span>${counts[tab]}</span></button>`).join('')}</div>
-      ${this.activeSearchTab === 'posts' ? (posts.length ? `<div class="river-stream journal-dispatch-river pt-2">${posts.map(renderPulsePostCard).join('')}</div>` : `<div class="journal-empty"><strong>No dispatches found for “${escapeHtml(this.searchQuery)}”.</strong><span class="sr-only">No pulses found matching "${escapeHtml(this.searchQuery)}"</span><span>Try another word, person, or community.</span><button type="button" id="btn-clear-explore-empty" data-action="clear-explore-search">Clear search</button></div>`) : ''}
-      ${this.activeSearchTab === 'people' ? `<div class="journal-people-atlas">${this.renderPeople(allPosts, people)}</div>` : ''}
-      ${this.activeSearchTab === 'communities' ? this.renderCommunitiesDirectory() : ''}
-      ${this.activeSearchTab === 'topics' ? (topics.length ? this.renderTopics(allPosts) : '<div class="discovery-empty"><strong>No matching topics</strong><span>Try another search.</span></div>') : ''}`;
+    return `<div class="space-y-5">
+      <div class="flex items-center justify-between gap-2 flex-wrap">
+        <div role="tablist" class="flex items-center gap-1 p-1 rounded-2xl bg-surface-base/80 border border-white/10">
+          ${tabs
+            .map((tab) => {
+              const active = this.activeSearchTab === tab.id;
+              return `<button
+                type="button"
+                role="tab"
+                aria-selected="${active ? 'true' : 'false'}"
+                data-explore-search-tab="${tab.id}"
+                class="px-3.5 py-1.5 min-h-[36px] rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                  active
+                    ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/35'
+                    : 'text-slate-400 hover:text-white'
+                }"
+              >${escapeHtml(tab.label)}</button>`;
+            })
+            .join('')}
+        </div>
+        ${
+          this.searchQuery
+            ? `<button
+                type="button"
+                id="btn-clear-explore-search"
+                data-action="exploreView.clearSearch()"
+                class="text-xs text-slate-400 hover:text-white cursor-pointer"
+              >Clear search ✕</button>`
+            : ''
+        }
+      </div>
+
+      ${
+        this.activeSearchTab === 'communities'
+          ? this.renderCommunitiesDirectory()
+          : this.activeSearchTab === 'people'
+          ? this.renderPeople(allPosts, matchingPeople)
+          : this.activeSearchTab === 'topics'
+          ? this.renderTopics(allPosts)
+          : matchingPosts.length > 0
+          ? `<div class="space-y-4">${matchingPosts.map((p) => renderPulsePostCard(p)).join('')}</div>`
+          : `<div class="p-8 rounded-3xl bg-surface-base/60 border border-white/10 text-center text-xs text-slate-400">
+              No pulses found matching "${escapeHtml(this.searchQuery)}". Try another keyword or browse Communities.
+              <div class="mt-3">
+                <button type="button" id="btn-clear-explore-empty" data-action="exploreView.clearSearch()" class="px-3 py-1.5 rounded-xl bg-white/10 text-white text-xs cursor-pointer">Clear search</button>
+              </div>
+            </div>`
+      }
+    </div>`;
   }
 
   public renderExploreView(allPosts: ClientPost[]): string {
+    const categories: Array<{ id: ExploreCategory; label: string; emoji: string }> = [
+      { id: 'all', label: 'All Signals', emoji: '🌐' },
+      { id: 'trending', label: 'Trending', emoji: '🔥' },
+      { id: 'cryptography', label: 'Cryptography & ZK', emoji: '🔐' },
+      { id: 'privacy', label: 'Privacy', emoji: '🛡️' },
+      { id: 'p2p', label: 'P2P & Mesh', emoji: '📡' },
+      { id: 'security', label: 'SecOps', emoji: '⚡' },
+      { id: 'ai', label: 'Local AI', emoji: '✨' },
+    ];
+
     const filteredPosts = this.filterPosts(allPosts);
-    const allCommunities = [...sovereignCircleEngine.getAllCircles()];
-    const topCommunities = allCommunities
-      .map((circle, index) => ({ circle, index, latest: getLatestCommunityPost(circle) }))
-      .sort((a, b) => {
-        if (a.latest && b.latest) return Number(b.latest.createdAt || 0) - Number(a.latest.createdAt || 0);
-        if (a.latest) return -1;
-        if (b.latest) return 1;
-        return (b.circle.membersCount || 0) - (a.circle.membersCount || 0) || a.index - b.index;
-      })
-      .slice(0, 4)
-      .map(({ circle }) => circle);
-    const recentSearches = this.getRecentSearches();
 
-    return `
-      <div class="explore-workspace journal-atlas">
-        <header class="view-header view-header--search journal-atlas-header">
-          <div>
-          <span class="journal-eyebrow">UREfy · Discover</span>
-          <h1>Explore</h1>
-          <p>Follow conversations, meet people, and find communities worth joining.</p>
+    return `<div id="explore-workspace" class="w-full max-w-4xl mx-auto space-y-6 pb-16">
+      <!-- 2027 Bento Search Hero Header -->
+      <section class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#0e1424]/95 via-surface-base/90 to-[#0a131c]/95 backdrop-blur-2xl border border-white/10 p-6 shadow-2xl">
+        <div class="max-w-2xl">
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-mono uppercase tracking-widest bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 mb-2">
+            2027 Sovereign Discovery Radar
+          </span>
+          <h1 class="text-xl sm:text-2xl font-extrabold text-white tracking-tight">Explore Communities, Proofs & Live Discussions</h1>
+          <p class="text-xs text-slate-400 mt-1">Zero algorithmic manipulation. Ranked transparently by cryptographic merit and community activity.</p>
+        </div>
+
+        <div class="mt-4 relative flex items-center">
+          <span class="absolute left-4 text-slate-400 pointer-events-none">
+            ${renderIcon('search', { size: 17, ariaHidden: true })}
+          </span>
+          <input
+            id="explore-search-input"
+            type="search"
+            value="${escapeHtml(this.searchQuery)}"
+            data-input-action="explore.search"
+            placeholder="Search posts, @handles, #topics, or communities..."
+            aria-label="Search across UREfy"
+            class="w-full min-h-[46px] pl-11 pr-4 py-2.5 rounded-2xl bg-black/40 backdrop-blur-xl text-sm text-white placeholder-slate-500 border border-white/15 focus:outline-none focus:border-cyan-400/70 transition-all"
+          />
+        </div>
+
+        <nav class="directional-pathway mt-4 p-2.5 rounded-2xl bg-white/[0.03] border border-white/5 flex items-center justify-between gap-2 text-xs overflow-x-auto select-none" aria-label="Discovery shortcuts">
+          <div class="flex items-center gap-1.5 shrink-0">
+            <span class="w-5 h-5 rounded-lg bg-cyan-500/20 text-cyan-300 flex items-center justify-center font-bold text-[10px]">1</span>
+            <span class="text-white font-bold text-[11px]">Ideas</span>
           </div>
-          <label class="explore-search">${renderIcon('search', { size: 19 })}<input type="search" id="explore-search-input" data-input="explore-search" aria-label="Search UREfy" placeholder="Search discussions, people, or communities…" value="${escapeHtml(this.searchQuery)}" autocomplete="off" />${this.searchQuery ? `<button type="button" id="btn-clear-explore-search" data-action="clear-explore-search" aria-label="Clear search">${renderIcon('close', { size: 16 })}</button>` : ''}</label>
-        </header>
+          <span class="text-slate-600 shrink-0">→</span>
+          <div class="flex items-center gap-1.5 shrink-0">
+            <span class="w-5 h-5 rounded-lg bg-surface-base text-slate-400 flex items-center justify-center font-bold text-[10px]">2</span>
+            <span class="text-slate-300 font-medium text-[11px]">Discussions</span>
+          </div>
+          <span class="text-slate-600 shrink-0">→</span>
+          <div class="flex items-center gap-1.5 shrink-0">
+            <span class="w-5 h-5 rounded-lg bg-surface-base text-slate-400 flex items-center justify-center font-bold text-[10px]">3</span>
+            <span class="text-slate-300 font-medium text-[11px]">People</span>
+          </div>
+          <span class="text-slate-600 shrink-0">→</span>
+          <div class="flex items-center gap-1.5 shrink-0">
+            <span class="w-5 h-5 rounded-lg bg-surface-base text-slate-400 flex items-center justify-center font-bold text-[10px]">4</span>
+            <span class="text-slate-300 font-medium text-[11px]">Spaces</span>
+          </div>
+        </nav>
 
-        <div class="explore-category-bar journal-atlas-filters" role="tablist" aria-label="Explore categories">
-          ${this.categories.map(category => `<button type="button" data-action="select-explore-category" data-explore-cat="${category.id}" role="tab" aria-selected="${this.activeSubTab === 'pulses' && this.activeCategory === category.id}" class="btn-explore-category ${this.activeSubTab === 'pulses' && this.activeCategory === category.id ? 'is-active' : ''}">${category.label}</button>`).join('')}
-          <button type="button" role="tab" aria-selected="${this.activeSubTab === 'communities'}" data-action="set-explore-subtab" data-subtab="communities" class="${this.activeSubTab === 'communities' ? 'is-active' : ''}">All communities</button>
-          <a href="/discussions" class="public-archive-link">Browse all discussions →</a>
+        <div class="mt-4 flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+          ${categories
+            .map((cat) => {
+              const active = this.activeCategory === cat.id;
+              return `<button
+                type="button"
+                data-explore-category="${cat.id}"
+                class="inline-flex items-center gap-1.5 px-3.5 py-1.5 min-h-[36px] rounded-xl text-xs font-semibold shrink-0 transition-all cursor-pointer ${
+                  active
+                    ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/40 shadow-sm'
+                    : 'bg-white/[0.04] text-slate-300 hover:text-white border border-white/[0.06]'
+                }"
+              >
+                <span>${cat.emoji}</span>
+                <span>${escapeHtml(cat.label)}</span>
+              </button>`;
+            })
+            .join('')}
         </div>
+      </section>
 
-        <div id="explore-feed-scroll" class="explore-scroll journal-atlas-scroll">
-          ${this.searchQuery ? `
-            <div class="journal-atlas-layout">
-              <main class="journal-atlas-main">
-                ${this.renderSearchResults(allPosts)}
-              </main>
-              <aside class="journal-atlas-rail" aria-label="Trending topics">
-                <section class="journal-index-section">
-                  <span class="journal-eyebrow">Topics in motion</span>
-                  <h2>What people are discussing</h2>
-                  ${this.renderTopics(allPosts)}
-                </section>
-              </aside>
-            </div>
-          ` : this.activeSubTab === 'communities' ? this.renderCommunitiesDirectory() : `
-            <nav class="directional-pathway mb-6 p-3 sm:p-4 rounded-2xl bg-surface-raised/40 border border-white/5 flex items-center justify-between gap-3 text-xs overflow-x-auto select-none" aria-label="Discovery shortcuts">
-              <div class="flex items-center gap-2 shrink-0">
-                <span class="w-6 h-6 rounded-lg bg-[var(--color-accent,#e89e38)]/20 text-[var(--color-accent,#e89e38)] flex items-center justify-center font-bold text-xs">1</span>
-                <span class="text-white font-bold">Ideas</span>
-              </div>
-              <span class="text-slate-600 shrink-0">→</span>
-              <div class="flex items-center gap-2 shrink-0">
-                <span class="w-6 h-6 rounded-lg bg-surface-base text-slate-400 flex items-center justify-center font-bold text-xs">2</span>
-                <span class="text-slate-300 font-medium">Conversations</span>
-              </div>
-              <span class="text-slate-600 shrink-0">→</span>
-              <div class="flex items-center gap-2 shrink-0">
-                <span class="w-6 h-6 rounded-lg bg-surface-base text-slate-400 flex items-center justify-center font-bold text-xs">3</span>
-                <span class="text-slate-300 font-medium">People</span>
-              </div>
-              <span class="text-slate-600 shrink-0">→</span>
-              <div class="flex items-center gap-2 shrink-0">
-                <span class="w-6 h-6 rounded-lg bg-surface-base text-slate-400 flex items-center justify-center font-bold text-xs">4</span>
-                <span class="text-slate-300 font-medium">Spaces</span>
-              </div>
-            </nav>
-            ${recentSearches.length ? `<section class="recent-searches journal-recent-notes"><span>Recent searches</span>${recentSearches.slice(0, 5).map(item => `<button type="button" class="btn-select-trend" data-action="select-search-trend" data-search-trend="${escapeHtml(item)}">${escapeHtml(item)}</button>`).join('')}<button type="button" id="btn-clear-recent-searches" data-action="clear-recent-searches">Clear</button></section>` : ''}
-            <div class="journal-atlas-layout">
-              <main class="journal-atlas-main">
-                <section class="discovery-section journal-atlas-section journal-atlas-conversations">
-                  <div class="section-heading journal-section-heading"><div><span class="journal-eyebrow">Latest discussions</span><h2>${this.activeCategory === 'all' ? 'Conversations to explore' : `${escapeHtml(this.categories.find(category => category.id === this.activeCategory)?.label || 'Topic')} discussions`}</h2></div></div>
-                  ${filteredPosts.length ? `<div class="river-stream journal-dispatch-river pt-2">${filteredPosts.slice(0, 6).map(renderPulsePostCard).join('')}</div>` : '<div class="journal-empty"><strong>No public dispatches here yet.</strong><span>New conversations will find their way into this atlas.</span></div>'}
-                </section>
-                <section class="discovery-section journal-atlas-section journal-atlas-people-section">
-                  <div class="section-heading journal-section-heading"><div><span class="journal-eyebrow">People</span><h2>Meet the community</h2></div></div>
-                  <div class="journal-people-atlas">${this.renderPeople(filteredPosts)}</div>
-                </section>
-                <section class="discovery-section journal-atlas-section journal-atlas-places">
-                  <div class="section-heading journal-section-heading"><div><span class="journal-eyebrow">Communities</span><h2>Places to join</h2></div><button type="button" data-action="nav-mode" data-mode="communities">Browse all</button></div>
-                  <div class="living-spaces-grid journal-place-grid">${topCommunities.length ? topCommunities.map(renderDiscoveryCard).join('') : '<p class="journal-index-empty">No public places are listed yet.</p>'}</div>
-                </section>
-              </main>
-              <aside class="journal-atlas-rail" aria-label="Trending topics"><section class="journal-index-section"><span class="journal-eyebrow">Topics in motion</span><h2>What people are discussing</h2>${this.renderTopics(filteredPosts)}</section></aside>
-            </div>
-          `}
-        </div>
-      </div>`;
+      ${
+        this.searchQuery.trim().length > 0
+          ? this.renderSearchResults(allPosts)
+          : `<div class="space-y-6">
+              <section aria-labelledby="explore-trending-heading">
+                <div class="flex items-center justify-between mb-3">
+                  <h2 id="explore-trending-heading" class="text-sm font-extrabold uppercase tracking-wider text-slate-300">Trending Topics & Signals</h2>
+                </div>
+                ${this.renderTopics(allPosts)}
+              </section>
+
+              <section aria-labelledby="explore-communities-heading">
+                <div class="flex items-center justify-between mb-3">
+                  <h2 id="explore-communities-heading" class="text-sm font-extrabold uppercase tracking-wider text-slate-300">Active Sovereign Communities</h2>
+                </div>
+                ${this.renderCommunitiesDirectory()}
+              </section>
+
+              <section aria-labelledby="explore-people-heading">
+                <div class="flex items-center justify-between mb-3">
+                  <h2 id="explore-people-heading" class="text-sm font-extrabold uppercase tracking-wider text-slate-300">Notable Contributors</h2>
+                </div>
+                ${this.renderPeople(allPosts)}
+              </section>
+
+              <section aria-labelledby="explore-discussions-heading">
+                <div class="flex items-center justify-between mb-3">
+                  <h2 id="explore-discussions-heading" class="text-sm font-extrabold uppercase tracking-wider text-slate-300">Recent Public Discussions</h2>
+                </div>
+                <div class="space-y-4">
+                  ${filteredPosts.slice(0, 15).map((post) => renderPulsePostCard(post)).join('')}
+                </div>
+              </section>
+            </div>`
+      }
+    </div>`;
   }
 }
 

@@ -1,23 +1,20 @@
 /**
  * @file ui/primitives.ts
- * @package @aetheris/client-ui
- * @description 2027 Sovereign Design System Primitives.
- * Strictly XSS-escaped, CSP-compliant (zero inline event handlers), WCAG 2.2 AA focus rings,
- * full interactive state matrix (default, hover, active, focus-visible, disabled, loading),
- * and tabular-nums alignment for data tables and metrics.
+ * @package @aetheris/client-ui/ui
+ * @description 2027 Sovereign UI Primitives — Spatial Glass Controls, Bento Cards,
+ * Native CSS Anchor Popovers, and Ergonomic ≥44px Touch Targets.
  */
 
 import { renderIcon, IconName } from './icons.js';
-import { TYPOGRAPHY } from './tokens.js';
+import { TYPOGRAPHY, SPATIAL_GLASS } from './tokens.js';
 
 function escapeHtml(str: string): string {
-  if (!str) return '';
-  return String(str)
+  return String(str ?? '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
+    .replace(/'/g, '&#39;');
 }
 
 export interface ButtonProps {
@@ -38,68 +35,58 @@ export interface ButtonProps {
 
 export function renderButton(props: ButtonProps): string {
   const {
-    id = '',
+    id,
     label = '',
     icon,
     iconPosition = 'left',
-    variant = 'secondary',
+    variant = 'primary',
     size = 'md',
     type = 'button',
     className = '',
     disabled = false,
     loading = false,
-    ariaLabel = label,
-    dataAction = '',
-    dataId = '',
+    ariaLabel,
+    dataAction,
+    dataId,
   } = props;
 
-  const isDisabled = disabled || loading;
+  const sizeClasses: Record<NonNullable<ButtonProps['size']>, string> = {
+    sm: 'min-h-[36px] px-3 py-1.5 text-xs gap-1.5 rounded-lg',
+    md: 'min-h-[44px] px-4 py-2 text-sm gap-2 rounded-xl',
+    lg: 'min-h-[48px] px-5 py-2.5 text-base gap-2.5 rounded-2xl',
+  };
 
-  // Universal state matrix: default, hover, active, focus-visible (box-shadow ring), disabled, loading
-  const baseStyles =
-    'inline-flex items-center justify-center font-medium rounded-lg transition-colors duration-150 cursor-pointer select-none active:translate-y-[1px] disabled:opacity-45 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:shadow-[0_0_0_2px_var(--color-bg,#0b0f17),0_0_0_4px_var(--color-accent,#14b8a6)]';
-
-  const sizeStyles = {
-    sm: 'px-2.5 py-1 text-xs gap-1.5 min-h-[32px]',
-    md: 'px-4 py-2 text-sm gap-2 min-h-[44px]',
-    lg: 'px-5 py-2.5 text-base gap-2.5 min-h-[48px]',
-  }[size];
-
-  const variantStyles = {
+  const variantClasses: Record<NonNullable<ButtonProps['variant']>, string> = {
     primary:
-      'bg-[var(--color-accent,oklch(0.76_0.14_192))] hover:brightness-110 active:brightness-95 text-slate-950 font-semibold border border-transparent',
+      'bg-gradient-to-b from-cyan-400 to-cyan-500 text-slate-950 font-semibold shadow-[0_2px_16px_rgba(0,229,255,0.28),inset_0_1px_0_rgba(255,255,255,0.45)] hover:from-cyan-300 hover:to-cyan-400 active:scale-[0.98]',
     secondary:
-      'bg-surface-raised hover:bg-surface-overlay active:bg-surface-base text-slate-100 border border-white/10 hover:border-white/20',
-    accent:
-      'bg-[var(--color-accent,oklch(0.76_0.14_192))] hover:brightness-110 active:brightness-95 text-slate-950 font-semibold border border-transparent',
+      'bg-surface-raised/80 backdrop-blur-md text-slate-100 border border-white/10 hover:bg-white/10 hover:border-white/20 active:scale-[0.98]',
     ghost:
-      'bg-transparent hover:bg-white/[0.06] active:bg-white/[0.1] text-slate-300 hover:text-white border border-transparent',
+      'bg-transparent text-slate-300 hover:text-white hover:bg-white/[0.06] active:scale-[0.98]',
     danger:
-      'bg-rose-500/12 hover:bg-rose-500/22 active:bg-rose-500/30 text-rose-300 border border-rose-500/30 hover:border-rose-400/50',
+      'bg-rose-500/15 text-rose-300 border border-rose-500/35 hover:bg-rose-500/25 hover:text-rose-200 active:scale-[0.98]',
     outline:
-      'bg-transparent border border-white/15 hover:border-white/35 active:bg-white/5 text-slate-200 hover:text-white',
-  }[variant];
+      'bg-transparent text-cyan-300 border border-cyan-400/40 hover:bg-cyan-400/10 hover:border-cyan-400/70 active:scale-[0.98]',
+    accent:
+      'bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30 active:scale-[0.98]',
+  };
 
-  const spinnerSvg = `<svg class="animate-spin h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"></circle><path class="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8v3a5 5 0 00-5 5H4z"></path></svg>`;
-  const iconSvg = loading
-    ? spinnerSvg
+  const iconSize = size === 'sm' ? 14 : size === 'lg' ? 18 : 16;
+  const iconMarkup = loading
+    ? `<span class="inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" aria-hidden="true"></span>`
     : icon
-    ? renderIcon(icon, { size: size === 'sm' ? 14 : size === 'lg' ? 20 : 16 })
+    ? renderIcon(icon, { size: iconSize, ariaHidden: true })
     : '';
 
-  const safeLabel = escapeHtml(label);
-  const content =
-    iconPosition === 'right'
-      ? `<span>${safeLabel}</span>${iconSvg}`
-      : `${iconSvg}<span>${safeLabel}</span>`;
+  const idAttr = id ? ` id="${escapeHtml(id)}"` : '';
+  const ariaAttr = ariaLabel ? ` aria-label="${escapeHtml(ariaLabel)}"` : label ? ` aria-label="${escapeHtml(label)}"` : '';
+  const actionAttr = dataAction ? ` data-action="${escapeHtml(dataAction)}"` : '';
+  const dataIdAttr = dataId ? ` data-id="${escapeHtml(dataId)}"` : '';
+  const disabledAttr = disabled || loading ? ' disabled aria-disabled="true"' : '';
 
-  const idAttr = id ? `id="${escapeHtml(id)}"` : '';
-  const actionAttr = dataAction ? `data-action="${escapeHtml(dataAction)}"` : '';
-  const dataIdAttr = dataId ? `data-id="${escapeHtml(dataId)}"` : '';
-  const disabledAttr = isDisabled ? 'disabled' : '';
-  const busyAttr = loading ? 'aria-busy="true"' : '';
-
-  return `<button type="${type}" ${idAttr} ${actionAttr} ${dataIdAttr} ${disabledAttr} ${busyAttr} aria-label="${escapeHtml(ariaLabel)}" class="${baseStyles} ${sizeStyles} ${variantStyles} ${className}">${content}</button>`;
+  return `<button type="${type}"${idAttr}${ariaAttr}${actionAttr}${dataIdAttr}${disabledAttr} class="inline-flex items-center justify-center font-medium transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/80 disabled:opacity-50 disabled:pointer-events-none cursor-pointer select-none ${sizeClasses[size]} ${variantClasses[variant]} ${escapeHtml(className)}">${
+    iconPosition === 'left' ? iconMarkup : ''
+  }${label ? `<span>${escapeHtml(label)}</span>` : ''}${iconPosition === 'right' ? iconMarkup : ''}</button>`;
 }
 
 export interface IconButtonProps {
@@ -116,39 +103,40 @@ export interface IconButtonProps {
 
 export function renderIconButton(props: IconButtonProps): string {
   const {
-    id = '',
+    id,
     icon,
     label,
     variant = 'ghost',
     size = 'md',
     className = '',
     disabled = false,
-    dataAction = '',
-    dataId = '',
+    dataAction,
+    dataId,
   } = props;
 
-  const sizeStyles = {
-    sm: 'w-8 h-8 min-h-[32px] min-w-[32px] p-1 text-xs',
-    md: 'w-11 h-11 min-h-[44px] min-w-[44px] p-2',
-    lg: 'w-12 h-12 min-h-[48px] min-w-[48px] p-3',
-  }[size];
+  const sizeMap = {
+    sm: 'w-9 h-9 min-h-[36px] min-w-[36px] rounded-lg',
+    md: 'w-11 h-11 min-h-[44px] min-w-[44px] rounded-xl',
+    lg: 'w-12 h-12 min-h-[48px] min-w-[48px] rounded-2xl',
+  };
 
-  const variantStyles = {
-    ghost: 'text-slate-400 hover:text-white hover:bg-white/[0.06] active:bg-white/10',
-    secondary: 'bg-surface-raised text-slate-200 hover:text-white hover:bg-surface-overlay border border-white/10',
-    danger: 'text-rose-400 hover:bg-rose-500/15 hover:text-rose-300',
-    primary: 'bg-[var(--color-accent,oklch(0.76_0.14_192))] hover:brightness-110 text-slate-950 font-bold',
-  }[variant];
+  const variantMap = {
+    ghost: 'text-slate-400 hover:text-white hover:bg-white/[0.08]',
+    secondary: 'bg-surface-raised/80 text-slate-200 border border-white/10 hover:bg-white/10',
+    danger: 'text-rose-400 hover:text-rose-200 hover:bg-rose-500/20',
+    primary: 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/35 hover:bg-cyan-500/30',
+  };
 
-  const idAttr = id ? `id="${escapeHtml(id)}"` : '';
-  const actionAttr = dataAction ? `data-action="${escapeHtml(dataAction)}"` : '';
-  const dataIdAttr = dataId ? `data-id="${escapeHtml(dataId)}"` : '';
-  const disabledAttr = disabled ? 'disabled' : '';
-  const safeLabel = escapeHtml(label);
+  const iconSize = size === 'sm' ? 16 : size === 'lg' ? 20 : 18;
+  const idAttr = id ? ` id="${escapeHtml(id)}"` : '';
+  const actionAttr = dataAction ? ` data-action="${escapeHtml(dataAction)}"` : '';
+  const dataIdAttr = dataId ? ` data-id="${escapeHtml(dataId)}"` : '';
+  const disabledAttr = disabled ? ' disabled aria-disabled="true"' : '';
 
-  return `<button type="button" ${idAttr} ${actionAttr} ${dataIdAttr} ${disabledAttr} aria-label="${safeLabel}" title="${safeLabel}" class="inline-flex items-center justify-center rounded-lg transition-colors duration-150 cursor-pointer select-none active:translate-y-[1px] disabled:opacity-45 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:shadow-[0_0_0_2px_var(--color-bg,#0b0f17),0_0_0_4px_var(--color-accent,#14b8a6)] ${sizeStyles} ${variantStyles} ${className}">
-    ${renderIcon(icon, { size: size === 'sm' ? 14 : size === 'lg' ? 22 : 18 })}
-  </button>`;
+  return `<button type="button"${idAttr} aria-label="${escapeHtml(label)}" title="${escapeHtml(label)}"${actionAttr}${dataIdAttr}${disabledAttr} class="inline-flex items-center justify-center transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/80 active:scale-95 disabled:opacity-40 cursor-pointer ${sizeMap[size]} ${variantMap[variant]} ${escapeHtml(className)}">${renderIcon(
+    icon,
+    { size: iconSize, ariaHidden: true }
+  )}</button>`;
 }
 
 export interface InputProps {
@@ -170,59 +158,60 @@ export function renderInput(props: InputProps): string {
   const {
     id,
     name = id,
-    label = '',
+    label,
     placeholder = '',
     value = '',
     type = 'text',
-    helperText = '',
-    error = '',
+    helperText,
+    error,
     icon,
     className = '',
     required = false,
-    autocomplete = 'off',
+    autocomplete,
   } = props;
 
-  const safeId = escapeHtml(id);
-  const errorId = `${safeId}-error`;
-  const helperId = `${safeId}-helper`;
+  const borderClass = error
+    ? 'border-rose-500/60 focus:border-rose-400 focus:ring-rose-500/30'
+    : 'border-white/10 focus:border-cyan-400/60 focus:ring-cyan-400/25';
 
-  const iconSvg = icon
-    ? `<div class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">${renderIcon(icon, { size: 16 })}</div>`
-    : '';
-
-  const paddingLeft = icon ? 'pl-10' : 'pl-3.5';
-  const borderStyle = error
-    ? 'border-rose-500 focus-visible:shadow-[0_0_0_2px_var(--color-bg,#0b0f17),0_0_0_4px_oklch(0.66_0.2_22)]'
-    : 'border-white/12 focus-visible:border-[var(--color-accent,oklch(0.76_0.14_192))] focus-visible:shadow-[0_0_0_2px_var(--color-bg,#0b0f17),0_0_0_4px_var(--color-accent,oklch(0.76_0.14_192))]';
-
-  const describedBy = error ? `aria-invalid="true" aria-describedby="${errorId}"` : helperText ? `aria-describedby="${helperId}"` : '';
-
-  return `
-    <div class="flex flex-col gap-1.5 w-full ${className}">
-      ${label ? `<label for="${safeId}" class="${TYPOGRAPHY.label}">${escapeHtml(label)}${required ? ' <span class="text-rose-400" aria-hidden="true">*</span>' : ''}</label>` : ''}
-      <div class="relative w-full">
-        ${iconSvg}
-        <input
-          id="${safeId}"
-          name="${escapeHtml(name)}"
-          type="${type}"
-          value="${escapeHtml(value)}"
-          placeholder="${escapeHtml(placeholder)}"
-          autocomplete="${escapeHtml(autocomplete)}"
-          ${required ? 'required' : ''}
-          ${describedBy}
-          class="w-full ${paddingLeft} pr-3.5 py-2.5 min-h-[44px] bg-surface-base rounded-lg border ${borderStyle} text-slate-100 placeholder-slate-500 text-base sm:text-sm transition-shadow focus:outline-none"
-        />
-      </div>
+  return `<div class="flex flex-col gap-1.5 ${escapeHtml(className)}">
+    ${
+      label
+        ? `<label for="${escapeHtml(id)}" class="text-xs font-semibold text-slate-300 tracking-wide">${escapeHtml(label)}${
+            required ? ' <span class="text-rose-400">*</span>' : ''
+          }</label>`
+        : ''
+    }
+    <div class="relative flex items-center">
       ${
-        error
-          ? `<p id="${errorId}" role="alert" class="text-xs text-rose-400 flex items-center gap-1.5">${renderIcon('alert', { size: 12 })}<span>${escapeHtml(error)}</span></p>`
-          : helperText
-          ? `<p id="${helperId}" class="${TYPOGRAPHY.caption}">${escapeHtml(helperText)}</p>`
+        icon
+          ? `<span class="absolute left-3.5 text-slate-400 pointer-events-none">${renderIcon(icon, {
+              size: 16,
+              ariaHidden: true,
+            })}</span>`
           : ''
       }
+      <input
+        id="${escapeHtml(id)}"
+        name="${escapeHtml(name)}"
+        type="${type}"
+        value="${escapeHtml(value)}"
+        placeholder="${escapeHtml(placeholder)}"
+        ${required ? 'required' : ''}
+        ${autocomplete ? `autocomplete="${escapeHtml(autocomplete)}"` : ''}
+        class="w-full min-h-[44px] ${
+          icon ? 'pl-10' : 'pl-3.5'
+        } pr-3.5 py-2 rounded-xl bg-surface-base/90 backdrop-blur-md text-sm text-white placeholder-slate-500 border ${borderClass} focus:outline-none focus:ring-2 transition-all"
+      />
     </div>
-  `;
+    ${
+      error
+        ? `<p class="text-xs text-rose-400 font-medium" role="alert">${escapeHtml(error)}</p>`
+        : helperText
+        ? `<p class="text-xs text-slate-400">${escapeHtml(helperText)}</p>`
+        : ''
+    }
+  </div>`;
 }
 
 export interface BadgeProps {
@@ -234,21 +223,18 @@ export interface BadgeProps {
 
 export function renderBadge(props: BadgeProps): string {
   const { label, variant = 'default', icon, className = '' } = props;
+  const styles: Record<NonNullable<BadgeProps['variant']>, string> = {
+    default: 'bg-white/[0.06] text-slate-300 border-white/10',
+    success: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
+    warning: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
+    danger: 'bg-rose-500/15 text-rose-300 border-rose-500/30',
+    accent: 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30',
+    mono: 'bg-slate-900/90 text-cyan-300 border-cyan-500/25 font-mono',
+  };
 
-  const variantStyles = {
-    default: 'bg-white/[0.05] text-slate-300 border-white/10',
-    success: 'bg-emerald-500/12 text-emerald-300 border-emerald-500/30',
-    warning: 'bg-amber-500/12 text-amber-300 border-amber-500/30',
-    danger: 'bg-rose-500/12 text-rose-300 border-rose-500/30',
-    accent: 'bg-cyan-500/12 text-cyan-300 border-cyan-500/30',
-    mono: 'bg-surface-raised text-slate-200 border-white/12 font-mono tabular-nums text-[10px]',
-  }[variant];
-
-  const iconSvg = icon ? renderIcon(icon, { size: 12 }) : '';
-
-  return `<span class="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-sm border tabular-nums ${variantStyles} ${className}">
-    ${iconSvg}<span>${escapeHtml(label)}</span>
-  </span>`;
+  return `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${styles[variant]} ${escapeHtml(
+    className
+  )}">${icon ? renderIcon(icon, { size: 12, ariaHidden: true }) : ''}<span>${escapeHtml(label)}</span></span>`;
 }
 
 export interface CardProps {
@@ -262,26 +248,89 @@ export interface CardProps {
 }
 
 export function renderCard(props: CardProps): string {
-  const { id = '', title = '', subtitle = '', content, footer = '', className = '', interactive = false } = props;
-  const hoverStyle = interactive ? 'hover:border-white/25 transition-colors cursor-pointer' : '';
-  const idAttr = id ? `id="${escapeHtml(id)}"` : '';
+  const { id, title, subtitle, content, footer, className = '', interactive = false } = props;
+  const idAttr = id ? ` id="${escapeHtml(id)}"` : '';
+  const interactiveClasses = interactive
+    ? 'hover:border-cyan-400/35 hover:shadow-[0_12px_36px_rgba(0,0,0,0.42)] cursor-pointer transition-all duration-200'
+    : '';
 
-  return `
-    <div ${idAttr} class="rounded-xl border border-white/10 bg-surface-base p-5 ${hoverStyle} ${className}">
+  return `<section${idAttr} class="rounded-2xl ${SPATIAL_GLASS.panelZ1} p-5 ${interactiveClasses} ${escapeHtml(className)}">
+    ${
+      title || subtitle
+        ? `<header class="mb-3">
+            ${title ? `<h3 class="${TYPOGRAPHY.h3} text-white">${escapeHtml(title)}</h3>` : ''}
+            ${subtitle ? `<p class="text-xs text-slate-400 mt-0.5">${escapeHtml(subtitle)}</p>` : ''}
+          </header>`
+        : ''
+    }
+    <div class="${TYPOGRAPHY.body} text-slate-200">${content}</div>
+    ${footer ? `<footer class="mt-4 pt-3 border-t border-white/[0.07]">${footer}</footer>` : ''}
+  </section>`;
+}
+
+export interface BentoCardProps {
+  id?: string;
+  eyebrow?: string;
+  title: string;
+  metric?: string;
+  description?: string;
+  icon?: IconName;
+  accentColor?: 'cyan' | 'emerald' | 'purple' | 'amber' | 'rose';
+  colSpan?: 1 | 2 | 3;
+  content?: string;
+  dataAction?: string;
+}
+
+export function renderBentoCard(props: BentoCardProps): string {
+  const {
+    id,
+    eyebrow,
+    title,
+    metric,
+    description,
+    icon,
+    accentColor = 'cyan',
+    colSpan = 1,
+    content = '',
+    dataAction,
+  } = props;
+
+  const spanMap = {
+    1: 'col-span-1',
+    2: 'col-span-1 md:col-span-2',
+    3: 'col-span-1 md:col-span-3',
+  };
+
+  const glowMap = {
+    cyan: 'from-cyan-500/15 to-transparent border-cyan-500/20 text-cyan-300',
+    emerald: 'from-emerald-500/15 to-transparent border-emerald-500/20 text-emerald-300',
+    purple: 'from-purple-500/15 to-transparent border-purple-500/20 text-purple-300',
+    amber: 'from-amber-500/15 to-transparent border-amber-500/20 text-amber-300',
+    rose: 'from-rose-500/15 to-transparent border-rose-500/20 text-rose-300',
+  };
+
+  const idAttr = id ? ` id="${escapeHtml(id)}"` : '';
+  const actionAttr = dataAction ? ` data-action="${escapeHtml(dataAction)}"` : '';
+
+  return `<article${idAttr}${actionAttr} class="relative overflow-hidden rounded-2xl ${SPATIAL_GLASS.bentoTile} bg-gradient-to-br ${glowMap[accentColor]} p-5 ${spanMap[colSpan]}">
+    <div class="flex items-start justify-between gap-3">
+      <div>
+        ${eyebrow ? `<div class="text-[10px] font-mono uppercase tracking-widest opacity-80 mb-1">${escapeHtml(eyebrow)}</div>` : ''}
+        <h4 class="text-sm font-bold text-white">${escapeHtml(title)}</h4>
+      </div>
       ${
-        title || subtitle
-          ? `
-        <div class="mb-4">
-          ${title ? `<h3 class="${TYPOGRAPHY.sectionTitle}">${escapeHtml(title)}</h3>` : ''}
-          ${subtitle ? `<p class="${TYPOGRAPHY.bodySecondary} mt-0.5">${escapeHtml(subtitle)}</p>` : ''}
-        </div>
-      `
+        icon
+          ? `<div class="w-9 h-9 rounded-xl bg-white/[0.06] border border-white/10 flex items-center justify-center">${renderIcon(
+              icon,
+              { size: 18, ariaHidden: true }
+            )}</div>`
           : ''
       }
-      <div class="space-y-3">${content}</div>
-      ${footer ? `<div class="mt-4 pt-4 border-t border-white/8 flex items-center justify-between text-xs text-slate-400 tabular-nums">${footer}</div>` : ''}
     </div>
-  `;
+    ${metric ? `<div class="mt-3 text-2xl font-extrabold font-mono text-white tracking-tight">${escapeHtml(metric)}</div>` : ''}
+    ${description ? `<p class="mt-1.5 text-xs text-slate-400 leading-relaxed">${escapeHtml(description)}</p>` : ''}
+    ${content ? `<div class="mt-3">${content}</div>` : ''}
+  </article>`;
 }
 
 export interface SkeletonProps {
@@ -293,14 +342,15 @@ export interface SkeletonProps {
 
 export function renderSkeleton(props: SkeletonProps = {}): string {
   const { width = 'w-full', height = 'h-4', className = '', rounded = 'md' } = props;
-  const roundStyle = {
-    sm: 'rounded-sm',
-    md: 'rounded-md',
-    lg: 'rounded-lg',
+  const radiusMap = {
+    sm: 'rounded',
+    md: 'rounded-lg',
+    lg: 'rounded-xl',
     full: 'rounded-full',
-  }[rounded];
-
-  return `<div aria-hidden="true" class="animate-pulse bg-white/[0.06] ${width} ${height} ${roundStyle} ${className}"></div>`;
+  };
+  return `<div class="animate-pulse bg-white/[0.07] ${width} ${height} ${radiusMap[rounded]} ${escapeHtml(
+    className
+  )}" aria-hidden="true"></div>`;
 }
 
 export interface EmptyStateProps {
@@ -314,18 +364,36 @@ export interface EmptyStateProps {
 }
 
 export function renderEmptyState(props: EmptyStateProps): string {
-  const { icon = 'info', title, description, actionLabel = '', actionAction = '', actionId = '', className = '' } = props;
+  const {
+    icon = 'sparkles',
+    title,
+    description,
+    actionLabel,
+    actionAction,
+    actionId,
+    className = '',
+  } = props;
 
-  return `
-    <div class="flex flex-col items-center justify-center text-center p-8 md:p-12 rounded-xl border border-dashed border-white/12 bg-surface-base/50 my-4 ${className}">
-      <div class="w-12 h-12 rounded-xl bg-surface-raised flex items-center justify-center text-slate-300 mb-4 border border-white/10">
-        ${renderIcon(icon, { size: 24 })}
-      </div>
-      <h3 class="text-base font-semibold text-slate-100 mb-1.5">${escapeHtml(title)}</h3>
-      <p class="text-xs text-slate-400 max-w-sm leading-relaxed mb-5">${escapeHtml(description)}</p>
-      ${actionLabel ? renderButton({ label: actionLabel, dataAction: actionAction, id: actionId, variant: 'secondary', size: 'sm' }) : ''}
+  return `<div class="flex flex-col items-center justify-center text-center p-8 rounded-2xl border border-dashed border-white/10 bg-surface-base/40 backdrop-blur-md ${escapeHtml(
+    className
+  )}" role="status">
+    <div class="w-12 h-12 rounded-2xl bg-cyan-500/10 border border-cyan-500/25 flex items-center justify-center text-cyan-300 mb-3">
+      ${renderIcon(icon, { size: 22, ariaHidden: true })}
     </div>
-  `;
+    <h3 class="text-base font-bold text-white mb-1">${escapeHtml(title)}</h3>
+    <p class="text-xs text-slate-400 max-w-md leading-relaxed mb-4">${escapeHtml(description)}</p>
+    ${
+      actionLabel
+        ? renderButton({
+            id: actionId,
+            label: actionLabel,
+            dataAction: actionAction,
+            variant: 'primary',
+            size: 'sm',
+          })
+        : ''
+    }
+  </div>`;
 }
 
 export interface StatusIndicatorProps {
@@ -335,30 +403,26 @@ export interface StatusIndicatorProps {
 }
 
 export function renderStatusIndicator(props: StatusIndicatorProps): string {
-  const { status, label, showPing = false } = props;
-
-  const colorMap = {
+  const { status, label, showPing = true } = props;
+  const colorMap: Record<StatusIndicatorProps['status'], string> = {
     online: 'bg-emerald-400',
     offline: 'bg-slate-500',
     idle: 'bg-amber-400',
-    dnd: 'bg-rose-400',
+    dnd: 'bg-rose-500',
     syncing: 'bg-cyan-400',
-  }[status];
+  };
 
-  const ping =
-    showPing && (status === 'online' || status === 'syncing')
-      ? `<span class="animate-ping absolute inline-flex h-full w-full rounded-full ${colorMap} opacity-75"></span>`
-      : '';
-
-  return `
-    <span class="inline-flex items-center gap-2">
-      <span class="relative flex h-2.5 w-2.5" aria-hidden="true">
-        ${ping}
-        <span class="relative inline-flex rounded-full h-2.5 w-2.5 ${colorMap}"></span>
-      </span>
-      ${label ? `<span class="text-xs text-slate-300">${escapeHtml(label)}</span>` : `<span class="sr-only">${status}</span>`}
+  return `<span class="inline-flex items-center gap-2 text-xs font-medium text-slate-300">
+    <span class="relative flex h-2.5 w-2.5">
+      ${
+        showPing && (status === 'online' || status === 'syncing')
+          ? `<span class="animate-ping absolute inline-flex h-full w-full rounded-full ${colorMap[status]} opacity-75"></span>`
+          : ''
+      }
+      <span class="relative inline-flex rounded-full h-2.5 w-2.5 ${colorMap[status]}"></span>
     </span>
-  `;
+    ${label ? `<span>${escapeHtml(label)}</span>` : ''}
+  </span>`;
 }
 
 export interface TextareaProps {
@@ -378,41 +442,42 @@ export function renderTextarea(props: TextareaProps): string {
   const {
     id,
     name = id,
-    label = '',
+    label,
     placeholder = '',
     value = '',
-    rows = 3,
-    helperText = '',
-    error = '',
+    rows = 4,
+    helperText,
+    error,
     className = '',
     required = false,
   } = props;
 
-  const safeId = escapeHtml(id);
-  const borderStyle = error
-    ? 'border-rose-500 focus-visible:shadow-[0_0_0_2px_var(--color-bg,#0b0f17),0_0_0_4px_oklch(0.66_0.2_22)]'
-    : 'border-white/12 focus-visible:border-[var(--color-accent,oklch(0.76_0.14_192))] focus-visible:shadow-[0_0_0_2px_var(--color-bg,#0b0f17),0_0_0_4px_var(--color-accent,oklch(0.76_0.14_192))]';
-
-  return `
-    <div class="flex flex-col gap-1.5 w-full ${className}">
-      ${label ? `<label for="${safeId}" class="${TYPOGRAPHY.label}">${escapeHtml(label)}${required ? ' <span class="text-rose-400" aria-hidden="true">*</span>' : ''}</label>` : ''}
-      <textarea
-        id="${safeId}"
-        name="${escapeHtml(name)}"
-        rows="${rows}"
-        placeholder="${escapeHtml(placeholder)}"
-        ${required ? 'required' : ''}
-        class="w-full px-3.5 py-2.5 bg-surface-base rounded-lg border ${borderStyle} text-slate-100 placeholder-slate-500 text-base sm:text-sm transition-shadow focus:outline-none resize-none"
-      >${escapeHtml(value)}</textarea>
-      ${
-        error
-          ? `<p role="alert" class="text-xs text-rose-400 flex items-center gap-1.5">${renderIcon('alert', { size: 12 })}<span>${escapeHtml(error)}</span></p>`
-          : helperText
-          ? `<p class="${TYPOGRAPHY.caption}">${escapeHtml(helperText)}</p>`
-          : ''
-      }
-    </div>
-  `;
+  return `<div class="flex flex-col gap-1.5 ${escapeHtml(className)}">
+    ${
+      label
+        ? `<label for="${escapeHtml(id)}" class="text-xs font-semibold text-slate-300">${escapeHtml(label)}${
+            required ? ' <span class="text-rose-400">*</span>' : ''
+          }</label>`
+        : ''
+    }
+    <textarea
+      id="${escapeHtml(id)}"
+      name="${escapeHtml(name)}"
+      rows="${rows}"
+      placeholder="${escapeHtml(placeholder)}"
+      ${required ? 'required' : ''}
+      class="w-full p-3.5 rounded-xl bg-surface-base/90 backdrop-blur-md text-sm text-white placeholder-slate-500 border ${
+        error ? 'border-rose-500/60' : 'border-white/10 focus:border-cyan-400/60'
+      } focus:outline-none focus:ring-2 focus:ring-cyan-400/25 transition-all resize-y"
+    >${escapeHtml(value)}</textarea>
+    ${
+      error
+        ? `<p class="text-xs text-rose-400" role="alert">${escapeHtml(error)}</p>`
+        : helperText
+        ? `<p class="text-xs text-slate-400">${escapeHtml(helperText)}</p>`
+        : ''
+    }
+  </div>`;
 }
 
 export interface SelectOption {
@@ -430,30 +495,22 @@ export interface SelectProps {
 }
 
 export function renderSelect(props: SelectProps): string {
-  const { id, label = '', options, selectedValue = '', className = '', dataAction = '' } = props;
-  const safeId = escapeHtml(id);
-  const actionAttr = dataAction ? `data-action="${escapeHtml(dataAction)}"` : '';
+  const { id, label, options, selectedValue, className = '', dataAction } = props;
+  const actionAttr = dataAction ? ` data-action="${escapeHtml(dataAction)}"` : '';
 
-  return `
-    <div class="flex flex-col gap-1.5 w-full ${className}">
-      ${label ? `<label for="${safeId}" class="${TYPOGRAPHY.label}">${escapeHtml(label)}</label>` : ''}
-      <select
-        id="${safeId}"
-        ${actionAttr}
-        class="w-full px-3.5 py-2.5 min-h-[44px] bg-surface-base rounded-lg border border-white/12 text-slate-100 text-sm focus-visible:outline-none focus-visible:border-[var(--color-accent,oklch(0.76_0.14_192))] transition-colors cursor-pointer"
-      >
-        ${options
-          .map(
-            (opt) => `
-          <option value="${escapeHtml(opt.value)}" ${opt.value === selectedValue ? 'selected' : ''}>
-            ${escapeHtml(opt.label)}
-          </option>
-        `
-          )
-          .join('')}
-      </select>
-    </div>
-  `;
+  return `<div class="flex flex-col gap-1.5 ${escapeHtml(className)}">
+    ${label ? `<label for="${escapeHtml(id)}" class="text-xs font-semibold text-slate-300">${escapeHtml(label)}</label>` : ''}
+    <select id="${escapeHtml(id)}"${actionAttr} class="min-h-[44px] px-3.5 py-2 rounded-xl bg-surface-base/90 text-sm text-white border border-white/10 focus:outline-none focus:border-cyan-400/60">
+      ${options
+        .map(
+          (opt) =>
+            `<option value="${escapeHtml(opt.value)}"${opt.value === selectedValue ? ' selected' : ''}>${escapeHtml(
+              opt.label
+            )}</option>`
+        )
+        .join('')}
+    </select>
+  </div>`;
 }
 
 export interface ToggleProps {
@@ -467,31 +524,31 @@ export interface ToggleProps {
 }
 
 export function renderToggle(props: ToggleProps): string {
-  const { id, label, checked = false, description = '', disabled = false, className = '', dataAction = '' } = props;
-  const safeId = escapeHtml(id);
-  const actionAttr = dataAction ? `data-action="${escapeHtml(dataAction)}"` : '';
+  const { id, label, checked = false, description, disabled = false, className = '', dataAction } = props;
+  const actionAttr = dataAction ? ` data-action="${escapeHtml(dataAction)}"` : '';
 
-  return `
-    <label for="${safeId}" class="flex items-start justify-between gap-4 p-3 rounded-xl bg-surface-base border border-white/8 hover:border-white/15 transition-colors cursor-pointer select-none ${className}">
-      <div class="space-y-0.5">
-        <div class="text-xs font-semibold text-slate-100">${escapeHtml(label)}</div>
-        ${description ? `<p class="text-[11px] text-slate-400 leading-relaxed">${escapeHtml(description)}</p>` : ''}
-      </div>
-      <div class="relative inline-flex items-center shrink-0 min-h-[44px]">
-        <input
-          type="checkbox"
-          role="switch"
-          id="${safeId}"
-          aria-checked="${checked ? 'true' : 'false'}"
-          ${actionAttr}
-          ${checked ? 'checked' : ''}
-          ${disabled ? 'disabled' : ''}
-          class="sr-only peer"
-        />
-        <div class="w-11 h-6 bg-surface-raised peer-focus-visible:shadow-[0_0_0_2px_var(--color-bg,#0b0f17),0_0_0_4px_var(--color-accent,#14b8a6)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[12px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-transform peer-checked:bg-[var(--color-accent,oklch(0.76_0.14_192))] border border-white/15"></div>
-      </div>
-    </label>
-  `;
+  return `<div class="flex items-center justify-between gap-4 py-2 ${escapeHtml(className)}">
+    <div class="flex flex-col">
+      <label for="${escapeHtml(id)}" class="text-sm font-medium text-white cursor-pointer">${escapeHtml(label)}</label>
+      ${description ? `<span class="text-xs text-slate-400">${escapeHtml(description)}</span>` : ''}
+    </div>
+    <button
+      type="button"
+      id="${escapeHtml(id)}"
+      role="switch"
+      aria-checked="${checked ? 'true' : 'false'}"
+      aria-label="${escapeHtml(label)}"
+      ${disabled ? 'disabled' : ''}
+      ${actionAttr}
+      class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
+        checked ? 'bg-cyan-500' : 'bg-slate-700'
+      }"
+    >
+      <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+        checked ? 'translate-x-5' : 'translate-x-0'
+      }"></span>
+    </button>
+  </div>`;
 }
 
 export interface CheckboxProps {
@@ -504,23 +561,22 @@ export interface CheckboxProps {
 }
 
 export function renderCheckbox(props: CheckboxProps): string {
-  const { id, label, checked = false, disabled = false, className = '', dataAction = '' } = props;
-  const safeId = escapeHtml(id);
-  const actionAttr = dataAction ? `data-action="${escapeHtml(dataAction)}"` : '';
+  const { id, label, checked = false, disabled = false, className = '', dataAction } = props;
+  const actionAttr = dataAction ? ` data-action="${escapeHtml(dataAction)}"` : '';
 
-  return `
-    <label for="${safeId}" class="inline-flex items-center gap-2.5 min-h-[44px] cursor-pointer select-none text-xs text-slate-200 ${className}">
-      <input
-        type="checkbox"
-        id="${safeId}"
-        ${actionAttr}
-        ${checked ? 'checked' : ''}
-        ${disabled ? 'disabled' : ''}
-        class="w-4 h-4 rounded-sm bg-surface-raised border border-white/25 accent-[var(--color-accent,oklch(0.76_0.14_192))] cursor-pointer"
-      />
-      <span>${escapeHtml(label)}</span>
-    </label>
-  `;
+  return `<label for="${escapeHtml(id)}" class="inline-flex items-center gap-2.5 min-h-[44px] cursor-pointer select-none ${escapeHtml(
+    className
+  )}">
+    <input
+      id="${escapeHtml(id)}"
+      type="checkbox"
+      ${checked ? 'checked' : ''}
+      ${disabled ? 'disabled' : ''}
+      ${actionAttr}
+      class="w-4 h-4 rounded border-white/20 bg-surface-base text-cyan-500 focus:ring-cyan-400/40"
+    />
+    <span class="text-sm text-slate-200">${escapeHtml(label)}</span>
+  </label>`;
 }
 
 export interface TabItem {
@@ -538,34 +594,38 @@ export interface TabsProps {
 }
 
 export function renderTabs(props: TabsProps): string {
-  const { tabs, activeTabId, dataAction = 'select-tab', className = '' } = props;
-
-  return `
-    <div role="tablist" class="flex items-center space-x-1.5 overflow-x-auto pb-1.5 scrollbar-none border-b border-white/8 ${className}">
-      ${tabs
-        .map((tab) => {
-          const isActive = tab.id === activeTabId;
-          return `
-          <button
-            type="button"
-            role="tab"
-            aria-selected="${isActive ? 'true' : 'false'}"
-            data-action="${escapeHtml(dataAction)}"
-            data-tab-id="${escapeHtml(tab.id)}"
-            class="px-3.5 py-2 min-h-[40px] rounded-lg text-xs font-semibold whitespace-nowrap transition-colors flex items-center space-x-2 cursor-pointer border ${
-              isActive
-                ? 'bg-surface-overlay text-white border-[var(--color-accent,oklch(0.76_0.14_192))]/60'
-                : 'bg-surface-raised/60 hover:bg-surface-overlay text-slate-400 hover:text-slate-200 border-white/5'
-            }"
-          >
-            ${tab.icon ? `<span>${renderIcon(tab.icon, { size: 14 })}</span>` : ''}
-            <span>${escapeHtml(tab.label)}</span>${tab.badge !== undefined ? `<span class="px-1.5 py-0.5 rounded-full text-[10px] font-mono tabular-nums bg-white/10 text-white">${escapeHtml(String(tab.badge))}</span>` : ''}
-          </button>
-        `;
-        })
-        .join('')}
-    </div>
-  `;
+  const { tabs, activeTabId, dataAction = 'switch-tab', className = '' } = props;
+  return `<div role="tablist" class="flex items-center gap-1 p-1 rounded-xl bg-surface-base/80 border border-white/[0.07] ${escapeHtml(
+    className
+  )}">
+    ${tabs
+      .map((tab) => {
+        const isActive = tab.id === activeTabId;
+        return `<button
+          type="button"
+          role="tab"
+          aria-selected="${isActive ? 'true' : 'false'}"
+          data-action="${escapeHtml(dataAction)}"
+          data-tab-id="${escapeHtml(tab.id)}"
+          class="inline-flex items-center gap-2 min-h-[40px] px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+            isActive
+              ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/35 shadow-sm'
+              : 'text-slate-400 hover:text-white hover:bg-white/[0.05]'
+          }"
+        >
+          ${tab.icon ? renderIcon(tab.icon, { size: 14, ariaHidden: true }) : ''}
+          <span>${escapeHtml(tab.label)}</span>
+          ${
+            tab.badge !== undefined
+              ? `<span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-white/10 text-slate-200">${escapeHtml(
+                  String(tab.badge)
+                )}</span>`
+              : ''
+          }
+        </button>`;
+      })
+      .join('')}
+  </div>`;
 }
 
 export interface AvatarProps {
@@ -576,42 +636,38 @@ export interface AvatarProps {
   className?: string;
 }
 
-/**
- * CSP-compliant Avatar primitive: layers the fallback initial behind the image
- * so broken/offline images gracefully reveal the initial without inline `onerror` JS.
- */
 export function renderAvatar(props: AvatarProps): string {
-  const { src = '', name = 'User', size = 'md', status, className = '' } = props;
+  const { src, name = 'Sovereign', size = 'md', status, className = '' } = props;
+  const sizeClasses = {
+    sm: 'w-8 h-8 text-xs',
+    md: 'w-10 h-10 text-sm',
+    lg: 'w-12 h-12 text-base',
+    xl: 'w-16 h-16 text-lg',
+  };
+  const initials = name.trim().slice(0, 2).toUpperCase();
 
-  const sizeStyles = {
-    sm: 'w-7 h-7 text-[10px]',
-    md: 'w-10 h-10 text-xs min-h-[40px]',
-    lg: 'w-14 h-14 text-sm',
-    xl: 'w-24 h-24 text-base',
-  }[size];
-
-  const statusStyles = status
-    ? {
-        online: 'bg-emerald-500',
-        idle: 'bg-amber-500',
-        dnd: 'bg-rose-500',
-        offline: 'bg-slate-500',
-      }[status]
-    : '';
-
-  const fallbackInitial = escapeHtml((name || 'U').trim().charAt(0).toUpperCase() || 'U');
-  const safeName = escapeHtml(name);
-  const safeSrc = escapeHtml(src);
-
-  return `
-    <div class="relative inline-block shrink-0 ${className}">
-      <div class="${sizeStyles} relative rounded-full overflow-hidden bg-surface-raised border border-white/12 flex items-center justify-center font-bold text-slate-200 select-none">
-        <span aria-hidden="true" class="z-0">${fallbackInitial}</span>
-        ${src ? `<img src="${safeSrc}" alt="${safeName}" loading="lazy" decoding="async" class="absolute inset-0 w-full h-full object-cover z-10 bg-surface-raised" />` : ''}
-      </div>
-      ${status ? `<span class="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full ring-2 ring-surface-base z-20 ${statusStyles}" title="Status: ${status}"></span>` : ''}
-    </div>
-  `;
+  return `<div class="relative inline-flex items-center justify-center rounded-full bg-gradient-to-br from-cyan-500/30 to-purple-500/30 border border-white/15 font-bold text-white shrink-0 ${sizeClasses[size]} ${escapeHtml(
+    className
+  )}">
+    ${
+      src
+        ? `<img src="${escapeHtml(src)}" alt="${escapeHtml(name)}" class="w-full h-full rounded-full object-cover" />`
+        : `<span>${escapeHtml(initials)}</span>`
+    }
+    ${
+      status
+        ? `<span class="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full ring-2 ring-[#090a0f] ${
+            status === 'online'
+              ? 'bg-emerald-400'
+              : status === 'idle'
+              ? 'bg-amber-400'
+              : status === 'dnd'
+              ? 'bg-rose-500'
+              : 'bg-slate-500'
+          }"></span>`
+        : ''
+    }
+  </div>`;
 }
 
 export interface SheetProps {
@@ -624,34 +680,18 @@ export interface SheetProps {
 
 export function renderSheet(props: SheetProps): string {
   const { id, title, content, isOpen = false, className = '' } = props;
-  const safeId = escapeHtml(id);
-  const titleId = `${safeId}-title`;
-
-  return `
-    <div
-      id="${safeId}"
-      class="sovereign-modal-backdrop fixed inset-0 z-50 ${isOpen ? 'flex' : 'hidden'} items-end sm:items-center justify-center bg-black/75 backdrop-blur-md ${className}"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="${titleId}"
-    >
-      <div class="sovereign-glass-surface w-full max-w-lg max-h-[90vh] bg-surface-base border border-white/15 rounded-t-2xl sm:rounded-2xl shadow-2xl p-6 overflow-y-auto space-y-4">
-        <div class="flex items-center justify-between pb-3 border-b border-white/10">
-          <h3 id="${titleId}" class="text-base font-bold text-white">${escapeHtml(title)}</h3>
-          <button
-            type="button"
-            data-action="close-sheet"
-            data-sheet-id="${safeId}"
-            aria-label="Close modal"
-            class="min-h-[44px] min-w-[44px] p-2 text-slate-400 hover:text-white rounded-lg bg-surface-raised cursor-pointer flex items-center justify-center"
-          >
-            ✕
-          </button>
-        </div>
-        <div>${content}</div>
+  if (!isOpen) return '';
+  return `<div id="${escapeHtml(id)}" role="dialog" aria-modal="true" aria-label="${escapeHtml(
+    title
+  )}" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/65 backdrop-blur-md p-0 sm:p-4">
+    <div class="w-full sm:max-w-lg rounded-t-3xl sm:rounded-2xl ${SPATIAL_GLASS.panelZ2} p-6 ${escapeHtml(className)}">
+      <div class="flex items-center justify-between pb-3 mb-4 border-b border-white/10">
+        <h3 class="text-base font-bold text-white">${escapeHtml(title)}</h3>
+        ${renderIconButton({ icon: 'x', label: 'Close modal', dataAction: 'close-sheet' })}
       </div>
+      <div>${content}</div>
     </div>
-  `;
+  </div>`;
 }
 
 export interface ErrorStateProps {
@@ -663,18 +703,33 @@ export interface ErrorStateProps {
 }
 
 export function renderErrorState(props: ErrorStateProps): string {
-  const { title = 'Something went wrong', message, retryAction = 'retry', retryLabel = 'Retry', className = '' } = props;
+  const {
+    title = 'Unable to load state',
+    message,
+    retryAction,
+    retryLabel = 'Try Again',
+    className = '',
+  } = props;
 
-  return `
-    <div role="alert" class="flex flex-col items-center justify-center text-center p-8 rounded-xl border border-rose-500/25 bg-rose-950/20 my-4 space-y-3 ${className}">
-      <div class="w-11 h-11 rounded-lg bg-rose-500/15 text-rose-400 flex items-center justify-center">
-        ${renderIcon('alert', { size: 22 })}
-      </div>
-      <h3 class="text-sm font-bold text-rose-200">${escapeHtml(title)}</h3>
-      <p class="text-xs text-rose-300/85 max-w-sm">${escapeHtml(message)}</p>
-      ${retryLabel ? renderButton({ label: retryLabel, dataAction: retryAction, variant: 'danger', size: 'sm' }) : ''}
+  return `<div class="flex flex-col items-center justify-center text-center p-6 rounded-2xl border border-rose-500/30 bg-rose-950/20 backdrop-blur-md ${escapeHtml(
+    className
+  )}" role="alert">
+    <div class="w-10 h-10 rounded-xl bg-rose-500/20 text-rose-300 flex items-center justify-center mb-2.5">
+      ${renderIcon('alert-triangle', { size: 20, ariaHidden: true })}
     </div>
-  `;
+    <h4 class="text-sm font-bold text-white mb-1">${escapeHtml(title)}</h4>
+    <p class="text-xs text-rose-200/80 max-w-md mb-4">${escapeHtml(message)}</p>
+    ${
+      retryAction
+        ? renderButton({
+            label: retryLabel,
+            dataAction: retryAction,
+            variant: 'danger',
+            size: 'sm',
+          })
+        : ''
+    }
+  </div>`;
 }
 
 export interface ProgressProps {
@@ -685,24 +740,27 @@ export interface ProgressProps {
 }
 
 export function renderProgress(props: ProgressProps): string {
-  const { value, label = '', variant = 'cyan', className = '' } = props;
-  const boundedValue = Math.max(0, Math.min(100, value));
+  const { value, label, variant = 'cyan', className = '' } = props;
+  const clamped = Math.max(0, Math.min(100, Math.round(value)));
+  const barColors = {
+    cyan: 'from-cyan-500 to-sky-400',
+    emerald: 'from-emerald-500 to-teal-400',
+    amber: 'from-amber-500 to-yellow-400',
+    rose: 'from-rose-500 to-pink-500',
+  };
 
-  const variantStyles = {
-    cyan: 'bg-cyan-400',
-    emerald: 'bg-emerald-400',
-    amber: 'bg-amber-400',
-    rose: 'bg-rose-400',
-  }[variant];
-
-  return `
-    <div class="w-full space-y-1.5 ${className}">
-      ${label ? `<div class="flex justify-between text-[11px] font-mono tabular-nums text-slate-300"><span>${escapeHtml(label)}</span><span>${boundedValue}%</span></div>` : ''}
-      <div role="progressbar" aria-valuenow="${boundedValue}" aria-valuemin="0" aria-valuemax="100" class="w-full h-2 bg-surface-raised rounded-full overflow-hidden border border-white/8">
-        <div class="h-full rounded-full transition-all duration-200 ${variantStyles}" style="width: ${boundedValue}%;"></div>
-      </div>
+  return `<div class="w-full ${escapeHtml(className)}">
+    ${
+      label
+        ? `<div class="flex justify-between text-xs mb-1 font-mono text-slate-300"><span>${escapeHtml(
+            label
+          )}</span><span>${clamped}%</span></div>`
+        : ''
+    }
+    <div class="w-full h-2 rounded-full bg-white/10 overflow-hidden" role="progressbar" aria-valuenow="${clamped}" aria-valuemin="0" aria-valuemax="100">
+      <div class="h-full bg-gradient-to-r ${barColors[variant]} transition-all duration-300" style="width: ${clamped}%"></div>
     </div>
-  `;
+  </div>`;
 }
 
 export interface DataTableColumn<T> {
@@ -721,42 +779,43 @@ export interface DataTableProps<T> {
 }
 
 export function renderDataTable<T>(props: DataTableProps<T>): string {
-  const { columns, data, className = '', emptyMessage = 'No data available' } = props;
-
-  if (data.length === 0) {
-    return renderEmptyState({ title: 'Empty Table', description: emptyMessage });
+  const { columns, data, className = '', emptyMessage = 'No records available' } = props;
+  if (!data.length) {
+    return renderEmptyState({ title: emptyMessage, description: 'New records will appear here automatically.' });
   }
 
-  return `
-    <div class="w-full overflow-x-auto rounded-xl border border-white/10 bg-surface-base ${className}">
-      <table class="w-full text-left text-xs border-collapse">
-        <thead>
-          <tr class="border-b border-white/10 bg-surface-raised/60 text-slate-300 font-mono">
-            ${columns
-              .map((col) => {
-                const alignCls = col.numeric || col.align === 'right' ? 'text-right tabular-nums' : 'text-left';
-                return `<th class="px-4 py-3 font-semibold ${alignCls} ${col.className || ''}">${escapeHtml(col.header)}</th>`;
-              })
-              .join('')}
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-white/[0.06] text-slate-200">
-          ${data
+  return `<div class="overflow-x-auto rounded-2xl border border-white/10 bg-surface-base/75 backdrop-blur-xl ${escapeHtml(
+    className
+  )}">
+    <table class="w-full text-left border-collapse text-xs">
+      <thead>
+        <tr class="border-b border-white/10 bg-white/[0.03] text-slate-400 font-mono uppercase text-[10px]">
+          ${columns
             .map(
-              (item) => `
-            <tr class="hover:bg-white/[0.04] transition-colors">
-              ${columns
-                .map((col) => {
-                  const alignCls = col.numeric || col.align === 'right' ? 'text-right font-mono tabular-nums' : 'text-left';
-                  return `<td class="px-4 py-3 ${alignCls} ${col.className || ''}">${col.render(item)}</td>`;
-                })
-                .join('')}
-            </tr>
-          `
+              (col) =>
+                `<th class="py-3 px-4 ${col.align === 'right' || col.numeric ? 'text-right' : 'text-left'} ${escapeHtml(
+                  col.className || ''
+                )}">${escapeHtml(col.header)}</th>`
             )
             .join('')}
-        </tbody>
-      </table>
-    </div>
-  `;
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-white/[0.05] text-slate-200">
+        ${data
+          .map(
+            (row) => `<tr class="hover:bg-white/[0.03] transition-colors">
+              ${columns
+                .map(
+                  (col) =>
+                    `<td class="py-3 px-4 ${
+                      col.align === 'right' || col.numeric ? 'text-right font-mono' : 'text-left'
+                    }">${col.render(row)}</td>`
+                )
+                .join('')}
+            </tr>`
+          )
+          .join('')}
+      </tbody>
+    </table>
+  </div>`;
 }

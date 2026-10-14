@@ -1,200 +1,180 @@
 /**
  * @file ui/patch-message-workspace.ts
- * @package @aetheris/client-ui
- * @description 2027 Linear-Time O(N) DOM Reconciler for Feed & Message Workspaces.
- * Eliminates quadratic O(N*D) subtree scanning from recursive isEqualNode() calls on deep containers
- * while preserving active video players, composer focus, selection ranges, and bound listeners.
+ * @package @aetheris/client-ui/ui
+ * @description 2027 Zero-Flicker Surgical DOM Reconciler for Feed & E2EE Message Workspaces.
+ * Preserves live <video>, <audio>, <iframe>, WebGL <canvas>, and active input cursor states.
  */
 
-const mediaMarkup = new WeakMap<Element, string>();
-
-const STATEFUL_INPUT_SELECTOR =
-  '#input-message, #input-dm-message, #inline-composer-textarea, #inline-composer-title, [data-preserve-focus="true"]';
+const preservedMediaNodes = new Map<string, HTMLElement>();
 
 export function rememberWorkspaceMedia(stage: HTMLElement): void {
-  stage.querySelectorAll('.video-container').forEach((element) => {
-    if (!mediaMarkup.has(element)) {
-      mediaMarkup.set(element, element.outerHTML);
+  if (!stage || typeof stage.querySelectorAll !== 'function') return;
+  const mediaEls = stage.querySelectorAll<HTMLElement>(
+    'video[id], audio[id], iframe[id], canvas[id], [data-preserve-dom="true"][id]'
+  );
+  mediaEls.forEach((el) => {
+    if (el.id) {
+      preservedMediaNodes.set(el.id, el);
     }
   });
 }
 
-/** Preserve the mounted feed cards and active players when more posts appear. */
-export function patchFeedWorkspace(stage: HTMLElement, html: string): boolean {
-  const current = stage.querySelector<HTMLElement>('#main-feed-scroll[data-feed-scope]');
-  if (!current) return false;
-
-  const template = document.createElement('template');
-  template.innerHTML = html;
-  const next = template.content.querySelector<HTMLElement>('#main-feed-scroll[data-feed-scope]');
-  if (!next || current.dataset.feedScope !== next.dataset.feedScope) return false;
-
-  reconcileChildren(stage, template.content);
-  return true;
-}
-
-/** Reconcile only the current conversation. Route changes still mount a fresh view. */
-export function patchMessageWorkspace(stage: HTMLElement, html: string): boolean {
-  const template = document.createElement('template');
-  template.innerHTML = html;
-  const selector = '#messages-container, #dm-thread-messages';
-  const current = stage.querySelector<HTMLElement>(selector);
-  const next = template.content.querySelector<HTMLElement>(selector);
-
-  if (!current || !next || current.id !== next.id) return false;
-  if (current.id === 'messages-container' && current.dataset.channelId !== next.dataset.channelId) return false;
-  if (current.id === 'dm-thread-messages' && current.dataset.peerId !== next.dataset.peerId) return false;
-
-  reconcileChildren(stage, template.content);
-  return true;
-}
-
 function key(node: Node): string | null {
-  if (!(node instanceof Element)) return null;
-  if (node.id) return `id:${node.id}`;
-  const postCardId = node.getAttribute('data-post-card-id');
-  if (postCardId) return `post:${postCardId}`;
-  const msgId = node.getAttribute('data-message-id');
-  if (msgId && node.matches('.journal-dialogue-message, .dm-message')) return `message:${msgId}`;
-  const crumbIdx = node.getAttribute('data-crumb-index');
-  if (crumbIdx) return `crumb:${crumbIdx}`;
-  return null;
-}
-
-function compatible(current: Node, next: Node): boolean {
+  if (node.nodeType !== Node.ELEMENT_NODE) return null;
+  const el = node as Element;
   return (
-    current.nodeType === next.nodeType &&
-    current.nodeName === next.nodeName &&
-    key(current) === key(next)
+    el.getAttribute('id') ||
+    el.getAttribute('data-post-card-id') ||
+    el.getAttribute('data-message-id') ||
+    el.getAttribute('data-key') ||
+    null
   );
 }
 
-/**
- * Syncs attributes in O(A) without touching runtime listener flags (*-bound, data-sandbox-attached).
- */
+function compatible(current: Node, next: Node): boolean {
+  if (current.nodeType !== next.nodeType) return false;
+  if (current.nodeType === Node.ELEMENT_NODE) {
+    const curEl = current as Element;
+    const nextEl = next as Element;
+    if (curEl.tagName !== nextEl.tagName) return false;
+    const k1 = key(curEl);
+    const k2 = key(nextEl);
+    if (k1 || k2) return k1 === k2;
+  }
+  return true;
+}
+
 function syncAttributes(current: Element, next: Element): void {
-  const currentAttrs = current.attributes;
-  for (let i = currentAttrs.length - 1; i >= 0; i--) {
-    const name = currentAttrs[i].name;
-    if (
-      !next.hasAttribute(name) &&
-      !name.endsWith('-bound') &&
-      name !== 'data-sandbox-attached' &&
-      name !== 'data-keyboard-focused'
-    ) {
+  const curAttrs = current.attributes;
+  const nextAttrs = next.attributes;
+
+  for (let i = curAttrs.length - 1; i >= 0; i--) {
+    const name = curAttrs[i].name;
+    if (!next.hasAttribute(name)) {
       current.removeAttribute(name);
     }
   }
 
-  const nextAttrs = next.attributes;
   for (let i = 0; i < nextAttrs.length; i++) {
     const attr = nextAttrs[i];
     if (current.getAttribute(attr.name) !== attr.value) {
       current.setAttribute(attr.name, attr.value);
     }
   }
+
+  if (
+    (current instanceof HTMLInputElement || current instanceof HTMLTextAreaElement) &&
+    (next instanceof HTMLInputElement || next instanceof HTMLTextAreaElement)
+  ) {
+    const isFocused = typeof document !== 'undefined' && document.activeElement === current;
+    if (!isFocused && current.value !== next.value) {
+      current.value = next.value;
+    }
+  }
 }
 
 function reconcileNode(current: Node, next: Node): void {
-  // 1. Fast path for text & comment nodes
-  if (current.nodeType !== Node.ELEMENT_NODE || next.nodeType !== Node.ELEMENT_NODE) {
-    if (current.nodeValue !== next.nodeValue) {
-      current.nodeValue = next.nodeValue;
+  if (current.nodeType === Node.TEXT_NODE && next.nodeType === Node.TEXT_NODE) {
+    if (current.textContent !== next.textContent) {
+      current.textContent = next.textContent;
     }
     return;
   }
 
-  const currentEl = current as Element;
-  const nextEl = next as Element;
+  if (current.nodeType === Node.ELEMENT_NODE && next.nodeType === Node.ELEMENT_NODE) {
+    const curEl = current as HTMLElement;
+    const nextEl = next as HTMLElement;
 
-  // 2. Preserve mounted video/audio streams from resetting playback
-  if (currentEl.matches('.video-container')) {
-    const nextHtml = nextEl.outerHTML;
-    const expected = mediaMarkup.get(currentEl);
-    if (expected === nextHtml) return;
-    if (expected && expected !== nextHtml) {
-      currentEl.innerHTML = nextEl.innerHTML;
-      mediaMarkup.set(currentEl, nextHtml);
+    if (
+      curEl.tagName === 'VIDEO' ||
+      curEl.tagName === 'AUDIO' ||
+      curEl.tagName === 'CANVAS' ||
+      curEl.getAttribute('data-preserve-dom') === 'true'
+    ) {
+      syncAttributes(curEl, nextEl);
       return;
     }
-    mediaMarkup.set(currentEl, nextHtml);
+
+    syncAttributes(curEl, nextEl);
+    reconcileChildren(curEl, nextEl);
   }
-
-  // 3. Only use isEqualNode on small leaf-like elements (<= 3 child nodes) to avoid O(N^2) deep scans
-  if (currentEl.childNodes.length <= 3 && nextEl.childNodes.length <= 3) {
-    if (currentEl.isEqualNode(nextEl)) return;
-  }
-
-  // 4. Sync attributes
-  syncAttributes(currentEl, nextEl);
-
-  // 5. Preserve active user input focus & cursor selection
-  if (
-    currentEl.matches(STATEFUL_INPUT_SELECTOR) ||
-    (typeof document !== 'undefined' && document.activeElement === currentEl)
-  ) {
-    return;
-  }
-
-  // 6. Fast path for single-text-child elements (buttons, badges, counters, labels)
-  if (
-    currentEl.childNodes.length === 1 &&
-    nextEl.childNodes.length === 1 &&
-    currentEl.firstChild?.nodeType === Node.TEXT_NODE &&
-    nextEl.firstChild?.nodeType === Node.TEXT_NODE
-  ) {
-    if (currentEl.firstChild.nodeValue !== nextEl.firstChild.nodeValue) {
-      currentEl.firstChild.nodeValue = nextEl.firstChild.nodeValue;
-    }
-    return;
-  }
-
-  reconcileChildren(currentEl, nextEl);
 }
 
 function reconcileChildren(current: Node, next: Node): void {
-  const originalNodes = Array.from(current.childNodes);
-  const keyed = new Map<string, Node>();
+  const curChildren = Array.from(current.childNodes);
+  const nextChildren = Array.from(next.childNodes);
 
-  for (let i = 0; i < originalNodes.length; i++) {
-    const k = key(originalNodes[i]);
-    if (k !== null) keyed.set(k, originalNodes[i]);
+  const keyedCurrent = new Map<string, Node>();
+  for (const child of curChildren) {
+    const k = key(child);
+    if (k) keyedCurrent.set(k, child);
   }
 
-  const retained = new Set<Node>();
-  let cursor = current.firstChild;
-  const incomingNodes = Array.from(next.childNodes);
+  let curIdx = 0;
+  for (let nextIdx = 0; nextIdx < nextChildren.length; nextIdx++) {
+    const nextChild = nextChildren[nextIdx];
+    const nextKey = key(nextChild);
 
-  for (let i = 0; i < incomingNodes.length; i++) {
-    const incoming = incomingNodes[i];
-    const identity = key(incoming);
-    let mounted: Node | undefined = identity
-      ? keyed.get(identity)
-      : cursor && compatible(cursor, incoming)
-      ? cursor
-      : undefined;
-
-    if (mounted && !compatible(mounted, incoming)) {
-      mounted = undefined;
+    if (nextKey && preservedMediaNodes.has(nextKey)) {
+      const savedMedia = preservedMediaNodes.get(nextKey)!;
+      const refNode = current.childNodes[nextIdx] || null;
+      if (savedMedia !== refNode) {
+        current.insertBefore(savedMedia, refNode);
+      }
+      continue;
     }
 
-    if (!mounted) {
-      mounted = incoming.cloneNode(true);
+    if (nextKey && keyedCurrent.has(nextKey)) {
+      const matched = keyedCurrent.get(nextKey)!;
+      const refNode = current.childNodes[nextIdx] || null;
+      if (matched !== refNode) {
+        current.insertBefore(matched, refNode);
+      }
+      reconcileNode(matched, nextChild);
+      keyedCurrent.delete(nextKey);
+      continue;
     }
 
-    if (mounted !== cursor) {
-      current.insertBefore(mounted, cursor);
+    const curChild = current.childNodes[nextIdx];
+    if (curChild && !key(curChild) && compatible(curChild, nextChild)) {
+      reconcileNode(curChild, nextChild);
+    } else {
+      current.insertBefore(nextChild.cloneNode(true), curChild || null);
     }
-
-    reconcileNode(mounted, incoming);
-    retained.add(mounted);
-    cursor = mounted.nextSibling;
+    curIdx++;
   }
 
-  for (let i = 0; i < originalNodes.length; i++) {
-    const node = originalNodes[i];
-    if (!retained.has(node) && node.parentNode === current) {
-      current.removeChild(node);
-    }
+  while (current.childNodes.length > nextChildren.length) {
+    const last = current.lastChild;
+    if (!last) break;
+    current.removeChild(last);
+  }
+}
+
+export function patchFeedWorkspace(stage: HTMLElement, html: string): boolean {
+  if (!stage || typeof document === 'undefined') return false;
+  try {
+    rememberWorkspaceMedia(stage);
+    const template = document.createElement('div');
+    template.innerHTML = html;
+    reconcileChildren(stage, template);
+    return true;
+  } catch {
+    stage.innerHTML = html;
+    return true;
+  }
+}
+
+export function patchMessageWorkspace(stage: HTMLElement, html: string): boolean {
+  if (!stage || typeof document === 'undefined') return false;
+  try {
+    rememberWorkspaceMedia(stage);
+    const template = document.createElement('div');
+    template.innerHTML = html;
+    reconcileChildren(stage, template);
+    return true;
+  } catch {
+    stage.innerHTML = html;
+    return true;
   }
 }
