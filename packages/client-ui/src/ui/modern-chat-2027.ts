@@ -609,6 +609,8 @@ export class ModernChatWorkspace2027 {
 
     // Find the main messages workspace area
     const mainArea =
+      document.getElementById('main-stage') ||
+      document.querySelector<HTMLElement>('main') ||
       document.querySelector<HTMLElement>('main[role="main"]') ||
       document.getElementById('main-feed-scroll') ||
       document.querySelector<HTMLElement>('.workspace-main-column');
