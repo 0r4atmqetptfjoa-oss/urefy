@@ -1,23 +1,30 @@
-/**
- * @file reactive-signals.ts
- * @package @aetheris/client-ui
- * @description 2027 Fine-Grained Reactive Signals & Surgical DOM Binding Engine.
- * Implements TC39-aligned Signal, Computed, Effect, and Batch primitives for sub-millisecond
- * UI updates without full-tree innerHTML reconstruction.
- */
-
-type Subscriber = () => void;
+interface Subscriber {
+  (): void;
+  deps?: Set<Set<Subscriber>>;
+}
 
 let activeEffect: Subscriber | null = null;
 let batchDepth = 0;
 const pendingEffects = new Set<Subscriber>();
 
+function cleanupEffectDependencies(runner: Subscriber): void {
+  if (!runner.deps) return;
+  for (const depSet of runner.deps) {
+    depSet.delete(runner);
+  }
+  runner.deps.clear();
+}
+
 function flushPendingEffects(): void {
   if (batchDepth > 0) return;
-  const queue = Array.from(pendingEffects);
-  pendingEffects.clear();
-  for (const runner of queue) {
-    runner();
+  let iterations = 0;
+  while (pendingEffects.size > 0 && iterations < 100) {
+    iterations++;
+    const queue = Array.from(pendingEffects);
+    pendingEffects.clear();
+    for (const runner of queue) {
+      runner();
+    }
   }
 }
 
@@ -32,6 +39,10 @@ export class Signal<T> {
   public get value(): T {
     if (activeEffect) {
       this.subscribers.add(activeEffect);
+      if (!activeEffect.deps) {
+        activeEffect.deps = new Set();
+      }
+      activeEffect.deps.add(this.subscribers);
     }
     return this._value;
   }
@@ -58,11 +69,13 @@ export class Signal<T> {
     }
     return () => {
       this.subscribers.delete(runner);
+      pendingEffects.delete(runner);
     };
   }
 
   public notify(): void {
-    for (const sub of this.subscribers) {
+    const currentSubscribers = Array.from(this.subscribers);
+    for (const sub of currentSubscribers) {
       if (batchDepth > 0) {
         pendingEffects.add(sub);
       } else {
@@ -117,10 +130,9 @@ export function effect(fn: () => void | (() => void)): () => void {
     if (typeof cleanup === 'function') {
       try {
         cleanup();
-      } catch {
-        // ignore cleanup error
-      }
+      } catch {}
     }
+    cleanupEffectDependencies(runner);
     const prevEffect = activeEffect;
     activeEffect = runner;
     try {
@@ -129,6 +141,7 @@ export function effect(fn: () => void | (() => void)): () => void {
       activeEffect = prevEffect;
     }
   };
+  runner.deps = new Set();
 
   runner();
 
@@ -137,10 +150,9 @@ export function effect(fn: () => void | (() => void)): () => void {
     if (typeof cleanup === 'function') {
       try {
         cleanup();
-      } catch {
-        // ignore
-      }
+      } catch {}
     }
+    cleanupEffectDependencies(runner);
     pendingEffects.delete(runner);
   };
 }
@@ -157,10 +169,6 @@ export function batch<T>(fn: () => T): T {
   }
 }
 
-/**
- * Surgically binds a Signal or Computed value to a DOM element's textContent
- * without touching sibling nodes or triggering layout thrashing.
- */
 export function bindSignalText<T>(
   selectorOrElement: string | HTMLElement | null,
   source: Signal<T> | Computed<T>,
@@ -181,9 +189,6 @@ export function bindSignalText<T>(
   });
 }
 
-/**
- * Surgically binds a Signal or Computed value to a DOM attribute.
- */
 export function bindSignalAttr<T>(
   selectorOrElement: string | HTMLElement | null,
   attributeName: string,
@@ -206,9 +211,6 @@ export function bindSignalAttr<T>(
   });
 }
 
-/**
- * Global 2027 Reactive Telemetry & UI Signals Store
- */
 export const reactiveTelemetry = {
   pqRatchetEpoch: createSignal<number>(412),
   activeMeshPeers: createSignal<number>(14),

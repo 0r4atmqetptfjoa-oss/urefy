@@ -11,29 +11,46 @@ export interface MerkleProof {
   }>;
 }
 
-/**
- * Binary Merkle Tree for Identity and Revocation Accumulation.
- */
+function normalizeHexLeaf(leaf: string): string {
+  const clean = leaf.trim().toLowerCase().replace(/^0x/, '');
+  if (!/^[0-9a-f]*$/.test(clean)) {
+    throw new Error(`Invalid hex string in Merkle Tree: ${leaf}`);
+  }
+  return clean.padStart(64, '0').slice(-64);
+}
+
 export class MerkleTree {
   private leaves: string[];
+  private leafIndexMap: Map<string, number> = new Map();
   private layers: string[][];
 
   constructor(leaves: string[] = []) {
-    this.leaves = leaves.map(l => l.toLowerCase());
+    this.leaves = leaves.map(normalizeHexLeaf);
     this.layers = [];
     this.buildTree();
   }
 
-  private hashPair(a: string, b: string): string {
-    const aBytes = hexToBytes(a.padStart(64, '0'));
-    const bBytes = hexToBytes(b.padStart(64, '0'));
+  public static hashPairStatic(a: string, b: string): string {
+    const aBytes = hexToBytes(normalizeHexLeaf(a));
+    const bBytes = hexToBytes(normalizeHexLeaf(b));
     const combined = new Uint8Array(aBytes.length + bBytes.length);
     combined.set(aBytes, 0);
     combined.set(bBytes, aBytes.length);
     return bytesToHex(sha256(combined));
   }
 
+  private hashPair(a: string, b: string): string {
+    return MerkleTree.hashPairStatic(a, b);
+  }
+
   private buildTree(): void {
+    this.leafIndexMap.clear();
+    for (let i = 0; i < this.leaves.length; i++) {
+      if (!this.leafIndexMap.has(this.leaves[i])) {
+        this.leafIndexMap.set(this.leaves[i], i);
+      }
+    }
+
     if (this.leaves.length === 0) {
       this.layers = [['0'.repeat(64)]];
       return;
@@ -60,18 +77,34 @@ export class MerkleTree {
     return top[0] || '0'.repeat(64);
   }
 
+  public getLeafCount(): number {
+    return this.leaves.length;
+  }
+
   public insert(leaf: string): void {
-    this.leaves.push(leaf.toLowerCase());
+    this.leaves.push(normalizeHexLeaf(leaf));
+    this.buildTree();
+  }
+
+  public insertMany(newLeaves: string[]): void {
+    if (!newLeaves.length) return;
+    for (const leaf of newLeaves) {
+      this.leaves.push(normalizeHexLeaf(leaf));
+    }
     this.buildTree();
   }
 
   public contains(leaf: string): boolean {
-    return this.leaves.includes(leaf.toLowerCase());
+    try {
+      return this.leafIndexMap.has(normalizeHexLeaf(leaf));
+    } catch {
+      return false;
+    }
   }
 
   public getProof(leaf: string): MerkleProof {
-    const target = leaf.toLowerCase();
-    const index = this.leaves.indexOf(target);
+    const target = normalizeHexLeaf(leaf);
+    const index = this.leafIndexMap.get(target) ?? -1;
     if (index === -1) {
       throw new Error(`Leaf not found in Merkle Tree: ${leaf}`);
     }
@@ -84,12 +117,10 @@ export class MerkleTree {
       const isRight = currentIndex % 2 === 1;
       const siblingIndex = isRight ? currentIndex - 1 : currentIndex + 1;
       const siblingHash = siblingIndex < layer.length ? layer[siblingIndex] : layer[currentIndex];
-
       path.push({
         hash: siblingHash,
-        isRight: !isRight, // indicates where the sibling sits relative to the current hash
+        isRight: !isRight,
       });
-
       currentIndex = Math.floor(currentIndex / 2);
     }
 
@@ -101,18 +132,20 @@ export class MerkleTree {
   }
 
   public static verifyProof(proof: MerkleProof): boolean {
-    let current = proof.leaf;
-    for (const step of proof.path) {
-      const left = step.isRight ? current : step.hash;
-      const right = step.isRight ? step.hash : current;
-      
-      const leftBytes = hexToBytes(left.padStart(64, '0'));
-      const rightBytes = hexToBytes(right.padStart(64, '0'));
-      const combined = new Uint8Array(leftBytes.length + rightBytes.length);
-      combined.set(leftBytes, 0);
-      combined.set(rightBytes, leftBytes.length);
-      current = bytesToHex(sha256(combined));
+    if (!proof || typeof proof.leaf !== 'string' || typeof proof.root !== 'string' || !Array.isArray(proof.path)) {
+      return false;
     }
-    return constantTimeHexEqual(current, proof.root);
+    try {
+      let current = normalizeHexLeaf(proof.leaf);
+      for (const step of proof.path) {
+        if (!step || typeof step.hash !== 'string') return false;
+        const left = step.isRight ? current : step.hash;
+        const right = step.isRight ? step.hash : current;
+        current = MerkleTree.hashPairStatic(left, right);
+      }
+      return constantTimeHexEqual(current, normalizeHexLeaf(proof.root));
+    } catch {
+      return false;
+    }
   }
 }

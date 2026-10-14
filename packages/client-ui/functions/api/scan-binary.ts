@@ -1,19 +1,11 @@
-/**
- * @file scan-binary.ts
- * @package @aetheris/client-ui/functions/api
- * @description Cloudflare Pages Edge Function for Sovereign Binary Hygiene & Packer Detection (/scan Micro-SaaS API).
- * Accepts raw binary streams (application/octet-stream), multipart file uploads, or JSON payloads (hex/base64),
- * computes Shannon entropy, scans for UPX/packer signatures, parses PE/ELF/Mach-O headers,
- * and returns comprehensive static hygiene verdicts with zero server infrastructure costs.
- */
-
 import {
   calculateShannonEntropy,
   inspectBinary,
   scanPackerSignatures,
   computeFileChecksums,
-  BinaryFormat,
 } from '@aetheris/vault-engine';
+
+export const MAX_SCAN_PAYLOAD_BYTES = 16 * 1024 * 1024; // 16 MiB edge safety limit
 
 export const CORS_HEADERS: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
@@ -23,11 +15,11 @@ export const CORS_HEADERS: Record<string, string> = {
   'Content-Type': 'application/json',
 };
 
-/**
- * Converts a hex string to a Uint8Array safely without external dependencies.
- */
 function hexToBytes(hex: string): Uint8Array {
-  const clean = hex.startsWith('0x') ? hex.slice(2) : hex;
+  const clean = hex.trim().replace(/^0x/i, '');
+  if (clean.length > MAX_SCAN_PAYLOAD_BYTES * 2) {
+    throw new Error('PAYLOAD_TOO_LARGE');
+  }
   const len = clean.length;
   const bytes = new Uint8Array(Math.floor(len / 2));
   for (let i = 0; i < len; i += 2) {
@@ -36,11 +28,15 @@ function hexToBytes(hex: string): Uint8Array {
   return bytes;
 }
 
-/**
- * Converts a base64 string to a Uint8Array safely.
- */
 function base64ToBytes(b64: string): Uint8Array {
-  const binaryString = atob(b64);
+  const clean = b64.trim();
+  if (clean.length > Math.ceil((MAX_SCAN_PAYLOAD_BYTES * 4) / 3) + 64) {
+    throw new Error('PAYLOAD_TOO_LARGE');
+  }
+  const binaryString = atob(clean);
+  if (binaryString.length > MAX_SCAN_PAYLOAD_BYTES) {
+    throw new Error('PAYLOAD_TOO_LARGE');
+  }
   const bytes = new Uint8Array(binaryString.length);
   for (let i = 0; i < binaryString.length; i++) {
     bytes[i] = binaryString.charCodeAt(i);
@@ -48,14 +44,9 @@ function base64ToBytes(b64: string): Uint8Array {
   return bytes;
 }
 
-/**
- * Inspects a binary payload and returns a comprehensive hygiene classification.
- */
 export function analyzeBinaryPayload(data: Uint8Array, fileName: string = 'payload.bin') {
   const checksums = computeFileChecksums(data);
   const overallEntropy = calculateShannonEntropy(data);
-
-  // 1. Header parsing (PE, ELF, Mach-O)
   const inspection = inspectBinary(data);
   let format: string = inspection.format;
   let architecture: string = inspection.architecture;
@@ -65,7 +56,6 @@ export function analyzeBinaryPayload(data: Uint8Array, fileName: string = 'paylo
     const b1 = data[1];
     const b2 = data[2];
     const b3 = data[3];
-
     if (
       (b0 === 0xfe && b1 === 0xed && b2 === 0xfa && (b3 === 0xce || b3 === 0xcf)) ||
       (b0 === 0xcf && b1 === 0xfa && b2 === 0xed && b3 === 0xfe) ||
@@ -82,15 +72,12 @@ export function analyzeBinaryPayload(data: Uint8Array, fileName: string = 'paylo
     }
   }
 
-  // 2. Packer signature detection
   const packerSignatures = scanPackerSignatures(data);
   const anomalies = [...inspection.anomalies];
-
   for (const p of packerSignatures) {
     anomalies.push(`PACKER_SIGNATURE:${p.packer}:${p.signature}`);
   }
 
-  // 3. Verdict calculation
   let verdict: 'CLEAN' | 'SUSPICIOUS' | 'PACKED' = 'CLEAN';
   const hasRWX = anomalies.some((a) => a.includes('RWX_SECTION'));
   const hasPacker = packerSignatures.length > 0;
@@ -103,7 +90,6 @@ export function analyzeBinaryPayload(data: Uint8Array, fileName: string = 'paylo
     verdict = 'CLEAN';
   }
 
-  // 4. Block-level entropy breakdown
   const blockCount = Math.min(16, Math.max(1, Math.floor(data.length / 512)));
   const blockSize = Math.max(1, Math.floor(data.length / blockCount));
   const blockEntropies: { index: number; offset: number; entropy: number }[] = [];
@@ -139,21 +125,34 @@ export function analyzeBinaryPayload(data: Uint8Array, fileName: string = 'paylo
   };
 }
 
-/**
- * POST /api/scan-binary
- * Accepts:
- * - Content-Type: application/octet-stream -> Raw binary
- * - Content-Type: application/json -> { dataHex?: string, dataBase64?: string, fileName?: string }
- * - Content-Type: multipart/form-data -> Form field 'file'
- */
 export async function onRequestPost(context: { request: Request; env?: any }): Promise<Response> {
   try {
+    const contentLengthHeader = context.request.headers.get('Content-Length');
+    if (contentLengthHeader) {
+      const declaredBytes = parseInt(contentLengthHeader, 10);
+      if (Number.isFinite(declaredBytes) && declaredBytes > MAX_SCAN_PAYLOAD_BYTES * 2) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: `Payload exceeds maximum scan limit of ${MAX_SCAN_PAYLOAD_BYTES / (1024 * 1024)} MiB`,
+          }),
+          { status: 413, headers: CORS_HEADERS }
+        );
+      }
+    }
+
     const contentType = context.request.headers.get('Content-Type') || '';
     let fileName = context.request.headers.get('X-File-Name') || 'sample.bin';
     let data: Uint8Array | null = null;
 
     if (contentType.includes('application/octet-stream')) {
       const buffer = await context.request.arrayBuffer();
+      if (buffer.byteLength > MAX_SCAN_PAYLOAD_BYTES) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Binary payload exceeds 16 MiB scan limit' }),
+          { status: 413, headers: CORS_HEADERS }
+        );
+      }
       data = new Uint8Array(buffer);
     } else if (contentType.includes('multipart/form-data')) {
       const formData = await context.request.formData();
@@ -161,6 +160,12 @@ export async function onRequestPost(context: { request: Request; env?: any }): P
       if (fileEntry && typeof (fileEntry as any).arrayBuffer === 'function') {
         const fileObj = fileEntry as File;
         fileName = fileObj.name || fileName;
+        if (typeof fileObj.size === 'number' && fileObj.size > MAX_SCAN_PAYLOAD_BYTES) {
+          return new Response(
+            JSON.stringify({ success: false, error: 'Uploaded file exceeds 16 MiB scan limit' }),
+            { status: 413, headers: CORS_HEADERS }
+          );
+        }
         const buffer = await fileObj.arrayBuffer();
         data = new Uint8Array(buffer);
       } else {
@@ -178,26 +183,43 @@ export async function onRequestPost(context: { request: Request; env?: any }): P
         );
       }
       if (body.fileName) fileName = body.fileName;
-
-      if (body.dataHex) {
-        data = hexToBytes(body.dataHex);
-      } else if (body.dataBase64) {
-        data = base64ToBytes(body.dataBase64);
-      } else if (Array.isArray(body.bytes)) {
-        data = new Uint8Array(body.bytes);
-      } else {
-        return new Response(
-          JSON.stringify({
-            success: false,
-            error: 'JSON payload must contain "dataHex", "dataBase64", or "bytes" array',
-          }),
-          { status: 400, headers: CORS_HEADERS }
-        );
+      try {
+        if (body.dataHex) {
+          data = hexToBytes(body.dataHex);
+        } else if (body.dataBase64) {
+          data = base64ToBytes(body.dataBase64);
+        } else if (Array.isArray(body.bytes)) {
+          if (body.bytes.length > MAX_SCAN_PAYLOAD_BYTES) {
+            throw new Error('PAYLOAD_TOO_LARGE');
+          }
+          data = new Uint8Array(body.bytes);
+        } else {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: 'JSON payload must contain "dataHex", "dataBase64", or "bytes" array',
+            }),
+            { status: 400, headers: CORS_HEADERS }
+          );
+        }
+      } catch (decodeErr: any) {
+        if (decodeErr?.message === 'PAYLOAD_TOO_LARGE') {
+          return new Response(
+            JSON.stringify({ success: false, error: 'Encoded binary payload exceeds 16 MiB scan limit' }),
+            { status: 413, headers: CORS_HEADERS }
+          );
+        }
+        throw decodeErr;
       }
     } else {
-      // Fallback: try reading raw buffer directly
       const buffer = await context.request.arrayBuffer().catch(() => null);
       if (buffer && buffer.byteLength > 0) {
+        if (buffer.byteLength > MAX_SCAN_PAYLOAD_BYTES) {
+          return new Response(
+            JSON.stringify({ success: false, error: 'Binary payload exceeds 16 MiB scan limit' }),
+            { status: 413, headers: CORS_HEADERS }
+          );
+        }
         data = new Uint8Array(buffer);
       }
     }
@@ -210,7 +232,6 @@ export async function onRequestPost(context: { request: Request; env?: any }): P
     }
 
     const report = analyzeBinaryPayload(data, fileName);
-
     return new Response(JSON.stringify(report, null, 2), {
       status: 200,
       headers: CORS_HEADERS,
@@ -226,16 +247,13 @@ export async function onRequestPost(context: { request: Request; env?: any }): P
   }
 }
 
-/**
- * GET /api/scan-binary
- * API Documentation & Micro-SaaS Specifications
- */
 export async function onRequestGet(): Promise<Response> {
   const apiDoc = {
     service: 'UREfy Sovereign Binary Hygiene & Packer Detection Micro-SaaS API',
     endpoint: '/api/scan-binary',
-    version: '1.0.0',
+    version: '1.1.0',
     protocol: 'Aetheris-Vault-Engine',
+    maxPayloadBytes: MAX_SCAN_PAYLOAD_BYTES,
     cost: '0.00 USD (Zero Server Infrastructure / Edge Free Tier)',
     methods: ['POST', 'OPTIONS', 'GET'],
     supportedContentTypes: [
@@ -248,7 +266,7 @@ export async function onRequestGet(): Promise<Response> {
       'Exact Shannon Entropy (0.0 to 8.0 bits/byte)',
       'Byte block disorder distribution breakdown',
       'Portable Executable (PE32 / PE32+) header parsing',
-      'ELF (32-bit / 64-bit) header parsing',
+      'ELF (32-bit / 64-bit) section & program header parsing',
       'Mach-O (Universal / ARM64 / x86_64) header parsing',
       'UPX byte signatures (!UPX, UPX!) scanning',
       'RWX memory execution/write anomaly detection',
@@ -259,16 +277,12 @@ export async function onRequestGet(): Promise<Response> {
       curlJson: 'curl -X POST https://urefy.com/api/scan-binary -H "Content-Type: application/json" -d \'{"dataHex":"4d5a9000...","fileName":"test.exe"}\'',
     },
   };
-
   return new Response(JSON.stringify(apiDoc, null, 2), {
     status: 200,
     headers: CORS_HEADERS,
   });
 }
 
-/**
- * OPTIONS /api/scan-binary
- */
 export async function onRequestOptions(): Promise<Response> {
   return new Response(null, {
     status: 204,

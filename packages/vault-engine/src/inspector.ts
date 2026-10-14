@@ -20,18 +20,12 @@ export interface BinaryHygieneReport {
   verdict: HygieneVerdict;
 }
 
-/**
- * Calculates the exact Shannon Entropy (0.0 to 8.0 bits per byte) of a byte array.
- * Formula: H(X) = -sum(P(x_i) * log2(P(x_i)))
- */
 export function calculateShannonEntropy(data: Uint8Array): number {
   if (data.length === 0) return 0;
-
   const frequencies = new Uint32Array(256);
   for (let i = 0; i < data.length; i++) {
     frequencies[data[i]]++;
   }
-
   let entropy = 0;
   const len = data.length;
   for (let i = 0; i < 256; i++) {
@@ -40,13 +34,9 @@ export function calculateShannonEntropy(data: Uint8Array): number {
       entropy -= p * Math.log2(p);
     }
   }
-
   return Math.round(entropy * 1000) / 1000;
 }
 
-/**
- * Parses Portable Executable (Windows PE32/PE32+) binaries.
- */
 function parsePE(data: Uint8Array): {
   architecture: string;
   sections: BinarySectionInfo[];
@@ -65,13 +55,11 @@ function parsePE(data: Uint8Array): {
     return { architecture: 'UNKNOWN', sections, anomalies: ['INVALID_PE_OFFSET'] };
   }
 
-  // Check PE Signature: "PE\0\0" (0x50, 0x45, 0x00, 0x00)
   const peSig = view.getUint32(peOffset, false);
   if (peSig !== 0x50450000) {
     return { architecture: 'UNKNOWN', sections, anomalies: ['INVALID_PE_SIGNATURE'] };
   }
 
-  // COFF Header (20 bytes after PE signature)
   const machine = view.getUint16(peOffset + 4, true);
   const numberOfSections = view.getUint16(peOffset + 6, true);
   const sizeOfOptionalHeader = view.getUint16(peOffset + 20, true);
@@ -81,7 +69,6 @@ function parsePE(data: Uint8Array): {
   else if (machine === 0xAA64) architecture = 'ARM64';
   else if (machine === 0x014C) architecture = 'i386';
 
-  // Section Table follows the Optional Header
   const sectionTableOffset = peOffset + 24 + sizeOfOptionalHeader;
   const SECTION_HEADER_SIZE = 40;
 
@@ -92,10 +79,9 @@ function parsePE(data: Uint8Array): {
       break;
     }
 
-    // Name (8 bytes ASCII)
     const nameBytes = data.subarray(offset, offset + 8);
     let name = '';
-    for (let b of nameBytes) {
+    for (const b of nameBytes) {
       if (b === 0) break;
       name += String.fromCharCode(b);
     }
@@ -108,18 +94,15 @@ function parsePE(data: Uint8Array): {
     const isExecutable = (characteristics & 0x20000000) !== 0;
     const isWritable = (characteristics & 0x80000000) !== 0;
 
-    // Check RWX (both writable and executable)
     if (isExecutable && isWritable) {
       anomalies.push(`RWX_SECTION_DETECTED:${name}`);
     }
 
-    // Known packers signature
     const upperName = name.toUpperCase();
     if (upperName.includes('UPX') || upperName.includes('ASPACK') || upperName.includes('THEMIDA')) {
       anomalies.push(`KNOWN_PACKER_SECTION:${name}`);
     }
 
-    // Section entropy
     let sectionEntropy = 0;
     if (rawPointer + rawSize <= data.length && rawSize > 0) {
       const sectionData = data.subarray(rawPointer, rawPointer + rawSize);
@@ -139,9 +122,18 @@ function parsePE(data: Uint8Array): {
   return { architecture, sections, anomalies };
 }
 
-/**
- * Parses Linux ELF binaries.
- */
+function readNullTerminatedAscii(data: Uint8Array, offset: number, maxLen = 64): string {
+  if (offset < 0 || offset >= data.length) return '';
+  let out = '';
+  const end = Math.min(data.length, offset + maxLen);
+  for (let i = offset; i < end; i++) {
+    const b = data[i];
+    if (b === 0) break;
+    if (b >= 32 && b <= 126) out += String.fromCharCode(b);
+  }
+  return out;
+}
+
 function parseELF(data: Uint8Array): {
   architecture: string;
   sections: BinarySectionInfo[];
@@ -155,27 +147,110 @@ function parseELF(data: Uint8Array): {
   }
 
   const eiClass = data[4]; // 1 = 32-bit, 2 = 64-bit
-  const eiData = data[5];  // 1 = Little Endian, 2 = Big Endian
-  const isLittle = eiData === 1;
-
+  const eiData = data[5];  // 1 = little-endian, 2 = big-endian
+  const is64 = eiClass === 2;
+  const isLittle = eiData !== 2;
   const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
   const machine = view.getUint16(18, isLittle);
 
-  let architecture = 'x86';
-  if (machine === 0x3E) architecture = 'x86_64';
-  else if (machine === 0xB7) architecture = 'AArch64';
-  else if (machine === 0x03) architecture = 'i386';
+  let archBase = 'x86';
+  if (machine === 0x3E) archBase = 'x86_64';
+  else if (machine === 0xB7) archBase = 'AArch64';
+  else if (machine === 0x03) archBase = 'i386';
+  else if (machine === 0xF3) archBase = 'RISC-V';
 
-  return { architecture: `${architecture} (${eiClass === 2 ? '64-bit' : '32-bit'})`, sections, anomalies };
+  const architecture = `${archBase} (${is64 ? '64-bit' : '32-bit'})`;
+
+  const minHeaderSize = is64 ? 64 : 52;
+  if (data.length < minHeaderSize) {
+    return { architecture, sections, anomalies };
+  }
+
+  // Parse Program Headers for RWX segments (PF_X = 0x1, PF_W = 0x2)
+  const phOff = is64 ? Number(view.getBigUint64(32, isLittle)) : view.getUint32(28, isLittle);
+  const phEntSize = view.getUint16(is64 ? 54 : 42, isLittle);
+  const phNum = view.getUint16(is64 ? 56 : 44, isLittle);
+
+  if (phOff > 0 && phEntSize >= (is64 ? 56 : 32) && phNum > 0 && phNum <= 128) {
+    for (let i = 0; i < phNum; i++) {
+      const pOffset = phOff + i * phEntSize;
+      if (pOffset + phEntSize > data.length) break;
+      const pType = view.getUint32(pOffset, isLittle);
+      const pFlags = is64 ? view.getUint32(pOffset + 4, isLittle) : view.getUint32(pOffset + 24, isLittle);
+      // PT_LOAD = 1
+      if (pType === 1 && (pFlags & 0x1) !== 0 && (pFlags & 0x2) !== 0) {
+        anomalies.push(`RWX_SECTION_DETECTED:PT_LOAD_${i}`);
+      }
+    }
+  }
+
+  // Parse Section Headers if available
+  const shOff = is64 ? Number(view.getBigUint64(40, isLittle)) : view.getUint32(32, isLittle);
+  const shEntSize = view.getUint16(is64 ? 58 : 46, isLittle);
+  const shNum = view.getUint16(is64 ? 60 : 48, isLittle);
+  const shStrNdx = view.getUint16(is64 ? 62 : 50, isLittle);
+
+  if (shOff > 0 && shEntSize >= (is64 ? 64 : 40) && shNum > 0 && shNum <= 256 && shOff + shNum * shEntSize <= data.length) {
+    let shStrTabOffset = 0;
+    if (shStrNdx < shNum) {
+      const strHdr = shOff + shStrNdx * shEntSize;
+      shStrTabOffset = is64
+        ? Number(view.getBigUint64(strHdr + 24, isLittle))
+        : view.getUint32(strHdr + 16, isLittle);
+    }
+
+    for (let i = 0; i < shNum; i++) {
+      const sHdr = shOff + i * shEntSize;
+      const nameIdx = view.getUint32(sHdr, isLittle);
+      const shFlags = is64
+        ? Number(view.getBigUint64(sHdr + 8, isLittle))
+        : view.getUint32(sHdr + 8, isLittle);
+      const rawPointer = is64
+        ? Number(view.getBigUint64(sHdr + 24, isLittle))
+        : view.getUint32(sHdr + 16, isLittle);
+      const rawSize = is64
+        ? Number(view.getBigUint64(sHdr + 32, isLittle))
+        : view.getUint32(sHdr + 20, isLittle);
+
+      const name = shStrTabOffset > 0
+        ? readNullTerminatedAscii(data, shStrTabOffset + nameIdx) || `.sec${i}`
+        : `.sec${i}`;
+
+      // SHF_WRITE = 0x1, SHF_EXECINSTR = 0x4
+      const isWritable = (shFlags & 0x1) !== 0;
+      const isExecutable = (shFlags & 0x4) !== 0;
+
+      if (isExecutable && isWritable) {
+        anomalies.push(`RWX_SECTION_DETECTED:${name}`);
+      }
+
+      const upperName = name.toUpperCase();
+      if (upperName.includes('UPX') || upperName.includes('ASPACK') || upperName.includes('THEMIDA')) {
+        anomalies.push(`KNOWN_PACKER_SECTION:${name}`);
+      }
+
+      let sectionEntropy = 0;
+      if (rawPointer > 0 && rawSize > 0 && rawPointer + rawSize <= data.length) {
+        sectionEntropy = calculateShannonEntropy(data.subarray(rawPointer, rawPointer + rawSize));
+      }
+
+      sections.push({
+        name,
+        virtualSize: rawSize,
+        rawSize,
+        entropy: sectionEntropy,
+        isExecutable,
+        isWritable,
+      });
+    }
+  }
+
+  return { architecture, sections, anomalies };
 }
 
-/**
- * Performs a comprehensive Binary Hygiene Inspection.
- */
 export function inspectBinary(data: Uint8Array): BinaryHygieneReport {
   const overallEntropy = calculateShannonEntropy(data);
   let entropyClassification: BinaryHygieneReport['entropyClassification'] = 'NORMAL';
-
   if (overallEntropy < 2.0) entropyClassification = 'LOW';
   else if (overallEntropy > 7.4) entropyClassification = 'ENCRYPTED';
   else if (overallEntropy > 6.9) entropyClassification = 'SUSPICIOUS_PACKED';
@@ -185,16 +260,13 @@ export function inspectBinary(data: Uint8Array): BinaryHygieneReport {
   let sections: BinarySectionInfo[] = [];
   let anomalies: string[] = [];
 
-  // Check DOS/PE: 'MZ' (0x4D, 0x5A)
   if (data.length >= 2 && data[0] === 0x4D && data[1] === 0x5A) {
     format = 'PE';
     const peInfo = parsePE(data);
     architecture = peInfo.architecture;
     sections = peInfo.sections;
     anomalies = peInfo.anomalies;
-  }
-  // Check ELF: [0x7F, 'E', 'L', 'F']
-  else if (data.length >= 4 && data[0] === 0x7F && data[1] === 0x45 && data[2] === 0x4C && data[3] === 0x46) {
+  } else if (data.length >= 4 && data[0] === 0x7F && data[1] === 0x45 && data[2] === 0x4C && data[3] === 0x46) {
     format = 'ELF';
     const elfInfo = parseELF(data);
     architecture = elfInfo.architecture;
@@ -202,7 +274,6 @@ export function inspectBinary(data: Uint8Array): BinaryHygieneReport {
     anomalies = elfInfo.anomalies;
   }
 
-  // Determine Final Verdict
   let verdict: HygieneVerdict = 'CLEAN';
   const hasRWX = anomalies.some(a => a.startsWith('RWX_SECTION_DETECTED'));
   const hasPacker = anomalies.some(a => a.startsWith('KNOWN_PACKER_SECTION'));

@@ -1,18 +1,3 @@
-// ===========================================================================
-// UREfy — ENCRYPTED CROSS-DEVICE VAULT SYNC ENDPOINT (API)
-// Endpoints:
-//   GET  /api/vault-sync?owner=<fingerprint>
-//   POST /api/vault-sync
-//
-// Invariants:
-// 1. Zero Knowledge: Cloudflare/D1/R2 stores and serves CIPHERTEXT ONLY.
-//    Plaintext notes, private tags, and personal metadata never touch the server.
-// 2. Strict Sovereign Authentication: All mutations and private reads require
-//    a valid SovereignSignedEnvelope signed by the owner fingerprint (No IDOR).
-// 3. Quota & Limits: Sync payloads capped at 5 MiB.
-// 4. In production: Fails closed if Cloudflare D1 or R2 is unavailable.
-// ===========================================================================
-
 import {
   Env,
   getD1Database,
@@ -31,9 +16,8 @@ export const VAULT_SYNC_CORS_HEADERS: Record<string, string> = {
   'Pragma': 'no-cache',
 };
 
-const MAX_VAULT_PAYLOAD_BYTES = 5 * 1024 * 1024; // 5 MiB cap
+const MAX_VAULT_PAYLOAD_BYTES = 5 * 1024 * 1024;
 
-// Volatile in-memory fallback for non-production test runners
 interface MemoryVaultSyncEntry {
   owner: string;
   version: number;
@@ -45,6 +29,7 @@ interface MemoryVaultSyncEntry {
   ciphertextHash: string;
   updatedAt: number;
 }
+
 const memoryVaultSyncStore = new Map<string, MemoryVaultSyncEntry>();
 
 export function resetMemoryVaultSyncStore(): void {
@@ -58,20 +43,12 @@ export async function onRequestOptions(): Promise<Response> {
   });
 }
 
-/**
- * Computes SHA-256 hex string using WebCrypto (CSPRNG only).
- */
 async function computeSha256Hex(data: string): Promise<string> {
   const enc = new TextEncoder().encode(data);
   const hash = await crypto.subtle.digest('SHA-256', enc);
   return Array.from(new Uint8Array(hash), (b: number) => b.toString(16).padStart(2, '0')).join('');
 }
 
-/**
- * GET /api/vault-sync
- * Retrieves the owner's encrypted vault sync state.
- * Requires signed sovereign envelope in `X-Sovereign-Envelope` or `auth` query.
- */
 export async function onRequestGet(context: {
   request: Request;
   env?: Env;
@@ -87,7 +64,6 @@ export async function onRequestGet(context: {
       return createD1UnavailableResponse();
     }
 
-    // 1. Authenticate requester
     let envelopeObj: any = null;
     const envelopeHeader = req.headers.get('X-Sovereign-Envelope');
     if (envelopeHeader) {
@@ -114,7 +90,6 @@ export async function onRequestGet(context: {
     const requesterFingerprint = authResult.fingerprint;
     const requestedOwner = (url.searchParams.get('owner') || requesterFingerprint).trim();
 
-    // 2. IDOR check: requester can ONLY read their own vault
     if (requesterFingerprint !== requestedOwner) {
       return new Response(
         JSON.stringify({ success: false, error: 'Unauthorized: Cannot access another identity’s private vault' }),
@@ -122,7 +97,6 @@ export async function onRequestGet(context: {
       );
     }
 
-    // 3. Database / R2 query
     if (db && r2) {
       const row = await db
         .prepare('SELECT owner_fingerprint, version, byte_size, item_count, ciphertext_hash, updated_at FROM vault_sync WHERE owner_fingerprint = ?')
@@ -149,7 +123,6 @@ export async function onRequestGet(context: {
         );
       }
 
-      // Fetch ciphertext from R2
       const r2Key = `vault-sync/${requestedOwner}/sync.enc`;
       const obj = await r2.get(r2Key);
       if (!obj) {
@@ -171,6 +144,19 @@ export async function onRequestGet(context: {
         parsedEnvelope = JSON.parse(text);
       } catch {
         parsedEnvelope = { ciphertext: text, iv: '' };
+      }
+
+      if (parsedEnvelope?.ciphertext && row.ciphertext_hash) {
+        const actualHash = await computeSha256Hex(parsedEnvelope.ciphertext);
+        if (actualHash !== row.ciphertext_hash) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: 'Vault integrity check failed: ciphertext hash mismatch between D1 and R2',
+            }),
+            { status: 500, headers: { ...VAULT_SYNC_CORS_HEADERS, 'Content-Type': 'application/json' } }
+          );
+        }
       }
 
       return new Response(
@@ -195,7 +181,6 @@ export async function onRequestGet(context: {
       );
     }
 
-    // 4. In-Memory fallback for non-production tests
     const memEntry = memoryVaultSyncStore.get(requestedOwner);
     if (!memEntry) {
       return new Response(
@@ -238,11 +223,6 @@ export async function onRequestGet(context: {
   }
 }
 
-/**
- * POST /api/vault-sync
- * Stores the owner's encrypted vault sync state.
- * Requires signed sovereign envelope containing { owner, version, itemCount, ciphertext, iv, salt }.
- */
 export async function onRequestPost(context: {
   request: Request;
   env?: Env;
@@ -257,11 +237,11 @@ export async function onRequestPost(context: {
       return createD1UnavailableResponse();
     }
 
-    // 1. Authenticate requester
     let body: any = null;
     try {
       body = await req.json();
     } catch {}
+
     const envelope = body?.envelope || body;
     const authResult = await requireSignedEnvelope(context, envelope);
     if (!authResult.authorized || !authResult.fingerprint) {
@@ -279,7 +259,6 @@ export async function onRequestPost(context: {
     const iv = typeof payload.iv === 'string' ? payload.iv : '';
     const salt = typeof payload.salt === 'string' ? payload.salt : '';
 
-    // 2. IDOR check: requester can ONLY update their own vault
     if (authResult.fingerprint !== owner) {
       return new Response(
         JSON.stringify({ success: false, error: 'Unauthorized: Cannot write to another identity’s private vault' }),
@@ -287,7 +266,6 @@ export async function onRequestPost(context: {
       );
     }
 
-    // 3. Validation
     if (!Number.isSafeInteger(version) || version <= 0) {
       return new Response(
         JSON.stringify({ success: false, error: 'Invalid vault sync version: must be a positive integer' }),
@@ -313,8 +291,23 @@ export async function onRequestPost(context: {
     const ciphertextHash = await computeSha256Hex(ciphertext);
     const now = Date.now();
 
-    // 4. Persistence (D1 + R2)
     if (db && r2) {
+      const existing = await db
+        .prepare('SELECT version, ciphertext_hash FROM vault_sync WHERE owner_fingerprint = ?')
+        .bind(owner)
+        .first<{ version: number; ciphertext_hash: string }>();
+
+      if (existing && version < existing.version) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: `Version conflict: incoming version (${version}) is older than stored version (${existing.version})`,
+            currentVersion: existing.version,
+          }),
+          { status: 409, headers: { ...VAULT_SYNC_CORS_HEADERS, 'Content-Type': 'application/json' } }
+        );
+      }
+
       const envelopeBody = JSON.stringify({
         version,
         ciphertext,
@@ -345,6 +338,7 @@ export async function onRequestPost(context: {
             item_count = excluded.item_count,
             ciphertext_hash = excluded.ciphertext_hash,
             updated_at = excluded.updated_at
+          WHERE excluded.version >= vault_sync.version
         `)
         .bind(owner, version, byteSize, itemCount, ciphertextHash, now)
         .run();
@@ -361,7 +355,18 @@ export async function onRequestPost(context: {
       );
     }
 
-    // 5. In-Memory fallback for non-production tests
+    const existingMem = memoryVaultSyncStore.get(owner);
+    if (existingMem && version < existingMem.version) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: `Version conflict: incoming version (${version}) is older than stored version (${existingMem.version})`,
+          currentVersion: existingMem.version,
+        }),
+        { status: 409, headers: { ...VAULT_SYNC_CORS_HEADERS, 'Content-Type': 'application/json' } }
+      );
+    }
+
     memoryVaultSyncStore.set(owner, {
       owner,
       version,
