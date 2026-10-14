@@ -17,6 +17,7 @@
 
 - [Explore](https://urefy.com/explore): Recent public discussions and people.
 - [Communities](https://urefy.com/communities): Current community directory; use its real links rather than assuming a topic exists.
+- [Technology Community](https://urefy.com/c/technology): Public discussions, technical guides, system architecture and engineering topics in c/technology.
 - [Sitemap](https://urefy.com/sitemap.xml): Canonical public routes and paginated sitemaps.
 - [Expanded reference](https://urefy.com/llms-full.txt): A concise factual product reference.
 

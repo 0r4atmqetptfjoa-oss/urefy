@@ -13,7 +13,7 @@ export async function onRequestGet(context: { request: Request; env: Env & { ASS
     catch { /* A useful static introduction remains available during a database interruption. */ }
   }
   const title = 'UREfy — Communities and encrypted messaging';
-  const body = renderPublicHomeIntro() + (posts.length ? `<section class="public-home-intro" aria-labelledby="recent-public-title"><h2 id="recent-public-title">Recent public discussions</h2>${posts.map(p => `<article><h3><a href="/p/${encodeURIComponent(p.id)}">${escapeHtml(p.title)}</a></h3><p>${escapeHtml(cleanMarkdown(p.content, 180))}</p></article>`).join('')}<a href="/explore">Explore more discussions</a></section>` : '');
+  const body = renderPublicHomeIntro() + (posts.length ? `<section class="public-home-intro" aria-labelledby="recent-public-title"><h2 id="recent-public-title">Recent public discussions</h2>${posts.map(p => `<article><h3><a href="${SITE_ORIGIN}/p/${encodeURIComponent(p.id)}">${escapeHtml(p.title)}</a></h3><p>${escapeHtml(cleanMarkdown(p.content, 180))}</p></article>`).join('')}<a href="${SITE_ORIGIN}/explore">Explore more discussions</a></section>` : '');
   const jsonLd = { '@context': 'https://schema.org', '@graph': [
     { '@type': 'WebSite', '@id': SITE_ORIGIN + '/#website', name: 'UREfy', url: SITE_ORIGIN + '/', description: HOME_DESCRIPTION, inLanguage: 'en', publisher: { '@id': SITE_ORIGIN + '/#organization' } },
     { '@type': 'Organization', '@id': SITE_ORIGIN + '/#organization', name: 'UREfy', url: SITE_ORIGIN + '/', logo: SITE_ORIGIN + '/icon-512.png' },
