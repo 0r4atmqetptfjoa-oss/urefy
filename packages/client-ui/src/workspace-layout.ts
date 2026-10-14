@@ -1,3 +1,9 @@
+/**
+ * @file workspace-layout.ts
+ * @package @aetheris/client-ui
+ * @description 2027 Spatial Dual-Pane & Focus Workspace Engine.
+ */
+
 import { clientStore } from './client-state.js';
 import { zenModeManager } from './zen-mode.js';
 import { renderIcon } from './ui/icons.js';
@@ -6,7 +12,7 @@ import { t } from './i18n.js';
 export type WorkspaceLayout = 'standard' | 'focus' | 'split';
 export type SplitSecondaryPane = 'messages' | 'vault' | 'sandbox' | 'ai';
 
-const STORAGE_KEY = 'urefy_workspace_layout';
+const LAYOUT_STORAGE_KEY = 'urefy_workspace_layout';
 const SPLIT_PANE_STORAGE_KEY = 'urefy_split_secondary_pane';
 const SPLIT_RATIO_STORAGE_KEY = 'urefy_split_ratio_pct';
 
@@ -84,9 +90,9 @@ export function setWorkspaceLayout(layout: unknown): boolean {
   if ((clientStore as any).isDualHorizon !== (layout === 'split')) {
     (clientStore as any).toggleDualHorizon();
   } else {
-    clientStore.notify();
+    clientStore.notify('WORKSPACE_LAYOUT_CHANGED', layout);
   }
-  try { localStorage.setItem(STORAGE_KEY, layout); } catch {}
+  try { localStorage.setItem(LAYOUT_STORAGE_KEY, layout); } catch {}
   applyLayoutAttributes(layout as WorkspaceLayout);
   return true;
 }
@@ -95,12 +101,12 @@ export function restoreWorkspaceLayout(): void {
   if (!observingZen) {
     observingZen = true;
     zenModeManager.subscribe(() => {
-      try { localStorage.setItem(STORAGE_KEY, getWorkspaceLayout()); } catch {}
-      clientStore.notify();
+      try { localStorage.setItem(LAYOUT_STORAGE_KEY, getWorkspaceLayout()); } catch {}
+      clientStore.notify('WORKSPACE_LAYOUT_CHANGED', getWorkspaceLayout());
     });
   }
   try {
-    const saved = localStorage.getItem(STORAGE_KEY);
+    const saved = localStorage.getItem(LAYOUT_STORAGE_KEY);
     if (saved !== null) setWorkspaceLayout(saved);
   } catch {}
 }
@@ -108,11 +114,12 @@ export function restoreWorkspaceLayout(): void {
 export function renderWorkspaceLayoutControls(): string {
   const selected = getWorkspaceLayout();
   const options: { id: WorkspaceLayout; icon: string; label: string }[] = [
-    { id: 'standard', icon: 'layers', label: t('workspace.standard', undefined, 'Standard layout') },
-    { id: 'focus', icon: 'maximize', label: t('workspace.focus', undefined, 'Focus layout') },
-    { id: 'split', icon: 'columns', label: t('workspace.split', undefined, 'Split workspace') },
+    { id: 'standard', icon: 'layout', label: t('workspace.standard', undefined, 'Standard layout') },
+    { id: 'focus', icon: 'maximize-2', label: t('workspace.focus', undefined, 'Focus layout') },
+    { id: 'split', icon: 'columns-2', label: t('workspace.split', undefined, 'Split workspace') },
   ];
-  return `<div class="workspace-layout-control inline-flex items-center gap-1 p-1 rounded-xl bg-surface-base/75 backdrop-blur-xl border border-white/[0.08]" role="group" aria-label="${t('workspace.layout', undefined, 'Workspace layout')}">
-    ${options.map((option) => `<button type="button" class="workspace-layout-button inline-flex items-center gap-1.5 px-2.5 py-1 min-h-[32px] rounded-lg text-xs font-medium transition-all cursor-pointer ${selected === option.id ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/35 shadow-sm' : 'text-slate-400 hover:text-white hover:bg-white/[0.05]'}" data-action="set-workspace-layout" data-layout="${option.id}" aria-label="${option.label}" title="${option.label}" aria-pressed="${selected === option.id}">${renderIcon(option.icon, { size: 17 })}<span class="hidden sm:inline">${option.label}</span></button>`).join('')}
+
+  return `<div data-layout-switcher="true" class="workspace-layout-control inline-flex items-center gap-1 p-1 rounded-xl bg-surface-base/75 backdrop-blur-xl border border-white/[0.08]" role="group" aria-label="${t('workspace.layout', undefined, 'Workspace layout')}">
+    ${options.map((option) => `<button type="button" class="workspace-layout-button" data-action="set-workspace-layout" data-layout="${option.id}" aria-label="${option.label}" title="${option.label}" aria-pressed="${selected === option.id}" style="position:static;display:inline-flex;align-items:center;gap:6px;padding:6px 10px;min-height:32px;width:auto;height:auto;border-radius:8px;font-size:12px;font-weight:600;white-space:nowrap;cursor:pointer;${selected === option.id ? 'background:rgba(56,189,248,0.18);color:#7dd3fc;border:1px solid rgba(56,189,248,0.35);' : 'background:transparent;color:#94a3b8;border:1px solid transparent;'}">${renderIcon(option.icon, { size: 14, ariaHidden: true })}<span style="position:static;display:inline;opacity:1;pointer-events:auto;">${option.label.split(' ')[0]}</span></button>`).join('')}
   </div>`;
 }

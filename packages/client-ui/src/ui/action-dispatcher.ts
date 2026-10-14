@@ -1132,6 +1132,7 @@ export class ActionDispatcher {
         break;
       }
 
+      case 'workspace.setLayout':
       case 'set-workspace-layout': {
         setWorkspaceLayout(el.getAttribute('data-layout'));
         break;
