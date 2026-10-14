@@ -1,4 +1,4 @@
-import { calculateShannonEntropy, BinaryFormat, BinarySectionInfo } from './inspector.js';
+import { calculateShannonEntropy, inspectBinary, BinaryFormat } from './inspector.js';
 
 export interface PackerSignatureMatch {
   packer: string;
@@ -33,24 +33,17 @@ export interface BinaryPackerScanReport {
   explanation: string;
 }
 
-// Known UPX and packer signature strings
 const KNOWN_UPX_SIGNATURES = ['UPX0', 'UPX1', 'UPX2', '!UPX', 'UPX!'];
 const OTHER_PACKER_NAMES = ['ASPACK', 'THEMIDA', 'PETITE', 'FSG', 'MEW', 'MPRESS'];
 
-/**
- * Searches for known packer byte signatures in binary payload.
- */
 export function scanPackerSignatures(data: Uint8Array): PackerSignatureMatch[] {
   const matches: PackerSignatureMatch[] = [];
-
-  // 1. Search for UPX markers in binary bytes (header and trailer zones)
   const searchLimit = Math.min(data.length, 16384);
   const upxBytes = [
     { sig: 'UPX!', bytes: [0x55, 0x50, 0x58, 0x21] },
     { sig: '!UPX', bytes: [0x21, 0x55, 0x50, 0x58] },
   ];
 
-  // Scan head
   for (const { sig, bytes } of upxBytes) {
     for (let i = 0; i <= searchLimit - bytes.length; i++) {
       if (
@@ -69,7 +62,6 @@ export function scanPackerSignatures(data: Uint8Array): PackerSignatureMatch[] {
     }
   }
 
-  // Scan tail (last 4096 bytes if file large enough)
   if (data.length > searchLimit + 4096) {
     const tailStart = data.length - 4096;
     for (const { sig, bytes } of upxBytes) {
@@ -96,9 +88,6 @@ export function scanPackerSignatures(data: Uint8Array): PackerSignatureMatch[] {
   return matches;
 }
 
-/**
- * Parses PE binary imports and detailed sections for packer heuristics.
- */
 function parsePEWithImportAnalysis(data: Uint8Array): {
   architecture: string;
   sections: SectionAnalysis[];
@@ -120,12 +109,9 @@ function parsePEWithImportAnalysis(data: Uint8Array): {
 
   const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
   const peOffset = view.getUint32(0x3c, true);
-
   if (peOffset + 24 > data.length) {
     return { architecture, sections, anomalies: ['INVALID_PE_OFFSET'], zeroImports, importCount, packerSignatures };
   }
-
-  // Check PE Signature: "PE\0\0"
   if (view.getUint32(peOffset, false) !== 0x50450000) {
     return { architecture, sections, anomalies: ['INVALID_PE_SIGNATURE'], zeroImports, importCount, packerSignatures };
   }
@@ -139,26 +125,18 @@ function parsePEWithImportAnalysis(data: Uint8Array): {
   else if (machine === 0x014c) architecture = 'i386';
   else architecture = `0x${machine.toString(16)}`;
 
-  // Optional Header Analysis
   const optionalHeaderOffset = peOffset + 24;
   let isPE32Plus = false;
-
   if (sizeOfOptionalHeader >= 2) {
     const magic = view.getUint16(optionalHeaderOffset, true);
-    isPE32Plus = magic === 0x020b; // PE32+ (64-bit)
-
-    // Data Directory Offset
-    // In PE32: 96 bytes offset in Optional Header. In PE32+: 112 bytes offset.
+    isPE32Plus = magic === 0x020b;
     const dataDirOffsetInOpt = isPE32Plus ? 112 : 96;
-    const importDirOffset = optionalHeaderOffset + dataDirOffsetInOpt + 8; // DataDir[1] is Import Table
-
+    const importDirOffset = optionalHeaderOffset + dataDirOffsetInOpt + 8;
     if (importDirOffset + 8 <= optionalHeaderOffset + sizeOfOptionalHeader && importDirOffset + 8 <= data.length) {
       const importRva = view.getUint32(importDirOffset, true);
       const importSize = view.getUint32(importDirOffset + 4, true);
-
       if (importRva > 0 && importSize > 0) {
         zeroImports = false;
-        // Estimate import count (each import directory descriptor is 20 bytes)
         importCount = Math.max(1, Math.floor(importSize / 20));
       } else {
         zeroImports = true;
@@ -167,38 +145,31 @@ function parsePEWithImportAnalysis(data: Uint8Array): {
     }
   }
 
-  // Section Table follows Optional Header
   const sectionTableOffset = optionalHeaderOffset + sizeOfOptionalHeader;
   const SECTION_HEADER_SIZE = 40;
-
   for (let i = 0; i < numberOfSections; i++) {
     const offset = sectionTableOffset + i * SECTION_HEADER_SIZE;
     if (offset + SECTION_HEADER_SIZE > data.length) {
       anomalies.push(`TRUNCATED_SECTION_${i}`);
       break;
     }
-
     const nameBytes = data.subarray(offset, offset + 8);
     let name = '';
     for (const b of nameBytes) {
       if (b === 0) break;
       name += String.fromCharCode(b);
     }
-
     const virtualSize = view.getUint32(offset + 8, true);
     const rawSize = view.getUint32(offset + 16, true);
     const rawPointer = view.getUint32(offset + 20, true);
     const characteristics = view.getUint32(offset + 36, true);
-
     const isExecutable = (characteristics & 0x20000000) !== 0;
     const isWritable = (characteristics & 0x80000000) !== 0;
 
-    // Check RWX (both writable and executable)
     if (isExecutable && isWritable) {
       anomalies.push(`RWX_SECTION_DETECTED:${name}`);
     }
 
-    // Check UPX section names
     const upperName = name.toUpperCase().trim();
     for (const upxSig of KNOWN_UPX_SIGNATURES) {
       if (upperName.includes(upxSig)) {
@@ -211,7 +182,6 @@ function parsePEWithImportAnalysis(data: Uint8Array): {
         break;
       }
     }
-
     for (const otherPacker of OTHER_PACKER_NAMES) {
       if (upperName.includes(otherPacker)) {
         packerSignatures.push({
@@ -224,16 +194,13 @@ function parsePEWithImportAnalysis(data: Uint8Array): {
       }
     }
 
-    // Section Entropy Calculation
     let sectionEntropy = 0;
     if (rawPointer + rawSize <= data.length && rawSize > 0) {
       const sectionData = data.subarray(rawPointer, rawPointer + rawSize);
       sectionEntropy = calculateShannonEntropy(sectionData);
     }
-
     const isHighEntropy = sectionEntropy >= 6.8;
     const isZeroRawSize = rawSize === 0 && virtualSize > 0;
-
     sections.push({
       name,
       virtualSize,
@@ -245,14 +212,9 @@ function parsePEWithImportAnalysis(data: Uint8Array): {
       isZeroRawSize,
     });
   }
-
   return { architecture, sections, anomalies, zeroImports, importCount, packerSignatures };
 }
 
-/**
- * Enhanced PE & ELF Binary Scanner with UPX Packer Detection
- * and False-Positive Immune Section Entropy Analysis.
- */
 export function scanBinaryForPackers(data: Uint8Array): BinaryPackerScanReport {
   const overallEntropy = calculateShannonEntropy(data);
   let format: BinaryFormat = 'UNKNOWN';
@@ -263,7 +225,6 @@ export function scanBinaryForPackers(data: Uint8Array): BinaryPackerScanReport {
   let importCount = 0;
   const detectedSignatures: PackerSignatureMatch[] = [];
 
-  // 1. Check PE: 'MZ' (0x4D, 0x5A)
   if (data.length >= 2 && data[0] === 0x4d && data[1] === 0x5a) {
     format = 'PE';
     const peInfo = parsePEWithImportAnalysis(data);
@@ -273,15 +234,28 @@ export function scanBinaryForPackers(data: Uint8Array): BinaryPackerScanReport {
     zeroImports = peInfo.zeroImports;
     importCount = peInfo.importCount;
     detectedSignatures.push(...peInfo.packerSignatures);
-  }
-  // 2. Check ELF: [0x7F, 'E', 'L', 'F']
-  else if (data.length >= 4 && data[0] === 0x7f && data[1] === 0x45 && data[2] === 0x4c && data[3] === 0x46) {
+  } else if (data.length >= 4 && data[0] === 0x7f && data[1] === 0x45 && data[2] === 0x4c && data[3] === 0x46) {
     format = 'ELF';
-    architecture = data[4] === 2 ? 'x86_64 (64-bit)' : 'i386 (32-bit)';
-    zeroImports = true; // Raw standalone ELF inspection default
+    const elfInspection = inspectBinary(data);
+    architecture = elfInspection.architecture;
+    anomalies = [...elfInspection.anomalies];
+    sections = elfInspection.sections.map((s) => ({
+      ...s,
+      isHighEntropy: s.entropy >= 6.8,
+      isZeroRawSize: s.rawSize === 0 && s.virtualSize > 0,
+    }));
+    const dynSection = sections.find(
+      (s) => s.name === '.dynsym' || s.name === '.dynstr' || s.name === '.plt' || s.name === '.dynamic'
+    );
+    if (dynSection && dynSection.rawSize > 0) {
+      zeroImports = false;
+      importCount = Math.max(1, Math.floor(dynSection.rawSize / 24));
+    } else {
+      zeroImports = true;
+      importCount = 0;
+    }
   }
 
-  // 3. Scan binary body for raw UPX signatures (!UPX, UPX!)
   const bodySignatures = scanPackerSignatures(data);
   for (const bSig of bodySignatures) {
     if (!detectedSignatures.some((d) => d.signature === bSig.signature && d.packer === bSig.packer)) {
@@ -289,17 +263,11 @@ export function scanBinaryForPackers(data: Uint8Array): BinaryPackerScanReport {
     }
   }
 
-  // 4. Section-level entropy analysis:
-  // Distinguishes compressed binary code (legitimate high entropy, e.g. .rsrc / assets)
-  // from packed executables (zero imports + high entropy entry/executable section).
-  // Eliminates false positive alerts!
   const hasUpxSignatures = detectedSignatures.some((s) => s.packer === 'UPX');
   const hasOtherPackerSignatures = detectedSignatures.some((s) => s.packer !== 'UPX');
   const hasRWX = anomalies.some((a) => a.startsWith('RWX_SECTION_DETECTED'));
-
   const executableSections = sections.filter((s) => s.isExecutable);
   const nonExecutableSections = sections.filter((s) => !s.isExecutable);
-
   const highEntropyExecSection = executableSections.find((s) => s.entropy >= 6.8);
   const highEntropyNonExecOnly =
     !highEntropyExecSection && nonExecutableSections.some((s) => s.entropy >= 6.8);
@@ -323,7 +291,6 @@ export function scanBinaryForPackers(data: Uint8Array): BinaryPackerScanReport {
     confidence = 0.95;
     explanation = `Known packer signature detected (${packerName}).`;
   } else if (zeroImports && highEntropyExecSection) {
-    // Zero imports + high entropy entry/executable section = definitive packed executable
     isPacked = true;
     verdict = 'PACKED';
     packerName = 'Custom/Unknown Packer';
@@ -335,8 +302,6 @@ export function scanBinaryForPackers(data: Uint8Array): BinaryPackerScanReport {
     confidence = 0.9;
     explanation = `Suspicious packed binary: RWX memory section with high entropy (${highEntropyExecSection.entropy}).`;
   } else if (highEntropyNonExecOnly) {
-    // False-positive elimination: high entropy in non-executable sections (.rsrc, compressed assets)
-    // while executable code section is normal and imports are present.
     isPacked = false;
     verdict = 'CLEAN';
     confidence = 0.98;
