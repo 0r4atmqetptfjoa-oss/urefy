@@ -82,14 +82,13 @@
         --text-primary: #f8fafc;
         --text-secondary: #94a3b8;
         --color-accent: #38bdf8;
-        --oklch-canvas: oklch(0.13 0.015 265);
-        --oklch-accent: oklch(0.78 0.15 215);
         --spring-snappy: cubic-bezier(0.22, 1, 0.36, 1);
         --spring-fluid: cubic-bezier(0.16, 1, 0.3, 1);
       }
       html, body {
         width: 100%;
-        min-height: 100%;
+        min-height: 100vh;
+        min-height: 100dvh;
         margin: 0;
         padding: 0;
         background-color: var(--bg-canvas, #08090d);
@@ -100,7 +99,6 @@
         overflow-y: auto;
         -webkit-overflow-scrolling: touch;
         -webkit-font-smoothing: antialiased;
-        text-rendering: optimizeLegibility;
       }
       html.light, html.light body, [data-theme="alabaster-light"], [data-theme="alabaster-light"] body {
         --bg-canvas: #f6f5f2 !important;
@@ -138,34 +136,33 @@
         background-color: #080d16 !important;
       }
 
-      /* 2027 Native CSS Discrete Entry Animations (@starting-style) */
-      [role="dialog"], [popover] {
-        transition: opacity 0.22s var(--spring-fluid), transform 0.22s var(--spring-snappy), display 0.22s allow-discrete;
-        opacity: 1;
-        transform: scale(1) translateY(0);
-      }
-      @starting-style {
-        [role="dialog"], [popover]:popover-open {
-          opacity: 0;
-          transform: scale(0.97) translateY(6px);
-        }
-      }
-
-      /* 2027 GPU & Zero-Flicker Isolation Primitives */
-      .gpu-accelerated, .hardware-accelerated {
-        transform: translateZ(0);
-        backface-visibility: hidden;
-        will-change: transform, opacity;
-      }
-      .no-flicker, .isolated-dom-container {
-        contain: layout style;
-      }
-
+      /* CRITICAL FIX: Prevent #app and #main-layout from collapsing to 50px height */
       #app {
         width: 100%;
-        min-height: 100%;
+        min-height: 100vh;
+        min-height: 100dvh;
+        display: flex;
+        flex-direction: column;
         background-color: transparent;
       }
+      #main-layout,
+      .app-workspace-shell,
+      .sovereign-workspace-grid {
+        flex: 1 1 auto !important;
+        min-height: calc(100dvh - 3.75rem) !important;
+        height: auto !important;
+        max-height: none !important;
+        overflow: visible !important;
+      }
+      #main-stage,
+      #main-feed-scroll,
+      main[role="main"] {
+        min-height: calc(100dvh - 4.25rem) !important;
+        height: auto !important;
+        max-height: none !important;
+        overflow-y: visible !important;
+      }
+
       #boot-shell { display: none; }
       .app-booting #app { visibility: hidden; }
       html:not(.app-booting) #main-layout { visibility: visible; }
