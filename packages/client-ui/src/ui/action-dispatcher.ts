@@ -2591,9 +2591,26 @@ export class ActionDispatcher {
         break;
       }
 
+      case 'notifications.toggle':
+      case 'open-notifications':
+      case 'toggle-notifications':
       case 'toggle-notifs': {
-        if (typeof window !== 'undefined' && (window as any).__aetherisToggleNotifs) {
-          (window as any).__aetherisToggleNotifs();
+        event.preventDefault();
+        event.stopPropagation();
+        if (typeof window !== 'undefined') {
+          if ((window as any).studioRuntime?.toggleNotificationsPopover) {
+            (window as any).studioRuntime.toggleNotificationsPopover();
+          } else if (typeof (window as any).__aetherisToggleNotifs === 'function') {
+            (window as any).__aetherisToggleNotifs();
+          }
+        }
+        break;
+      }
+
+      case 'studio-nav-hash': {
+        const hash = el.getAttribute('data-hash');
+        if (hash && typeof window !== 'undefined') {
+          window.location.hash = hash;
         }
         break;
       }

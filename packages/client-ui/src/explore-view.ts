@@ -1,8 +1,7 @@
 /**
  * @file explore-view.ts
  * @package @aetheris/client-ui
- * @description 2027 Spatial Bento Explore & Discovery Engine — Multi-dimensional search
- * across Discussions, Sovereign Identities, Communities, and Cryptographic Topics.
+ * @description 2027 Organic Desktop Bento Explore & Discovery Engine.
  */
 
 import { ClientPost, clientStore } from './client-state.js';
@@ -57,23 +56,15 @@ export class ExploreView {
   public searchQuery: string = '';
   public activeCategory: ExploreCategory = 'all';
   public activeSearchTab: 'posts' | 'people' | 'communities' | 'topics' = 'posts';
-  get activeSubTab(): string {
-    return this.activeSearchTab === 'posts' ? 'pulses' : this.activeSearchTab;
-  }
-  set activeSubTab(v: string) {
-    if (v === 'pulses' || v === 'posts') this.activeSearchTab = 'posts';
-    else if (v === 'communities') this.activeSearchTab = 'communities';
-    else if (v === 'people') this.activeSearchTab = 'people';
-    else if (v === 'topics') this.activeSearchTab = 'topics';
-  }
-  public categories: Array<{ id: ExploreCategory; label: string; count: string; emoji: string }> = [
-    { id: 'all', label: 'All Signals', count: '', emoji: '🌐' },
-    { id: 'trending', label: 'Trending', count: '', emoji: '🔥' },
-    { id: 'cryptography', label: 'Cryptography & ZK', count: '', emoji: '🔐' },
-    { id: 'privacy', label: 'Privacy', count: '', emoji: '🛡️' },
-    { id: 'p2p', label: 'P2P & Mesh', count: '', emoji: '📡' },
-    { id: 'security', label: 'SecOps', count: '', emoji: '⚡' },
-    { id: 'ai', label: 'Local AI', count: '', emoji: '✨' },
+  public activeSubTab: 'pulses' | 'communities' = 'pulses';
+  public categories: Array<{ id: ExploreCategory; label: string; emoji: string }> = [
+    { id: 'all', label: 'All Signals', emoji: '🌐' },
+    { id: 'trending', label: 'Trending', emoji: '🔥' },
+    { id: 'cryptography', label: 'Cryptography & ZK', emoji: '🔐' },
+    { id: 'privacy', label: 'Privacy', emoji: '🛡️' },
+    { id: 'p2p', label: 'P2P & Mesh', emoji: '📡' },
+    { id: 'security', label: 'SecOps', emoji: '⚡' },
+    { id: 'ai', label: 'Local AI', emoji: '✨' },
   ];
 
   public getRecentSearches(): string[] {
@@ -81,9 +72,7 @@ export class ExploreView {
       if (typeof localStorage !== 'undefined') {
         return parseRecentSearches(localStorage.getItem(RECENT_SEARCHES_KEY));
       }
-    } catch {
-      // ignore storage errors
-    }
+    } catch {}
     return [];
   }
 
@@ -96,9 +85,7 @@ export class ExploreView {
         current.unshift(clean);
         localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(current.slice(0, 8)));
       }
-    } catch {
-      // ignore
-    }
+    } catch {}
   }
 
   public clearRecentSearches(): void {
@@ -106,9 +93,7 @@ export class ExploreView {
       if (typeof localStorage !== 'undefined') {
         localStorage.removeItem(RECENT_SEARCHES_KEY);
       }
-    } catch {
-      // ignore
-    }
+    } catch {}
   }
 
   public getComputedTrendingTopics(sourcePosts: ClientPost[] = clientStore.posts): TrendingItem[] {
@@ -116,15 +101,19 @@ export class ExploreView {
     const topics = collectTopics(unblocked);
     if (topics.length === 0) return [];
 
-    return topics.slice(0, 8).map((item, idx) => ({
-      id: `trend-${idx + 1}`,
-      rank: idx + 1,
-      category: item.topic.startsWith('#') ? 'Topic' : 'Sovereign Pulse',
-      topic: item.topic.startsWith('#') ? item.topic : `#${item.topic}`,
-      description: `Active discussions & verified insights around ${item.topic}`,
-      postCount: formatCount(item.count, 'post'),
-      numericPosts: item.count,
-    }));
+    return topics.slice(0, 8).map((item, idx) => {
+      const topicStr = (item as any).tag || item.topic;
+      const topicName = topicStr.startsWith('#') ? topicStr : `#${topicStr}`;
+      return {
+        id: `trend-${idx + 1}`,
+        rank: idx + 1,
+        category: (item as any).category || (topicStr.startsWith('#') ? 'Topic' : 'Sovereign Pulse'),
+        topic: topicName,
+        description: `Active discussions & verified insights around ${topicStr}`,
+        postCount: formatCount(item.count, 'post'),
+        numericPosts: item.count,
+      };
+    });
   }
 
   public setSearchQuery(query: string, remember = true): void {
@@ -153,15 +142,36 @@ export class ExploreView {
   }
 
   public filterPosts(allPosts: ClientPost[]): ClientPost[] {
-    let posts = allPosts.filter((post) => !socialSafety.isBlocked(post.authorFingerprint) && !socialSafety.isMuted(post.authorFingerprint));
+    let posts = allPosts.filter(
+      (post) => !socialSafety.isBlocked(post.authorFingerprint) && !socialSafety.isMuted(post.authorFingerprint)
+    );
     const q = this.searchQuery.trim().toLowerCase();
 
-    if (this.activeCategory === 'trending') posts = [...posts].sort((a, b) => (b.meritVotes + b.replyCount) - (a.meritVotes + a.replyCount));
-    else if (this.activeCategory === 'cryptography') posts = posts.filter(post => /technology|code|software|crypto|zk|web/i.test(`${post.title} ${post.content} ${post.flair} ${post.channelId}`));
-    else if (this.activeCategory === 'privacy') posts = posts.filter(post => /privacy|private|identity|recovery|airgap|ghost|vault|forensic/i.test(`${post.title} ${post.content} ${post.flair} ${post.channelId}`));
-    else if (this.activeCategory === 'p2p') posts = posts.filter(post => /community|mesh|p2p|webrtc/i.test(`${post.title} ${post.content} ${post.flair} ${post.channelId}`));
-    else if (this.activeCategory === 'security') posts = posts.filter(post => /security|safe|moderation|verified/i.test(`${post.title} ${post.content} ${post.flair}`));
-    else if (this.activeCategory === 'ai') posts = posts.filter(post => /\bai\b|artificial intelligence|machine learning|neural/i.test(`${post.title} ${post.content}`));
+    if (this.activeCategory === 'trending') {
+      posts = [...posts].sort((a, b) => b.meritVotes + b.replyCount - (a.meritVotes + a.replyCount));
+    } else if (this.activeCategory === 'cryptography') {
+      posts = posts.filter((post) =>
+        /technology|code|software|crypto|zk|web/i.test(`${post.title} ${post.content} ${post.flair} ${post.channelId}`)
+      );
+    } else if (this.activeCategory === 'privacy') {
+      posts = posts.filter((post) =>
+        /privacy|private|identity|recovery|airgap|ghost|vault|forensic/i.test(
+          `${post.title} ${post.content} ${post.flair} ${post.channelId}`
+        )
+      );
+    } else if (this.activeCategory === 'p2p') {
+      posts = posts.filter((post) =>
+        /community|mesh|p2p|webrtc/i.test(`${post.title} ${post.content} ${post.flair} ${post.channelId}`)
+      );
+    } else if (this.activeCategory === 'security') {
+      posts = posts.filter((post) =>
+        /security|safe|moderation|verified/i.test(`${post.title} ${post.content} ${post.flair}`)
+      );
+    } else if (this.activeCategory === 'ai') {
+      posts = posts.filter((post) =>
+        /\bai\b|artificial intelligence|machine learning|neural/i.test(`${post.title} ${post.content}`)
+      );
+    }
 
     if (!q) return posts;
     const cleanTag = q.replace(/^#/, '');
@@ -236,27 +246,23 @@ export class ExploreView {
       return `<div class="p-6 rounded-2xl bg-surface-base/60 border border-white/10 text-center text-xs text-slate-400">No matching people found.</div>`;
     }
 
-    return `<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+    return `<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
       ${matches
         .map(
-          (person) => `<div class="p-4 rounded-2xl bg-surface-base/80 backdrop-blur-xl border border-white/[0.08] hover:border-cyan-400/35 flex items-center justify-between gap-3 transition-all">
+          (person) => `<div data-fingerprint="${escapeHtml(person.fingerprint)}" class="p-4 rounded-2xl bg-surface-base/85 backdrop-blur-xl border border-white/[0.08] hover:border-cyan-400/35 flex items-center justify-between gap-3 transition-all shadow-md">
             <div class="flex items-center gap-3 min-w-0">
               ${renderAvatar(person.avatar, person.fingerprint, { size: 42 })}
               <div class="min-w-0">
                 <div class="text-sm font-bold text-white truncate">${escapeHtml(person.name)}</div>
-                <div class="text-xs font-mono text-cyan-400 truncate">@${escapeHtml(person.handle)}</div>
+                <div class="text-xs font-mono text-cyan-400 truncate">@${escapeHtml(person.handle)} · <span class="text-slate-400 font-normal">${person.postCount} ${person.postCount === 1 ? 'post' : 'posts'}</span></div>
                 <div class="text-[11px] text-slate-400 line-clamp-1 mt-0.5">${escapeHtml(person.bio)}</div>
               </div>
             </div>
-            <div class="flex items-center gap-2">
-              <span class="text-[11px] font-mono text-slate-400">${formatCount(person.postCount, 'post')}</span>
-              <button
-                type="button"
-                data-fingerprint="${escapeHtml(person.fingerprint)}"
-                data-open-profile="${escapeHtml(person.fingerprint)}"
-                class="px-3 py-1.5 min-h-[36px] rounded-xl bg-white/[0.06] hover:bg-cyan-500/20 text-xs font-semibold text-slate-200 hover:text-cyan-300 border border-white/10 shrink-0 cursor-pointer"
-              >View</button>
-            </div>
+            <button
+              type="button"
+              data-open-profile="${escapeHtml(person.fingerprint)}"
+              class="px-3 py-1.5 min-h-[36px] rounded-xl bg-white/[0.06] hover:bg-cyan-500/20 text-xs font-semibold text-slate-200 hover:text-cyan-300 border border-white/10 shrink-0 cursor-pointer"
+            >View</button>
           </div>`
         )
         .join('')}
@@ -275,22 +281,32 @@ export class ExploreView {
         )
       : trending;
 
-    return `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+    return `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
       ${filtered
         .map(
           (item) => `<button
             type="button"
             data-explore-topic="${escapeHtml(item.topic)}"
-            class="text-left p-4 rounded-2xl bg-surface-base/80 backdrop-blur-xl border border-white/[0.08] hover:border-cyan-400/40 transition-all group cursor-pointer"
+            class="text-left p-4 rounded-2xl bg-surface-base/85 backdrop-blur-xl border border-white/[0.08] hover:border-cyan-400/45 hover:bg-surface-raised/85 transition-all group cursor-pointer shadow-lg flex flex-col justify-between"
           >
-            <div class="flex items-center justify-between text-[10px] font-mono uppercase tracking-wider text-slate-400 mb-1">
-              <span>#${item.rank} · ${escapeHtml(item.category)}</span>
-              <span class="text-cyan-400">${escapeHtml(item.postCount)}</span>
+            <div>
+              <div class="flex items-center justify-between text-[10px] font-mono uppercase tracking-wider text-slate-400 mb-1.5">
+                <span>#${item.rank} · ${escapeHtml(item.category)}</span>
+                <span class="px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 font-bold">${escapeHtml(
+                  item.postCount
+                )}</span>
+              </div>
+              <div class="text-sm font-extrabold text-white group-hover:text-cyan-300 transition-colors">${escapeHtml(
+                item.topic
+              )}</div>
+              <p class="text-xs text-slate-400 mt-1 line-clamp-2 leading-relaxed">${escapeHtml(
+                item.description
+              )}</p>
             </div>
-            <div class="text-sm font-extrabold text-white group-hover:text-cyan-300 transition-colors">${escapeHtml(
-              item.topic
-            )}</div>
-            <p class="text-xs text-slate-400 mt-1 line-clamp-2">${escapeHtml(item.description)}</p>
+            <div class="mt-3 pt-2 border-t border-white/[0.05] text-[11px] font-mono text-cyan-400 flex items-center justify-between">
+              <span>Open stream</span>
+              <span class="group-hover:translate-x-0.5 transition-transform">→</span>
+            </div>
           </button>`
         )
         .join('')}
@@ -313,7 +329,7 @@ export class ExploreView {
       return `<div class="p-6 rounded-2xl bg-surface-base/60 border border-white/10 text-center text-xs text-slate-400">No communities match your filter.</div>`;
     }
 
-    return `<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    return `<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
       ${circles.map((circle) => renderDiscoveryCard(circle)).join('')}
     </div>`;
   }
@@ -354,8 +370,8 @@ export class ExploreView {
                 type="button"
                 id="btn-clear-explore-search"
                 data-action="exploreView.clearSearch()"
-                class="text-xs text-slate-400 hover:text-white cursor-pointer"
-              >Clear search ✕</button>`
+                class="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs text-slate-300 hover:text-white cursor-pointer"
+              >Clear filter "${escapeHtml(this.searchQuery)}" ✕</button>`
             : ''
         }
       </div>
@@ -368,7 +384,9 @@ export class ExploreView {
           : this.activeSearchTab === 'topics'
           ? this.renderTopics(allPosts)
           : matchingPosts.length > 0
-          ? `<div class="space-y-4">${matchingPosts.map((p) => renderPulsePostCard(p)).join('')}</div>`
+          ? `<div class="grid grid-cols-1 xl:grid-cols-2 gap-4 items-start">${matchingPosts
+              .map((p) => renderPulsePostCard(p))
+              .join('')}</div>`
           : `<div class="p-8 rounded-3xl bg-surface-base/60 border border-white/10 text-center text-xs text-slate-400">
               No pulses found matching "${escapeHtml(this.searchQuery)}". Try another keyword or browse Communities.
               <div class="mt-3">
@@ -380,27 +398,19 @@ export class ExploreView {
   }
 
   public renderExploreView(allPosts: ClientPost[]): string {
-    const categories: Array<{ id: ExploreCategory; label: string; emoji: string }> = [
-      { id: 'all', label: 'All Signals', emoji: '🌐' },
-      { id: 'trending', label: 'Trending', emoji: '🔥' },
-      { id: 'cryptography', label: 'Cryptography & ZK', emoji: '🔐' },
-      { id: 'privacy', label: 'Privacy', emoji: '🛡️' },
-      { id: 'p2p', label: 'P2P & Mesh', emoji: '📡' },
-      { id: 'security', label: 'SecOps', emoji: '⚡' },
-      { id: 'ai', label: 'Local AI', emoji: '✨' },
-    ];
-
+    const categories = this.categories;
     const filteredPosts = this.filterPosts(allPosts);
 
-    return `<div id="explore-workspace" class="w-full max-w-4xl mx-auto space-y-6 pb-16">
-      <!-- 2027 Bento Search Hero Header -->
+    return `<div id="explore-workspace" class="w-full max-w-6xl mx-auto space-y-6 pb-16 px-1">
       <section class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#0e1424]/95 via-surface-base/90 to-[#0a131c]/95 backdrop-blur-2xl border border-white/10 p-6 shadow-2xl">
-        <div class="max-w-2xl">
-          <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-mono uppercase tracking-widest bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 mb-2">
-            2027 Sovereign Discovery Radar
-          </span>
-          <h1 class="text-xl sm:text-2xl font-extrabold text-white tracking-tight">Explore Communities, Proofs & Live Discussions</h1>
-          <p class="text-xs text-slate-400 mt-1">Zero algorithmic manipulation. Ranked transparently by cryptographic merit and community activity.</p>
+        <div class="flex flex-wrap items-end justify-between gap-4">
+          <div class="max-w-2xl">
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-mono uppercase tracking-widest bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 mb-2">
+              2027 Sovereign Discovery Radar
+            </span>
+            <h1 class="text-xl sm:text-2xl font-extrabold text-white tracking-tight">Explore Communities, Proofs & Live Discussions</h1>
+            <p class="text-xs text-slate-400 mt-1">Zero algorithmic manipulation. Ranked transparently by cryptographic merit and community activity.</p>
+          </div>
         </div>
 
         <div class="mt-4 relative flex items-center">
@@ -464,34 +474,34 @@ export class ExploreView {
       ${
         this.searchQuery.trim().length > 0
           ? this.renderSearchResults(allPosts)
-          : `<div class="space-y-6">
+          : `<div class="space-y-7">
               <section aria-labelledby="explore-trending-heading">
                 <div class="flex items-center justify-between mb-3">
-                  <h2 id="explore-trending-heading" class="text-sm font-extrabold uppercase tracking-wider text-slate-300">Trending Topics & Signals</h2>
+                  <h2 id="explore-trending-heading" class="text-xs font-extrabold uppercase tracking-wider text-slate-300">TRENDING TOPICS & SIGNALS</h2>
                 </div>
                 ${this.renderTopics(allPosts)}
               </section>
 
               <section aria-labelledby="explore-communities-heading">
                 <div class="flex items-center justify-between mb-3">
-                  <h2 id="explore-communities-heading" class="text-sm font-extrabold uppercase tracking-wider text-slate-300">Active Sovereign Communities</h2>
+                  <h2 id="explore-communities-heading" class="text-xs font-extrabold uppercase tracking-wider text-slate-300">ACTIVE SOVEREIGN COMMUNITIES</h2>
                 </div>
                 ${this.renderCommunitiesDirectory()}
               </section>
 
               <section aria-labelledby="explore-people-heading">
                 <div class="flex items-center justify-between mb-3">
-                  <h2 id="explore-people-heading" class="text-sm font-extrabold uppercase tracking-wider text-slate-300">Notable Contributors</h2>
+                  <h2 id="explore-people-heading" class="text-xs font-extrabold uppercase tracking-wider text-slate-300">NOTABLE CONTRIBUTORS</h2>
                 </div>
                 ${this.renderPeople(allPosts)}
               </section>
 
               <section aria-labelledby="explore-discussions-heading">
                 <div class="flex items-center justify-between mb-3">
-                  <h2 id="explore-discussions-heading" class="text-sm font-extrabold uppercase tracking-wider text-slate-300">Recent Public Discussions</h2>
+                  <h2 id="explore-discussions-heading" class="text-xs font-extrabold uppercase tracking-wider text-slate-300">RECENT PUBLIC DISCUSSIONS</h2>
                 </div>
-                <div class="space-y-4">
-                  ${filteredPosts.slice(0, 15).map((post) => renderPulsePostCard(post)).join('')}
+                <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 items-start">
+                  ${filteredPosts.slice(0, 14).map((post) => renderPulsePostCard(post)).join('')}
                 </div>
               </section>
             </div>`
