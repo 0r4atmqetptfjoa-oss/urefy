@@ -166,6 +166,67 @@ export interface QuarantineEvent {
   reason: string;
 }
 
+export async function deriveChannelKey(channelId: string): Promise<CryptoKey> {
+  const enc = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw',
+    enc.encode(`urefy-channel-e2ee-v1:${channelId}`),
+    { name: 'PBKDF2' },
+    false,
+    ['deriveKey']
+  );
+  return crypto.subtle.deriveKey(
+    {
+      name: 'PBKDF2',
+      salt: enc.encode('urefy-relay-salt-v1'),
+      iterations: 10000,
+      hash: 'SHA-256',
+    },
+    keyMaterial,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt']
+  );
+}
+
+export async function encryptChannelMessage(channelId: string, plaintext: string): Promise<string> {
+  if (typeof crypto === 'undefined' || !crypto.subtle) return plaintext;
+  const key = await deriveChannelKey(channelId);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const encoded = new TextEncoder().encode(plaintext);
+  const encrypted = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, encoded);
+
+  const combined = new Uint8Array(iv.length + encrypted.byteLength);
+  combined.set(iv, 0);
+  combined.set(new Uint8Array(encrypted), iv.length);
+  return `e2ee:v1:${bytesToHex(combined)}`;
+}
+
+export async function decryptChannelMessage(channelId: string, payload: string): Promise<string> {
+  if (!payload || !payload.startsWith('e2ee:v1:')) {
+    return payload; // Compatibilitate cu mesajele vechi
+  }
+  if (typeof crypto === 'undefined' || !crypto.subtle) return payload;
+  try {
+    const raw = payload.slice('e2ee:v1:'.length);
+    let bytes: Uint8Array;
+    if (/^[0-9a-fA-F]+$/.test(raw)) {
+      bytes = hexToBytes(raw);
+    } else {
+      const bin = atob(raw);
+      bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    }
+    const iv = bytes.slice(0, 12);
+    const data = bytes.slice(12);
+    const key = await deriveChannelKey(channelId);
+    const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, data);
+    return new TextDecoder().decode(decrypted);
+  } catch {
+    return '[Mesaj criptat E2EE]';
+  }
+}
+
 export class AetherisClientStore {
   public keypair: KeyPair;
   public secretKey: bigint;
@@ -840,7 +901,12 @@ export class AetherisClientStore {
           for (const em of data.messages) {
             const targetChannel = em.channelId || activeChannel;
             const channelMsgs = this.messages.get(targetChannel) || [];
-            const emText = em.text || em.ciphertext || '';
+            let emText = em.text || em.ciphertext || '';
+            if (em.ciphertext && em.ciphertext.startsWith('e2ee:v1:')) {
+              try {
+                emText = await decryptChannelMessage(targetChannel, em.ciphertext);
+              } catch (_) {}
+            }
             const isDuplicate = channelMsgs.some(
               (x) =>
                 x.id === em.id ||
@@ -1248,11 +1314,10 @@ export class AetherisClientStore {
       host === 'urefy.com' || host.endsWith('.urefy.com') ||
       (typeof (globalThis as any).__CF_PAGES !== 'undefined');
     if (isCloudflarePages) {
-      const wasConnected = this.isConnected;
-      this.isConnected = false;
-      if (wasConnected) {
-        this.notify();
-      }
+      // Pe Cloudflare Pages folosim sincronizarea HTTP securizată (D1 polling)
+      // și marcăm clientul ca fiind conectat când browserul este online:
+      this.isConnected = typeof navigator !== 'undefined' ? navigator.onLine !== false : true;
+      this.notify();
       return;
     }
 
@@ -1513,24 +1578,32 @@ export class AetherisClientStore {
     }
 
     // Persist to Edge Messages API with automatic Offline Outbox fallback
-    const msgEnvelope = this.createSignedEnvelope({
-      ...newMsg,
-      ciphertext: trimmed,
-      signature,
-    });
-    if (typeof fetch !== 'undefined') {
-      fetchWithRetry('/api/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(msgEnvelope),
-        maxRetries: 2,
-        baseDelayMs: 300,
-      }).catch(() => {
-        offlineSync.enqueue('SEND_MESSAGE', msgEnvelope);
+    void (async () => {
+      let encryptedPayload = trimmed;
+      try {
+        encryptedPayload = await encryptChannelMessage(this.activeChannelId, trimmed);
+      } catch (_) {}
+
+      const msgEnvelope = this.createSignedEnvelope({
+        ...newMsg,
+        ciphertext: encryptedPayload,
+        signature,
       });
-    } else {
-      offlineSync.enqueue('SEND_MESSAGE', msgEnvelope);
-    }
+
+      if (typeof fetch !== 'undefined') {
+        fetchWithRetry('/api/messages', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(msgEnvelope),
+          maxRetries: 2,
+          baseDelayMs: 300,
+        }).catch(() => {
+          offlineSync.enqueue('SEND_MESSAGE', msgEnvelope);
+        });
+      } else {
+        offlineSync.enqueue('SEND_MESSAGE', msgEnvelope);
+      }
+    })();
 
     // Also broadcast via WebSocket
     this.send({

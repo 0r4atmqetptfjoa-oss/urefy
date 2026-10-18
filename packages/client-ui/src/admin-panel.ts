@@ -589,7 +589,7 @@ export class AdminPanelManager {
       try {
         await fetch('/api/channels', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: this._getAuthHeaders(),
           body: JSON.stringify({ id, space, name: cleanName }),
         });
       } catch (_) {}
@@ -618,7 +618,10 @@ export class AdminPanelManager {
     // Sync with Edge API
     if (typeof fetch !== 'undefined') {
       try {
-        await fetch(`/api/channels?id=${channelId}`, { method: 'DELETE' });
+        await fetch(`/api/channels?id=${encodeURIComponent(channelId)}`, {
+          method: 'DELETE',
+          headers: this._getAuthHeaders(),
+        });
       } catch (_) {}
     }
 
@@ -727,6 +730,7 @@ export class AdminPanelManager {
   public toggleMaintenance(): void {
     this.serverConfig.maintenanceMode = !this.serverConfig.maintenanceMode;
     this._log('MAINTENANCE_MODE', this.serverConfig.maintenanceMode ? 'ON' : 'OFF');
+    this._apiPost('update-config', { config: this.serverConfig }).catch(() => {});
   }
 
   private _log(action: string, targetId: string): void {
@@ -2514,14 +2518,16 @@ export class AdminPanelManager {
     });
 
     // Server Config Toggles
-    document.getElementById('toggle-registrations')?.addEventListener('click', () => {
+    document.getElementById('toggle-registrations')?.addEventListener('click', async () => {
       this.serverConfig.allowNewRegistrations = !this.serverConfig.allowNewRegistrations;
       this._log('REGISTRATIONS_TOGGLED', this.serverConfig.allowNewRegistrations ? 'ALLOWED' : 'BLOCKED');
+      await this._apiPost('update-config', { config: this.serverConfig });
       onStateChange();
     });
-    document.getElementById('toggle-zk-verification')?.addEventListener('click', () => {
+    document.getElementById('toggle-zk-verification')?.addEventListener('click', async () => {
       this.serverConfig.requireZKVerification = !this.serverConfig.requireZKVerification;
       this._log('ZK_VERIFICATION_TOGGLED', this.serverConfig.requireZKVerification ? 'REQUIRED' : 'OPTIONAL');
+      await this._apiPost('update-config', { config: this.serverConfig });
       onStateChange();
     });
 
@@ -2821,7 +2827,7 @@ export class AdminPanelManager {
 
         if (await sovereignDialog.confirm(`Are you sure you want to delete target content "${targetId}" and mark this report as resolved?`, { title: 'Delete Content', destructive: true })) {
           if (targetId) {
-            this.deletePost(targetId);
+            await this.deletePost(targetId);
           }
           await this.updateDsaReportStatus(reportId, 'actioned', 'Content taken down and report resolved by administrator');
           if (typeof window !== 'undefined' && (window as any).toastManager) {

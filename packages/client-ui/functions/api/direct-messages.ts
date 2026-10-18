@@ -8,7 +8,7 @@ import {
   type SovereignSignedEnvelope,
   type DeviceSignedEnvelope,
 } from '@aetheris/core-crypto';
-import { checkAndRecordNonceMemory, requireSignedEnvelope } from './_auth.js';
+import { checkAndRecordNonceDistributed, requireSignedEnvelope } from './_auth.js';
 import { getD1Database, type Env } from './_db.js';
 
 interface IdentityRow {
@@ -68,8 +68,14 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
     if (!devVerify.authorized) {
       return json({ success: false, error: devVerify.error || 'Device cryptographic signature verification failed' }, 401);
     }
-    if (!checkAndRecordNonceMemory(`device:${envelope.deviceId}:${envelope.nonce}`)) {
-      return json({ success: false, error: 'Replay attack detected: duplicate request nonce' }, 401);
+    const nonceCheck = await checkAndRecordNonceDistributed(
+      context.env,
+      envelope.identityFingerprint,
+      `device:${envelope.deviceId}:${envelope.nonce}`,
+      envelope.timestamp
+    );
+    if (!nonceCheck.fresh) {
+      return json({ success: false, error: nonceCheck.error || 'Replay attack detected: duplicate request nonce' }, 401);
     }
     fingerprint = envelope.identityFingerprint;
     authPublicKey = envelope.devicePublicKey.toLowerCase();

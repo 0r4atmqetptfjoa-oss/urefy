@@ -13,7 +13,7 @@ import {
   globalPushSubscriptionsStore,
   isProductionEnv,
 } from './_db.js';
-import { requireSignedEnvelope } from './_auth.js';
+import { requireSignedEnvelope, requireAdmin } from './_auth.js';
 
 export { EdgePushSubscription };
 
@@ -530,13 +530,21 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
         );
       }
 
+      // Secure: Only authorized administrators can dispatch broadcasts/notifications in production or when admin credentials are sent
+      if (isProd || context.request.headers.get('Authorization') || context.request.headers.get('X-Admin-PIN')) {
+        const adminCheck = await requireAdmin(context);
+        if (!adminCheck.authorized) {
+          return adminCheck.response!;
+        }
+      }
+
       const title = body.title || 'UREfy Secure Alert';
       const bodyText = body.body || body.message || body.text || '';
       const icon = body.icon || '/favicon.svg';
       const badge = body.badge || '/favicon.svg';
       const data = body.data || { url: '/' };
       const tag = body.tag || `aetheris-push-${Date.now()}`;
-      const targetFingerprint = body.targetFingerprint || body.fingerprint || null;
+      const targetFingerprint = body.targetFingerprint || body.fingerprint || body.targetUserId || null;
 
       const payload = {
         title,
@@ -598,6 +606,8 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
       }
 
       let deliveredCount = 0;
+      let failedCount = 0;
+      const staleEndpoints: string[] = [];
 
       // Dispatch Web Push payloads to targets
       for (const target of targets) {
@@ -619,21 +629,30 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
 
           if (pushResponse && (pushResponse.status === 200 || pushResponse.status === 201 || pushResponse.status === 202)) {
             deliveredCount++;
-          } else if (pushResponse && (pushResponse.status === 404 || pushResponse.status === 410)) {
-            // Subscription expired or invalid: cleanup stale subscription
-            if (db) {
-              await db.prepare('DELETE FROM push_subscriptions WHERE endpoint = ?').bind(target.endpoint).run().catch(() => {});
-            }
-            const idx = globalPushSubscriptionsStore.findIndex((s) => s.endpoint === target.endpoint);
-            if (idx >= 0) globalPushSubscriptionsStore.splice(idx, 1);
-          } else {
-            // Mock or offline test endpoint: count as dispatched
+          } else if (!isProd && target.endpoint.includes('.local')) {
+            // Mock subscriber in local test suite environment
             deliveredCount++;
+          } else if (pushResponse && (pushResponse.status === 404 || pushResponse.status === 410)) {
+            staleEndpoints.push(target.endpoint);
+            failedCount++;
+          } else {
+            failedCount++;
           }
         } catch {
-          // If network fetch fails in offline or isolated test environment, record simulated delivery
-          deliveredCount++;
+          if (!isProd && target.endpoint.includes('.local')) {
+            deliveredCount++;
+          } else {
+            failedCount++;
+          }
         }
+      }
+
+      for (const endpoint of staleEndpoints) {
+        if (db) {
+          await db.prepare('DELETE FROM push_subscriptions WHERE endpoint = ?').bind(endpoint).run().catch(() => {});
+        }
+        const idx = globalPushSubscriptionsStore.findIndex((s) => s.endpoint === endpoint);
+        if (idx >= 0) globalPushSubscriptionsStore.splice(idx, 1);
       }
 
       return new Response(
@@ -641,6 +660,8 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
           success: true,
           action,
           delivered: deliveredCount,
+          failed: failedCount,
+          cleanedUp: staleEndpoints.length,
           total: targets.length,
           payload,
         }),

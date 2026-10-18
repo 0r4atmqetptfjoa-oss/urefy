@@ -552,8 +552,10 @@ CREATE INDEX IF NOT EXISTS idx_vault_sync_updated ON vault_sync(updated_at DESC)
 CREATE TABLE IF NOT EXISTS dm_devices (
     fingerprint TEXT NOT NULL,
     device_id TEXT NOT NULL,
+    device_public_key TEXT NOT NULL DEFAULT '',
     device_label TEXT,
     registration_json TEXT NOT NULL,
+    certificate_json TEXT,
     status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'revoked')),
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL,
@@ -561,6 +563,14 @@ CREATE TABLE IF NOT EXISTS dm_devices (
 );
 
 CREATE INDEX IF NOT EXISTS idx_dm_devices_fingerprint_status ON dm_devices(fingerprint, status);
+
+CREATE TABLE IF NOT EXISTS dm_permissions (
+    fingerprint TEXT PRIMARY KEY,
+    permission TEXT NOT NULL DEFAULT 'everyone',
+    updated_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_dm_permissions_fingerprint ON dm_permissions(fingerprint);
 
 -- ===========================================================================
 -- 35. SYNTHETIC FIXTURE REGISTRY (closed beta / load test isolation)
