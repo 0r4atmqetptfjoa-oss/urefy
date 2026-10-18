@@ -102,20 +102,7 @@ class StudioRuntimeController {
           break;
         }
 
-        case 'open-post-detail': {
-          if (!postId) return;
-          // Evităm declanșarea dacă utilizatorul a selectat text sau a dat click pe un link intern
-          if (window.getSelection()?.toString().length) return;
-          if (target.closest('a, button:not([data-action="open-post-detail"])')) return;
 
-          e.preventDefault();
-          if (postDetailView && typeof (postDetailView as any).openPost === 'function') {
-            (postDetailView as any).openPost(postId);
-          } else {
-            (clientStore as any).selectPost?.(postId);
-          }
-          break;
-        }
 
         case 'toggle-post-reaction': {
           if (!postId) return;

@@ -265,6 +265,19 @@ export class PulseActionsEngine {
     }
     this._setLocalFlag(postId, 'liked', state.liked);
 
+    if (typeof document !== 'undefined') {
+      const liked = state.liked;
+      const count = state.likesCount;
+      document.querySelectorAll<HTMLElement>(`[data-pulse-action="like"][data-post-id="${postId}"], .btn-pulse-like[data-post-id="${postId}"]`).forEach(btn => {
+        btn.classList.toggle('is-active', liked);
+        btn.setAttribute('aria-pressed', String(liked));
+        const countEl = btn.querySelector('b') || btn.querySelector('.merit-count');
+        if (countEl) {
+          countEl.textContent = count > 0 ? (count >= 1000 ? `${(count / 1000).toFixed(1)}k` : String(count)) : '0';
+        }
+      });
+    }
+
     this.persist(postId, 'like', before, userFingerprint);
 
     return { isLiked: state.liked, newCount: state.likesCount, burst: state.liked };

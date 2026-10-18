@@ -250,18 +250,20 @@ export class ExploreView {
       ${matches
         .map(
           (person) => `<div data-fingerprint="${escapeHtml(person.fingerprint)}" class="p-4 rounded-2xl bg-surface-base/85 backdrop-blur-xl border border-white/[0.08] hover:border-cyan-400/35 flex items-center justify-between gap-3 transition-all shadow-md">
-            <div class="flex items-center gap-3 min-w-0">
+            <div class="flex items-center gap-3 min-w-0 cursor-pointer group/user" data-action="view-profile" data-fingerprint="${escapeHtml(person.fingerprint)}" data-open-profile="${escapeHtml(person.fingerprint)}">
               ${renderAvatar(person.avatar, person.fingerprint, { size: 42 })}
               <div class="min-w-0">
-                <div class="text-sm font-bold text-white truncate">${escapeHtml(person.name)}</div>
+                <div class="text-sm font-bold text-white truncate group-hover/user:text-cyan-300 transition-colors">${escapeHtml(person.name)}</div>
                 <div class="text-xs font-mono text-cyan-400 truncate">@${escapeHtml(person.handle)} · <span class="text-slate-400 font-normal">${person.postCount} ${person.postCount === 1 ? 'post' : 'posts'}</span></div>
                 <div class="text-[11px] text-slate-400 line-clamp-1 mt-0.5">${escapeHtml(person.bio)}</div>
               </div>
             </div>
             <button
               type="button"
+              data-action="view-profile"
+              data-fingerprint="${escapeHtml(person.fingerprint)}"
               data-open-profile="${escapeHtml(person.fingerprint)}"
-              class="px-3 py-1.5 min-h-[36px] rounded-xl bg-white/[0.06] hover:bg-cyan-500/20 text-xs font-semibold text-slate-200 hover:text-cyan-300 border border-white/10 shrink-0 cursor-pointer"
+              class="px-3 py-1.5 min-h-[36px] rounded-xl bg-white/[0.06] hover:bg-cyan-500/20 text-xs font-semibold text-slate-200 hover:text-cyan-300 border border-white/10 shrink-0 cursor-pointer transition-colors"
             >View</button>
           </div>`
         )

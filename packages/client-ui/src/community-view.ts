@@ -159,7 +159,7 @@ export class CommunityView {
       { id: 'about', label: 'Rules & Governance', icon: 'shield' },
     ];
 
-    return `<div id="community-workspace-${escapeHtml(circle.id)}" class="w-full max-w-4xl mx-auto space-y-5 pb-16">
+    return `<div id="community-workspace-${escapeHtml(circle.id)}" class="w-full h-full flex-1 min-h-0 overflow-y-auto max-w-4xl mx-auto space-y-5 px-3 sm:px-6 py-4 pb-32 scroll-smooth" style="-webkit-overflow-scrolling: touch; overscroll-behavior-y: contain;">
       <!-- 2027 Community Hero Header -->
       <header class="rounded-3xl overflow-hidden bg-surface-base/85 backdrop-blur-2xl border border-white/10 shadow-2xl">
         <div class="h-28 w-full bg-gradient-to-r from-cyan-900/50 via-indigo-950/60 to-emerald-900/50 relative">
@@ -308,7 +308,7 @@ export class CommunityView {
     const filtered = filterCommunities(allCircles, this.searchQuery, this.activeCategory, 'all');
     const featured = filtered[0] || allCircles[0];
 
-    return `<div id="communities-hub-workspace" class="w-full max-w-4xl mx-auto space-y-6 pb-16">
+    return `<div id="communities-hub-workspace" class="w-full h-full flex-1 min-h-0 overflow-y-auto max-w-4xl mx-auto space-y-6 px-3 sm:px-6 py-4 pb-32 scroll-smooth" style="-webkit-overflow-scrolling: touch; overscroll-behavior-y: contain;">
       <header class="rounded-3xl bg-surface-base/85 backdrop-blur-2xl border border-white/10 p-6 shadow-2xl">
         <div class="flex flex-wrap items-center justify-between gap-4">
           <div>

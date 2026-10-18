@@ -369,7 +369,7 @@ export class ActionDispatcher {
 
       // Direct post detail trigger delegation for [data-open-detail]
       const openDetailTarget = target.closest?.<HTMLElement>('[data-open-detail]');
-      if (openDetailTarget && !target.closest?.('a, input, textarea, select, iframe, video, .reaction-row, [data-action="react-post"], .btn-pulse-merit, .btn-pulse-reply, .btn-pulse-boost, .btn-pulse-bookmark, .btn-pulse-award, .btn-pulse-share, .btn-pulse-more')) {
+      if (openDetailTarget && !target.closest?.('a, input, textarea, select, iframe, video, .reaction-row, [data-action="react-post"], [data-pulse-action], .btn-pulse-like, .btn-pulse-merit, .btn-detail-vote, .social-post__avatar, [data-author-profile], [data-open-profile], .btn-pulse-reply, .btn-pulse-boost, .btn-pulse-bookmark, .btn-pulse-award, .btn-pulse-share, .btn-pulse-more')) {
         const postId = openDetailTarget.getAttribute('data-open-detail') || openDetailTarget.getAttribute('data-post-id') || openDetailTarget.getAttribute('data-post-card-id');
         if (postId) {
           event.preventDefault();
@@ -377,6 +377,49 @@ export class ActionDispatcher {
           postDetailView.openPost(postId);
           void import('../analytics-widget.js').then(({ localAnalytics }) => localAnalytics.recordPostView());
           clientStore.notifySync();
+          return;
+        }
+      }
+
+      // Direct open-profile trigger delegation for [data-open-profile], [data-author-profile]
+      const openProfileTarget = target.closest?.<HTMLElement>('[data-open-profile], [data-author-profile]');
+      if (openProfileTarget && !target.closest?.('a, input, textarea, select')) {
+        const fp = openProfileTarget.getAttribute('data-open-profile') || openProfileTarget.getAttribute('data-author-profile');
+        if (fp) {
+          event.preventDefault();
+          event.stopPropagation();
+          profileView.setTargetFingerprint(fp);
+          if (typeof window !== 'undefined' && (window as any).profileView) {
+            (window as any).profileView.setTargetFingerprint(fp);
+          }
+          clientStore.activeChannelId = 'profile';
+          sovereignRouter.navigateTo('profile');
+          clientStore.notifySync();
+          return;
+        }
+      }
+
+      // Direct pulse action delegation for [data-pulse-action="like"] or .btn-pulse-like
+      const pulseLikeTarget = target.closest?.<HTMLElement>('[data-pulse-action="like"], .btn-pulse-like');
+      if (pulseLikeTarget && !target.closest?.('input, textarea, select')) {
+        const postId = pulseLikeTarget.getAttribute('data-post-id');
+        if (postId) {
+          event.preventDefault();
+          event.stopPropagation();
+          const post = clientStore.posts.find(p => p.id === postId);
+          const baseline = (post as any)?.meritVotes || (post as any)?.meritScore || 0;
+          const res = pulseActionsEngine.toggleLike(postId, clientStore.keypair?.fingerprint, baseline);
+          if (res.burst) {
+            soundEffects.playReaction();
+            pulseActionsEngine.triggerParticleBurst(postId);
+          }
+          pulseLikeTarget.classList.toggle('is-active', res.isLiked);
+          pulseLikeTarget.setAttribute('aria-pressed', String(res.isLiked));
+          const countEl = pulseLikeTarget.querySelector('b') || pulseLikeTarget.querySelector('.merit-count');
+          if (countEl) {
+            countEl.textContent = res.newCount > 0 ? (res.newCount >= 1000 ? `${(res.newCount / 1000).toFixed(1)}k` : String(res.newCount)) : '0';
+          }
+          clientStore.notify('VOTE', { postId, meritVotes: res.newCount, isLiked: res.isLiked });
           return;
         }
       }
@@ -619,6 +662,21 @@ export class ActionDispatcher {
         const tab = (el.dataset.settingsTab || el.dataset.tab || el.getAttribute('data-settings-tab')) as any;
         if (tab && typeof window !== 'undefined' && (window as any).settingsView) {
           (window as any).settingsView.setActiveTab(tab);
+        }
+        break;
+      }
+
+      case 'view-profile':
+      case 'open-profile': {
+        const fp = el.getAttribute('data-fingerprint') || el.getAttribute('data-open-profile') || el.getAttribute('data-author-profile');
+        if (fp) {
+          profileView.setTargetFingerprint(fp);
+          if (typeof window !== 'undefined' && (window as any).profileView) {
+            (window as any).profileView.setTargetFingerprint(fp);
+          }
+          clientStore.activeChannelId = 'profile';
+          sovereignRouter.navigateTo('profile');
+          clientStore.notifySync();
         }
         break;
       }
@@ -986,6 +1044,26 @@ export class ActionDispatcher {
         const postId = el.getAttribute('data-vote-id') || postDetailView.activePostId;
         const dir = parseInt(el.getAttribute('data-dir') || '0', 10);
         if (postId && dir) {
+          const container = el.parentElement;
+          const p = clientStore.posts.find(x => x.id === postId);
+          if (p && container) {
+            const nextUserVoted = p.userVoted === dir ? 0 : dir;
+            const delta = nextUserVoted - (p.userVoted || 0);
+            const nextMeritVotes = Math.max(0, (p.meritVotes || 0) + delta);
+            const upBtn = container.querySelector<HTMLElement>('[data-dir="1"]');
+            const downBtn = container.querySelector<HTMLElement>('[data-dir="-1"]');
+            const countSpan = container.querySelector<HTMLElement>('.detail-vote-count, span');
+            if (upBtn) {
+              upBtn.className = `btn-detail-vote p-1.5 rounded-lg hover:bg-surface-overlay transition-colors cursor-pointer ${nextUserVoted === 1 ? 'text-cyphr font-bold bg-cyphr/10' : 'text-slate-400 hover:text-cyphr'}`;
+            }
+            if (downBtn) {
+              downBtn.className = `btn-detail-vote p-1.5 rounded-lg hover:bg-surface-overlay transition-colors cursor-pointer ${nextUserVoted === -1 ? 'text-crimson font-bold bg-crimson/10' : 'text-slate-400 hover:text-crimson'}`;
+            }
+            if (countSpan) {
+              countSpan.textContent = String(nextMeritVotes);
+              countSpan.className = `detail-vote-count font-mono text-sm font-bold px-2 ${nextUserVoted === 1 ? 'text-cyphr' : nextUserVoted === -1 ? 'text-crimson' : 'text-slate-200'}`;
+            }
+          }
           clientStore.votePost(postId, dir);
         }
         break;
@@ -1603,11 +1681,11 @@ export class ActionDispatcher {
 
       case 'open-post-detail': {
         const target = event.target as HTMLElement | null;
-        if (target && target.closest('button:not([data-action="open-post-detail"]), a, input, textarea, select, iframe, video, .reaction-row, [data-action="react-post"], .btn-pulse-merit, .btn-pulse-reply, .btn-pulse-boost, .btn-pulse-bookmark, .btn-pulse-award, .btn-pulse-share, .btn-pulse-more')) {
+        if (target && target.closest('button:not([data-action="open-post-detail"]), a, input, textarea, select, iframe, video, .reaction-row, [data-action="react-post"], [data-pulse-action], .btn-pulse-like, .btn-pulse-merit, .btn-detail-vote, .social-post__avatar, [data-author-profile], [data-open-profile], [data-action="view-profile"], [data-action="open-profile"], .btn-pulse-reply, .btn-pulse-boost, .btn-pulse-bookmark, .btn-pulse-award, .btn-pulse-share, .btn-pulse-more')) {
           break;
         }
         const postId = el.getAttribute('data-post-id') || el.getAttribute('data-post-card-id') || el.getAttribute('data-open-detail') || '';
-        if (postId) {
+        if (postId && (!postDetailView.isOpen() || postDetailView.getActivePostId() !== postId)) {
           postDetailView.openPost(postId);
           void import('../analytics-widget.js').then(({ localAnalytics }) => localAnalytics.recordPostView());
           clientStore.notifySync();

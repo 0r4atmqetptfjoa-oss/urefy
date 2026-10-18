@@ -2577,30 +2577,7 @@ function bindEvents(): void {
   });
 
   // 7. Full Thread Detail Modal & Post Card Clickability
-  document.querySelectorAll('.social-post, [data-post-card-id], [data-action="open-post-detail"]').forEach(postEl => {
-    postEl.addEventListener('click', (e) => {
-      const target = e.target as HTMLElement | null;
-      if (target && target.closest('button:not([data-action="open-post-detail"]), a, input, textarea, select, iframe, video, .reaction-row, [data-action="react-post"], .btn-pulse-merit, .btn-pulse-reply, .btn-pulse-boost, .btn-pulse-bookmark, .btn-pulse-award, .btn-pulse-share, .btn-pulse-more')) {
-        return;
-      }
-      const postId = postEl.getAttribute('data-post-card-id') || postEl.getAttribute('data-post-id');
-      if (postId) {
-        postDetailView.openPost(postId);
-        void import('./analytics-widget.js').then(({ localAnalytics }) => localAnalytics.recordPostView());
-      }
-    }, { signal });
-  });
-
-  document.querySelectorAll('.btn-open-detail').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const postId = btn.getAttribute('data-open-detail');
-      if (postId) {
-        postDetailView.openPost(postId);
-        void import('./analytics-widget.js').then(({ localAnalytics }) => localAnalytics.recordPostView());
-      }
-    }, { signal });
-  });
+  // Centrally delegated via ActionDispatcher (data-action="open-post-detail" and data-open-detail).
   const handleClosePostDetail = (e?: Event) => {
     e?.preventDefault();
     postDetailView.closePost();

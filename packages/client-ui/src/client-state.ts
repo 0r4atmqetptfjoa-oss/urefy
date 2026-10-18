@@ -1052,8 +1052,55 @@ export class AetherisClientStore {
     } else {
       p.meritVotes += direction - p.userVoted;
       p.userVoted = direction;
-      this.showToast(direction > 0 ? '▲ Endorsed +1 Merit' : '▼ Divergent perspective noted', 'success');
     }
+
+    // Synchronous DOM paint for zero-latency user feedback
+    if (typeof document !== 'undefined') {
+      document.querySelectorAll<HTMLElement>(`[data-vote-id="${postId}"]`).forEach(btn => {
+        const dir = parseInt(btn.getAttribute('data-dir') || '0', 10);
+        const isDetail = btn.classList.contains('btn-detail-vote') || Boolean(btn.closest('#post-focus-view'));
+        if (isDetail) {
+          if (dir === 1) {
+            btn.className = `btn-detail-vote p-1.5 rounded-lg hover:bg-surface-overlay transition-colors cursor-pointer ${p.userVoted === 1 ? 'text-cyphr font-bold bg-cyphr/10' : 'text-slate-400 hover:text-cyphr'}`;
+          } else if (dir === -1) {
+            btn.className = `btn-detail-vote p-1.5 rounded-lg hover:bg-surface-overlay transition-colors cursor-pointer ${p.userVoted === -1 ? 'text-crimson font-bold bg-crimson/10' : 'text-slate-400 hover:text-crimson'}`;
+          }
+          const container = btn.parentElement;
+          if (container) {
+            const countSpan = container.querySelector('.detail-vote-count') || container.querySelector('span');
+            if (countSpan) {
+              countSpan.textContent = String(p.meritVotes);
+              countSpan.className = `detail-vote-count font-mono text-sm font-bold px-2 ${p.userVoted === 1 ? 'text-cyphr' : p.userVoted === -1 ? 'text-crimson' : 'text-slate-200'}`;
+            }
+          }
+        } else {
+          if (dir === 1) {
+            btn.className = `btn-upvote text-slate-400 hover:text-indigo-400 transition-colors p-1.5 rounded-xl hover:bg-surface-overlay cursor-pointer ${p.userVoted === 1 ? 'text-indigo-400 font-bold bg-indigo-950/60' : ''}`;
+          } else if (dir === -1) {
+            btn.className = `btn-downvote text-slate-400 hover:text-rose-500 transition-colors p-1.5 rounded-xl hover:bg-surface-overlay cursor-pointer ${p.userVoted === -1 ? 'text-rose-500 font-bold bg-rose-950/60' : ''}`;
+          }
+          const container = btn.parentElement;
+          if (container) {
+            const countSpan = container.querySelector('span');
+            if (countSpan) {
+              countSpan.textContent = String(p.meritVotes);
+              countSpan.className = `font-mono text-xs font-bold ${p.userVoted === 1 ? 'text-indigo-400' : p.userVoted === -1 ? 'text-rose-500' : 'text-slate-300'}`;
+            }
+          }
+        }
+      });
+
+      document.querySelectorAll<HTMLElement>(`[data-pulse-action="like"][data-post-id="${postId}"], .btn-pulse-like[data-post-id="${postId}"]`).forEach(btn => {
+        const isLiked = p.userVoted === 1;
+        btn.classList.toggle('is-active', isLiked);
+        btn.setAttribute('aria-pressed', String(isLiked));
+        const countEl = btn.querySelector('b') || btn.querySelector('.merit-count');
+        if (countEl) {
+          countEl.textContent = p.meritVotes > 0 ? (p.meritVotes >= 1000 ? `${(p.meritVotes / 1000).toFixed(1)}k` : String(p.meritVotes)) : '0';
+        }
+      });
+    }
+
     this.notify('VOTE', { postId, direction, meritVotes: p.meritVotes, userVoted: p.userVoted });
     crossTabSync.broadcast('POST_VOTED', { postId, direction, meritVotes: p.meritVotes });
 

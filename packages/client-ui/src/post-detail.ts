@@ -146,6 +146,9 @@ export class PostDetailView {
   }
 
   public openPost(postId: string, originRoute?: string): void {
+    if (this.activePostId === postId) {
+      return;
+    }
     if (typeof document !== 'undefined') {
       const feedEl = document.getElementById('main-feed-scroll') || document.getElementById('post-focus-view');
       if (feedEl) {
