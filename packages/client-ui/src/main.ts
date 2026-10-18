@@ -47,111 +47,133 @@ const start = async () => {
   document.getElementById('boot-shell')?.remove();
   void import('./ui/studio-runtime-fixes.js').then((m) => m.studioRuntime.init());
 
-  void Promise.all([
-    import('./search.js'),
-    import('./dm-workspace.js'),
-    import('./client-state.js'),
-  ]).then(([{ SovereignOmniSearch }, { DmWorkspaceController }, { clientStore }]) => {
-    const dmWorkspace = new DmWorkspaceController({
-      getIdentity: async () => {
-        const kp = clientStore.keypair;
-        if (!kp) return null;
-        let privHex = '';
-        if (kp.privateKey) {
-          privHex = Array.from(kp.privateKey, (b) => b.toString(16).padStart(2, '0')).join('');
-        }
-        return {
-          fingerprint: kp.fingerprint,
-          publicKeyHex: kp.publicKeyHex,
-          privateKeyHex: privHex,
-        };
-      },
-      notify: (msg, type) => {
-        clientStore.showToast(msg, type === 'error' ? 'warning' : (type || 'info'));
-      },
-    });
+  let workspacesPromise: Promise<{ omniSearch: any; dmWorkspace: any }> | null = null;
+  const loadInteractiveWorkspaces = () => {
+    if (!workspacesPromise) {
+      workspacesPromise = Promise.all([
+        import('./search.js'),
+        import('./dm-workspace.js'),
+        import('./client-state.js'),
+      ]).then(([{ SovereignOmniSearch }, { DmWorkspaceController }, { clientStore }]) => {
+        const dmWorkspace = new DmWorkspaceController({
+          getIdentity: async () => {
+            const kp = clientStore.keypair;
+            if (!kp) return null;
+            let privHex = '';
+            if (kp.privateKey) {
+              privHex = Array.from(kp.privateKey, (b) => b.toString(16).padStart(2, '0')).join('');
+            }
+            return {
+              fingerprint: kp.fingerprint,
+              publicKeyHex: kp.publicKeyHex,
+              privateKeyHex: privHex,
+            };
+          },
+          notify: (msg, type) => {
+            clientStore.showToast(msg, type === 'error' ? 'warning' : (type || 'info'));
+          },
+        });
 
-    const omniSearch = new SovereignOmniSearch({
-      getPosts: () =>
-        clientStore.posts.map((p) => ({
-          id: p.id,
-          channelId: p.channelId,
-          authorId: p.authorFingerprint,
-          authorRole: p.authorRole,
-          title: p.title,
-          content: p.content,
-          flair: p.flair,
-          meritVotes: p.meritVotes,
-          createdAt: p.createdAt,
-        })),
-      getChannels: () =>
-        clientStore.channels.map((c) => ({
-          id: c.id,
-          name: c.name,
-          description: c.description,
-          category: c.space,
-          activeCount: 1,
-        })),
-      onSelectPost: (postId, channelId) => {
-        if (channelId && channelId !== clientStore.activeChannelId) {
-          clientStore.activeChannelId = channelId;
-        }
-        const post = clientStore.posts.find((p) => p.id === postId);
-        if (post) {
-          post.isExpanded = true;
-          clientStore.notify();
-          setTimeout(() => {
-            document.querySelector(`[data-post-id="${postId}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          }, 80);
-        }
-      },
-      onSelectChannel: (channelId) => {
-        clientStore.activeChannelId = channelId;
-        clientStore.notify();
-      },
-      onSelectUser: (fingerprint) => {
-        dmWorkspace.openWithPeer(fingerprint);
-      },
-    });
+        const omniSearch = new SovereignOmniSearch({
+          getPosts: () =>
+            clientStore.posts.map((p) => ({
+              id: p.id,
+              channelId: p.channelId,
+              authorId: p.authorFingerprint,
+              authorRole: p.authorRole,
+              title: p.title,
+              content: p.content,
+              flair: p.flair,
+              meritVotes: p.meritVotes,
+              createdAt: p.createdAt,
+            })),
+          getChannels: () =>
+            clientStore.channels.map((c) => ({
+              id: c.id,
+              name: c.name,
+              description: c.description,
+              category: c.space,
+              activeCount: 1,
+            })),
+          onSelectPost: (postId, channelId) => {
+            if (channelId && channelId !== clientStore.activeChannelId) {
+              clientStore.activeChannelId = channelId;
+            }
+            const post = clientStore.posts.find((p) => p.id === postId);
+            if (post) {
+              post.isExpanded = true;
+              clientStore.notify();
+              setTimeout(() => {
+                document.querySelector(`[data-post-id="${postId}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }, 80);
+            }
+          },
+          onSelectChannel: (channelId) => {
+            clientStore.activeChannelId = channelId;
+            clientStore.notify();
+          },
+          onSelectUser: (fingerprint) => {
+            dmWorkspace.openWithPeer(fingerprint);
+          },
+        });
 
-    const headerSearchInput = document.getElementById('global-search-input') as HTMLInputElement | null;
-    headerSearchInput?.addEventListener('focus', () => {
+        (window as any).dmWorkspace = dmWorkspace;
+        (window as any).omniSearch = omniSearch;
+
+        void import('./spatial-ui-2027.js').then(({ initSpatialUi2027 }) => {
+          initSpatialUi2027({
+            onOpenSearch: () => omniSearch.openModal(),
+            onOpenChat: () => dmWorkspace.open(),
+          });
+        });
+
+        return { omniSearch, dmWorkspace };
+      });
+    }
+    return workspacesPromise;
+  };
+
+  // Pre-warm interactive workspaces on idle or user interaction
+  if (typeof requestIdleCallback !== 'undefined') {
+    requestIdleCallback(() => { void loadInteractiveWorkspaces(); }, { timeout: 3000 });
+  } else {
+    setTimeout(() => { void loadInteractiveWorkspaces(); }, 2000);
+  }
+
+  const headerSearchInput = document.getElementById('global-search-input') as HTMLInputElement | null;
+  headerSearchInput?.addEventListener('focus', () => {
+    void loadInteractiveWorkspaces().then(({ omniSearch }) => {
       omniSearch.openModal(headerSearchInput.value);
     });
-    document.querySelectorAll('[data-open-command-rail], [data-action="open-command-rail"], #btn-open-command-rail, #btn-mobile-search-trigger, #btn-header-search, #btn-mobile-search').forEach((btn) => {
-      btn.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
+  });
+
+  document.querySelectorAll('[data-open-command-rail], [data-action="open-command-rail"], #btn-open-command-rail, #btn-mobile-search-trigger, #btn-header-search, #btn-mobile-search').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      void loadInteractiveWorkspaces().then(({ omniSearch }) => {
         omniSearch.openModal();
       });
     });
+  });
 
-    window.addEventListener('keydown', (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
-        const activeTag = (document.activeElement?.tagName || '').toLowerCase();
-        if (activeTag === 'input' || activeTag === 'textarea') return;
-        e.preventDefault();
+  window.addEventListener('keydown', (e: KeyboardEvent) => {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+      const activeTag = (document.activeElement?.tagName || '').toLowerCase();
+      if (activeTag === 'input' || activeTag === 'textarea') return;
+      e.preventDefault();
+      void loadInteractiveWorkspaces().then(({ omniSearch }) => {
         omniSearch.openModal();
-      }
-      if ((e.metaKey || e.ctrlKey) && e.altKey && e.key.toLowerCase() === 'a') {
-        const activeTag = (document.activeElement?.tagName || '').toLowerCase();
-        if (activeTag === 'input' || activeTag === 'textarea') return;
-        e.preventDefault();
-        void import('./admin-dashboard.js').then(({ adminDashboard }) => {
-          adminDashboard.open();
-        });
-      }
-    });
-
-    (window as any).dmWorkspace = dmWorkspace;
-    (window as any).omniSearch = omniSearch;
-
-    void import('./spatial-ui-2027.js').then(({ initSpatialUi2027 }) => {
-      initSpatialUi2027({
-        onOpenSearch: () => omniSearch.openModal(),
-        onOpenChat: () => dmWorkspace.open(),
       });
-    });
+    }
+    if ((e.metaKey || e.ctrlKey) && e.altKey && e.key.toLowerCase() === 'a') {
+      const activeTag = (document.activeElement?.tagName || '').toLowerCase();
+      if (activeTag === 'input' || activeTag === 'textarea') return;
+      e.preventDefault();
+      void import('./admin-dashboard.js').then(({ adminDashboard }) => {
+        adminDashboard.open();
+      });
+    }
   });
 };
 

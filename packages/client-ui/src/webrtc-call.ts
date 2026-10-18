@@ -106,9 +106,9 @@ export class WebRTCCallModal extends WebRTCElementBase {
         sdp: offer,
       });
     } catch (err) {
-      console.error('[WebRTC] Eroare la inițierea apelului:', err);
+      console.error('[WebRTC] Call initiation error:', err);
       this.endCall(false);
-      this.showCallError('Nu s-a putut accesa microfonul/camera. Verifică permisiunile browserului.');
+      this.showCallError('Unable to access microphone/camera. Check browser permissions.');
     }
   }
 
@@ -129,7 +129,7 @@ export class WebRTCCallModal extends WebRTCElementBase {
         }
         this.activeCallId = signal.callId;
         this.callMode = signal.callMode;
-        this.remotePeerName = signal.senderName || 'Partener Criptat';
+        this.remotePeerName = signal.senderName || 'Encrypted Peer';
         this.callState = 'incoming';
         this.pendingOffer = signal.sdp || null;
         await this.computeSasEmojis(signal.sdp?.sdp || signal.callId);
@@ -152,7 +152,7 @@ export class WebRTCCallModal extends WebRTCElementBase {
         this.endCall(false);
       }
     } catch (err) {
-      console.error('[WebRTC] Eroare procesare semnal:', err);
+      console.error('[WebRTC] Signal processing error:', err);
     }
   }
 
@@ -162,7 +162,7 @@ export class WebRTCCallModal extends WebRTCElementBase {
 
     try {
       if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
-        throw new Error('WebRTC mediaDevices indisponibil');
+        throw new Error('WebRTC mediaDevices unavailable');
       }
 
       this.localStream = await navigator.mediaDevices.getUserMedia({
@@ -194,9 +194,9 @@ export class WebRTCCallModal extends WebRTCElementBase {
         sdp: answer,
       });
     } catch (err) {
-      console.error('[WebRTC] Eroare la preluarea apelului:', err);
+      console.error('[WebRTC] Error answering call:', err);
       this.endCall(true);
-      this.showCallError('Eroare la conectarea fluxului audio/video.');
+      this.showCallError('Error connecting audio/video stream.');
     }
   }
 
@@ -239,7 +239,7 @@ export class WebRTCCallModal extends WebRTCElementBase {
       callId: partial.callId || this.activeCallId,
       callMode: partial.callMode || this.callMode,
       senderId: user?.id || 'anon',
-      senderName: user?.name || (user as any)?.displayName || 'Utilizator',
+      senderName: user?.name || (user as any)?.displayName || 'User',
       targetChannelId: activeChannel?.id || 'general',
       sdp: partial.sdp,
       candidate: partial.candidate,
@@ -266,7 +266,7 @@ export class WebRTCCallModal extends WebRTCElementBase {
 
     try {
       if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getDisplayMedia) {
-        throw new Error('Partajarea ecranului nu este suportată de acest navigator');
+        throw new Error('Screen sharing is not supported by this browser');
       }
 
       this.screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
@@ -560,14 +560,14 @@ export class WebRTCCallModal extends WebRTCElementBase {
             <div>
               <strong style="font-size:16px;">${this.remotePeerName}</strong>
               <span id="call-duration" style="margin-left:10px;color:#34d399;font-family:monospace;">
-                ${this.callState === 'connected' ? this.formatDuration(this.callSeconds) : this.callState === 'incoming' ? 'Apel Criptat Primit...' : 'Se apelează P2P...'}
+                ${this.callState === 'connected' ? this.formatDuration(this.callSeconds) : this.callState === 'incoming' ? 'Incoming Encrypted Call...' : 'Calling P2P...'}
               </span>
             </div>
-            <div class="sas-badge" title="Verifică dacă partenerul vede aceleași 4 emoji-uri pentru garanția E2EE">
-              <span>Cheie E2EE SAS:</span>
+            <div class="sas-badge" title="Verify if peer sees the same 4 emojis for E2EE authentication">
+              <span>E2EE SAS Key:</span>
               <span style="font-size:16px;letter-spacing:3px;">${this.sasEmojis.join(' ')}</span>
             </div>
-            <button class="ctrl-btn" id="btn-min-call">${this.isMinimized ? '⤢ Mărește' : '⤡ Minimizează'}</button>
+            <button class="ctrl-btn" id="btn-min-call">${this.isMinimized ? '⤢ Expand' : '⤡ Minimize'}</button>
           </div>
 
           <div class="video-stage">
@@ -590,26 +590,26 @@ export class WebRTCCallModal extends WebRTCElementBase {
             ${
               this.callState === 'incoming'
                 ? `
-              <button class="ctrl-btn accept" id="btn-accept-call">📞 Răspunde (${this.callMode.toUpperCase()})</button>
-              <button class="ctrl-btn hangup" id="btn-reject-call">✕ Respinge</button>
+              <button class="ctrl-btn accept" id="btn-accept-call">📞 Answer (${this.callMode.toUpperCase()})</button>
+              <button class="ctrl-btn hangup" id="btn-reject-call">✕ Decline</button>
             `
                 : `
               <button class="ctrl-btn ${this.isMuted ? 'active-danger' : ''}" id="btn-toggle-mic">
-                ${this.isMuted ? '🔇 Microfon Oprit' : '🎙️ Microfon Activ'}
+                ${this.isMuted ? '🔇 Mic Muted' : '🎙️ Mic Active'}
               </button>
               ${
                 this.callMode === 'video'
                   ? `
                 <button class="ctrl-btn ${this.isCameraOff ? 'active-danger' : ''}" id="btn-toggle-cam">
-                  ${this.isCameraOff ? '🚫 Cameră Oprită' : '📹 Cameră Activă'}
+                  ${this.isCameraOff ? '🚫 Camera Off' : '📹 Camera Active'}
                 </button>
                 <button class="ctrl-btn" id="btn-share-screen">
-                  ${this.isScreenSharing ? '🛑 Oprește Partajarea' : '🖥️ Partajează Ecranul'}
+                  ${this.isScreenSharing ? '🛑 Stop Share' : '🖥️ Share Screen'}
                 </button>
               `
                   : ''
               }
-              <button class="ctrl-btn hangup" id="btn-hangup-call">☎️ Închide Apelul</button>
+              <button class="ctrl-btn hangup" id="btn-hangup-call">☎️ End Call</button>
             `
             }
           </div>

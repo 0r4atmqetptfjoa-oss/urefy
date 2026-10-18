@@ -286,6 +286,8 @@ export class ExploreView {
         .map(
           (item) => `<button
             type="button"
+            data-action="filter-by-topic"
+            data-topic="${escapeHtml(item.topic)}"
             data-explore-topic="${escapeHtml(item.topic)}"
             class="text-left p-4 rounded-2xl bg-surface-base/85 backdrop-blur-xl border border-white/[0.08] hover:border-cyan-400/45 hover:bg-surface-raised/85 transition-all group cursor-pointer shadow-lg flex flex-col justify-between"
           >
@@ -354,6 +356,8 @@ export class ExploreView {
                 type="button"
                 role="tab"
                 aria-selected="${active ? 'true' : 'false'}"
+                data-action="set-search-result-tab"
+                data-search-result-tab="${tab.id}"
                 data-explore-search-tab="${tab.id}"
                 class="px-3.5 py-1.5 min-h-[36px] rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                   active
@@ -369,7 +373,7 @@ export class ExploreView {
             ? `<button
                 type="button"
                 id="btn-clear-explore-search"
-                data-action="exploreView.clearSearch()"
+                data-action="clear-explore-search"
                 class="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs text-slate-300 hover:text-white cursor-pointer"
               >Clear filter "${escapeHtml(this.searchQuery)}" ✕</button>`
             : ''
@@ -456,6 +460,8 @@ export class ExploreView {
               const active = this.activeCategory === cat.id;
               return `<button
                 type="button"
+                data-action="select-explore-category"
+                data-explore-cat="${cat.id}"
                 data-explore-category="${cat.id}"
                 class="inline-flex items-center gap-1.5 px-3.5 py-1.5 min-h-[36px] rounded-xl text-xs font-semibold shrink-0 transition-all cursor-pointer ${
                   active

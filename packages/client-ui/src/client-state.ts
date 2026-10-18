@@ -381,7 +381,9 @@ export class AetherisClientStore {
 
     this.seedInitialPostsAndMembers();
     this.loadCachedMessages();
-    this.connect();
+    if (this.isAuthenticated()) {
+      this.connect();
+    }
     this.syncFromEdge();
 
     if (typeof window !== 'undefined') {
@@ -389,6 +391,23 @@ export class AetherisClientStore {
         if (typeof document !== 'undefined' && document.hidden) return;
         this.syncFromEdge();
       }, 15000);
+    }
+  }
+
+  /**
+   * Checks whether the current user has a stored identity or completed profile.
+   */
+  public isAuthenticated(): boolean {
+    if (typeof localStorage === 'undefined') return false;
+    try {
+      return Boolean(
+        localStorage.getItem('urefy_identity') ||
+        localStorage.getItem('sovereign_identity') ||
+        localStorage.getItem('aetheris_onboarding_stage_v2') === 'ONBOARDING_COMPLETE' ||
+        (typeof secureStorage !== 'undefined' && secureStorage.getIdentitySync())
+      );
+    } catch {
+      return false;
     }
   }
 
@@ -1311,6 +1330,7 @@ export class AetherisClientStore {
   }
 
   public connect(): void {
+    if (!this.isAuthenticated()) return;
     const isHttps = typeof window !== 'undefined' && window.location?.protocol === 'https:';
     const host = typeof window !== 'undefined' ? (window.location?.host || window.location?.hostname || 'localhost') : 'localhost';
     const isLocal = host.startsWith('localhost') || host.startsWith('127.0.0.1');

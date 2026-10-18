@@ -782,14 +782,14 @@ export class DmWorkspaceController {
                     (emoji) =>
                       `<button type="button" class="nx-react-btn" data-msgid="${escapeHtml(m.id)}" data-emoji="${emoji}">${emoji}</button>`
                   ).join('')}
-                  <button type="button" class="nx-reply-btn" data-msgid="${escapeHtml(m.id)}" title="Răspunde la mesaj">↩ Răspunde</button>
+                  <button type="button" class="nx-reply-btn" data-msgid="${escapeHtml(m.id)}" title="Reply to message">↩ Reply</button>
                 </div>
 
                 ${
                   parsed.replyToSnippet
                     ? `
                     <div class="nx-msg-reply-quote" data-jump="${escapeHtml(parsed.replyToId || '')}">
-                      <div class="nx-reply-quote-author">↩ ${escapeHtml(parsed.replyToSender || 'Mesaj citat')}</div>
+                      <div class="nx-reply-quote-author">↩ ${escapeHtml(parsed.replyToSender || 'Quoted message')}</div>
                       <div class="nx-reply-quote-text">${escapeHtml(parsed.replyToSnippet)}</div>
                     </div>`
                     : ''
@@ -858,26 +858,26 @@ export class DmWorkspaceController {
               <strong>HKDF-SHA256 Ratchet</strong>
             </div>
             <div class="nx-kv-row">
-              <span>Sesiuni Dispozitiv</span>
+              <span>Device Sessions</span>
               <strong>${peerSessions.length} active</strong>
             </div>
           </div>
         </div>
 
         <div class="nx-inspector-section">
-          <div class="nx-section-title">NUMĂR DE SIGURANȚĂ (SAFETY NUMBER)</div>
+          <div class="nx-section-title">SAFETY NUMBER VERIFICATION</div>
           <div class="nx-safety-grid">${safetyDigest}</div>
           <p class="nx-inspector-note">
-            Compară acest cod cu interlocutorul printr-un canal secundar pentru a garanta absența oricărui interpus (MITM).
+            Compare this code with your peer over a secondary channel to guarantee zero man-in-the-middle (MITM).
           </p>
         </div>
 
         <div class="nx-inspector-section">
-          <div class="nx-section-title">COMENZI SLASH DISPONIBILE</div>
+          <div class="nx-section-title">AVAILABLE SLASH COMMANDS</div>
           <ul class="nx-slash-list">
-            <li><code>/verify</code> — Trimite atestarea PQC</li>
-            <li><code>/shrug</code> — Adaugă ¯\\_(ツ)_/¯</li>
-            <li><code>/clear</code> — Curăță filtrul de căutare</li>
+            <li><code>/verify</code> — Send PQC cryptographic attestation</li>
+            <li><code>/shrug</code> — Append ¯\\_(ツ)_/¯</li>
+            <li><code>/clear</code> — Clear search filter</li>
           </ul>
         </div>
       `;
@@ -1020,7 +1020,7 @@ export class DmWorkspaceController {
     try {
       if (sendBtn) {
         sendBtn.disabled = true;
-        sendBtn.innerHTML = '<span>Criptare PQC...</span>';
+        sendBtn.innerHTML = '<span>PQC Encrypting...</span>';
       }
       await client.sendMessage(this.activePeerFingerprint, finalPayload);
       if (input) input.value = '';
@@ -1028,11 +1028,11 @@ export class DmWorkspaceController {
       this.updateReplyBanner();
       this.renderConversationState();
     } catch (err: any) {
-      this.notify(err?.message || 'Eroare la criptarea sau expedierea mesajului.', 'error');
+      this.notify(err?.message || 'Error encrypting or sending message.', 'error');
     } finally {
       if (sendBtn) {
         sendBtn.disabled = false;
-        sendBtn.innerHTML = '<span>Trimite</span><span class="nx-send-icon">➤</span>';
+        sendBtn.innerHTML = '<span>Send</span><span class="nx-send-icon">➤</span>';
       }
     }
   }

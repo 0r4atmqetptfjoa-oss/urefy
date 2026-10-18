@@ -38,7 +38,8 @@ export function communityCategories(circles: readonly SovereignCircle[]): string
 
 export function filterCommunities(circles: readonly SovereignCircle[], query: string, category: string, membership: 'all' | 'joined'): SovereignCircle[] {
   const term = query.trim().toLocaleLowerCase();
+  const normalizedCategory = (category || 'all').trim().toLocaleLowerCase();
   return circles.filter(circle => (membership !== 'joined' || circle.isJoined)
-    && (category === 'all' || (circle.category?.trim() || 'General').toLocaleLowerCase() === category.toLocaleLowerCase())
+    && (normalizedCategory === 'all' || (circle.category?.trim() || 'General').toLocaleLowerCase() === normalizedCategory)
     && (!term || `${circle.name} ${circle.displayName} ${circle.description} ${circle.category}`.toLocaleLowerCase().includes(term)));
 }

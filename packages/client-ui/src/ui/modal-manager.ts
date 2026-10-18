@@ -75,7 +75,7 @@ class UnifiedModalManager {
                  <button type="button"
                          data-modal-close="${options.id}"
                          class="inline-flex items-center justify-center w-8 h-8 rounded-lg text-slate-400 hover:text-slate-100 hover:bg-slate-800/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 transition-colors"
-                         aria-label="Închide fereastra">
+                         aria-label="Close window">
                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                      <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
                    </svg>

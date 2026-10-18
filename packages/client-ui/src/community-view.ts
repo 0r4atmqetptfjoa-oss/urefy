@@ -27,7 +27,7 @@ function escapeHtml(str: string): string {
 export class CommunityView {
   public activePillar: 'discuss' | 'live' | 'knowledge' | 'about' = 'discuss';
   public searchQuery: string = '';
-  public activeCategory: string = 'All';
+  public activeCategory: string = 'all';
   public membershipFilter: 'all' | 'joined' = 'all';
 
   public setActivePillar(pillar: 'discuss' | 'live' | 'knowledge' | 'about'): void {
@@ -191,6 +191,8 @@ export class CommunityView {
             <div class="flex items-center gap-2">
               <button
                 type="button"
+                data-action="toggle-join-circle"
+                data-circle-id="${escapeHtml(circle.id)}"
                 data-toggle-join-circle="${escapeHtml(circle.id)}"
                 class="px-4 py-2 min-h-[40px] rounded-xl text-xs font-bold transition-all cursor-pointer ${
                   circle.isJoined
@@ -279,6 +281,8 @@ export class CommunityView {
         </div>
         <button
           type="button"
+          data-action="toggle-join-circle"
+          data-circle-id="${escapeHtml(circle.id)}"
           data-toggle-join-circle="${escapeHtml(circle.id)}"
           class="px-3.5 py-1.5 min-h-[36px] rounded-xl text-xs font-bold cursor-pointer ${
             circle.isJoined ? 'bg-white/10 text-white' : 'bg-cyan-500 text-slate-950'
@@ -316,7 +320,8 @@ export class CommunityView {
           </div>
           <button
             type="button"
-            id="btn-open-create-circle"
+            id="btn-open-create-circle-modal"
+            data-action="open-create-circle"
             data-open-create-circle="true"
             class="inline-flex items-center gap-1.5 px-4 py-2 min-h-[42px] rounded-xl bg-gradient-to-b from-cyan-400 to-cyan-500 text-slate-950 font-bold text-xs shadow-lg cursor-pointer"
           >
@@ -346,6 +351,8 @@ export class CommunityView {
               const active = this.activeCategory === cat;
               return `<button
                 type="button"
+                data-action="select-community-category"
+                data-category="${escapeHtml(cat)}"
                 data-community-category="${escapeHtml(cat)}"
                 class="px-3 py-1.5 min-h-[34px] rounded-xl text-xs font-semibold shrink-0 transition-all cursor-pointer ${
                   active

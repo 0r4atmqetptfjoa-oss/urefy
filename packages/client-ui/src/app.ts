@@ -3075,11 +3075,11 @@ function updateCommandRailHighlight(index: number): void {
   });
 
   // Explore View Handlers
-  document.querySelectorAll('.btn-explore-category').forEach(btn => {
+  document.querySelectorAll('.btn-explore-category, [data-explore-category], [data-explore-cat]').forEach(btn => {
     btn.addEventListener('click', () => {
-      const cat = btn.getAttribute('data-explore-cat') as any;
-      if (cat) {
-        exploreView!.setActiveCategory(cat);
+      const cat = (btn.getAttribute('data-explore-cat') || btn.getAttribute('data-explore-category')) as any;
+      if (cat && exploreView) {
+        exploreView.setActiveCategory(cat);
         clientStore.notify();
       }
     }, { signal });
@@ -3087,39 +3087,47 @@ function updateCommandRailHighlight(index: number): void {
   const exploreInput = document.getElementById('explore-search-input') as HTMLInputElement;
   if (exploreInput) {
     exploreInput.addEventListener('input', (e) => {
-      exploreView!.setSearchQuery((e.target as HTMLInputElement).value, false);
-      clientStore.notify();
+      if (exploreView) {
+        exploreView.setSearchQuery((e.target as HTMLInputElement).value, false);
+        clientStore.notify();
+      }
     }, { signal });
     exploreInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && !e.isComposing) exploreView!.saveRecentSearch(exploreInput.value);
+      if (e.key === 'Enter' && !e.isComposing && exploreView) exploreView.saveRecentSearch(exploreInput.value);
     }, { signal });
   }
   document.getElementById('btn-clear-explore-search')?.addEventListener('click', () => {
-    exploreView!.clearSearch();
-    clientStore.notify();
+    if (exploreView) {
+      exploreView.clearSearch();
+      clientStore.notify();
+    }
   }, { signal });
   document.getElementById('btn-clear-explore-empty')?.addEventListener('click', () => {
-    exploreView!.clearSearch();
-    clientStore.notify();
+    if (exploreView) {
+      exploreView.clearSearch();
+      clientStore.notify();
+    }
   }, { signal });
   document.getElementById('btn-clear-recent-searches')?.addEventListener('click', () => {
-    exploreView!.clearRecentSearches();
-    clientStore.notify();
+    if (exploreView) {
+      exploreView.clearRecentSearches();
+      clientStore.notify();
+    }
   }, { signal });
-  document.querySelectorAll('[data-search-result-tab]').forEach(btn => {
+  document.querySelectorAll('[data-search-result-tab], [data-explore-search-tab]').forEach(btn => {
     btn.addEventListener('click', () => {
-      const tab = btn.getAttribute('data-search-result-tab') as 'posts' | 'people' | 'communities' | 'topics' | null;
-      if (tab) {
-        exploreView!.setActiveSearchTab(tab);
+      const tab = (btn.getAttribute('data-search-result-tab') || btn.getAttribute('data-explore-search-tab')) as 'posts' | 'people' | 'communities' | 'topics' | null;
+      if (tab && exploreView) {
+        exploreView.setActiveSearchTab(tab);
         clientStore.notify();
       }
     }, { signal });
   });
-  document.querySelectorAll('[data-search-trend], .btn-select-trend').forEach(btn => {
+  document.querySelectorAll('[data-search-trend], .btn-select-trend, [data-explore-topic], [data-topic]').forEach(btn => {
     btn.addEventListener('click', () => {
-      const trend = btn.getAttribute('data-search-trend');
-      if (trend) {
-        exploreView!.selectTopic(trend);
+      const trend = btn.getAttribute('data-explore-topic') || btn.getAttribute('data-topic') || btn.getAttribute('data-search-trend');
+      if (trend && exploreView) {
+        exploreView.selectTopic(trend);
         clientStore.notify();
         const scrollContainer = document.getElementById('explore-feed-scroll');
         if (scrollContainer) scrollContainer.scrollTop = 0;
@@ -3129,8 +3137,17 @@ function updateCommandRailHighlight(index: number): void {
   document.querySelectorAll('.btn-open-featured').forEach(btn => {
     btn.addEventListener('click', () => {
       const topic = btn.getAttribute('data-featured-topic');
-      if (topic) {
-        exploreView!.setSearchQuery(topic);
+      if (topic && exploreView) {
+        exploreView.setSearchQuery(topic);
+        clientStore.notify();
+      }
+    }, { signal });
+  });
+  document.querySelectorAll('[data-community-category], [data-action="select-community-category"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const cat = btn.getAttribute('data-community-category') || btn.getAttribute('data-category');
+      if (cat && communityView) {
+        communityView.setActiveCategory(cat);
         clientStore.notify();
       }
     }, { signal });
@@ -3343,7 +3360,10 @@ function updateCommandRailHighlight(index: number): void {
 
   // Composer open triggers
   document.getElementById('btn-open-composer')?.addEventListener('click', () => clientStore.toggleComposer(), { signal });
-  document.getElementById('btn-mobile-composer')?.addEventListener('click', () => clientStore.toggleComposer(), { signal });
+  const mobileComposerBtn = document.getElementById('btn-mobile-composer') as HTMLElement | null;
+  if (mobileComposerBtn && !mobileComposerBtn.getAttribute('data-action')) {
+    mobileComposerBtn.setAttribute('data-action', 'open-composer');
+  }
 
   // Hybrid Composer DOM event binding (all tabs, toolbar, media, poll, code, radial ring, draft, publish)
   if (clientStore.isComposerOpen) {
@@ -3644,9 +3664,6 @@ function updateCommandRailHighlight(index: number): void {
     modalManager.openFeature('wot-graph');
   }, { signal });
 
-  document.getElementById('btn-mobile-composer')?.addEventListener('click', () => {
-    clientStore.toggleComposer();
-  }, { signal });
 
   document.getElementById('btn-mobile-vault')?.addEventListener('click', () => {
     clientStore.activeChannelId = 'vault-releases';

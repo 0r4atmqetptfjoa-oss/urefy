@@ -414,7 +414,7 @@ export class SovereignCircleEngine {
           if (typeof comm.isMember === 'boolean') { existing.isJoined = comm.isMember; changed = true; }
           existing.id = comm.id;
           this.circles.set(comm.id, existing);
-          if (comm.membersCount !== undefined && comm.membersCount !== existing.membersCount) {
+          if (comm.membersCount !== undefined && comm.membersCount > 0 && comm.membersCount !== existing.membersCount) {
             existing.membersCount = Math.max(0, comm.membersCount);
             changed = true;
           }
@@ -533,34 +533,41 @@ export class SovereignCircleEngine {
     const c = this.findCircle(circleId);
     if (!c) return false;
     if (this.pendingMemberships.has(c.id)) return c.isJoined;
-    const before = { joined: c.isJoined, count: c.membersCount };
     c.isJoined = !c.isJoined;
     c.membersCount += c.isJoined ? 1 : -1;
     if (c.membersCount < 0) c.membersCount = 0;
     this.saveToStorage();
+    clientStore.showToast(c.isJoined ? `Joined c/${c.name}` : `Left c/${c.name}`, 'info');
 
-    // Persist join/leave to Cloudflare D1
-    if (typeof window !== 'undefined' && typeof fetch !== 'undefined') {
+    // Persist join/leave to Cloudflare D1 asynchronously if authenticated
+    if (typeof window !== 'undefined' && typeof fetch !== 'undefined' && clientStore.isAuthenticated()) {
       this.pendingMemberships.add(c.id);
-      fetch('/api/communities', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(clientStore.createSignedEnvelope({
+      try {
+        const envelope = clientStore.createSignedEnvelope({
           scope: 'urefy-community-v1',
           action: c.isJoined ? 'join' : 'leave',
           communityId: c.id,
-        })),
-      }).then(async response => {
-        const result = await response.json();
-        if (!response.ok || !result.success) throw new Error(result.error || 'Membership could not be saved');
-        c.isJoined = result.isMember;
-        this.saveToStorage();
-        clientStore.showToast(c.isJoined ? `Joined c/${c.name}` : `Left c/${c.name}`, 'info');
-      }).catch(error => {
-        c.isJoined = before.joined; c.membersCount = before.count;
-        this.saveToStorage();
-        clientStore.showToast(error.message || 'Membership could not be saved. Try again.', 'warning');
-      }).finally(() => { this.pendingMemberships.delete(c.id); clientStore.notifySync(); });
+        });
+        fetch('/api/communities', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(envelope),
+        }).then(async response => {
+          if (!response.ok) return;
+          const result = await response.json();
+          if (result && result.success && typeof result.isMember === 'boolean') {
+            c.isJoined = result.isMember;
+            this.saveToStorage();
+          }
+        }).catch(() => {
+          // Keep local optimistic join state so network hiccups do not disrupt the user
+        }).finally(() => {
+          this.pendingMemberships.delete(c.id);
+          clientStore.notifySync();
+        });
+      } catch (_) {
+        this.pendingMemberships.delete(c.id);
+      }
     }
     clientStore.notifySync();
     return c.isJoined;
@@ -1656,7 +1663,7 @@ export class SovereignCircleEngine {
       if (!target) return;
 
       // 1. Open create circle modal
-      if (target.closest('#btn-open-create-circle-modal')) {
+      if (target.closest('#btn-open-create-circle-modal, #btn-open-create-circle, [data-open-create-circle], [data-action="open-create-circle"]')) {
         e.preventDefault();
         this.isCreateModalOpen = true;
         this._refreshCircleViewsInDom();
@@ -1679,12 +1686,14 @@ export class SovereignCircleEngine {
       }
 
       // 3. Toggle join circle
-      const joinBtn = target.closest('#btn-toggle-join-circle') as HTMLElement | null;
+      const joinBtn = target.closest('#btn-toggle-join-circle, [data-toggle-join-circle], [data-action="toggle-join-circle"]') as HTMLElement | null;
       if (joinBtn) {
         e.preventDefault();
-        const cid = joinBtn.getAttribute('data-circle-id') || clientStore.activeChannelId;
-        this.toggleJoin(cid);
-        this._refreshCircleViewsInDom();
+        const cid = joinBtn.getAttribute('data-circle-id') || joinBtn.getAttribute('data-toggle-join-circle') || clientStore.activeChannelId;
+        if (cid) {
+          this.toggleJoin(cid);
+          this._refreshCircleViewsInDom();
+        }
         return;
       }
 

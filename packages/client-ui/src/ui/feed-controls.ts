@@ -54,9 +54,9 @@ export function renderFeedPostCard(post: FeedPostCardData, uiMode: 'simple' | 'p
   const wotScore = typeof post.wotScore === 'number' ? post.wotScore : 94;
   const audienceLabel =
     post.audience === 'community'
-      ? t('post.audienceCommunity', undefined, 'Comunitate')
+      ? t('post.audienceCommunity', undefined, 'Community')
       : post.audience === 'followers'
-        ? t('post.audienceFollowers', undefined, 'Urmăritori')
+        ? t('post.audienceFollowers', undefined, 'Followers')
         : t('post.audiencePublic', undefined, 'Public');
 
   const reactionCounts = post.reactions || { '🔥': 0, '⚡': 0, '🧠': 0, '🛡️': 0 };
@@ -187,20 +187,20 @@ export function renderFeedPostCard(post: FeedPostCardData, uiMode: 'simple' | 'p
                class="hidden absolute right-0 top-full mt-1.5 z-40 w-52 py-1.5 rounded-xl bg-slate-900 border border-slate-700/80 shadow-2xl text-xs text-slate-200"
                role="menu">
             <button type="button" data-action="award-post" data-post-id="${safeId}" class="w-full flex items-center gap-2.5 px-3.5 py-2 hover:bg-slate-800 text-left transition-colors" role="menuitem">
-              <span>🏅</span> <span>${t('post.giveAward', undefined, 'Oferă Merit Criptografic')}</span>
+              <span>🏅</span> <span>${t('post.giveAward', undefined, 'Award Cryptographic Merit')}</span>
             </button>
             <button type="button" data-action="crosspost" data-post-id="${safeId}" class="w-full flex items-center gap-2.5 px-3.5 py-2 hover:bg-slate-800 text-left transition-colors" role="menuitem">
-              <span>🔀</span> <span>${t('post.crosspost', undefined, 'Distribuie în altă comunitate')}</span>
+              <span>🔀</span> <span>${t('post.crosspost', undefined, 'Share to another community')}</span>
             </button>
             <button type="button" data-action="save-to-vault" data-post-id="${safeId}" class="w-full flex items-center gap-2.5 px-3.5 py-2 hover:bg-slate-800 text-left transition-colors" role="menuitem">
-              <span>🔐</span> <span>${t('post.saveVault', undefined, 'Salvează în Seiful Local')}</span>
+              <span>🔐</span> <span>${t('post.saveVault', undefined, 'Save to Local Vault')}</span>
             </button>
             <button type="button" data-action="verify-envelope" data-post-id="${safeId}" class="w-full flex items-center gap-2.5 px-3.5 py-2 hover:bg-slate-800 text-left transition-colors" role="menuitem">
-              <span>🔍</span> <span>${t('post.verifySignature', undefined, 'Inspectează Semnătura Ed25519')}</span>
+              <span>🔍</span> <span>${t('post.verifySignature', undefined, 'Inspect Ed25519 Signature')}</span>
             </button>
             <div class="my-1 border-t border-slate-800"></div>
             <button type="button" data-action="report-post" data-post-id="${safeId}" class="w-full flex items-center gap-2.5 px-3.5 py-2 hover:bg-rose-500/10 text-rose-400 text-left transition-colors" role="menuitem">
-              <span>🚩</span> <span>${t('post.report', undefined, 'Raportează în Consiliul Comunității')}</span>
+              <span>🚩</span> <span>${t('post.report', undefined, 'Report to Community Council')}</span>
             </button>
           </div>
         </div>
@@ -276,7 +276,7 @@ export function renderFeedPostCard(post: FeedPostCardData, uiMode: 'simple' | 'p
                   data-action="bookmark-post"
                   data-post-id="${safeId}"
                   class="p-1.5 rounded-lg hover:bg-slate-800 ${post.isBookmarked ? 'text-amber-400' : 'text-slate-400 hover:text-slate-200'} transition-colors"
-                  aria-label="${t('post.bookmark', undefined, 'Salvează postarea')}">
+                  aria-label="${t('post.bookmark', undefined, 'Bookmark post')}">
             <svg class="w-4 h-4" viewBox="0 0 24 24" fill="${post.isBookmarked ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.8">
               <path stroke-linecap="round" stroke-linejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
             </svg>
@@ -285,7 +285,7 @@ export function renderFeedPostCard(post: FeedPostCardData, uiMode: 'simple' | 'p
                   data-action="share-post"
                   data-post-id="${safeId}"
                   class="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors"
-                  aria-label="${t('post.share', undefined, 'Distribuie link-ul')}">
+                  aria-label="${t('post.share', undefined, 'Share link')}">
             <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
               <path stroke-linecap="round" stroke-linejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
             </svg>

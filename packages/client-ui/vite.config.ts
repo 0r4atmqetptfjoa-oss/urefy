@@ -23,7 +23,7 @@ export default defineConfig(({ command }) => ({
   build: {
     manifest: true,
     target: 'baseline-widely-available',
-    sourcemap: false,
+    sourcemap: true,
     chunkSizeWarningLimit: 600,
     cssCodeSplit: true,
     reportCompressedSize: true,
@@ -48,6 +48,10 @@ export default defineConfig(({ command }) => ({
         codeSplitting: {
           includeDependenciesRecursively: false,
           groups: [
+            { name: 'crypto-vendor', test: /(?:@noble|core-crypto)/, priority: 25 },
+            { name: 'vault-vendor', test: /vault-engine/, priority: 25 },
+            { name: 'security-portals', test: /[\\/]src[\\/](cve-monitor|binary-hygiene-portal|cyber-defense-hub|cve-service|transparency-mode)\.ts$/, priority: 20 },
+            { name: 'messaging-chunk', test: /[\\/]src[\\/](dm-workspace|dm-client|webrtc-call|modern-chat-2027)\.ts$/, priority: 20 },
             { name: 'interaction-runtime', test: /[\\/]src[\\/](?:ui[\\/]action-dispatcher|collections|bookmarks|draft-autosave|wot-slider|relays-manager|virtual-scroll|code-splitting)\.ts$/, priority: 10 },
             { name: 'community-space', test: /[\\/]src[\\/]sovereign-circle\.ts$/, priority: 10 },
             { name: 'rich-editor', test: /[\\/]src[\\/]rich-editor\.ts$/, priority: 10 },
@@ -61,7 +65,6 @@ export default defineConfig(({ command }) => ({
             { name: 'media-capture', test: /[\\/]src[\\/](webrtc-voice|screenshare)\.ts$/ },
             { name: 'observatory-viz', test: /[\\/]src[\\/](network-observatory|network-wot-graph|gossip-viz|merkle-viz)\.ts$/ },
             { name: 'spatial-audio-pack', test: /[\\/]src[\\/](spatial-audio|spatial-audio-mesh|acoustic-dsp|audio-dsp|sound-packs)\.ts$/ },
-            { name: 'security-monitors', test: /[\\/]src[\\/](cve-monitor|cyber-defense-hub|cve-service|transparency-mode)\.ts$/ },
             { name: 'admin-core', test: /[\\/]src[\\/](admin-auth|admin-panel|admin-passkeys|admin|admin-dashboard)\.ts$/ },
             { name: 'backup-archive', test: /[\\/]src[\\/](export-backup|data-archive|archive-modal)\.ts$/ },
             { name: 'client-core', test: /[\\/]src[\\/](client-state|indexed-db|secure-storage|sovereign-dm|threads|themes|i18n|toast|public-identity|dialog-modal)(\.ts|[\\/])/ },

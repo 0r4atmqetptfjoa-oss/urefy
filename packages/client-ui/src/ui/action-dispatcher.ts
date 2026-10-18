@@ -45,7 +45,7 @@ function getVV(): Promise<typeof import('../vault-view.js')> {
   });
 }
 
-import { communityView, exploreView, loadExploreView } from '../optional-workspaces.js';
+import { communityView, loadCommunityView, exploreView, loadExploreView } from '../optional-workspaces.js';
 import { replaceEmoticons } from '../chat-rich-embed.js';
 import { setWorkspaceLayout, setSplitSecondaryPane, type SplitSecondaryPane } from '../workspace-layout.js';
 import { sovereignWebPush } from '../web-push.js';
@@ -1032,7 +1032,7 @@ export class ActionDispatcher {
       }
 
       case 'toggle-join-circle': {
-        const cid = el.getAttribute('data-circle-id') || el.getAttribute('data-cid');
+        const cid = el.getAttribute('data-circle-id') || el.getAttribute('data-cid') || el.getAttribute('data-toggle-join-circle');
         if (cid) {
           sovereignCircleEngine.toggleJoin(cid);
         }
@@ -1094,7 +1094,7 @@ export class ActionDispatcher {
 
       case 'filter-by-topic':
       case 'select-search-trend': {
-        const topic = el.getAttribute('data-search-trend') || el.getAttribute('data-topic');
+        const topic = el.getAttribute('data-search-trend') || el.getAttribute('data-topic') || el.getAttribute('data-explore-topic');
         if (topic) {
           void loadExploreView().then(view => {
             view.selectTopic(topic);
@@ -1110,7 +1110,7 @@ export class ActionDispatcher {
       }
 
       case 'select-explore-category': {
-        const cat = el.getAttribute('data-explore-cat') as any;
+        const cat = (el.getAttribute('data-explore-cat') || el.getAttribute('data-explore-category')) as any;
         if (cat) {
           void loadExploreView().then(view => {
             view.setActiveCategory(cat);
@@ -1120,8 +1120,19 @@ export class ActionDispatcher {
         break;
       }
 
+      case 'select-community-category': {
+        const cat = el.getAttribute('data-community-category') || el.getAttribute('data-category');
+        if (cat) {
+          void loadCommunityView().then(view => {
+            view.setActiveCategory(cat);
+            clientStore.notifySync();
+          });
+        }
+        break;
+      }
+
       case 'set-search-result-tab': {
-        const tab = el.getAttribute('data-search-result-tab') as 'posts' | 'people' | 'communities' | 'topics' | null;
+        const tab = (el.getAttribute('data-search-result-tab') || el.getAttribute('data-explore-search-tab')) as 'posts' | 'people' | 'communities' | 'topics' | null;
         if (tab) {
           void loadExploreView().then(view => {
             view.setActiveSearchTab(tab);

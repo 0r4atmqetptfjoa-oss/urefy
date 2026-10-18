@@ -3125,7 +3125,7 @@ export class AdminPanel extends AdminElementBase {
         this.isAuthenticated = false;
         this.isLoading = false;
         this.render();
-        this.showToast(err.error || 'Autentificare eșuată sau PIN blocat temporar.', 'error');
+        this.showToast(err.error || 'Authentication failed or PIN temporarily locked.', 'error');
         return;
       }
       this.isAuthenticated = true;
@@ -3181,7 +3181,7 @@ export class AdminPanel extends AdminElementBase {
         this.auditLogs = data.logs || [];
       }
     } catch (err) {
-      console.error('[AdminPanel] Eroare la încărcarea datelor:', err);
+      console.error('[AdminPanel] Error loading data:', err);
     }
   }
 
@@ -3193,7 +3193,7 @@ export class AdminPanel extends AdminElementBase {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      throw new Error(data.error || `Eroare server (${res.status})`);
+      throw new Error(data.error || `Server error (${res.status})`);
     }
     return data;
   }
@@ -3202,11 +3202,11 @@ export class AdminPanel extends AdminElementBase {
     this.serverConfig = { ...this.serverConfig, ...partial };
     try {
       await this._apiPost('update-config', { config: this.serverConfig });
-      this.showToast('Configurația de securitate a fost salvată în D1.', 'success');
+      this.showToast('Security configuration saved to Cloudflare D1.', 'success');
       await this.loadData();
       this.render();
     } catch (err: any) {
-      this.showToast(err.message || 'Eroare la salvarea configurației.', 'error');
+      this.showToast(err.message || 'Error saving configuration.', 'error');
     }
   }
 
@@ -3219,8 +3219,8 @@ export class AdminPanel extends AdminElementBase {
     });
     this.showToast(
       enteringLockdown
-        ? 'SCUT DE URGENȚĂ ACTIVAT: Înregistrările sunt oprite și protecția ZK este activă!'
-        : 'Scutul de urgență a fost dezactivat.',
+        ? 'EMERGENCY SHIELD ACTIVATED: Registrations suspended and ZK verification enforced!'
+        : 'Emergency shield deactivated.',
       enteringLockdown ? 'error' : 'info'
     );
   }
@@ -3230,7 +3230,7 @@ export class AdminPanel extends AdminElementBase {
       if (this.auditLogs.length === 0) {
         this.ledgerVerified = true;
         this.render();
-        this.showToast('Registrul WORM este intact (0 intrări).', 'success');
+        this.showToast('WORM ledger is intact (0 entries).', 'success');
         return;
       }
       let valid = true;
@@ -3244,12 +3244,12 @@ export class AdminPanel extends AdminElementBase {
       this.render();
       this.showToast(
         valid
-          ? 'Lanțul criptografic SHA-256 WORM este 100% autentic și nemodificat!'
-          : 'Atenție: S-a detectat o anomalie în lanțul de hash-uri WORM!',
+          ? 'SHA-256 WORM cryptographic hash-chain is 100% verified and untampered!'
+          : 'Warning: Anomaly detected in WORM hash-chain!',
         valid ? 'success' : 'error'
       );
     } catch {
-      this.showToast('Eroare la verificarea registrului WORM.', 'error');
+      this.showToast('Error verifying WORM ledger.', 'error');
     }
   }
 
@@ -3262,13 +3262,13 @@ export class AdminPanel extends AdminElementBase {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || `Eroare (${res.status})`);
+        throw new Error(err.error || `Error (${res.status})`);
       }
-      this.showToast(`Canalul #${name} a fost creat cu succes!`, 'success');
+      this.showToast(`Channel #${name} created successfully!`, 'success');
       await this.loadData();
       this.render();
     } catch (err: any) {
-      this.showToast(err.message || 'Nu s-a putut crea canalul.', 'error');
+      this.showToast(err.message || 'Could not create channel.', 'error');
     }
   }
 
@@ -3280,24 +3280,24 @@ export class AdminPanel extends AdminElementBase {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || `Eroare (${res.status})`);
+        throw new Error(err.error || `Error (${res.status})`);
       }
-      this.showToast('Canalul a fost șters.', 'info');
+      this.showToast('Channel removed.', 'info');
       await this.loadData();
       this.render();
     } catch (err: any) {
-      this.showToast(err.message || 'Eroare la ștergerea canalului.', 'error');
+      this.showToast(err.message || 'Error deleting channel.', 'error');
     }
   }
 
   private async deletePost(postId: string): Promise<void> {
     try {
       await this._apiPost('delete-post', { postId });
-      this.showToast('Postarea a fost ștearsă definitiv.', 'info');
+      this.showToast('Post permanently deleted.', 'info');
       await this.loadData();
       this.render();
     } catch (err: any) {
-      this.showToast(err.message || 'Eroare la ștergerea postării.', 'error');
+      this.showToast(err.message || 'Error deleting post.', 'error');
     }
   }
 
@@ -3305,13 +3305,13 @@ export class AdminPanel extends AdminElementBase {
     try {
       await this._apiPost(currentlyBanned ? 'unban-user' : 'ban-user', { userId });
       this.showToast(
-        currentlyBanned ? `Utilizatorul ${userId} a fost deblocat.` : `Utilizatorul ${userId} a fost suspendat.`,
+        currentlyBanned ? `User ${userId} unbanned.` : `User ${userId} suspended.`,
         currentlyBanned ? 'success' : 'info'
       );
       await this.loadData();
       this.render();
     } catch (err: any) {
-      this.showToast(err.message || 'Eroare la actualizarea statutului.', 'error');
+      this.showToast(err.message || 'Error updating user status.', 'error');
     }
   }
 
@@ -3321,23 +3321,23 @@ export class AdminPanel extends AdminElementBase {
         await this._apiPost('delete-post', { postId: targetId });
       }
       await this._apiPost('resolve-dsa', { reportId, status: resolution });
-      this.showToast(`Raportul DSA #${reportId.slice(0, 8)} a fost marcat ca ${resolution}.`, 'success');
+      this.showToast(`DSA report #${reportId.slice(0, 8)} marked as ${resolution}.`, 'success');
       await this.loadData();
       this.render();
     } catch (err: any) {
-      this.showToast(err.message || 'Eroare la procesarea raportului DSA.', 'error');
+      this.showToast(err.message || 'Error processing DSA report.', 'error');
     }
   }
 
   private async triggerBackup(): Promise<void> {
     try {
-      this.showToast('Se generează snapshot-ul criptat AES-256-GCM în R2...', 'info');
+      this.showToast('Generating AES-256-GCM encrypted snapshot in R2...', 'info');
       const res = await this._apiPost('trigger-backup');
-      this.showToast(`Backup finalizat cu succes! (${res.key || 'R2 Snapshot'})`, 'success');
+      this.showToast(`Backup completed successfully! (${res.key || 'R2 Snapshot'})`, 'success');
       await this.loadData();
       this.render();
     } catch (err: any) {
-      this.showToast(err.message || 'Backup eșuat.', 'error');
+      this.showToast(err.message || 'Backup failed.', 'error');
     }
   }
 
@@ -3354,13 +3354,13 @@ export class AdminPanel extends AdminElementBase {
         }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || 'Eroare la trimiterea notificării');
+      if (!res.ok) throw new Error(data.error || 'Error sending push notification');
       this.showToast(
-        `Broadcast trimis! Livrate: ${data.delivered ?? 0}, Curățate: ${data.cleanedUp ?? 0}`,
+        `Broadcast sent! Delivered: ${data.delivered ?? 0}, Cleaned up: ${data.cleanedUp ?? 0}`,
         'success'
       );
     } catch (err: any) {
-      this.showToast(err.message || 'Eroare la trimiterea broadcast-ului.', 'error');
+      this.showToast(err.message || 'Error sending broadcast.', 'error');
     }
   }
 
@@ -3379,18 +3379,18 @@ export class AdminPanel extends AdminElementBase {
         <div class="auth-card">
           <div class="shield-badge">🛡️</div>
           <h2>Urefy Sovereign Command Center</h2>
-          <p class="subtitle">Acces protejat prin Constant-Time Auth, Anti-Bruteforce D1 & WORM Audit Ledger</p>
+          <p class="subtitle">Access protected by Constant-Time Auth, Anti-Bruteforce D1 & WORM Audit Ledger</p>
           <form id="admin-login-form">
             <div class="field">
-              <label>PIN Criptografic Admin</label>
-              <input type="password" id="input-admin-pin" placeholder="Introduceți PIN-ul de producție..." required autocomplete="off" />
+              <label>Admin Cryptographic PIN</label>
+              <input type="password" id="input-admin-pin" placeholder="Enter production PIN..." required autocomplete="off" />
             </div>
             <div class="field">
-              <label>Cheie Gateway 2FA (Opțional dacă este activată în Cloudflare)</label>
+              <label>Gateway Key 2FA (Optional if enabled in Cloudflare)</label>
               <input type="password" id="input-gateway-secret" placeholder="X-Admin-Gateway-Secret..." autocomplete="off" />
             </div>
             <button type="submit" class="btn-primary full-width" ${this.isLoading ? 'disabled' : ''}>
-              ${this.isLoading ? 'Se verifică semnătura...' : 'Deblochează Consola de Comandă'}
+              ${this.isLoading ? 'Verifying signature...' : 'Unlock Command Console'}
             </button>
           </form>
         </div>
@@ -3484,7 +3484,7 @@ export class AdminPanel extends AdminElementBase {
         }
 
         .admin-shell {
-          max-width: 1360px;
+          max-width: 1440px;
           margin: 0 auto;
           padding: 24px;
         }
@@ -3533,31 +3533,98 @@ export class AdminPanel extends AdminElementBase {
         }
         .top-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 
-        .nav-tabs {
-          display: flex;
-          gap: 8px;
-          overflow-x: auto;
-          padding-bottom: 8px;
-          margin-bottom: 24px;
+        .admin-body-layout {
+          display: grid;
+          grid-template-columns: 280px minmax(0, 1fr);
+          gap: 24px;
+          align-items: start;
         }
-        .tab-btn {
-          padding: 10px 18px;
+        @media (max-width: 960px) {
+          .admin-body-layout {
+            grid-template-columns: 1fr;
+          }
+        }
+        .admin-sidebar {
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+          position: sticky;
+          top: 24px;
+        }
+        .nav-tabs-sidebar {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          background: rgba(15, 23, 42, 0.78);
+          border: 1px solid rgba(148, 163, 184, 0.16);
+          border-radius: 18px;
+          padding: 12px;
+          backdrop-filter: blur(16px);
+        }
+        .nav-tabs-sidebar .tab-btn {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          width: 100%;
+          text-align: left;
+          padding: 12px 16px;
           border-radius: 12px;
-          border: 1px solid rgba(148, 163, 184, 0.15);
-          background: rgba(30, 41, 59, 0.55);
+          border: 1px solid transparent;
+          background: transparent;
           color: #94a3b8;
           font-weight: 600;
           font-size: 13px;
           cursor: pointer;
-          white-space: nowrap;
           transition: all 0.2s;
         }
-        .tab-btn:hover { color: #f8fafc; background: rgba(51, 65, 85, 0.65); }
-        .tab-btn.active {
+        .nav-tabs-sidebar .tab-btn:hover {
+          color: #f8fafc;
+          background: rgba(51, 65, 85, 0.5);
+        }
+        .nav-tabs-sidebar .tab-btn.active {
           background: linear-gradient(135deg, #4f46e5, #7c3aed);
           color: #fff;
           border-color: transparent;
           box-shadow: 0 6px 20px rgba(99, 102, 241, 0.35);
+        }
+        .tab-icon { font-size: 16px; line-height: 1; }
+        .tab-text { flex: 1; }
+        .tab-badge {
+          font-size: 11px;
+          padding: 2px 7px;
+          border-radius: 999px;
+          background: rgba(148, 163, 184, 0.2);
+          color: #cbd5e1;
+          font-weight: 700;
+        }
+        .tab-btn.active .tab-badge {
+          background: rgba(255, 255, 255, 0.25);
+          color: #fff;
+        }
+        .tab-badge.badge-alert {
+          background: rgba(239, 68, 68, 0.3);
+          color: #fca5a5;
+        }
+        .sidebar-quick-stats {
+          background: rgba(15, 23, 42, 0.7);
+          border: 1px solid rgba(148, 163, 184, 0.12);
+          border-radius: 16px;
+          padding: 16px;
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+        .quick-stat-item {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          font-size: 12px;
+        }
+        .quick-stat-label { color: #94a3b8; }
+        .quick-stat-value { color: #f8fafc; font-weight: 600; font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+
+        .admin-main-content {
+          min-width: 0;
         }
 
         .kpi-grid {
@@ -3680,54 +3747,101 @@ export class AdminPanel extends AdminElementBase {
             <div>
               <h1>Urefy Sovereign Admin & Security Suite</h1>
               <span class="status-pill ${this.serverConfig.maintenanceMode ? 'lockdown' : ''}">
-                ● ${this.serverConfig.maintenanceMode ? 'SCUT URGENȚĂ ACTIV' : 'PRODUCȚIE SECURIZATĂ (D1 + R2 + WORM)'}
+                ● ${this.serverConfig.maintenanceMode ? 'EMERGENCY SHIELD ACTIVE' : 'PRODUCTION SECURE (D1 + R2 + WORM)'}
               </span>
             </div>
           </div>
           <div class="top-actions">
-            <button type="button" class="btn-secondary" id="btn-refresh-data">🔄 Sincronizează</button>
-            <button type="button" class="btn-primary" id="btn-trigger-backup">💾 Backup Criptat R2</button>
+            <button type="button" class="btn-secondary" id="btn-refresh-data">🔄 Synchronize</button>
+            <button type="button" class="btn-primary" id="btn-trigger-backup">💾 Encrypted R2 Backup</button>
             <button type="button" class="btn-danger" id="btn-emergency-lockdown">
-              🚨 ${this.serverConfig.maintenanceMode ? 'Dezactivează Scut Urgență' : 'Scut de Urgență (Lockdown)'}
+              🚨 ${this.serverConfig.maintenanceMode ? 'Deactivate Emergency Shield' : 'Emergency Shield (Lockdown)'}
             </button>
-            <button type="button" class="btn-secondary" id="btn-admin-logout">Ieșire</button>
+            <button type="button" class="btn-secondary" id="btn-admin-logout">Logout</button>
           </div>
         </div>
 
-        <div class="nav-tabs">
-          <button type="button" class="tab-btn ${this.activeTab === 'overview' ? 'active' : ''}" data-tab="overview">📊 Control & Config</button>
-          <button type="button" class="tab-btn ${this.activeTab === 'users' ? 'active' : ''}" data-tab="users">👥 Utilizatori (${this.users.length})</button>
-          <button type="button" class="tab-btn ${this.activeTab === 'channels' ? 'active' : ''}" data-tab="channels">📡 Canale E2EE (${this.channels.length})</button>
-          <button type="button" class="tab-btn ${this.activeTab === 'content' ? 'active' : ''}" data-tab="content">📝 Postări (${this.posts.length})</button>
-          <button type="button" class="tab-btn ${this.activeTab === 'dsa' ? 'active' : ''}" data-tab="dsa">⚖️ Rapoarte DSA (${this.dsaReports.length})</button>
-          <button type="button" class="tab-btn ${this.activeTab === 'broadcast' ? 'active' : ''}" data-tab="broadcast">📣 Sistem Push Broadcast</button>
-          <button type="button" class="tab-btn ${this.activeTab === 'security' ? 'active' : ''}" data-tab="security">🔐 WORM Audit Ledger (${this.auditLogs.length})</button>
-        </div>
+        <div class="admin-body-layout">
+          <aside class="admin-sidebar">
+            <nav class="nav-tabs-sidebar" aria-label="Admin Navigation">
+              <button type="button" class="tab-btn ${this.activeTab === 'overview' ? 'active' : ''}" data-tab="overview">
+                <span class="tab-icon">📊</span>
+                <span class="tab-text">Server Control & Config</span>
+              </button>
+              <button type="button" class="tab-btn ${this.activeTab === 'users' ? 'active' : ''}" data-tab="users">
+                <span class="tab-icon">👥</span>
+                <span class="tab-text">Users & DIDs</span>
+                <span class="tab-badge">${this.users.length}</span>
+              </button>
+              <button type="button" class="tab-btn ${this.activeTab === 'channels' ? 'active' : ''}" data-tab="channels">
+                <span class="tab-icon">📡</span>
+                <span class="tab-text">E2EE Channels</span>
+                <span class="tab-badge">${this.channels.length}</span>
+              </button>
+              <button type="button" class="tab-btn ${this.activeTab === 'content' ? 'active' : ''}" data-tab="content">
+                <span class="tab-icon">📝</span>
+                <span class="tab-text">Posts & Feed</span>
+                <span class="tab-badge">${this.posts.length}</span>
+              </button>
+              <button type="button" class="tab-btn ${this.activeTab === 'dsa' ? 'active' : ''}" data-tab="dsa">
+                <span class="tab-icon">⚖️</span>
+                <span class="tab-text">DSA Reports</span>
+                <span class="tab-badge ${this.dsaReports.filter((r) => r.status === 'pending').length > 0 ? 'badge-alert' : ''}">${this.dsaReports.length}</span>
+              </button>
+              <button type="button" class="tab-btn ${this.activeTab === 'broadcast' ? 'active' : ''}" data-tab="broadcast">
+                <span class="tab-icon">📣</span>
+                <span class="tab-text">Web Push Broadcast</span>
+              </button>
+              <button type="button" class="tab-btn ${this.activeTab === 'security' ? 'active' : ''}" data-tab="security">
+                <span class="tab-icon">🔐</span>
+                <span class="tab-text">WORM Audit Ledger</span>
+                <span class="tab-badge">${this.auditLogs.length}</span>
+              </button>
+            </nav>
 
-        <div class="kpi-grid">
-          <div class="kpi-card">
-            <div class="kpi-label">Identități (DID)</div>
-            <div class="kpi-value">${this.stats.totalUsers || this.users.length}</div>
-            <div class="kpi-sub">Chei Ed25519 verificate</div>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-label">Canale Comunitate</div>
-            <div class="kpi-value">${this.stats.totalChannels || this.channels.length}</div>
-            <div class="kpi-sub">Criptate AES-256-GCM</div>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-label">Postări & Feed</div>
-            <div class="kpi-value">${this.stats.totalPosts || this.posts.length}</div>
-            <div class="kpi-sub">Semnate criptografic</div>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-label">Alerte DSA Active</div>
-            <div class="kpi-value">${this.dsaReports.filter((r) => r.status === 'pending').length}</div>
-            <div class="kpi-sub">Conformitate EU Digital Services Act</div>
-          </div>
-        </div>
+            <div class="sidebar-quick-stats">
+              <div class="quick-stat-item">
+                <span class="quick-stat-label">Storage Used</span>
+                <span class="quick-stat-value">${this.stats.storageUsedMb ? this.stats.storageUsedMb.toFixed(1) + ' MB' : '< 1 MB'}</span>
+              </div>
+              <div class="quick-stat-item">
+                <span class="quick-stat-label">Active Reports</span>
+                <span class="quick-stat-value">${this.dsaReports.filter((r) => r.status === 'pending').length} pending</span>
+              </div>
+              <div class="quick-stat-item">
+                <span class="quick-stat-label">Node Runtime</span>
+                <span class="quick-stat-value">Cloudflare Workers</span>
+              </div>
+            </div>
+          </aside>
 
-        ${this.renderActiveTabContent(q)}
+          <main class="admin-main-content">
+            <div class="kpi-grid">
+              <div class="kpi-card">
+                <div class="kpi-label">Identities (DIDs)</div>
+                <div class="kpi-value">${this.stats.totalUsers || this.users.length}</div>
+                <div class="kpi-sub">Verified Ed25519 Keys</div>
+              </div>
+              <div class="kpi-card">
+                <div class="kpi-label">Community Channels</div>
+                <div class="kpi-value">${this.stats.totalChannels || this.channels.length}</div>
+                <div class="kpi-sub">Encrypted AES-256-GCM</div>
+              </div>
+              <div class="kpi-card">
+                <div class="kpi-label">Posts & Feed</div>
+                <div class="kpi-value">${this.stats.totalPosts || this.posts.length}</div>
+                <div class="kpi-sub">Cryptographically Signed</div>
+              </div>
+              <div class="kpi-card">
+                <div class="kpi-label">Active DSA Reports</div>
+                <div class="kpi-value">${this.dsaReports.filter((r) => r.status === 'pending').length}</div>
+                <div class="kpi-sub">EU Digital Services Act Compliance</div>
+              </div>
+            </div>
+
+            ${this.renderActiveTabContent(q)}
+          </main>
+        </div>
       </div>
     `;
   }
@@ -3737,26 +3851,26 @@ export class AdminPanel extends AdminElementBase {
       return `
         <div class="panel-card">
           <div class="panel-header">
-            <h3>Politici de Securitate și Guvernanță Server (Salvare Directă în D1)</h3>
+            <h3>Server Security & Governance Policies (Direct D1 Persistence)</h3>
           </div>
           <div class="toggle-row">
             <div class="toggle-info">
-              <h4>Înregistrări Publice Deschise</h4>
-              <p>Permite generarea de noi identități descentralizate (DID) pe nodul urefy.com</p>
+              <h4>Open Public Registrations</h4>
+              <p>Allow generation of new decentralized identities (DID) on the urefy.com node</p>
             </div>
             <input type="checkbox" style="width:22px;height:22px;" id="toggle-registrations" ${this.serverConfig.registrationsOpen ? 'checked' : ''} />
           </div>
           <div class="toggle-row">
             <div class="toggle-info">
-              <h4>Solicită Verificare Zero-Knowledge (ZK Proof)</h4>
-              <p>Restricționează postarea și mesajele doar la conturile cu dovadă criptografică ZK validată</p>
+              <h4>Require Zero-Knowledge Proof (ZK Proof)</h4>
+              <p>Restrict posting and messaging to accounts with validated ZK cryptographic proofs</p>
             </div>
             <input type="checkbox" style="width:22px;height:22px;" id="toggle-zk-verification" ${this.serverConfig.requireZkVerification ? 'checked' : ''} />
           </div>
           <div class="toggle-row">
             <div class="toggle-info">
-              <h4>Mod Mentenanță / Scut Read-Only</h4>
-              <p>Blochează temporar mutațiile publice pentru audit sau actualizări critice</p>
+              <h4>Maintenance Mode / Read-Only Shield</h4>
+              <p>Temporarily block public mutations for audits or critical upgrades</p>
             </div>
             <input type="checkbox" style="width:22px;height:22px;" id="toggle-maintenance" ${this.serverConfig.maintenanceMode ? 'checked' : ''} />
           </div>
@@ -3768,35 +3882,35 @@ export class AdminPanel extends AdminElementBase {
       return `
         <div class="panel-card">
           <div class="panel-header">
-            <h3>Crează Canal Nou Criptat (Relay)</h3>
+            <h3>Create New Encrypted Channel (Relay)</h3>
           </div>
           <form id="form-create-channel" style="display:grid;grid-template-columns:1fr 2fr 1fr auto;gap:12px;align-items:end;">
             <div>
-              <label style="font-size:12px;color:#94a3b8;">Nume Canal</label>
-              <input type="text" id="ch-name" placeholder="ex: anunturi-oficiale" required />
+              <label style="font-size:12px;color:#94a3b8;">Channel Name</label>
+              <input type="text" id="ch-name" placeholder="e.g. official-announcements" required />
             </div>
             <div>
-              <label style="font-size:12px;color:#94a3b8;">Descriere</label>
-              <input type="text" id="ch-desc" placeholder="Descrierea canalului..." />
+              <label style="font-size:12px;color:#94a3b8;">Description</label>
+              <input type="text" id="ch-desc" placeholder="Channel description..." />
             </div>
             <div>
-              <label style="font-size:12px;color:#94a3b8;">Categorie</label>
+              <label style="font-size:12px;color:#94a3b8;">Category</label>
               <select id="ch-cat">
                 <option value="general">General</option>
-                <option value="security">Securitate & Criptografie</option>
-                <option value="governance">Guvernanță</option>
-                <option value="tech">Tehnologie</option>
+                <option value="security">Security & Cryptography</option>
+                <option value="governance">Governance</option>
+                <option value="tech">Technology</option>
               </select>
             </div>
-            <button type="submit" class="btn-primary">+ Crează Canal</button>
+            <button type="submit" class="btn-primary">+ Create Channel</button>
           </form>
         </div>
 
         <div class="panel-card">
-          <div class="panel-header"><h3>Canale Active (${this.channels.length})</h3></div>
+          <div class="panel-header"><h3>Active Channels (${this.channels.length})</h3></div>
           <table>
             <thead>
-              <tr><th>ID / Nume</th><th>Categorie</th><th>Descriere</th><th>Acțiuni</th></tr>
+              <tr><th>ID / Name</th><th>Category</th><th>Description</th><th>Actions</th></tr>
             </thead>
             <tbody>
               ${this.channels
@@ -3807,7 +3921,7 @@ export class AdminPanel extends AdminElementBase {
                   <td><span class="badge badge-purple">${this.escapeHtml(c.category || 'general')}</span></td>
                   <td>${this.escapeHtml(c.description || '-')}</td>
                   <td>
-                    <button type="button" class="btn-danger btn-del-channel" data-id="${this.escapeHtml(c.id)}">Șterge</button>
+                    <button type="button" class="btn-danger btn-del-channel" data-id="${this.escapeHtml(c.id)}">Delete</button>
                   </td>
                 </tr>
               `
@@ -3830,12 +3944,12 @@ export class AdminPanel extends AdminElementBase {
       return `
         <div class="panel-card">
           <div class="panel-header">
-            <h3>Registru Identități Utilizatori (${filtered.length})</h3>
-            <input type="search" id="admin-search" placeholder="Caută după @handle, nume sau DID..." value="${this.escapeHtml(this.searchQuery)}" style="max-width:320px;" />
+            <h3>User Identity Directory (${filtered.length})</h3>
+            <input type="search" id="admin-search" placeholder="Search by @handle, name, or DID..." value="${this.escapeHtml(this.searchQuery)}" style="max-width:320px;" />
           </div>
           <table>
             <thead>
-              <tr><th>Utilizator</th><th>DID</th><th>Status</th><th>Acțiune</th></tr>
+              <tr><th>User</th><th>DID</th><th>Status</th><th>Action</th></tr>
             </thead>
             <tbody>
               ${filtered
@@ -3844,16 +3958,16 @@ export class AdminPanel extends AdminElementBase {
                   const isBanned = Boolean(u.is_banned || u.banned);
                   return `
                     <tr>
-                      <td><strong>${this.escapeHtml(u.display_name || u.displayName || 'Anonim')}</strong> <span class="mono">@${this.escapeHtml(u.handle || 'user')}</span></td>
+                      <td><strong>${this.escapeHtml(u.display_name || u.displayName || 'Anonymous')}</strong> <span class="mono">@${this.escapeHtml(u.handle || 'user')}</span></td>
                       <td class="mono">${this.escapeHtml(String(uid).slice(0, 28))}...</td>
                       <td>
                         <span class="badge ${isBanned ? 'badge-red' : 'badge-green'}">
-                          ${isBanned ? 'SUSPENDAT' : 'ACTIV'}
+                          ${isBanned ? 'SUSPENDED' : 'ACTIVE'}
                         </span>
                       </td>
                       <td>
                         <button type="button" class="${isBanned ? 'btn-secondary' : 'btn-danger'} btn-ban-user" data-id="${this.escapeHtml(uid)}" data-banned="${isBanned}">
-                          ${isBanned ? 'Deblochează' : 'Suspendă Cont'}
+                          ${isBanned ? 'Unban User' : 'Suspend Account'}
                         </button>
                       </td>
                     </tr>
@@ -3869,21 +3983,21 @@ export class AdminPanel extends AdminElementBase {
     if (this.activeTab === 'content') {
       return `
         <div class="panel-card">
-          <div class="panel-header"><h3>Moderare Postări (${this.posts.length})</h3></div>
+          <div class="panel-header"><h3>Post Moderation (${this.posts.length})</h3></div>
           <table>
             <thead>
-              <tr><th>Autor</th><th>Conținut</th><th>Data</th><th>Acțiuni</th></tr>
+              <tr><th>Author</th><th>Content</th><th>Date</th><th>Actions</th></tr>
             </thead>
             <tbody>
               ${this.posts
                 .map(
                   (p) => `
                 <tr>
-                  <td><strong>${this.escapeHtml(p.author_name || p.authorName || p.author_id || 'Anonim')}</strong></td>
+                  <td><strong>${this.escapeHtml(p.author_name || p.authorName || p.author_id || 'Anonymous')}</strong></td>
                   <td>${this.escapeHtml(String(p.content || p.text || '').slice(0, 140))}</td>
-                  <td class="mono">${new Date(Number(p.created_at || p.timestamp || Date.now())).toLocaleString('ro-RO')}</td>
+                  <td class="mono">${new Date(Number(p.created_at || p.timestamp || Date.now())).toLocaleString('en-US')}</td>
                   <td>
-                    <button type="button" class="btn-danger btn-del-post" data-id="${this.escapeHtml(p.id)}">Șterge Postarea</button>
+                    <button type="button" class="btn-danger btn-del-post" data-id="${this.escapeHtml(p.id)}">Delete Post</button>
                   </td>
                 </tr>
               `
@@ -3898,10 +4012,10 @@ export class AdminPanel extends AdminElementBase {
     if (this.activeTab === 'dsa') {
       return `
         <div class="panel-card">
-          <div class="panel-header"><h3>Rapoarte Conformitate EU Digital Services Act (${this.dsaReports.length})</h3></div>
+          <div class="panel-header"><h3>EU Digital Services Act Compliance Reports (${this.dsaReports.length})</h3></div>
           <table>
             <thead>
-              <tr><th>ID Raport</th><th>Motiv / Categorie</th><th>Țintă</th><th>Status</th><th>Decizie</th></tr>
+              <tr><th>Report ID</th><th>Reason / Category</th><th>Target</th><th>Status</th><th>Decision</th></tr>
             </thead>
             <tbody>
               ${this.dsaReports
@@ -3909,12 +4023,12 @@ export class AdminPanel extends AdminElementBase {
                   (r) => `
                 <tr>
                   <td class="mono">#${this.escapeHtml(String(r.id).slice(0, 8))}</td>
-                  <td>${this.escapeHtml(r.reason || r.category || 'Raport conținut')}</td>
+                  <td>${this.escapeHtml(r.reason || r.category || 'Content Report')}</td>
                   <td class="mono">${this.escapeHtml(r.target_id || r.post_id || '-')}</td>
                   <td><span class="badge ${r.status === 'pending' ? 'badge-red' : 'badge-green'}">${this.escapeHtml(r.status || 'pending')}</span></td>
                   <td style="display:flex;gap:8px;">
-                    <button type="button" class="btn-danger btn-dsa-action" data-report-id="${this.escapeHtml(r.id)}" data-target-id="${this.escapeHtml(r.target_id || r.post_id || '')}" data-action="remove">Șterge & Aprobă</button>
-                    <button type="button" class="btn-secondary btn-dsa-action" data-report-id="${this.escapeHtml(r.id)}" data-action="dismiss">Respinge</button>
+                    <button type="button" class="btn-danger btn-dsa-action" data-report-id="${this.escapeHtml(r.id)}" data-target-id="${this.escapeHtml(r.target_id || r.post_id || '')}" data-action="remove">Remove & Approve</button>
+                    <button type="button" class="btn-secondary btn-dsa-action" data-report-id="${this.escapeHtml(r.id)}" data-action="dismiss">Dismiss</button>
                   </td>
                 </tr>
               `
@@ -3930,22 +4044,22 @@ export class AdminPanel extends AdminElementBase {
       return `
         <div class="panel-card">
           <div class="panel-header">
-            <h3>📣 Transmisie Globală Web Push (Notificare Oficială)</h3>
+            <h3>📣 Global Web Push Broadcast (Official Notification)</h3>
           </div>
           <form id="form-broadcast" style="max-width:640px;display:flex;flex-direction:column;gap:14px;">
             <div>
-              <label style="font-size:12px;color:#94a3b8;">Titlu Notificare</label>
-              <input type="text" id="push-title" placeholder="ex: Actualizare de Securitate Urefy" required />
+              <label style="font-size:12px;color:#94a3b8;">Notification Title</label>
+              <input type="text" id="push-title" placeholder="e.g. Urefy Security Advisory" required />
             </div>
             <div>
-              <label style="font-size:12px;color:#94a3b8;">Mesaj</label>
-              <textarea id="push-body" rows="3" placeholder="Textul care va apărea pe telefoanele și browserele abonaților..." required></textarea>
+              <label style="font-size:12px;color:#94a3b8;">Message</label>
+              <textarea id="push-body" rows="3" placeholder="Text appearing on subscribers' mobile devices and browsers..." required></textarea>
             </div>
             <div>
-              <label style="font-size:12px;color:#94a3b8;">Link la click (opțional)</label>
+              <label style="font-size:12px;color:#94a3b8;">Target URL (Optional)</label>
               <input type="text" id="push-url" value="/" />
             </div>
-            <button type="submit" class="btn-primary">🚀 Trimite Notificare Către Toți Abonații</button>
+            <button type="submit" class="btn-primary">🚀 Broadcast Notification to All Subscribers</button>
           </form>
         </div>
       `;
@@ -3955,25 +4069,25 @@ export class AdminPanel extends AdminElementBase {
       <div class="panel-card">
         <div class="panel-header">
           <div>
-            <h3>🔐 Registru Imutabil WORM (SHA-256 Hash-Chained Ledger)</h3>
+            <h3>🔐 Immutable WORM Ledger (SHA-256 Hash-Chained)</h3>
             <p style="margin:4px 0 0;font-size:12px;color:#94a3b8;">
-              Fiecare acțiune administrativă este semnată într-un lanț criptografic protejat împotriva ștergerii (Write-Once-Read-Many).
+              Every administrative action is cryptographically signed in an append-only, tamper-evident hash chain (Write-Once-Read-Many).
             </p>
           </div>
           <button type="button" class="btn-primary" id="btn-verify-worm">
-            ${this.ledgerVerified === true ? '✅ Lanț SHA-256 Verificat' : '🔍 Verifică Integritatea Criptografică'}
+            ${this.ledgerVerified === true ? '✅ SHA-256 Chain Verified' : '🔍 Verify Cryptographic Integrity'}
           </button>
         </div>
         <table>
           <thead>
-            <tr><th>Timestamp</th><th>Actor</th><th>Acțiune</th><th>Hash Intrare (SHA-256)</th><th>Hash Anterior</th></tr>
+            <tr><th>Timestamp</th><th>Actor</th><th>Action</th><th>Entry Hash (SHA-256)</th><th>Previous Hash</th></tr>
           </thead>
           <tbody>
             ${this.auditLogs
               .map(
                 (log) => `
               <tr>
-                <td class="mono">${new Date(Number(log.created_at || Date.now())).toLocaleString('ro-RO')}</td>
+                <td class="mono">${new Date(Number(log.created_at || Date.now())).toLocaleString('en-US')}</td>
                 <td class="mono">${this.escapeHtml(String(log.actor || 'admin').slice(0, 18))}</td>
                 <td><span class="badge badge-purple">${this.escapeHtml(log.action || '-')}</span></td>
                 <td class="mono">${this.escapeHtml(String(log.entry_hash || '').slice(0, 20))}...</td>
@@ -4016,7 +4130,7 @@ export class AdminPanel extends AdminElementBase {
     this.shadow.getElementById('btn-refresh-data')?.addEventListener('click', async () => {
       await this.loadData();
       this.render();
-      this.showToast('Datele au fost sincronizate cu Cloudflare D1.', 'info');
+      this.showToast('Data synchronized with Cloudflare D1.', 'info');
     });
 
     this.shadow.getElementById('btn-trigger-backup')?.addEventListener('click', () => this.triggerBackup());

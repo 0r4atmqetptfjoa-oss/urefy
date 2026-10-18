@@ -378,7 +378,7 @@ export class ModernChatWorkspace2027 {
         senderHandle: 'sovereign_user',
         senderAvatarBadge: 'YO',
         senderColor: '#E5A93C',
-        text: 'Salut! Se vede impecabil acum, cu grupare de mesaje, reply, reacții și voice notes.',
+        text: 'Hello! Sovereign E2EE messaging is live with message grouping, thread replies, emoji reactions, and voice notes.',
         createdAt: now - 3600_000 * 1.2,
         status: 'READ_ZK',
         reactions: { '🚀': ['c3dc28cb705e'] },

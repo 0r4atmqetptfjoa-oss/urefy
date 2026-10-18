@@ -43,77 +43,24 @@ export class SovereignAdminDashboard {
     if (typeof window !== 'undefined') {
       (window as any).adminDashboard = this;
       this.bindGlobalDelegation();
-      void this.syncPublicStatusBanner();
     }
   }
 
   /**
-   * Fetches public spotlight & WORM audit status and injects the non-intrusive
-   * Sovereign Spotlight banner above the feed if not already present.
+   * Public status banner is disabled on public feed for security and privacy.
    */
   public async syncPublicStatusBanner(): Promise<void> {
     if (typeof document === 'undefined') return;
     try {
-      const res = await fetch('/api/admin?public=true');
-      if (!res.ok) return;
-      const json = await res.json();
-      if (!json?.success) return;
-      this.publicStatus = json;
-      this.renderPublicSpotlightWidget();
+      const existing = document.getElementById('sovereign-spotlight-public-card');
+      if (existing) existing.remove();
     } catch (_) {}
   }
 
   public renderPublicSpotlightWidget(): void {
-    if (typeof document === 'undefined' || !this.publicStatus?.spotlight) return;
-    const feedScroll = document.getElementById('main-feed-scroll');
-    if (!feedScroll) return;
-    let container = document.getElementById('sovereign-spotlight-public-card');
-    if (!container) {
-      container = document.createElement('div');
-      container.id = 'sovereign-spotlight-public-card';
-      container.className = 'mb-4';
-      const firstChild = feedScroll.firstElementChild;
-      if (firstChild) {
-        feedScroll.insertBefore(container, firstChild);
-      } else {
-        feedScroll.appendChild(container);
-      }
-    }
-    const sp = this.publicStatus.spotlight;
-    const audit = this.publicStatus.auditIntegrity || { verified: true, checkedEntries: 0 };
-    container.innerHTML = `
-      <div class="daily-pulse-container p-4 rounded-2xl border border-amber-400/25 bg-[#121622]/90 flex flex-col sm:flex-row sm:items-center justify-between gap-3.5">
-        <div class="space-y-1 min-w-0">
-          <div class="flex flex-wrap items-center gap-2">
-            <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-400/20 text-amber-300 border border-amber-400/30">
-              🌟 SOVEREIGN DAILY BOUNTY (+${Number(sp.meritBountyReward || 25)} MERIT)
-            </span>
-            <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
-              ⛓️ WORM Audit: ${audit.verified ? '100% Verified' : 'Check Required'}
-            </span>
-          </div>
-          <h3 class="text-sm font-bold text-white truncate">${escapeHtml(sp.dailyPromptTitle || 'Sovereign Architecture Challenge')}</h3>
-          <p class="text-xs text-slate-300 line-clamp-2">${escapeHtml(sp.dailyPromptDescription || '')}</p>
-        </div>
-        <div class="flex items-center gap-2 shrink-0">
-          ${
-            sp.featuredPostId
-              ? `<button type="button" data-action="open-post-detail" data-post-id="${escapeHtml(sp.featuredPostId)}" class="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-slate-200 cursor-pointer">
-                  View Featured
-                </button>`
-              : ''
-          }
-          <button
-            type="button"
-            data-action="participate-daily-spotlight"
-            data-tag="${escapeHtml(sp.dailyPromptTag || '#SovereignSpotlight')}"
-            class="px-3.5 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-extrabold text-xs cursor-pointer shadow-sm"
-          >
-            Join ${escapeHtml(sp.dailyPromptTag || '#SovereignSpotlight')} →
-          </button>
-        </div>
-      </div>
-    `;
+    if (typeof document === 'undefined') return;
+    const existing = document.getElementById('sovereign-spotlight-public-card');
+    if (existing) existing.remove();
   }
 
   public open(): void {
