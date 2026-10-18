@@ -1,5 +1,4 @@
--- Migration 0014: Support soft-deleted posts, locked posts, and add performance indexes for comments and votes.
--- Preserves all existing posts, comments, interactions, and data.
+-- Fișier: packages/client-ui/migrations/0014_allow_deleted_post_status.sql
 PRAGMA foreign_keys = OFF;
 
 CREATE TABLE IF NOT EXISTS posts_new (
@@ -36,6 +35,7 @@ SELECT
     attachment_json, video_json, images_json, poll_id,
     quoted_post_json, status, created_at, is_expanded
 FROM posts;
+
 DROP TABLE posts;
 ALTER TABLE posts_new RENAME TO posts;
 
@@ -46,7 +46,6 @@ CREATE INDEX IF NOT EXISTS idx_posts_channel_id ON posts(channel_id, created_at 
 CREATE INDEX IF NOT EXISTS idx_posts_merit_votes ON posts(merit_votes DESC);
 CREATE INDEX IF NOT EXISTS idx_posts_flair ON posts(flair);
 
--- Ensure comments table exists before indexing
 CREATE TABLE IF NOT EXISTS comments (
     id TEXT PRIMARY KEY,
     post_id TEXT NOT NULL,
@@ -63,3 +62,18 @@ CREATE INDEX IF NOT EXISTS idx_comments_post_id ON comments(post_id, created_at 
 CREATE INDEX IF NOT EXISTS idx_comments_author_id ON comments(author_id);
 CREATE INDEX IF NOT EXISTS idx_comments_parent_id ON comments(parent_id);
 CREATE INDEX IF NOT EXISTS idx_votes_user_target ON votes(user_fingerprint, target_type, target_id);
+
+CREATE TABLE IF NOT EXISTS dm_devices (
+    fingerprint TEXT NOT NULL,
+    device_id TEXT NOT NULL,
+    device_public_key TEXT NOT NULL DEFAULT '',
+    device_label TEXT,
+    registration_json TEXT NOT NULL,
+    certificate_json TEXT,
+    status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'revoked')),
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    PRIMARY KEY (fingerprint, device_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_dm_devices_fingerprint_status ON dm_devices(fingerprint, status);

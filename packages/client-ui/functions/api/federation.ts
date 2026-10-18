@@ -325,7 +325,7 @@ export async function fetchActorPublicKey(actorUrl: string, allowLocalDev: boole
       actorUrl,
       {
         headers: {
-          Accept: 'application/activity+json, application/ld+json; profile="https://www.w3.org/ns/activitystreams", application/json',
+          Accept: 'application/activity+json, application/ld+json; profile="https://www.w3.org/ns/activitystreams"',
         },
       },
       {
@@ -340,10 +340,12 @@ export async function fetchActorPublicKey(actorUrl: string, allowLocalDev: boole
       if (typeof data?.id !== 'string' || data.id !== actorUrl || data?.publicKey?.owner !== actorUrl) {
         return null;
       }
+
       const rawKeyId = typeof data?.publicKey?.id === 'string' ? data.publicKey.id : '';
       if (rawKeyId && !(rawKeyId === actorUrl || rawKeyId.startsWith(`${actorUrl}#`) || rawKeyId.startsWith(`${actorUrl}/`))) {
         return null;
       }
+
       const pubKey =
         data?.publicKey?.publicKeyHex ||
         (typeof data?.publicKey === 'string' && /^[0-9a-f]{64}$/i.test(data.publicKey) ? data.publicKey : null);
@@ -364,12 +366,13 @@ export async function fetchActorPublicKey(actorUrl: string, allowLocalDev: boole
         });
         return canonicalKey;
       }
+
       if (publicKeyPem) {
         actorKeyCache.set(actorUrl, { publicKeyPem, inbox, sharedInbox, expiresAt: Date.now() + ACTOR_KEY_TTL_MS });
       }
     }
   } catch (_) {
-    // Blocked by SSRF guard or network failure
+    // Fail closed on network or SSRF errors
   }
 
   return null;

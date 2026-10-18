@@ -709,6 +709,7 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
         try {
           await kv.delete(`post:${postId}`);
           await kv.delete('posts:all:all:hot:50:0');
+          await kv.delete('posts:v2:all:all:hot:50:0');
         } catch (_) {}
       }
 
@@ -826,6 +827,7 @@ export async function onRequestDelete(context: { request: Request; env?: Env }):
         try {
           await kv.delete(`post:${commentRow.post_id}`);
           await kv.delete('posts:all:all:hot:50:0');
+          await kv.delete('posts:v2:all:all:hot:50:0');
         } catch (_) {}
       }
     } else {

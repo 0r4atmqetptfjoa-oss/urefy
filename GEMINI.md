@@ -1,6 +1,22 @@
 # Instructions for Gemini / Antigravity
 
-## Latest production publication (2026-10-03)
+## Latest architecture consolidation & production status (2026-10-18)
+
+Architecture consolidation, cryptographic timing defense, UI runtime repairs, Sovereign Syntax Highlighting, E2EE Voice Notes, and Spatial UI 2027 completed. Remote GitHub repository `https://github.com/0r4atmqetptfjoa-oss/urefy.git` synchronized on `origin/main`. See `docs/PROJECT_REPAIRS_2026-10-18.md`. Unit suite: 100% green across monorepo (243/243 files, 2,760/2,760 tests passed, 0 failures). Key updates:
+- **Unified Modal System**: Native `inert` attribute applied to `#main-layout`, preventing focus bleed to background during open modals; focus restored on close; dynamic scrollbar padding compensation.
+- **Scroll & Runtime Performance**: Incremental hydration using `[data-studio-upgraded="1"]` replaces deep DOM query scans; full desktop 100dvh retention and mobile keyboard stability.
+- **Advanced Search Edge API**: Backend `/api/search` with FTS5 index (`posts_fts`), operator parsing (`channel:`, `flair:`, `author:`, `has:code`, `merit:>`), and multi-category fallback.
+- **Sovereign Code Cards 2027**: XSS-safe syntax highlighting (`code-highlighter.ts`), line numbers, lang badges, Copy button, and smooth expand/collapse for blocks > 18 lines.
+- **Sovereign Typography 2027**: Variable font hierarchy (`Plus Jakarta Sans` for UI/reading, `Space Grotesk` for headers/display, `JetBrains Mono` for PQC keys/code/telemetry) with optical sizing, tabular numerals, OpenType alternates (`cv02/cv03/cv11`), and dynamic font mode switches (`data-font-mode="jakarta|inter|mono-hacker"`).
+- **E2EE Opus Voice Notes**: Live WebAudio `AnalyserNode` real-time frequency analysis with 28 normalized waveform peaks, audio player with speed cycling (`1x/1.5x/2x`), and 1-click recording integrated into Nexus Chat (`dm-workspace.ts`).
+- **Spatial UI 2027**: Aurora specular spotlight illumination (`--spot-x`, `--spot-y`), global `Ctrl+M` / `Cmd+M` shortcut for E2EE chat, and floating quick-action spatial dock (`#urefy-spatial-dock`).
+- **Timing Defense**: `timingSafeEqualHash` in `full-backup-recovery.ts` protects `X-Cron-Secret` against side-channel timing analysis.
+- **D1 Migration Consolidation**: Removed duplicate `0014_dm_devices.sql` prefix collision; unified `dm_devices` schema in `0014_allow_deleted_post_status.sql`.
+- **Edge KV Cache Consistency**: Dual-tier invalidation of v1 and v2 feed keys (`posts:v2:all:all:hot:50:0`, `posts:v2:${channelId}:all:hot:50:0`) on post deletion and comment activity.
+- **Icon Resilience**: `ICON_ALIASES` in `renderIcon` handles PascalCase and kebab-case icon calls without breaking component trees.
+- **Metrics**: Startup JavaScript: **599.47 KiB gzip** across 30 chunks (strictly under 600 KiB budget). Startup CSS: 77.04 KiB gzip. All 23 production gates passed (`npm run audit:production`), smoke tests passed (6/6), branding check passed (4/4). Zero user and post data modified.
+
+## Prior production publication (2026-10-03)
 
 Production deployment `2bff8401` (code commit `76c6330`) deployed to urefy.com. Remote GitHub repository `https://github.com/0r4atmqetptfjoa-oss/urefy.git` is synchronized on `origin/main`. See `docs/DEPLOYMENT_2026-10-03.md`. Unit suite: 100% green across monorepo (242/242 files, 2,751/2,751 tests passed, 0 failures). Cleaned up mobile profile grid blowout, anchored avatar presence indicator, made mobile Settings button a 36x36px icon button, and added mobile drawer scroll clearance. Startup JavaScript: **599.38 KiB gzip** across 23 chunks (strictly below 600 KiB budget). Startup CSS: 69.95 KiB gzip. All 23 production gates passed (`npm run audit:production`), structural UX passed (5/5), smoke tests passed (6/6), branding check passed (4/4). Live domain `urefy.com` serves `main-BLlVtrmy.js` and all tested routes return HTTP 200. Zero user and post data modified.
 

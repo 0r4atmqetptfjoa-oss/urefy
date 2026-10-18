@@ -1367,7 +1367,11 @@ export async function onRequestDelete(context: {
         await kv.delete(`post:${postId}`);
         await kv.delete(`seo:post:${postId}`);
         await kv.delete('posts:all:all:hot:50:0');
-        if (channelId) await kv.delete(`posts:${channelId}:all:hot:50:0`);
+        await kv.delete('posts:v2:all:all:hot:50:0');
+        if (channelId) {
+          await kv.delete(`posts:${channelId}:all:hot:50:0`);
+          await kv.delete(`posts:v2:${channelId}:all:hot:50:0`);
+        }
       } catch (_) {}
     }
 

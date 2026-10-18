@@ -345,26 +345,40 @@ export function iconToSvg(iconDef: IconDefinition, options: IconOptions = {}): s
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${escapeAttribute(size)}" height="${escapeAttribute(size)}" viewBox="0 0 24 24" fill="none" stroke="${escapeAttribute(color)}" stroke-width="${escapeAttribute(strokeWidth)}" stroke-linecap="round" stroke-linejoin="round" focusable="false" class="urefy-icon lucide-icon ${escapeAttribute(cls)}" ${ariaAttr}>${children}</svg>`;
 }
 
+const ICON_ALIASES: Record<string, string> = {
+  RefreshCw: 'refresh',
+  Plus: 'plus',
+  Send: 'send',
+  ArrowLeft: 'chevronDown',
+  Vote: 'vote',
+  MessageSquare: 'messageSquare',
+  FileKey: 'fileKey',
+  'alert-triangle': 'alert',
+  'message-square': 'messageSquare',
+  x: 'close',
+};
+
 /**
  * Renders an icon by name from the dictionary with support for 'outline' and 'solid' variants.
  * Falls back to an info icon if not found.
  */
 export function renderIcon(name: IconName | string, options: IconOptions = {}): string {
   const variant = options.variant || 'outline';
+  const normalizedName = ICON_ALIASES[name as string] || (name as string);
 
   // 1. Custom proprietary glyphs (Merit, Repost, Sovereign Circle)
-  if (CUSTOM_ICONS[name]) {
-    const customDef = variant === 'solid' ? CUSTOM_ICONS[name].solid : CUSTOM_ICONS[name].outline;
+  if (CUSTOM_ICONS[normalizedName]) {
+    const customDef = variant === 'solid' ? CUSTOM_ICONS[normalizedName].solid : CUSTOM_ICONS[normalizedName].outline;
     return iconToSvg(customDef, options);
   }
 
   // 2. Solid navigation icons
-  if (variant === 'solid' && SOLID_ICONS[name]) {
-    return iconToSvg(SOLID_ICONS[name], { ...options, strokeWidth: 0 });
+  if (variant === 'solid' && SOLID_ICONS[normalizedName]) {
+    return iconToSvg(SOLID_ICONS[normalizedName], { ...options, strokeWidth: 0 });
   }
 
   // 3. Standard Lucide dictionary
-  const def = ICONS[name as string] || ICONS.info;
+  const def = ICONS[normalizedName] || ICONS.info;
   return iconToSvg(def, options);
 }
 

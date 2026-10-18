@@ -1,0 +1,1304 @@
+/* ============================================================================
+   SISTEM TIPOGRAFIC 2027 — CRISTALIN PE ORICE ECRAN (MOBILE, RETINA, 4K)
+   ============================================================================ */
+
+:root {
+  /* 1. Fontul principal pentru citire lungă, postări și bule de chat */
+  --font-sans: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont,
+    'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+
+  /* 2. Fontul de afișare pentru titluri, canale și branding */
+  --font-display: 'Space Grotesk', 'Plus Jakarta Sans', system-ui, sans-serif;
+
+  /* 3. Fontul tehnic pentru blocuri de cod, chei PQC și fingerprint-uri */
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'SFMono-Regular', Consolas, monospace;
+
+  /* Scală Tipografică Fluidă (se adaptează automat între 320px și 2560px) */
+  --text-xs: clamp(0.71rem, 0.68rem + 0.12vw, 0.76rem);
+  --text-sm: clamp(0.81rem, 0.78rem + 0.15vw, 0.875rem);
+  --text-base: clamp(0.94rem, 0.90rem + 0.2vw, 1.02rem);
+  --text-lg: clamp(1.08rem, 1.02rem + 0.3vw, 1.22rem);
+  --text-xl: clamp(1.26rem, 1.16rem + 0.45vw, 1.48rem);
+  --text-2xl: clamp(1.52rem, 1.35rem + 0.75vw, 1.95rem);
+}
+
+/* Randare de înaltă precizie pe toate sistemele de operare (Windows ClearType, macOS, iOS, Android) */
+html {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  font-optical-sizing: auto;
+  /* Activează forme de litere deschise, 'l' cu codiță, '1' distinct și zero tăiat unde e suportat */
+  font-feature-settings: 'cv02' 1, 'cv03' 1, 'cv04' 1, 'cv11' 1, 'ss01' 1;
+  font-variation-settings: 'opsz' 16;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: 1.62;
+  letter-spacing: -0.011em;
+  color: #f1f5f9;
+}
+
+/* --- TITLURI & HEADER-E (Space Grotesk) --- */
+h1, h2, h3, h4,
+.post-title,
+.nx-brand-title,
+.urefy-omni-item-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  line-height: 1.28;
+  letter-spacing: -0.024em;
+  text-wrap: balance; /* Împarte automat titlurile pe rânduri egale vizual */
+  color: #f8fafc;
+}
+
+/* --- CORPUL POSTĂRILOR & COMENTARIILOR (Lizibilitate maximă la citit lung) --- */
+.post-content,
+.comment-content,
+.nx-msg-body {
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: 1.65;
+  letter-spacing: -0.008em;
+  color: #e2e8f0;
+  max-width: 70ch; /* Lungimea ideală de rând pentru ochiul uman */
+  text-wrap: pretty; /* Previne cuvintele singure rămase pe ultimul rând */
+  hyphens: auto;
+}
+
+/* --- COD SURSĂ, CHEI CRIPTOGRAFICE & TIMPI (JetBrains Mono) --- */
+code, pre, kbd,
+.sh-pre,
+.nx-conv-peer-id,
+.nx-peer-name,
+.nx-safety-block,
+.urefy-kbd {
+  font-family: var(--font-mono);
+  font-variant-ligatures: contextual; /* Ligaturi curate pentru =>, !==, === */
+  font-feature-settings: 'zero' 1, 'ss01' 1;
+  letter-spacing: -0.015em;
+}
+
+/* --- CIFRE ALINIATE PERFECT (Voturi Merit, Contoare, Ceasuri Chat) --- */
+.merit-count,
+.nx-msg-time,
+.nx-peer-time,
+.nx-peer-msg-count,
+.urefy-omni-merit,
+.sh-line-num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- SELECȚIE DE TEXT ELEGANTĂ --- */
+::selection {
+  background: rgba(56, 189, 248, 0.28);
+  color: #ffffff;
+}
+
+/* Moduri de personalizare a fontului pe <body data-font-mode="..."> */
+body[data-font-mode='jakarta'] {
+  --font-sans: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+}
+
+body[data-font-mode='inter'] {
+  --font-sans: 'Inter', system-ui, sans-serif;
+  letter-spacing: -0.014em;
+}
+
+body[data-font-mode='mono-hacker'] {
+  --font-sans: 'JetBrains Mono', monospace;
+  letter-spacing: -0.02em;
+}
+
+/* ============================================================================
+   UREFY 2027 QUANTUM SPATIAL GLASS — OMNI-SEARCH & NEXUS CHAT
+   ============================================================================ */
+
+/* --- 1. OMNI-SEARCH COMMAND PALETTE (Cmd/Ctrl + K) --- */
+.urefy-omni-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10020;
+  background: rgba(3, 5, 10, 0.72);
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 8vh 16px 24px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.urefy-omni-backdrop.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.urefy-omni-dialog {
+  width: 100%;
+  max-width: 720px;
+  background: linear-gradient(165deg, rgba(17, 22, 33, 0.96) 0%, rgba(9, 12, 18, 0.98) 100%);
+  border: 1px solid rgba(56, 189, 248, 0.24);
+  border-radius: 18px;
+  box-shadow:
+    0 28px 70px rgba(0, 0, 0, 0.78),
+    0 0 0 1px rgba(255, 255, 255, 0.05) inset,
+    0 0 40px rgba(0, 242, 254, 0.08);
+  overflow: hidden;
+  transform: translateY(-10px) scale(0.985);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.urefy-omni-backdrop.is-open .urefy-omni-dialog {
+  transform: translateY(0) scale(1);
+}
+
+.urefy-omni-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.urefy-omni-search-icon {
+  color: #38bdf8;
+  display: inline-flex;
+}
+
+.urefy-omni-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #f8fafc;
+  font-size: 1rem;
+  font-family: var(--font-sans, system-ui, sans-serif);
+}
+
+.urefy-omni-filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 18px;
+  background: rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.urefy-omni-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.urefy-omni-tab {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #94a3b8;
+  padding: 5px 11px;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.urefy-omni-tab.active,
+.urefy-omni-tab:hover {
+  background: rgba(56, 189, 248, 0.16);
+  border-color: rgba(56, 189, 248, 0.45);
+  color: #e0f2fe;
+}
+
+.urefy-omni-syntax-chips {
+  display: flex;
+  gap: 5px;
+}
+
+.urefy-syntax-chip {
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.28);
+  color: #6ee7b7;
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 0.7rem;
+  font-family: var(--font-mono, monospace);
+  cursor: pointer;
+}
+
+.urefy-omni-results {
+  max-height: 410px;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.urefy-omni-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 11px 12px;
+  border-radius: 12px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.12s ease;
+}
+
+.urefy-omni-item.is-selected {
+  background: linear-gradient(90deg, rgba(56, 189, 248, 0.14), rgba(16, 185, 129, 0.06));
+  border-color: rgba(56, 189, 248, 0.32);
+}
+
+.urefy-omni-item-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.05);
+  font-size: 0.95rem;
+  flex-shrink: 0;
+}
+
+.urefy-omni-item-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.urefy-omni-item-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.urefy-omni-item-title {
+  color: #f1f5f9;
+  font-weight: 600;
+  font-size: 0.9rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.urefy-omni-item-sub {
+  color: #64748b;
+  font-size: 0.74rem;
+  font-family: var(--font-mono, monospace);
+  margin-top: 2px;
+}
+
+.urefy-omni-item-snippet {
+  color: #94a3b8;
+  font-size: 0.8rem;
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+.urefy-omni-code-preview {
+  margin: 6px 0 0;
+  padding: 8px 10px;
+  background: rgba(2, 6, 14, 0.75);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  border-radius: 8px;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.75rem;
+  color: #bae6fd;
+  overflow-x: auto;
+}
+
+.urefy-search-mark {
+  background: rgba(250, 204, 21, 0.24);
+  color: #fef08a;
+  padding: 0 3px;
+  border-radius: 4px;
+}
+
+.urefy-omni-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 18px;
+  background: rgba(2, 6, 12, 0.7);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 0.74rem;
+  color: #64748b;
+}
+
+.urefy-omni-footer-hints {
+  display: flex;
+  gap: 14px;
+}
+
+.urefy-kbd {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 5px;
+  padding: 1px 6px;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.68rem;
+  color: #cbd5e1;
+}
+
+/* --- 2. NEXUS SOVEREIGN CHAT (WHATSAPP + DISCORD 2027) --- */
+.nx-chat-shell {
+  width: 100%;
+  max-width: 1260px;
+  height: min(88vh, 840px);
+  background: linear-gradient(160deg, #0b0f17 0%, #070a10 100%);
+  border: 1px solid rgba(56, 189, 248, 0.22);
+  border-radius: 20px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 32px 90px rgba(0, 0, 0, 0.82);
+}
+
+.nx-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  background: rgba(13, 18, 28, 0.92);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.nx-topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.nx-brand-orb {
+  position: relative;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: radial-gradient(circle at 30% 30%, rgba(56, 189, 248, 0.28), rgba(16, 185, 129, 0.12));
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nx-orb-dot {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 8px #10b981;
+}
+
+.nx-brand-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 800;
+  font-size: 0.88rem;
+  letter-spacing: 0.04em;
+  color: #f8fafc;
+}
+
+.nx-pqc-pill {
+  font-size: 0.65rem;
+  font-family: var(--font-mono, monospace);
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(16, 185, 129, 0.14);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  color: #6ee7b7;
+}
+
+.nx-brand-sub {
+  font-size: 0.72rem;
+  color: #64748b;
+  font-family: var(--font-mono, monospace);
+  margin-top: 2px;
+}
+
+.nx-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nx-top-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #cbd5e1;
+  border-radius: 8px;
+  padding: 6px 11px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.nx-top-btn:hover,
+.nx-top-btn.active {
+  background: rgba(56, 189, 248, 0.15);
+  border-color: rgba(56, 189, 248, 0.45);
+  color: #38bdf8;
+}
+
+.nx-close-btn {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.nx-main-grid {
+  flex: 1;
+  display: grid;
+  min-height: 0;
+}
+
+.nx-main-grid.with-inspector {
+  grid-template-columns: 300px 1fr 270px;
+}
+
+.nx-main-grid.no-inspector {
+  grid-template-columns: 300px 1fr;
+}
+
+/* Sidebar Discord + WhatsApp */
+.nx-sidebar {
+  background: rgba(10, 14, 22, 0.95);
+  border-right: 1px solid rgba(255, 255, 255, 0.07);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.nx-new-session-box {
+  padding: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.nx-section-title {
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #64748b;
+}
+
+.nx-new-peer-row {
+  display: flex;
+  gap: 6px;
+}
+
+.nx-input {
+  flex: 1;
+  background: rgba(2, 6, 12, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 7px 10px;
+  color: #f1f5f9;
+  font-size: 0.78rem;
+  font-family: var(--font-mono, monospace);
+}
+
+.nx-primary-btn {
+  background: linear-gradient(135deg, #0ea5e9, #10b981);
+  border: none;
+  color: #020617;
+  font-weight: 800;
+  border-radius: 8px;
+  padding: 0 13px;
+  cursor: pointer;
+}
+
+.nx-peer-tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.nx-peer-tab {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  color: #94a3b8;
+  font-size: 0.7rem;
+  padding: 4px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.nx-peer-tab.active {
+  background: rgba(56, 189, 248, 0.16);
+  border-color: rgba(56, 189, 248, 0.4);
+  color: #e0f2fe;
+}
+
+.nx-peers-category-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px 6px;
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: #64748b;
+}
+
+.nx-peers-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nx-peer-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  padding: 9px 10px;
+  border-radius: 11px;
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.14s ease;
+}
+
+.nx-peer-item:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.nx-peer-item.active {
+  background: linear-gradient(90deg, rgba(56, 189, 248, 0.16), rgba(16, 185, 129, 0.06));
+  border-color: rgba(56, 189, 248, 0.35);
+}
+
+.nx-peer-avatar {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.22), rgba(99, 102, 241, 0.22));
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 0.76rem;
+  color: #e0f2fe;
+  flex-shrink: 0;
+}
+
+.nx-peer-status-dot {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #38bdf8;
+  border: 2px solid #0b0f17;
+}
+
+.nx-peer-status-dot.verified {
+  background: #10b981;
+}
+
+.nx-peer-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.nx-peer-top,
+.nx-peer-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.nx-peer-name {
+  color: #f1f5f9;
+  font-size: 0.78rem;
+  font-weight: 600;
+  font-family: var(--font-mono, monospace);
+}
+
+.nx-peer-time {
+  color: #64748b;
+  font-size: 0.66rem;
+}
+
+.nx-peer-preview {
+  color: #94a3b8;
+  font-size: 0.72rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nx-self-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: rgba(2, 6, 12, 0.85);
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.nx-self-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.nx-self-name {
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: #e2e8f0;
+  font-family: var(--font-mono, monospace);
+}
+
+.nx-self-device {
+  font-size: 0.66rem;
+  color: #64748b;
+}
+
+/* Conversation Center */
+.nx-chat-center {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background:
+    radial-gradient(circle at 80% 15%, rgba(56, 189, 248, 0.05), transparent 45%),
+    radial-gradient(circle at 20% 85%, rgba(16, 185, 129, 0.05), transparent 45%);
+}
+
+.nx-conv-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(11, 15, 23, 0.85);
+}
+
+.nx-conv-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nx-conv-peer-id {
+  font-family: var(--font-mono, monospace);
+  font-weight: 700;
+  font-size: 0.86rem;
+  color: #f8fafc;
+}
+
+.nx-security-badge {
+  font-size: 0.66rem;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  color: #7dd3fc;
+}
+
+.nx-security-badge.is-verified {
+  background: rgba(16, 185, 129, 0.16);
+  border-color: rgba(16, 185, 129, 0.45);
+  color: #6ee7b7;
+}
+
+.nx-conv-sub {
+  font-size: 0.72rem;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.nx-messages-stream {
+  flex: 1;
+  overflow-y: auto;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.nx-date-divider {
+  display: flex;
+  justify-content: center;
+  margin: 6px 0;
+}
+
+.nx-date-divider span {
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #94a3b8;
+  font-size: 0.68rem;
+  padding: 3px 12px;
+  border-radius: 999px;
+}
+
+.nx-msg-row {
+  display: flex;
+  flex-direction: column;
+  max-width: 76%;
+}
+
+.nx-msg-row.is-outgoing {
+  align-self: flex-end;
+}
+
+.nx-msg-row.is-incoming {
+  align-self: flex-start;
+}
+
+.nx-msg-bubble {
+  position: relative;
+  padding: 10px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(17, 24, 39, 0.9);
+  color: #f1f5f9;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.28);
+}
+
+.nx-msg-row.is-outgoing .nx-msg-bubble {
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.22), rgba(16, 185, 129, 0.16));
+  border-color: rgba(56, 189, 248, 0.35);
+  border-bottom-right-radius: 4px;
+}
+
+.nx-msg-row.is-incoming .nx-msg-bubble {
+  border-bottom-left-radius: 4px;
+}
+
+.nx-msg-hover-toolbar {
+  position: absolute;
+  top: -28px;
+  right: 8px;
+  display: none;
+  align-items: center;
+  gap: 3px;
+  background: #0f172a;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  padding: 2px 6px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
+  z-index: 5;
+}
+
+.nx-msg-bubble:hover .nx-msg-hover-toolbar {
+  display: flex;
+}
+
+.nx-react-btn,
+.nx-reply-btn {
+  background: transparent;
+  border: none;
+  color: #cbd5e1;
+  font-size: 0.74rem;
+  padding: 2px 5px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.nx-react-btn:hover,
+.nx-reply-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.nx-msg-reply-quote {
+  border-left: 3px solid #38bdf8;
+  background: rgba(2, 6, 12, 0.45);
+  padding: 5px 9px;
+  border-radius: 6px;
+  margin-bottom: 6px;
+  cursor: pointer;
+  font-size: 0.75rem;
+}
+
+.nx-reply-quote-author {
+  font-weight: 700;
+  color: #38bdf8;
+  font-size: 0.68rem;
+}
+
+.nx-msg-body {
+  font-size: 0.88rem;
+  line-height: 1.48;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.nx-msg-meta {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 5px;
+  font-size: 0.66rem;
+  color: #94a3b8;
+  font-family: var(--font-mono, monospace);
+}
+
+.nx-msg-ticks {
+  color: #34d399;
+  font-weight: 700;
+}
+
+.nx-msg-reactions-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.nx-reaction-pill {
+  background: rgba(56, 189, 248, 0.14);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  color: #e0f2fe;
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+
+/* Composer */
+.nx-composer-form {
+  padding: 10px 16px 14px;
+  background: rgba(10, 14, 22, 0.94);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.nx-composer-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.nx-tool-chip {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #94a3b8;
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 0.7rem;
+  cursor: pointer;
+}
+
+.nx-composer-hint {
+  margin-left: auto;
+  font-size: 0.68rem;
+  color: #64748b;
+}
+
+.nx-composer-row {
+  display: flex;
+  gap: 10px;
+}
+
+.nx-composer-textarea {
+  flex: 1;
+  background: rgba(2, 6, 12, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 10px 12px;
+  color: #f8fafc;
+  font-size: 0.88rem;
+  resize: none;
+}
+
+.nx-send-btn {
+  background: linear-gradient(135deg, #0ea5e9, #10b981);
+  border: none;
+  color: #020617;
+  font-weight: 800;
+  padding: 0 18px;
+  border-radius: 12px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Security Inspector */
+.nx-inspector {
+  background: rgba(10, 14, 22, 0.96);
+  border-left: 1px solid rgba(255, 255, 255, 0.07);
+  padding: 14px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.nx-inspector-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 10px;
+  padding: 10px;
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.nx-kv-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  color: #94a3b8;
+}
+
+.nx-kv-row strong {
+  color: #38bdf8;
+  font-family: var(--font-mono, monospace);
+}
+
+.nx-safety-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.nx-safety-block {
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.28);
+  color: #6ee7b7;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.76rem;
+  text-align: center;
+  padding: 6px 4px;
+  border-radius: 6px;
+}
+
+@media (max-width: 960px) {
+  .nx-main-grid.with-inspector,
+  .nx-main-grid.no-inspector {
+    grid-template-columns: 1fr;
+  }
+  .nx-inspector {
+    display: none !important;
+  }
+}
+
+
+/* ============================================================================
+   2027 CODE CARDS (SYNTAX HIGHLIGHTING), E2EE VOICE NOTES & SPATIAL DOCK
+   ============================================================================ */
+
+/* --- 1. SOVEREIGN CODE CARDS --- */
+.sh-card {
+  margin: 10px 0;
+  border-radius: 12px;
+  border: 1px solid rgba(56, 189, 248, 0.22);
+  background: rgba(5, 9, 17, 0.92);
+  overflow: hidden;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+}
+
+.sh-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 12px;
+  background: rgba(15, 23, 42, 0.85);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.sh-card-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sh-traffic-dots {
+  display: inline-flex;
+  gap: 5px;
+}
+
+.sh-traffic-dots i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.sh-traffic-dots i:nth-child(1) { background: #ef4444; }
+.sh-traffic-dots i:nth-child(2) { background: #f59e0b; }
+.sh-traffic-dots i:nth-child(3) { background: #10b981; }
+
+.sh-lang-badge {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.12);
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.sh-lines-meta {
+  font-size: 0.68rem;
+  color: #64748b;
+  font-family: var(--font-mono, monospace);
+}
+
+.sh-card-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.sh-copy-btn,
+.sh-expand-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #cbd5e1;
+  border-radius: 6px;
+  padding: 3px 9px;
+  font-size: 0.7rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.sh-copy-btn:hover,
+.sh-expand-btn:hover {
+  background: rgba(56, 189, 248, 0.16);
+  border-color: rgba(56, 189, 248, 0.4);
+  color: #f8fafc;
+}
+
+.sh-copy-btn.copied {
+  background: rgba(16, 185, 129, 0.2);
+  border-color: rgba(16, 185, 129, 0.5);
+  color: #6ee7b7;
+}
+
+.sh-code-viewport {
+  overflow-x: auto;
+  max-height: 520px;
+  transition: max-height 0.25s ease;
+}
+
+.sh-card.is-collapsed .sh-code-viewport {
+  max-height: 240px;
+  mask-image: linear-gradient(180deg, #000 72%, transparent 100%);
+  -webkit-mask-image: linear-gradient(180deg, #000 72%, transparent 100%);
+}
+
+.sh-pre {
+  margin: 0;
+  padding: 10px 0;
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+
+.sh-line {
+  display: flex;
+  padding: 0 14px 0 0;
+}
+
+.sh-line:hover {
+  background: rgba(56, 189, 248, 0.06);
+}
+
+.sh-line-num {
+  width: 38px;
+  text-align: right;
+  padding-right: 12px;
+  color: #475569;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.sh-line-code {
+  color: #e2e8f0;
+  white-space: pre;
+}
+
+.sh-keyword { color: #c084fc; font-weight: 600; }
+.sh-string  { color: #86efac; }
+.sh-type    { color: #38bdf8; }
+.sh-number  { color: #fbbf24; }
+.sh-comment { color: #64748b; font-style: italic; }
+.sh-fn      { color: #60a5fa; }
+
+.sh-inline-code {
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  color: #7dd3fc;
+  padding: 1px 6px;
+  border-radius: 5px;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.82em;
+}
+
+/* --- 2. WHATSAPP + DISCORD E2EE VOICE NOTES --- */
+.nx-voice-player {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 250px;
+  padding: 6px 4px;
+}
+
+.nx-voice-play-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: linear-gradient(135deg, #38bdf8, #10b981);
+  color: #020617;
+  font-weight: 900;
+  cursor: pointer;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nx-voice-waveform-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.nx-voice-bars {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 26px;
+}
+
+.nx-wave-bar {
+  flex: 1;
+  min-width: 3px;
+  background: rgba(148, 163, 184, 0.4);
+  border-radius: 999px;
+  transition: background 0.12s ease;
+}
+
+.nx-wave-bar.is-played {
+  background: #38bdf8;
+  box-shadow: 0 0 6px rgba(56, 189, 248, 0.5);
+}
+
+.nx-voice-footer {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.65rem;
+  color: #94a3b8;
+  font-family: var(--font-mono, monospace);
+}
+
+.nx-voice-speed-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #e2e8f0;
+  border-radius: 999px;
+  padding: 3px 8px;
+  font-size: 0.68rem;
+  font-family: var(--font-mono, monospace);
+  cursor: pointer;
+}
+
+#nx-voice-record-btn.recording {
+  background: rgba(239, 68, 68, 0.25);
+  border-color: #ef4444;
+  color: #fca5a5;
+  animation: pulse-red 1s infinite alternate;
+}
+
+@keyframes pulse-red {
+  from { opacity: 0.8; }
+  to { opacity: 1; transform: scale(1.02); }
+}
+
+/* --- 3. SPATIAL SPOTLIGHT & FLOATING DOCK 2027 --- */
+.post-card,
+.nx-msg-bubble,
+.sh-card {
+  position: relative;
+}
+
+.post-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: radial-gradient(
+    420px circle at var(--spot-x, -500px) var(--spot-y, -500px),
+    rgba(56, 189, 248, 0.07),
+    transparent 60%
+  );
+}
+
+.urefy-spatial-dock {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 9950;
+  display: flex;
+  gap: 8px;
+  padding: 6px;
+  border-radius: 999px;
+  background: rgba(9, 13, 22, 0.88);
+  border: 1px solid rgba(56, 189, 248, 0.28);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.65);
+}
+
+.urefy-dock-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #e2e8f0;
+  padding: 7px 12px;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.urefy-dock-btn:hover {
+  background: rgba(56, 189, 248, 0.18);
+  border-color: rgba(56, 189, 248, 0.45);
+  transform: translateY(-1px);
+}
+
+.urefy-dock-btn kbd {
+  font-size: 0.65rem;
+  color: #7dd3fc;
+  background: rgba(2, 6, 14, 0.6);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
