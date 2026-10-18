@@ -16,7 +16,7 @@
     "test:branding": "node --test scripts/rebrand-product.test.mjs && node scripts/rebrand-product.mjs --check",
     "test:smoke": "node --test scripts/smoke-test.test.mjs",
     "test:bundle": "node --test scripts/bundle-budget.test.mjs",
-    "dump:all": "npx repomix -c repomix.part1.json && npx repomix -c repomix.part2.json && npx repomix -c repomix.part3.json",
+    "dump:all": "node scripts/dump-10.mjs",
     "audit:bundle": "node scripts/bundle-budget.mjs",
     "lint": "npm run typecheck",
     "typecheck": "npm run build:shared && tsc --noEmit --project packages/server-edge/tsconfig.json && tsc --noEmit --project packages/daemon-archivist/tsconfig.json && tsc --noEmit --project packages/client-ui/tsconfig.json && tsc --noEmit --project packages/client-ui/functions/tsconfig.json",
