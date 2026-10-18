@@ -91,13 +91,17 @@ export class CrossTabSyncEngine {
   }
 
   public handleIncomingMessage(msg: CrossTabMessage): void {
-    if (!msg || msg.sourceTabId === this.tabId) return;
+    if (!msg || typeof msg !== 'object' || msg.sourceTabId === this.tabId) return;
+    if (typeof msg.timestamp === 'number' && Math.abs(Date.now() - msg.timestamp) > 30_000) return;
 
     switch (msg.type) {
       case 'POST_CREATED': {
         const post = msg.payload as ClientPost;
-        if (post && post.id && !clientStore.posts.some(p => p.id === post.id)) {
+        if (post && typeof post.id === 'string' && !clientStore.posts.some((p) => p.id === post.id)) {
           clientStore.posts.unshift(post);
+          if (clientStore.posts.length > 500) {
+            clientStore.posts.length = 500;
+          }
           localSearchIndex.indexPost(post);
           clientStore.notify('NEW_POST', post);
         }

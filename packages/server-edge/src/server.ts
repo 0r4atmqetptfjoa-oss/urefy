@@ -20,6 +20,7 @@ export interface ServerConfig {
   dbPath?: string;
   maxPacketSizeBytes?: number;
   requireChallengeHandshake?: boolean;
+  trustProxy?: boolean;
 }
 
 export class AetherisServer {
@@ -35,6 +36,8 @@ export class AetherisServer {
   private nonceGuard: NonceReplayGuard;
   private powEngine: PoWChallengeEngine;
   private maxPacketSizeBytes: number;
+  private trustProxy: boolean;
+  private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
 
   constructor(config: ServerConfig) {
     this.db = new AetherisDatabase(config.dbPath || ':memory:');
@@ -45,39 +48,40 @@ export class AetherisServer {
     this.nonceGuard = new NonceReplayGuard();
     this.powEngine = new PoWChallengeEngine();
     this.maxPacketSizeBytes = config.maxPacketSizeBytes || 65536; // 64 KB
+    this.trustProxy = config.trustProxy ?? false;
 
-    // Initialize bounded state manager
     this.state = new RelayStateManager({
       maxPresenceCount: 10000,
-      presenceTtlMs: 900000, // 15 mins
-      shareTtlMs: 300000,    // 5 mins
-      challengeTtlMs: 60000, // 60 secs
+      presenceTtlMs: 900000,
+      shareTtlMs: 300000,
+      challengeTtlMs: 60000,
     });
 
-    // Wire persistence adapter to SQLite
     const persistence: RelayPersistence = {
-      getChannels: () => this.db.getChannels().map((c) => ({
-        id: c.id,
-        space: c.space,
-        name: c.name,
-        description: c.description,
-        isEncrypted: c.isEncrypted === 1,
-      })),
-      getMessages: (channelId, limit) => this.db.getMessages(channelId, limit).map((m) => ({
-        id: m.id,
-        channelId: m.channelId,
-        authorFingerprint: m.authorFingerprint,
-        ciphertext: m.ciphertext,
-        text: m.ciphertext,
-        iv: m.iv,
-        epoch: m.epoch,
-        x: m.x,
-        y: m.y,
-        nullifier: m.nullifier,
-        signature: m.signature,
-        status: m.status,
-        createdAt: m.createdAt,
-      })),
+      getChannels: () =>
+        this.db.getChannels().map((c) => ({
+          id: c.id,
+          space: c.space,
+          name: c.name,
+          description: c.description,
+          isEncrypted: c.isEncrypted === 1,
+        })),
+      getMessages: (channelId, limit) =>
+        this.db.getMessages(channelId, limit).map((m) => ({
+          id: m.id,
+          channelId: m.channelId,
+          authorFingerprint: m.authorFingerprint,
+          ciphertext: m.ciphertext,
+          text: m.ciphertext,
+          iv: m.iv,
+          epoch: m.epoch,
+          x: m.x,
+          y: m.y,
+          nullifier: m.nullifier,
+          signature: m.signature,
+          status: m.status,
+          createdAt: m.createdAt,
+        })),
       insertMessage: (msg) => {
         this.db.insertMessage({
           id: msg.id,
@@ -94,20 +98,21 @@ export class AetherisServer {
           createdAt: msg.createdAt || Date.now(),
         });
       },
-      getNanopublications: (channelId) => this.db.getNanopublications(channelId).map((n) => ({
-        id: n.id,
-        channelId: n.channelId,
-        title: n.title,
-        fileName: n.fileName,
-        byteSize: n.byteSize,
-        sha256: n.sha256,
-        crc32: n.crc32,
-        entropy: n.entropy,
-        verdict: n.verdict,
-        merkleRoot: n.merkleRoot,
-        seederCount: n.seederCount,
-        createdAt: n.createdAt,
-      })),
+      getNanopublications: (channelId) =>
+        this.db.getNanopublications(channelId).map((n) => ({
+          id: n.id,
+          channelId: n.channelId,
+          title: n.title,
+          fileName: n.fileName,
+          byteSize: n.byteSize,
+          sha256: n.sha256,
+          crc32: n.crc32,
+          entropy: n.entropy,
+          verdict: n.verdict,
+          merkleRoot: n.merkleRoot,
+          seederCount: n.seederCount,
+          createdAt: n.createdAt,
+        })),
       insertNanopublication: (nano) => {
         this.db.insertNanopublication({
           id: nano.id,
@@ -140,7 +145,6 @@ export class AetherisServer {
       },
     };
 
-    // Wire broadcaster adapter to WebSocket pool
     const broadcaster: RelayBroadcaster = {
       send: (session: RelaySession, packet: any) => {
         const ws = this.socketMap.get(session.id) || session.socket;
@@ -155,7 +159,10 @@ export class AetherisServer {
           if (options?.sender && session.id === options.sender.id) continue;
 
           if (options?.channelId) {
-            if (session.subscribedChannels.has(options.channelId) || session.currentChannelId === options.channelId) {
+            if (
+              session.subscribedChannels.has(options.channelId) ||
+              session.currentChannelId === options.channelId
+            ) {
               ws.send(serialized);
             }
             continue;
@@ -176,7 +183,6 @@ export class AetherisServer {
       },
     };
 
-    // Instantiate Unified Relay Protocol Engine
     this.engine = new RelayProtocolEngine(this.state, persistence, broadcaster, {
       requireChallengeHandshake: config.requireChallengeHandshake ?? false,
     });
@@ -185,18 +191,18 @@ export class AetherisServer {
       const clientIp = this.extractClientIP(req);
       const url = req.url || '/';
 
-      // 1. Decoy Honeypot Trap Check
       if (this.honeypot.handleRequest(url, clientIp, req.headers['user-agent'])) {
         res.writeHead(403, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({
-          error: 'Security Incident: Honeypot Decoy Probed',
-          ip: clientIp,
-          status: 'PERMANENTLY_QUARANTINED',
-        }));
+        res.end(
+          JSON.stringify({
+            error: 'Security Incident: Honeypot Decoy Probed',
+            ip: clientIp,
+            status: 'PERMANENTLY_QUARANTINED',
+          })
+        );
         return;
       }
 
-      // 2. Layer 7 WAF Rate Limit Check
       const wafCheck = this.waf.evaluateRequest(clientIp);
       if (!wafCheck.allowed) {
         res.writeHead(429, {
@@ -207,9 +213,8 @@ export class AetherisServer {
         return;
       }
 
-      // 3. PoW Challenge Endpoints
       if (url === '/api/pow-challenge') {
-        const challenge = this.powEngine.generateChallenge(3); // 3 leading zeros
+        const challenge = this.powEngine.generateChallenge(3);
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(challenge));
         return;
@@ -223,24 +228,28 @@ export class AetherisServer {
 
       if (url === '/stats') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({
-          peersOnline: this.sessions.size,
-          channelsCount: this.db.getChannels().length,
-          activeSharesCount: this.state.getActiveSharesCount(),
-          revokedNullifiersCount: this.state.getRevokedCount(),
-          timestamp: Date.now(),
-        }));
+        res.end(
+          JSON.stringify({
+            peersOnline: this.sessions.size,
+            channelsCount: this.db.getChannels().length,
+            activeSharesCount: this.state.getActiveSharesCount(),
+            revokedNullifiersCount: this.state.getRevokedCount(),
+            timestamp: Date.now(),
+          })
+        );
         return;
       }
 
       if (url === '/waf-stats') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({
-          waf: this.waf.getMetrics(),
-          honeypot: this.honeypot.getSummary(),
-          recentIncidents: this.honeypot.getIncidents(10),
-          timestamp: Date.now(),
-        }));
+        res.end(
+          JSON.stringify({
+            waf: this.waf.getMetrics(),
+            honeypot: this.honeypot.getSummary(),
+            recentIncidents: this.honeypot.getIncidents(10),
+            timestamp: Date.now(),
+          })
+        );
         return;
       }
 
@@ -248,7 +257,11 @@ export class AetherisServer {
       res.end(JSON.stringify({ error: 'Endpoint not found' }));
     });
 
-    this.wss = new WebSocketServer({ server: this.httpServer });
+    // Enforce maxPayload at protocol parser level, with 2x ceiling so custom JSON ERROR packet still fires for normal oversize tests
+    this.wss = new WebSocketServer({
+      server: this.httpServer,
+      maxPayload: Math.max(this.maxPacketSizeBytes * 4, 1024 * 1024),
+    });
     this.setupWebSocket();
   }
 
@@ -280,19 +293,35 @@ export class AetherisServer {
     return this.powEngine;
   }
 
+  /**
+   * Extracts client IP safely. Only trusts X-Forwarded-For if connected via loopback/local
+   * reverse proxy or when trustProxy is explicitly enabled.
+   */
   private extractClientIP(req: IncomingMessage): string {
-    const forwarded = req.headers['x-forwarded-for'];
-    if (typeof forwarded === 'string') {
-      return forwarded.split(',')[0].trim();
+    const socketAddr = req.socket?.remoteAddress || '127.0.0.1';
+    const isLocalProxy =
+      this.trustProxy ||
+      socketAddr === '127.0.0.1' ||
+      socketAddr === '::1' ||
+      socketAddr === '::ffff:127.0.0.1';
+
+    if (isLocalProxy) {
+      const cfIp = req.headers['cf-connecting-ip'];
+      if (typeof cfIp === 'string' && cfIp.trim()) {
+        return cfIp.trim();
+      }
+      const forwarded = req.headers['x-forwarded-for'];
+      if (typeof forwarded === 'string' && forwarded.trim()) {
+        return forwarded.split(',')[0].trim();
+      }
     }
-    return req.socket.remoteAddress || '127.0.0.1';
+    return socketAddr;
   }
 
   private setupWebSocket(): void {
     this.wss.on('connection', async (ws: WebSocket, req: IncomingMessage) => {
       const clientIp = this.extractClientIP(req);
 
-      // Check WAF connection limits
       const connCheck = this.waf.registerConnection(clientIp);
       if (!connCheck.allowed) {
         ws.close(1008, connCheck.reason || 'Connection rejected by WAF');
@@ -315,29 +344,36 @@ export class AetherisServer {
       this.sessions.set(ws, session);
       this.socketMap.set(sessionId, ws);
 
-      // Initial channel list dispatch via Protocol Engine
+      ws.on('pong', () => {
+        session.lastSeen = Date.now();
+      });
+
       await this.engine.handleConnection(session);
 
       ws.on('message', async (raw: Buffer) => {
-        // Enforce max packet size
+        session.lastSeen = Date.now();
+
         if (raw.length > this.maxPacketSizeBytes) {
           if (ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({
-              type: 'ERROR',
-              message: `Packet exceeds maximum allowed size (${this.maxPacketSizeBytes} bytes)`,
-            }));
+            ws.send(
+              JSON.stringify({
+                type: 'ERROR',
+                message: `Packet exceeds maximum allowed size (${this.maxPacketSizeBytes} bytes)`,
+              })
+            );
           }
           return;
         }
 
-        // WAF rate-limit per packet
         const wafCheck = this.waf.evaluateRequest(clientIp);
         if (!wafCheck.allowed) {
           if (ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({
-              type: 'RATE_LIMIT_ERROR',
-              message: wafCheck.reason,
-            }));
+            ws.send(
+              JSON.stringify({
+                type: 'RATE_LIMIT_ERROR',
+                message: wafCheck.reason,
+              })
+            );
           }
           return;
         }
@@ -346,7 +382,6 @@ export class AetherisServer {
           const rawStr = raw.toString();
           const packet = PayloadSanitizer.safeJSONParse(rawStr);
 
-          // Optional Nonce Replay Check for state mutations
           if (packet.nonce && packet.timestamp) {
             const nonceCheck = this.nonceGuard.verifyAndConsume({
               nonce: packet.nonce,
@@ -356,10 +391,12 @@ export class AetherisServer {
 
             if (!nonceCheck.valid) {
               if (ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({
-                  type: 'REPLAY_ERROR',
-                  message: nonceCheck.reason,
-                }));
+                ws.send(
+                  JSON.stringify({
+                    type: 'REPLAY_ERROR',
+                    message: nonceCheck.reason,
+                  })
+                );
               }
               return;
             }
@@ -368,21 +405,45 @@ export class AetherisServer {
           await this.engine.handlePacket(session, packet);
         } catch (err: any) {
           if (ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({
-              type: 'ERROR',
-              message: `Malformed packet: ${err.message}`,
-            }));
+            ws.send(
+              JSON.stringify({
+                type: 'ERROR',
+                message: `Malformed packet: ${err.message}`,
+              })
+            );
           }
         }
       });
 
-      ws.on('close', async () => {
+      let closed = false;
+      const cleanup = async () => {
+        if (closed) return;
+        closed = true;
         this.waf.unregisterConnection(clientIp);
         await this.engine.handleDisconnection(session);
         this.sessions.delete(ws);
         this.socketMap.delete(sessionId);
-      });
+      };
+
+      ws.on('close', cleanup);
+      ws.on('error', cleanup);
     });
+
+    this.heartbeatInterval = setInterval(() => {
+      const now = Date.now();
+      for (const [ws, session] of this.sessions.entries()) {
+        if (now - session.lastSeen > 120_000) {
+          ws.terminate();
+          continue;
+        }
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.ping();
+        }
+      }
+    }, 30_000);
+    if (this.heartbeatInterval.unref) {
+      this.heartbeatInterval.unref();
+    }
   }
 
   public listen(port: number): Promise<void> {
@@ -395,6 +456,10 @@ export class AetherisServer {
 
   public close(): Promise<void> {
     return new Promise((resolve) => {
+      if (this.heartbeatInterval) {
+        clearInterval(this.heartbeatInterval);
+        this.heartbeatInterval = null;
+      }
       this.sessions.clear();
       this.socketMap.clear();
       this.wss.close(() => {

@@ -1,0 +1,28 @@
+{
+  "output": {
+    "filePath": "urefy-3-frontend-n-z.xml",
+    "style": "xml",
+    "compress": false,
+    "removeComments": false,
+    "removeEmptyLines": true,
+    "showLineNumbers": true,
+    "git": {
+      "sortByChanges": false
+    }
+  },
+  "include": [
+    "packages/client-ui/src/[n-z]*.ts",
+    "packages/client-ui/src/**/*.css"
+  ],
+  "ignore": {
+    "useGitignore": true,
+    "useDefaultPatterns": true,
+    "customPatterns": [
+      ".agents/**",
+      "docs/**",
+      "**/*.png",
+      "**/*.svg",
+      "**/*.ico"
+    ]
+  }
+}

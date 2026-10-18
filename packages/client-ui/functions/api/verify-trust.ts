@@ -1,11 +1,3 @@
-/**
- * @file verify-trust.ts
- * @package @aetheris/client-ui/functions/api
- * @description Cloudflare Pages Edge Function for Sovereign ZK-RLN Trust Score Verification.
- * Micro-service enabling zero-infrastructure external verification of portable Groth16
- * reputation certificates over the BN254 curve with temporal, domain, and threshold constraints.
- */
-
 import {
   verifyPortableReputationCertificate,
   PortableReputationCertificate,
@@ -19,16 +11,11 @@ export const CORS_HEADERS: Record<string, string> = {
   'Content-Type': 'application/json',
 };
 
-/**
- * Validates certificate temporal bounds, threshold criteria, and domain context,
- * then executes bilinear pairing Groth16 cryptographic verification.
- */
 export async function validateAndVerifyCertificate(
   cert: PortableReputationCertificate,
   expectedThreshold?: number,
   expectedDomain?: string
 ): Promise<{ valid: boolean; error?: string }> {
-  // 1. Structural check
   if (!cert || typeof cert !== 'object') {
     return { valid: false, error: 'Certificate must be a valid JSON object' };
   }
@@ -39,7 +26,6 @@ export async function validateAndVerifyCertificate(
     return { valid: false, error: 'Malformed Groth16 proof or public inputs in certificate' };
   }
 
-  // 2. Temporal validation (with 60s clock drift tolerance)
   const now = Date.now();
   if (typeof cert.expiresAt === 'number' && cert.expiresAt <= now) {
     return { valid: false, error: 'Certificate has expired' };
@@ -48,16 +34,22 @@ export async function validateAndVerifyCertificate(
     return { valid: false, error: 'Certificate issuedAt is in the future' };
   }
 
-  // 3. Threshold check
+  if (expectedThreshold !== undefined && (!Number.isFinite(expectedThreshold) || expectedThreshold < 0 || expectedThreshold > 100)) {
+    return { valid: false, error: 'Invalid expectedThreshold parameter (must be 0..100)' };
+  }
+
   const thresholdRequirement = expectedThreshold ?? cert.threshold;
-  if (typeof cert.threshold !== 'number' || cert.threshold < thresholdRequirement) {
+  if (
+    typeof cert.threshold !== 'number' ||
+    !Number.isFinite(cert.threshold) ||
+    cert.threshold < thresholdRequirement
+  ) {
     return {
       valid: false,
       error: `Certificate threshold (${cert.threshold}) does not meet required threshold (${thresholdRequirement})`,
     };
   }
 
-  // 4. Domain match check
   const domainRequirement = expectedDomain ?? cert.domain;
   if (domainRequirement && cert.domain !== domainRequirement) {
     return {
@@ -66,7 +58,6 @@ export async function validateAndVerifyCertificate(
     };
   }
 
-  // 5. Cryptographic Groth16 proof verification over BN254
   const isCryptographicallyValid = await verifyPortableReputationCertificate(
     cert,
     thresholdRequirement,
@@ -80,10 +71,6 @@ export async function validateAndVerifyCertificate(
   return { valid: true };
 }
 
-/**
- * POST /api/verify-trust
- * Body: { certificate: PortableReputationCertificate | string, expectedThreshold?: number, domain?: string }
- */
 export async function onRequestPost(context: { request: Request; env?: any }): Promise<Response> {
   try {
     let body: any;
@@ -132,7 +119,10 @@ export async function onRequestPost(context: { request: Request; env?: any }): P
       cert = body.certificate;
     }
 
-    const expectedThreshold = typeof body.expectedThreshold === 'number' ? body.expectedThreshold : undefined;
+    const expectedThreshold =
+      typeof body.expectedThreshold === 'number' && Number.isFinite(body.expectedThreshold)
+        ? body.expectedThreshold
+        : undefined;
     const expectedDomain = body.domain || undefined;
 
     const result = await validateAndVerifyCertificate(cert, expectedThreshold, expectedDomain);
@@ -172,9 +162,6 @@ export async function onRequestPost(context: { request: Request; env?: any }): P
   }
 }
 
-/**
- * GET /api/verify-trust?cert=<base64_json>&domain=<domain>&threshold=<threshold>
- */
 export async function onRequestGet(context: { request: Request; env?: any }): Promise<Response> {
   try {
     const url = new URL(context.request.url);
@@ -196,7 +183,7 @@ export async function onRequestGet(context: { request: Request; env?: any }): Pr
 
     let certJson: string;
     try {
-      certJson = atob(certParam);
+      certJson = atob(certParam.replace(/-/g, '+').replace(/_/g, '/'));
     } catch {
       try {
         certJson = decodeURIComponent(certParam);
@@ -219,7 +206,22 @@ export async function onRequestGet(context: { request: Request; env?: any }): Pr
       );
     }
 
-    const expectedThreshold = thresholdParam ? parseInt(thresholdParam, 10) : undefined;
+    let expectedThreshold: number | undefined = undefined;
+    if (thresholdParam !== null && thresholdParam.trim() !== '') {
+      const parsed = Number(thresholdParam);
+      if (!Number.isFinite(parsed) || parsed < 0 || parsed > 100) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            verified: false,
+            error: 'Invalid threshold query parameter: expected number between 0 and 100',
+          }),
+          { status: 400, headers: CORS_HEADERS }
+        );
+      }
+      expectedThreshold = parsed;
+    }
+
     const result = await validateAndVerifyCertificate(cert, expectedThreshold, domainParam);
 
     if (!result.valid) {
@@ -257,9 +259,6 @@ export async function onRequestGet(context: { request: Request; env?: any }): Pr
   }
 }
 
-/**
- * OPTIONS /api/verify-trust (CORS Preflight)
- */
 export async function onRequestOptions(): Promise<Response> {
   return new Response(null, {
     status: 204,

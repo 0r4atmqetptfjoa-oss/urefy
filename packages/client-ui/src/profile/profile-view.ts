@@ -102,7 +102,7 @@ export class ProfileView {
   }
 
   public async saveProfile(fp: string, updates: Partial<UserProfileData>): Promise<boolean> {
-    return this.store.saveProfile(fp, updates);
+    return this.store.saveProfileDirect(fp, updates);
   }
 
   public async loadPublicProfile(fp: string): Promise<void> {

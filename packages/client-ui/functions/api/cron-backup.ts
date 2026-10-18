@@ -27,7 +27,7 @@ import {
   MAX_STORAGE_CAP_BYTES,
   getTotalStorageBytes,
 } from './storage.js';
-import { verifyAdminAuthorization } from './admin.js';
+import { verifyAdminAuthorization, timingSafeEqualHash } from './admin.js';
 import { mirrorEncryptedBackupToS3, type S3BackupResult } from './_aws-s3.js';
 import { executeFullBackup, FULL_DAILY_KEY } from './_full-backup.js';
 
@@ -166,19 +166,29 @@ export async function decompressGzip(data: Uint8Array): Promise<Uint8Array> {
 
 // ─── AES-256-GCM CRYPTOGRAPHIC ENCRYPTION ───────────────────────────────────
 
-/**
- * Derives a 256-bit AES-GCM CryptoKey from passphrase via SHA-256.
- */
-export async function deriveBackupKey(passphrase: string): Promise<CryptoKey> {
+const PBKDF2_MAGIC = new Uint8Array([0x55, 0x52, 0x45, 0x32]); // "URE2" header magic
+const BACKUP_KDF_SALT = new TextEncoder().encode('urefy:aetheris:backup:v2:aes-gcm');
+const SAFE_SQL_IDENTIFIER = /^[a-zA-Z0-9_]+$/;
+
+export async function deriveBackupKey(passphrase: string, salt?: Uint8Array): Promise<CryptoKey> {
   const enc = new TextEncoder().encode(passphrase);
-  const digest = await crypto.subtle.digest('SHA-256', enc);
+  if (salt && salt.byteLength === 16) {
+    const baseKey = await crypto.subtle.importKey('raw', enc, 'PBKDF2', false, ['deriveKey']);
+    return crypto.subtle.deriveKey(
+      { name: 'PBKDF2', salt: salt as unknown as BufferSource, iterations: 100_000, hash: 'SHA-256' },
+      baseKey,
+      { name: 'AES-GCM', length: 256 },
+      false,
+      ['encrypt', 'decrypt']
+    );
+  }
+  const combined = new Uint8Array(BACKUP_KDF_SALT.length + enc.length);
+  combined.set(BACKUP_KDF_SALT, 0);
+  combined.set(enc, BACKUP_KDF_SALT.length);
+  const digest = await crypto.subtle.digest('SHA-256', combined);
   return crypto.subtle.importKey('raw', digest, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
 }
 
-/**
- * Encrypts payload with AES-256-GCM using an authenticated 12-byte IV.
- * Format: [12-byte IV][Ciphertext + Auth Tag]
- */
 export async function encryptBackupPayload(
   plainBytes: Uint8Array,
   keyOrSecret: CryptoKey | string
@@ -187,47 +197,74 @@ export async function encryptBackupPayload(
   iv: Uint8Array;
   checksumSha256: string;
 }> {
-  const key = typeof keyOrSecret === 'string' ? await deriveBackupKey(keyOrSecret) : keyOrSecret;
   const iv = new Uint8Array(12);
   crypto.getRandomValues(iv);
 
+  if (typeof keyOrSecret === 'string') {
+    const salt = new Uint8Array(16);
+    crypto.getRandomValues(salt);
+    const key = await deriveBackupKey(keyOrSecret, salt);
+    const ciphertextBuffer = await crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv },
+      key,
+      plainBytes as unknown as BufferSource
+    );
+    const cipherBytes = new Uint8Array(ciphertextBuffer);
+    // Format: [4B Magic "URE2"][16B Salt][12B IV][Ciphertext + Auth Tag]
+    const encryptedPayload = new Uint8Array(4 + 16 + 12 + cipherBytes.byteLength);
+    encryptedPayload.set(PBKDF2_MAGIC, 0);
+    encryptedPayload.set(salt, 4);
+    encryptedPayload.set(iv, 20);
+    encryptedPayload.set(cipherBytes, 32);
+    const checksumSha256 = await computeSha256(encryptedPayload);
+    return { encryptedPayload, iv, checksumSha256 };
+  }
+
   const ciphertextBuffer = await crypto.subtle.encrypt(
     { name: 'AES-GCM', iv },
-    key,
+    keyOrSecret,
     plainBytes as unknown as BufferSource
   );
-
   const cipherBytes = new Uint8Array(ciphertextBuffer);
   const encryptedPayload = new Uint8Array(iv.byteLength + cipherBytes.byteLength);
   encryptedPayload.set(iv, 0);
   encryptedPayload.set(cipherBytes, iv.byteLength);
-
   const checksumSha256 = await computeSha256(encryptedPayload);
-
-  return {
-    encryptedPayload,
-    iv,
-    checksumSha256,
-  };
+  return { encryptedPayload, iv, checksumSha256 };
 }
 
-/**
- * Decrypts AES-256-GCM payload with extraction of 12-byte IV.
- */
 export async function decryptBackupPayload(
   encryptedPayload: Uint8Array,
   keyOrSecret: CryptoKey | string
 ): Promise<Uint8Array> {
+  const hasMagic =
+    encryptedPayload.byteLength > 32 &&
+    encryptedPayload[0] === 0x55 &&
+    encryptedPayload[1] === 0x52 &&
+    encryptedPayload[2] === 0x45 &&
+    encryptedPayload[3] === 0x32;
+
+  if (hasMagic && typeof keyOrSecret === 'string') {
+    const salt = encryptedPayload.slice(4, 20);
+    const iv = encryptedPayload.slice(20, 32);
+    const ciphertext = encryptedPayload.slice(32);
+    const key = await deriveBackupKey(keyOrSecret, salt);
+    const decrypted = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv },
+      key,
+      ciphertext as unknown as BufferSource
+    );
+    return new Uint8Array(decrypted);
+  }
+
   const key = typeof keyOrSecret === 'string' ? await deriveBackupKey(keyOrSecret) : keyOrSecret;
   const iv = encryptedPayload.slice(0, 12);
   const ciphertext = encryptedPayload.slice(12);
-
   const decrypted = await crypto.subtle.decrypt(
     { name: 'AES-GCM', iv },
     key,
     ciphertext as unknown as BufferSource
   );
-
   return new Uint8Array(decrypted);
 }
 
@@ -589,13 +626,30 @@ export async function restoreBackup(
     tableCounts[table] = rows.length;
 
     if (db) {
+      const statements: any[] = [];
       for (const row of rows) {
         const keys = Object.keys(row);
         if (keys.length === 0) continue;
+        for (const k of keys) {
+          if (!SAFE_SQL_IDENTIFIER.test(k)) {
+            throw new Error(`Invalid column identifier in backup payload: ${k}`);
+          }
+        }
         const placeholders = keys.map(() => '?').join(', ');
         const sql = `INSERT OR REPLACE INTO ${table} (${keys.join(', ')}) VALUES (${placeholders})`;
         const values = keys.map((k) => row[k]);
-        await db.prepare(sql).bind(...values).run();
+        statements.push(db.prepare(sql).bind(...values));
+      }
+
+      for (let i = 0; i < statements.length; i += 100) {
+        const chunk = statements.slice(i, i + 100);
+        if (typeof db.batch === 'function') {
+          await db.batch(chunk);
+        } else {
+          for (const stmt of chunk) {
+            await stmt.run();
+          }
+        }
       }
     } else {
       // In-memory fallback
@@ -677,12 +731,15 @@ export async function onRequestPost(context: {
   try {
     const req = context.request;
     const url = new URL(req.url);
-    const cronSecretHeader = req.headers.get('X-Cron-Secret');
+    const cronSecretHeader = req.headers.get('X-Cron-Secret') || '';
     const configuredCronSecret = context.env?.CRON_SECRET;
-
-    // HTTP clients can forge CF-Cron, so only the configured secret or admin auth is trusted.
-    const isCronAuthorized =
-      Boolean(configuredCronSecret && cronSecretHeader === configuredCronSecret && url.searchParams.get('action') !== 'restore');
+    const isCronAuthorized = Boolean(
+      typeof configuredCronSecret === 'string' &&
+      configuredCronSecret.length >= 16 &&
+      cronSecretHeader &&
+      url.searchParams.get('action') !== 'restore' &&
+      (await timingSafeEqualHash(cronSecretHeader, configuredCronSecret))
+    );
 
     if (!isCronAuthorized) {
       const auth = await verifyAdminAuthorization(req, context.env);

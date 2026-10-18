@@ -210,6 +210,12 @@ describe('Sovereign Board & Micro-Broadcasting Synthesis Engine - Comprehensive 
     beforeEach(() => {
       store = new AetherisClientStore();
       reactions = new ReactionsEngine();
+      if (store.posts.length === 0) {
+        store.createPost({
+          title: 'Genesis Test Post',
+          content: 'Consensus protocol validation.',
+        });
+      }
     });
 
     it('should handle upvoting and downvoting with merit scores and toggles', () => {
@@ -426,44 +432,44 @@ describe('Sovereign Board & Micro-Broadcasting Synthesis Engine - Comprehensive 
       themes.resetToDefaults();
     });
 
-    it('should initialize with default obsidian-cyber dark theme', () => {
-      expect(themes.currentThemeId).toBe('obsidian-cyber');
+    it('should initialize with default mineral-basalt dark theme', () => {
+      expect(themes.currentThemeId).toBe('mineral-basalt');
       const current = themes.getCurrentTheme();
-      expect(current.id).toBe('obsidian-cyber');
-      expect(current.accentColor).toBe('#00e5ff');
-      expect(current.bgCanvas).toBe('#090a0f');
+      expect(current.id).toBe('mineral-basalt');
+      expect(current.accentColor).toBe('#38bdf8');
+      expect(current.bgCanvas).toBe('#08090d');
     });
 
-    it('should switch seamlessly to Alabaster Light (Light Mode)', () => {
+    it('should switch seamlessly to Alabaster Daylight (Light Mode)', () => {
       themes.setTheme('alabaster-light');
       expect(themes.currentThemeId).toBe('alabaster-light');
 
       const light = themes.getCurrentTheme();
-      expect(light.name).toBe('Alabaster Light');
+      expect(light.name).toBe('Alabaster Daylight');
       expect(light.emoji).toBe('☀️');
       expect(light.bgCanvas).toBe('#f6f5f2');
       expect(light.bgSurfaceBase).toBe('#ffffff');
-      expect(light.accentColor).toBe('#c27803');
-      expect(light.badgeText).toBe('WARM DAYLIGHT');
+      expect(light.accentColor).toBe('#0284c7');
+      expect(light.badgeText).toBe('LIGHT');
     });
 
-    it('should switch across all 5 dark themes: Matrix Monolith, Tokyo Neon, Solar Amber, Nordic Frost, Obsidian Cyber', () => {
+    it('should switch across dark themes: Matrix Monolith, Tokyo Synthwave, Solaris Gold, Nordic Aurora, Obsidian Cyber', () => {
       // Matrix Monolith
       themes.setTheme('matrix-monolith');
       expect(themes.currentThemeId).toBe('matrix-monolith');
-      expect(themes.getCurrentTheme().accentColor).toBe('#22c55e');
+      expect(themes.getCurrentTheme().accentColor).toBe('#10b981');
 
-      // Tokyo Neon
+      // Tokyo Synthwave
       themes.setTheme('tokyo-neon');
       expect(themes.currentThemeId).toBe('tokyo-neon');
       expect(themes.getCurrentTheme().accentColor).toBe('#f43f5e');
 
-      // Solar Amber
+      // Solaris Gold
       themes.setTheme('solar-amber');
       expect(themes.currentThemeId).toBe('solar-amber');
       expect(themes.getCurrentTheme().accentColor).toBe('#f59e0b');
 
-      // Nordic Frost
+      // Nordic Aurora
       themes.setTheme('nordic-frost');
       expect(themes.currentThemeId).toBe('nordic-frost');
       expect(themes.getCurrentTheme().accentColor).toBe('#38bdf8');
@@ -487,12 +493,13 @@ describe('Sovereign Board & Micro-Broadcasting Synthesis Engine - Comprehensive 
 
     it('should render the theme selector modal with all themes represented', () => {
       const modalHtml = themes.renderThemeSelectorModal();
+      expect(modalHtml).toContain('Mineral Basalt 2027');
       expect(modalHtml).toContain('Obsidian Cyber');
-      expect(modalHtml).toContain('Alabaster Light');
-      expect(modalHtml).toContain('Matrix Monolith');
-      expect(modalHtml).toContain('Tokyo Neon');
-      expect(modalHtml).toContain('Solar Amber');
-      expect(modalHtml).toContain('Nordic Frost');
+      expect(modalHtml).toContain('Alabaster Daylight');
+      expect(modalHtml).toContain('OLED Pitch Black');
+      expect(modalHtml).toContain('Tokyo Synthwave');
+      expect(modalHtml).toContain('Solaris Gold');
+      expect(modalHtml).toContain('Nordic Aurora');
     });
   });
 

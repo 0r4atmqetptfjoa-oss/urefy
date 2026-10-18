@@ -1,13 +1,19 @@
 import { clientStore } from '../client-state.js';
 import { renderIcon, type IconName } from '../ui/icons.js';
 
-export interface RailRenderContext { isMoreExpanded: boolean; }
+export interface RailRenderContext {
+  isMoreExpanded: boolean;
+}
 
 const destinations: Array<[string, string, string, IconName]> = [
-  ['feed', 'pulse', 'Home', 'feed'], ['explore', 'explore', 'Explore', 'explore'],
-  ['communities', 'communities', 'Communities', 'users'], ['messages', 'relays', 'Messages', 'messages'],
-  ['vault', 'vault', 'Vault', 'vault'], ['profile', 'profile', 'Profile', 'profile'],
+  ['feed', 'pulse', 'Home', 'feed'],
+  ['explore', 'explore', 'Explore', 'explore'],
+  ['communities', 'communities', 'Communities', 'users'],
+  ['messages', 'relays', 'Messages', 'messages'],
+  ['vault', 'vault', 'Vault', 'vault'],
+  ['profile', 'profile', 'Profile', 'profile'],
 ];
+
 interface ToolItem {
   id: string;
   feature: string;
@@ -84,15 +90,31 @@ export class RailController {
     const simple = clientStore.isSimpleMode();
     const channel = clientStore.activeChannelId;
     const isSettings = channel === 'settings';
-    const active = isSettings ? 'settings'
-      : channel.startsWith('profile') ? 'profile' : channel.startsWith('vault') ? 'vault'
-      : /^(dm-|relays?-)/.test(channel) ? 'messages' : channel === 'explore' ? 'explore'
-      : channel === 'communities' || channel.startsWith('c/') ? 'communities' : 'feed';
+    const active = isSettings
+      ? 'settings'
+      : channel.startsWith('profile')
+      ? 'profile'
+      : channel.startsWith('vault')
+      ? 'vault'
+      : /^(dm-|relays?-)/.test(channel)
+      ? 'messages'
+      : channel === 'explore'
+      ? 'explore'
+      : channel === 'communities' || channel.startsWith('c/')
+      ? 'communities'
+      : 'feed';
+
     return `<nav class="space-y-1" aria-label="Primary navigation">
-      ${destinations.map(([id, mode, label, icon]) => `<button type="button" data-nav-mode="${mode}" data-testid="nav-item-${id}"
-        aria-current="false" class="btn-nav-mode w-full text-left flex items-center gap-3" title="${label}">
-        ${renderIcon(icon, { size: 20 })}<span>${label}</span></button>`).join('')}
-      <button type="button" id="btn-rail-more" data-testid="nav-item-more" data-action="toggle-more-rail" aria-expanded="${isMoreExpanded}" aria-controls="rail-expanded-tools" class="btn-nav-more w-full flex items-center gap-3">
+      ${destinations
+        .map(([id, mode, label, icon]) => {
+          const isCurrent = active === id;
+          return `<button type="button" data-nav-mode="${mode}" data-testid="nav-item-${id}"
+            aria-current="${isCurrent ? 'page' : 'false'}"
+            class="btn-nav-mode w-full text-left flex items-center gap-3 ${isCurrent ? 'is-active nav-item-active' : ''}" title="${label}">
+            ${renderIcon(icon, { size: 20, variant: isCurrent ? 'solid' : 'outline' })}<span>${label}</span></button>`;
+        })
+        .join('')}
+      <button type="button" id="btn-rail-more" data-testid="nav-item-more" data-action="toggle-more-rail" aria-expanded="${isMoreExpanded}" aria-controls="rail-expanded-tools" class="btn-nav-mode w-full flex items-center gap-3">
         ${renderIcon('more', { size: 20 })}<span>${isMoreExpanded ? 'Less' : 'More'}</span>
       </button>
     </nav>
@@ -104,15 +126,21 @@ export class RailController {
         <button type="button" id="rail-btn-theme" data-action="open-settings" data-subtab="appearance">${renderIcon('sliders', { size: 18 })}Display & Themes</button>
         <button type="button" data-action="open-settings" data-subtab="privacy">${renderIcon('shield', { size: 18 })}Privacy & Safety</button>
         <button type="button" data-action="open-legal-modal" data-legal-tab="about">${renderIcon('info', { size: 18 })}Help & About</button>
+        <button type="button" id="rail-btn-admin-console" data-action="open-admin-console">${renderIcon('terminal', { size: 18 })}Node Admin Console</button>
       </div>
       <div class="rail-tools rail-mode" aria-label="Mode switcher">
         <button type="button" id="btn-toggle-advanced-sidebar" data-action="toggle-ui-mode" aria-pressed="${!simple}">${renderIcon('sliders', { size: 18 })}${simple ? 'Enable Advanced Mode' : 'Use simple mode'}</button>
       </div>
     </div>
-    ${simple ? '' : `<section class="rail-tools" aria-label="Advanced tools">
+    ${
+      simple
+        ? ''
+        : `<section class="rail-tools" aria-label="Advanced tools">
       <h2 class="rail-section-label">Advanced tools</h2>
       <div class="space-y-1 mt-1">
-        ${toolCategories.map(cat => `
+        ${toolCategories
+          .map(
+            cat => `
           <details class="rail-tool-category group rounded-xl bg-surface-raised/40 border border-white/5 overflow-hidden transition-all text-xs" open>
             <summary class="flex items-center justify-between px-3 py-2 text-slate-300 hover:text-white hover:bg-surface-raised cursor-pointer select-none transition-colors font-medium list-none">
               <span class="flex items-center gap-2">
@@ -124,19 +152,26 @@ export class RailController {
               </span>
             </summary>
             <div class="py-1 px-1.5 space-y-0.5 bg-black/20 border-t border-white/5">
-              ${cat.tools.map(tool => `
+              ${cat.tools
+                .map(
+                  tool => `
                 <button type="button" id="${tool.id}" data-action="open-feature" data-feature="${tool.feature}" class="w-full text-left flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition-colors text-xs">
                   ${renderIcon(tool.icon, { size: 15 })}
                   <span class="truncate">${tool.label}</span>
                 </button>
-              `).join('')}
+              `
+                )
+                .join('')}
             </div>
           </details>
-        `).join('')}
+        `
+          )
+          .join('')}
       </div>
-      <button type="button" id="btn-return-simple-sidebar" class="mt-2">${renderIcon('chevronLeft', { size: 18 })}Simple View</button>
-    </section>`}`;
+      <button type="button" id="btn-return-simple-sidebar" data-action="set-ui-mode" data-ui-mode="simple" class="mt-2">${renderIcon('chevronUp', { size: 18 })}Simple View</button>
+    </section>`
+    }`;
   }
 }
-export const railController = new RailController();
 
+export const railController = new RailController();

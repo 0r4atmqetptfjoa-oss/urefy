@@ -62,7 +62,7 @@ export default defineConfig(({ command }) => ({
             { name: 'observatory-viz', test: /[\\/]src[\\/](network-observatory|network-wot-graph|gossip-viz|merkle-viz)\.ts$/ },
             { name: 'spatial-audio-pack', test: /[\\/]src[\\/](spatial-audio|spatial-audio-mesh|acoustic-dsp|audio-dsp|sound-packs)\.ts$/ },
             { name: 'security-monitors', test: /[\\/]src[\\/](cve-monitor|cyber-defense-hub|cve-service|transparency-mode)\.ts$/ },
-            { name: 'admin-core', test: /[\\/]src[\\/](admin-auth|admin-panel|admin-passkeys|admin)\.ts$/ },
+            { name: 'admin-core', test: /[\\/]src[\\/](admin-auth|admin-panel|admin-passkeys|admin|admin-dashboard)\.ts$/ },
             { name: 'backup-archive', test: /[\\/]src[\\/](export-backup|data-archive|archive-modal)\.ts$/ },
             { name: 'client-core', test: /[\\/]src[\\/](client-state|indexed-db|secure-storage|sovereign-dm|threads|themes|i18n|toast|public-identity|dialog-modal)(\.ts|[\\/])/ },
             { name: 'workspace-controls', test: /[\\/]src[\\/](composer(?:-hybrid)?|command-rail(?:-v2)?|feed-controls)\.ts$/ },

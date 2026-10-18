@@ -1,8 +1,6 @@
 /* ===========================================================================
    UREfy / UREFY — 2027 "SOVEREIGN CONSOLE" DESIGN SYSTEM (DESLOPPED OKLCH)
-   Follows .agents/skills/frontend-design-deslop/references/color-oklch.md
    =========================================================================== */
-
 :root {
   /* 1. Typography: Technical Swiss + Monospace Telemetry */
   --font-display: "Space Grotesk", "Plus Jakarta Sans", -apple-system, sans-serif;
@@ -10,45 +8,44 @@
   --font-mono: "JetBrains Mono", "IBM Plex Mono", monospace;
 
   /* 2. Dark-First Elevation via Lightness (Never #000, +3.5% L per tier) */
-  --elev-0: oklch(0.13 0.008 235); /* App Canvas / Void */
-  --elev-1: oklch(0.165 0.010 235); /* Raised Card / Rail */
-  --elev-2: oklch(0.205 0.012 235); /* Popover / Command Palette */
-  --elev-3: oklch(0.245 0.014 235); /* Active Modal / Floating HUD */
+  --elev-0: oklch(0.13 0.008 235);
+  --elev-1: oklch(0.165 0.010 235);
+  --elev-2: oklch(0.205 0.012 235);
+  --elev-3: oklch(0.245 0.014 235);
 
-  /* 3. Semantic Surface & Text Tokens (60% Dominant Neutral) */
+  /* 3. Semantic Surface & Text Tokens */
   --color-bg: var(--elev-0);
   --color-surface: var(--elev-1);
   --color-surface-raised: var(--elev-2);
-  --color-fg: oklch(0.94 0.006 235);      /* Warm Off-White, never #FFF */
-  --color-muted: oklch(0.66 0.012 235);   /* Secondary Metadata */
-  --color-subtle: oklch(0.48 0.012 235);  /* Tertiary Timestamps */
+  --color-fg: oklch(0.94 0.006 235);
+  --color-muted: oklch(0.66 0.012 235);
+  --color-subtle: oklch(0.48 0.012 235);
 
-  /* 4. Borders: Lighter than surface in dark mode (1px defined edge XOR shadow) */
+  /* 4. Borders */
   --color-border: oklch(0.27 0.012 235);
   --color-border-strong: oklch(0.36 0.018 200);
 
-  /* 5. Blue-Ocean Accents (Outside the 260-310 Indigo/Violet Slop Band) */
-  --color-accent: oklch(0.76 0.14 192);       /* Sovereign Signal Teal (Hue 192) */
-  --color-accent-hover: oklch(0.81 0.15 192);
-  --color-accent-fg: oklch(0.13 0.015 192);
+  /* 5. Console Telemetry Accent (kept separate so --color-accent respects active theme) */
+  --console-accent: oklch(0.76 0.14 192);
+  --color-accent-hover: oklch(0.81 0.15 75);
+  --color-accent-fg: oklch(0.13 0.015 75);
 
-  /* Semantic Status (Always paired with SVG icon + text label) */
-  --color-success: oklch(0.75 0.16 152);      /* Verified Merkle / ZK Valid */
-  --color-warning: oklch(0.82 0.15 82);       /* Quorum Pending / PoW Active */
-  --color-danger: oklch(0.66 0.20 22);        /* Revoked Nullifier / Tamper Alert */
+  /* Semantic Status */
+  --color-success: oklch(0.75 0.16 152);
+  --color-warning: oklch(0.82 0.15 82);
+  --color-danger: oklch(0.66 0.20 22);
 
-  /* 6. Disciplined Radius & Spacing (2 values max: sharp technical + pill badge) */
+  /* 6. Disciplined Radius & Spacing */
   --radius-sm: 2px;
   --radius-card: 6px;
   --radius-pill: 9999px;
 
-  /* 7. Motion: Fast Deceleration, Zero Layout-Property Animation */
+  /* 7. Motion */
   --ease-out-quart: cubic-bezier(0.165, 0.84, 0.44, 1);
   --duration-fast: 140ms;
   --duration-normal: 220ms;
 }
 
-/* Global Tabular Numerals for Cryptographic Hashes, RTT, Votes & Timestamps */
 .tabular-nums,
 time,
 kbd,
@@ -59,15 +56,13 @@ code,
   font-variant-numeric: tabular-nums;
 }
 
-/* Universal WCAG 2.2 AA Focus Ring (2.4.13 Focus Appearance: box-shadow follows radius) */
 :where(button, a, input, textarea, select, [tabindex]:not([tabindex="-1"])):focus-visible {
   outline: none !important;
   box-shadow:
     0 0 0 2px var(--color-bg),
-    0 0 0 4px var(--color-accent) !important;
+    0 0 0 4px var(--color-accent, #e59b3c) !important;
 }
 
-/* Defined Edge Surface Discipline (Border XOR Shadow — no blurry neon slop) */
 .sovereign-post-card,
 article.rounded-2xl {
   background-color: var(--color-surface);
@@ -88,14 +83,12 @@ article.rounded-2xl:hover {
   border-color: var(--color-border-strong);
 }
 
-/* Signature Move: Hairline Active Indicator Rail (Timetable / Console Precision) */
 .card-keyboard-active {
-  border-color: var(--color-accent) !important;
-  box-shadow: inset 3px 0 0 0 var(--color-accent) !important;
+  border-color: var(--color-accent, #e59b3c) !important;
+  box-shadow: inset 3px 0 0 0 var(--color-accent, #e59b3c) !important;
   background-color: var(--elev-2) !important;
 }
 
-/* Respect Vestibular Motion Preferences (WCAG 2.2) */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

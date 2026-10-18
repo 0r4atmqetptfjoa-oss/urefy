@@ -1,8 +1,9 @@
 /**
  * Aetheris Nonce & Replay Attack Defense Guard
- * 
- * Provides sliding-window timestamp validation (±30s) and an in-memory LRU
- * cache for cryptographic nonces to ensure mathematical one-time execution.
+ *
+ * Provides sliding-window timestamp validation (±30s) and a hardened bounded
+ * cache for cryptographic nonces to guarantee mathematical one-time execution
+ * with fail-closed saturation protection against cache-flooding replay attacks.
  */
 
 export interface SignedPayloadHeader {
@@ -13,7 +14,7 @@ export interface SignedPayloadHeader {
 
 export class NonceReplayGuard {
   private readonly maxClockDriftMs: number;
-  private readonly seenNonces: Map<string, number>; // nonce -> expiration timestamp
+  private readonly seenNonces: Map<string, number>; // nonceKey -> expiration timestamp
   private readonly maxCacheSize: number;
 
   constructor(maxClockDriftMs: number = 30000, maxCacheSize: number = 50000) {
@@ -26,7 +27,7 @@ export class NonceReplayGuard {
    * Validates that a timestamp falls within the allowed clock-drift window.
    */
   public isTimestampValid(timestamp: number, referenceTime: number = Date.now()): boolean {
-    if (typeof timestamp !== 'number' || isNaN(timestamp)) {
+    if (typeof timestamp !== 'number' || !Number.isFinite(timestamp)) {
       return false;
     }
     const diff = Math.abs(referenceTime - timestamp);
@@ -36,32 +37,63 @@ export class NonceReplayGuard {
   /**
    * Checks if a nonce has already been seen.
    * If not seen and timestamp is valid, registers the nonce and returns true.
-   * If seen or timestamp expired/future-skewed, returns false.
+   * Fail-closed if cache is saturated with unexpired nonces.
    */
-  public verifyAndConsume(header: SignedPayloadHeader, referenceTime: number = Date.now()): { valid: boolean; reason?: string } {
-    if (!header.nonce || typeof header.nonce !== 'string' || header.nonce.length < 8) {
+  public verifyAndConsume(
+    header: SignedPayloadHeader,
+    referenceTime: number = Date.now()
+  ): { valid: boolean; reason?: string } {
+    if (!header || typeof header !== 'object') {
+      return { valid: false, reason: 'Missing payload header' };
+    }
+
+    if (!header.nonce || typeof header.nonce !== 'string' || header.nonce.trim().length < 8 || header.nonce.length > 128) {
       return { valid: false, reason: 'Invalid or missing nonce' };
     }
 
+    if (!header.senderFingerprint || typeof header.senderFingerprint !== 'string') {
+      return { valid: false, reason: 'Invalid or missing sender fingerprint' };
+    }
+
     if (!this.isTimestampValid(header.timestamp, referenceTime)) {
-      return { valid: false, reason: 'Timestamp outside acceptable window (potential replay or clock drift)' };
+      return {
+        valid: false,
+        reason: 'Timestamp outside acceptable window (potential replay or clock drift)',
+      };
     }
 
     this._evictExpired(referenceTime);
 
     const nonceKey = `${header.senderFingerprint}:${header.nonce}`;
-    if (this.seenNonces.has(nonceKey)) {
-      return { valid: false, reason: 'Nonce already consumed (replay attack detected)' };
+    const existingExpiry = this.seenNonces.get(nonceKey);
+    if (existingExpiry !== undefined) {
+      if (existingExpiry >= referenceTime) {
+        return { valid: false, reason: 'Nonce already consumed (replay attack detected)' };
+      }
+      this.seenNonces.delete(nonceKey);
     }
 
-    // Enforce max cache size
+    // Enforce max cache size safely: only evict if oldest entry is actually expired
     if (this.seenNonces.size >= this.maxCacheSize) {
-      const oldestKey = this.seenNonces.keys().next().value;
-      if (oldestKey) this.seenNonces.delete(oldestKey);
+      this._evictExpired(referenceTime, true);
+      if (this.seenNonces.size >= this.maxCacheSize) {
+        // Fail-closed: never evict an active nonce within the validity window,
+        // otherwise an attacker could flood the cache to replay a captured packet.
+        const oldestKey = this.seenNonces.keys().next().value;
+        const oldestExpiry = oldestKey ? this.seenNonces.get(oldestKey) : undefined;
+        if (oldestKey && oldestExpiry !== undefined && oldestExpiry < referenceTime) {
+          this.seenNonces.delete(oldestKey);
+        } else {
+          return {
+            valid: false,
+            reason: 'Replay guard capacity saturated; rejecting request to preserve one-time execution guarantee',
+          };
+        }
+      }
     }
 
-    // Register nonce with expiration time = header.timestamp + maxClockDriftMs
-    const expiresAt = header.timestamp + this.maxClockDriftMs;
+    // Nonce must remain blocked until its timestamp can no longer pass isTimestampValid()
+    const expiresAt = Math.max(header.timestamp, referenceTime) + this.maxClockDriftMs;
     this.seenNonces.set(nonceKey, expiresAt);
 
     return { valid: true };
@@ -74,7 +106,9 @@ export class NonceReplayGuard {
     if (typeof globalThis !== 'undefined' && globalThis.crypto?.getRandomValues) {
       const bytes = new Uint8Array(16);
       globalThis.crypto.getRandomValues(bytes);
-      return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+      return Array.from(bytes)
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join('');
     }
     throw new Error('Cryptographically secure PRNG (crypto.getRandomValues) is required');
   }
@@ -93,11 +127,21 @@ export class NonceReplayGuard {
     this.seenNonces.clear();
   }
 
-  private _evictExpired(currentTime: number): void {
+  /**
+   * Sweeps expired nonces. Because incoming timestamps can have ±maxClockDriftMs skew,
+   * insertion order is only approximately sorted, so we scan up to a bounded budget
+   * or perform a full sweep when under memory pressure.
+   */
+  private _evictExpired(currentTime: number, fullSweep: boolean = false): void {
+    let scanned = 0;
+    const scanBudget = fullSweep ? this.seenNonces.size : 256;
+
     for (const [key, expiresAt] of this.seenNonces.entries()) {
-      if (expiresAt < currentTime - this.maxClockDriftMs) {
+      if (expiresAt < currentTime) {
         this.seenNonces.delete(key);
-      } else {
+      }
+      scanned++;
+      if (scanned >= scanBudget) {
         break;
       }
     }

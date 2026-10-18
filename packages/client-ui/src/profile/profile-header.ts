@@ -281,6 +281,26 @@ export function renderEditProfileModalHTML(profile: UserProfileData, saving = fa
           />
         </div>
         <div>
+          <label for="edit-profile-avatar" class="block font-semibold text-slate-300 mb-1">Avatar Image URL</label>
+          <input
+            id="edit-profile-avatar"
+            type="url"
+            value="${escapeHtml(profile.avatar)}"
+            placeholder="https://..."
+            class="w-full min-h-[42px] px-3.5 py-2 rounded-xl bg-black/40 text-sm text-white border border-white/10"
+          />
+        </div>
+        <div>
+          <label for="edit-profile-banner" class="block font-semibold text-slate-300 mb-1">Banner Image URL</label>
+          <input
+            id="edit-profile-banner"
+            type="url"
+            value="${escapeHtml(profile.banner)}"
+            placeholder="https://..."
+            class="w-full min-h-[42px] px-3.5 py-2 rounded-xl bg-black/40 text-sm text-white border border-white/10"
+          />
+        </div>
+        <div>
           <label for="edit-profile-website" class="block font-semibold text-slate-300 mb-1">Website</label>
           <input
             id="edit-profile-website"

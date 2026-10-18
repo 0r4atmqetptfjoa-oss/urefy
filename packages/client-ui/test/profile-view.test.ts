@@ -1,5 +1,6 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { ProfileView, profileView } from '../src/profile-view.js';
+import { enableDemoMode } from '../src/demo-mode.js';
 import type { ClientPost } from '../src/client-state.js';
 
 describe('ProfileView - Sovereign Profile Hero Header & Multi-Tab Timeline', () => {
@@ -7,6 +8,7 @@ describe('ProfileView - Sovereign Profile Hero Header & Multi-Tab Timeline', () 
   let samplePosts: ClientPost[];
 
   beforeEach(() => {
+    enableDemoMode(true);
     if (typeof localStorage !== 'undefined') localStorage.clear();
     profile = new ProfileView();
     samplePosts = [
@@ -40,6 +42,10 @@ describe('ProfileView - Sovereign Profile Hero Header & Multi-Tab Timeline', () 
         createdAt: Date.now() - 15000,
       },
     ];
+  });
+
+  afterEach(() => {
+    enableDemoMode(false);
   });
 
   it('should initialize with default profiles and allow fetching seeded profiles', () => {
@@ -127,6 +133,8 @@ describe('ProfileView - Sovereign Profile Hero Header & Multi-Tab Timeline', () 
     expect(modalHtml).toContain('id="edit-profile-bio"');
     expect(modalHtml).toContain('id="edit-profile-location"');
     expect(modalHtml).toContain('id="edit-profile-website"');
+    expect(modalHtml).toContain('id="edit-profile-avatar"');
+    expect(modalHtml).toContain('id="edit-profile-banner"');
   });
 
   it('should render the embedded Settings subtab with all 7 categories without opening a popup modal', () => {

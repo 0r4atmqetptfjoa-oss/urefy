@@ -65,7 +65,7 @@ export function renderProfileSecurityHTML(profile: UserProfileData): string {
           </div>
         </div>
         <div id="settings-seed-display" class="p-3 bg-black/40 border border-white/5 rounded-xl font-mono text-xs text-amber-400 select-all blur-sm transition-all duration-200 break-words">
-          ${clientStore?.mnemonic || 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about'}
+          ${clientStore?.mnemonic ? clientStore.mnemonic : 'Recovery phrase unavailable in current session — unlock your vault key first.'}
         </div>
       </div>
 

@@ -134,10 +134,11 @@ export async function verifyAndConsumeNonce(
   const env = context && typeof context === 'object' && 'env' in context ? context.env : (context as Env | undefined);
   const isProd = isProductionEnv(env);
 
+  const now = Date.now();
+
   // Check timestamp freshness if provided
   if (timestamp !== undefined) {
-    const now = Date.now();
-    if (Math.abs(now - timestamp) > NONCE_CACHE_TTL_MS) {
+    if (!Number.isFinite(timestamp) || Math.abs(now - timestamp) > NONCE_CACHE_TTL_MS) {
       return {
         fresh: false,
         error: `Timestamp outside acceptable freshness window: delta ${Math.abs(now - timestamp)}ms exceeds ${NONCE_CACHE_TTL_MS}ms`,
@@ -146,7 +147,6 @@ export async function verifyAndConsumeNonce(
   }
 
   const memoryKey = `${fingerprint}:${nonce}`;
-  const now = Date.now();
   const expiresAt = now + NONCE_CACHE_TTL_MS;
 
   // 1. Isolate Memory Check with Bounded LRU Cache (Fast path)
@@ -188,9 +188,18 @@ export async function verifyAndConsumeNonce(
 
   if (db) {
     try {
-      await db.prepare(
-        `INSERT INTO used_nonces (fingerprint, nonce, expires_at, created_at) VALUES (?, ?, ?, ?)`
-      ).bind(fingerprint, nonce, expiresAt, now).run();
+      if (typeof db.batch === 'function') {
+        await db.batch([
+          db.prepare('DELETE FROM used_nonces WHERE expires_at < ?').bind(now),
+          db.prepare(
+            'INSERT INTO used_nonces (fingerprint, nonce, expires_at, created_at) VALUES (?, ?, ?, ?)'
+          ).bind(fingerprint, nonce, expiresAt, now),
+        ]);
+      } else {
+        await db.prepare(
+          'INSERT INTO used_nonces (fingerprint, nonce, expires_at, created_at) VALUES (?, ?, ?, ?)'
+        ).bind(fingerprint, nonce, expiresAt, now).run();
+      }
     } catch (e: any) {
       const msg = String(e?.message || '');
       if (msg.includes('UNIQUE') || msg.includes('constraint') || msg.includes('PRIMARY KEY')) {
@@ -216,9 +225,10 @@ export async function verifyAndConsumeNonce(
 export async function checkAndRecordNonceDistributed(
   env: Env | undefined,
   fingerprint: string,
-  nonce: string
+  nonce: string,
+  timestamp?: number
 ): Promise<{ fresh: boolean; error?: string }> {
-  return verifyAndConsumeNonce(env, fingerprint, nonce);
+  return verifyAndConsumeNonce(env, fingerprint, nonce, timestamp);
 }
 
 // ─── CANONICAL SOVEREIGN SIGNED ENVELOPE ROUTE AUTHENTICATOR ────────────────
@@ -285,7 +295,7 @@ export async function requireSignedEnvelope<T = any>(
 
   // STEP 5: ATOMIC check and record nonce ONLY AFTER cryptographic verification succeeds!
   const fingerprint = result.identity?.fingerprint || body.identity.fingerprint;
-  const nonceCheck = await checkAndRecordNonceDistributed(context.env, fingerprint, body.nonce);
+  const nonceCheck = await checkAndRecordNonceDistributed(context.env, fingerprint, body.nonce, body.timestamp);
   if (!nonceCheck.fresh) {
     return {
       authorized: false,

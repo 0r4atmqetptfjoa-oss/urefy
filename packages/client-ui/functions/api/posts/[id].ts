@@ -3,7 +3,6 @@
 // Supports: Cloudflare D1 SQL query, In-Memory dev fallback,
 // Social Crawler OpenGraph HTML rendering, and client JSON API responses.
 // ===========================================================================
-
 import {
   Env,
   EdgePost,
@@ -19,7 +18,6 @@ import {
   createD1UnavailableResponse,
 } from '../_db.js';
 import { parseD1PostRow } from '../posts.js';
-import { requireAdmin, requireSignedEnvelope } from '../_auth.js';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -46,6 +44,11 @@ export async function onRequestOptions(): Promise<Response> {
   });
 }
 
+interface CachedEdgePost extends EdgePost {
+  _facetStatus?: string;
+  _facetIsPubliclyLinked?: boolean;
+}
+
 export async function onRequestGet(context: {
   request: Request;
   env?: Env;
@@ -53,18 +56,17 @@ export async function onRequestGet(context: {
 }): Promise<Response> {
   try {
     const url = new URL(context.request.url);
-
-    // Extract post ID from dynamic route parameter or fallback to URL path segments
     let postId = '';
     if (context.params?.id) {
-      postId = Array.isArray(context.params.id) ? context.params.id.join('/') : String(context.params.id);
+      postId = Array.isArray(context.params.id)
+        ? context.params.id.join('/')
+        : String(context.params.id);
     }
     if (!postId) {
       const segments = url.pathname.split('/').filter(Boolean);
       postId = segments[segments.length - 1] || '';
     }
     postId = decodeURIComponent(postId).trim();
-
     if (!postId) {
       return new Response(
         JSON.stringify({ success: false, error: 'Post ID is required' }),
@@ -76,14 +78,17 @@ export async function onRequestGet(context: {
     const kv = getKVStore(context.env);
     const isProd = isProductionEnv(context.env);
 
-    // 1. Check KV Cache for fast edge read
+    // 1. Check KV Cache for fast edge read (canonical unmutated post)
     const cacheKey = `post:${postId}`;
-    let post: EdgePost | null = null;
-
+    let post: CachedEdgePost | null = null;
     if (kv) {
       try {
-        const cached = await kv.get<EdgePost>(cacheKey, 'json');
-        if (cached && cached.id === postId && (!cached.status || ['published', 'pinned'].includes(cached.status))) {
+        const cached = await kv.get<CachedEdgePost>(cacheKey, 'json');
+        if (
+          cached &&
+          cached.id === postId &&
+          (!cached.status || ['published', 'pinned'].includes(cached.status))
+        ) {
           post = cached;
         }
       } catch (_) {}
@@ -93,42 +98,44 @@ export async function onRequestGet(context: {
     let d1Row: any = null;
     if (!post && db) {
       try {
-        const stmt = db.prepare(
-          `SELECT posts.*,
-            CASE
-              WHEN posts.facet_id IS NOT NULL THEN (
-                CASE
-                  WHEN facets.status = 'deleted' THEN '[Deleted Context]'
-                  ELSE COALESCE(facets.display_name, '[Deleted Context]')
-                END
-              )
-              ELSE profiles.display_name
-            END AS author_display_name,
-            CASE
-              WHEN posts.facet_id IS NOT NULL THEN (
-                CASE
-                  WHEN facets.status = 'deleted' THEN NULL
-                  ELSE facets.handle
-                END
-              )
-              ELSE profiles.handle
-            END AS author_handle,
-            CASE
-              WHEN posts.facet_id IS NOT NULL THEN (
-                CASE
-                  WHEN facets.status = 'deleted' THEN NULL
-                  ELSE facets.avatar_url
-                END
-              )
-              ELSE profiles.avatar_url
-            END AS author_avatar_url,
-            facets.is_publicly_linked AS facet_is_publicly_linked,
-            facets.status AS facet_status
-           FROM posts
-           LEFT JOIN facets ON facets.id = posts.facet_id
-           LEFT JOIN user_profiles profiles ON profiles.user_id = posts.author_id
-           WHERE posts.id = ? AND posts.status IN ('published', 'pinned')`
-        ).bind(postId);
+        const stmt = db
+          .prepare(
+            `SELECT posts.*,
+              CASE
+                WHEN posts.facet_id IS NOT NULL THEN (
+                  CASE
+                    WHEN facets.status = 'deleted' THEN '[Deleted Context]'
+                    ELSE COALESCE(facets.display_name, '[Deleted Context]')
+                  END
+                )
+                ELSE profiles.display_name
+              END AS author_display_name,
+              CASE
+                WHEN posts.facet_id IS NOT NULL THEN (
+                  CASE
+                    WHEN facets.status = 'deleted' THEN NULL
+                    ELSE facets.handle
+                  END
+                )
+                ELSE profiles.handle
+              END AS author_handle,
+              CASE
+                WHEN posts.facet_id IS NOT NULL THEN (
+                  CASE
+                    WHEN facets.status = 'deleted' THEN NULL
+                    ELSE facets.avatar_url
+                  END
+                )
+                ELSE profiles.avatar_url
+              END AS author_avatar_url,
+              facets.is_publicly_linked AS facet_is_publicly_linked,
+              facets.status AS facet_status
+             FROM posts
+             LEFT JOIN facets ON facets.id = posts.facet_id
+             LEFT JOIN user_profiles profiles ON profiles.user_id = posts.author_id
+             WHERE posts.id = ? AND posts.status IN ('published', 'pinned')`
+          )
+          .bind(postId);
         d1Row = await stmt.first<any>();
         if (d1Row) {
           post = parseD1PostRow(d1Row);
@@ -136,7 +143,10 @@ export async function onRequestGet(context: {
       } catch (dbError: any) {
         if (isProd) {
           return new Response(
-            JSON.stringify({ success: false, error: `Database error: ${dbError?.message || 'SQL error'}` }),
+            JSON.stringify({
+              success: false,
+              error: `Database error: ${dbError?.message || 'SQL error'}`,
+            }),
             { status: 500, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
           );
         }
@@ -145,9 +155,11 @@ export async function onRequestGet(context: {
 
     // 3. In-memory fallback for non-production or isolate cache
     if (!post && !isProd) {
-      const found = globalPostsStore.find(p => p.id === postId && (!p.status || ['published', 'pinned'].includes(p.status)));
+      const found = globalPostsStore.find(
+        (p) => p.id === postId && (!p.status || ['published', 'pinned'].includes(p.status))
+      );
       if (found) {
-        post = found;
+        post = { ...found };
       }
     }
 
@@ -164,87 +176,123 @@ export async function onRequestGet(context: {
     const ua = context.request.headers.get('User-Agent') || '';
     const acceptHeader = context.request.headers.get('Accept') || '';
     const isCrawler = SOCIAL_CRAWLER_REGEX.test(ua);
-    const isDirectBrowserVisit = acceptHeader.includes('text/html') && !acceptHeader.includes('application/json');
-
+    const isDirectBrowserVisit =
+      acceptHeader.includes('text/html') && !acceptHeader.includes('application/json');
     const callerFingerprint = (context.request.headers.get('X-User-Fingerprint') || '').trim();
-    const callerFacetId = (url.searchParams.get('facetId') || context.request.headers.get('X-Facet-Id') || '').trim();
-    const isOwner = Boolean(
-      (callerFingerprint && callerFingerprint === post.authorFingerprint) ||
-      (callerFacetId && callerFacetId === post.facetId)
-    );
+    const callerFacetId = (
+      url.searchParams.get('facetId') ||
+      context.request.headers.get('X-Facet-Id') ||
+      ''
+    ).trim();
+
+    // Nu permite niciodată ca X-Facet-Id singur să acorde drepturi de proprietar (isOwner),
+    // deoarece post.facetId este public și ar dezanonimiza post.authorFingerprint!
+    const isOwner = Boolean(callerFingerprint && callerFingerprint === post.authorFingerprint);
 
     // Enforce Audience Privacy
     if (post.audience && post.audience !== 'public') {
-      // 1. Social Crawlers and Direct Browser HTML visits: zero private leaks!
       if (isCrawler || isDirectBrowserVisit) {
-        return new Response('404 Not Found', { status: 404, headers: { 'Content-Type': 'text/plain' } });
+        return new Response('404 Not Found', {
+          status: 404,
+          headers: { 'Content-Type': 'text/plain' },
+        });
       }
-
-      // 2. Unauthenticated caller cannot see non-public posts
       if (!callerFingerprint && !callerFacetId) {
         return new Response(
           JSON.stringify({ success: false, error: `Post not found: ${postId}` }),
           { status: 404, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
         );
       }
-
-      // 3. Authenticated viewer authorization check
       if (!isOwner) {
         let authorized = false;
+        const safePostFacetId = post.facetId ?? null;
+        const safeChannelId = post.channelId ?? '';
+        const safeAuthorFp = post.authorFingerprint ?? '';
+
         if (post.audience === 'community') {
           if (callerFacetId) {
             if (db) {
-              const memberCheck = await db.prepare(
-                'SELECT 1 FROM facet_community_memberships WHERE community_id = ? AND facet_id = ? LIMIT 1'
-              ).bind(post.channelId, callerFacetId).first();
+              const memberCheck = await db
+                .prepare(
+                  'SELECT 1 FROM facet_community_memberships WHERE community_id = ? AND facet_id = ? LIMIT 1'
+                )
+                .bind(safeChannelId, callerFacetId)
+                .first();
               authorized = Boolean(memberCheck);
             } else {
-              authorized = globalFacetMembersStore.some(m => m.communityId === post.channelId && m.facetId === callerFacetId);
+              authorized = globalFacetMembersStore.some(
+                (m) => m.communityId === safeChannelId && m.facetId === callerFacetId
+              );
             }
-          } else {
+          }
+          if (!authorized && callerFingerprint) {
             if (db) {
-              const memberCheck = await db.prepare(
-                `SELECT 1 FROM facet_community_memberships fcm
-                 JOIN facets f ON f.id = fcm.facet_id
-                 WHERE fcm.community_id = ? AND f.owner_fingerprint = ?
-                 UNION
-                 SELECT 1 FROM community_members WHERE community_id = ? AND user_id = ? LIMIT 1`
-              ).bind(post.channelId, callerFingerprint, post.channelId, callerFingerprint).first();
+              const memberCheck = await db
+                .prepare(
+                  `SELECT 1 FROM facet_community_memberships fcm
+                   JOIN facets f ON f.id = fcm.facet_id
+                   WHERE fcm.community_id = ? AND f.owner_fingerprint = ?
+                   UNION
+                   SELECT 1 FROM community_members WHERE community_id = ? AND user_id = ? LIMIT 1`
+                )
+                .bind(safeChannelId, callerFingerprint, safeChannelId, callerFingerprint)
+                .first();
               authorized = Boolean(memberCheck);
             } else {
-              authorized = globalFacetMembersStore.some(m => {
-                if (m.communityId !== post.channelId) return false;
-                const f = globalFacetsStore.find(fac => fac.id === m.facetId);
-                return f && f.ownerFingerprint === callerFingerprint;
-              }) || globalCommunityMembersStore.some(m => m.communityId === post.channelId && m.userId === callerFingerprint);
+              authorized =
+                globalFacetMembersStore.some((m) => {
+                  if (m.communityId !== safeChannelId) return false;
+                  const f = globalFacetsStore.find((fac) => fac.id === m.facetId);
+                  return Boolean(f && f.ownerFingerprint === callerFingerprint);
+                }) ||
+                globalCommunityMembersStore.some(
+                  (m) => m.communityId === safeChannelId && m.userId === callerFingerprint
+                );
             }
           }
         } else if (post.audience === 'followers') {
           if (callerFacetId) {
             if (db) {
-              const followCheck = await db.prepare(
-                'SELECT 1 FROM facet_follows WHERE following_facet_id = ? AND follower_facet_id = ? LIMIT 1'
-              ).bind(post.facetId, callerFacetId).first();
-              authorized = Boolean(followCheck);
-            } else {
-              authorized = globalFacetFollowsStore.some(ff => ff.followingFacetId === post.facetId && ff.followerFacetId === callerFacetId);
+              if (safePostFacetId) {
+                const followCheck = await db
+                  .prepare(
+                    'SELECT 1 FROM facet_follows WHERE following_facet_id = ? AND follower_facet_id = ? LIMIT 1'
+                  )
+                  .bind(safePostFacetId, callerFacetId)
+                  .first();
+                authorized = Boolean(followCheck);
+              }
+            } else if (safePostFacetId) {
+              authorized = globalFacetFollowsStore.some(
+                (ff) =>
+                  ff.followingFacetId === safePostFacetId &&
+                  ff.followerFacetId === callerFacetId
+              );
             }
-          } else {
+          }
+          if (!authorized && callerFingerprint) {
             if (db) {
-              const followCheck = await db.prepare(
-                `SELECT 1 FROM facet_follows ff
-                 JOIN facets f ON f.id = ff.follower_facet_id
-                 WHERE ff.following_facet_id = ? AND f.owner_fingerprint = ?
-                 UNION
-                 SELECT 1 FROM follows WHERE following_id = ? AND follower_id = ? LIMIT 1`
-              ).bind(post.facetId, callerFingerprint, post.authorFingerprint, callerFingerprint).first();
+              const followCheck = await db
+                .prepare(
+                  `SELECT 1 FROM facet_follows ff
+                   JOIN facets f ON f.id = ff.follower_facet_id
+                   WHERE ff.following_facet_id = ? AND f.owner_fingerprint = ?
+                   UNION
+                   SELECT 1 FROM follows WHERE following_id = ? AND follower_id = ? LIMIT 1`
+                )
+                .bind(safePostFacetId, callerFingerprint, safeAuthorFp, callerFingerprint)
+                .first();
               authorized = Boolean(followCheck);
             } else {
-              authorized = globalFacetFollowsStore.some(ff => {
-                if (ff.followingFacetId !== post.facetId) return false;
-                const f = globalFacetsStore.find(fac => fac.id === ff.followerFacetId);
-                return f && f.ownerFingerprint === callerFingerprint;
-              }) || globalFollowsStore.some(f => f.followingId === post.authorFingerprint && f.followerId === callerFingerprint);
+              authorized =
+                globalFacetFollowsStore.some((ff) => {
+                  if (!safePostFacetId || ff.followingFacetId !== safePostFacetId) return false;
+                  const f = globalFacetsStore.find((fac) => fac.id === ff.followerFacetId);
+                  return Boolean(f && f.ownerFingerprint === callerFingerprint);
+                }) ||
+                globalFollowsStore.some(
+                  (f) => f.followingId === safeAuthorFp && f.followerId === callerFingerprint
+                );
             }
           }
         }
@@ -258,62 +306,73 @@ export async function onRequestGet(context: {
       }
     }
 
-    // Public unlinkability sanitization
-    const sanitizedPost = { ...post };
-    if (sanitizedPost.facetId) {
-      const facet = globalFacetsStore.find(f => f.id === sanitizedPost.facetId);
-      if (d1Row?.facet_status === 'deleted' || facet?.status === 'deleted') {
-        sanitizedPost.authorDisplayName = '[Deleted Context]';
-        sanitizedPost.authorHandle = undefined;
-        sanitizedPost.authorAvatarUrl = undefined;
-      }
-    }
-    if (!isOwner) {
-      const isPubliclyLinked = (d1Row && d1Row.facet_is_publicly_linked === 1) ||
-        Boolean(globalFacetsStore.find(f => f.id === post!.facetId)?.isPubliclyLinked);
-      if (!isPubliclyLinked && sanitizedPost.facetId) {
-        sanitizedPost.authorFingerprint = sanitizedPost.facetId;
-      }
+    const facetMem = post.facetId
+      ? globalFacetsStore.find((f) => f.id === post!.facetId)
+      : undefined;
+    const facetStatus = d1Row?.facet_status ?? post._facetStatus ?? facetMem?.status;
+    const isPubliclyLinked =
+      d1Row?.facet_is_publicly_linked === 1 ||
+      post._facetIsPubliclyLinked === true ||
+      Boolean(facetMem?.isPubliclyLinked);
+
+    // Cache canonical representation in KV for 60s (strictly public posts only)
+    if (kv && (!post.audience || post.audience === 'public') && d1Row) {
+      try {
+        const canonicalToCache: CachedEdgePost = {
+          ...post,
+          _facetStatus: facetStatus,
+          _facetIsPubliclyLinked: isPubliclyLinked,
+        };
+        await kv.put(cacheKey, JSON.stringify(canonicalToCache), { expirationTtl: 60 });
+      } catch (_) {}
     }
 
-    // Cache in KV for 60s (strictly public posts only)
-    if (kv && (!post.audience || post.audience === 'public')) {
-      try {
-        await kv.put(cacheKey, JSON.stringify(sanitizedPost), { expirationTtl: 60 });
-      } catch (_) {}
+    // Per-request public unlinkability sanitization
+    const sanitizedPost: CachedEdgePost = { ...post };
+    delete sanitizedPost._facetStatus;
+    delete sanitizedPost._facetIsPubliclyLinked;
+
+    if (sanitizedPost.facetId && facetStatus === 'deleted') {
+      sanitizedPost.authorDisplayName = '[Deleted Context]';
+      sanitizedPost.authorHandle = undefined;
+      sanitizedPost.authorAvatarUrl = undefined;
+    }
+    if (!isOwner && !isPubliclyLinked && sanitizedPost.facetId) {
+      sanitizedPost.authorFingerprint = sanitizedPost.facetId;
     }
 
     // 4. Return Server-Rendered OpenGraph HTML for crawlers and direct browser visits
     if (isCrawler || isDirectBrowserVisit) {
       const canonicalAppUrl = `${url.origin}/#post-${encodeURIComponent(postId)}`;
-      const snippet = post.content ? post.content.replace(/\s+/g, ' ').slice(0, 200) : post.title;
-      const primaryImage = (post.images && post.images.length > 0) ? post.images[0] : (post.video?.poster || '');
-      const communityName = post.channelId ? post.channelId.replace(/^c\//, '') : 'technology';
+      const snippet = sanitizedPost.content
+        ? sanitizedPost.content.replace(/\s+/g, ' ').slice(0, 200)
+        : sanitizedPost.title;
+      const primaryImage =
+        sanitizedPost.images && sanitizedPost.images.length > 0
+          ? sanitizedPost.images[0]
+          : sanitizedPost.video?.poster || '';
+      const communityName = sanitizedPost.channelId
+        ? sanitizedPost.channelId.replace(/^c\//, '')
+        : 'technology';
 
       const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>${escapeHtml(post.title)} - UREfy</title>
+  <title>${escapeHtml(sanitizedPost.title)} - UREfy</title>
   <meta name="description" content="${escapeHtml(snippet)}">
-  
-  <!-- OpenGraph / Facebook / LinkedIn / Discord -->
   <meta property="og:type" content="article">
   <meta property="og:site_name" content="UREfy">
-  <meta property="og:title" content="${escapeHtml(post.title)}">
+  <meta property="og:title" content="${escapeHtml(sanitizedPost.title)}">
   <meta property="og:description" content="${escapeHtml(snippet)}">
   <meta property="og:url" content="${escapeHtml(canonicalAppUrl)}">
   <meta property="og:image" content="${escapeHtml(primaryImage || `${url.origin}/icon-512.png`)}">
-  
-  <!-- Twitter Cards -->
   <meta name="twitter:card" content="${primaryImage ? 'summary_large_image' : 'summary'}">
   <meta name="twitter:site" content="@UREfyNetwork">
-  <meta name="twitter:title" content="${escapeHtml(post.title)}">
+  <meta name="twitter:title" content="${escapeHtml(sanitizedPost.title)}">
   <meta name="twitter:description" content="${escapeHtml(snippet)}">
   <meta name="twitter:image" content="${escapeHtml(primaryImage || `${url.origin}/icon-512.png`)}">
-
-  <!-- Canonical & Instant Client Navigation -->
   <link rel="canonical" href="${escapeHtml(canonicalAppUrl)}">
   <meta http-equiv="refresh" content="0;url=${escapeHtml(canonicalAppUrl)}">
   <script>
@@ -359,16 +418,15 @@ export async function onRequestGet(context: {
       <span style="font-weight: 800; font-size: 16px; letter-spacing: -0.02em; color: #ffffff;">URE<span style="color: #22d3ee;">fy</span></span>
       <span style="color: #64748b; font-size: 12px; margin-left: auto;">The social network you actually own</span>
     </div>
-    <div class="badge">c/${escapeHtml(communityName)} · ${escapeHtml(post.flair || 'Post')}</div>
-    <h1>${escapeHtml(post.title)}</h1>
-    <p>${escapeHtml(post.content)}</p>
+    <div class="badge">c/${escapeHtml(communityName)} · ${escapeHtml(sanitizedPost.flair || 'Post')}</div>
+    <h1>${escapeHtml(sanitizedPost.title)}</h1>
+    <p>${escapeHtml(sanitizedPost.content)}</p>
     <p style="margin-top: 24px;">
       <a href="${escapeHtml(canonicalAppUrl)}">Open full thread in UREfy &rarr;</a>
     </p>
   </div>
 </body>
 </html>`;
-
       return new Response(html, {
         status: 200,
         headers: {
@@ -396,7 +454,7 @@ export async function onRequestGet(context: {
             ? 'private, no-cache, no-store, must-revalidate'
             : 'public, max-age=15, stale-while-revalidate=30',
           'Vary': 'Accept, Authorization, X-User-Fingerprint, X-Facet-Id',
-          'ETag': `W/"post-${sanitizedPost.id}-${sanitizedPost.createdAt}"`,
+          'ETag': `W/"post-${sanitizedPost.id}-${sanitizedPost.createdAt}-${sanitizedPost.replyCount}"`,
           ...CORS_HEADERS,
         },
       }
@@ -410,5 +468,3 @@ export async function onRequestGet(context: {
 }
 
 export { onRequestDelete } from '../posts.js';
-
-

@@ -3,6 +3,7 @@ import { AetherisDatabase } from './db/database.js';
 export interface RollbackResult {
   actorFingerprint: string;
   revertedActionsCount: number;
+  failedActionsCount?: number;
   details: string[];
   success: boolean;
 }
@@ -21,6 +22,7 @@ export function executeAtomicRollback(
 
   const details: string[] = [];
   let revertedCount = 0;
+  let failedCount = 0;
 
   for (const action of actions) {
     try {
@@ -55,23 +57,28 @@ export function executeAtomicRollback(
           details.push(`Skipping unhandled action type: ${action.actionType}`);
       }
     } catch (err: any) {
+      failedCount++;
       details.push(`Failed to revert action ${action.id}: ${err.message}`);
     }
   }
 
-  // Record the rollback execution in the audit trail
   db.recordAudit({
     actionType: 'ATOMIC_ROLLBACK_EXECUTED',
     actorFingerprint: initiatorFingerprint,
     targetId: compromisedActor,
-    payloadJson: JSON.stringify({ revertedActionsCount: revertedCount, timeWindowMs }),
+    payloadJson: JSON.stringify({
+      revertedActionsCount: revertedCount,
+      failedActionsCount: failedCount,
+      timeWindowMs,
+    }),
     timestamp: Date.now(),
   });
 
   return {
     actorFingerprint: compromisedActor,
     revertedActionsCount: revertedCount,
+    failedActionsCount: failedCount,
     details,
-    success: true,
+    success: failedCount === 0,
   };
 }

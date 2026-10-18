@@ -3,7 +3,6 @@
 // Supports: Server-enforced blocking, timeline muting, Cloudflare D1 SQL,
 // and In-Memory Edge Isolate Fallback.
 // ===========================================================================
-
 import {
   Env,
   getD1Database,
@@ -13,8 +12,6 @@ import {
   globalMutesStore,
   globalFacetsStore,
   globalFacetFollowsStore,
-  EdgeBlock,
-  EdgeMute,
 } from './_db.js';
 import { requireSignedEnvelope } from './_auth.js';
 
@@ -38,18 +35,26 @@ export async function onRequestOptions(): Promise<Response> {
 export async function onRequestGet(context: { request: Request; env?: Env }): Promise<Response> {
   try {
     const url = new URL(context.request.url);
-    const userId = (url.searchParams.get('userId') || '').trim();
+    const headerFp = (context.request.headers.get('X-User-Fingerprint') || '').trim();
+    const queryUserId = (url.searchParams.get('userId') || '').trim();
+    const userId = queryUserId || headerFp;
 
     if (!userId) {
       return new Response(
-        JSON.stringify({ success: false, error: 'userId parameter is required' }),
+        JSON.stringify({ success: false, error: 'userId parameter and X-User-Fingerprint header are required' }),
         { status: 400, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
+      );
+    }
+
+    if (!headerFp || (queryUserId && headerFp !== queryUserId)) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Forbidden: authenticated X-User-Fingerprint matching userId is required' }),
+        { status: 403, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
       );
     }
 
     const db = getD1Database(context.env);
     const isProd = isProductionEnv(context.env);
-
     if (!db && isProd) {
       return createD1UnavailableResponse();
     }
@@ -58,33 +63,12 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
     let mutedUsers: string[] = [];
 
     if (db) {
-      await db.prepare(`
-        CREATE TABLE IF NOT EXISTS user_blocks (
-          blocker_id TEXT NOT NULL,
-          blocked_id TEXT NOT NULL,
-          created_at INTEGER NOT NULL,
-          PRIMARY KEY (blocker_id, blocked_id)
-        )
-      `).run();
-      await db.prepare(`
-        CREATE TABLE IF NOT EXISTS user_mutes (
-          muter_id TEXT NOT NULL,
-          muted_id TEXT NOT NULL,
-          created_at INTEGER NOT NULL,
-          PRIMARY KEY (muter_id, muted_id)
-        )
-      `).run();
-      const blockRes = await db
-        .prepare('SELECT blocked_id FROM user_blocks WHERE blocker_id = ?')
-        .bind(userId)
-        .all<{ blocked_id: string }>();
-      blockedUsers = (blockRes.results || []).map(r => r.blocked_id);
-
-      const muteRes = await db
-        .prepare('SELECT muted_id FROM user_mutes WHERE muter_id = ?')
-        .bind(userId)
-        .all<{ muted_id: string }>();
-      mutedUsers = (muteRes.results || []).map(r => r.muted_id);
+      const [blockRes, muteRes] = await db.batch<{ blocked_id?: string; muted_id?: string }>([
+        db.prepare('SELECT blocked_id FROM user_blocks WHERE blocker_id = ?').bind(userId),
+        db.prepare('SELECT muted_id FROM user_mutes WHERE muter_id = ?').bind(userId),
+      ]);
+      blockedUsers = (blockRes?.results || []).map(r => String(r.blocked_id));
+      mutedUsers = (muteRes?.results || []).map(r => String(r.muted_id));
     } else {
       blockedUsers = globalBlocksStore
         .filter(b => b.blockerId === userId)
@@ -101,7 +85,14 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
         blockedUsers,
         mutedUsers,
       }),
-      { status: 200, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'private, no-store',
+          ...CORS_HEADERS,
+        },
+      }
     );
   } catch (err: any) {
     return new Response(
@@ -113,8 +104,7 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
 
 /**
  * POST /api/blocks
- * Body: { action: 'block' | 'unblock' | 'mute' | 'unmute', userId: string, targetId: string }
- * Supports signed envelope for cryptographic verification.
+ * Requires canonical SovereignSignedEnvelope for cryptographic ownership verification.
  */
 export async function onRequestPost(context: { request: Request; env?: Env }): Promise<Response> {
   try {
@@ -126,20 +116,17 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
       );
     }
 
-    let action = (body.action || '').trim().toLowerCase();
-    let userId = (body.userId || body.blockerId || body.muterId || context.request.headers.get('X-User-Fingerprint') || '').trim();
-    let targetId = (body.targetId || body.blockedId || body.mutedId || body.targetUserId || '').trim();
-
-    // Check signed envelope
-    if ((body.envelope && typeof body.envelope === 'object') || body.signature) {
-      const auth = await requireSignedEnvelope(context, body.envelope || body);
-      if (auth.authorized) {
-        userId = auth.fingerprint || userId;
-        const payload = (auth.payload || {}) as any;
-        action = (payload.action || action).trim().toLowerCase();
-        targetId = (payload.targetId || payload.targetUserId || payload.blockedId || payload.mutedId || targetId).trim();
-      }
+    const auth = await requireSignedEnvelope(context, body.envelope || body);
+    if (!auth.authorized || !auth.fingerprint) {
+      return auth.response!;
     }
+
+    const userId = auth.fingerprint;
+    const payload = (auth.payload || {}) as Record<string, any>;
+    const action = String(payload.action || body.action || '').trim().toLowerCase();
+    const targetId = String(
+      payload.targetId || payload.targetUserId || payload.blockedId || payload.mutedId || body.targetId || ''
+    ).trim();
 
     if (!['block', 'unblock', 'mute', 'unmute', 'block-person', 'block-facet'].includes(action)) {
       return new Response(
@@ -147,14 +134,12 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
         { status: 400, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
       );
     }
-
     if (!userId || !targetId) {
       return new Response(
         JSON.stringify({ success: false, error: 'userId and targetId are required' }),
         { status: 400, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
       );
     }
-
     if (userId === targetId) {
       return new Response(
         JSON.stringify({ success: false, error: 'Cannot block or mute yourself' }),
@@ -164,34 +149,13 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
 
     const db = getD1Database(context.env);
     const isProd = isProductionEnv(context.env);
-
     if (!db && isProd) {
       return createD1UnavailableResponse();
     }
-    if (db) {
-      await db.prepare(`
-        CREATE TABLE IF NOT EXISTS user_blocks (
-          blocker_id TEXT NOT NULL,
-          blocked_id TEXT NOT NULL,
-          created_at INTEGER NOT NULL,
-          PRIMARY KEY (blocker_id, blocked_id)
-        )
-      `).run();
-      await db.prepare(`
-        CREATE TABLE IF NOT EXISTS user_mutes (
-          muter_id TEXT NOT NULL,
-          muted_id TEXT NOT NULL,
-          created_at INTEGER NOT NULL,
-          PRIMARY KEY (muter_id, muted_id)
-        )
-      `).run();
-    }
 
     const now = Date.now();
-
-    // Resolve person vs facet
     let resolvedTargetId = targetId;
-    if (action === 'block-person' || action === 'block' || (body.blockScope === 'person')) {
+    if (action === 'block-person' || action === 'block' || payload.blockScope === 'person' || body.blockScope === 'person') {
       if (db) {
         const fRow = await db.prepare('SELECT owner_fingerprint FROM facets WHERE id = ?').bind(targetId).first<{ owner_fingerprint: string }>();
         if (fRow && fRow.owner_fingerprint) resolvedTargetId = fRow.owner_fingerprint;
@@ -199,6 +163,13 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
         const fMem = globalFacetsStore.find(f => f.id === targetId);
         if (fMem) resolvedTargetId = fMem.ownerFingerprint;
       }
+    }
+
+    if (resolvedTargetId === userId) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Cannot block your own facet or identity' }),
+        { status: 400, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
+      );
     }
 
     if (action === 'block' || action === 'block-person' || action === 'block-facet') {
@@ -216,7 +187,6 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
         if (existing < 0) {
           globalBlocksStore.push({ blockerId: userId, blockedId: resolvedTargetId, createdAt: now });
         }
-        // Remove facet_follows
         const userFacetIds = new Set(globalFacetsStore.filter(f => f.ownerFingerprint === userId).map(f => f.id));
         const targetFacetIds = new Set(globalFacetsStore.filter(f => f.ownerFingerprint === resolvedTargetId || f.id === resolvedTargetId).map(f => f.id));
         for (let i = globalFacetFollowsStore.length - 1; i >= 0; i--) {

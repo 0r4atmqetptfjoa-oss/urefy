@@ -1,5 +1,6 @@
 import { getR2Bucket, type Env } from './_db.js';
 import { wrapBackupRecoveryKey } from './_backup-recovery.js';
+import { timingSafeEqualHash } from './admin.js';
 
 const DAILY_KEY = 'backups/d1-snapshot-daily.enc';
 const MAX_RECOVERY_BYTES = 8 * 1024 * 1024;
@@ -9,7 +10,13 @@ const reply = (status: number, body: unknown) => new Response(JSON.stringify(bod
 /** Disabled unless the owner's public recovery key is configured. Never accepts a recipient key from the caller. */
 export async function onRequestPost({ request, env }: { request: Request; env?: Env }): Promise<Response> {
   const token = env?.CRON_SECRET;
-  if (typeof token !== 'string' || token.length < 32 || request.headers.get('X-Cron-Secret') !== token) {
+  const providedSecret = request.headers.get('X-Cron-Secret') || '';
+  if (
+    typeof token !== 'string' ||
+    token.length < 32 ||
+    !providedSecret ||
+    !(await timingSafeEqualHash(providedSecret, token))
+  ) {
     return reply(401, { success: false, error: 'Unauthorized' });
   }
   if (typeof env?.BACKUP_RECOVERY_PUBLIC_KEY !== 'string' || !env.BACKUP_RECOVERY_PUBLIC_KEY) {

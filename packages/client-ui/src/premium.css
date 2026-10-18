@@ -4,10 +4,10 @@
  */
 
 :root {
-  --color-accent: #e89e38 !important;
-  --color-accent-glow: rgba(232, 158, 56, 0.22) !important;
-  --color-accent-border: rgba(232, 158, 56, 0.45) !important;
-  --color-accent-secondary: #c27020 !important;
+  --color-accent: #e89e38;
+  --color-accent-glow: rgba(232, 158, 56, 0.22);
+  --color-accent-border: rgba(232, 158, 56, 0.45);
+  --color-accent-secondary: #c27020;
   --color-sage: #3ecf8e;
   --color-iris: #818cf8;
   --bg-canvas: #08090d;
@@ -31,10 +31,10 @@ html:not([data-theme]),
 html[data-theme="default"],
 html[data-theme="keystone-amber"],
 html[data-theme="solar-amber"] {
-  --color-accent: #e89e38 !important;
-  --color-accent-glow: rgba(232, 158, 56, 0.22) !important;
-  --color-accent-border: rgba(232, 158, 56, 0.45) !important;
-  --color-accent-secondary: #c27020 !important;
+  --color-accent: #e89e38;
+  --color-accent-glow: rgba(232, 158, 56, 0.22);
+  --color-accent-border: rgba(232, 158, 56, 0.45);
+  --color-accent-secondary: #c27020;
   --color-sage: #3ecf8e;
   --color-iris: #818cf8;
   --bg-canvas: #08090d;
@@ -839,8 +839,7 @@ button:active { transform: scale(0.98); }
 .kbd-badge { opacity: 0.6; }
 
 #aetheris-wallet-button-container,
-#ambient-network-minimap-container,
-.workspace-layout-control { display: none !important; }
+#ambient-network-minimap-container { display: none !important; }
 
 .header-primary-nav {
   display: flex;

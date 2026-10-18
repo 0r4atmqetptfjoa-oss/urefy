@@ -12,6 +12,7 @@ import { renderIcon } from '../ui/icons.js';
 import { clientStore } from '../client-state.js';
 import { themeEngine, THEMES, CURATED_THEMES } from '../themes.js';
 import { markdownRenderer } from '../markdown-renderer.js';
+import { escapeHtml } from '../dry-utils.js';
 
 export interface SettingsCategoryItem {
   id: SettingsCategory;
@@ -130,18 +131,18 @@ export function renderSettingsCategoryContentHTML(
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
             <div class="p-4 rounded-2xl bg-surface-base border border-white/5 space-y-2">
               <div class="text-[11px] font-mono text-slate-400">Display Name</div>
-              <div class="text-sm font-bold text-white">${profile.name}</div>
-              <div class="text-[11px] font-mono text-indigo-400">@id:${profile.handle}</div>
+              <div class="text-sm font-bold text-white">${escapeHtml(profile.name)}</div>
+              <div class="text-[11px] font-mono text-indigo-400">@id:${escapeHtml(profile.handle)}</div>
             </div>
 
             <div class="p-4 rounded-2xl bg-surface-base border border-white/5 space-y-2">
               <div class="text-[11px] font-mono text-slate-400">Federated Fediverse Handle</div>
-              <div class="text-xs font-mono font-bold text-indigo-300">${federatedHandle}</div>
+              <div class="text-xs font-mono font-bold text-indigo-300">${escapeHtml(federatedHandle)}</div>
               <button
                 type="button"
                 id="btn-settings-copy-fed-handle"
                 data-action="settings-copy-fed-handle"
-                data-handle="${federatedHandle}"
+                data-handle="${escapeHtml(federatedHandle)}"
                 class="px-2.5 py-1 rounded-lg bg-surface-raised hover:bg-surface-overlay border border-white/10 text-[11px] font-mono text-slate-300 hover:text-white transition-colors flex items-center space-x-1 cursor-pointer"
               >
                 <span>📋</span>
@@ -152,7 +153,7 @@ export function renderSettingsCategoryContentHTML(
 
           <div class="p-4 rounded-2xl bg-surface-base border border-white/5 space-y-2 text-xs">
             <div class="text-[11px] font-mono text-slate-400">Public Ed25519 Fingerprint</div>
-            <div class="font-mono text-[11px] text-emerald-400 break-all select-all bg-black/40 p-2.5 rounded-xl border border-white/5">${profile.fingerprint}</div>
+            <div class="font-mono text-[11px] text-emerald-400 break-all select-all bg-black/40 p-2.5 rounded-xl border border-white/5">${escapeHtml(profile.fingerprint)}</div>
           </div>
 
           <div class="p-4 rounded-2xl bg-surface-base border border-white/5 space-y-2 text-xs">

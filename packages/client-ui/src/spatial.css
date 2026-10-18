@@ -1,7 +1,6 @@
 /* ===========================================================================
    UREfy / UREFY — 2027 SPATIAL DESIGN SYSTEM (OKLCH + SPECULAR BENTO)
    =========================================================================== */
-
 :root {
   /* Perceptual OKLCH Color Palette (HDR Wide-Gamut Ready) */
   --surface-void: oklch(0.11 0.015 265);
@@ -15,7 +14,7 @@
   --accent-signal: oklch(0.80 0.19 155);    /* Verified Emerald */
   --accent-crimson: oklch(0.65 0.24 22);    /* Threat Rose */
 
-  /* Dynamic Specular Border Coordinates (Updated via lightweight pointermove) */
+  /* Dynamic Specular Border Coordinates */
   --pointer-x: 50%;
   --pointer-y: 50%;
 
@@ -28,10 +27,8 @@
   );
 }
 
-/* 1. Specular Glassmorphism & Bento Surfaces */
-.sovereign-glass-surface,
-.sovereign-post-card,
-article.rounded-2xl {
+/* 1. Specular Glassmorphism (modals & floating HUD panels) */
+.sovereign-glass-surface {
   position: relative;
   background: linear-gradient(
     145deg,
@@ -44,40 +41,50 @@ article.rounded-2xl {
   box-shadow:
     0 18px 40px -15px oklch(0 0 0 / 0.65),
     inset 0 1px 0 0 oklch(1 0 0 / 0.14);
-  transition:
-    transform 380ms var(--ease-spring-2027),
-    border-color 220ms ease,
-    box-shadow 220ms ease;
 }
 
-/* Interactive Rim Light on Hover */
+/* 1b. Bento Feed Surfaces (zero backdrop-filter for 120Hz scroll) */
+.sovereign-post-card,
+article.rounded-2xl {
+  position: relative;
+  background-color: var(--color-surface, oklch(0.165 0.010 235));
+  border: 1px solid var(--color-border, oklch(0.27 0.012 235));
+  content-visibility: auto;
+  contain-intrinsic-size: auto 240px;
+  transition:
+    transform 220ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    background-color 180ms ease;
+}
+
 .sovereign-post-card:hover,
 article.rounded-2xl:hover {
-  border-color: oklch(0.82 0.17 205 / 0.32);
+  border-color: var(--color-border-strong, oklch(0.36 0.018 200));
   box-shadow:
-    0 22px 48px -12px oklch(0 0 0 / 0.75),
-    0 0 24px -6px oklch(0.82 0.17 205 / 0.18),
-    inset 0 1px 0 0 oklch(1 0 0 / 0.22);
+    0 14px 32px -12px oklch(0 0 0 / 0.6),
+    inset 0 1px 0 0 oklch(1 0 0 / 0.14);
 }
 
 /* 2. Keyboard Navigation Focus Ring (Vim Mode J/K) */
 .card-keyboard-active {
   outline: none !important;
-  border-color: var(--accent-cyphr) !important;
+  border-color: var(--color-accent, var(--accent-cyphr)) !important;
   box-shadow:
-    0 0 0 2px oklch(0.82 0.17 205 / 0.35),
-    0 16px 36px -8px oklch(0.82 0.17 205 / 0.25) !important;
-  transform: translateY(-2px);
+    inset 3px 0 0 0 var(--color-accent, var(--accent-cyphr)),
+    0 12px 28px -8px oklch(0.82 0.17 205 / 0.22) !important;
 }
 
-/* 3. Native 2027 @starting-style Modal & Dialog Entry Animations (Zero JS Timers) */
+/* 3. Native @starting-style Modal & Dialog Entry Animations */
 .sovereign-modal-backdrop {
   opacity: 1;
   transition:
     opacity 240ms cubic-bezier(0.16, 1, 0.3, 1),
     backdrop-filter 240ms cubic-bezier(0.16, 1, 0.3, 1);
+}
 
-  @starting-style {
+@starting-style {
+  .sovereign-modal-backdrop {
     opacity: 0;
     backdrop-filter: blur(0px);
   }
@@ -89,21 +96,16 @@ article.rounded-2xl:hover {
   transition:
     transform 420ms var(--ease-spring-2027),
     opacity 220ms ease;
+}
 
-  @starting-style {
+@starting-style {
+  .sovereign-modal-backdrop > .sovereign-glass-surface {
     transform: scale(0.94) translateY(14px);
     opacity: 0;
   }
 }
 
-/* 4. Off-Screen Rendering Optimization for Long Feeds (120Hz Scroll Guarantee) */
-.sovereign-post-card,
-article.rounded-2xl {
-  content-visibility: auto;
-  contain-intrinsic-size: auto 240px;
-}
-
-/* 5. Hardware-Accelerated View Transitions */
+/* 4. Hardware-Accelerated View Transitions */
 @view-transition {
   navigation: auto;
 }

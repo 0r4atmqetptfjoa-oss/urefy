@@ -181,6 +181,8 @@ export const ACCENT_COLORS: AccentColorOption[] = [
   { id: 'crimson', name: 'Pulse Rose', hex: '#f43f5e', emoji: '🌹', glowRgba: 'rgba(244, 63, 94, 0.28)', description: 'Energetic crimson' },
 ];
 
+export const ACCENT_COLOR_OPTIONS: AccentColorOption[] = ACCENT_COLORS;
+
 const STORAGE_KEY = 'aetheris_theme_preferences_v2';
 
 export class ThemeEngine {

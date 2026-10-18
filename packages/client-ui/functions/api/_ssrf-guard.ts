@@ -27,21 +27,45 @@ function isIpLiteral(hostname: string): boolean {
   return host.includes(':') || /^\d{1,4}(?:\.\d{1,4}){3}$/.test(host) || /^0x/i.test(host) || /^\d+$/.test(host);
 }
 
+const dnsValidationCache = new Map<string, { addresses: string[]; expiresAt: number }>();
+const DNS_CACHE_TTL_MS = 60_000;
+
 async function resolvePublicAddresses(hostname: string): Promise<string[]> {
-  const answers: string[] = [];
-  for (const type of ['A', 'AAAA']) {
+  const now = Date.now();
+  const cached = dnsValidationCache.get(hostname);
+  if (cached && cached.expiresAt > now) {
+    return cached.addresses;
+  }
+
+  const queryRecordType = async (type: 'A' | 'AAAA'): Promise<string[]> => {
     const endpoint = `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(hostname)}&type=${type}`;
     const response = await fetch(endpoint, {
       headers: { Accept: 'application/dns-json' },
       redirect: 'error',
+      signal: AbortSignal.timeout(3000),
     });
     if (!response.ok) throw new Error(`DNS resolution failed with HTTP ${response.status}`);
-    const payload = await response.json() as { Answer?: Array<{ type: number; data: string }> };
-    for (const answer of payload.Answer || []) {
-      if ((answer.type === 1 || answer.type === 28) && typeof answer.data === 'string') answers.push(answer.data);
-    }
+    const payload = (await response.json()) as { Answer?: Array<{ type: number; data: string }> };
+    return (payload.Answer || [])
+      .filter((answer) => (answer.type === 1 || answer.type === 28) && typeof answer.data === 'string')
+      .map((answer) => answer.data);
+  };
+
+  const [aRecords, aaaaRecords] = await Promise.all([
+    queryRecordType('A'),
+    queryRecordType('AAAA'),
+  ]);
+  const answers = [...aRecords, ...aaaaRecords];
+
+  if (answers.length === 0) {
+    throw new Error('Hostname resolved to no A or AAAA addresses');
   }
-  if (answers.length === 0) throw new Error('Hostname resolved to no A or AAAA addresses');
+
+  if (dnsValidationCache.size >= 1000) {
+    const oldestKey = dnsValidationCache.keys().next().value;
+    if (oldestKey) dnsValidationCache.delete(oldestKey);
+  }
+  dnsValidationCache.set(hostname, { addresses: answers, expiresAt: now + DNS_CACHE_TTL_MS });
   return answers;
 }
 

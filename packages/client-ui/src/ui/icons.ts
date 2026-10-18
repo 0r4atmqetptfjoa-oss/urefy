@@ -122,6 +122,7 @@ export interface IconOptions {
   variant?: IconVariant;
   ariaLabel?: string;
   ariaHidden?: boolean;
+  idSuffix?: string;
 }
 
 // ─── PROPRIETARY UREFY VECTOR GLYPHS (0 0 24 24) ────────────────────────────
@@ -376,30 +377,32 @@ export function renderMeritIcon(isEndorsed: boolean, options: IconOptions = {}):
   if (isEndorsed) {
     const size = options.size ?? 20;
     const cls = options.className || options.class || '';
+    const suffix = options.idSuffix ? `_${escapeAttribute(options.idSuffix)}` : '';
+    const glowId = `meritGlow${suffix}`;
+    const facetId = `meritFacet${suffix}`;
     return `
       <svg xmlns="http://www.w3.org/2000/svg" width="${escapeAttribute(size)}" height="${escapeAttribute(size)}" viewBox="0 0 24 24" fill="none" class="urefy-merit-icon is-active ${escapeAttribute(cls)}" aria-hidden="true">
         <defs>
-          <linearGradient id="meritGlow" x1="12" y1="2.5" x2="12" y2="21.5" gradientUnits="userSpaceOnUse">
+          <linearGradient id="${glowId}" x1="12" y1="2.5" x2="12" y2="21.5" gradientUnits="userSpaceOnUse">
             <stop offset="0%" stop-color="#00E5FF" />
             <stop offset="50%" stop-color="#3B82F6" />
             <stop offset="100%" stop-color="#6366F1" />
           </linearGradient>
-          <linearGradient id="meritFacet" x1="3.5" y1="8.5" x2="20.5" y2="14" gradientUnits="userSpaceOnUse">
+          <linearGradient id="${facetId}" x1="3.5" y1="8.5" x2="20.5" y2="14" gradientUnits="userSpaceOnUse">
             <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.35" />
             <stop offset="100%" stop-color="#000000" stop-opacity="0.1" />
           </linearGradient>
         </defs>
-        <polygon points="12,2.5 20.5,8.5 12,14 3.5,8.5" fill="url(#meritGlow)" />
-        <polygon points="3.5,8.5 12,14 12,21.5" fill="url(#meritGlow)" opacity="0.85" />
-        <polygon points="20.5,8.5 12,14 12,21.5" fill="url(#meritGlow)" opacity="0.7" />
-        <polygon points="12,2.5 20.5,8.5 12,14 3.5,8.5" fill="url(#meritFacet)" />
+        <polygon points="12,2.5 20.5,8.5 12,14 3.5,8.5" fill="url(#${glowId})" />
+        <polygon points="3.5,8.5 12,14 12,21.5" fill="url(#${glowId})" opacity="0.85" />
+        <polygon points="20.5,8.5 12,14 12,21.5" fill="url(#${glowId})" opacity="0.7" />
+        <polygon points="12,2.5 20.5,8.5 12,14 3.5,8.5" fill="url(#${facetId})" />
         <path d="M12 2.5L20.5 8.5L12 14L3.5 8.5L12 2.5Z" stroke="#00E5FF" stroke-width="1.75" stroke-linejoin="round" />
         <path d="M3.5 8.5L12 21.5L20.5 8.5" stroke="#00E5FF" stroke-width="1.75" stroke-linejoin="round" />
         <path d="M12 14V21.5" stroke="#00E5FF" stroke-width="1.75" stroke-linecap="round" />
       </svg>
     `.trim();
   }
-
   return renderIcon('merit', {
     ...options,
     variant: 'outline',

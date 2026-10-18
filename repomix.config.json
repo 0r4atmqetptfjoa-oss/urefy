@@ -1,0 +1,49 @@
+{
+  "output": {
+    "filePath": "urefy-cod-complet.xml",
+    "style": "xml",
+    "compress": false,
+    "removeComments": true,
+    "removeEmptyLines": true,
+    "showLineNumbers": false,
+    "git": {
+      "sortByChanges": false
+    }
+  },
+  "include": [
+    "package.json",
+    "tsconfig.base.json",
+    "packages/*/package.json",
+    "packages/*/tsconfig.json",
+    "packages/*/wrangler.toml",
+    "packages/core-crypto/src/**",
+    "packages/vault-engine/src/**",
+    "packages/server-edge/src/**",
+    "packages/daemon-archivist/src/**",
+    "packages/client-ui/functions/**",
+    "packages/client-ui/src/**",
+    "packages/client-ui/index.html",
+    "packages/client-ui/admin.html",
+    "packages/client-ui/vite.config.ts"
+  ],
+  "ignore": {
+    "useGitignore": true,
+    "useDefaultPatterns": true,
+    "customPatterns": [
+      ".agents/**",
+      "docs/**",
+      "scripts/**",
+      "packages/client-ui/migrations/**",
+      "packages/core-crypto/src/bip39-wordlist.ts",
+      "packages/client-ui/src/i18n/locales/**",
+      "packages/client-ui/src/emoji-data.ts",
+      "packages/client-ui/src/discovery-data.ts",
+      "packages/client-ui/src/profile/seed-profiles-data.ts",
+      "packages/client-ui/src/profile/production-profiles-data.ts",
+      "**/*.css",
+      "**/*.png",
+      "**/*.svg",
+      "**/*.ico"
+    ]
+  }
+}

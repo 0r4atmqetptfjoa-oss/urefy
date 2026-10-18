@@ -3,7 +3,6 @@
  * @package @aetheris/client-ui/profile
  * @description Sovereign Profile Timeline & Settings tab bar component.
  */
-
 import { ProfileTab } from './types.js';
 import { renderIcon } from '../ui/icons.js';
 
@@ -23,12 +22,12 @@ export const PROFILE_TABS: ProfileTabItem[] = [
 
 export function renderProfileTabsHTML(activeTab: ProfileTab, _isOwnProfile?: boolean): string {
   const tabsToShow: ProfileTabItem[] = PROFILE_TABS;
-
   return `
     <div class="journal-profile__tab-list flex items-center space-x-2 border-b border-white/10 pb-2 overflow-x-auto scrollbar-none no-scrollbar" role="tablist" aria-label="Profile sections">
-      ${tabsToShow.map(tab => {
-        const isActive = activeTab === tab.id;
-        return `
+      ${tabsToShow
+        .map((tab) => {
+          const isActive = activeTab === tab.id;
+          return `
           <button
             type="button"
             id="btn-profile-tab-${tab.id}"
@@ -47,7 +46,8 @@ export function renderProfileTabsHTML(activeTab: ProfileTab, _isOwnProfile?: boo
             <span>${tab.label}</span>
           </button>
         `;
-      }).join('')}
+        })
+        .join('')}
     </div>
   `;
 }

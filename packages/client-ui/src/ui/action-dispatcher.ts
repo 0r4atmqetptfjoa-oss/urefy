@@ -53,7 +53,7 @@ import { dismissSinceYouWereAwayCard, submitQuickPost, loadMoreFeedPosts, quickP
 import { commandRailV2 } from '../command-rail-v2.js';
 import { reportModalManager } from '../report-modal.js';
 import { postDetailView } from '../post-detail.js';
-import { sharePostOrCopyLink } from '../dry-utils.js';
+import { sharePostOrCopyLink, escapeHtml } from '../dry-utils.js';
 import { sovereignDialog } from '../dialog-modal.js';
 import { pulseActionsEngine } from '../pulse-actions.js';
 import { feedControlsEngine } from '../feed-controls.js';
@@ -596,16 +596,29 @@ export class ActionDispatcher {
       }
 
       case 'close-settings': {
-        if (typeof window !== 'undefined' && (window as any).settingsView) {
-          (window as any).settingsView.close();
+        if (el.id === 'settings-modal-backdrop' && event.target !== el) {
+          break;
+        }
+        if (typeof window !== 'undefined') {
+          if ((window as any).settingsView) (window as any).settingsView.close();
+          if ((window as any).__aetheris_close_settings) (window as any).__aetheris_close_settings();
+        }
+        const settingsBackdrop = document.getElementById('settings-modal-backdrop');
+        if (settingsBackdrop) {
+          settingsBackdrop.remove();
+        }
+        const settingsContainer = document.getElementById('unified-settings-modal-container');
+        if (settingsContainer) {
+          settingsContainer.innerHTML = '';
+          settingsContainer.style.display = 'none';
         }
         break;
       }
 
       case 'set-settings-tab': {
-        const tab = el.dataset.settingsTab || el.dataset.tab;
+        const tab = (el.dataset.settingsTab || el.dataset.tab || el.getAttribute('data-settings-tab')) as any;
         if (tab && typeof window !== 'undefined' && (window as any).settingsView) {
-          (window as any).settingsView.setActiveTab(tab as any);
+          (window as any).settingsView.setActiveTab(tab);
         }
         break;
       }
@@ -648,21 +661,30 @@ export class ActionDispatcher {
             const handleInput = document.getElementById('edit-profile-handle') as HTMLInputElement;
             const avInput = document.getElementById('edit-profile-avatar') as HTMLInputElement;
             const banInput = document.getElementById('edit-profile-banner') as HTMLInputElement;
-            const targetFp = (window as any).profileView.targetFingerprint || (window as any).clientStore?.keypair?.fingerprint || 'genesis-core';
+            const pv = (window as any).profileView;
+            const targetFp = pv.targetFingerprint || (window as any).clientStore?.keypair?.fingerprint || 'genesis-core';
             const cleanHandle = handleInput?.value ? handleInput.value.replace(/^@/, '').trim() : '';
-            (window as any).profileView.updateProfile(targetFp, {
+            const existing = typeof pv.getProfile === 'function' ? pv.getProfile(targetFp) : {};
+            const updates = {
               name: nameInput?.value || 'Sovereign Node',
-              handle: cleanHandle || (window as any).profileView.getProfile(targetFp).handle,
+              handle: cleanHandle || existing.handle,
               bio: bioInput?.value || '',
               location: locInput?.value || '',
               website: webInput?.value || '',
-              avatar: avInput?.value || (window as any).profileView.getProfile(targetFp).avatar,
-              banner: banInput?.value || (window as any).profileView.getProfile(targetFp).banner,
-            });
-            (window as any).profileView.isEditProfileModalOpen = false;
-            if ((window as any).clientStore) {
-              (window as any).clientStore.showToast?.('✨ Sovereign Profile updated!', 'success');
-              (window as any).clientStore.notifySync();
+              avatar: avInput?.value || existing.avatar,
+              banner: banInput?.value || existing.banner,
+            };
+            const overlay = document.getElementById('edit-profile-modal-overlay');
+            if (overlay) overlay.remove();
+            if (typeof pv.saveProfile === 'function') {
+              void pv.saveProfile(targetFp, updates);
+            } else if (typeof pv.updateProfile === 'function') {
+              pv.updateProfile(targetFp, updates);
+              pv.isEditProfileModalOpen = false;
+              if ((window as any).clientStore) {
+                (window as any).clientStore.showToast?.('✨ Sovereign Profile updated!', 'success');
+                (window as any).clientStore.notifySync();
+              }
             }
           }
         }
@@ -700,41 +722,54 @@ export class ActionDispatcher {
           existingMenu.remove();
           break;
         }
-        document.querySelectorAll('.post-more-menu').forEach(m => m.remove());
-
-        const post = clientStore.posts.find(p => p.id === postId);
+        document.querySelectorAll('.post-more-menu').forEach((m) => m.remove());
+        const post = clientStore.posts.find((p) => p.id === postId);
         const authorFP = post?.authorFingerprint || '';
         const myFP = clientStore.keypair?.fingerprint || '';
         const isSelf = !authorFP || authorFP === myFP;
-        const isFollowing = authorFP && typeof window !== 'undefined' && (window as any).profileView ? (window as any).profileView.isFollowing(authorFP) : false;
-
+        const isFollowing =
+          authorFP && typeof window !== 'undefined' && (window as any).profileView
+            ? (window as any).profileView.isFollowing(authorFP)
+            : false;
+        const safePostId = escapeHtml(postId);
+        const safeAuthorFP = escapeHtml(authorFP);
         const menu = document.createElement('div');
         menu.id = `post-more-menu-${postId}`;
         menu.className = 'post-more-menu';
         menu.innerHTML = `
-          ${isSelf ? `
-          <button type="button" data-action="delete-author-post" data-post-id="${postId}" class="text-rose-400 hover:text-rose-300">
+          ${
+            isSelf
+              ? `
+          <button type="button" data-action="delete-author-post" data-post-id="${safePostId}" class="text-rose-400 hover:text-rose-300">
             <span>🗑️</span><span>Delete Post</span>
           </button>
-          ` : ''}
-          ${!isSelf ? `
-          <button type="button" data-action="toggle-follow-author" data-fingerprint="${authorFP}">
-            <span>${isFollowing ? '👤' : '➕'}</span><span>${isFollowing ? 'Unfollow Author' : 'Follow Author'}</span>
+          `
+              : ''
+          }
+          ${
+            !isSelf
+              ? `
+          <button type="button" data-action="toggle-follow-author" data-fingerprint="${safeAuthorFP}">
+            <span>${isFollowing ? '👤' : '➕'}</span><span>${
+                  isFollowing ? 'Unfollow Author' : 'Follow Author'
+                }</span>
           </button>
-          ` : ''}
-          <button type="button" data-action="more-copy-link" data-post-id="${postId}">
+          `
+              : ''
+          }
+          <button type="button" data-action="more-copy-link" data-post-id="${safePostId}">
             <span>🔗</span><span>Copy Link</span>
           </button>
-          <button type="button" data-action="share-to-messages" data-post-id="${postId}">
+          <button type="button" data-action="share-to-messages" data-post-id="${safePostId}">
             <span>💬</span><span>Share to Messages</span>
           </button>
-          <button type="button" data-action="why-this-post" data-post-id="${postId}">
+          <button type="button" data-action="why-this-post" data-post-id="${safePostId}">
             <span>💡</span><span>Why am I seeing this?</span>
           </button>
-          <button type="button" data-action="more-open-detail" data-post-id="${postId}">
+          <button type="button" data-action="more-open-detail" data-post-id="${safePostId}">
             <span>📖</span><span>View Discussion</span>
           </button>
-          <button type="button" data-action="keep-post" data-post-id="${postId}">
+          <button type="button" data-action="keep-post" data-post-id="${safePostId}">
             <span>🔖</span><span>Save Post</span>
           </button>
           <details class="more-menu-advanced text-xs text-slate-400 px-1 py-0.5">
@@ -742,19 +777,25 @@ export class ActionDispatcher {
               <span>🛠️</span><span>Advanced details</span>
             </summary>
             <div class="mt-1 pt-1 border-t border-white/5">
-              <button type="button" data-action="more-view-json" data-post-id="${postId}" class="w-full text-left">
+              <button type="button" data-action="more-view-json" data-post-id="${safePostId}" class="w-full text-left">
                 <span>{ }</span><span>View Raw JSON</span>
               </button>
             </div>
           </details>
-          <button type="button" data-action="report-post" data-post-id="${postId}" class="text-rose-400">
+          <button type="button" data-action="report-post" data-post-id="${safePostId}" class="text-rose-400">
             <span>🚩</span><span>Report</span>
           </button>
         `;
-        // Keep the active menu outside reactive feed replacement and clipping.
         document.body.appendChild(menu);
         const anchor = el.getBoundingClientRect();
-        Object.assign(menu.style, { position: 'fixed', bottom: 'auto', right: 'auto', zIndex: '10050', maxHeight: 'calc(100dvh - 16px)', overflowY: 'auto' });
+        Object.assign(menu.style, {
+          position: 'fixed',
+          bottom: 'auto',
+          right: 'auto',
+          zIndex: '10050',
+          maxHeight: 'calc(100dvh - 16px)',
+          overflowY: 'auto',
+        });
         const bounds = menu.getBoundingClientRect();
         const spaceBelow = window.innerHeight - anchor.bottom;
         const spaceAbove = anchor.top;
@@ -764,16 +805,37 @@ export class ActionDispatcher {
         } else {
           top = Math.max(8, Math.min(top, window.innerHeight - bounds.height - 8));
         }
-        const left = Math.max(8, Math.min(window.innerWidth - bounds.width - 8, anchor.right - bounds.width));
-        Object.assign(menu.style, { top: `${Math.round(top)}px`, left: `${Math.round(left)}px` });
+        const left = Math.max(
+          8,
+          Math.min(window.innerWidth - bounds.width - 8, anchor.right - bounds.width)
+        );
+        Object.assign(menu.style, {
+          top: `${Math.round(top)}px`,
+          left: `${Math.round(left)}px`,
+        });
         const cleanup = new AbortController();
-        const close = () => { menu.remove(); el.setAttribute('aria-expanded', 'false'); cleanup.abort(); };
-        document.addEventListener('click', ev => {
-          if (!menu.contains(ev.target as Node) && !el.contains(ev.target as Node)) close();
-        }, { signal: cleanup.signal });
-        menu.addEventListener('keydown', ev => {
-          if (ev.key === 'Escape') { close(); if (el.isConnected) el.focus(); }
-        }, { signal: cleanup.signal });
+        const close = () => {
+          menu.remove();
+          el.setAttribute('aria-expanded', 'false');
+          cleanup.abort();
+        };
+        document.addEventListener(
+          'click',
+          (ev) => {
+            if (!menu.contains(ev.target as Node) && !el.contains(ev.target as Node)) close();
+          },
+          { signal: cleanup.signal }
+        );
+        menu.addEventListener(
+          'keydown',
+          (ev) => {
+            if (ev.key === 'Escape') {
+              close();
+              if (el.isConnected) el.focus();
+            }
+          },
+          { signal: cleanup.signal }
+        );
         menu.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true });
         break;
       }
@@ -952,8 +1014,12 @@ export class ActionDispatcher {
         break;
       }
 
-      case 'toggle-follow': {
-        const fp = el.getAttribute('data-fingerprint') || el.getAttribute('data-fp');
+      case 'toggle-follow':
+      case 'toggle-follow-profile': {
+        const fp =
+          el.getAttribute('data-fingerprint') ||
+          el.getAttribute('data-follow-fp') ||
+          el.getAttribute('data-fp');
         if (fp && typeof window !== 'undefined') {
           if ((window as any).profileView) {
             (window as any).profileView.toggleFollow(fp);
@@ -1121,8 +1187,15 @@ export class ActionDispatcher {
       case 'set-explore-subtab': {
         const subtab = el.getAttribute('data-subtab') as 'pulses' | 'communities';
         if (subtab) {
-          exploreView!.activeSubTab = subtab;
-          clientStore.notifySync();
+          if (exploreView) {
+            exploreView.activeSubTab = subtab;
+            clientStore.notifySync();
+          } else {
+            void loadExploreView().then((view) => {
+              view.activeSubTab = subtab;
+              clientStore.notifySync();
+            });
+          }
         }
         break;
       }
@@ -1214,7 +1287,17 @@ export class ActionDispatcher {
       }
 
       case 'toggle-sound': {
-        soundEffects.toggleSound();
+        const sfx = (window as any).soundEffects || soundEffects;
+        if (sfx && typeof sfx.toggleSound === 'function') {
+          sfx.toggleSound();
+          if (typeof window !== 'undefined' && (window as any).clientStore) {
+            (window as any).clientStore.showToast?.(
+              sfx.isEnabled ? '🔊 Sound FX Enabled' : '🔇 Sound FX Muted',
+              'info'
+            );
+            (window as any).clientStore.notifySync();
+          }
+        }
         break;
       }
 
@@ -1370,12 +1453,16 @@ export class ActionDispatcher {
         break;
       }
 
-      case 'open-dm': {
-        const fp = el.getAttribute('data-fingerprint') || el.getAttribute('data-fp');
+      case 'open-dm':
+      case 'open-dm-with-peer': {
+        const fp =
+          el.getAttribute('data-fingerprint') ||
+          el.getAttribute('data-fp') ||
+          el.getAttribute('data-peer');
         const role = el.getAttribute('data-peer-role') || el.getAttribute('data-role') || 'MEMBER';
         if (fp) {
           sovereignDM.openDM(fp, role);
-          void getMV().then(m => m.setActiveMessagesTab('dm'));
+          void getMV().then((m) => m.setActiveMessagesTab('dm'));
           sovereignRouter.navigateTo('messages');
         }
         break;
@@ -1395,10 +1482,24 @@ export class ActionDispatcher {
       case 'join-channel': {
         const channel = el.getAttribute('data-channel') || 'relays-general';
         clientStore.activeChannelId = channel;
+        clientStore.joinChannel(channel);
         void getMV().then(m => {
           m.setActiveMessagesTab('relays');
           clientStore.notifySync();
         });
+        let targetRoute: SovereignRoute | null = null;
+        if (channel.startsWith('relays-') || channel.startsWith('relay-') || channel.startsWith('dm-')) {
+          targetRoute = 'messages';
+        } else if (channel.startsWith('vault-')) {
+          targetRoute = 'vault';
+        } else if (channel === 'pulse-global' || channel === 'feed' || channel === 'pulse') {
+          targetRoute = 'feed';
+        }
+        if (targetRoute === 'feed') {
+          sovereignRouter.navigateHome();
+        } else if (targetRoute && sovereignRouter.route !== targetRoute) {
+          sovereignRouter.navigateTo(targetRoute);
+        }
         break;
       }
 
@@ -1462,6 +1563,7 @@ export class ActionDispatcher {
 
       case 'dm-back': {
         sovereignDM.activePeerFP = null;
+        sovereignDM.replyToId = null;
         void getMV().then(m => {
           m.toggleDMContextDrawer(false);
           clientStore.notifySync();
@@ -1470,7 +1572,7 @@ export class ActionDispatcher {
       }
 
       case 'set-dm-filter': {
-        const group = el.getAttribute('data-group') as any;
+        const group = (el.getAttribute('data-group') || 'all') as any;
         if (group) {
           void getMV().then(m => {
             m.setDMFilterGroup(group);
@@ -1557,6 +1659,7 @@ export class ActionDispatcher {
         const peer = el.getAttribute('data-peer');
         if (peer) {
           sovereignDM.setActivePeer(peer);
+          sovereignDM.replyToId = null;
           clientStore.notifySync();
         }
         break;
@@ -1738,34 +1841,6 @@ export class ActionDispatcher {
         break;
       }
 
-      case 'close-settings': {
-        if (el.id === 'settings-modal-backdrop' && event.target !== el) {
-          break;
-        }
-        if (typeof window !== 'undefined') {
-          if ((window as any).settingsView) (window as any).settingsView.close();
-          if ((window as any).__aetheris_close_settings) (window as any).__aetheris_close_settings();
-        }
-        const settingsBackdrop = document.getElementById('settings-modal-backdrop');
-        if (settingsBackdrop) {
-          settingsBackdrop.remove();
-        }
-        const settingsContainer = document.getElementById('unified-settings-modal-container');
-        if (settingsContainer) {
-          settingsContainer.innerHTML = '';
-          settingsContainer.style.display = 'none';
-        }
-        break;
-      }
-
-      case 'set-settings-tab': {
-        const tab = el.getAttribute('data-settings-tab') as any;
-        if (tab && typeof window !== 'undefined' && (window as any).settingsView) {
-          (window as any).settingsView.setActiveTab(tab);
-        }
-        break;
-      }
-
       case 'set-settings-theme': {
         const themeId = el.getAttribute('data-theme-id');
         if (themeId && typeof window !== 'undefined') {
@@ -1884,12 +1959,10 @@ export class ActionDispatcher {
           if ((window as any).__aetherisCloseNotifs) {
             (window as any).__aetherisCloseNotifs();
           }
-          if (postId && (window as any).postDetailView) {
-            (window as any).postDetailView.open(postId);
+          if (postId) {
+            postDetailView.openPost(postId);
           }
-          if ((window as any).clientStore) {
-            (window as any).clientStore.notifySync();
-          }
+          clientStore.notifySync();
         }
         break;
       }
@@ -1993,17 +2066,48 @@ export class ActionDispatcher {
         break;
       }
 
+      case 'copy-federated-handle':
       case 'settings-copy-fed-handle': {
-        const handle = el.getAttribute('data-handle') || profileView.getFederatedHandle();
+        const handle =
+          el.getAttribute('data-copy-handle') ||
+          el.getAttribute('data-handle') ||
+          profileView.getFederatedHandle(el.getAttribute('data-fp') || undefined);
         if (handle && typeof navigator !== 'undefined' && navigator.clipboard) {
-          navigator.clipboard.writeText(handle).then(() => {
-            clientStore.showToast(`✓ Handle copied: ${handle}`, 'success');
-          }).catch(() => {
-            clientStore.showToast(`✓ Handle: ${handle}`, 'info');
-          });
+          navigator.clipboard
+            .writeText(handle)
+            .then(() => {
+              clientStore.showToast(`✓ Federated handle copied: ${handle}`, 'success');
+            })
+            .catch(() => {
+              clientStore.showToast(`✓ Handle: ${handle}`, 'info');
+            });
         } else if (handle) {
           clientStore.showToast(`✓ Handle: ${handle}`, 'info');
         }
+        break;
+      }
+
+      case 'participate-daily-spotlight': {
+        const tag = el.getAttribute('data-tag') || '#SovereignSpotlight';
+        const input = document.getElementById('inline-quick-post-input') as HTMLTextAreaElement | null;
+        if (input) {
+          if (!input.value.includes(tag)) {
+            input.value = `${tag} ${input.value}`.trim() + ' ';
+            quickPostDraft.content = input.value;
+          }
+          input.focus();
+          input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } else {
+          clientStore.isComposerOpen = true;
+          clientStore.notifySync();
+        }
+        break;
+      }
+
+      case 'open-admin-console': {
+        void import('../admin-dashboard.js').then(({ adminDashboard }) => {
+          adminDashboard.open();
+        });
         break;
       }
 
@@ -2376,39 +2480,6 @@ export class ActionDispatcher {
         break;
       }
 
-      case 'select-dm-peer': {
-        const peer = el.getAttribute('data-peer');
-        if (peer) {
-          sovereignDM.activePeerFP = peer;
-          sovereignDM.replyToId = null;
-          clientStore.notifySync();
-        }
-        break;
-      }
-
-      case 'set-dm-filter': {
-        const group = (el.getAttribute('data-group') || 'all') as 'all' | 'direct' | 'communities';
-        void getMV().then(m => {
-          m.setDMFilterGroup(group);
-          clientStore.notifySync();
-        });
-        break;
-      }
-
-      case 'toggle-dm-context': {
-        void getMV().then(m => {
-          m.toggleDMContextDrawer();
-          clientStore.notifySync();
-        });
-        break;
-      }
-
-      case 'dm-back': {
-        sovereignDM.activePeerFP = null;
-        sovereignDM.replyToId = null;
-        clientStore.notifySync();
-        break;
-      }
       case 'reply-dm-message': {
         const message = sovereignDM.activePeerFP && sovereignDM.getConversation(sovereignDM.activePeerFP)?.messages.find(message => message.id === el.dataset.messageId && !message.context?.reaction);
         if (message) {
@@ -2517,12 +2588,6 @@ export class ActionDispatcher {
         break;
       }
 
-      case 'toggle-discovery-layer': {
-        homeDiscoveryEngine.toggleCollapse();
-        clientStore.notifySync();
-        break;
-      }
-
       case 'set-mobile-mode': {
         const mode = el.getAttribute('data-mobile-mode') as 'flow' | 'classic';
         if (mode) {
@@ -2551,27 +2616,6 @@ export class ActionDispatcher {
         const pillar = (el.getAttribute('data-pillar') || 'discuss') as any;
         communityView!.setActivePillar(pillar);
         clientStore.notifySync();
-        break;
-      }
-
-      case 'join-channel': {
-        const channel = el.getAttribute('data-channel');
-        if (channel) {
-          clientStore.joinChannel(channel);
-          let targetRoute: SovereignRoute | null = null;
-          if (channel.startsWith('relays-') || channel.startsWith('relay-') || channel.startsWith('dm-')) {
-            targetRoute = 'messages';
-          } else if (channel.startsWith('vault-')) {
-            targetRoute = 'vault';
-          } else if (channel === 'pulse-global' || channel === 'feed' || channel === 'pulse') {
-            targetRoute = 'feed';
-          }
-          if (targetRoute === 'feed') {
-            sovereignRouter.navigateHome();
-          } else if (targetRoute && sovereignRouter.route !== targetRoute) {
-            sovereignRouter.navigateTo(targetRoute);
-          }
-        }
         break;
       }
 
@@ -2695,21 +2739,9 @@ export class ActionDispatcher {
         break;
       }
 
-      case 'stop-propagation': {
-        event.stopPropagation();
-        break;
-      }
-
       case 'toggle-mobile-drawer': {
         if (typeof window !== 'undefined' && (window as any).__aetheris_toggle_mobile_drawer) {
           (window as any).__aetheris_toggle_mobile_drawer();
-        }
-        break;
-      }
-
-      case 'close-mobile-drawer': {
-        if (typeof window !== 'undefined' && (window as any).__aetheris_close_mobile_drawer) {
-          (window as any).__aetheris_close_mobile_drawer();
         }
         break;
       }
@@ -2809,21 +2841,6 @@ export class ActionDispatcher {
       case 'toggle-ui-mode': {
         clientStore.toggleUiMode();
         clientStore.notifySync();
-        break;
-      }
-
-      case 'toggle-sound': {
-        const sfx = (window as any).soundEffects || soundEffects;
-        if (sfx && typeof sfx.toggleSound === 'function') {
-          sfx.toggleSound();
-          if (typeof window !== 'undefined' && (window as any).clientStore) {
-            (window as any).clientStore.showToast?.(
-              sfx.isEnabled ? '🔊 Sound FX Enabled' : '🔇 Sound FX Muted',
-              'info'
-            );
-            (window as any).clientStore.notifySync();
-          }
-        }
         break;
       }
 
@@ -3414,9 +3431,9 @@ export class ActionDispatcher {
       }
 
       case 'open-lightbox': {
-        const src = el.getAttribute('data-src');
-        if (src) {
-          window.open(src, '_blank');
+        const src = (el.getAttribute('data-src') || '').trim();
+        if (src && /^(https?:\/\/|\/|blob:|data:image\/(png|jpeg|jpg|gif|webp|avif);)/i.test(src)) {
+          window.open(src, '_blank', 'noopener,noreferrer');
         }
         break;
       }
@@ -3798,12 +3815,6 @@ export class ActionDispatcher {
       event.preventDefault();
       if (typeof window !== 'undefined' && (window as any).onboardingWizard) {
         (window as any).onboardingWizard.next();
-      }
-    } else if (action === 'call-global') {
-      event.preventDefault();
-      const method = el.getAttribute('data-global-method');
-      if (method) {
-        this.invokeMethodPath(method, []);
       }
     } else if (typeof window !== 'undefined') {
       const customHandler = (window as any)[`__aetheris_submit_${action}`];

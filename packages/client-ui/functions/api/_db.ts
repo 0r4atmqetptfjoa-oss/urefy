@@ -433,6 +433,13 @@ export const globalCommentsStore: EdgeComment[] = [];
 export const globalFacetsStore: EdgeFacet[] = [];
 export const globalFacetFollowsStore: EdgeFacetFollow[] = [];
 export const globalFacetMembersStore: EdgeFacetCommunityMembership[] = [];
+export interface EdgeBannedIP {
+  ip: string;
+  reason: string;
+  bannedAt: number;
+  expiresAt: number;
+}
+export const globalBannedIPsStore: EdgeBannedIP[] = [];
 
 // Server start epoch for uptime calculation
 export const EDGE_START_TIME = Date.now();

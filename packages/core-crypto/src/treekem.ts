@@ -1,6 +1,7 @@
 import { sha256 } from '@noble/hashes/sha256';
 import { hkdf } from '@noble/hashes/hkdf';
-import { bytesToHex } from '@noble/hashes/utils';
+import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
+import { zeroize } from './security.js';
 
 export interface TreeKEMNode {
   nodeIndex: number;
@@ -12,6 +13,7 @@ export interface TreeKEMUpdate {
   leafIndex: number;
   newLeafPublicKey: string;
   directPathPublicKeys: string[];
+  coPathPublicKeys?: string[];
   epoch: number;
   groupRootKeyHex: string;
 }
@@ -26,9 +28,8 @@ export class TreeKEMEngine {
   private epoch: number = 0;
 
   constructor(leafCapacity: number = 16) {
-    // Round up to power of 2
     let size = 1;
-    while (size < leafCapacity) size *= 2;
+    while (size < Math.max(1, leafCapacity)) size *= 2;
     this.treeSize = size;
   }
 
@@ -40,25 +41,21 @@ export class TreeKEMEngine {
     return this.epoch;
   }
 
-  /**
-   * Computes the left child index of node x in an array-backed binary tree.
-   */
   private static leftChild(index: number): number {
     return 2 * index + 1;
   }
 
-  /**
-   * Computes the right child index of node x.
-   */
   private static rightChild(index: number): number {
     return 2 * index + 2;
   }
 
-  /**
-   * Computes the parent index of node x.
-   */
   private static parent(index: number): number {
     return Math.floor((index - 1) / 2);
+  }
+
+  private static sibling(index: number): number {
+    if (index <= 0) return 0;
+    return index % 2 === 1 ? index + 1 : index - 1;
   }
 
   /**
@@ -69,16 +66,38 @@ export class TreeKEMEngine {
   }
 
   /**
+   * Returns the co-path public keys for a given leaf index.
+   */
+  public getCoPathPublicKeys(leafIndex: number): string[] {
+    if (leafIndex < 0 || leafIndex >= this.treeSize) {
+      throw new Error(`Invalid leaf index: ${leafIndex}`);
+    }
+    const coPath: string[] = [];
+    let currentNodeIndex = this.leafToNodeIndex(leafIndex);
+    while (currentNodeIndex > 0) {
+      const sibIndex = TreeKEMEngine.sibling(currentNodeIndex);
+      const sibNode = this.nodes.get(sibIndex);
+      coPath.push(sibNode ? bytesToHex(sibNode.publicKey) : '0'.repeat(64));
+      currentNodeIndex = TreeKEMEngine.parent(currentNodeIndex);
+    }
+    return coPath;
+  }
+
+  /**
    * Performs an O(log N) Direct Path Update when a member ratchets their key.
-   * Derives secrets up the branch to the root node.
+   * Incorporates sibling public key context at every parent ratchet step.
    */
   public updateLeaf(leafIndex: number, newLeafSeed: Uint8Array): TreeKEMUpdate {
     if (leafIndex < 0 || leafIndex >= this.treeSize) {
       throw new Error(`Invalid leaf index: ${leafIndex}`);
     }
+    if (!newLeafSeed || newLeafSeed.length === 0) {
+      throw new Error('Leaf seed cannot be empty');
+    }
 
     this.epoch++;
     const directPathPublicKeys: string[] = [];
+    const coPathPublicKeys: string[] = [];
     let currentNodeIndex = this.leafToNodeIndex(leafIndex);
 
     // 1. Set new leaf secret and public key
@@ -88,22 +107,29 @@ export class TreeKEMEngine {
 
     const newLeafPublicKey = bytesToHex(currentPubKey);
 
-    // 2. Walk up direct path to root (index 0)
+    // 2. Walk up direct path to root (index 0), binding sibling public state into HKDF salt
     while (currentNodeIndex > 0) {
       const parentIndex = TreeKEMEngine.parent(currentNodeIndex);
+      const siblingIndex = TreeKEMEngine.sibling(currentNodeIndex);
+      const siblingNode = this.nodes.get(siblingIndex);
+      const siblingPubBytes = siblingNode ? siblingNode.publicKey : new Uint8Array(32);
 
-      // Derive parent secret using HKDF-SHA256
+      coPathPublicKeys.push(bytesToHex(siblingPubBytes));
+
       const derived = hkdf(
         sha256,
         currentSecret,
-        new Uint8Array(32),
+        siblingPubBytes,
         new TextEncoder().encode(`treekem-node-${parentIndex}-epoch-${this.epoch}`),
         32
       );
 
       currentSecret = new Uint8Array(derived);
       currentPubKey = sha256(currentSecret);
-      this.nodes.set(parentIndex, { secret: currentSecret as unknown as Uint8Array, publicKey: currentPubKey as unknown as Uint8Array });
+      this.nodes.set(parentIndex, {
+        secret: currentSecret,
+        publicKey: currentPubKey,
+      });
 
       directPathPublicKeys.push(bytesToHex(currentPubKey));
       currentNodeIndex = parentIndex;
@@ -115,16 +141,56 @@ export class TreeKEMEngine {
       leafIndex,
       newLeafPublicKey,
       directPathPublicKeys,
+      coPathPublicKeys,
       epoch: this.epoch,
       groupRootKeyHex: bytesToHex(groupRootKey),
     };
   }
 
   /**
+   * Synchronizes public tree state from a remote peer's TreeKEMUpdate.
+   */
+  public applyRemoteUpdate(update: TreeKEMUpdate): void {
+    if (update.leafIndex < 0 || update.leafIndex >= this.treeSize) {
+      throw new Error(`Invalid leaf index in remote update: ${update.leafIndex}`);
+    }
+    if (update.epoch <= this.epoch) {
+      return;
+    }
+
+    this.epoch = update.epoch;
+    let currentNodeIndex = this.leafToNodeIndex(update.leafIndex);
+    this.nodes.set(currentNodeIndex, {
+      secret: new Uint8Array(32),
+      publicKey: hexToBytes(update.newLeafPublicKey),
+    });
+
+    for (const pubKeyHex of update.directPathPublicKeys) {
+      currentNodeIndex = TreeKEMEngine.parent(currentNodeIndex);
+      if (currentNodeIndex < 0) break;
+      this.nodes.set(currentNodeIndex, {
+        secret: currentNodeIndex === 0 && update.groupRootKeyHex ? hexToBytes(update.groupRootKeyHex) : new Uint8Array(32),
+        publicKey: hexToBytes(pubKeyHex),
+      });
+    }
+  }
+
+  /**
    * Gets the current shared root encryption key for the channel.
+   * Auto-ratchets leaf 0 with CSPRNG entropy if called before any leaf initialization
+   * so that an all-zero key is never used in production.
    */
   public getGroupRootKey(): string {
-    const root = this.nodes.get(0);
+    let root = this.nodes.get(0);
+    if (!root) {
+      if (typeof globalThis !== 'undefined' && globalThis.crypto?.getRandomValues) {
+        const initialSeed = new Uint8Array(32);
+        globalThis.crypto.getRandomValues(initialSeed);
+        this.updateLeaf(0, initialSeed);
+        zeroize(initialSeed);
+        root = this.nodes.get(0);
+      }
+    }
     return root ? bytesToHex(root.secret) : '0'.repeat(64);
   }
 }

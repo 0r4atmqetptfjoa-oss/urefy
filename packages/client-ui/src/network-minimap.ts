@@ -37,6 +37,7 @@ export class AmbientNetworkMinimap {
   private rafId: number | null = null;
   private lastFrameTime: number = 0;
   private readonly targetFpsMs: number = 1000 / 30; // Cap at 30 FPS for ultra-low CPU
+  private visibilityHandler: (() => void) | null = null;
 
   public isRunning: boolean = false;
   public isPaused: boolean = false;
@@ -84,14 +85,15 @@ export class AmbientNetworkMinimap {
   }
 
   private bindVisibilityHandler(): void {
-    if (typeof document === 'undefined') return;
-    document.addEventListener('visibilitychange', () => {
+    if (typeof document === 'undefined' || this.visibilityHandler) return;
+    this.visibilityHandler = () => {
       if (document.hidden) {
         this.pause();
-      } else {
+      } else if (this.isRunning) {
         this.resume();
       }
-    });
+    };
+    document.addEventListener('visibilitychange', this.visibilityHandler);
   }
 
   private bindStoreEvents(): void {
@@ -127,6 +129,8 @@ export class AmbientNetworkMinimap {
       this.canvas = canvas;
       this.ctx = canvas.getContext('2d');
     }
+
+    this.bindVisibilityHandler();
 
     if (this.isRunning && this.rafId !== null) return;
     this.isRunning = true;
@@ -177,6 +181,10 @@ export class AmbientNetworkMinimap {
     if (this.rafId !== null && typeof window !== 'undefined' && typeof window.cancelAnimationFrame === 'function') {
       window.cancelAnimationFrame(this.rafId);
       this.rafId = null;
+    }
+    if (this.visibilityHandler && typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', this.visibilityHandler);
+      this.visibilityHandler = null;
     }
   }
 
