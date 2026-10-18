@@ -1,15 +1,17 @@
 /**
  * @file admin-dashboard.ts
  * @package @aetheris/client-ui
- * @description Sovereign Admin Command Center v3.1 — Full Edge Telemetry,
- * Live Route & Geo Access Analytics, Sovereign Spotlight & Daily Bounty Manager,
- * DSA Trust & Safety Queue, R2 Object Browser, D1 SQL Studio & WORM Chain Verifier.
+ * @description Sovereign Admin Command Center v3.2 — Vertical Sidebar Navigation,
+ * Instant Operational Controls, Live Route & Geo Telemetry, Sovereign Spotlight & Daily Bounty,
+ * DSA Trust & Safety Queue, Fast User RBAC & Moderation, Sovereign WAF, D1 SQL Studio with
+ * Quick Presets, Cloudflare R2 Vault Browser & WORM Chain Verifier.
  */
 import { clientStore } from './client-state.js';
 import { escapeHtml } from './dry-utils.js';
 
 export type AdminTabId =
   | 'overview'
+  | 'controls'
   | 'traffic'
   | 'spotlight'
   | 'moderation'
@@ -32,6 +34,9 @@ export class SovereignAdminDashboard {
     'SELECT id, title, channel_id, merit_votes, status, created_at FROM posts ORDER BY created_at DESC LIMIT 15;';
   public sqlResult: any = null;
   public r2Objects: any[] = [];
+  public postSearchFilter = '';
+  public userSearchFilter = '';
+  public isMobileNavOpen = false;
   private pollTimer: any = null;
 
   constructor() {
@@ -242,6 +247,7 @@ export class SovereignAdminDashboard {
 
   private bindGlobalDelegation(): void {
     if (typeof document === 'undefined') return;
+
     document.addEventListener('click', (e) => {
       const target = (e.target as HTMLElement)?.closest<HTMLElement>(
         '[data-admin-action]'
@@ -262,10 +268,23 @@ export class SovereignAdminDashboard {
           this.stopLivePolling();
           this.renderStandaloneOrModal();
           break;
+        case 'dismiss-banner':
+          this.statusBanner = '';
+          this.renderStandaloneOrModal();
+          break;
+        case 'dismiss-error':
+          this.errorMsg = '';
+          this.renderStandaloneOrModal();
+          break;
+        case 'toggle-mobile-nav':
+          this.isMobileNavOpen = !this.isMobileNavOpen;
+          this.renderStandaloneOrModal();
+          break;
         case 'set-tab': {
           const tab = target.dataset.tab as AdminTabId;
           if (tab) {
             this.activeTab = tab;
+            this.isMobileNavOpen = false;
             if (tab === 'database') {
               void this.executeAction({ action: 'list-r2-objects' }).then((r) => {
                 if (r?.objects) {
@@ -289,6 +308,68 @@ export class SovereignAdminDashboard {
           void this.executeAction({
             action: 'toggle-emergency-freeze',
             freeze: nextFreeze,
+          });
+          break;
+        }
+        case 'toggle-maintenance': {
+          const cur = Boolean(this.data?.config?.maintenanceMode);
+          void this.executeAction({
+            action: 'update-config',
+            config: { maintenanceMode: !cur },
+          });
+          break;
+        }
+        case 'toggle-registrations': {
+          const cur = this.data?.config?.allowNewRegistrations !== false;
+          void this.executeAction({
+            action: 'update-config',
+            config: { allowNewRegistrations: !cur },
+          });
+          break;
+        }
+        case 'toggle-zk': {
+          const cur = Boolean(this.data?.config?.requireZKVerification);
+          void this.executeAction({
+            action: 'update-config',
+            config: { requireZKVerification: !cur },
+          });
+          break;
+        }
+        case 'panic-lockdown': {
+          void this.executeAction({
+            action: 'update-config',
+            config: {
+              maintenanceMode: true,
+              allowNewRegistrations: false,
+              requireZKVerification: true,
+              emergencyFreeze: true,
+            },
+          });
+          break;
+        }
+        case 'restore-normal': {
+          void this.executeAction({
+            action: 'update-config',
+            config: {
+              maintenanceMode: false,
+              allowNewRegistrations: true,
+              emergencyFreeze: false,
+            },
+          });
+          break;
+        }
+        case 'save-limits': {
+          const maxConnInput = document.getElementById(
+            'admin-max-conn-input'
+          ) as HTMLInputElement | null;
+          const powInput = document.getElementById(
+            'admin-pow-diff-input'
+          ) as HTMLInputElement | null;
+          const maxConnectionsPerIP = Number(maxConnInput?.value) || 20;
+          const powDifficulty = Number(powInput?.value) || 4;
+          void this.executeAction({
+            action: 'update-config',
+            config: { maxConnectionsPerIP, powDifficulty },
           });
           break;
         }
@@ -366,6 +447,24 @@ export class SovereignAdminDashboard {
           const postId = target.dataset.postId || '';
           if (postId)
             void this.executeAction({ action: 'delete-post', postId });
+          break;
+        }
+        case 'clear-post-search': {
+          this.postSearchFilter = '';
+          const postSearch = document.getElementById(
+            'admin-post-search-input'
+          ) as HTMLInputElement | null;
+          if (postSearch) postSearch.value = '';
+          this.updateFilteredPostsList();
+          break;
+        }
+        case 'clear-user-search': {
+          this.userSearchFilter = '';
+          const userSearch = document.getElementById(
+            'admin-user-search-input'
+          ) as HTMLInputElement | null;
+          if (userSearch) userSearch.value = '';
+          this.updateFilteredUsersList();
           break;
         }
         case 'resolve-report': {
@@ -455,6 +554,26 @@ export class SovereignAdminDashboard {
         case 'clear-rate-limits':
           void this.executeAction({ action: 'clear-rate-limits' });
           break;
+        case 'preset-sql': {
+          const sql = target.dataset.sql || '';
+          if (sql) {
+            this.sqlQuery = sql;
+            const sqlBox = document.getElementById(
+              'admin-sql-textarea'
+            ) as HTMLTextAreaElement | null;
+            if (sqlBox) sqlBox.value = sql;
+            void this.executeAction({
+              action: 'execute-sql',
+              sql: this.sqlQuery,
+            }).then((res) => {
+              if (res) {
+                this.sqlResult = res;
+                this.renderStandaloneOrModal();
+              }
+            });
+          }
+          break;
+        }
         case 'run-sql': {
           const sqlBox = document.getElementById(
             'admin-sql-textarea'
@@ -513,6 +632,17 @@ export class SovereignAdminDashboard {
       }
     });
 
+    document.addEventListener('input', (e) => {
+      const target = e.target as HTMLElement;
+      if (target?.id === 'admin-post-search-input') {
+        this.postSearchFilter = (target as HTMLInputElement).value;
+        this.updateFilteredPostsList();
+      } else if (target?.id === 'admin-user-search-input') {
+        this.userSearchFilter = (target as HTMLInputElement).value;
+        this.updateFilteredUsersList();
+      }
+    });
+
     document.addEventListener('submit', (e) => {
       const form = (e.target as HTMLElement)?.closest<HTMLFormElement>(
         '#admin-pin-login-form'
@@ -528,6 +658,53 @@ export class SovereignAdminDashboard {
     });
   }
 
+  private updateFilteredPostsList(): void {
+    const container = document.getElementById('admin-posts-container');
+    if (!container) return;
+    const posts: any[] = this.data?.posts || [];
+    const filter = this.postSearchFilter.trim().toLowerCase();
+    const filtered = filter
+      ? posts.filter(
+          (p) =>
+            (p.id || '').toLowerCase().includes(filter) ||
+            (p.title || '').toLowerCase().includes(filter) ||
+            (p.channel_id || p.channelId || '').toLowerCase().includes(filter) ||
+            (p.content || '').toLowerCase().includes(filter)
+        )
+      : posts;
+
+    container.innerHTML = filtered.length
+      ? filtered
+          .map((p) => this.renderSinglePostRow(p))
+          .join('')
+      : `<div class="p-4 text-xs font-mono text-slate-400">No posts match filter "${escapeHtml(
+          filter
+        )}".</div>`;
+  }
+
+  private updateFilteredUsersList(): void {
+    const container = document.getElementById('admin-users-container');
+    if (!container) return;
+    const users: any[] = this.data?.users || [];
+    const filter = this.userSearchFilter.trim().toLowerCase();
+    const filtered = filter
+      ? users.filter(
+          (u) =>
+            (u.fingerprint || '').toLowerCase().includes(filter) ||
+            (u.role || '').toLowerCase().includes(filter) ||
+            (u.notes || '').toLowerCase().includes(filter)
+        )
+      : users;
+
+    container.innerHTML = filtered.length
+      ? filtered
+          .map((u) => this.renderSingleUserRow(u))
+          .join('')
+      : `<div class="p-4 text-xs font-mono text-slate-400">No users match filter "${escapeHtml(
+          filter
+        )}".</div>`;
+  }
+
   public renderStandaloneOrModal(): void {
     if (typeof document === 'undefined') return;
     const standaloneRoot = document.getElementById('admin-standalone-root');
@@ -541,11 +718,11 @@ export class SovereignAdminDashboard {
       modalRoot = document.createElement('div');
       modalRoot.id = 'sovereign-admin-modal-root';
       modalRoot.className =
-        'fixed inset-0 z-[10000] bg-black/80 backdrop-blur-xl flex items-center justify-center p-2 sm:p-6 overflow-y-auto';
+        'fixed inset-0 z-[10000] bg-black/80 backdrop-blur-xl flex items-center justify-center p-2 sm:p-5 overflow-hidden';
       document.body.appendChild(modalRoot);
     }
     modalRoot.innerHTML = `
-      <div class="w-full max-w-7xl h-[92dvh] rounded-3xl bg-[#090d16] border border-white/15 shadow-2xl flex flex-col overflow-hidden text-slate-100">
+      <div class="w-full max-w-7xl h-[94dvh] rounded-3xl bg-[#090d16] border border-white/15 shadow-2xl flex flex-col overflow-hidden text-slate-100">
         ${this.renderConsoleInnerHTML(false)}
       </div>
     `;
@@ -554,14 +731,14 @@ export class SovereignAdminDashboard {
   public renderConsoleInnerHTML(isStandalone = false): string {
     if (!this.isAuthenticated) {
       return `
-        <div class="flex-1 flex flex-col items-center justify-center p-6 bg-[#070a12] text-slate-100 min-h-[80vh]">
+        <div class="flex-1 flex flex-col items-center justify-center p-6 bg-[#070a12] text-slate-100 min-h-[85vh]">
           <div class="w-full max-w-md p-8 rounded-3xl bg-[#0e1320] border border-white/10 shadow-2xl space-y-6">
             <div class="flex items-center justify-between">
               <div class="flex items-center gap-3">
                 <div class="w-11 h-11 rounded-2xl bg-amber-500/15 border border-amber-400/30 flex items-center justify-center text-xl font-bold text-amber-400">🛡️</div>
                 <div>
                   <h1 class="text-lg font-extrabold text-white tracking-tight">UREfy Sovereign Admin</h1>
-                  <p class="text-xs text-slate-400 font-mono">Zero-Trust Edge Command Console v3.1</p>
+                  <p class="text-xs text-slate-400 font-mono">Zero-Trust Edge Command Console v3.2</p>
                 </div>
               </div>
               ${
@@ -604,6 +781,7 @@ export class SovereignAdminDashboard {
             <div class="pt-3 border-t border-white/5 text-[11px] text-slate-400 space-y-1 font-mono">
               <div>• Anti-Bruteforce: 5 attempts / 10m D1 persistent lockout</div>
               <div>• Audit Trail: SHA-256 WORM Hash-Chained Ledger</div>
+              <div>• Session: 100% Volatile RAM Storage (Zero localStorage)</div>
             </div>
           </div>
         </div>
@@ -622,38 +800,47 @@ export class SovereignAdminDashboard {
     const tabs: Array<{
       id: AdminTabId;
       label: string;
+      icon: string;
       badge?: string | number;
     }> = [
-      { id: 'overview', label: '📊 Overview & Pulse' },
+      { id: 'overview', label: 'Overview & Pulse', icon: '📊' },
+      { id: 'controls', label: 'Server Controls & Shield', icon: '🎛️' },
       {
         id: 'traffic',
-        label: '🌐 Live Traffic & Access',
+        label: 'Live Traffic & Access',
+        icon: '🌐',
         badge: tel.pageViews24h ?? 1,
       },
-      { id: 'spotlight', label: '🌟 Sovereign Spotlight' },
+      { id: 'spotlight', label: 'Sovereign Spotlight', icon: '🌟' },
       {
         id: 'moderation',
-        label: '🛡️ Moderation & DSA',
+        label: 'Moderation & DSA',
+        icon: '🛡️',
         badge: stats.pendingReportsCount || 0,
       },
-      { id: 'users', label: '👥 Users & RBAC', badge: stats.totalUsers || 0 },
+      { id: 'users', label: 'Users & RBAC', icon: '👥', badge: stats.totalUsers || 0 },
       {
         id: 'waf',
-        label: '🧱 WAF & IP Ledger',
+        label: 'WAF & IP Ledger',
+        icon: '🧱',
         badge: stats.bannedIPsCount || 0,
       },
-      { id: 'database', label: '🗄️ D1 SQL & R2 Vault' },
+      { id: 'database', label: 'D1 SQL & R2 Vault', icon: '🗄️' },
       {
         id: 'audit',
-        label: '⛓️ WORM Audit Chain',
+        label: 'WORM Audit Chain',
+        icon: '⛓️',
         badge: audit.verified ? 'VERIFIED' : 'ALERT',
       },
     ];
 
     return `
       <!-- Top Command Header -->
-      <header class="px-6 py-4 bg-[#0c111d] border-b border-white/10 flex flex-wrap items-center justify-between gap-4 shrink-0">
+      <header class="px-4 sm:px-6 py-3.5 bg-[#0c111d] border-b border-white/10 flex flex-wrap items-center justify-between gap-3 shrink-0">
         <div class="flex items-center gap-3">
+          <button type="button" data-admin-action="toggle-mobile-nav" class="md:hidden p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300" title="Toggle Navigation">
+            ☰
+          </button>
           <span class="w-3 h-3 rounded-full ${
             isFrozen
               ? 'bg-rose-500 animate-ping'
@@ -662,7 +849,7 @@ export class SovereignAdminDashboard {
           <div>
             <div class="flex items-center gap-2">
               <h1 class="text-base sm:text-lg font-extrabold text-white tracking-tight">UREfy Sovereign Command Center</h1>
-              <span class="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+              <span class="hidden sm:inline-block px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
                 ${escapeHtml(this.data?.storage || 'Cloudflare-D1')}
               </span>
               <span class="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold ${
@@ -670,10 +857,10 @@ export class SovereignAdminDashboard {
                   ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/30'
                   : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
               }">
-                WORM CHAIN: ${audit.verified ? '100% INTACT' : 'TAMPER ALERT'}
+                ${audit.verified ? 'WORM: INTACT' : 'WORM: ALERT'}
               </span>
             </div>
-            <p class="text-[11px] text-slate-400 font-mono">
+            <p class="text-[11px] text-slate-400 font-mono hidden sm:block">
               Online (5m): <strong class="text-emerald-400">${
                 tel.onlineUsers ?? 1
               }</strong> · Pageviews (24h): <strong class="text-amber-300">${
@@ -687,73 +874,207 @@ export class SovereignAdminDashboard {
           </div>
         </div>
         <div class="flex items-center gap-2">
-          <button type="button" data-admin-action="refresh" class="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-mono text-slate-200 cursor-pointer">
-            ↻ Refresh Live
+          <button type="button" data-admin-action="refresh" class="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-mono text-slate-200 cursor-pointer transition-colors" title="Refresh Live Data">
+            ↻ Refresh
           </button>
           <button type="button" data-admin-action="toggle-freeze" class="px-3.5 py-1.5 rounded-xl ${
             isFrozen
-              ? 'bg-emerald-500 text-black'
-              : 'bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40'
-          } text-xs font-bold cursor-pointer">
+              ? 'bg-emerald-500 text-black font-bold'
+              : 'bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 font-bold'
+          } text-xs cursor-pointer transition-colors">
             ${isFrozen ? '✅ Unfreeze Writes' : '🚨 Emergency Freeze'}
           </button>
-          <button type="button" data-admin-action="logout" class="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs text-slate-300 cursor-pointer">
+          <button type="button" data-admin-action="logout" class="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs text-slate-300 cursor-pointer transition-colors">
             Lock
           </button>
           ${
             !isStandalone
-              ? `<button type="button" data-admin-action="close" class="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-xs text-white cursor-pointer">✕</button>`
-              : `<a href="/" class="px-3 py-1.5 rounded-xl bg-amber-400 text-black font-bold text-xs">← App</a>`
+              ? `<button type="button" data-admin-action="close" class="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-xs text-white cursor-pointer transition-colors">✕</button>`
+              : `<a href="/" class="px-3.5 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-bold text-xs transition-colors">← App</a>`
           }
         </div>
       </header>
 
-      <!-- Navigation Tabs -->
-      <nav class="px-6 py-2.5 bg-[#090d16] border-b border-white/10 flex items-center gap-2 overflow-x-auto no-scrollbar shrink-0">
-        ${tabs
-          .map(
-            (t) => `
-          <button
-            type="button"
-            data-admin-action="set-tab"
-            data-tab="${t.id}"
-            class="px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap flex items-center gap-2 transition-all cursor-pointer border ${
-              this.activeTab === t.id
-                ? 'bg-amber-400/15 text-amber-300 border-amber-400/40 font-bold'
-                : 'bg-white/[0.03] hover:bg-white/[0.07] text-slate-400 hover:text-white border-white/5'
-            }"
-          >
-            <span>${t.label}</span>${
-              t.badge !== undefined
-                ? `<span class="px-1.5 py-0.5 rounded-md text-[10px] font-mono bg-black/50 text-slate-200">${escapeHtml(
-                    String(t.badge)
-                  )}</span>`
+      <!-- Split Layout: Vertical Left Sidebar + Main Tab Viewport -->
+      <div class="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden relative">
+        <!-- Vertical Left Sidebar for Tabs -->
+        <aside class="w-full md:w-64 lg:w-72 bg-[#090d16] border-b md:border-b-0 md:border-r border-white/10 flex flex-col shrink-0 overflow-y-auto ${
+          this.isMobileNavOpen ? 'block' : 'hidden md:flex'
+        } p-3 space-y-3 z-20">
+          <div class="space-y-1">
+            <div class="px-3 py-1 text-[10px] font-mono uppercase tracking-widest text-slate-400 font-bold">
+              ADMIN CONSOLES
+            </div>
+            ${tabs
+              .map(
+                (t) => `
+              <button
+                type="button"
+                data-admin-action="set-tab"
+                data-tab="${t.id}"
+                class="w-full px-3.5 py-2.5 rounded-xl text-xs font-semibold flex items-center justify-between transition-all cursor-pointer border text-left ${
+                  this.activeTab === t.id
+                    ? 'bg-amber-400/15 text-amber-300 border-amber-400/40 font-bold shadow-sm'
+                    : 'bg-transparent hover:bg-white/[0.04] text-slate-400 hover:text-white border-transparent'
+                }"
+              >
+                <span class="flex items-center gap-2.5">
+                  <span>${t.icon}</span>
+                  <span>${t.label}</span>
+                </span>
+                ${
+                  t.badge !== undefined
+                    ? `<span class="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold ${
+                        typeof t.badge === 'string' && t.badge === 'ALERT'
+                          ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                          : 'bg-black/50 text-slate-300 border border-white/5'
+                      }">${escapeHtml(String(t.badge))}</span>`
+                    : ''
+                }
+              </button>
+            `
+              )
+              .join('')}
+          </div>
+
+          <!-- Bottom Sidebar Status Badge -->
+          <div class="mt-auto pt-3 border-t border-white/5 space-y-2 text-[11px] font-mono text-slate-400">
+            <div class="p-3 rounded-xl bg-black/40 border border-white/5 space-y-1">
+              <div class="flex items-center justify-between">
+                <span class="text-slate-400">Database:</span>
+                <span class="text-emerald-400 font-bold">D1 SQLite</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-slate-400">Vault:</span>
+                <span class="text-cyan-400 font-bold">R2 Zero-Overage</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-slate-400">Telemetry:</span>
+                <span class="text-amber-300 font-bold">Polling 8s</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-slate-400">Session:</span>
+                <span class="text-emerald-400 font-bold">Volatile RAM</span>
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        <!-- Main Tab Viewport -->
+        <main class="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-7 space-y-6 bg-[#070a12]">
+          ${
+            this.statusBanner
+              ? `<div class="p-3.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-xs text-emerald-300 font-mono flex items-center justify-between">
+                  <span>✓ ${escapeHtml(this.statusBanner)}</span>
+                  <button type="button" data-admin-action="dismiss-banner" class="text-emerald-400 hover:text-white px-2">✕</button>
+                </div>`
+              : ''
+          }
+          ${
+            this.errorMsg
+              ? `<div class="p-3.5 rounded-xl bg-rose-500/15 border border-rose-500/30 text-xs text-rose-300 font-mono flex items-center justify-between">
+                  <span>⚠️ ${escapeHtml(this.errorMsg)}</span>
+                  <button type="button" data-admin-action="dismiss-error" class="text-rose-400 hover:text-white px-2">✕</button>
+                </div>`
+              : ''
+          }
+
+          ${this.renderActiveTabContent()}
+        </main>
+      </div>
+    `;
+  }
+
+  private renderSinglePostRow(p: any): string {
+    const isPinned = p.status === 'pinned';
+    const isLocked = p.status === 'locked';
+    return `
+      <div class="p-3.5 rounded-xl bg-black/30 border border-white/10 flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div class="min-w-0 flex-1 space-y-1">
+          <div class="flex items-center gap-2 font-mono text-[11px] text-slate-400">
+            <span class="text-amber-300 font-bold">${escapeHtml(p.id)}</span>
+            <span>·</span>
+            <span class="px-2 py-0.5 rounded bg-white/5">${escapeHtml(
+              p.channel_id || p.channelId || 'pulse-global'
+            )}</span>
+            <span>·</span>
+            <span class="text-emerald-400">Merit: ${p.merit_votes ?? p.meritVotes ?? 0}</span>
+            ${
+              isPinned
+                ? '<span class="px-2 py-0.5 rounded bg-amber-400/20 text-amber-300 font-bold">PINNED</span>'
                 : ''
             }
+            ${
+              isLocked
+                ? '<span class="px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 font-bold">LOCKED</span>'
+                : ''
+            }
+          </div>
+          <div class="font-bold text-white truncate">${escapeHtml(p.title || '')}</div>
+          <div class="text-slate-400 truncate">${escapeHtml(p.content || '')}</div>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <button type="button" data-admin-action="feature-this-post" data-post-id="${escapeHtml(
+            p.id
+          )}" class="px-2.5 py-1.5 rounded-lg bg-amber-400/15 hover:bg-amber-400/25 text-amber-300 border border-amber-400/30 font-semibold cursor-pointer">
+            🌟 Spotlight +25
           </button>
-        `
-          )
-          .join('')}
-      </nav>
+          <button type="button" data-admin-action="pin-post" data-post-id="${escapeHtml(
+            p.id
+          )}" data-pinned="${isPinned}" class="px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-slate-200 cursor-pointer">
+            ${isPinned ? 'Unpin' : '📌 Pin'}
+          </button>
+          <button type="button" data-admin-action="lock-thread" data-post-id="${escapeHtml(
+            p.id
+          )}" data-locked="${isLocked}" class="px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-slate-200 cursor-pointer">
+            ${isLocked ? '🔓 Unlock' : '🔒 Lock'}
+          </button>
+          <button type="button" data-admin-action="delete-post" data-post-id="${escapeHtml(
+            p.id
+          )}" class="px-2.5 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 cursor-pointer">
+            🗑️ Delete
+          </button>
+        </div>
+      </div>
+    `;
+  }
 
-      ${
-        this.statusBanner
-          ? `<div class="mx-6 mt-3 p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-xs text-emerald-300 font-mono flex items-center justify-between">
-              <span>✓ ${escapeHtml(this.statusBanner)}</span>
-            </div>`
-          : ''
-      }
-      ${
-        this.errorMsg
-          ? `<div class="mx-6 mt-3 p-3 rounded-xl bg-rose-500/15 border border-rose-500/30 text-xs text-rose-300 font-mono">
-              ⚠️ ${escapeHtml(this.errorMsg)}
-            </div>`
-          : ''
-      }
-
-      <!-- Main Tab Viewport -->
-      <div class="flex-1 overflow-y-auto p-6 space-y-6">
-        ${this.renderActiveTabContent()}
+  private renderSingleUserRow(u: any): string {
+    return `
+      <div class="p-3.5 rounded-xl bg-black/30 border border-white/10 flex flex-wrap items-center justify-between gap-3 text-xs font-mono">
+        <div class="space-y-1">
+          <div class="flex items-center gap-2">
+            <span class="text-white font-bold">${escapeHtml(u.fingerprint)}</span>
+            <span class="px-2 py-0.5 rounded bg-amber-400/15 text-amber-300 font-bold">${escapeHtml(
+              u.role
+            )}</span>
+            ${
+              u.isQuarantined
+                ? '<span class="px-2 py-0.5 rounded bg-rose-500/20 text-rose-300">QUARANTINED</span>'
+                : ''
+            }
+            ${
+              u.isShadowbanned
+                ? '<span class="px-2 py-0.5 rounded bg-purple-500/20 text-purple-300">SHADOWBANNED</span>'
+                : ''
+            }
+          </div>
+          <div class="text-[11px] text-slate-400">${escapeHtml(
+            u.notes || 'Active sovereign identity'
+          )}</div>
+        </div>
+        <div class="flex items-center gap-2">
+          <button type="button" data-admin-action="toggle-quarantine" data-fp="${escapeHtml(
+            u.fingerprint
+          )}" class="px-3 py-1.5 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 cursor-pointer">
+            ${u.isQuarantined ? 'Unquarantine' : 'Quarantine'}
+          </button>
+          <button type="button" data-admin-action="toggle-shadowban" data-fp="${escapeHtml(
+            u.fingerprint
+          )}" class="px-3 py-1.5 rounded-lg bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 cursor-pointer">
+            ${u.isShadowbanned ? 'Unshadowban' : 'Shadowban'}
+          </button>
+        </div>
       </div>
     `;
   }
@@ -761,18 +1082,23 @@ export class SovereignAdminDashboard {
   private renderActiveTabContent(): string {
     const stats = this.data?.stats || {};
     const tel = this.data?.telemetry || {};
-    const spotlight = this.data?.spotlight || {};
+    const config = this.data?.config || {};
+    const spotlight = this.data?.spotlight || config?.spotlight || {};
     const posts: any[] = this.data?.posts || [];
     const reports: any[] = this.data?.reports || [];
     const users: any[] = this.data?.users || [];
     const bannedIPs: any[] = this.data?.bannedIPs || [];
     const logs: any[] = this.data?.auditLedger || this.data?.logs || [];
+    const isFrozen = Boolean(this.data?.emergencyFreeze);
+    const isMaintenance = Boolean(config.maintenanceMode);
+    const allowRegistrations = config.allowNewRegistrations !== false;
+    const requireZk = Boolean(config.requireZKVerification);
 
     switch (this.activeTab) {
       case 'overview':
         return `
           <!-- Primary KPI Grid -->
-          <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3.5">
+          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
             <div class="p-4 rounded-2xl bg-[#101624] border border-white/10">
               <div class="text-[11px] font-mono text-slate-400">ONLINE NOW (5M)</div>
               <div class="text-2xl font-black text-emerald-400 font-mono mt-1">${
@@ -829,6 +1155,57 @@ export class SovereignAdminDashboard {
             </div>
           </div>
 
+          <!-- Quick Command Toggles Strip -->
+          <div class="p-5 rounded-2xl bg-[#101624] border border-white/10 space-y-3">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <div class="flex items-center gap-2">
+                <span class="text-sm font-bold text-white">⚡ Quick Command Center</span>
+                <span class="text-xs text-slate-400 font-mono">— 1-Click Operational Controls</span>
+              </div>
+              <button type="button" data-admin-action="set-tab" data-tab="controls" class="text-xs text-amber-400 hover:underline font-semibold cursor-pointer">
+                All Server Controls & Shield →
+              </button>
+            </div>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs font-mono">
+              <button type="button" data-admin-action="toggle-freeze" class="p-3.5 rounded-xl border flex flex-col justify-between gap-2 transition-all cursor-pointer ${
+                isFrozen
+                  ? 'bg-rose-500/15 border-rose-500/40 text-rose-300'
+                  : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+              }">
+                <span class="text-[10px] text-slate-400 uppercase">Write Operations</span>
+                <span class="font-bold text-sm">${isFrozen ? '🚨 FROZEN' : '✅ ALLOWED'}</span>
+                <span class="text-[10px] text-slate-500 underline">Click to ${isFrozen ? 'Unfreeze' : 'Freeze'}</span>
+              </button>
+              <button type="button" data-admin-action="toggle-maintenance" class="p-3.5 rounded-xl border flex flex-col justify-between gap-2 transition-all cursor-pointer ${
+                isMaintenance
+                  ? 'bg-amber-500/15 border-amber-500/40 text-amber-300'
+                  : 'bg-black/30 border-white/10 text-slate-300'
+              }">
+                <span class="text-[10px] text-slate-400 uppercase">Maintenance Mode</span>
+                <span class="font-bold text-sm">${isMaintenance ? '🚧 ACTIVE' : '🌐 NORMAL'}</span>
+                <span class="text-[10px] text-slate-500 underline">Click to ${isMaintenance ? 'Disable' : 'Enable'}</span>
+              </button>
+              <button type="button" data-admin-action="toggle-registrations" class="p-3.5 rounded-xl border flex flex-col justify-between gap-2 transition-all cursor-pointer ${
+                allowRegistrations
+                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                  : 'bg-rose-500/15 border-rose-500/40 text-rose-300'
+              }">
+                <span class="text-[10px] text-slate-400 uppercase">Registrations</span>
+                <span class="font-bold text-sm">${allowRegistrations ? '👥 OPEN' : '🔒 CLOSED'}</span>
+                <span class="text-[10px] text-slate-500 underline">Click to ${allowRegistrations ? 'Close' : 'Open'}</span>
+              </button>
+              <button type="button" data-admin-action="toggle-zk" class="p-3.5 rounded-xl border flex flex-col justify-between gap-2 transition-all cursor-pointer ${
+                requireZk
+                  ? 'bg-cyan-500/15 border-cyan-500/40 text-cyan-300'
+                  : 'bg-black/30 border-white/10 text-slate-300'
+              }">
+                <span class="text-[10px] text-slate-400 uppercase">ZK-RLN Anti-Spam</span>
+                <span class="font-bold text-sm">${requireZk ? '🛡️ ENFORCED' : '⚡ OPTIONAL'}</span>
+                <span class="text-[10px] text-slate-500 underline">Click to ${requireZk ? 'Disable' : 'Enforce'}</span>
+              </button>
+            </div>
+          </div>
+
           <!-- Global Network Broadcast Banner Control -->
           <div class="p-5 rounded-2xl bg-[#101624] border border-white/10 space-y-3">
             <div class="flex items-center justify-between">
@@ -844,9 +1221,9 @@ export class SovereignAdminDashboard {
               <input
                 id="admin-broadcast-input"
                 type="text"
-                value="${escapeHtml(this.data?.config?.broadcastMessage || '')}"
+                value="${escapeHtml(config?.broadcastMessage || '')}"
                 placeholder="e.g. 🚀 Sovereign Spotlight is live! Join today's architecture thread for +25 Merit..."
-                class="flex-1 px-3.5 py-2.5 rounded-xl bg-black/40 border border-white/10 text-xs text-white"
+                class="flex-1 px-3.5 py-2.5 rounded-xl bg-black/40 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
               />
               <button type="button" data-admin-action="publish-broadcast" class="px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-bold text-xs cursor-pointer shrink-0">
                 Publish Live
@@ -859,7 +1236,7 @@ export class SovereignAdminDashboard {
             <div class="p-5 rounded-2xl bg-[#101624] border border-white/10 space-y-3">
               <div class="flex items-center justify-between">
                 <h3 class="text-sm font-bold text-white">🔥 Most Accessed Routes (Live Edge)</h3>
-                <button type="button" data-admin-action="set-tab" data-tab="traffic" class="text-xs text-amber-400 hover:underline">Full Traffic →</button>
+                <button type="button" data-admin-action="set-tab" data-tab="traffic" class="text-xs text-amber-400 hover:underline cursor-pointer">Full Traffic →</button>
               </div>
               <div class="space-y-2 text-xs font-mono">
                 ${
@@ -868,7 +1245,7 @@ export class SovereignAdminDashboard {
                     .map(
                       (r: any) => `
                     <div class="flex items-center justify-between p-2.5 rounded-xl bg-black/30 border border-white/5">
-                      <span class="text-slate-200 truncate">${escapeHtml(
+                      <span class="text-slate-200 truncate font-semibold">${escapeHtml(
                         r.path
                       )}</span>
                       <div class="flex items-center gap-3 shrink-0">
@@ -910,6 +1287,146 @@ export class SovereignAdminDashboard {
                     .join('') ||
                   '<div class="text-slate-500">Collecting geographic telemetry...</div>'
                 }
+              </div>
+            </div>
+          </div>
+        `;
+
+      case 'controls':
+        return `
+          <div class="space-y-6">
+            <!-- Panic Lockdown Mode Card -->
+            <div class="p-6 rounded-2xl bg-gradient-to-r from-rose-950/40 to-[#101624] border border-rose-500/40 space-y-4">
+              <div class="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <div class="flex items-center gap-2">
+                    <span class="text-lg">🚨</span>
+                    <h2 class="text-base font-extrabold text-white">Sovereign Panic Lockdown Shield</h2>
+                  </div>
+                  <p class="text-xs text-rose-200/80 mt-1">
+                    Emergency switch: immediately closes registrations, enforces mandatory ZK verification, freezes database write operations, and puts node in protected mode. Persisted directly into Cloudflare D1.
+                  </p>
+                </div>
+                <div class="flex items-center gap-2.5">
+                  <button type="button" data-admin-action="panic-lockdown" class="px-5 py-2.5 rounded-xl bg-rose-500 hover:bg-rose-400 text-white font-black text-xs uppercase tracking-wider cursor-pointer shadow-lg transition-transform active:scale-95">
+                    Engage Panic Lockdown
+                  </button>
+                  <button type="button" data-admin-action="restore-normal" class="px-4 py-2.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 font-bold text-xs cursor-pointer transition-colors">
+                    Restore Normal
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Runtime Server Configuration Grid -->
+            <div class="p-6 rounded-2xl bg-[#101624] border border-white/10 space-y-5">
+              <div class="flex items-center justify-between">
+                <div>
+                  <h3 class="text-base font-bold text-white">⚙️ Mesh Runtime Configuration Switches</h3>
+                  <p class="text-xs text-slate-400">All toggles are committed instantly to Cloudflare D1 SQLite and Edge KV</p>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono">
+                <!-- Maintenance Mode -->
+                <div class="p-4 rounded-xl bg-black/30 border border-white/10 flex items-center justify-between">
+                  <div>
+                    <div class="font-bold text-white">Maintenance Mode</div>
+                    <div class="text-[11px] text-slate-400">Display maintenance overlay to visitors</div>
+                  </div>
+                  <button type="button" data-admin-action="toggle-maintenance" class="px-4 py-2 rounded-xl font-bold cursor-pointer transition-colors ${
+                    isMaintenance
+                      ? 'bg-amber-400 text-black'
+                      : 'bg-white/10 text-slate-300 hover:bg-white/15'
+                  }">
+                    ${isMaintenance ? 'ACTIVE' : 'DISABLED'}
+                  </button>
+                </div>
+
+                <!-- Allow New Registrations -->
+                <div class="p-4 rounded-xl bg-black/30 border border-white/10 flex items-center justify-between">
+                  <div>
+                    <div class="font-bold text-white">New User Registrations</div>
+                    <div class="text-[11px] text-slate-400">Permit new Ed25519 node identities</div>
+                  </div>
+                  <button type="button" data-admin-action="toggle-registrations" class="px-4 py-2 rounded-xl font-bold cursor-pointer transition-colors ${
+                    allowRegistrations
+                      ? 'bg-emerald-500 text-black'
+                      : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                  }">
+                    ${allowRegistrations ? 'ALLOWED' : 'BLOCKED'}
+                  </button>
+                </div>
+
+                <!-- Require ZK Verification -->
+                <div class="p-4 rounded-xl bg-black/30 border border-white/10 flex items-center justify-between">
+                  <div>
+                    <div class="font-bold text-white">Mandatory ZK-RLN Verification</div>
+                    <div class="text-[11px] text-slate-400">Zero-knowledge proof required on messages</div>
+                  </div>
+                  <button type="button" data-admin-action="toggle-zk" class="px-4 py-2 rounded-xl font-bold cursor-pointer transition-colors ${
+                    requireZk
+                      ? 'bg-cyan-500 text-black'
+                      : 'bg-white/10 text-slate-300 hover:bg-white/15'
+                  }">
+                    ${requireZk ? 'ENFORCED' : 'OPTIONAL'}
+                  </button>
+                </div>
+
+                <!-- Emergency Database Freeze -->
+                <div class="p-4 rounded-xl bg-black/30 border border-white/10 flex items-center justify-between">
+                  <div>
+                    <div class="font-bold text-white">Database Write Freeze</div>
+                    <div class="text-[11px] text-slate-400">Block all incoming mutations across D1</div>
+                  </div>
+                  <button type="button" data-admin-action="toggle-freeze" class="px-4 py-2 rounded-xl font-bold cursor-pointer transition-colors ${
+                    isFrozen
+                      ? 'bg-rose-500 text-white'
+                      : 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                  }">
+                    ${isFrozen ? 'FROZEN' : 'UNFROZEN'}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Rate Limiting & DoS Guard Limits -->
+            <div class="p-6 rounded-2xl bg-[#101624] border border-white/10 space-y-4">
+              <div class="flex items-center justify-between">
+                <div>
+                  <h3 class="text-base font-bold text-white">🛡️ Rate Limiting & Edge Anti-Abuse Parameters</h3>
+                  <p class="text-xs text-slate-400">Thresholds applied globally by Cloudflare Worker middleware</p>
+                </div>
+                <button type="button" data-admin-action="clear-rate-limits" class="px-3.5 py-1.5 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 text-xs font-mono cursor-pointer">
+                  Reset Rate Limit Buckets
+                </button>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-mono">
+                <div>
+                  <label for="admin-max-conn-input" class="block text-slate-300 font-bold mb-1">Max Concurrent Connections per IP</label>
+                  <input
+                    id="admin-max-conn-input"
+                    type="number"
+                    value="${Number(config.maxConnectionsPerIP || 20)}"
+                    class="w-full px-3.5 py-2.5 rounded-xl bg-black/40 border border-white/10 text-white"
+                  />
+                </div>
+                <div>
+                  <label for="admin-pow-diff-input" class="block text-slate-300 font-bold mb-1">Proof-of-Work (PoW) Difficulty Leading Zeros</label>
+                  <input
+                    id="admin-pow-diff-input"
+                    type="number"
+                    value="${Number(config.powDifficulty || 4)}"
+                    class="w-full px-3.5 py-2.5 rounded-xl bg-black/40 border border-white/10 text-white"
+                  />
+                </div>
+              </div>
+
+              <div class="flex justify-end">
+                <button type="button" data-admin-action="save-limits" class="px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-bold text-xs cursor-pointer shadow-md">
+                  💾 Save Rate Limiting Parameters
+                </button>
               </div>
             </div>
           </div>
@@ -960,7 +1477,9 @@ export class SovereignAdminDashboard {
                           <td class="py-2.5 px-3 text-emerald-400">${
                             r.avgMs
                           } ms</td>
-                          <td class="py-2.5 px-3 ${ r.errors > 0 ? 'text-rose-400 font-bold' : 'text-slate-500' }">${r.errors}</td>
+                          <td class="py-2.5 px-3 ${
+                            r.errors > 0 ? 'text-rose-400 font-bold' : 'text-slate-500'
+                          }">${r.errors}</td>
                           <td class="py-2.5 px-3 text-slate-400">${new Date(
                             r.lastAccessedAt
                           ).toLocaleTimeString()}</td>
@@ -987,7 +1506,11 @@ export class SovereignAdminDashboard {
                         : 'bg-black/30 border border-white/5'
                     }">
                       <div class="flex items-center gap-2.5 min-w-0">
-                        <span class="px-2 py-0.5 rounded text-[10px] font-bold ${ reqItem.status >= 400 ? 'bg-rose-500/20 text-rose-300' : 'bg-emerald-500/20 text-emerald-300' }">${reqItem.status}</span>
+                        <span class="px-2 py-0.5 rounded text-[10px] font-bold ${
+                          reqItem.status >= 400
+                            ? 'bg-rose-500/20 text-rose-300'
+                            : 'bg-emerald-500/20 text-emerald-300'
+                        }">${reqItem.status}</span>
                         <span class="text-amber-300 font-bold">${escapeHtml(
                           reqItem.method
                         )}</span>
@@ -998,9 +1521,7 @@ export class SovereignAdminDashboard {
                       <div class="flex items-center gap-3 shrink-0 text-[11px] text-slate-400">
                         <span>${escapeHtml(reqItem.country)}</span>
                         <span>${escapeHtml(reqItem.clientType)}</span>
-                        <span class="text-cyan-300">${
-                          reqItem.durationMs
-                        }ms</span>
+                        <span class="text-cyan-300">${reqItem.durationMs}ms</span>
                         <span>${new Date(
                           reqItem.timestamp
                         ).toLocaleTimeString()}</span>
@@ -1018,58 +1539,86 @@ export class SovereignAdminDashboard {
 
       case 'spotlight':
         return `
-          <div class="p-6 rounded-2xl bg-[#101624] border border-amber-400/30 space-y-5">
-            <div class="flex items-center justify-between">
-              <div>
-                <span class="text-[10px] font-mono uppercase tracking-widest text-amber-400 font-bold">UNIQUE USER MAGNET & ENGAGEMENT ENGINE</span>
-                <h2 class="text-lg font-extrabold text-white mt-0.5">🌟 Sovereign Spotlight & Daily Merit Bounty</h2>
-                <p class="text-xs text-slate-300">
-                  Highlight the best community post and set today's interactive discussion challenge. Users who participate earn Merit and the Sovereign Pioneer badge.
-                </p>
+          <div class="space-y-6">
+            <div class="p-6 rounded-2xl bg-[#101624] border border-amber-400/30 space-y-5">
+              <div class="flex items-center justify-between">
+                <div>
+                  <span class="text-[10px] font-mono uppercase tracking-widest text-amber-400 font-bold">COMMUNITY ENGAGEMENT ENGINE</span>
+                  <h2 class="text-lg font-extrabold text-white mt-0.5">🌟 Sovereign Spotlight & Daily Merit Bounty</h2>
+                  <p class="text-xs text-slate-300">
+                    Highlight the best community post and set today's interactive discussion challenge. Users who participate earn Merit.
+                  </p>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono">
+                <div>
+                  <label for="spot-post-id" class="block text-slate-300 font-bold mb-1">Featured Post ID (Pinned in Spotlight)</label>
+                  <input id="spot-post-id" type="text" value="${escapeHtml(
+                    spotlight.featuredPostId || 'post-1'
+                  )}" class="w-full px-3.5 py-2.5 rounded-xl bg-black/40 border border-white/10 text-white font-mono" />
+                </div>
+                <div>
+                  <label for="spot-prompt-tag" class="block text-slate-300 font-bold mb-1">Daily Challenge Hashtag</label>
+                  <input id="spot-prompt-tag" type="text" value="${escapeHtml(
+                    spotlight.dailyPromptTag || '#SovereignSpotlight'
+                  )}" class="w-full px-3.5 py-2.5 rounded-xl bg-black/40 border border-white/10 text-amber-300 font-mono" />
+                </div>
+                <div class="md:col-span-2">
+                  <label for="spot-prompt-title" class="block text-slate-300 font-bold mb-1">Daily Sovereign Challenge Title</label>
+                  <input id="spot-prompt-title" type="text" value="${escapeHtml(
+                    spotlight.dailyPromptTitle || ''
+                  )}" class="w-full px-3.5 py-2.5 rounded-xl bg-black/40 border border-white/10 text-white" />
+                </div>
+                <div class="md:col-span-2">
+                  <label for="spot-prompt-desc" class="block text-slate-300 font-bold mb-1">Challenge Prompt Description</label>
+                  <textarea id="spot-prompt-desc" rows="3" class="w-full p-3.5 rounded-xl bg-black/40 border border-white/10 text-white">${escapeHtml(
+                    spotlight.dailyPromptDescription || ''
+                  )}</textarea>
+                </div>
+                <div>
+                  <label for="spot-bounty-reward" class="block text-slate-300 font-bold mb-1">Merit Bounty Reward (per participant)</label>
+                  <input id="spot-bounty-reward" type="number" value="${Number(
+                    spotlight.meritBountyReward || 25
+                  )}" class="w-full px-3.5 py-2.5 rounded-xl bg-black/40 border border-white/10 text-emerald-400 font-mono" />
+                </div>
+                <div>
+                  <label for="spot-merit-boost" class="block text-slate-300 font-bold mb-1">Instant Merit Boost to Featured Post</label>
+                  <input id="spot-merit-boost" type="number" value="25" class="w-full px-3.5 py-2.5 rounded-xl bg-black/40 border border-white/10 text-cyan-400 font-mono" />
+                </div>
+              </div>
+
+              <div class="flex justify-end">
+                <button type="button" data-admin-action="save-spotlight" class="px-6 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-extrabold text-xs cursor-pointer shadow-lg transition-transform active:scale-95">
+                  ✨ Activate Sovereign Spotlight & Bounty
+                </button>
               </div>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-              <div>
-                <label class="block text-slate-300 font-bold mb-1">Featured Post ID (Pinned in Spotlight)</label>
-                <input id="spot-post-id" type="text" value="${escapeHtml(
-                  spotlight.featuredPostId || 'post-1'
-                )}" class="w-full px-3.5 py-2.5 rounded-xl bg-black/40 border border-white/10 text-white font-mono" />
+            <!-- Quick-Feature Post Picker -->
+            <div class="p-5 rounded-2xl bg-[#101624] border border-white/10 space-y-3">
+              <h3 class="text-sm font-bold text-white">📌 Quick-Feature Any Post (1-Click Spotlight Boost)</h3>
+              <div class="space-y-2 max-h-72 overflow-y-auto">
+                ${posts
+                  .slice(0, 10)
+                  .map(
+                    (p: any) => `
+                  <div class="p-3 rounded-xl bg-black/30 border border-white/5 flex items-center justify-between gap-3 text-xs">
+                    <div class="min-w-0 flex-1">
+                      <div class="font-bold text-white truncate">${escapeHtml(p.title || '')}</div>
+                      <div class="text-[11px] font-mono text-slate-400">${escapeHtml(p.id)} · Merit: ${p.merit_votes ?? p.meritVotes ?? 0}</div>
+                    </div>
+                    <button type="button" data-admin-action="feature-this-post" data-post-id="${escapeHtml(
+                      p.id
+                    )}" class="px-3 py-1.5 rounded-lg bg-amber-400/15 hover:bg-amber-400/25 text-amber-300 border border-amber-400/30 font-semibold cursor-pointer shrink-0">
+                      Feature +25
+                    </button>
+                  </div>
+                `
+                  )
+                  .join('') ||
+                '<div class="text-xs text-slate-400 font-mono">No posts published yet.</div>'}
               </div>
-              <div>
-                <label class="block text-slate-300 font-bold mb-1">Daily Challenge Hashtag</label>
-                <input id="spot-prompt-tag" type="text" value="${escapeHtml(
-                  spotlight.dailyPromptTag || '#SovereignSpotlight'
-                )}" class="w-full px-3.5 py-2.5 rounded-xl bg-black/40 border border-white/10 text-amber-300 font-mono" />
-              </div>
-              <div class="md:col-span-2">
-                <label class="block text-slate-300 font-bold mb-1">Daily Sovereign Challenge Title</label>
-                <input id="spot-prompt-title" type="text" value="${escapeHtml(
-                  spotlight.dailyPromptTitle || ''
-                )}" class="w-full px-3.5 py-2.5 rounded-xl bg-black/40 border border-white/10 text-white" />
-              </div>
-              <div class="md:col-span-2">
-                <label class="block text-slate-300 font-bold mb-1">Challenge Prompt Description</label>
-                <textarea id="spot-prompt-desc" rows="3" class="w-full p-3.5 rounded-xl bg-black/40 border border-white/10 text-white">${escapeHtml(
-                  spotlight.dailyPromptDescription || ''
-                )}</textarea>
-              </div>
-              <div>
-                <label class="block text-slate-300 font-bold mb-1">Merit Bounty Reward (per participant)</label>
-                <input id="spot-bounty-reward" type="number" value="${Number(
-                  spotlight.meritBountyReward || 25
-                )}" class="w-full px-3.5 py-2.5 rounded-xl bg-black/40 border border-white/10 text-emerald-400 font-mono" />
-              </div>
-              <div>
-                <label class="block text-slate-300 font-bold mb-1">Instant Merit Boost to Featured Post</label>
-                <input id="spot-merit-boost" type="number" value="25" class="w-full px-3.5 py-2.5 rounded-xl bg-black/40 border border-white/10 text-cyan-400 font-mono" />
-              </div>
-            </div>
-
-            <div class="flex justify-end">
-              <button type="button" data-admin-action="save-spotlight" class="px-6 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-extrabold text-xs cursor-pointer shadow-lg">
-                ✨ Activate Sovereign Spotlight & Bounty
-              </button>
             </div>
           </div>
         `;
@@ -1079,9 +1628,12 @@ export class SovereignAdminDashboard {
           <div class="space-y-6">
             <!-- DSA & Social Reports Queue -->
             <div class="p-5 rounded-2xl bg-[#101624] border border-white/10 space-y-3">
-              <h2 class="text-sm font-bold text-white">🚩 DSA & Trust Reports Queue (${
-                reports.length
-              })</h2>
+              <div class="flex items-center justify-between">
+                <h2 class="text-sm font-bold text-white">🚩 DSA & Trust Reports Queue (${
+                  reports.length
+                })</h2>
+                <span class="text-xs text-slate-400 font-mono">${reports.filter((r) => r.status === 'pending').length} pending review</span>
+              </div>
               <div class="space-y-2">
                 ${
                   reports
@@ -1129,71 +1681,34 @@ export class SovereignAdminDashboard {
               </div>
             </div>
 
-            <!-- Live Posts Moderation -->
+            <!-- Published Posts Moderation with Live Search -->
             <div class="p-5 rounded-2xl bg-[#101624] border border-white/10 space-y-3">
-              <h2 class="text-sm font-bold text-white">📝 Published Posts Moderation (${
-                posts.length
-              })</h2>
-              <div class="space-y-2 max-h-[500px] overflow-y-auto">
-                ${posts
-                  .map((p: any) => {
-                    const isPinned = p.status === 'pinned';
-                    const isLocked = p.status === 'locked';
-                    return `
-                      <div class="p-3.5 rounded-xl bg-black/30 border border-white/10 flex flex-wrap items-center justify-between gap-3 text-xs">
-                        <div class="min-w-0 flex-1 space-y-1">
-                          <div class="flex items-center gap-2 font-mono text-[11px] text-slate-400">
-                            <span class="text-amber-300 font-bold">${escapeHtml(
-                              p.id
-                            )}</span>
-                            <span>·</span>
-                            <span>${escapeHtml(
-                              p.channel_id || p.channelId || 'pulse-global'
-                            )}</span>
-                            <span>·</span>
-                            <span class="text-emerald-400">Merit: ${
-                              p.merit_votes ?? p.meritVotes ?? 0
-                            }</span>
-                            ${
-                              isPinned
-                                ? '<span class="px-2 py-0.5 rounded bg-amber-400/20 text-amber-300 font-bold">PINNED</span>'
-                                : ''
-                            }
-                            ${
-                              isLocked
-                                ? '<span class="px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 font-bold">LOCKED</span>'
-                                : ''
-                            }
-                          </div>
-                          <div class="font-bold text-white truncate">${escapeHtml(
-                            p.title || ''
-                          )}</div>
-                          <div class="text-slate-400 truncate">${escapeHtml(
-                            p.content || ''
-                          )}</div>
-                        </div>
-                        <div class="flex items-center gap-2 shrink-0">
-                          <button type="button" data-admin-action="feature-this-post" data-post-id="${escapeHtml(
-                            p.id
-                          )}" class="px-2.5 py-1.5 rounded-lg bg-amber-400/15 hover:bg-amber-400/25 text-amber-300 border border-amber-400/30 font-semibold cursor-pointer">
-                            🌟 Spotlight +25
-                          </button>
-                          <button type="button" data-admin-action="pin-post" data-post-id="${escapeHtml( p.id )}" data-pinned="${isPinned}" class="px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-slate-200 cursor-pointer">
-                            ${isPinned ? 'Unpin' : '📌 Pin'}
-                          </button>
-                          <button type="button" data-admin-action="lock-thread" data-post-id="${escapeHtml( p.id )}" data-locked="${isLocked}" class="px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-slate-200 cursor-pointer">
-                            ${isLocked ? '🔓 Unlock' : '🔒 Lock'}
-                          </button>
-                          <button type="button" data-admin-action="delete-post" data-post-id="${escapeHtml(
-                            p.id
-                          )}" class="px-2.5 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 cursor-pointer">
-                            🗑️ Delete
-                          </button>
-                        </div>
-                      </div>
-                    `;
-                  })
-                  .join('')}
+              <div class="flex flex-wrap items-center justify-between gap-3">
+                <h2 class="text-sm font-bold text-white">📝 Published Posts Moderation (${
+                  posts.length
+                })</h2>
+                <div class="flex items-center gap-2 flex-1 max-w-sm">
+                  <input
+                    id="admin-post-search-input"
+                    type="text"
+                    placeholder="Filter posts by title or channel..."
+                    value="${escapeHtml(this.postSearchFilter)}"
+                    class="w-full px-3 py-1.5 rounded-xl bg-black/40 border border-white/10 text-xs text-white placeholder-slate-500 focus:border-amber-400 focus:outline-none"
+                  />
+                  ${
+                    this.postSearchFilter
+                      ? `<button type="button" data-admin-action="clear-post-search" class="px-2.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs text-slate-300 shrink-0">Clear</button>`
+                      : ''
+                  }
+                </div>
+              </div>
+
+              <div id="admin-posts-container" class="space-y-2 max-h-[500px] overflow-y-auto">
+                ${
+                  posts.length
+                    ? posts.map((p: any) => this.renderSinglePostRow(p)).join('')
+                    : '<div class="p-4 text-xs font-mono text-slate-400">No published posts found.</div>'
+                }
               </div>
             </div>
           </div>
@@ -1202,10 +1717,11 @@ export class SovereignAdminDashboard {
       case 'users':
         return `
           <div class="space-y-5">
+            <!-- Assign Role Form -->
             <div class="p-5 rounded-2xl bg-[#101624] border border-white/10 space-y-3">
               <h2 class="text-sm font-bold text-white">🔑 Assign Sovereign Role (RBAC)</h2>
               <div class="flex flex-wrap gap-2.5 text-xs">
-                <input id="admin-role-fp" type="text" placeholder="User Ed25519 Fingerprint..." class="flex-1 min-w-[220px] px-3.5 py-2 rounded-xl bg-black/40 border border-white/10 text-white font-mono" />
+                <input id="admin-role-fp" type="text" placeholder="User Ed25519 Fingerprint..." class="flex-1 min-w-[220px] px-3.5 py-2 rounded-xl bg-black/40 border border-white/10 text-white font-mono focus:border-amber-400 focus:outline-none" />
                 <select id="admin-role-select" class="px-3.5 py-2 rounded-xl bg-black/40 border border-white/10 text-white font-mono">
                   <option value="OWNER">OWNER</option>
                   <option value="SECURITY_ADMIN">SECURITY_ADMIN</option>
@@ -1221,53 +1737,33 @@ export class SovereignAdminDashboard {
               </div>
             </div>
 
+            <!-- Users Registry with Search Filter -->
             <div class="p-5 rounded-2xl bg-[#101624] border border-white/10 space-y-3">
-              <h3 class="text-sm font-bold text-white">👥 Sovereign Identities & Moderation Status (${
-                users.length
-              })</h3>
-              <div class="space-y-2">
+              <div class="flex flex-wrap items-center justify-between gap-3">
+                <h3 class="text-sm font-bold text-white">👥 Sovereign Identities & Moderation Status (${
+                  users.length
+                })</h3>
+                <div class="flex items-center gap-2 flex-1 max-w-sm">
+                  <input
+                    id="admin-user-search-input"
+                    type="text"
+                    placeholder="Filter by fingerprint or role..."
+                    value="${escapeHtml(this.userSearchFilter)}"
+                    class="w-full px-3 py-1.5 rounded-xl bg-black/40 border border-white/10 text-xs text-white placeholder-slate-500 focus:border-amber-400 focus:outline-none"
+                  />
+                  ${
+                    this.userSearchFilter
+                      ? `<button type="button" data-admin-action="clear-user-search" class="px-2.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs text-slate-300 shrink-0">Clear</button>`
+                      : ''
+                  }
+                </div>
+              </div>
+
+              <div id="admin-users-container" class="space-y-2 max-h-[500px] overflow-y-auto">
                 ${
-                  users
-                    .map(
-                      (u: any) => `
-                    <div class="p-3.5 rounded-xl bg-black/30 border border-white/10 flex flex-wrap items-center justify-between gap-3 text-xs font-mono">
-                      <div class="space-y-1">
-                        <div class="flex items-center gap-2">
-                          <span class="text-white font-bold">${escapeHtml(
-                            u.fingerprint
-                          )}</span>
-                          <span class="px-2 py-0.5 rounded bg-amber-400/15 text-amber-300 font-bold">${escapeHtml( u.role )}</span>${
-                            u.isQuarantined
-                              ? '<span class="px-2 py-0.5 rounded bg-rose-500/20 text-rose-300">QUARANTINED</span>'
-                              : ''
-                          }
-                          ${
-                            u.isShadowbanned
-                              ? '<span class="px-2 py-0.5 rounded bg-purple-500/20 text-purple-300">SHADOWBANNED</span>'
-                              : ''
-                          }
-                        </div>
-                        <div class="text-[11px] text-slate-400">${escapeHtml(
-                          u.notes || 'Active sovereign identity'
-                        )}</div>
-                      </div>
-                      <div class="flex items-center gap-2">
-                        <button type="button" data-admin-action="toggle-quarantine" data-fp="${escapeHtml(
-                          u.fingerprint
-                        )}" class="px-3 py-1.5 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 cursor-pointer">
-                          ${u.isQuarantined ? 'Unquarantine' : 'Quarantine'}
-                        </button>
-                        <button type="button" data-admin-action="toggle-shadowban" data-fp="${escapeHtml(
-                          u.fingerprint
-                        )}" class="px-3 py-1.5 rounded-lg bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 cursor-pointer">
-                          ${u.isShadowbanned ? 'Unshadowban' : 'Shadowban'}
-                        </button>
-                      </div>
-                    </div>
-                  `
-                    )
-                    .join('') ||
-                  '<div class="text-xs text-slate-400 font-mono">No custom user roles or restrictions recorded yet.</div>'
+                  users.length
+                    ? users.map((u: any) => this.renderSingleUserRow(u)).join('')
+                    : '<div class="text-xs text-slate-400 font-mono">No custom user roles or restrictions recorded yet.</div>'
                 }
               </div>
             </div>
@@ -1285,8 +1781,8 @@ export class SovereignAdminDashboard {
                 </button>
               </div>
               <div class="flex flex-wrap gap-2.5 text-xs">
-                <input id="admin-ban-ip-input" type="text" placeholder="IPv4 or IPv6 address..." class="px-3.5 py-2 rounded-xl bg-black/40 border border-white/10 text-white font-mono" />
-                <input id="admin-ban-reason-input" type="text" placeholder="Reason (e.g. DDoS / Botnet)" class="flex-1 min-w-[200px] px-3.5 py-2 rounded-xl bg-black/40 border border-white/10 text-white" />
+                <input id="admin-ban-ip-input" type="text" placeholder="IPv4 or IPv6 address..." class="px-3.5 py-2 rounded-xl bg-black/40 border border-white/10 text-white font-mono focus:border-amber-400 focus:outline-none" />
+                <input id="admin-ban-reason-input" type="text" placeholder="Reason (e.g. DDoS / Botnet)" class="flex-1 min-w-[200px] px-3.5 py-2 rounded-xl bg-black/40 border border-white/10 text-white focus:border-amber-400 focus:outline-none" />
                 <select id="admin-ban-hours-input" class="px-3.5 py-2 rounded-xl bg-black/40 border border-white/10 text-white font-mono">
                   <option value="1">1 Hour</option>
                   <option value="24" selected>24 Hours</option>
@@ -1336,21 +1832,43 @@ export class SovereignAdminDashboard {
       case 'database':
         return `
           <div class="space-y-5">
+            <!-- D1 SQL Studio -->
             <div class="p-5 rounded-2xl bg-[#101624] border border-white/10 space-y-3">
-              <div class="flex items-center justify-between">
+              <div class="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h2 class="text-sm font-bold text-white">🗄️ Cloudflare D1 SQL Studio (WORM Protected)</h2>
                   <p class="text-xs text-slate-400">Execute live SQL queries or inspect schema tables directly on the edge</p>
                 </div>
-                <button type="button" data-admin-action="trigger-backup" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs cursor-pointer">
+                <button type="button" data-admin-action="trigger-backup" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs cursor-pointer shadow-md">
                   💾 Trigger Encrypted R2 Backup
                 </button>
               </div>
-              <textarea id="admin-sql-textarea" rows="4" class="w-full p-3.5 rounded-xl bg-black/50 border border-white/15 text-emerald-300 font-mono text-xs">${escapeHtml(
+
+              <!-- Quick Presets Strip -->
+              <div class="flex flex-wrap items-center gap-2 text-xs font-mono">
+                <span class="text-slate-400 font-bold">Quick Presets:</span>
+                <button type="button" data-admin-action="preset-sql" data-sql="SELECT id, title, channel_id, merit_votes, status, created_at FROM posts ORDER BY created_at DESC LIMIT 15;" class="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-amber-300 border border-white/10 cursor-pointer">
+                  [Posts]
+                </button>
+                <button type="button" data-admin-action="preset-sql" data-sql="SELECT id, name, description, is_encrypted, created_at FROM channels ORDER BY created_at ASC;" class="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-cyan-300 border border-white/10 cursor-pointer">
+                  [Channels]
+                </button>
+                <button type="button" data-admin-action="preset-sql" data-sql="SELECT fingerprint, role, is_quarantined, updated_at FROM user_roles ORDER BY updated_at DESC;" class="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-emerald-300 border border-white/10 cursor-pointer">
+                  [Users & Roles]
+                </button>
+                <button type="button" data-admin-action="preset-sql" data-sql="SELECT key, value, updated_at FROM system_config;" class="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-purple-300 border border-white/10 cursor-pointer">
+                  [System Config]
+                </button>
+                <button type="button" data-admin-action="preset-sql" data-sql="SELECT id, action, target_id, timestamp FROM audit_ledger ORDER BY timestamp DESC LIMIT 20;" class="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-rose-300 border border-white/10 cursor-pointer">
+                  [Audit Ledger]
+                </button>
+              </div>
+
+              <textarea id="admin-sql-textarea" rows="4" class="w-full p-3.5 rounded-xl bg-black/50 border border-white/15 text-emerald-300 font-mono text-xs focus:border-amber-400 focus:outline-none">${escapeHtml(
                 this.sqlQuery
               )}</textarea>
               <div class="flex justify-end">
-                <button type="button" data-admin-action="run-sql" class="px-5 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-bold text-xs cursor-pointer">
+                <button type="button" data-admin-action="run-sql" class="px-5 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-bold text-xs cursor-pointer shadow-md">
                   ▶ Execute SQL Query
                 </button>
               </div>
@@ -1386,7 +1904,9 @@ export class SovereignAdminDashboard {
                         <div class="text-white font-bold truncate">${escapeHtml(
                           obj.key
                         )}</div>
-                        <div class="text-[11px] text-slate-400">${Math.round( (Number(obj.size) || 0) / 1024 )} KB · Uploaded: ${new Date(
+                        <div class="text-[11px] text-slate-400">${Math.round(
+                          (Number(obj.size) || 0) / 1024
+                        )} KB · Uploaded: ${new Date(
                         obj.uploaded || Date.now()
                       ).toLocaleString()}</div>
                       </div>
@@ -1436,7 +1956,10 @@ export class SovereignAdminDashboard {
                     </div>
                     <div class="text-slate-300">Target: <strong class="text-white">${escapeHtml(
                       l.target_resource || l.targetId || 'system'
-                    )}</strong> · Admin: ${escapeHtml( l.admin_credential_id || l.adminFingerprint || 'root' )}</div>${
+                    )}</strong> · Admin: ${escapeHtml(
+                      l.admin_credential_id || l.adminFingerprint || 'root'
+                    )}</div>
+                    ${
                       l.current_entry_hash || l.currentEntryHash
                         ? `<div class="text-[10px] text-emerald-400 truncate">SHA-256 Chain Hash: ${escapeHtml(
                             l.current_entry_hash || l.currentEntryHash
@@ -1456,4 +1979,4 @@ export class SovereignAdminDashboard {
   }
 }
 
-export const adminDashboard = new SovereignAdminDashboard();
+export const adminDashboard = new SovereignAdminDashboard();

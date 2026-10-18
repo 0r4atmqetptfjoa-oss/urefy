@@ -802,15 +802,28 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
       } catch {}
 
       try {
-        const freezeRow: any = await db
-          .prepare('SELECT value FROM system_config WHERE key = ?')
-          .bind('emergencyFreeze')
-          .first();
-        if (freezeRow && freezeRow.value === 'true') {
-          isFrozen = true;
-          globalServerConfig.emergencyFreeze = true;
-        } else {
-          globalServerConfig.emergencyFreeze = false;
+        const sysRows = await db.prepare('SELECT key, value FROM system_config').all<any>();
+        if (sysRows && sysRows.results) {
+          for (const row of sysRows.results) {
+            if (row.key === 'emergencyFreeze') {
+              isFrozen = row.value === 'true' || row.value === '1';
+              globalServerConfig.emergencyFreeze = isFrozen;
+            } else if (row.key === 'maintenanceMode') {
+              globalServerConfig.maintenanceMode = row.value === 'true' || row.value === '1';
+            } else if (row.key === 'requireZKVerification') {
+              globalServerConfig.requireZKVerification = row.value === 'true' || row.value === '1';
+            } else if (row.key === 'allowNewRegistrations') {
+              globalServerConfig.allowNewRegistrations = row.value === 'true' || row.value === '1';
+            } else if (row.key === 'maxConnectionsPerIP') {
+              globalServerConfig.maxConnectionsPerIP = Number(row.value) || 20;
+            } else if (row.key === 'powDifficulty') {
+              globalServerConfig.powDifficulty = Number(row.value) || 4;
+            } else if (row.key === 'broadcastMessage') {
+              globalServerConfig.broadcastMessage = row.value;
+            } else if (row.key === 'sovereignSpotlight' || row.key === 'spotlight') {
+              try { globalServerConfig.spotlight = JSON.parse(row.value); } catch (_) {}
+            }
+          }
         }
       } catch (_) {}
 
@@ -1453,6 +1466,18 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
           );
         }
         Object.assign(globalServerConfig, config);
+        if (db) {
+          try {
+            for (const [k, v] of Object.entries(config)) {
+              await db
+                .prepare(
+                  'INSERT OR REPLACE INTO system_config (key, value, updated_at) VALUES (?, ?, ?)'
+                )
+                .bind(k, typeof v === 'object' ? JSON.stringify(v) : String(v), Date.now())
+                .run();
+            }
+          } catch (_) {}
+        }
         globalAdminLogsStore.unshift({
           id: `log-${Date.now()}`,
           action: 'CONFIG_UPDATED',
