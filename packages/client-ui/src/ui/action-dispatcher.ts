@@ -993,6 +993,16 @@ export class ActionDispatcher {
         break;
       }
 
+      case 'close-why-modal': {
+        event.stopPropagation();
+        void import('../why-this-post-modal.js').then(({ whyThisPostModal }) => {
+          whyThisPostModal.close();
+        });
+        const root = document.getElementById('why-this-post-modal-root');
+        if (root) root.remove();
+        break;
+      }
+
       case 'more-open-detail': {
         event.stopPropagation();
         const postId = el.getAttribute('data-post-id') || '';

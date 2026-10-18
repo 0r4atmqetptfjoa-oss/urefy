@@ -42,10 +42,27 @@ export class FacetModal {
   public close(): void {
     if (this.container) {
       this.container.classList.add('hidden');
+      this.container.style.display = 'none';
+      this.container.style.pointerEvents = 'none';
       this.container.innerHTML = '';
+      this.container.remove();
+      this.container = null;
+    }
+    const root = document.getElementById('facet-modal-root');
+    if (root) {
+      root.remove();
     }
     this.editingFacet = null;
     this.errorMessage = '';
+    if (typeof document !== 'undefined') {
+      document.body.style.overflow = '';
+      document.body.style.paddingRight = '';
+      const mainLayout = document.getElementById('main-layout') || document.getElementById('app');
+      if (mainLayout) {
+        mainLayout.removeAttribute('inert');
+        mainLayout.removeAttribute('aria-hidden');
+      }
+    }
   }
 
   private ensureContainer(): HTMLElement {
@@ -54,7 +71,7 @@ export class FacetModal {
     if (!el) {
       el = document.createElement('div');
       el.id = 'facet-modal-root';
-      el.className = 'urefy-modal-backdrop hidden select-none';
+      el.className = 'urefy-modal-backdrop select-none';
       el.setAttribute('role', 'dialog');
       el.setAttribute('aria-modal', 'true');
       document.body.appendChild(el);
@@ -63,6 +80,10 @@ export class FacetModal {
           this.close();
         }
       });
+    } else {
+      el.className = 'urefy-modal-backdrop select-none';
+      el.style.display = '';
+      el.style.pointerEvents = '';
     }
     this.container = el;
     return el;

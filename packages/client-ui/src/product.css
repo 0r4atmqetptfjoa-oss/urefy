@@ -1675,6 +1675,15 @@ body { font-family: var(--font-family-sans); }
   overscroll-behavior: contain;
 }
 
+.urefy-modal-backdrop.hidden,
+.urefy-modal-backdrop[hidden],
+[id="why-this-post-modal-root"].hidden,
+[id="facet-modal-root"].hidden {
+  display: none !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+}
+
 @media (min-width: 640px) {
   .urefy-modal-backdrop {
     align-items: center;

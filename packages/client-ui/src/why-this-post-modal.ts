@@ -44,9 +44,26 @@ export class WhyThisPostModal {
   public close(): void {
     if (this.container) {
       this.container.classList.add('hidden');
+      this.container.style.display = 'none';
+      this.container.style.pointerEvents = 'none';
       this.container.innerHTML = '';
+      this.container.remove();
+      this.container = null;
+    }
+    const root = document.getElementById('why-this-post-modal-root');
+    if (root) {
+      root.remove();
     }
     this.currentPostId = null;
+    if (typeof document !== 'undefined') {
+      document.body.style.overflow = '';
+      document.body.style.paddingRight = '';
+      const mainLayout = document.getElementById('main-layout') || document.getElementById('app');
+      if (mainLayout) {
+        mainLayout.removeAttribute('inert');
+        mainLayout.removeAttribute('aria-hidden');
+      }
+    }
   }
 
   private ensureContainer(): HTMLElement | null {
@@ -55,7 +72,7 @@ export class WhyThisPostModal {
     if (!el) {
       el = document.createElement('div');
       el.id = 'why-this-post-modal-root';
-      el.className = 'urefy-modal-backdrop hidden select-none';
+      el.className = 'urefy-modal-backdrop select-none';
       el.setAttribute('role', 'dialog');
       el.setAttribute('aria-modal', 'true');
       el.setAttribute('aria-label', 'Why am I seeing this?');
@@ -65,6 +82,10 @@ export class WhyThisPostModal {
           this.close();
         }
       });
+    } else {
+      el.className = 'urefy-modal-backdrop select-none';
+      el.style.display = '';
+      el.style.pointerEvents = '';
     }
     this.container = el;
     return el;
@@ -283,6 +304,8 @@ export class WhyThisPostModal {
     if (el) {
       el.innerHTML = html;
       el.classList.remove('hidden');
+      el.style.display = '';
+      el.style.pointerEvents = '';
       this.bindEvents();
     }
     return html;
