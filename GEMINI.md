@@ -2,7 +2,7 @@
 
 ## Latest architecture consolidation & production status (2026-10-18)
 
-Architecture consolidation, cryptographic timing defense, UI runtime repairs, Sovereign Syntax Highlighting, E2EE Voice Notes, and Spatial UI 2027 completed. Remote GitHub repository `https://github.com/0r4atmqetptfjoa-oss/urefy.git` synchronized on `origin/main`. See `docs/PROJECT_REPAIRS_2026-10-18.md`. Unit suite: 100% green across monorepo (243/243 files, 2,760/2,760 tests passed, 0 failures). Key updates:
+Production deployment `f655c4aa` (code commit `f89b2b5`) deployed to urefy.com. Architecture consolidation, cryptographic timing defense, UI runtime repairs, Sovereign Syntax Highlighting, E2EE Voice Notes, and Spatial UI 2027 completed. Remote GitHub repository `https://github.com/0r4atmqetptfjoa-oss/urefy.git` synchronized on `origin/main`. See `docs/PROJECT_REPAIRS_2026-10-18.md` and `docs/DEPLOYMENT_2026-10-18.md`. Unit suite: 100% green across monorepo (243/243 files, 2,760/2,760 tests passed, 0 failures). Key updates:
 - **Unified Modal System**: Native `inert` attribute applied to `#main-layout`, preventing focus bleed to background during open modals; focus restored on close; dynamic scrollbar padding compensation.
 - **Scroll & Runtime Performance**: Incremental hydration using `[data-studio-upgraded="1"]` replaces deep DOM query scans; full desktop 100dvh retention and mobile keyboard stability.
 - **Advanced Search Edge API**: Backend `/api/search` with FTS5 index (`posts_fts`), operator parsing (`channel:`, `flair:`, `author:`, `has:code`, `merit:>`), and multi-category fallback.

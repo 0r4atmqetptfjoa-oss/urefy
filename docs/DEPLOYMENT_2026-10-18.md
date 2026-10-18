@@ -4,7 +4,9 @@
 
 - **Domeniu**: https://urefy.com
 - **Cloudflare Pages**: `aetheris-omni-sphere`, branch de producție `main`.
-- **Repository Git**: `https://github.com/0r4atmqetptfjoa-oss/urefy.git` pe branch-ul `main`.
+- **Deployment ID**: `f655c4aa` (URL: `https://f655c4aa.aetheris-omni-sphere.pages.dev`).
+- **Commit de Cod**: `f89b2b5` (`f89b2b55802d0a7e02b0bdc034cc773a5d851fb4`).
+- **Repository Git**: `https://github.com/0r4atmqetptfjoa-oss/urefy.git` sincronizat pe branch-ul `main`.
 - **Componente Noi și Reparate**:
   1. **Sovereign Omni-Search 2027**: Command Palette global (`Ctrl+K` / `⌘K`) cu parsare de operatori (`channel:`, `flair:`, `author:`, `has:code`, `merit:>`), căutare instantanee în header și indexare FTS5 (`posts_fts`) pe D1.
   2. **WhatsApp + Discord PQC Messenger (`dm-workspace.ts`)**: Criptare post-cuantică hibridă (X25519 + ML-KEM-768), dispozitive multiple, verificare chei, citate reply și reacții cu emoji.
@@ -23,6 +25,8 @@
 - Toate suitele de teste (`npm test`): **243/243 fișiere trecute, 2.760/2.760 teste trecute (100% verde)**.
 - Bugetul build-ului: **599,47 KiB JavaScript gzip / 30 chunks**; **77,04 KiB CSS gzip**.
 - Ținta de performanță `< 600 KiB gzip` menținută cu succes (599,47 KiB).
+- Cloudflare Pages: Deployment `f655c4aa` confirmat și activat pe branch-ul `main`.
+- Verificare Live HTTP 200: `https://urefy.com/`, `https://urefy.com/api/health`, `https://urefy.com/explore`, `https://urefy.com/messages` și `https://f655c4aa.aetheris-omni-sphere.pages.dev/api/health` toate au răspuns cu status `200 OK` și telemetry `HEALTHY`.
 
 ## Integritate Date și Securitate
 
