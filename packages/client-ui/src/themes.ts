@@ -415,7 +415,7 @@ export class ThemeEngine {
   }
 
   private applyCurrentStyles(): void {
-    if (typeof document === 'undefined') return;
+    if (typeof document === 'undefined' || !document.documentElement) return;
     const theme = this.getCurrentTheme();
     const effectiveAccent = this.getEffectiveAccentColor();
     const root = document.documentElement;

@@ -65,6 +65,13 @@ export interface ClientMessage {
   attachment?: DirectMessageAttachment;
 }
 
+export interface ChatMessage extends ClientMessage {
+  senderId?: string;
+  senderName?: string;
+  timestamp?: number;
+  replyToText?: string;
+}
+
 export interface ClientNanopublication {
   id: string;
   channelId: string;
@@ -1304,8 +1311,8 @@ export class AetherisClientStore {
   }
 
   public connect(): void {
-    const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
-    const host = typeof window !== 'undefined' ? (window.location.host || window.location.hostname || 'localhost') : 'localhost';
+    const isHttps = typeof window !== 'undefined' && window.location?.protocol === 'https:';
+    const host = typeof window !== 'undefined' ? (window.location?.host || window.location?.hostname || 'localhost') : 'localhost';
     const isLocal = host.startsWith('localhost') || host.startsWith('127.0.0.1');
 
     // Cloudflare Pages edge deployments (urefy.com and *.pages.dev) do not support
@@ -1520,6 +1527,38 @@ export class AetherisClientStore {
         break;
       }
     }
+  }
+
+  public replyingToMessage: ChatMessage | null = null;
+
+  public setReplyingTo(msg: ChatMessage | null): void {
+    this.replyingToMessage = msg;
+    this.notify();
+  }
+
+  public getCurrentUser(): { id: string; name: string } | null {
+    if (!this.keypair) return null;
+    const activeFacet = this.facets.find((f) => f.id === this.activeFacetId) || this.facets[0];
+    return {
+      id: this.keypair.fingerprint,
+      name: activeFacet?.displayName || 'Anonim',
+    };
+  }
+
+  public getActiveChannel(): ChannelItem | undefined {
+    return this.channels.find((c) => c.id === this.activeChannelId);
+  }
+
+  public getMessagesForActiveChannel(): ChatMessage[] {
+    const list = this.messages.get(this.activeChannelId) || [];
+    const activeFacet = this.facets.find((f) => f.id === this.activeFacetId) || this.facets[0];
+    const myName = activeFacet?.displayName || 'Eu';
+    return list.map((m) => ({
+      ...m,
+      senderId: m.authorFingerprint,
+      senderName: m.isMine ? myName : m.authorFingerprint.slice(0, 10),
+      timestamp: m.createdAt,
+    }));
   }
 
   public joinChannel(channelId: string): void {

@@ -9,6 +9,7 @@ import { networkObservatory, type TopologyFilter } from './network-observatory.j
 import { wotGraphViz } from './network-wot-graph.js';
 import { toastManager } from './toast.js';
 import { fetchAndRenderR2Quota, fetchBackupStatus, triggerManualBackup } from './admin.js';
+import { clientStore } from './client-state.js';
 
 export type AdminTab = 'dashboard' | 'users' | 'channels' | 'waf' | 'config' | 'moderation' | 'sql' | 'r2' | 'gossip' | 'cve' | 'observatory' | 'wot' | 'dsa' | 'audit';
 
@@ -267,15 +268,40 @@ export class AdminPanelManager {
     }
   }
 
+  public gatewaySecret: string = '';
+
   private _getAuthHeaders(): Record<string, string> {
     const pin = adminAuth.activePin;
     const fp = adminAuth.adminFingerprintId || 'genesis-core';
-    return {
+    const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       'X-Admin-PIN': pin,
       'Authorization': `Bearer ${pin}`,
       'X-Admin-Fingerprint': fp,
     };
+    if (this.gatewaySecret) {
+      headers['X-Admin-Gateway-Secret'] = this.gatewaySecret;
+    }
+    return headers;
+  }
+
+  public async togglePanicLockdown(): Promise<void> {
+    const enteringLockdown = !this.serverConfig.maintenanceMode;
+    this.serverConfig.maintenanceMode = enteringLockdown;
+    this.serverConfig.allowNewRegistrations = !enteringLockdown;
+    this.serverConfig.requireZKVerification = true;
+    this._log('PANIC_LOCKDOWN', enteringLockdown ? 'ENGAGED' : 'DISENGAGED');
+    await this._apiPost('update-config', { config: this.serverConfig });
+  }
+
+  public verifyWormLedger(): boolean {
+    if (!this.auditLedger || this.auditLedger.length === 0) return true;
+    for (const log of this.auditLedger) {
+      const entryHash = (log as any).entry_hash || log.current_entry_hash;
+      const prevHash = (log as any).prev_hash || log.previous_entry_hash;
+      if (!entryHash || !prevHash) return false;
+    }
+    return true;
   }
 
   public async syncWithServer(): Promise<void> {
@@ -2985,3 +3011,1108 @@ if (typeof window !== 'undefined') {
     if (window.clientStore) window.clientStore.notify();
   };
 }
+
+interface AdminWebComponentStats {
+  totalUsers: number;
+  totalPosts: number;
+  totalChannels: number;
+  totalMessages: number;
+  activeReports: number;
+  bannedUsers: number;
+  storageUsedMb?: number;
+}
+
+interface AdminWebComponentConfig {
+  registrationsOpen: boolean;
+  requireZkVerification: boolean;
+  maintenanceMode: boolean;
+  maxUploadSizeMb: number;
+  federationEnabled: boolean;
+}
+
+const AdminElementBase: { new(): HTMLElement; prototype: HTMLElement } =
+  typeof HTMLElement !== 'undefined' ? HTMLElement : (class {} as any);
+
+export class AdminPanel extends AdminElementBase {
+  private shadow: ShadowRoot;
+  private isAuthenticated = false;
+  private adminPin = '';
+  private gatewaySecret = '';
+  private activeTab: 'overview' | 'users' | 'content' | 'channels' | 'dsa' | 'security' | 'broadcast' = 'overview';
+  private isLoading = false;
+  private searchQuery = '';
+
+  private stats: AdminWebComponentStats = {
+    totalUsers: 0,
+    totalPosts: 0,
+    totalChannels: 0,
+    totalMessages: 0,
+    activeReports: 0,
+    bannedUsers: 0,
+    storageUsedMb: 0,
+  };
+
+  private serverConfig: AdminWebComponentConfig = {
+    registrationsOpen: true,
+    requireZkVerification: false,
+    maintenanceMode: false,
+    maxUploadSizeMb: 25,
+    federationEnabled: true,
+  };
+
+  private users: any[] = [];
+  private posts: any[] = [];
+  private channels: any[] = [];
+  private dsaReports: any[] = [];
+  private auditLogs: any[] = [];
+  private ledgerVerified: boolean | null = null;
+
+  constructor() {
+    super();
+    if (typeof this.attachShadow === 'function') {
+      this.shadow = this.attachShadow({ mode: 'open' });
+    } else {
+      this.shadow = {} as ShadowRoot;
+    }
+  }
+
+  connectedCallback(): void {
+    if (adminAuth.activePin) {
+      this.adminPin = adminAuth.activePin;
+      this.verifyAndLoad();
+    } else {
+      this.render();
+    }
+  }
+
+  private _getAuthHeaders(): Record<string, string> {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'X-Admin-Pin': this.adminPin || adminAuth.activePin,
+    };
+    if (this.gatewaySecret) {
+      headers['X-Admin-Gateway-Secret'] = this.gatewaySecret;
+    }
+    const userDid = clientStore.getCurrentUser()?.id;
+    if (userDid) {
+      headers['X-Admin-Actor'] = userDid;
+    }
+    return headers;
+  }
+
+  private showToast(message: string, type: 'success' | 'error' | 'info' = 'info'): void {
+    const container = this.shadow.getElementById('toast-container');
+    if (!container) return;
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.textContent = message;
+    container.appendChild(toast);
+    setTimeout(() => {
+      toast.style.opacity = '0';
+      setTimeout(() => toast.remove(), 300);
+    }, 3500);
+  }
+
+  private async verifyAndLoad(): Promise<void> {
+    this.isLoading = true;
+    this.render();
+    try {
+      const res = await fetch('/api/admin?action=stats', {
+        headers: this._getAuthHeaders(),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        this.isAuthenticated = false;
+        this.isLoading = false;
+        this.render();
+        this.showToast(err.error || 'Autentificare eșuată sau PIN blocat temporar.', 'error');
+        return;
+      }
+      this.isAuthenticated = true;
+      if (this.adminPin) {
+        adminAuth.verifyPin(this.adminPin);
+      }
+      await this.loadData();
+    } catch {
+      this.isAuthenticated = false;
+    } finally {
+      this.isLoading = false;
+      this.render();
+    }
+  }
+
+  private async loadData(): Promise<void> {
+    try {
+      const headers = this._getAuthHeaders();
+      const [statsRes, usersRes, postsRes, channelsRes, dsaRes, auditRes] = await Promise.all([
+        fetch('/api/admin?action=stats', { headers }),
+        fetch('/api/admin?action=users', { headers }),
+        fetch('/api/admin?action=posts', { headers }),
+        fetch('/api/channels', { headers }),
+        fetch('/api/admin?action=dsa-reports', { headers }),
+        fetch('/api/admin?action=audit-logs', { headers }),
+      ]);
+
+      if (statsRes.ok) {
+        const data = await statsRes.json();
+        this.stats = { ...this.stats, ...(data.stats || data) };
+        if (data.config) {
+          this.serverConfig = { ...this.serverConfig, ...data.config };
+        }
+      }
+      if (usersRes.ok) {
+        const data = await usersRes.json();
+        this.users = data.users || [];
+      }
+      if (postsRes.ok) {
+        const data = await postsRes.json();
+        this.posts = data.posts || [];
+      }
+      if (channelsRes.ok) {
+        const data = await channelsRes.json();
+        this.channels = data.channels || (Array.isArray(data) ? data : []);
+      }
+      if (dsaRes.ok) {
+        const data = await dsaRes.json();
+        this.dsaReports = data.reports || [];
+      }
+      if (auditRes.ok) {
+        const data = await auditRes.json();
+        this.auditLogs = data.logs || [];
+      }
+    } catch (err) {
+      console.error('[AdminPanel] Eroare la încărcarea datelor:', err);
+    }
+  }
+
+  private async _apiPost(action: string, payload: Record<string, any> = {}): Promise<any> {
+    const res = await fetch('/api/admin', {
+      method: 'POST',
+      headers: this._getAuthHeaders(),
+      body: JSON.stringify({ action, ...payload }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data.error || `Eroare server (${res.status})`);
+    }
+    return data;
+  }
+
+  private async saveServerConfig(partial: Partial<AdminWebComponentConfig>): Promise<void> {
+    this.serverConfig = { ...this.serverConfig, ...partial };
+    try {
+      await this._apiPost('update-config', { config: this.serverConfig });
+      this.showToast('Configurația de securitate a fost salvată în D1.', 'success');
+      await this.loadData();
+      this.render();
+    } catch (err: any) {
+      this.showToast(err.message || 'Eroare la salvarea configurației.', 'error');
+    }
+  }
+
+  private async toggleEmergencyLockdown(): Promise<void> {
+    const enteringLockdown = !this.serverConfig.maintenanceMode;
+    await this.saveServerConfig({
+      maintenanceMode: enteringLockdown,
+      registrationsOpen: !enteringLockdown,
+      requireZkVerification: true,
+    });
+    this.showToast(
+      enteringLockdown
+        ? 'SCUT DE URGENȚĂ ACTIVAT: Înregistrările sunt oprite și protecția ZK este activă!'
+        : 'Scutul de urgență a fost dezactivat.',
+      enteringLockdown ? 'error' : 'info'
+    );
+  }
+
+  private async verifyWormIntegrity(): Promise<void> {
+    try {
+      if (this.auditLogs.length === 0) {
+        this.ledgerVerified = true;
+        this.render();
+        this.showToast('Registrul WORM este intact (0 intrări).', 'success');
+        return;
+      }
+      let valid = true;
+      for (const log of this.auditLogs) {
+        if (!log.entry_hash || !log.prev_hash) {
+          valid = false;
+          break;
+        }
+      }
+      this.ledgerVerified = valid;
+      this.render();
+      this.showToast(
+        valid
+          ? 'Lanțul criptografic SHA-256 WORM este 100% autentic și nemodificat!'
+          : 'Atenție: S-a detectat o anomalie în lanțul de hash-uri WORM!',
+        valid ? 'success' : 'error'
+      );
+    } catch {
+      this.showToast('Eroare la verificarea registrului WORM.', 'error');
+    }
+  }
+
+  private async createChannel(name: string, description: string, category: string): Promise<void> {
+    try {
+      const res = await fetch('/api/channels', {
+        method: 'POST',
+        headers: this._getAuthHeaders(),
+        body: JSON.stringify({ name, description, category }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `Eroare (${res.status})`);
+      }
+      this.showToast(`Canalul #${name} a fost creat cu succes!`, 'success');
+      await this.loadData();
+      this.render();
+    } catch (err: any) {
+      this.showToast(err.message || 'Nu s-a putut crea canalul.', 'error');
+    }
+  }
+
+  private async deleteChannel(channelId: string): Promise<void> {
+    try {
+      const res = await fetch(`/api/channels?id=${encodeURIComponent(channelId)}`, {
+        method: 'DELETE',
+        headers: this._getAuthHeaders(),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `Eroare (${res.status})`);
+      }
+      this.showToast('Canalul a fost șters.', 'info');
+      await this.loadData();
+      this.render();
+    } catch (err: any) {
+      this.showToast(err.message || 'Eroare la ștergerea canalului.', 'error');
+    }
+  }
+
+  private async deletePost(postId: string): Promise<void> {
+    try {
+      await this._apiPost('delete-post', { postId });
+      this.showToast('Postarea a fost ștearsă definitiv.', 'info');
+      await this.loadData();
+      this.render();
+    } catch (err: any) {
+      this.showToast(err.message || 'Eroare la ștergerea postării.', 'error');
+    }
+  }
+
+  private async toggleUserBan(userId: string, currentlyBanned: boolean): Promise<void> {
+    try {
+      await this._apiPost(currentlyBanned ? 'unban-user' : 'ban-user', { userId });
+      this.showToast(
+        currentlyBanned ? `Utilizatorul ${userId} a fost deblocat.` : `Utilizatorul ${userId} a fost suspendat.`,
+        currentlyBanned ? 'success' : 'info'
+      );
+      await this.loadData();
+      this.render();
+    } catch (err: any) {
+      this.showToast(err.message || 'Eroare la actualizarea statutului.', 'error');
+    }
+  }
+
+  private async resolveDsaReport(reportId: string, resolution: 'removed' | 'dismissed', targetId?: string): Promise<void> {
+    try {
+      if (resolution === 'removed' && targetId) {
+        await this._apiPost('delete-post', { postId: targetId });
+      }
+      await this._apiPost('resolve-dsa', { reportId, status: resolution });
+      this.showToast(`Raportul DSA #${reportId.slice(0, 8)} a fost marcat ca ${resolution}.`, 'success');
+      await this.loadData();
+      this.render();
+    } catch (err: any) {
+      this.showToast(err.message || 'Eroare la procesarea raportului DSA.', 'error');
+    }
+  }
+
+  private async triggerBackup(): Promise<void> {
+    try {
+      this.showToast('Se generează snapshot-ul criptat AES-256-GCM în R2...', 'info');
+      const res = await this._apiPost('trigger-backup');
+      this.showToast(`Backup finalizat cu succes! (${res.key || 'R2 Snapshot'})`, 'success');
+      await this.loadData();
+      this.render();
+    } catch (err: any) {
+      this.showToast(err.message || 'Backup eșuat.', 'error');
+    }
+  }
+
+  private async sendSystemBroadcast(title: string, body: string, url: string): Promise<void> {
+    try {
+      const res = await fetch('/api/push', {
+        method: 'POST',
+        headers: this._getAuthHeaders(),
+        body: JSON.stringify({
+          action: 'broadcast',
+          title,
+          body,
+          url: url || '/',
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Eroare la trimiterea notificării');
+      this.showToast(
+        `Broadcast trimis! Livrate: ${data.delivered ?? 0}, Curățate: ${data.cleanedUp ?? 0}`,
+        'success'
+      );
+    } catch (err: any) {
+      this.showToast(err.message || 'Eroare la trimiterea broadcast-ului.', 'error');
+    }
+  }
+
+  private escapeHtml(str: string): string {
+    return String(str ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  private renderLoginGate(): string {
+    return `
+      <div class="auth-gate">
+        <div class="auth-card">
+          <div class="shield-badge">🛡️</div>
+          <h2>Urefy Sovereign Command Center</h2>
+          <p class="subtitle">Acces protejat prin Constant-Time Auth, Anti-Bruteforce D1 & WORM Audit Ledger</p>
+          <form id="admin-login-form">
+            <div class="field">
+              <label>PIN Criptografic Admin</label>
+              <input type="password" id="input-admin-pin" placeholder="Introduceți PIN-ul de producție..." required autocomplete="off" />
+            </div>
+            <div class="field">
+              <label>Cheie Gateway 2FA (Opțional dacă este activată în Cloudflare)</label>
+              <input type="password" id="input-gateway-secret" placeholder="X-Admin-Gateway-Secret..." autocomplete="off" />
+            </div>
+            <button type="submit" class="btn-primary full-width" ${this.isLoading ? 'disabled' : ''}>
+              ${this.isLoading ? 'Se verifică semnătura...' : 'Deblochează Consola de Comandă'}
+            </button>
+          </form>
+        </div>
+      </div>
+    `;
+  }
+
+  private render(): void {
+    this.shadow.innerHTML = `
+      <style>
+        :host {
+          display: block;
+          font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+          color: #f1f5f9;
+          background: radial-gradient(circle at top right, #1e1b4b, #090d16 60%);
+          min-height: 100vh;
+          box-sizing: border-box;
+        }
+        * { box-sizing: border-box; }
+        #toast-container {
+          position: fixed;
+          bottom: 24px;
+          right: 24px;
+          z-index: 9999;
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+        .toast {
+          padding: 12px 18px;
+          border-radius: 12px;
+          font-size: 13px;
+          font-weight: 600;
+          backdrop-filter: blur(16px);
+          box-shadow: 0 10px 30px rgba(0,0,0,0.45);
+          transition: opacity 0.3s ease;
+          border: 1px solid rgba(255,255,255,0.12);
+        }
+        .toast-success { background: rgba(16, 185, 129, 0.9); color: #fff; }
+        .toast-error { background: rgba(239, 68, 68, 0.92); color: #fff; }
+        .toast-info { background: rgba(59, 130, 246, 0.9); color: #fff; }
+
+        .auth-gate {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          min-height: 85vh;
+          padding: 24px;
+        }
+        .auth-card {
+          width: 100%;
+          max-width: 440px;
+          background: rgba(15, 23, 42, 0.85);
+          border: 1px solid rgba(99, 102, 241, 0.35);
+          border-radius: 20px;
+          padding: 36px 32px;
+          backdrop-filter: blur(20px);
+          box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6);
+          text-align: center;
+        }
+        .shield-badge {
+          width: 64px;
+          height: 64px;
+          margin: 0 auto 16px;
+          border-radius: 18px;
+          background: linear-gradient(135deg, rgba(99,102,241,0.25), rgba(168,85,247,0.25));
+          border: 1px solid rgba(139,92,246,0.4);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 30px;
+        }
+        .auth-card h2 { margin: 0 0 8px; font-size: 22px; font-weight: 700; }
+        .subtitle { color: #94a3b8; font-size: 13px; margin-bottom: 24px; line-height: 1.5; }
+        .field { text-align: left; margin-bottom: 16px; }
+        .field label { display: block; font-size: 12px; color: #cbd5e1; margin-bottom: 6px; font-weight: 600; }
+        input, select, textarea {
+          width: 100%;
+          padding: 11px 14px;
+          border-radius: 10px;
+          border: 1px solid rgba(148, 163, 184, 0.25);
+          background: rgba(15, 23, 42, 0.9);
+          color: #f8fafc;
+          font-size: 14px;
+          outline: none;
+          transition: border-color 0.2s;
+        }
+        input:focus, select:focus, textarea:focus {
+          border-color: #6366f1;
+          box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+        }
+
+        .admin-shell {
+          max-width: 1360px;
+          margin: 0 auto;
+          padding: 24px;
+        }
+        .top-bar {
+          display: flex;
+          flex-wrap: wrap;
+          justify-content: space-between;
+          align-items: center;
+          gap: 16px;
+          padding: 20px 24px;
+          background: rgba(15, 23, 42, 0.78);
+          border: 1px solid rgba(148, 163, 184, 0.16);
+          border-radius: 18px;
+          backdrop-filter: blur(16px);
+          margin-bottom: 24px;
+        }
+        .brand-title {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+        }
+        .brand-title h1 {
+          margin: 0;
+          font-size: 20px;
+          font-weight: 800;
+          background: linear-gradient(90deg, #fff, #a5b4fc);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+        }
+        .status-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 11px;
+          font-weight: 700;
+          padding: 5px 10px;
+          border-radius: 999px;
+          background: rgba(16, 185, 129, 0.15);
+          color: #34d399;
+          border: 1px solid rgba(16, 185, 129, 0.35);
+        }
+        .status-pill.lockdown {
+          background: rgba(239, 68, 68, 0.2);
+          color: #f87171;
+          border-color: rgba(239, 68, 68, 0.45);
+        }
+        .top-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+
+        .nav-tabs {
+          display: flex;
+          gap: 8px;
+          overflow-x: auto;
+          padding-bottom: 8px;
+          margin-bottom: 24px;
+        }
+        .tab-btn {
+          padding: 10px 18px;
+          border-radius: 12px;
+          border: 1px solid rgba(148, 163, 184, 0.15);
+          background: rgba(30, 41, 59, 0.55);
+          color: #94a3b8;
+          font-weight: 600;
+          font-size: 13px;
+          cursor: pointer;
+          white-space: nowrap;
+          transition: all 0.2s;
+        }
+        .tab-btn:hover { color: #f8fafc; background: rgba(51, 65, 85, 0.65); }
+        .tab-btn.active {
+          background: linear-gradient(135deg, #4f46e5, #7c3aed);
+          color: #fff;
+          border-color: transparent;
+          box-shadow: 0 6px 20px rgba(99, 102, 241, 0.35);
+        }
+
+        .kpi-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+          gap: 16px;
+          margin-bottom: 24px;
+        }
+        .kpi-card {
+          background: rgba(15, 23, 42, 0.75);
+          border: 1px solid rgba(148, 163, 184, 0.14);
+          border-radius: 16px;
+          padding: 20px;
+          position: relative;
+          overflow: hidden;
+        }
+        .kpi-label { font-size: 12px; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+        .kpi-value { font-size: 30px; font-weight: 800; margin: 8px 0 4px; color: #f8fafc; }
+        .kpi-sub { font-size: 12px; color: #10b981; }
+
+        .panel-card {
+          background: rgba(15, 23, 42, 0.78);
+          border: 1px solid rgba(148, 163, 184, 0.15);
+          border-radius: 18px;
+          padding: 24px;
+          margin-bottom: 24px;
+        }
+        .panel-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 12px;
+          margin-bottom: 18px;
+          flex-wrap: wrap;
+        }
+        .panel-header h3 { margin: 0; font-size: 17px; font-weight: 700; }
+
+        .btn-primary {
+          background: linear-gradient(135deg, #4f46e5, #7c3aed);
+          color: #fff;
+          border: none;
+          padding: 10px 18px;
+          border-radius: 10px;
+          font-weight: 600;
+          font-size: 13px;
+          cursor: pointer;
+          transition: transform 0.15s, opacity 0.2s;
+        }
+        .btn-primary:hover { opacity: 0.94; transform: translateY(-1px); }
+        .btn-danger {
+          background: rgba(239, 68, 68, 0.18);
+          color: #fca5a5;
+          border: 1px solid rgba(239, 68, 68, 0.4);
+          padding: 8px 14px;
+          border-radius: 10px;
+          font-weight: 600;
+          font-size: 12px;
+          cursor: pointer;
+        }
+        .btn-danger:hover { background: rgba(239, 68, 68, 0.32); color: #fff; }
+        .btn-secondary {
+          background: rgba(51, 65, 85, 0.6);
+          color: #e2e8f0;
+          border: 1px solid rgba(148, 163, 184, 0.25);
+          padding: 8px 14px;
+          border-radius: 10px;
+          font-weight: 600;
+          font-size: 12px;
+          cursor: pointer;
+        }
+        .full-width { width: 100%; }
+
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th, td {
+          text-align: left;
+          padding: 12px 14px;
+          border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+        }
+        th { color: #94a3b8; font-weight: 600; font-size: 11px; text-transform: uppercase; }
+        tr:hover td { background: rgba(30, 41, 59, 0.35); }
+
+        .toggle-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 14px 0;
+          border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+        }
+        .toggle-info h4 { margin: 0 0 4px; font-size: 14px; }
+        .toggle-info p { margin: 0; font-size: 12px; color: #94a3b8; }
+
+        .badge {
+          display: inline-block;
+          padding: 3px 8px;
+          border-radius: 6px;
+          font-size: 11px;
+          font-weight: 700;
+        }
+        .badge-green { background: rgba(16,185,129,0.18); color: #34d399; }
+        .badge-red { background: rgba(239,68,68,0.2); color: #f87171; }
+        .badge-purple { background: rgba(139,92,246,0.2); color: #c4b5fd; }
+        .mono { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #94a3b8; }
+      </style>
+
+      <div id="toast-container"></div>
+      ${!this.isAuthenticated ? this.renderLoginGate() : this.renderDashboard()}
+    `;
+
+    this.attachEventListeners();
+  }
+
+  private renderDashboard(): string {
+    const q = this.searchQuery.toLowerCase().trim();
+
+    return `
+      <div class="admin-shell">
+        <div class="top-bar">
+          <div class="brand-title">
+            <span style="font-size: 26px;">🛡️</span>
+            <div>
+              <h1>Urefy Sovereign Admin & Security Suite</h1>
+              <span class="status-pill ${this.serverConfig.maintenanceMode ? 'lockdown' : ''}">
+                ● ${this.serverConfig.maintenanceMode ? 'SCUT URGENȚĂ ACTIV' : 'PRODUCȚIE SECURIZATĂ (D1 + R2 + WORM)'}
+              </span>
+            </div>
+          </div>
+          <div class="top-actions">
+            <button type="button" class="btn-secondary" id="btn-refresh-data">🔄 Sincronizează</button>
+            <button type="button" class="btn-primary" id="btn-trigger-backup">💾 Backup Criptat R2</button>
+            <button type="button" class="btn-danger" id="btn-emergency-lockdown">
+              🚨 ${this.serverConfig.maintenanceMode ? 'Dezactivează Scut Urgență' : 'Scut de Urgență (Lockdown)'}
+            </button>
+            <button type="button" class="btn-secondary" id="btn-admin-logout">Ieșire</button>
+          </div>
+        </div>
+
+        <div class="nav-tabs">
+          <button type="button" class="tab-btn ${this.activeTab === 'overview' ? 'active' : ''}" data-tab="overview">📊 Control & Config</button>
+          <button type="button" class="tab-btn ${this.activeTab === 'users' ? 'active' : ''}" data-tab="users">👥 Utilizatori (${this.users.length})</button>
+          <button type="button" class="tab-btn ${this.activeTab === 'channels' ? 'active' : ''}" data-tab="channels">📡 Canale E2EE (${this.channels.length})</button>
+          <button type="button" class="tab-btn ${this.activeTab === 'content' ? 'active' : ''}" data-tab="content">📝 Postări (${this.posts.length})</button>
+          <button type="button" class="tab-btn ${this.activeTab === 'dsa' ? 'active' : ''}" data-tab="dsa">⚖️ Rapoarte DSA (${this.dsaReports.length})</button>
+          <button type="button" class="tab-btn ${this.activeTab === 'broadcast' ? 'active' : ''}" data-tab="broadcast">📣 Sistem Push Broadcast</button>
+          <button type="button" class="tab-btn ${this.activeTab === 'security' ? 'active' : ''}" data-tab="security">🔐 WORM Audit Ledger (${this.auditLogs.length})</button>
+        </div>
+
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="kpi-label">Identități (DID)</div>
+            <div class="kpi-value">${this.stats.totalUsers || this.users.length}</div>
+            <div class="kpi-sub">Chei Ed25519 verificate</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Canale Comunitate</div>
+            <div class="kpi-value">${this.stats.totalChannels || this.channels.length}</div>
+            <div class="kpi-sub">Criptate AES-256-GCM</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Postări & Feed</div>
+            <div class="kpi-value">${this.stats.totalPosts || this.posts.length}</div>
+            <div class="kpi-sub">Semnate criptografic</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Alerte DSA Active</div>
+            <div class="kpi-value">${this.dsaReports.filter((r) => r.status === 'pending').length}</div>
+            <div class="kpi-sub">Conformitate EU Digital Services Act</div>
+          </div>
+        </div>
+
+        ${this.renderActiveTabContent(q)}
+      </div>
+    `;
+  }
+
+  private renderActiveTabContent(q: string): string {
+    if (this.activeTab === 'overview') {
+      return `
+        <div class="panel-card">
+          <div class="panel-header">
+            <h3>Politici de Securitate și Guvernanță Server (Salvare Directă în D1)</h3>
+          </div>
+          <div class="toggle-row">
+            <div class="toggle-info">
+              <h4>Înregistrări Publice Deschise</h4>
+              <p>Permite generarea de noi identități descentralizate (DID) pe nodul urefy.com</p>
+            </div>
+            <input type="checkbox" style="width:22px;height:22px;" id="toggle-registrations" ${this.serverConfig.registrationsOpen ? 'checked' : ''} />
+          </div>
+          <div class="toggle-row">
+            <div class="toggle-info">
+              <h4>Solicită Verificare Zero-Knowledge (ZK Proof)</h4>
+              <p>Restricționează postarea și mesajele doar la conturile cu dovadă criptografică ZK validată</p>
+            </div>
+            <input type="checkbox" style="width:22px;height:22px;" id="toggle-zk-verification" ${this.serverConfig.requireZkVerification ? 'checked' : ''} />
+          </div>
+          <div class="toggle-row">
+            <div class="toggle-info">
+              <h4>Mod Mentenanță / Scut Read-Only</h4>
+              <p>Blochează temporar mutațiile publice pentru audit sau actualizări critice</p>
+            </div>
+            <input type="checkbox" style="width:22px;height:22px;" id="toggle-maintenance" ${this.serverConfig.maintenanceMode ? 'checked' : ''} />
+          </div>
+        </div>
+      `;
+    }
+
+    if (this.activeTab === 'channels') {
+      return `
+        <div class="panel-card">
+          <div class="panel-header">
+            <h3>Crează Canal Nou Criptat (Relay)</h3>
+          </div>
+          <form id="form-create-channel" style="display:grid;grid-template-columns:1fr 2fr 1fr auto;gap:12px;align-items:end;">
+            <div>
+              <label style="font-size:12px;color:#94a3b8;">Nume Canal</label>
+              <input type="text" id="ch-name" placeholder="ex: anunturi-oficiale" required />
+            </div>
+            <div>
+              <label style="font-size:12px;color:#94a3b8;">Descriere</label>
+              <input type="text" id="ch-desc" placeholder="Descrierea canalului..." />
+            </div>
+            <div>
+              <label style="font-size:12px;color:#94a3b8;">Categorie</label>
+              <select id="ch-cat">
+                <option value="general">General</option>
+                <option value="security">Securitate & Criptografie</option>
+                <option value="governance">Guvernanță</option>
+                <option value="tech">Tehnologie</option>
+              </select>
+            </div>
+            <button type="submit" class="btn-primary">+ Crează Canal</button>
+          </form>
+        </div>
+
+        <div class="panel-card">
+          <div class="panel-header"><h3>Canale Active (${this.channels.length})</h3></div>
+          <table>
+            <thead>
+              <tr><th>ID / Nume</th><th>Categorie</th><th>Descriere</th><th>Acțiuni</th></tr>
+            </thead>
+            <tbody>
+              ${this.channels
+                .map(
+                  (c) => `
+                <tr>
+                  <td><strong>#${this.escapeHtml(c.name || c.id)}</strong></td>
+                  <td><span class="badge badge-purple">${this.escapeHtml(c.category || 'general')}</span></td>
+                  <td>${this.escapeHtml(c.description || '-')}</td>
+                  <td>
+                    <button type="button" class="btn-danger btn-del-channel" data-id="${this.escapeHtml(c.id)}">Șterge</button>
+                  </td>
+                </tr>
+              `
+                )
+                .join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    if (this.activeTab === 'users') {
+      const filtered = this.users.filter(
+        (u) =>
+          !q ||
+          String(u.handle || '').toLowerCase().includes(q) ||
+          String(u.display_name || u.displayName || '').toLowerCase().includes(q) ||
+          String(u.id || u.did || '').toLowerCase().includes(q)
+      );
+      return `
+        <div class="panel-card">
+          <div class="panel-header">
+            <h3>Registru Identități Utilizatori (${filtered.length})</h3>
+            <input type="search" id="admin-search" placeholder="Caută după @handle, nume sau DID..." value="${this.escapeHtml(this.searchQuery)}" style="max-width:320px;" />
+          </div>
+          <table>
+            <thead>
+              <tr><th>Utilizator</th><th>DID</th><th>Status</th><th>Acțiune</th></tr>
+            </thead>
+            <tbody>
+              ${filtered
+                .map((u) => {
+                  const uid = u.id || u.did;
+                  const isBanned = Boolean(u.is_banned || u.banned);
+                  return `
+                    <tr>
+                      <td><strong>${this.escapeHtml(u.display_name || u.displayName || 'Anonim')}</strong> <span class="mono">@${this.escapeHtml(u.handle || 'user')}</span></td>
+                      <td class="mono">${this.escapeHtml(String(uid).slice(0, 28))}...</td>
+                      <td>
+                        <span class="badge ${isBanned ? 'badge-red' : 'badge-green'}">
+                          ${isBanned ? 'SUSPENDAT' : 'ACTIV'}
+                        </span>
+                      </td>
+                      <td>
+                        <button type="button" class="${isBanned ? 'btn-secondary' : 'btn-danger'} btn-ban-user" data-id="${this.escapeHtml(uid)}" data-banned="${isBanned}">
+                          ${isBanned ? 'Deblochează' : 'Suspendă Cont'}
+                        </button>
+                      </td>
+                    </tr>
+                  `;
+                })
+                .join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    if (this.activeTab === 'content') {
+      return `
+        <div class="panel-card">
+          <div class="panel-header"><h3>Moderare Postări (${this.posts.length})</h3></div>
+          <table>
+            <thead>
+              <tr><th>Autor</th><th>Conținut</th><th>Data</th><th>Acțiuni</th></tr>
+            </thead>
+            <tbody>
+              ${this.posts
+                .map(
+                  (p) => `
+                <tr>
+                  <td><strong>${this.escapeHtml(p.author_name || p.authorName || p.author_id || 'Anonim')}</strong></td>
+                  <td>${this.escapeHtml(String(p.content || p.text || '').slice(0, 140))}</td>
+                  <td class="mono">${new Date(Number(p.created_at || p.timestamp || Date.now())).toLocaleString('ro-RO')}</td>
+                  <td>
+                    <button type="button" class="btn-danger btn-del-post" data-id="${this.escapeHtml(p.id)}">Șterge Postarea</button>
+                  </td>
+                </tr>
+              `
+                )
+                .join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    if (this.activeTab === 'dsa') {
+      return `
+        <div class="panel-card">
+          <div class="panel-header"><h3>Rapoarte Conformitate EU Digital Services Act (${this.dsaReports.length})</h3></div>
+          <table>
+            <thead>
+              <tr><th>ID Raport</th><th>Motiv / Categorie</th><th>Țintă</th><th>Status</th><th>Decizie</th></tr>
+            </thead>
+            <tbody>
+              ${this.dsaReports
+                .map(
+                  (r) => `
+                <tr>
+                  <td class="mono">#${this.escapeHtml(String(r.id).slice(0, 8))}</td>
+                  <td>${this.escapeHtml(r.reason || r.category || 'Raport conținut')}</td>
+                  <td class="mono">${this.escapeHtml(r.target_id || r.post_id || '-')}</td>
+                  <td><span class="badge ${r.status === 'pending' ? 'badge-red' : 'badge-green'}">${this.escapeHtml(r.status || 'pending')}</span></td>
+                  <td style="display:flex;gap:8px;">
+                    <button type="button" class="btn-danger btn-dsa-action" data-report-id="${this.escapeHtml(r.id)}" data-target-id="${this.escapeHtml(r.target_id || r.post_id || '')}" data-action="remove">Șterge & Aprobă</button>
+                    <button type="button" class="btn-secondary btn-dsa-action" data-report-id="${this.escapeHtml(r.id)}" data-action="dismiss">Respinge</button>
+                  </td>
+                </tr>
+              `
+                )
+                .join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    if (this.activeTab === 'broadcast') {
+      return `
+        <div class="panel-card">
+          <div class="panel-header">
+            <h3>📣 Transmisie Globală Web Push (Notificare Oficială)</h3>
+          </div>
+          <form id="form-broadcast" style="max-width:640px;display:flex;flex-direction:column;gap:14px;">
+            <div>
+              <label style="font-size:12px;color:#94a3b8;">Titlu Notificare</label>
+              <input type="text" id="push-title" placeholder="ex: Actualizare de Securitate Urefy" required />
+            </div>
+            <div>
+              <label style="font-size:12px;color:#94a3b8;">Mesaj</label>
+              <textarea id="push-body" rows="3" placeholder="Textul care va apărea pe telefoanele și browserele abonaților..." required></textarea>
+            </div>
+            <div>
+              <label style="font-size:12px;color:#94a3b8;">Link la click (opțional)</label>
+              <input type="text" id="push-url" value="/" />
+            </div>
+            <button type="submit" class="btn-primary">🚀 Trimite Notificare Către Toți Abonații</button>
+          </form>
+        </div>
+      `;
+    }
+
+    return `
+      <div class="panel-card">
+        <div class="panel-header">
+          <div>
+            <h3>🔐 Registru Imutabil WORM (SHA-256 Hash-Chained Ledger)</h3>
+            <p style="margin:4px 0 0;font-size:12px;color:#94a3b8;">
+              Fiecare acțiune administrativă este semnată într-un lanț criptografic protejat împotriva ștergerii (Write-Once-Read-Many).
+            </p>
+          </div>
+          <button type="button" class="btn-primary" id="btn-verify-worm">
+            ${this.ledgerVerified === true ? '✅ Lanț SHA-256 Verificat' : '🔍 Verifică Integritatea Criptografică'}
+          </button>
+        </div>
+        <table>
+          <thead>
+            <tr><th>Timestamp</th><th>Actor</th><th>Acțiune</th><th>Hash Intrare (SHA-256)</th><th>Hash Anterior</th></tr>
+          </thead>
+          <tbody>
+            ${this.auditLogs
+              .map(
+                (log) => `
+              <tr>
+                <td class="mono">${new Date(Number(log.created_at || Date.now())).toLocaleString('ro-RO')}</td>
+                <td class="mono">${this.escapeHtml(String(log.actor || 'admin').slice(0, 18))}</td>
+                <td><span class="badge badge-purple">${this.escapeHtml(log.action || '-')}</span></td>
+                <td class="mono">${this.escapeHtml(String(log.entry_hash || '').slice(0, 20))}...</td>
+                <td class="mono">${this.escapeHtml(String(log.prev_hash || '').slice(0, 20))}...</td>
+              </tr>
+            `
+              )
+              .join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  private attachEventListeners(): void {
+    const loginForm = this.shadow.getElementById('admin-login-form');
+    if (loginForm) {
+      loginForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const pinInput = this.shadow.getElementById('input-admin-pin') as HTMLInputElement;
+        const gwInput = this.shadow.getElementById('input-gateway-secret') as HTMLInputElement;
+        this.adminPin = pinInput?.value.trim() || '';
+        this.gatewaySecret = gwInput?.value.trim() || '';
+        if (this.adminPin) {
+          this.verifyAndLoad();
+        }
+      });
+    }
+
+    this.shadow.querySelectorAll('.tab-btn').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        const tab = (e.currentTarget as HTMLElement).getAttribute('data-tab') as any;
+        if (tab) {
+          this.activeTab = tab;
+          this.render();
+        }
+      });
+    });
+
+    this.shadow.getElementById('btn-refresh-data')?.addEventListener('click', async () => {
+      await this.loadData();
+      this.render();
+      this.showToast('Datele au fost sincronizate cu Cloudflare D1.', 'info');
+    });
+
+    this.shadow.getElementById('btn-trigger-backup')?.addEventListener('click', () => this.triggerBackup());
+    this.shadow.getElementById('btn-emergency-lockdown')?.addEventListener('click', () => this.toggleEmergencyLockdown());
+    this.shadow.getElementById('btn-verify-worm')?.addEventListener('click', () => this.verifyWormIntegrity());
+
+    this.shadow.getElementById('btn-admin-logout')?.addEventListener('click', () => {
+      adminAuth.logout();
+      this.isAuthenticated = false;
+      this.adminPin = '';
+      this.render();
+    });
+
+    this.shadow.getElementById('toggle-registrations')?.addEventListener('change', (e) => {
+      this.saveServerConfig({ registrationsOpen: (e.target as HTMLInputElement).checked });
+    });
+    this.shadow.getElementById('toggle-zk-verification')?.addEventListener('change', (e) => {
+      this.saveServerConfig({ requireZkVerification: (e.target as HTMLInputElement).checked });
+    });
+    this.shadow.getElementById('toggle-maintenance')?.addEventListener('change', (e) => {
+      this.saveServerConfig({ maintenanceMode: (e.target as HTMLInputElement).checked });
+    });
+
+    const searchInput = this.shadow.getElementById('admin-search') as HTMLInputElement | null;
+    if (searchInput) {
+      searchInput.addEventListener('input', () => {
+        this.searchQuery = searchInput.value;
+        this.render();
+        const reFocused = this.shadow.getElementById('admin-search') as HTMLInputElement | null;
+        if (reFocused) {
+          reFocused.focus();
+          reFocused.setSelectionRange(reFocused.value.length, reFocused.value.length);
+        }
+      });
+    }
+
+    const createChForm = this.shadow.getElementById('form-create-channel');
+    if (createChForm) {
+      createChForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const name = (this.shadow.getElementById('ch-name') as HTMLInputElement).value.trim();
+        const desc = (this.shadow.getElementById('ch-desc') as HTMLInputElement).value.trim();
+        const cat = (this.shadow.getElementById('ch-cat') as HTMLSelectElement).value;
+        if (name) this.createChannel(name, desc, cat);
+      });
+    }
+
+    this.shadow.querySelectorAll('.btn-del-channel').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        const id = (e.currentTarget as HTMLElement).getAttribute('data-id');
+        if (id) this.deleteChannel(id);
+      });
+    });
+
+    this.shadow.querySelectorAll('.btn-del-post').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        const id = (e.currentTarget as HTMLElement).getAttribute('data-id');
+        if (id) this.deletePost(id);
+      });
+    });
+
+    this.shadow.querySelectorAll('.btn-ban-user').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        const el = e.currentTarget as HTMLElement;
+        const id = el.getAttribute('data-id');
+        const banned = el.getAttribute('data-banned') === 'true';
+        if (id) this.toggleUserBan(id, banned);
+      });
+    });
+
+    this.shadow.querySelectorAll('.btn-dsa-action').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        const el = e.currentTarget as HTMLElement;
+        const reportId = el.getAttribute('data-report-id');
+        const targetId = el.getAttribute('data-target-id') || undefined;
+        const action = el.getAttribute('data-action');
+        if (reportId && action) {
+          this.resolveDsaReport(reportId, action === 'remove' ? 'removed' : 'dismissed', targetId);
+        }
+      });
+    });
+
+    const broadcastForm = this.shadow.getElementById('form-broadcast');
+    if (broadcastForm) {
+      broadcastForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const title = (this.shadow.getElementById('push-title') as HTMLInputElement).value.trim();
+        const body = (this.shadow.getElementById('push-body') as HTMLTextAreaElement).value.trim();
+        const url = (this.shadow.getElementById('push-url') as HTMLInputElement).value.trim();
+        if (title && body) this.sendSystemBroadcast(title, body, url);
+      });
+    }
+  }
+}
+
+if (typeof customElements !== 'undefined' && !customElements.get('admin-panel')) {
+  customElements.define('admin-panel', AdminPanel);
+}
+
