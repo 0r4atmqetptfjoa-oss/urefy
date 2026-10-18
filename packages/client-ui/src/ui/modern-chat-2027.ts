@@ -608,6 +608,7 @@ export class ModernChatWorkspace2027 {
     const hash = window.location.hash || '';
     const existingRoot = document.getElementById('urefy-modern-chat-2027-root');
     const isMessages =
+      hash === '#studio-chat' ||
       hash.startsWith('#messages') ||
       hash.startsWith('#relays') ||
       hash.startsWith('#chat') ||

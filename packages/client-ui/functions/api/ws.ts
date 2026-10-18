@@ -4,7 +4,7 @@
 // Zero-Config Fallback: In-Isolate Cloudflare Pages WebSocketPair with ZK-RLN & Presence.
 // ===========================================================================
 
-import { createHmac } from 'node:crypto';
+import { createHmac, timingSafeEqual } from 'node:crypto';
 import { ZKRLN, RLNShare, verifySignature, hexToBytes, computeFingerprint } from '@aetheris/core-crypto';
 import { isProductionEnv } from './_db.js';
 
@@ -159,7 +159,9 @@ export function verifyRelaySessionToken(
     return { valid: false, error: `Signature verification error: ${err.message}` };
   }
 
-  if (sigHex.toLowerCase() !== expectedSigHex.toLowerCase()) {
+  const sigBuf = Buffer.from(sigHex.toLowerCase(), 'utf8');
+  const expectedBuf = Buffer.from(expectedSigHex.toLowerCase(), 'utf8');
+  if (sigBuf.length !== expectedBuf.length || !timingSafeEqual(sigBuf, expectedBuf)) {
     return { valid: false, error: 'Invalid session signature' };
   }
 
@@ -623,6 +625,9 @@ export async function onRequest(context: {
             INITIAL_MESSAGES_MAP[chId] = [];
           }
           INITIAL_MESSAGES_MAP[chId].push(newMsg);
+          if (INITIAL_MESSAGES_MAP[chId].length > 500) {
+            INITIAL_MESSAGES_MAP[chId].splice(0, INITIAL_MESSAGES_MAP[chId].length - 500);
+          }
 
           // Broadcast with single JSON.stringify serialization
           broadcast(

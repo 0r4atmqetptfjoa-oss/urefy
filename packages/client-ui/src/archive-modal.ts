@@ -12,6 +12,7 @@ import { toastManager } from './toast.js';
 import { exportSovereignArchive, importSovereignArchive, downloadArchiveFile } from './data-archive.js';
 import { serviceRegistry, SERVICES } from './service-registry.js';
 import { t } from './i18n.js';
+import { escapeHtml } from './dry-utils.js';
 
 export interface PasswordStrength {
   score: number; // 0 to 4
@@ -225,14 +226,14 @@ export class SovereignArchiveModal {
           ${this.errorMessage ? `
             <div class="p-3.5 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-xs text-rose-200 flex items-start space-x-2.5 animate-fade-in">
               <span class="shrink-0 text-base">⚠️</span>
-              <div class="font-sans">${this.errorMessage}</div>
+              <div class="font-sans">${escapeHtml(this.errorMessage)}</div>
             </div>
           ` : ''}
 
           ${this.successMessage ? `
             <div class="p-3.5 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-xs text-emerald-200 flex items-start space-x-2.5 animate-fade-in">
               <span class="shrink-0 text-base">✅</span>
-              <div class="font-sans font-medium">${this.successMessage}</div>
+              <div class="font-sans font-medium">${escapeHtml(this.successMessage)}</div>
             </div>
           ` : ''}
 
@@ -274,7 +275,7 @@ export class SovereignArchiveModal {
                   <input
                     type="${this.showExportPassphrase ? 'text' : 'password'}"
                     id="input-export-passphrase"
-                    value="${this.exportPassphrase}"
+                    value="${escapeHtml(this.exportPassphrase)}"
                     placeholder="Enter a strong personal passphrase..."
                     class="w-full px-3.5 py-2.5 rounded-xl bg-surface-raised border border-white/10 text-white text-xs font-mono focus:border-indigo-500 focus:outline-none pr-10 placeholder-slate-500"
                   />
@@ -291,7 +292,7 @@ export class SovereignArchiveModal {
                 <div class="space-y-1 pt-1">
                   <div class="flex items-center justify-between text-[11px]">
                     <span class="text-slate-400">Strength:</span>
-                    <span class="font-mono font-bold text-slate-300" id="passphrase-strength-label">${strength.label}</span>
+                    <span class="font-mono font-bold text-slate-300" id="passphrase-strength-label">${escapeHtml(strength.label)}</span>
                   </div>
                   <div class="w-full bg-surface-raised h-1.5 rounded-full overflow-hidden border border-white/5">
                     <div
@@ -311,7 +312,7 @@ export class SovereignArchiveModal {
                 <input
                   type="${this.showExportPassphrase ? 'text' : 'password'}"
                   id="input-export-confirm-passphrase"
-                  value="${this.exportConfirmPassphrase}"
+                  value="${escapeHtml(this.exportConfirmPassphrase)}"
                   placeholder="Retype passphrase to confirm..."
                   class="w-full px-3.5 py-2.5 rounded-xl bg-surface-raised border ${this.exportConfirmPassphrase && !passwordsMatch ? 'border-rose-500' : 'border-white/10'} text-white text-xs font-mono focus:border-indigo-500 focus:outline-none placeholder-slate-500"
                 />
@@ -354,7 +355,7 @@ export class SovereignArchiveModal {
                 ${this.restoreFileName ? `
                   <div class="text-xs text-white font-mono font-bold flex items-center space-x-1.5">
                     <span class="text-emerald-400">✓</span>
-                    <span>${this.restoreFileName}</span>
+                    <span>${escapeHtml(this.restoreFileName)}</span>
                     <span class="text-slate-400">(${(this.restoreFileSize / 1024).toFixed(1)} KB)</span>
                   </div>
                   <p class="text-[11px] text-indigo-300">Click to choose a different archive file</p>
@@ -375,7 +376,7 @@ export class SovereignArchiveModal {
                   <input
                     type="${this.showRestorePassphrase ? 'text' : 'password'}"
                     id="input-restore-passphrase"
-                    value="${this.restorePassphrase}"
+                    value="${escapeHtml(this.restorePassphrase)}"
                     placeholder="Enter the passphrase you used to export this archive..."
                     class="w-full px-3.5 py-2.5 rounded-xl bg-surface-raised border border-white/10 text-white text-xs font-mono focus:border-indigo-500 focus:outline-none pr-10 placeholder-slate-500"
                   />

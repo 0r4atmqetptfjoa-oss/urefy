@@ -78,6 +78,8 @@ export class CommandRailV2Engine {
   public selectedIndex: number = 0;
   public commands: CommandItem[] = [];
   public results: SearchItem[] = [];
+  private eventsAttached: boolean = false;
+  private onCloseCallback?: () => void;
 
   constructor() {
     this._initCommands();
@@ -321,8 +323,13 @@ export class CommandRailV2Engine {
     input?.focus();
   }
 
-  public attachEvents(root: HTMLElement = typeof document !== 'undefined' ? document.body : (undefined as any), onClose?: () => void): void {
-    if (!root || typeof root.addEventListener !== 'function') return;
+  public attachEvents(
+    root: HTMLElement = typeof document !== 'undefined' ? document.body : (undefined as any),
+    onClose?: () => void
+  ): void {
+    if (onClose) this.onCloseCallback = onClose;
+    if (this.eventsAttached || !root || typeof root.addEventListener !== 'function') return;
+    this.eventsAttached = true;
 
     window.addEventListener('keydown', (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
@@ -330,6 +337,7 @@ export class CommandRailV2Engine {
         e.stopPropagation();
         if (this.isOpen) {
           this.close();
+          this.onCloseCallback?.();
         } else {
           this.open();
         }
@@ -350,7 +358,7 @@ export class CommandRailV2Engine {
       } else if (e.key === 'Escape') {
         e.preventDefault();
         this.close();
-        if (onClose) onClose();
+        this.onCloseCallback?.();
       }
     });
 
@@ -381,7 +389,7 @@ export class CommandRailV2Engine {
       if (target.id === 'command-rail-v2-modal' || target.closest('#btn-close-command-rail')) {
         e.preventDefault();
         this.close();
-        if (onClose) onClose();
+        this.onCloseCallback?.();
       }
     });
 

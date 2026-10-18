@@ -93,7 +93,34 @@ function getLocalBackupSizeSummary(): BackupSizeReportSummary {
     }
   }
 
-  report.totalItems = report.posts + report.bookmarks + report.drafts + report.preferences;
+  for (const k of keys.messages) {
+    const raw = localStorage.getItem(k);
+    if (raw) {
+      totalChars += raw.length;
+      try {
+        const parsed = JSON.parse(raw);
+        report.messages += Array.isArray(parsed) ? parsed.length : 1;
+      } catch {
+        report.messages += 1;
+      }
+    }
+  }
+
+  for (const k of keys.keys) {
+    const raw = localStorage.getItem(k);
+    if (raw) {
+      totalChars += raw.length;
+      report.keys += 1;
+    }
+  }
+
+  report.totalItems =
+    report.posts +
+    report.bookmarks +
+    report.drafts +
+    report.messages +
+    report.keys +
+    report.preferences;
   report.totalKB = Math.max(1, Math.round(totalChars / 1024));
   return report;
 }
@@ -106,6 +133,8 @@ export function renderExportPanelHTML(
   const report = sizeReport || getLocalBackupSizeSummary();
   const lastExportTime = meta?.lastExportTime || 0;
   const lastExportCount = meta?.lastExportCount || 0;
+  const formattedExportTime =
+    lastExportTime > 0 ? new Date(lastExportTime).toLocaleString() : '';
 
   return `
     <div id="aetheris-export-backup-container" class="w-full max-w-4xl mx-auto bg-surface-base border border-white/10 rounded-2xl p-6 sm:p-8 shadow-2xl text-slate-100 font-sans backdrop-blur-xl animate-in fade-in transition-all">
@@ -279,7 +308,7 @@ export function renderExportPanelHTML(
             <div class="text-xs text-slate-400 text-center sm:text-right font-mono" id="aether-export-telemetry-text">
               ${lastExportTime === 0
                 ? `<span class="text-slate-500">No backups exported yet</span>`
-                : `Last export: <span class="text-slate-200 font-semibold">${escapeHtml(String(lastExportTime))}</span> | <span class="text-cyphr font-semibold">${lastExportCount.toLocaleString()} items</span>`
+                : `Last export: <span class="text-slate-200 font-semibold">${escapeHtml(formattedExportTime)}</span> | <span class="text-cyphr font-semibold">${lastExportCount.toLocaleString()} items</span>`
               }
             </div>
           </div>

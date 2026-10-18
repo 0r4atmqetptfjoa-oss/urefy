@@ -1933,6 +1933,11 @@ export class ActionDispatcher {
         break;
       }
 
+      case 'proactive-ai-action': {
+        // Handled by AI assistant button click listener
+        break;
+      }
+
       case 'close-notifs': {
         if (el.id === 'notification-backdrop' && event.target !== el) {
           break;
@@ -3526,17 +3531,6 @@ export class ActionDispatcher {
         (window as any).settingsView.setActiveTab('appearance');
       }
       clientStore.notifySync('THEME_CHANGE');
-      return;
-    }
-    if (action === 'call-global') {
-      const rawChange = el.getAttribute('data-raw-change');
-      if (rawChange) {
-        try {
-          safeExecuteExpression(rawChange, el, event);
-        } catch (err) {
-          console.error('[ActionDispatcher] Error in data-raw-change:', err, rawChange);
-        }
-      }
       return;
     }
     if (action === 'settings-toggle-pref') {

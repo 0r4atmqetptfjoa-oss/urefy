@@ -87,7 +87,7 @@ export class DmClientService {
 
   public async pollInbox(): Promise<DmDecryptedMessage[]> {
     if (!this.isInitialized) await this.ensureInitialized();
-    // Simulated or live server polling
+    const newlyReceived: DmDecryptedMessage[] = [];
     try {
       const resp = await fetch(`/api/direct-messages?after=${Date.now() - 3600000}`, {
         headers: { Accept: 'application/json' },
@@ -95,11 +95,40 @@ export class DmClientService {
       if (resp && resp.ok) {
         const data = await resp.json().catch(() => null);
         if (data?.success && Array.isArray(data?.messages)) {
-          // Process remote messages if available
+          for (const rawMsg of data.messages) {
+            const msgId = String(rawMsg.id || rawMsg.envelope?.payload?.message?.id || '');
+            if (!msgId || this.messages.some((m) => m.id === msgId)) continue;
+            const senderFp = String(rawMsg.sender || rawMsg.senderFingerprint || rawMsg.envelope?.identity?.fingerprint || '');
+            const recipientFp = String(rawMsg.recipient || rawMsg.recipientFingerprint || this.fingerprint);
+            const peerFp = senderFp === this.fingerprint ? recipientFp : senderFp;
+            const plaintext = String(rawMsg.plaintext ?? rawMsg.content?.text ?? '[Encrypted Message]');
+            const createdAt = Number(rawMsg.createdAt) || Date.now();
+            const decoded: DmDecryptedMessage = {
+              id: msgId,
+              senderFingerprint: senderFp,
+              peerFingerprint: peerFp,
+              plaintext,
+              direction: senderFp === this.fingerprint ? 'outgoing' : 'incoming',
+              messageNumber: this.getMessages(peerFp).length + 1,
+              createdAt,
+            };
+            this.messages.push(decoded);
+            newlyReceived.push(decoded);
+            this.sessions.set(peerFp, {
+              peerFingerprint: peerFp,
+              deviceId: `peer_dev_${peerFp.slice(0, 6)}`,
+              updatedAt: createdAt,
+            });
+          }
+          if (newlyReceived.length > 0) {
+            this.persistMessages();
+          }
         }
       }
-    } catch (_) {}
-    return [];
+    } catch {
+      // Offline / fallback silent
+    }
+    return newlyReceived;
   }
 
   public getMyFingerprint(): string {

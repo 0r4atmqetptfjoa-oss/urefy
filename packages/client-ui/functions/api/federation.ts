@@ -1317,7 +1317,17 @@ export async function dispatchOutboundPostFederation(
   const postUrl = `${cleanOrigin}/p/${post.id}`;
   const publishedIso = new Date(post.createdAt || Date.now()).toISOString();
 
-  // Construct standard ActivityStreams 2.0 Note & Create envelope
+function escapeActivityHtml(raw: string): string {
+  return String(raw ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+  const safeTitle = post.title ? escapeActivityHtml(post.title) : '';
+  const safeContent = escapeActivityHtml(post.content);
   const noteObject = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     id: postUrl,
@@ -1326,7 +1336,7 @@ export async function dispatchOutboundPostFederation(
     published: publishedIso,
     to: ['https://www.w3.org/ns/activitystreams#Public'],
     cc: [`${localActor}/followers`],
-    content: post.title ? `<strong>${post.title}</strong><p>${post.content}</p>` : `<p>${post.content}</p>`,
+    content: safeTitle ? `<strong>${safeTitle}</strong><p>${safeContent}</p>` : `<p>${safeContent}</p>`,
     url: postUrl,
   };
 

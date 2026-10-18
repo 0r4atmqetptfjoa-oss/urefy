@@ -521,7 +521,7 @@ export class LocalAIAssistant {
             Got it
           </button>
           ${suggestion.actionLabel ? `
-            <button type="button" id="btn-action-${suggestion.id}" class="px-2.5 py-1 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-black font-bold cursor-pointer" data-action="backup-seed">
+            <button type="button" id="btn-action-${suggestion.id}" class="px-2.5 py-1 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-black font-bold cursor-pointer">
               ${this.escapeHtml(suggestion.actionLabel)}
             </button>
           ` : ''}

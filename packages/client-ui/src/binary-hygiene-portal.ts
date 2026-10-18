@@ -9,6 +9,7 @@ import {
 import { clientStore } from './client-state.js';
 import { toastManager } from './toast.js';
 import { t } from './i18n.js';
+import { escapeHtml } from './dry-utils.js';
 
 export interface BlockEntropyInfo {
   index: number;
@@ -129,7 +130,8 @@ export class BinaryHygienePortal {
     this.bindModalDelegation();
     const dropzone = document.getElementById('binary-hygiene-dropzone');
     const fileInput = document.getElementById('binary-hygiene-file-input') as HTMLInputElement | null;
-    if (!dropzone) return;
+    if (!dropzone || dropzone.hasAttribute('data-bound')) return;
+    dropzone.setAttribute('data-bound', 'true');
 
     if (fileInput && !fileInput.hasAttribute('data-bound')) {
       fileInput.setAttribute('data-bound', 'true');
@@ -507,12 +509,12 @@ export class BinaryHygienePortal {
               <div class="flex flex-wrap items-center justify-between gap-3 p-4 rounded-xl bg-slate-800/60 border border-white/5">
                 <div>
                   <div class="text-xs font-mono font-bold text-white flex items-center space-x-2">
-                    <span>📄 ${report.fileName}</span>
+                    <span>📄 ${escapeHtml(report.fileName)}</span>
                     <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-700 text-slate-300 font-mono">${(report.byteSize / 1024).toFixed(1)} KB</span>
-                    <span class="text-[10px] px-1.5 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-500/20 font-mono">${report.format} · ${report.architecture}</span>
+                    <span class="text-[10px] px-1.5 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-500/20 font-mono">${escapeHtml(report.format)} · ${escapeHtml(report.architecture)}</span>
                   </div>
                   <div class="text-[10px] font-mono text-slate-400 mt-1 truncate max-w-md">
-                    SHA-256: <span class="text-slate-300 select-all">${report.sha256}</span>
+                    SHA-256: <span class="text-slate-300 select-all">${escapeHtml(report.sha256)}</span>
                   </div>
                 </div>
                 <div>
@@ -598,7 +600,7 @@ export class BinaryHygienePortal {
                               .map(
                                 (s) => `
                         <tr class="hover:bg-white/5 transition-colors">
-                          <td class="py-1.5 px-2 font-bold text-white">${s.name || '<empty>'}</td>
+                          <td class="py-1.5 px-2 font-bold text-white">${escapeHtml(s.name || '<empty>')}</td>
                           <td class="py-1.5 px-2 text-slate-300">${s.virtualSize} bytes</td>
                           <td class="py-1.5 px-2 text-slate-300">${s.rawSize} bytes</td>
                           <td class="py-1.5 px-2 ${s.entropy >= 7.0 ? 'text-rose-400 font-bold' : s.entropy >= 6.5 ? 'text-amber-400' : 'text-emerald-400'}">
