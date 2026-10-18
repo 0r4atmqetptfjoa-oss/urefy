@@ -794,51 +794,54 @@ export function initApp(): void {
     }
   };
 
-  // Search indexing is incremental: UI-only updates no longer rebuild the full
-  // BM25 index, which keeps voting, reactions and typing responsive on large feeds.
   const searchDocumentSignatures = new Map<string, string>();
+  let _searchIndexIdleHandle: number | null = null;
   const syncSearchIndex = (): void => {
-    const seen = new Set<string>();
-    const indexIfChanged = (doc: Parameters<typeof localSearchIndex.indexDocument>[0]): void => {
-      seen.add(doc.id);
-      const signature = `${doc.type}\u0000${doc.channelId}\u0000${doc.createdAt}\u0000${doc.content}`;
-      if (searchDocumentSignatures.get(doc.id) === signature) return;
-      localSearchIndex.indexDocument(doc);
-      searchDocumentSignatures.set(doc.id, signature);
-    };
-
-    for (const [channelId, messages] of clientStore.messages.entries()) {
-      for (const message of messages) {
+    if (_searchIndexIdleHandle !== null) return;
+    const schedule = typeof requestIdleCallback === 'function'
+      ? requestIdleCallback
+      : (cb: () => void) => window.setTimeout(cb, 32);
+    _searchIndexIdleHandle = schedule(() => {
+      _searchIndexIdleHandle = null;
+      const seen = new Set<string>();
+      const indexIfChanged = (doc: Parameters<typeof localSearchIndex.indexDocument>[0]): void => {
+        seen.add(doc.id);
+        const signature = `${doc.type}\u0000${doc.channelId}\u0000${doc.createdAt}\u0000${doc.content}`;
+        if (searchDocumentSignatures.get(doc.id) === signature) return;
+        localSearchIndex.indexDocument(doc);
+        searchDocumentSignatures.set(doc.id, signature);
+      };
+      for (const [channelId, messages] of clientStore.messages.entries()) {
+        for (const message of messages) {
+          indexIfChanged({
+            id: message.id,
+            channelId,
+            authorFingerprint: message.authorFingerprint,
+            content: message.text,
+            createdAt: message.createdAt,
+            type: 'message',
+          });
+        }
+      }
+      for (const post of clientStore.posts) {
         indexIfChanged({
-          id: message.id,
-          channelId,
-          authorFingerprint: message.authorFingerprint,
-          content: message.text,
-          createdAt: message.createdAt,
-          type: 'message',
+          id: post.id,
+          channelId: post.channelId,
+          authorFingerprint: post.authorFingerprint,
+          content: `${post.title} ${post.content} ${post.flair}`,
+          createdAt: post.createdAt,
+          type: 'thread',
+          title: post.title,
+          flairs: post.flair ? [post.flair] : [],
         });
       }
-    }
-
-    for (const post of clientStore.posts) {
-      indexIfChanged({
-        id: post.id,
-        channelId: post.channelId,
-        authorFingerprint: post.authorFingerprint,
-        content: `${post.title} ${post.content} ${post.flair}`,
-        createdAt: post.createdAt,
-        type: 'thread',
-        title: post.title,
-        flairs: post.flair ? [post.flair] : [],
-      });
-    }
-
-    for (const id of searchDocumentSignatures.keys()) {
-      if (!seen.has(id)) {
-        localSearchIndex.removeDocument(id);
-        searchDocumentSignatures.delete(id);
+      for (const id of searchDocumentSignatures.keys()) {
+        if (!seen.has(id)) {
+          localSearchIndex.removeDocument(id);
+          searchDocumentSignatures.delete(id);
+        }
       }
-    }
+    }) as unknown as number;
   };
 
   const renderLeftRailContent = (): string => railController.renderLeftRailContent({ isMoreExpanded });

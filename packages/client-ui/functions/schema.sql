@@ -246,7 +246,8 @@ CREATE TABLE IF NOT EXISTS webauthn_challenges (
     fingerprint TEXT PRIMARY KEY,
     challenge TEXT NOT NULL,
     expires_at INTEGER NOT NULL,
-    created_at INTEGER NOT NULL
+    created_at INTEGER NOT NULL,
+    used INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE INDEX IF NOT EXISTS idx_challenges_expires ON webauthn_challenges(expires_at);
@@ -627,4 +628,9 @@ CREATE TABLE IF NOT EXISTS facet_community_memberships (
 
 CREATE INDEX IF NOT EXISTS idx_facet_comm_members_facet ON facet_community_memberships(facet_id);
 CREATE INDEX IF NOT EXISTS idx_facet_comm_members_comm ON facet_community_memberships(community_id);
+
+CREATE INDEX IF NOT EXISTS idx_posts_public_discovery ON posts(status, audience, created_at DESC, id);
+CREATE INDEX IF NOT EXISTS idx_posts_channel_public ON posts(channel_id, status, audience, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_interactions_covering ON interactions(target_type, target_id, interaction_type, value, user_fingerprint);
+
 

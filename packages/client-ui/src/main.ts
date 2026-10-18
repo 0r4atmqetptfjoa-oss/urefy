@@ -9,6 +9,7 @@ import './context.css';
 import './product.css';
 import './profile/profile-workspace.css';
 import './workspace-secondary.css';
+import './styles/ui-pro-upgrades.css';
 import { secureStorage } from './secure-storage.js';
 
 

@@ -39,6 +39,7 @@ export type StreamType = 'for-you' | 'following' | 'latest';
 export type ViewMode = 'card' | 'classic' | 'compact';
 export type SortType = 'hot' | 'new' | 'top' | 'rising' | 'chrono';
 export type TopTimeframe = 'today' | 'week' | 'month' | 'year' | 'all';
+export { renderFeedPostCard, type FeedPostCardData } from './ui/feed-controls.js';
 
 function escapeHtml(str: string): string {
   return (str || '')

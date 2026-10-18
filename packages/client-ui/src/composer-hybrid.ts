@@ -559,7 +559,7 @@ export class HybridComposer {
             <div class="flex flex-wrap items-center gap-3">
               <!-- ACTIVE FACET SELECTOR -->
               <div class="flex items-center space-x-2">
-                <span class="text-slate-400 font-medium text-[11px]">Posting as:</span>
+                <span class="text-slate-400 font-medium text-[11px]">${t('composer.postingAs', undefined, 'Posting as:')}</span>
                 <select id="composer-facet-select" class="bg-surface-raised border border-white/10 text-slate-200 text-xs rounded-lg px-2.5 py-1 focus:outline-none focus:border-[var(--color-accent,#e89e38)] cursor-pointer font-medium max-w-[170px] truncate">
                   ${facets.map(f => `
                     <option value="${f.id}" ${f.id === activeFacet.id ? 'selected' : ''}>
@@ -638,7 +638,7 @@ export class HybridComposer {
               <!-- RIGHT ACTIONS: DISCARD DRAFT & BROADCAST -->
               <div class="flex items-center space-x-2">
                 <span class="text-[11px] text-slate-400 hidden sm:inline mr-2">
-                  Posting as: <strong class="text-white">@${escapeHtml(activeFacet.handle)}</strong>
+                  ${t('composer.postingAs', undefined, 'Posting as:')} <strong class="text-white">@${escapeHtml(activeFacet.handle)}</strong>
                 </span>
 
                 <button type="button" id="btn-discard-draft" class="px-3 py-1.5 text-xs text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl cursor-pointer transition-colors">
@@ -683,7 +683,7 @@ export class HybridComposer {
         <div class="flex items-center justify-between text-[11px] font-semibold text-slate-300">
           <span class="flex items-center gap-1.5">
             <span>🛡️</span>
-            <span>Who will see this?</span>
+            <span>${t('composer.whoWillSee', undefined, 'Who will see this?')}</span>
           </span>
           <span class="text-[10px] font-mono px-2 py-0.5 rounded-full ${this.postAudience === 'public' ? 'bg-[var(--color-accent,#e89e38)]/10 text-[var(--color-accent,#e89e38)] border border-[var(--color-accent,#e89e38)]/20' : 'bg-amber-500/10 text-amber-300 border border-amber-500/20'}">
             ${this.postAudience.toUpperCase()}
@@ -2024,3 +2024,48 @@ export const omniComposer = hybridComposer;
 export class OmniComposer extends HybridComposer {}
 
 serviceRegistry.registerInstance(SERVICES.OmniComposer, hybridComposer);
+
+export function renderComposerContextBar(opts: {
+  activeFacetName: string;
+  activeFacetHandle: string;
+  selectedAudience: 'public' | 'community' | 'followers';
+}): string {
+  return `
+    <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 bg-slate-900/90 border-b border-slate-800/80 rounded-t-2xl text-xs">
+      <!-- Selector Fațetă Suverană -->
+      <div class="flex items-center gap-2">
+        <span class="text-slate-400 font-medium">${t('composer.postingAs', undefined, 'Publici ca fațeta:')}</span>
+        <button type="button"
+                data-action="open-facet-switcher"
+                class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700/80 text-slate-100 border border-slate-700/70 transition-colors">
+          <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+          <span class="font-semibold">${opts.activeFacetName}</span>
+          <span class="text-slate-400">(@${opts.activeFacetHandle})</span>
+          <svg class="w-3.5 h-3.5 text-slate-400" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- Selector Privacy Lens (Audiență) -->
+      <div class="flex items-center gap-2">
+        <label for="composer-audience-select" class="text-slate-400 font-medium">
+          ${t('composer.whoWillSee', undefined, 'Cine poate vedea această postare?')}
+        </label>
+        <select id="composer-audience-select"
+                name="audience"
+                class="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-100 border border-slate-700/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">
+          <option value="public" ${opts.selectedAudience === 'public' ? 'selected' : ''}>
+            🌍 ${t('composer.audiencePublic', undefined, 'Public (Fediverse & Edge)')}
+          </option>
+          <option value="community" ${opts.selectedAudience === 'community' ? 'selected' : ''}>
+            🛡️ ${t('composer.audienceCommunity', undefined, 'Doar membrii comunității')}
+          </option>
+          <option value="followers" ${opts.selectedAudience === 'followers' ? 'selected' : ''}>
+            🔒 ${t('composer.audienceFollowers', undefined, 'Cerc restrâns (Urmăritori verificați)')}
+          </option>
+        </select>
+      </div>
+    </div>
+  `;
+}

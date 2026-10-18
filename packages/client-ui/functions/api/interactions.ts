@@ -95,12 +95,20 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
       try {
         const placeholders = targetIds.map(() => '?').join(',');
         const query = `
-          SELECT target_id, interaction_type, value, user_fingerprint, COUNT(*) as cnt
+          SELECT
+            target_id,
+            interaction_type,
+            value,
+            COUNT(*) as cnt,
+            MAX(CASE WHEN user_fingerprint = ? THEN 1 ELSE 0 END) as is_self
           FROM interactions
           WHERE target_type = ? AND target_id IN (${placeholders})
-          GROUP BY target_id, interaction_type, value, user_fingerprint
+          GROUP BY target_id, interaction_type, value
         `;
-        const res = await db.prepare(query).bind(targetType, ...targetIds).all();
+        const res = await db
+          .prepare(query)
+          .bind(userFingerprint || '__none__', targetType, ...targetIds)
+          .all();
 
         if (res.results) {
           const reactionCounts: Record<string, Record<string, { count: number; userReacted: boolean }>> = {};
@@ -110,10 +118,9 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
             const tid = row.target_id;
             const item = resultsMap[tid];
             if (!item) continue;
-
             const type = row.interaction_type;
-            const cnt = Number(row.cnt) || 1;
-            const isSelf = userFingerprint && row.user_fingerprint === userFingerprint;
+            const cnt = Number(row.cnt) || 0;
+            const isSelf = Number(row.is_self) === 1;
 
             if (type === 'like') {
               item.likesCount += cnt;
@@ -128,9 +135,7 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
               item.viewsCount += cnt;
             } else if (type === 'reaction' && row.value) {
               reactionCounts[tid] = reactionCounts[tid] || {};
-              reactionCounts[tid][row.value] = reactionCounts[tid][row.value] || { count: 0, userReacted: false };
-              reactionCounts[tid][row.value].count += cnt;
-              if (isSelf) reactionCounts[tid][row.value].userReacted = true;
+              reactionCounts[tid][row.value] = { count: cnt, userReacted: isSelf };
             } else if (type === 'award' && row.value) {
               awardCounts[tid] = awardCounts[tid] || {};
               awardCounts[tid][row.value] = (awardCounts[tid][row.value] || 0) + cnt;

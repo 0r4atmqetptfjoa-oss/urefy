@@ -355,6 +355,7 @@ export class I18nEngine {
    */
   private resolveNestedKey(obj: any, path: string): any {
     if (!obj || !path) return undefined;
+    if (path in obj) return obj[path];
     const parts = path.split('.');
     let curr = obj;
     for (const part of parts) {

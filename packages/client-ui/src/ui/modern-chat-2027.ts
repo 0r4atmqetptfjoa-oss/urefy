@@ -221,6 +221,7 @@ export class ModernChatWorkspace2027 {
   public showEmojiPicker: boolean = false;
   public showPinnedOnly: boolean = false;
   public showNewChatModal: boolean = false;
+  public showMobileSidebar: boolean = false;
   public replyingTo: ChatReplyRef | null = null;
   public typingIndicatorPeer: string | null = null;
   public playingVoiceId: string | null = null;
@@ -505,7 +506,11 @@ export class ModernChatWorkspace2027 {
     const me = this.getMyIdentity();
     const list = this.messagesByThread.get(threadId) || [];
     const newMsg: RichChatMessage = {
-      id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      id: `msg-${Date.now()}-${
+        typeof crypto !== 'undefined' && crypto.randomUUID
+          ? crypto.randomUUID().slice(0, 6)
+          : Date.now().toString(36).slice(-4)
+      }`,
       channelOrPeerId: threadId,
       senderFp: me.fp,
       senderName: me.name,
@@ -525,6 +530,13 @@ export class ModernChatWorkspace2027 {
     this.replyingTo = null;
     this.showEmojiPicker = false;
     this.saveToStorage();
+
+    try {
+      if (text && typeof clientStore?.sendMessage === 'function') {
+        clientStore.sendMessage(text);
+      }
+    } catch (_) {}
+
     this.mountIfOnMessagesRoute(true);
     this.scrollToBottom();
 
@@ -595,30 +607,34 @@ export class ModernChatWorkspace2027 {
     if (typeof window === 'undefined' || typeof document === 'undefined') return;
     const hash = window.location.hash || '';
     const existingRoot = document.getElementById('urefy-modern-chat-2027-root');
-
     const isMessages =
       hash.startsWith('#messages') ||
       hash.startsWith('#relays') ||
       hash.startsWith('#chat') ||
       hash.startsWith('#dm-');
 
-    if (!isMessages) {
-      if (existingRoot) existingRoot.remove();
-      return;
-    }
-
-    // Find the main messages workspace area
     const mainArea =
       document.getElementById('main-stage') ||
       document.querySelector<HTMLElement>('main') ||
       document.querySelector<HTMLElement>('main[role="main"]') ||
       document.getElementById('main-feed-scroll') ||
       document.querySelector<HTMLElement>('.workspace-main-column');
-    if (!mainArea) return;
 
+    if (!isMessages) {
+      if (existingRoot) {
+        existingRoot.remove();
+        if (mainArea) {
+          Array.from(mainArea.children).forEach((child) => {
+            (child as HTMLElement).style.display = '';
+          });
+        }
+      }
+      return;
+    }
+
+    if (!mainArea) return;
     if (existingRoot && !force) return;
 
-    // Hide legacy broken message nodes inside mainArea while preserving our modern root
     Array.from(mainArea.children).forEach((child) => {
       const el = child as HTMLElement;
       if (el.id !== 'urefy-modern-chat-2027-root') {
@@ -636,8 +652,7 @@ export class ModernChatWorkspace2027 {
       root.id = 'urefy-modern-chat-2027-root';
       mainArea.appendChild(root);
     }
-
-    root.className = 'w-full h-[calc(100vh-3.5rem)] flex bg-canvas text-slate-100 select-none overflow-hidden';
+    root.className = 'w-full h-[calc(100dvh-4rem)] flex bg-canvas text-slate-100 select-none overflow-hidden relative';
     root.innerHTML = this.renderWorkspaceHTML();
     this.bindEventsOnce();
   }
@@ -652,8 +667,16 @@ export class ModernChatWorkspace2027 {
     const myFp = this.getMyIdentity().fp;
 
     return `
+      <!-- MOBILE DRAWER BACKDROP -->
+      ${
+        this.showMobileSidebar
+          ? `<div data-chat-action="toggle-mobile-sidebar" class="fixed inset-0 z-30 bg-black/70 backdrop-blur-xs md:hidden"></div>`
+          : ''
+      }
       <!-- 1. LEFT SIDEBAR (CHANNELS & DIRECT MESSAGES DIRECTORY) -->
-      <aside class="w-72 sm:w-80 bg-surface-base border-r border-white/10 flex flex-col shrink-0 h-full">
+      <aside class="${
+        this.showMobileSidebar ? 'fixed inset-y-0 left-0 z-40 flex' : 'hidden md:flex'
+      } w-72 sm:w-80 bg-surface-base border-r border-white/10 flex-col shrink-0 h-full shadow-2xl md:shadow-none">
         <!-- Mode Switcher Tabs (Communities vs Direct Messages) -->
         <div class="p-3 border-b border-white/10 space-y-2.5">
           <div class="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-surface-raised border border-white/5">
@@ -745,6 +768,14 @@ export class ModernChatWorkspace2027 {
         <!-- Sticky Conversation Header -->
         <header class="h-14 px-5 bg-surface-base/95 backdrop-blur-md border-b border-white/10 flex items-center justify-between gap-4 shrink-0">
           <div class="flex items-center gap-3 min-w-0">
+            <button
+              type="button"
+              data-chat-action="toggle-mobile-sidebar"
+              class="md:hidden w-9 h-9 rounded-xl bg-surface-raised border border-white/10 flex items-center justify-center text-slate-300 hover:text-white shrink-0 cursor-pointer"
+              title="Browse Channels & DMs"
+            >
+              ☰
+            </button>
             ${
               this.mode === 'channels'
                 ? `
@@ -1439,6 +1470,11 @@ export class ModernChatWorkspace2027 {
 
       const action = actionEl.getAttribute('data-chat-action');
       switch (action) {
+        case 'toggle-mobile-sidebar': {
+          this.showMobileSidebar = !this.showMobileSidebar;
+          this.mountIfOnMessagesRoute(true);
+          break;
+        }
         case 'switch-mode': {
           const nextMode = actionEl.getAttribute('data-mode') as 'channels' | 'dm';
           if (nextMode) {
@@ -1455,6 +1491,7 @@ export class ModernChatWorkspace2027 {
             this.mode = 'channels';
             this.activeChannelId = chId;
             this.showPinnedOnly = false;
+            this.showMobileSidebar = false;
             this.mountIfOnMessagesRoute(true);
             this.scrollToBottom();
           }
@@ -1466,6 +1503,7 @@ export class ModernChatWorkspace2027 {
           if (fp && fp !== 'me-sovereign') {
             this.mode = 'dm';
             this.activePeerFp = fp;
+            this.showMobileSidebar = false;
             const contact = this.contacts.find((c) => c.fp === fp);
             if (contact) contact.unreadCount = 0;
             this.mountIfOnMessagesRoute(true);

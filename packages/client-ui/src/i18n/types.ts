@@ -65,6 +65,9 @@ export interface TranslationDictionary {
     messages?: string;
     profile?: string;
     more?: string;
+    backToFeed?: string;
+    exploreCommunities?: string;
+    commandPaletteHint?: string;
   };
   relays: {
     title: string;
@@ -436,4 +439,6 @@ export interface TranslationDictionary {
     resetFlat: string;
     applyToSoundstage: string;
   };
+  composer?: Record<string, string>;
+  post?: Record<string, string>;
 }

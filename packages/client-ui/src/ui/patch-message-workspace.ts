@@ -1,11 +1,3 @@
-/**
- * @file ui/patch-message-workspace.ts
- * @package @aetheris/client-ui/ui
- * @description 2027 Zero-Flicker Surgical DOM Reconciler & Semantic Message Workspace Upgrader.
- * Reconciles live DOM for Feed & E2EE Messages, parses semantic message tags ([QUESTION], [DECISION], etc.),
- * eliminates double @@ handle symbols, and heals residual "Profile not set up" labels and placeholder personas.
- */
-
 import { profileStore } from '../profile/profile-store.js';
 
 const SEMANTIC_TAG_MAP: Record<string, { label: string; cls: string }> = {
@@ -69,9 +61,12 @@ export function formatChatMessageBody(rawText: string): string {
 
 export function upgradeMessageWorkspaceDOM(root: ParentNode = document): void {
   if (typeof document === 'undefined' || !root) return;
-  const allElements = root.querySelectorAll<HTMLElement>('*');
+  const candidateNodes = root.querySelectorAll<HTMLElement>(
+    '.stanza-header strong:not([data-ws-upgraded]), .stanza-header span:not([data-ws-upgraded]), [data-message-id] strong:not([data-ws-upgraded]), .federated-handle:not([data-ws-upgraded])'
+  );
   let counter = 0;
-  for (const el of Array.from(allElements)) {
+  for (const el of Array.from(candidateNodes)) {
+    el.setAttribute('data-ws-upgraded', '1');
     if (el.children.length !== 0) continue;
     const txt = el.textContent?.trim() || '';
     if (txt === 'Profile not set up' || txt === '[Deleted Context]' || txt === 'Sovereign Member') {
@@ -94,19 +89,16 @@ export function upgradeMessageWorkspaceDOM(root: ParentNode = document): void {
     } else if (txt === '@deleted_context' || txt === '@tech') {
       const fallback = FALLBACK_CONTRIBUTORS[counter % FALLBACK_CONTRIBUTORS.length];
       el.textContent = `@${fallback.handle}`;
+    } else if (txt.includes('@@')) {
+      el.textContent = txt.replace(/@@+/g, '@');
     }
   }
 
-  const handleNodes = root.querySelectorAll<HTMLElement>('[class*="text-slate"], [class*="font-mono"]');
-  for (const node of Array.from(handleNodes)) {
-    if (node.children.length === 0 && node.textContent && node.textContent.includes('@@')) {
-      node.textContent = node.textContent.replace(/@@+/g, '@');
-    }
-  }
-
-  const messageBodies = root.querySelectorAll<HTMLElement>('.dm-message, [data-message-id], .relay-message-body');
+  const messageBodies = root.querySelectorAll<HTMLElement>(
+    '.dm-message:not([data-semantic-upgraded]), [data-message-id]:not([data-semantic-upgraded]), .relay-message-body:not([data-semantic-upgraded])'
+  );
   for (const msgEl of Array.from(messageBodies)) {
-    if (msgEl.getAttribute('data-semantic-upgraded') === 'true') continue;
+    msgEl.setAttribute('data-semantic-upgraded', 'true');
     const textWalker = document.createTreeWalker(msgEl, NodeFilter.SHOW_TEXT);
     let currentNode: Node | null = textWalker.nextNode();
     while (currentNode) {
@@ -116,7 +108,6 @@ export function upgradeMessageWorkspaceDOM(root: ParentNode = document): void {
         span.className = 'flex flex-col gap-0.5';
         span.innerHTML = formatChatMessageBody(val);
         currentNode.parentNode?.replaceChild(span, currentNode);
-        msgEl.setAttribute('data-semantic-upgraded', 'true');
         break;
       }
       currentNode = textWalker.nextNode();
@@ -127,18 +118,6 @@ export function upgradeMessageWorkspaceDOM(root: ParentNode = document): void {
 export function installMessageWorkspacePatch(): void {
   if (typeof document === 'undefined') return;
   upgradeMessageWorkspaceDOM(document);
-  let scheduled = false;
-  const observer = new MutationObserver(() => {
-    if (scheduled) return;
-    scheduled = true;
-    requestAnimationFrame(() => {
-      scheduled = false;
-      upgradeMessageWorkspaceDOM(document);
-    });
-  });
-  if (document.body) {
-    observer.observe(document.body, { childList: true, subtree: true });
-  }
 }
 
 const preservedMediaNodes = new Map<string, HTMLElement>();
@@ -282,18 +261,72 @@ export function patchFeedWorkspace(stage: HTMLElement, html: string): boolean {
   }
 }
 
-export function patchMessageWorkspace(stage: HTMLElement, html: string): boolean {
+export function patchMessageWorkspace(
+  stage: HTMLElement,
+  html: string,
+  scrollContainerSelector = '.dm-messages-scroll-area, #messages-thread-body'
+): boolean {
   if (!stage || typeof document === 'undefined') return false;
   try {
+    const activeEl = document.activeElement;
+    const isInputFocused =
+      activeEl instanceof HTMLInputElement || activeEl instanceof HTMLTextAreaElement;
+
+    // 1. Capturăm starea cursorului și valoarea input-ului activ
+    const savedInput = {
+      activeInputId: isInputFocused && stage.contains(activeEl) ? activeEl.id || activeEl.getAttribute('name') : null,
+      value: isInputFocused && stage.contains(activeEl) ? activeEl.value : '',
+      selectionStart: isInputFocused && stage.contains(activeEl) ? activeEl.selectionStart : null,
+      selectionEnd: isInputFocused && stage.contains(activeEl) ? activeEl.selectionEnd : null,
+    };
+
+    // 2. Poziția de scroll
+    const scrollEl = stage.querySelector<HTMLElement>(scrollContainerSelector);
+    let prevScrollTop = 0;
+    let wasNearBottom = true;
+    if (scrollEl) {
+      prevScrollTop = scrollEl.scrollTop;
+      const distanceFromBottom = scrollEl.scrollHeight - scrollEl.scrollTop - scrollEl.clientHeight;
+      wasNearBottom = distanceFromBottom <= 72;
+    }
+
     rememberWorkspaceMedia(stage);
     const template = document.createElement('div');
     template.innerHTML = html;
     reconcileChildren(stage, template);
     upgradeMessageWorkspaceDOM(stage);
+
+    // 3. Restaurăm scroll
+    const nextScrollEl = stage.querySelector<HTMLElement>(scrollContainerSelector);
+    if (nextScrollEl) {
+      if (wasNearBottom) {
+        nextScrollEl.scrollTop = nextScrollEl.scrollHeight;
+      } else {
+        nextScrollEl.scrollTop = prevScrollTop;
+      }
+    }
+
+    // 4. Restaurăm input focus & cursor
+    if (savedInput.activeInputId) {
+      const targetInput =
+        stage.querySelector<HTMLInputElement | HTMLTextAreaElement>(`#${CSS.escape(savedInput.activeInputId)}`) ||
+        stage.querySelector<HTMLInputElement | HTMLTextAreaElement>(`[name="${CSS.escape(savedInput.activeInputId)}"]`);
+      if (targetInput) {
+        if (savedInput.value.length > 0 && targetInput.value !== savedInput.value) {
+          targetInput.value = savedInput.value;
+        }
+        targetInput.focus({ preventScroll: true });
+        if (savedInput.selectionStart !== null && savedInput.selectionEnd !== null) {
+          try {
+            targetInput.setSelectionRange(savedInput.selectionStart, savedInput.selectionEnd);
+          } catch {}
+        }
+      }
+    }
     return true;
   } catch {
     stage.innerHTML = html;
     upgradeMessageWorkspaceDOM(stage);
     return true;
   }
-}
+}

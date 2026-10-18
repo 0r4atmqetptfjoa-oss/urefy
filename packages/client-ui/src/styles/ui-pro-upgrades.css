@@ -1,0 +1,86 @@
+/* ==========================================================================
+   UREfy UI/UX Pro Upgrades — Zero-CLS, Focus Rings & Cryptographic Popovers
+   ========================================================================== */
+
+:root {
+  --urefy-ring-color: rgba(99, 102, 241, 0.85);
+  --urefy-surface-glass: rgba(15, 23, 42, 0.88);
+}
+
+/* 1. Accesibilitate Tastatură (:focus-visible) */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--urefy-ring-color);
+  outline-offset: 2px;
+}
+
+/* 2. Prevenire Overflow Orizontal pe Carduri & Diagrame Mermaid */
+.urefy-post-card {
+  contain: layout style;
+  word-break: break-word;
+}
+
+.urefy-post-card pre,
+.urefy-post-card code,
+.urefy-post-card svg {
+  max-width: 100%;
+}
+
+.urefy-post-card pre {
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+/* 3. Skeleton Shimmer cu înălțime rezervată (Zero-CLS) */
+.urefy-skeleton-card {
+  min-height: 184px;
+  border-radius: 1rem;
+  background: linear-gradient(
+    90deg,
+    rgba(30, 41, 59, 0.45) 25%,
+    rgba(51, 65, 85, 0.65) 50%,
+    rgba(30, 41, 59, 0.45) 75%
+  );
+  background-size: 200% 100%;
+  animation: urefyShimmer 1.6s infinite linear;
+}
+
+@keyframes urefyShimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* 4. Animație Modal & Respectarea prefers-reduced-motion */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 140ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
