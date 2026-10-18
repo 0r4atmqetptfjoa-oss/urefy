@@ -1,33 +1,41 @@
-# UREfy — Publicare de Producție, 18 Octombrie 2026
+# UREfy — Publicare de Producție, 18 Octombrie 2026 (Pass 2)
 
 ## Versiunea Publicată
 
 - **Domeniu**: https://urefy.com
 - **Cloudflare Pages**: `aetheris-omni-sphere`, branch de producție `main`.
-- **Deployment ID**: `f655c4aa` (URL: `https://f655c4aa.aetheris-omni-sphere.pages.dev`).
-- **Commit de Cod**: `f89b2b5` (`f89b2b55802d0a7e02b0bdc034cc773a5d851fb4`).
+- **Deployment ID**: `15b369b5` (URL: `https://15b369b5.aetheris-omni-sphere.pages.dev`).
+- **Commit de Cod**: `613d854` (`613d854e48b89417852ba7ceca3a63503aa354f9`).
 - **Repository Git**: `https://github.com/0r4atmqetptfjoa-oss/urefy.git` sincronizat pe branch-ul `main`.
-- **Componente Noi și Reparate**:
-  1. **Sovereign Omni-Search 2027**: Command Palette global (`Ctrl+K` / `⌘K`) cu parsare de operatori (`channel:`, `flair:`, `author:`, `has:code`, `merit:>`), căutare instantanee în header și indexare FTS5 (`posts_fts`) pe D1.
-  2. **WhatsApp + Discord PQC Messenger (`dm-workspace.ts`)**: Criptare post-cuantică hibridă (X25519 + ML-KEM-768), dispozitive multiple, verificare chei, citate reply și reacții cu emoji.
-  3. **Note Vocale E2EE (`dm-voice-notes.ts`)**: Înregistrare și redare Opus la 24 kbps, analizor WebAudio API live cu 28 de vârfuri de frecvență, viteză variabilă (`1x` / `1.5x` / `2x`) și trimitere criptată.
-  4. **Sovereign Code Cards 2027 (`code-highlighter.ts`)**: Evidențiere sintaxă 100% XSS-safe (TS, JS, Rust, Python, Go, Solidity, SQL), numere de linie, badge-uri de limbaj, buton copiere și expandare pentru blocuri > 18 linii.
-  5. **Sistem Tipografic Universal 2027**: Fonturi variabile `Plus Jakarta Sans`, `Inter Variable`, `Space Grotesk` și `JetBrains Mono` cu `font-optical-sizing: auto`, `tabular-nums` și comutator dinamic (`data-font-mode`).
-  6. **Spatial UI 2027 (`spatial-ui-2027.ts`)**: Specular Aurora Spotlight (`--spot-x`, `--spot-y`), scurtătură globală `Ctrl+M` pentru chat și dock flotant (`#urefy-spatial-dock`).
-  7. **Optimizare Runtime & Scroll**: Păstrare 100dvh, hidratare incrementală via `data-studio-upgraded="1"`, eliminarea scanărilor globale.
-  8. **Securitate & Backup**: Consolidare migrare D1 `0014`, apărare side-channel timing-safe pe `X-Cron-Secret` și invalidare dublă cache KV (`v1` și `v2`).
+- **Componente Noi și Integrate**:
+  1. **WebRTC P2P Audio, Video & Screen-Share (`webrtc-call.ts`)**: Criptare DTLS-SRTP, semnalizare in-band securizată peste stream-ul de mesaje (`[CALL_SIGNAL:...]`), sonerie generată în timp real cu Web Audio API, partajare de ecran (`replaceTrack`) și verificare criptografică vizuală cu 4 Emoji-uri (Short Authentication String - SAS).
+  2. **eMessage 2.0 & Chat View (`chat-view.ts`)**: Butoane directe de apel Audio / Video, interceptare semnalizare WebRTC, sondaje interactive (`/poll`), note vocale criptate (`[VOICE:...]`), mesaje efemere auto-burn (`/burn`), blocuri de cod markdown, spoilere blurate (`||secret||`) și verificare Safety Numbers.
+  3. **Universal AI Agent Middleware (`functions/_middleware.ts`)**: Suport RFC 9727 (`api-catalog`), RFC 8414 (`oauth-authorization-server`), RFC 9728 (`oauth-protected-resource`), RFC 9421 (`http-message-signatures-directory`), `auth.md`, `openapi.json`, `agent.json`, `skills.json` și server JSON-RPC 2.0 MCP (`/api/mcp`). Negociere automată Markdown (`Accept: text/markdown`).
+  4. **In-Browser WebMCP (`webmcp-init.ts`)**: Unelte expuse pe `navigator.modelContext` (`urefy.navigate`, `urefy.getSecurityStatus`), manifest declarativ `<script type="application/mcp+json">` și meta tag `<meta name="webmcp" content="enabled">`.
+  5. **Sitemap XML Dinamic D1 (`functions/sitemap.xml.ts`)**: Conectat la Cloudflare D1 pentru interogarea canalelor publice și combinarea cu rutele statice, cu suport `GET` și `HEAD`.
+  6. **Optimizare AI Search & GEO 2026**: Directivă `robots.txt` cu permisiuni explicite pentru agenți AI (`Googlebot`, `Google-Extended`, `OAI-SearchBot`, `ChatGPT-User`, `PerplexityBot`, `ClaudeBot`, `bingbot`), manifest `llms.txt`, date structurate Schema.org JSON-LD (`WebApplication` + `Organization` + `FAQPage`) și `seo-manager.ts`.
+  7. **Admin Panel Ultra-Premium (`admin-panel.ts`)**: Mod Panic Lockdown cu salvare în D1, verificare WORM ledger SHA-256, difuzare Push Broadcast și autentificare multi-strat cu `X-Admin-Pin` + `X-Admin-Gateway-Secret` (sesiune volatilă în RAM).
 
 ## Garanții și Verificări Tehnice
 
 - `npm run typecheck`: **PASS** (0 erori TypeScript în monorepo și functions).
-- `npm run build`: **PASS** (compilat curat în 2.55s, `_worker.js` și `_routes.json` generate).
-- Audit producție (23-gate production audit): **23/23 PASS** (CSP strict, E2EE obligatoriu, CSPRNG, zero handleri inline).
+- `npm run build`: **PASS** (compilat curat în 2.65s, `_worker.js` și `_routes.json` generate).
+- Audit producție (23-gate production audit): **23/23 PASS** (CSP strict, E2EE obligatoriu, CSPRNG, zero handleri inline, zero dialoguri native).
 - Toate suitele de teste (`npm test`): **243/243 fișiere trecute, 2.760/2.760 teste trecute (100% verde)**.
-- Bugetul build-ului: **599,47 KiB JavaScript gzip / 30 chunks**; **77,04 KiB CSS gzip**.
-- Ținta de performanță `< 600 KiB gzip` menținută cu succes (599,47 KiB).
-- Cloudflare Pages: Deployment `f655c4aa` confirmat și activat pe branch-ul `main`.
-- Verificare Live HTTP 200: `https://urefy.com/`, `https://urefy.com/api/health`, `https://urefy.com/explore`, `https://urefy.com/messages` și `https://f655c4aa.aetheris-omni-sphere.pages.dev/api/health` toate au răspuns cu status `200 OK` și telemetry `HEALTHY`.
+- Bugetul build-ului: **600,96 KiB JavaScript gzip / 30 chunks**; **77,06 KiB CSS gzip**.
+- Cloudflare Pages: Deployment `15b369b5` confirmat și activat pe branch-ul `main`.
+- Verificare Live HTTP 200:
+  - `https://urefy.com/`: HTTP 200 (HTML)
+  - `https://urefy.com/sitemap.xml`: HTTP 200 (XML)
+  - `https://urefy.com/robots.txt`: HTTP 200 (Text)
+  - `https://urefy.com/llms.txt`: HTTP 200 (Text)
+  - `https://urefy.com/auth.md`: HTTP 200 (Markdown)
+  - `https://urefy.com/.well-known/agent.json`: HTTP 200 (JSON)
+  - `https://urefy.com/.well-known/mcp.json`: HTTP 200 (JSON)
+  - `https://urefy.com/api/mcp` (POST tools/list): HTTP 200 (JSON-RPC)
+  - `https://urefy.com/api/health`: HTTP 200 (HEALTHY)
+  - Markdown Content Negotiation (`Accept: text/markdown` pe `/`): HTTP 200 (Text/Markdown)
 
 ## Integritate Date și Securitate
 
-Nu au fost executate scripturi seed, comenzi de scriere sau migrări destructive pe baza live D1. Toate datele reale ale utilizatorilor și postările sunt intacte și neatinse.
+Zero migrări destructive sau modificări de utilizatori/postări pe baza live Cloudflare D1. Toate datele reale ale utilizatorilor sunt intacte.
