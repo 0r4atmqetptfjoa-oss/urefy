@@ -401,7 +401,7 @@ export class ExploreView {
     const categories = this.categories;
     const filteredPosts = this.filterPosts(allPosts);
 
-    return `<div id="explore-workspace" class="w-full max-w-6xl mx-auto space-y-6 pb-16 px-1">
+    return `<div id="explore-workspace" class="w-full h-full flex-1 overflow-y-auto max-w-6xl mx-auto space-y-6 pb-32 px-2 sm:px-4">
       <section class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#0e1424]/95 via-surface-base/90 to-[#0a131c]/95 backdrop-blur-2xl border border-white/10 p-6 shadow-2xl">
         <div class="flex flex-wrap items-end justify-between gap-4">
           <div class="max-w-2xl">

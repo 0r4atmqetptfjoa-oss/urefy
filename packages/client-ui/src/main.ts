@@ -115,11 +115,21 @@ const start = async () => {
     headerSearchInput?.addEventListener('focus', () => {
       omniSearch.openModal(headerSearchInput.value);
     });
-    document.querySelectorAll('[data-open-command-rail], #btn-header-search, #btn-mobile-search').forEach((btn) => {
+    document.querySelectorAll('[data-open-command-rail], [data-action="open-command-rail"], #btn-open-command-rail, #btn-mobile-search-trigger, #btn-header-search, #btn-mobile-search').forEach((btn) => {
       btn.addEventListener('click', (e) => {
         e.preventDefault();
+        e.stopPropagation();
         omniSearch.openModal();
       });
+    });
+
+    window.addEventListener('keydown', (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        const activeTag = (document.activeElement?.tagName || '').toLowerCase();
+        if (activeTag === 'input' || activeTag === 'textarea') return;
+        e.preventDefault();
+        omniSearch.openModal();
+      }
     });
 
     (window as any).dmWorkspace = dmWorkspace;

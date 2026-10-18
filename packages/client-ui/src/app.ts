@@ -2728,9 +2728,16 @@ function bindEvents(): void {
     clientStore.setUiMode(clientStore.isSimpleMode() ? 'sovereign' : 'simple');
   }, { signal });
 
-  // Command rail (Omnibar Search)
-  document.getElementById('btn-open-command-rail')?.addEventListener('click', () => clientStore.toggleCommandRail(), { signal });
-  document.getElementById('btn-mobile-search-trigger')?.addEventListener('click', () => clientStore.toggleCommandRail(), { signal });
+  // Command rail & 2027 OmniSearch
+  const triggerOmniSearch = () => {
+    if (typeof window !== 'undefined' && (window as any).omniSearch?.openModal) {
+      (window as any).omniSearch.openModal();
+    } else {
+      clientStore.toggleCommandRail();
+    }
+  };
+  document.getElementById('btn-open-command-rail')?.addEventListener('click', triggerOmniSearch, { signal });
+  document.getElementById('btn-mobile-search-trigger')?.addEventListener('click', triggerOmniSearch, { signal });
   document.getElementById('command-rail-overlay')?.addEventListener('click', (e) => {
     if (e.target === document.getElementById('command-rail-overlay')) {
       clientStore.toggleCommandRail();

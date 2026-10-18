@@ -27,7 +27,9 @@ class StudioRuntimeController {
   }
 
   public toggleNotificationsPopover(): void {
-    // Delegated via action-dispatcher
+    if (typeof (window as any).__aetherisToggleNotifs === 'function') {
+      (window as any).__aetherisToggleNotifs();
+    }
   }
 
   private scheduleSync(): void {

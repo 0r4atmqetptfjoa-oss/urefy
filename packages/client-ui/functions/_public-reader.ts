@@ -6,8 +6,9 @@ declare class HTMLRewriter {
 
 export function publicReader(response: Response, workspace = false): Response {
   if (workspace) return response;
-  let rewriter = new HTMLRewriter();
-  if (!workspace) rewriter = rewriter.on('script[type="module"], link[rel="modulepreload"], link[rel="stylesheet"], link[rel="preload"][as="style"], #boot-shell', { element(e) { e.remove(); } });
+  const rewriter = new HTMLRewriter();
+  // Retain scripts and styles so human visitors auto-hydrate into the interactive post view,
+  // while search crawlers receive the complete semantic SSR HTML.
   return rewriter
     .on('html', { element(e) { e.setAttribute('lang', 'en'); e.setAttribute('data-public-reader', 'true'); } })
     .on('body', { element(e) { e.setAttribute('class', 'public-reader'); } })

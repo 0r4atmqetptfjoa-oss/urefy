@@ -961,7 +961,7 @@ export class SettingsView {
             <input
               type="checkbox"
               id="toggle-oled-mode"
-              ${isOledActive ? 'checked' : ''} data-change="call-global" data-raw-change="if(window.themeEngine) { window.themeEngine.setTheme(this.checked ? 'matrix-monolith' : 'obsidian-cyber'); } if(window.settingsView) { window.settingsView.setActiveTab('appearance'); }"
+              ${isOledActive ? 'checked' : ''} data-change="settings.toggleOled"
               class="sr-only peer"
             />
             <div class="w-11 h-6 bg-surface-base peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
@@ -987,7 +987,7 @@ export class SettingsView {
           <div class="grid grid-cols-2 gap-3" id="settings-font-family-controls">
             <button
               type="button"
-              id="btn-font-sans" data-action="call-global" data-raw-click="if(window.themeEngine) { window.themeEngine.setFontFamily('sans'); } if(window.settingsView) { window.settingsView.setActiveTab('appearance'); }"
+              id="btn-font-sans" data-action="settings.setFontFamily" data-font="sans"
               class="p-3.5 rounded-xl border text-left flex items-center space-x-3 transition-all cursor-pointer ${
                 currentFont === 'sans'
                   ? 'bg-cyan-500/20 border-cyan-500 text-cyan-200 shadow-md font-semibold'
@@ -1003,7 +1003,7 @@ export class SettingsView {
 
             <button
               type="button"
-              id="btn-font-mono" data-action="call-global" data-raw-click="if(window.themeEngine) { window.themeEngine.setFontFamily('mono'); } if(window.settingsView) { window.settingsView.setActiveTab('appearance'); }"
+              id="btn-font-mono" data-action="settings.setFontFamily" data-font="mono"
               class="p-3.5 rounded-xl border text-left flex items-center space-x-3 transition-all cursor-pointer ${
                 currentFont === 'mono'
                   ? 'bg-[var(--color-accent,#e59b3c)]/15 border-[var(--color-accent,#e59b3c)] text-[var(--color-accent,#e59b3c)] shadow-md font-semibold'

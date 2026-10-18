@@ -614,8 +614,8 @@ export function renderEmojiPopover(targetType: 'dm' | 'relay'): string {
   }
 
   return `
-    <div class="emoji-picker-backdrop fixed inset-0 z-40 bg-black/60 backdrop-blur-xs sm:hidden" data-action="${targetType === 'dm' ? 'toggle-dm-emoji' : 'toggle-relay-emoji'}"></div>
-    <div class="emoji-picker-container fixed sm:absolute inset-x-0 sm:inset-x-auto bottom-0 sm:bottom-full sm:mb-3 sm:left-2 z-50 p-3 bg-surface-base/98 border-t sm:border border-white/12 shadow-[0_24px_50px_rgba(0,0,0,0.65)] backdrop-blur-2xl w-full sm:w-[350px] sm:h-[390px] h-[52vh] max-h-[52vh] sm:max-h-[390px] select-none rounded-t-3xl sm:rounded-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom sm:slide-in-from-bottom-2 duration-150">
+    <div class="emoji-picker-backdrop fixed inset-0 z-[80] bg-black/70 backdrop-blur-xs sm:hidden" data-action="${targetType === 'dm' ? 'toggle-dm-emoji' : 'toggle-relay-emoji'}"></div>
+    <div class="emoji-picker-container fixed sm:absolute inset-x-0 sm:inset-x-auto bottom-0 sm:bottom-full sm:mb-3 sm:left-2 z-[85] p-3 pb-[max(1rem,env(safe-area-inset-bottom))] bg-surface-base/98 border-t sm:border border-white/15 shadow-[0_24px_50px_rgba(0,0,0,0.85)] backdrop-blur-2xl w-full sm:w-[350px] sm:h-[390px] h-[64vh] max-h-[64vh] sm:max-h-[390px] select-none rounded-t-3xl sm:rounded-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom sm:slide-in-from-bottom-2 duration-150">
       <div class="w-10 h-1 bg-white/20 rounded-full mx-auto mb-2.5 sm:hidden shrink-0"></div>
       <div class="flex items-center justify-between pb-2 mb-2 border-b border-white/5 text-xs text-slate-400 shrink-0">
         <span class="font-bold text-white flex items-center gap-1.5">
@@ -657,7 +657,7 @@ export function renderEmojiPopover(targetType: 'dm' | 'relay'): string {
       </div>
 
       <!-- Emoji Grid -->
-      <div class="grid grid-cols-7 sm:grid-cols-8 gap-1.5 flex-1 min-h-0 overflow-y-auto pr-1 text-2xl sm:text-xl overscroll-contain">
+      <div class="grid grid-cols-7 sm:grid-cols-8 gap-1.5 flex-1 min-h-0 overflow-y-auto pr-1 pb-10 text-2xl sm:text-xl overscroll-contain">
         ${displayEmojis.length === 0 ? `
           <div class="col-span-full py-8 text-center text-slate-500 text-xs">No emojis found</div>
         ` : displayEmojis.map(e => `

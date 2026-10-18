@@ -1,6 +1,6 @@
 import type { D1Database } from './_db.js';
 
-export const SUPPORTED_REACTIONS = ['👍', '🔥', '❤️', '⚡', '💡', '🛡️', '🎯', '🚀', '🤔'] as const;
+export const SUPPORTED_REACTIONS = ['👍', '🔥', '❤️', '⚡', '💡', '🛡️', '🎯', '🚀', '🤔', '🎉'] as const;
 export const SUPPORTED_AWARDS = ['SILVER', 'GOLD', 'GUARDIAN_CHOICE', 'ZK_VERIFIED', 'PLATINUM', 'BRONZE', 'COMMUNITY_PICK'] as const;
 
 /** Each desired-state write and its denormalized counter commit in one D1 transaction. */

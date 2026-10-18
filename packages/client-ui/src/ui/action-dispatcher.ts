@@ -1223,7 +1223,50 @@ export class ActionDispatcher {
 
       case 'command.open':
       case 'open-command-rail': {
-        commandRailV2.open();
+        event.preventDefault();
+        event.stopPropagation();
+        if (typeof window !== 'undefined' && (window as any).omniSearch?.openModal) {
+          (window as any).omniSearch.openModal();
+        } else {
+          commandRailV2.open();
+        }
+        break;
+      }
+
+      case 'cycle-studio-theme':
+      case 'cycle-theme': {
+        event.preventDefault();
+        event.stopPropagation();
+        themeEngine.cycleTheme();
+        clientStore.notifySync('THEME_CHANGE');
+        break;
+      }
+
+      case 'settings.setFontFamily': {
+        event.preventDefault();
+        event.stopPropagation();
+        const font = (el.getAttribute('data-font') || 'sans') as 'sans' | 'mono';
+        themeEngine.setFontFamily(font);
+        if (typeof document !== 'undefined') {
+          document.documentElement.setAttribute('data-font-mode', font === 'mono' ? 'mono-hacker' : 'jakarta');
+        }
+        if (typeof window !== 'undefined' && (window as any).settingsView) {
+          (window as any).settingsView.setActiveTab('appearance');
+        }
+        clientStore.notifySync('THEME_CHANGE');
+        break;
+      }
+
+      case 'settings.toggleOled': {
+        event.preventDefault();
+        event.stopPropagation();
+        const currentId = themeEngine.getCurrentThemeId();
+        const nextId = currentId === 'matrix-monolith' ? 'mineral-basalt' : 'matrix-monolith';
+        themeEngine.setTheme(nextId);
+        if (typeof window !== 'undefined' && (window as any).settingsView) {
+          (window as any).settingsView.setActiveTab('appearance');
+        }
+        clientStore.notifySync('THEME_CHANGE');
         break;
       }
 
@@ -1843,15 +1886,12 @@ export class ActionDispatcher {
 
       case 'set-settings-theme': {
         const themeId = el.getAttribute('data-theme-id');
-        if (themeId && typeof window !== 'undefined') {
-          if ((window as any).__aetheris_apply_theme) {
-            (window as any).__aetheris_apply_theme(themeId);
-          } else if ((window as any).themeEngine) {
-            (window as any).themeEngine.setTheme(themeId);
-          }
-          if ((window as any).settingsView) {
+        if (themeId) {
+          themeEngine.setTheme(themeId);
+          if (typeof window !== 'undefined' && (window as any).settingsView) {
             (window as any).settingsView.setActiveTab('appearance');
           }
+          clientStore.notifySync('THEME_CHANGE');
         }
         break;
       }
@@ -2722,10 +2762,10 @@ export class ActionDispatcher {
         event.preventDefault();
         event.stopPropagation();
         if (typeof window !== 'undefined') {
-          if ((window as any).studioRuntime?.toggleNotificationsPopover) {
-            (window as any).studioRuntime.toggleNotificationsPopover();
-          } else if (typeof (window as any).__aetherisToggleNotifs === 'function') {
+          if (typeof (window as any).__aetherisToggleNotifs === 'function') {
             (window as any).__aetherisToggleNotifs();
+          } else if ((window as any).studioRuntime?.toggleNotificationsPopover) {
+            (window as any).studioRuntime.toggleNotificationsPopover();
           }
         }
         break;
@@ -3476,6 +3516,26 @@ export class ActionDispatcher {
       if (fileInput.files && fileInput.files[0]) {
         void getMV().then(m => m.handleFileAttachment(fileInput.files![0], 'relay'));
         fileInput.value = '';
+      }
+      return;
+    }
+    if (action === 'settings.toggleOled' || action === 'toggle-oled-mode') {
+      const input = el as HTMLInputElement;
+      themeEngine.setTheme(input.checked ? 'matrix-monolith' : 'mineral-basalt');
+      if (typeof window !== 'undefined' && (window as any).settingsView) {
+        (window as any).settingsView.setActiveTab('appearance');
+      }
+      clientStore.notifySync('THEME_CHANGE');
+      return;
+    }
+    if (action === 'call-global') {
+      const rawChange = el.getAttribute('data-raw-change');
+      if (rawChange) {
+        try {
+          safeExecuteExpression(rawChange, el, event);
+        } catch (err) {
+          console.error('[ActionDispatcher] Error in data-raw-change:', err, rawChange);
+        }
       }
       return;
     }
