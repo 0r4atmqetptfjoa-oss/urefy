@@ -117,12 +117,18 @@ jobs:
       - name: Execute Live Smoke Tests & Health Check
         if: steps.pages_deploy.outputs.deployed == 'true'
         env:
-          SMOKE_BASE_URL: https://aetheris-omni-sphere.pages.dev
+          SMOKE_BASE_URL: https://urefy.com
         run: node scripts/smoke-test.mjs
 
       - name: Execute opt-in multi-node and Fediverse interoperability checks
-        if: steps.pages_deploy.outputs.deployed == 'true' && secrets.UREFY_SECONDARY_NODE_URL != ''
+        if: steps.pages_deploy.outputs.deployed == 'true'
         env:
-          UREFY_NODE_URLS: https://aetheris-omni-sphere.pages.dev,${{ secrets.UREFY_SECONDARY_NODE_URL }}
+          UREFY_SECONDARY_NODE_URL: ${{ secrets.UREFY_SECONDARY_NODE_URL }}
           FEDIVERSE_TEST_HANDLE: ${{ secrets.FEDIVERSE_TEST_HANDLE }}
-        run: npm run test:live-network
+        run: |
+          if [ -n "$UREFY_SECONDARY_NODE_URL" ]; then
+            export UREFY_NODE_URLS="https://urefy.com,$UREFY_SECONDARY_NODE_URL"
+            npm run test:live-network
+          else
+            echo "UREFY_SECONDARY_NODE_URL is not configured; skipping opt-in multi-node checks."
+          fi

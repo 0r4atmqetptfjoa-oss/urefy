@@ -1,7 +1,7 @@
 import { pathToFileURL } from 'node:url';
 
 export async function runSmokeTests({
-  baseUrl = process.env.SMOKE_BASE_URL || 'https://aetheris-omni-sphere.pages.dev',
+  baseUrl = process.env.SMOKE_BASE_URL || 'https://urefy.com',
   fetchImpl = fetch,
   log = console.log,
 } = {}) {
@@ -14,7 +14,7 @@ export async function runSmokeTests({
   const results = await Promise.all(endpoints.map(async (endpoint) => {
     const url = new URL(endpoint.path, baseUrl);
     try {
-      const response = await fetchImpl(url, { signal: AbortSignal.timeout(10_000), redirect: 'error' });
+      const response = await fetchImpl(url, { signal: AbortSignal.timeout(10_000), redirect: 'follow' });
       if (response.status !== 200) throw new Error(`HTTP ${response.status}`);
       const contentType = response.headers.get('content-type') || '';
       if (!contentType.includes(endpoint.kind === 'json' ? 'application/json' : 'text/html')) {
