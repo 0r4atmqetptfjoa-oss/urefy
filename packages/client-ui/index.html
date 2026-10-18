@@ -4,12 +4,13 @@
     <meta charset="UTF-8" />
     <script src="/theme-boot.js"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
-    <title>UREfy — Communities and encrypted messaging</title>
-    <meta name="description" content="Explore UREfy communities, share public discussions and use encrypted direct messages. Create a key-based identity without an email or phone number." />
-    <meta name="author" content="UREfy" />
-    <meta name="creator" content="UREfy" />
-    <meta name="publisher" content="UREfy Network" />
-    <meta name="application-name" content="UREfy" />
+    <title>Urefy — Rețea Socială Criptată E2EE, Chat Privat &amp; Apeluri Video P2P</title>
+    <meta name="description" content="Urefy este platforma socială suverană și aplicația de mesagerie criptată End-to-End (E2EE). Comunică liber prin chat criptat AES-256, apeluri audio/video P2P și identitate descentralizată DID." />
+    <meta name="keywords" content="urefy, mesagerie criptata, chat e2ee, retea sociala descentralizata, apeluri video criptate, web3 social, comunicare privata, signal alternativa, activitypub romania" />
+    <meta name="author" content="Urefy Network" />
+    <meta name="creator" content="Urefy" />
+    <meta name="publisher" content="Urefy Network" />
+    <meta name="application-name" content="Urefy" />
     <meta name="category" content="Social Networking, Technology, Privacy, Open Source" />
     <meta name="classification" content="Social Network, Privacy, Open Source, Cryptography" />
     <meta name="rating" content="General" />
@@ -17,48 +18,112 @@
     <meta name="googlebot" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
     <meta name="bingbot" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
     <meta name="format-detection" content="telephone=no" />
-    <link rel="canonical" href="https://urefy.com/" />
+    <link rel="canonical" href="https://urefy.com/" id="canonical-link" />
+    <meta name="google-site-verification" content="PUNE_CODUL_TAU_GOOGLE_SEARCH_CONSOLE_AICI" />
+
+    <!-- Agent Readiness & WebMCP Discovery Links -->
+    <meta name="webmcp" content="enabled" />
+    <link rel="api-catalog" href="https://urefy.com/.well-known/api-catalog" type="application/linkset+json" />
+    <link rel="service-desc" href="https://urefy.com/openapi.json" type="application/openapi+json" />
+    <link rel="service-doc" href="https://urefy.com/auth.md" type="text/markdown" />
+    <link rel="alternate" href="https://urefy.com/?format=markdown" type="text/markdown" title="Markdown Version for AI Agents" />
+    <link rel="oauth-authorization-server" href="https://urefy.com/.well-known/oauth-authorization-server" />
+    <link rel="oauth-protected-resource" href="https://urefy.com/.well-known/oauth-protected-resource" />
+    <link rel="agent-card" href="https://urefy.com/.well-known/agent.json" type="application/json" />
+    <link rel="mcp-server" href="https://urefy.com/.well-known/mcp.json" type="application/json" />
+    <link rel="skills-index" href="https://urefy.com/.well-known/skills.json" type="application/json" />
+    <link rel="http-message-signatures-directory" href="https://urefy.com/.well-known/http-message-signatures-directory" />
     <link rel="help" type="text/plain" href="https://urefy.com/llms.txt" title="LLM AI Search Manifest" />
     <link rel="author" type="text/plain" href="https://urefy.com/llms-full.txt" title="Full Architecture Documentation" />
-    <script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@graph": [
+
+    <!-- Declarative WebMCP Tool Manifest -->
+    <script type="application/mcp+json" id="webmcp-manifest">
     {
-      "@type": "WebSite",
-      "@id": "https://urefy.com/#website",
-      "url": "https://urefy.com/",
-      "name": "UREfy",
-      "description": "Explore UREfy communities, share public discussions and use encrypted direct messages. Create a key-based identity without an email or phone number.",
-      "inLanguage": "en"
-    },
-    {
-      "@type": "Organization",
-      "@id": "https://urefy.com/#organization",
-      "name": "UREfy",
-      "url": "https://urefy.com/",
-      "logo": "https://urefy.com/icon-512.png"
+      "version": "1.0",
+      "serverCard": "https://urefy.com/.well-known/mcp.json",
+      "agentCard": "https://urefy.com/.well-known/agent.json",
+      "tools": [
+        {
+          "name": "urefy.navigate",
+          "description": "Navigate between Urefy views (feed, chat, messages, explore)"
+        },
+        {
+          "name": "urefy.getSecurityStatus",
+          "description": "Inspect active E2EE cryptographic status"
+        }
+      ]
     }
-  ]
-}
-</script>
+    </script>
+
+    <!-- Schema.org JSON-LD: WebApplication + Organization + FAQPage (Rich Snippets Google) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "WebApplication",
+          "name": "Urefy",
+          "url": "https://urefy.com/",
+          "applicationCategory": "SocialNetworkingApplication",
+          "operatingSystem": "Web, iOS, Android, Desktop",
+          "description": "Platformă de socializare descentralizată și mesagerie criptată End-to-End (E2EE) cu apeluri audio/video P2P și identitate criptografică Ed25519.",
+          "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "EUR"
+          },
+          "featureList": [
+            "Criptare End-to-End AES-256-GCM și Ed25519",
+            "Apeluri Audio și Video P2P WebRTC cu verificare SAS Emoji",
+            "Mesaje efemere cu autodistrugere programată",
+            "Identitate Descentralizată (DID) și verificare Zero-Knowledge"
+          ]
+        },
+        {
+          "@type": "Organization",
+          "name": "Urefy",
+          "url": "https://urefy.com/",
+          "logo": "https://urefy.com/favicon.ico"
+        },
+        {
+          "@type": "FAQPage",
+          "mainEntity": [
+            {
+              "@type": "Question",
+              "name": "Ce este Urefy și cum îmi protejează mesajele?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Urefy este o rețea socială și o aplicație de mesagerie cu criptare End-to-End (E2EE). Mesajele, notele vocale și apelurile audio/video sunt criptate direct pe dispozitivul tău folosind AES-256-GCM, Ed25519 și DTLS-SRTP."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Pot efectua apeluri audio și video criptate pe Urefy?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Da, Urefy include apeluri audio și video HD Peer-to-Peer (WebRTC) cu partajare de ecran și verificare a cheii de securitate prin 4 emoji-uri criptografice."
+              }
+            }
+          ]
+        }
+      ]
+    }
+    </script>
+
+    <!-- Open Graph / Facebook / Discord / Telegram Preview -->
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="UREfy — Communities and encrypted messaging" />
-    <meta property="og:description" content="Explore UREfy communities, share public discussions and use encrypted direct messages. Create a key-based identity without an email or phone number." />
-    <meta property="og:image" content="https://urefy.com/og-image.png" />
-    <meta property="og:image:secure_url" content="https://urefy.com/og-image.png" />
-    <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="630" />
-    <meta property="og:image:type" content="image/png" />
-    <meta property="og:image:alt" content="UREfy — Communities and encrypted messaging" />
+    <meta property="og:site_name" content="Urefy" />
     <meta property="og:url" content="https://urefy.com/" />
-    <meta property="og:site_name" content="UREfy" />
-    <meta property="og:locale" content="en_US" />
+    <meta property="og:title" content="Urefy — Mesagerie Criptată E2EE, Apeluri P2P &amp; Rețea Socială Suverană" />
+    <meta property="og:description" content="Descoperă eMessage 2.0: mesaje criptate pe dispozitiv, apeluri video P2P cu verificare Emoji, mesaje efemere și protecție Zero-Knowledge." />
+    <meta property="og:image" content="https://urefy.com/og-image.png" />
+    <meta property="og:locale" content="ro_RO" />
+
+    <!-- Twitter / X Card -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="UREfy — Communities and encrypted messaging" />
-    <meta name="twitter:description" content="Explore UREfy communities, share public discussions and use encrypted direct messages. Create a key-based identity without an email or phone number." />
+    <meta name="twitter:title" content="Urefy — Rețea Socială &amp; Mesagerie Criptată End-to-End" />
+    <meta name="twitter:description" content="Comunică fără compromisuri: Chat E2EE, Apeluri Audio/Video WebRTC P2P și Identitate Descentralizată." />
     <meta name="twitter:image" content="https://urefy.com/og-image.png" />
-    <meta name="twitter:image:alt" content="UREfy — Communities and encrypted messaging" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; manifest-src 'self' blob:; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://images.unsplash.com https://*.ytimg.com https://*.youtube.com https://avatars.githubusercontent.com https:; media-src 'self' blob: data: https: https://commondatastorage.googleapis.com; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com blob:; child-src 'self' blob: https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com; connect-src 'self' wss: ws: https:; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self';" />
     <meta http-equiv="X-Content-Type-Options" content="nosniff" />
     <meta name="referrer" content="strict-origin-when-cross-origin" />
@@ -240,7 +305,18 @@
       <div class="boot-shell__feed" aria-hidden="true"><div class="boot-shell__card"><div class="boot-shell__line"></div><div class="boot-shell__line"></div><div class="boot-shell__line"></div></div><div class="boot-shell__card"><div class="boot-shell__line"></div><div class="boot-shell__line"></div><div class="boot-shell__line"></div></div></div>
     </div>
     <div id="app"><section class="public-home-intro" aria-labelledby="public-home-title"><h1 id="public-home-title">UREfy — communities and encrypted conversations</h1><p>Explore UREfy communities, share public discussions and use encrypted direct messages. Create a key-based identity without an email or phone number.</p><nav aria-label="Discover UREfy"><a href="https://urefy.com/explore">Explore discussions</a><a href="https://urefy.com/communities">Browse communities</a><a href="https://urefy.com/c/technology">c/technology</a><a href="https://urefy.com/guides">Getting started</a><a href="https://urefy.com/faq">Questions &amp; answers</a><a href="https://urefy.com/about">About UREfy</a></nav></section></div>
-    <noscript><p style="padding:1rem">Enable JavaScript to participate in conversations. Public pages remain available through the links above.</p></noscript>
+    <noscript>
+      <main style="max-width:800px;margin:40px auto;font-family:sans-serif;line-height:1.6;padding:20px;">
+        <h1>Urefy — Rețea Socială Descentralizată &amp; Mesagerie Criptată End-to-End (E2EE)</h1>
+        <p>Bun venit pe <strong>Urefy.com</strong>, platforma de comunicare suverană cu criptare AES-256-GCM, apeluri video P2P WebRTC, mesaje cu autodistrugere și identitate descentralizată (DID).</p>
+        <h2>Funcționalități Principale eMessage 2.0</h2>
+        <ul>
+          <li>Chat și Mesaje Directe criptate End-to-End pe dispozitiv.</li>
+          <li>Apeluri Audio, Video HD și Screen Sharing P2P cu verificare SAS Emoji.</li>
+          <li>Sondaje live, note vocale criptate și protecție Zero-Knowledge.</li>
+        </ul>
+      </main>
+    </noscript>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

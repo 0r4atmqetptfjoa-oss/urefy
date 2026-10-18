@@ -1,30 +1,14 @@
-# UREfy
+# Urefy (https://urefy.com)
+> Urefy este o rețea socială suverană, descentralizată și o platformă de mesagerie criptată End-to-End (E2EE) de nouă generație, construită pe protocoale criptografice Ed25519, AES-256-GCM, WebRTC P2P și dovezi Zero-Knowledge (ZK-Proofs).
 
-> UREfy is a web social platform for public community discussions and encrypted direct conversations. The official website is https://urefy.com/.
+## Funcționalități Principale
+- **Mesagerie E2EE (eMessage 2.0)**: Chat în timp real, mesaje directe criptate pe dispozitiv, mesaje efemere cu auto-distrugere (Auto-Burn), note vocale criptate, sondaje live și verificare prin numere de siguranță.
+- **Apeluri Audio & Video P2P Criptate**: Comunicare directă WebRTC cu criptare DTLS-SRTP, partajare de ecran (Screen Share) și verificare criptografică vizuală cu 4 Emoji-uri (SAS).
+- **Identitate Descentralizată (DID)**: Autentificare fără parole stocate pe server, bazată pe semnături criptografice Ed25519 și recuperare socială (Shamir's Secret Sharing).
+- **Federație ActivityPub & Conformitate EU DSA**: Interoperabilitate cu Fediverse și registru de audit imutabil WORM (SHA-256 Hash-Chained Ledger).
 
-## Product and practical guides
-
-- [About UREfy](https://urefy.com/about): What the platform is and how key-based identity differs from hosted infrastructure.
-- [Features](https://urefy.com/features): Community posts, replies, encrypted direct messages, Vault and browser support.
-- [Frequently asked questions](https://urefy.com/faq): Accounts, email requirements, public visibility, installation and recovery.
-- [Getting started](https://urefy.com/guides/get-started): Read discussions, create an identity and protect recovery material.
-- [Private messaging](https://urefy.com/guides/private-messaging): Encryption boundaries, recipients and device precautions.
-- [Security](https://urefy.com/security): Current implementation and limitations, without a claim of independent certification.
-- [Privacy](https://urefy.com/privacy): Public data, encryption and cookie-free performance monitoring.
-- [Terms](https://urefy.com/terms): Rules for using the service.
-
-## Public discovery
-
-- [Explore](https://urefy.com/explore): Recent public discussions and people.
-- [Communities](https://urefy.com/communities): Current community directory; use its real links rather than assuming a topic exists.
-- [Technology Community](https://urefy.com/c/technology): Public discussions, technical guides, system architecture and engineering topics in c/technology.
-- [Sitemap](https://urefy.com/sitemap.xml): Canonical public routes and paginated sitemaps.
-- [Expanded reference](https://urefy.com/llms-full.txt): A concise factual product reference.
-
-## Important boundaries
-
-UREfy runs in modern web browsers; PWA installation depends on browser support. No native store-app availability is asserted here. The current identity flow does not require an email or phone number. Public posts, replies and profiles can be indexed. Direct-message content, private Vault data and user recovery keys are not public discovery material.
-
-Direct messages use client-side end-to-end encryption. This does not conceal every network or routing detail, protect a compromised endpoint, or prevent a recipient copying content. Infrastructure backups cannot replace lost user-only keys. UREfy uses sampled, cookie-free performance monitoring and operational security logs; it does not claim that no operational data is processed.
-
-Updated: 30 September 2026. This file is a reading aid; the linked live pages and actual public content are the source for product claims.
+## Link-uri Oficiale
+- Aplicatie Web & Feed: https://urefy.com/
+- Canale Comunitate E2EE: https://urefy.com/?view=chat
+- Mesaje Directe Criptate: https://urefy.com/?view=messages
+- Sitemap XML: https://urefy.com/sitemap.xml

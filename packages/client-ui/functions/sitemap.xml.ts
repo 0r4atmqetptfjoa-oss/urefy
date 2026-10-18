@@ -1,25 +1,66 @@
-import { headHandler } from './_head.js';
-import { getD1Database, type Env } from './api/_db.js';
-import { INDEXABLE_POST_SQL, INDEXABLE_PROFILE_SQL, SITE_ORIGIN } from './_discovery.js';
-import { SITEMAP_PAGE_SIZE, sitemapResponse, sitemapUnavailable } from './_sitemaps.js';
-export async function onRequestGet(context: { env?: Env }): Promise<Response> {
-  const db = getD1Database(context.env);
-  if (!db) return sitemapUnavailable();
-  try {
-    const counts = await db.batch<any>([
-      db.prepare(`SELECT count(*) AS total FROM posts WHERE ${INDEXABLE_POST_SQL}`),
-      db.prepare(`SELECT count(*) AS total FROM user_profiles WHERE ${INDEXABLE_PROFILE_SQL}`),
-    ]);
-    if (counts.length !== 2 || counts.some(result => !result.success || result.results?.[0]?.total === undefined)) return sitemapUnavailable();
-    const paths = ['/sitemap-static.xml', '/sitemap-communities.xml'];
-    for (const [index, kind] of ['posts', 'profiles'].entries()) {
-      const count = Number(counts[index].results?.[0]?.total || 0);
-      if (!Number.isSafeInteger(count) || count < 0 || count > 50000 * SITEMAP_PAGE_SIZE) return sitemapUnavailable();
-      for (let page = 1; page <= Math.max(1, Math.ceil(count / SITEMAP_PAGE_SIZE)); page++) paths.push(`/sitemaps/${kind}/${page}`);
-    }
-    if (paths.length > 50000) return sitemapUnavailable();
-    return sitemapResponse('<?xml version="1.0" encoding="UTF-8"?><sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' + paths.map(p => `<sitemap><loc>${SITE_ORIGIN}${p}</loc></sitemap>`).join('') + '</sitemapindex>');
-  } catch { return sitemapUnavailable(); }
-}
+export const onRequestGet = async (context: any): Promise<Response> => {
+  const baseUrl = 'https://urefy.com';
+  const nowIso = new Date().toISOString();
+  const staticRoutes = [
+    { path: '/', priority: '1.0', changefreq: 'hourly' },
+    { path: '/?view=feed', priority: '0.9', changefreq: 'hourly' },
+    { path: '/?view=chat', priority: '0.9', changefreq: 'daily' },
+    { path: '/?view=messages', priority: '0.8', changefreq: 'daily' },
+    { path: '/?view=explore', priority: '0.8', changefreq: 'daily' },
+  ];
 
-export const onRequestHead = headHandler(onRequestGet);
+  let dynamicChannelUrls = '';
+  try {
+    const db = context.env?.DB || context.env?.AETHERIS_DB;
+    if (db) {
+      const { results } = await db
+        .prepare('SELECT id, created_at FROM channels LIMIT 100')
+        .all();
+      if (Array.isArray(results)) {
+        for (const ch of results as any[]) {
+          const chId = encodeURIComponent(String(ch.id || 'general'));
+          dynamicChannelUrls += `
+  <url>
+    <loc>${baseUrl}/?channel=${chId}</loc>
+    <lastmod>${nowIso}</lastmod>
+    <changefreq>hourly</changefreq>
+    <priority>0.8</priority>
+  </url>`;
+        }
+      }
+    }
+  } catch {
+    // Fallback la rutele statice dacă D1 nu răspunde
+  }
+
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
+${staticRoutes
+  .map(
+    (r) => `  <url>
+    <loc>${baseUrl}${r.path}</loc>
+    <lastmod>${nowIso}</lastmod>
+    <changefreq>${r.changefreq}</changefreq>
+    <priority>${r.priority}</priority>
+  </url>`
+  )
+  .join('\n')}${dynamicChannelUrls}
+</urlset>`;
+
+  return new Response(xml, {
+    status: 200,
+    headers: {
+      'Content-Type': 'application/xml; charset=utf-8',
+      'Cache-Control': 'public, max-age=1800, s-maxage=3600',
+      'X-Robots-Tag': 'all',
+    },
+  });
+};
+
+export const onRequestHead = async (context: any): Promise<Response> => {
+  const res = await onRequestGet(context);
+  return new Response(null, {
+    status: res.status,
+    headers: res.headers,
+  });
+};

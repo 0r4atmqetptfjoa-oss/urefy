@@ -12,6 +12,9 @@ import './workspace-secondary.css';
 import './styles/ui-pro-upgrades.css';
 import './styles/app.css';
 import { secureStorage } from './secure-storage.js';
+import { initWebMCP } from './webmcp-init.js';
+
+initWebMCP();
 
 // An open tab can outlive the deployment that supplied its lazy chunks. Preserve
 // the user's current form rather than replacing the page without their action.

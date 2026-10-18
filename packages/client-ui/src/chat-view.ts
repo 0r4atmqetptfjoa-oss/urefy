@@ -1,4 +1,6 @@
 import { clientStore, type ChatMessage } from './client-state.js';
+import './webrtc-call.js';
+import type { WebRTCCallModal } from './webrtc-call.js';
 
 interface EphemeralOption {
   label: string;
@@ -60,6 +62,11 @@ export class ChatView extends ChatElementBase {
   }
 
   private formatRichMessageContent(rawText: string, msgId: string): string {
+    // 0. Semnal Apel WebRTC P2P Criptat
+    if (rawText.startsWith('[CALL_SIGNAL:')) {
+      return '📞 <em>Sesiune Apel P2P Criptat E2EE</em>';
+    }
+
     // 1. Sondaj interactiv: [POLL] Întrebare | Opțiune 1 | Opțiune 2
     if (rawText.startsWith('[POLL]')) {
       const parts = rawText.replace('[POLL]', '').split('|').map((s) => s.trim()).filter(Boolean);
@@ -560,6 +567,8 @@ export class ChatView extends ChatElementBase {
         </div>
 
         <div class="header-controls">
+          <button type="button" class="filter-chip" id="btn-start-audio-call" title="Apel Audio P2P Criptat">📞 Audio</button>
+          <button type="button" class="filter-chip" id="btn-start-video-call" title="Apel Video HD & Screen Share">📹 Video</button>
           <button type="button" class="filter-chip ${this.filterMode === 'all' ? 'active' : ''}" data-filter="all">Toate</button>
           <button type="button" class="filter-chip ${this.filterMode === 'links' ? 'active' : ''}" data-filter="links">🔗 Link-uri</button>
           <button type="button" class="filter-chip ${this.filterMode === 'voice' ? 'active' : ''}" data-filter="voice">🎙️ Vocale</button>
@@ -698,12 +707,33 @@ export class ChatView extends ChatElementBase {
       `
           : ''
       }
+
+      <webrtc-call-modal id="webrtc-modal"></webrtc-call-modal>
     `;
 
     this.attachListeners(messages);
   }
 
   private attachListeners(messages: ChatMessage[]): void {
+    const callModal = this.shadow.getElementById('webrtc-modal') as WebRTCCallModal | null;
+    const channelName = clientStore.getActiveChannel()?.name || 'Canal Criptat';
+
+    this.shadow.getElementById('btn-start-audio-call')?.addEventListener('click', () => {
+      callModal?.startCall('audio', `#${channelName}`);
+    });
+
+    this.shadow.getElementById('btn-start-video-call')?.addEventListener('click', () => {
+      callModal?.startCall('video', `#${channelName}`);
+    });
+
+    // Interceptează automat pachetele de semnalizare WebRTC din stream-ul de mesaje
+    for (const m of messages) {
+      if (typeof m.text === 'string' && m.text.startsWith('[CALL_SIGNAL:')) {
+        const jsonStr = m.text.slice('[CALL_SIGNAL:'.length, -1);
+        callModal?.handleIncomingSignal(jsonStr);
+      }
+    }
+
     const form = this.shadow.getElementById('chat-composer-form');
     const input = this.shadow.getElementById('chat-msg-input') as HTMLInputElement | null;
 

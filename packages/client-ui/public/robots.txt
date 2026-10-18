@@ -1,17 +1,29 @@
-# Public search discovery. Access control is enforced separately by the application.
 User-agent: *
 Allow: /
-Disallow: /api/
-Disallow: /admin
-Disallow: /messages
-Disallow: /vault
-Disallow: /profile
-Disallow: /settings
-Disallow: /notifications
-Disallow: /governance
-Disallow: /more
-Disallow: /wp-admin/
-Disallow: /wp-content/
-Disallow: /*.php
+Disallow: /api/admin
+Disallow: /api/cron-backup
+
+# Permisiuni explicite pentru Google Search & Google AI Overviews
+User-agent: Googlebot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+# Permisiuni explicite pentru Motoarele de Căutare AI (ChatGPT, Perplexity, Claude, Bing)
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: bingbot
+Allow: /
 
 Sitemap: https://urefy.com/sitemap.xml

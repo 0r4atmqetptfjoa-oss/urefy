@@ -2,20 +2,41 @@ import { clientStore } from './client-state.js';
 
 const SITE_ORIGIN = 'https://urefy.com';
 
-export interface SeoRouteMeta {
+export function updatePageSeo(options: { title?: string; description?: string; path?: string }): void {
+  if (typeof document === 'undefined') return;
+  const baseTitle = 'Urefy — Mesagerie Criptată E2EE & Rețea Socială Suverană';
+  document.title = options.title ? `${options.title} | Urefy` : baseTitle;
+
+  if (options.description) {
+    const descMeta = document.querySelector('meta[name="description"]');
+    if (descMeta) descMeta.setAttribute('content', options.description);
+    const ogDesc = document.querySelector('meta[property="og:description"]');
+    if (ogDesc) ogDesc.setAttribute('content', options.description);
+  }
+
+  if (options.path) {
+    const cleanUrl = `https://urefy.com${options.path.startsWith('/') ? options.path : `/${options.path}`}`;
+    const canonical = document.getElementById('canonical-link') as HTMLLinkElement | null;
+    if (canonical) canonical.href = cleanUrl;
+    const ogUrl = document.querySelector('meta[property="og:url"]');
+    if (ogUrl) ogUrl.setAttribute('content', cleanUrl);
+  }
+}
+
+interface SeoRouteMeta {
   title: string;
   description: string;
   canonicalPath: string;
-  ogType: 'website' | 'article' | 'profile';
+  ogType: string;
   jsonLdGraph: Record<string, unknown>[];
 }
 
-function setOrCreateMeta(attrName: 'name' | 'property', attrValue: string, content: string): void {
+function setOrCreateMeta(attrName: 'name' | 'property', attrVal: string, content: string): void {
   if (typeof document === 'undefined') return;
-  let el = document.querySelector<HTMLMetaElement>(`meta[${attrName}="${attrValue}"]`);
+  let el = document.querySelector(`meta[${attrName}="${attrVal}"]`);
   if (!el) {
     el = document.createElement('meta');
-    el.setAttribute(attrName, attrValue);
+    el.setAttribute(attrName, attrVal);
     document.head.appendChild(el);
   }
   el.setAttribute('content', content);
@@ -169,8 +190,7 @@ export class SovereignSeoManager {
       };
     }
 
-    // Default: Home / Feed with DiscussionForumPosting items for top posts
-    const topPosts = (clientStore?.posts || []).slice(0, 10).map((p: any) => ({
+    const topPosts = ((clientStore as any)?.posts || []).slice(0, 10).map((p: any) => ({
       '@type': 'DiscussionForumPosting',
       '@id': `${SITE_ORIGIN}/p/${encodeURIComponent(String(p.id))}`,
       headline: String(p.title || 'Community Discussion').slice(0, 110),
