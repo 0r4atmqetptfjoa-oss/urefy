@@ -133,6 +133,14 @@ const start = async () => {
         e.preventDefault();
         omniSearch.openModal();
       }
+      if ((e.metaKey || e.ctrlKey) && e.altKey && e.key.toLowerCase() === 'a') {
+        const activeTag = (document.activeElement?.tagName || '').toLowerCase();
+        if (activeTag === 'input' || activeTag === 'textarea') return;
+        e.preventDefault();
+        void import('./admin-dashboard.js').then(({ adminDashboard }) => {
+          adminDashboard.open();
+        });
+      }
     });
 
     (window as any).dmWorkspace = dmWorkspace;

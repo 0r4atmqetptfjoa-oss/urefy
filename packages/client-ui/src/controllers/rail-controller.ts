@@ -126,7 +126,6 @@ export class RailController {
         <button type="button" id="rail-btn-theme" data-action="open-settings" data-subtab="appearance">${renderIcon('sliders', { size: 18 })}Display & Themes</button>
         <button type="button" data-action="open-settings" data-subtab="privacy">${renderIcon('shield', { size: 18 })}Privacy & Safety</button>
         <button type="button" data-action="open-legal-modal" data-legal-tab="about">${renderIcon('info', { size: 18 })}Help & About</button>
-        <button type="button" id="rail-btn-admin-console" data-action="open-admin-console">${renderIcon('terminal', { size: 18 })}Node Admin Console</button>
       </div>
       <div class="rail-tools rail-mode" aria-label="Mode switcher">
         <button type="button" id="btn-toggle-advanced-sidebar" data-action="toggle-ui-mode" aria-pressed="${!simple}">${renderIcon('sliders', { size: 18 })}${simple ? 'Enable Advanced Mode' : 'Use simple mode'}</button>
