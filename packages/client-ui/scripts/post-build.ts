@@ -56,6 +56,13 @@ if (fs.existsSync(workerJs)) {
   fs.writeFileSync(workerJs, workerSource);
 }
 
+const adminHtmlPath = path.join(distDir, 'admin.html');
+if (fs.existsSync(adminHtmlPath)) {
+  const adminDirPath = path.join(distDir, 'admin');
+  if (!fs.existsSync(adminDirPath)) fs.mkdirSync(adminDirPath, { recursive: true });
+  fs.copyFileSync(adminHtmlPath, path.join(adminDirPath, 'index.html'));
+}
+
 fs.writeFileSync(
   routesJson,
   JSON.stringify(

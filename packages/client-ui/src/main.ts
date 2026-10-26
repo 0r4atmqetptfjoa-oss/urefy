@@ -45,7 +45,14 @@ const start = async () => {
   clearTimeout((window as Window & { __urefyBootTimer?: number }).__urefyBootTimer);
   document.documentElement.classList.remove('app-booting');
   document.getElementById('boot-shell')?.remove();
-  void import('./ui/studio-runtime-fixes.js').then((m) => m.studioRuntime.init());
+  const mountStudioRuntime = () => {
+    void import('./ui/studio-runtime-fixes.js').then((m) => m.studioRuntime.init());
+  };
+  if (typeof requestIdleCallback !== 'undefined') {
+    requestIdleCallback(mountStudioRuntime, { timeout: 2500 });
+  } else {
+    setTimeout(mountStudioRuntime, 1200);
+  }
 
   let workspacesPromise: Promise<{ omniSearch: any; dmWorkspace: any }> | null = null;
   const loadInteractiveWorkspaces = () => {
@@ -166,14 +173,6 @@ const start = async () => {
         omniSearch.openModal();
       });
     }
-    if ((e.metaKey || e.ctrlKey) && e.altKey && e.key.toLowerCase() === 'a') {
-      const activeTag = (document.activeElement?.tagName || '').toLowerCase();
-      if (activeTag === 'input' || activeTag === 'textarea') return;
-      e.preventDefault();
-      void import('./admin-dashboard.js').then(({ adminDashboard }) => {
-        adminDashboard.open();
-      });
-    }
   });
 };
 
@@ -203,14 +202,3 @@ if (document.readyState === 'loading') document.addEventListener('DOMContentLoad
 else begin();
 
 // UREfy Consumer Polish - Release v1.0.1
-
-if (typeof window !== 'undefined') {
-  const mountStudioRuntime = () => {
-    void import('./ui/studio-runtime-fixes.js').then((m) => m.studioRuntime.init());
-  };
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', mountStudioRuntime);
-  } else {
-    mountStudioRuntime();
-  }
-}

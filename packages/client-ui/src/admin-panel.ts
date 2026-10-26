@@ -3621,7 +3621,7 @@ export class AdminPanel extends AdminElementBase {
           font-size: 12px;
         }
         .quick-stat-label { color: #94a3b8; }
-        .quick-stat-value { color: #f8fafc; font-weight: 600; font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+        .quick-stat-value { color: #f8fafc; font-weight: 600; font-family: var(--font-mono, 'Cascadia Code', monospace); font-size: 11px; }
 
         .admin-main-content {
           min-width: 0;
@@ -3726,7 +3726,7 @@ export class AdminPanel extends AdminElementBase {
         .badge-green { background: rgba(16,185,129,0.18); color: #34d399; }
         .badge-red { background: rgba(239,68,68,0.2); color: #f87171; }
         .badge-purple { background: rgba(139,92,246,0.2); color: #c4b5fd; }
-        .mono { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #94a3b8; }
+        .mono { font-family: var(--font-mono, 'Cascadia Code', monospace); font-size: 11px; color: #94a3b8; }
       </style>
 
       <div id="toast-container"></div>

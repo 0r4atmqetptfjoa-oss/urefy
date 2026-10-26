@@ -258,6 +258,18 @@ describe('UREfy Admin Security Hardening & Zero-Trust Authentication Suite', () 
       expect(delRes.status).toBe(503);
     });
 
+    it('does not let a localhost Host header bypass the production ADMIN_PIN requirement', async () => {
+      const req = new Request('http://localhost/api/admin', {
+        headers: { 'X-Admin-PIN': DEFAULT_ADMIN_PIN },
+      });
+      const res = await handleAdminGet({ request: req, env: { ENVIRONMENT: 'production' } });
+
+      expect(res.status).toBe(503);
+      const json = await res.json();
+      expect(json.success).toBe(false);
+      expect(json.error).toBe('ADMIN_PIN not configured in environment variables.');
+    });
+
     it('permits access in production when ADMIN_PIN is properly configured', async () => {
       const prodEnv = { ENVIRONMENT: 'production', ADMIN_PIN: 'super-secure-production-pin' };
       const req = new Request('https://urefy.com/api/admin', {

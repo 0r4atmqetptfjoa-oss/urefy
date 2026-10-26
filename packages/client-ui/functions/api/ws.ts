@@ -126,12 +126,38 @@ function base64UrlDecode(str: string): string {
   return new TextDecoder().decode(bytes);
 }
 
+let ephemeralDevelopmentSecret: string | null = null;
+
+/**
+ * Development/test fallback. A random secret is generated per isolate, so it is
+ * never a value an attacker can know. Production must configure RELAY_SECRET.
+ */
+function developmentSecret(): string {
+  if (!ephemeralDevelopmentSecret) {
+    const bytes = new Uint8Array(32);
+    crypto.getRandomValues(bytes);
+    ephemeralDevelopmentSecret = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+  }
+  return ephemeralDevelopmentSecret;
+}
+
+function resolveRelaySecret(configured?: string | null, env?: any): string | null {
+  const explicit = configured?.trim();
+  if (explicit) return explicit;
+  const fromEnv = typeof env?.RELAY_SECRET === 'string' ? env.RELAY_SECRET.trim() : '';
+  const sessionSecret = typeof env?.SESSION_SECRET === 'string' ? env.SESSION_SECRET.trim() : '';
+  if (fromEnv) return fromEnv;
+  if (sessionSecret) return sessionSecret;
+  return isProductionEnv(env) ? null : developmentSecret();
+}
+
 export function createRelaySessionToken(
   payload: RelaySessionPayload,
-  secret: string = 'aetheris-dev-secret-key-v1'
+  secret?: string
 ): string {
+  const signingKey = secret?.trim() || developmentSecret();
   const payloadB64 = base64UrlEncode(JSON.stringify(payload));
-  const sigHex = createHmac('sha256', secret)
+  const sigHex = createHmac('sha256', signingKey)
     .update(`aeth_ws:${payloadB64}`)
     .digest('hex');
   return `aeth_ws_${payloadB64}_${sigHex}`;
@@ -139,20 +165,36 @@ export function createRelaySessionToken(
 
 export function verifyRelaySessionToken(
   token: string,
-  secret: string = 'aetheris-dev-secret-key-v1',
-  expectedAudience = 'aetheris-relay'
+  secret?: string,
+  expectedAudience = 'aetheris-relay',
+  env?: any
 ): { valid: boolean; payload?: RelaySessionPayload; error?: string } {
   if (!token || typeof token !== 'string' || !token.startsWith('aeth_ws_')) {
     return { valid: false, error: 'Malformed token format' };
   }
-  const parts = token.split('_');
-  if (parts.length !== 4 || parts[0] !== 'aeth' || parts[1] !== 'ws') {
+  if (token.length > 4096) {
+    return { valid: false, error: 'Token exceeds maximum length' };
+  }
+
+  // base64url payloads may contain underscores, so split on the final one.
+  const signatureSeparator = token.lastIndexOf('_');
+  if (signatureSeparator <= 'aeth_ws_'.length) {
     return { valid: false, error: 'Invalid token structure' };
   }
-  const [, , payloadB64, sigHex] = parts;
+  const payloadB64 = token.slice('aeth_ws_'.length, signatureSeparator);
+  const sigHex = token.slice(signatureSeparator + 1);
+
+  if (!/^[0-9a-f]{64}$/i.test(sigHex)) {
+    return { valid: false, error: 'Invalid signature length' };
+  }
+
+  const secretKey = resolveRelaySecret(secret, env);
+  if (!secretKey) {
+    return { valid: false, error: 'Relay signing secret is not configured' };
+  }
   let expectedSigHex: string;
   try {
-    expectedSigHex = createHmac('sha256', secret)
+    expectedSigHex = createHmac('sha256', secretKey)
       .update(`aeth_ws:${payloadB64}`)
       .digest('hex');
   } catch (err: any) {
@@ -178,7 +220,7 @@ export function verifyRelaySessionToken(
     return { valid: false, error: 'Session token has expired' };
   }
 
-  if (payload.aud && payload.aud !== expectedAudience && payload.aud !== 'aetheris-relay') {
+  if (payload.aud && payload.aud !== expectedAudience) {
     return { valid: false, error: `Wrong audience: expected ${expectedAudience}, got ${payload.aud}` };
   }
 
@@ -328,11 +370,10 @@ export async function onRequest(context: {
           let verifiedFingerprint: string | undefined = undefined;
           let verifiedRole: string = 'ANONYMOUS';
 
-          const secret = env?.RELAY_SECRET || env?.SESSION_SECRET || 'aetheris-dev-secret-key-v1';
-
-          // 1. Session token verification
+          // 1. Session token verification. Production requires RELAY_SECRET or
+          // SESSION_SECRET; without one the token path fails closed.
           if (packet.token && typeof packet.token === 'string') {
-            const tokenVerification = verifyRelaySessionToken(packet.token, secret);
+            const tokenVerification = verifyRelaySessionToken(packet.token, undefined, 'aetheris-relay', env);
             if (tokenVerification.valid && tokenVerification.payload) {
               authenticated = true;
               verifiedFingerprint = tokenVerification.payload.sub;

@@ -406,5 +406,5 @@ In classical Roman stone engineering, the keystone is the singular architectural
 
 ## Interactive Browser Preview
 An interactive test harness featuring live theme toggling, real-time pixel scalers (16px, 24px, 32px, 140px), and wordmark lockups has been compiled and installed directly in the client application:
-- **Showcase URI**: `packages/client-ui/public/urefy-logo-directions.html`
+- **Showcase URI**: `docs/brand/urefy-logo-directions.html`
 - Open this file directly in any modern browser to test SVG scaling, contrast ratios, and typography lockups under both Dark and Light themes.

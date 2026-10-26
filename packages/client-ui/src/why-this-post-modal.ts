@@ -42,6 +42,10 @@ export class WhyThisPostModal {
   }
 
   public close(): void {
+    if (typeof document === 'undefined') {
+      this.currentPostId = null;
+      return;
+    }
     if (this.container) {
       this.container.classList.add('hidden');
       this.container.style.display = 'none';
@@ -55,14 +59,12 @@ export class WhyThisPostModal {
       root.remove();
     }
     this.currentPostId = null;
-    if (typeof document !== 'undefined') {
-      document.body.style.overflow = '';
-      document.body.style.paddingRight = '';
-      const mainLayout = document.getElementById('main-layout') || document.getElementById('app');
-      if (mainLayout) {
-        mainLayout.removeAttribute('inert');
-        mainLayout.removeAttribute('aria-hidden');
-      }
+    document.body.style.overflow = '';
+    document.body.style.paddingRight = '';
+    const mainLayout = document.getElementById('main-layout') || document.getElementById('app');
+    if (mainLayout) {
+      mainLayout.removeAttribute('inert');
+      mainLayout.removeAttribute('aria-hidden');
     }
   }
 

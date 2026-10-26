@@ -1,6 +1,6 @@
 # 🌌 Platforma UREfy (Sovereign Zero-Knowledge Network)
 
-[![CI Matrix](https://github.com/aetheris/aetheris/actions/workflows/ci.yml/badge.svg)](https://github.com/aetheris/aetheris/actions)
+[![CI Matrix](https://github.com/0r4atmqetptfjoa-oss/urefy/actions/workflows/ci.yml/badge.svg)](https://github.com/0r4atmqetptfjoa-oss/urefy/actions)
 
 > **Platformă hibridă unificată de comunicație E2EE în timp real, forum de resurse verificate și microblogging liber, orientată spre confidențialitate absolută și suveranitatea datelor.**
 
@@ -34,7 +34,7 @@ d:\proiect site total\
    - **Telescopic Density:** Comutare instantanee între modurile *Compact IRC* (`Alt+1`), *Balanced Linear* (`Alt+2`) și *Expanded Rich* (`Alt+3`).
    - **Dual-Horizon Split View (`Ctrl+\`):** Poți avea simultan chat-ul live pe stânga și documentația / fișierele din Vault pe dreapta.
    - **The Command Rail (`Ctrl+K`):** Paletă de navigare rapidă fără mouse stil Raycast/Linear.
-   - **Buget măsurabil:** `npm run audit:bundle` măsoară toate dependențele statice de pornire din manifest, nu doar fișierul principal. Detaliile și limitele actuale sunt în [UPGRADE_NOTES.md](UPGRADE_NOTES.md).
+   - **Buget măsurabil:** `npm run audit:bundle` măsoară modulele obligatorii de bootstrap și dependențele lor statice, cu plafon de 600 KiB JavaScript gzip. La 21 octombrie 2026 măsurarea este 588,56 KiB. Detaliile și limitele actuale sunt în [UPGRADE_NOTES.md](UPGRADE_NOTES.md).
 4. **24-Hour Atomic Rollback:**
    - În cazul în care un cont de moderator este compromis, acțiunile sale de moderare pot fi anulate retroactiv dintr-o singură tranzacție atomică pe ultimele 24 de ore.
 5. **Neural DSP Noise Gate:**

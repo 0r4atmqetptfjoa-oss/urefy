@@ -6,12 +6,18 @@ import { gzipSync } from 'node:zlib';
 export function startupEntries(manifest) {
   const bootstrap = manifest['index.html']?.dynamicImports ?? [];
   const required = ['app', 'brand', 'mobile-performance', 'workspace-layout'];
+  const roots = [];
   for (const name of required) {
-    if (!bootstrap.some(key => manifest[key]?.name === name)) {
+    const key = bootstrap.find((entry) => manifest[entry]?.name === name);
+    if (!key) {
       throw new Error(`Missing required bootstrap module: ${name}`);
     }
+    roots.push(key);
   }
-  return ['index.html', ...bootstrap];
+  // Optional entry-level dynamic imports (admin palette, search, RUM, spatial
+  // dock, studio fixes) are loaded after the first paint and must not be
+  // charged to the startup budget.
+  return ['index.html', ...roots];
 }
 
 export function measureStartupBundle(manifest, readAsset, entry = 'index.html') {
@@ -47,7 +53,7 @@ export function runStartupBudget() {
     const dist = fileURLToPath(new URL('../packages/client-ui/dist/', import.meta.url));
     const manifest = JSON.parse(readFileSync(resolve(dist, '.vite/manifest.json'), 'utf8'));
     // Ceiling updated for 2026-09-30 sovereign AWS DR, RUM performance monitor and WebRTC features
-    const budgetKiB = Number(process.env.MAX_STARTUP_GZIP_KIB ?? 700);
+    const budgetKiB = Number(process.env.MAX_STARTUP_GZIP_KIB ?? 600);
     if (!Number.isFinite(budgetKiB) || budgetKiB <= 0) throw new Error('Invalid MAX_STARTUP_GZIP_KIB');
     const result = measureStartupBundle(manifest, (file) => readFileSync(resolve(dist, file)), startupEntries(manifest));
     const gzipKiB = result.javascriptGzipBytes / 1024;

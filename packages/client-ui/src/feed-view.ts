@@ -59,6 +59,7 @@ function renderPostActions(post: ClientPost): string {
   const replies = post.replyCount ?? state.repliesCount ?? 0;
   const merits = pulseActionsEngine.hasSynced(post.id) ? state.likesCount : Math.max(state.likesCount, post.meritVotes || 0);
   const reposts = pulseActionsEngine.hasSynced(post.id) ? state.repostsCount : Math.max(state.repostsCount, post.boostCount || 0);
+  const canUseAzureSummary = (post.audience || 'public') === 'public' && post.status !== 'draft';
   return `
     <div class="post-actions" data-post-id="${post.id}" data-action="stop-propagation">
       <button type="button" ${pulseActionsEngine.isPending(post.id, 'like') ? 'disabled aria-busy="true"' : ''} aria-pressed="${state.liked}" data-pulse-action="like" data-post-id="${post.id}" data-dir="1" class="btn-pulse-like ${state.liked ? 'is-active' : ''}" aria-label="${state.liked ? 'Remove Merit' : 'Give Merit'}" title="Merit">
@@ -77,6 +78,9 @@ function renderPostActions(post: ClientPost): string {
       <button type="button" data-pulse-action="share" data-post-id="${post.id}" class="btn-pulse-share" aria-label="Share">
         ${renderIcon('share', { size: 18 })}<span>Share</span>
       </button>
+      ${canUseAzureSummary ? `<button type="button" data-action="azure-ai-summary" data-post-id="${escapeHtml(post.id)}" class="inline-flex items-center gap-1.5 rounded-lg border border-cyphr/25 px-2.5 py-1.5 text-xs text-cyphr hover:bg-cyphr/10 transition-colors" aria-label="Summarize this public post with Azure AI" title="Sends this public post to Azure AI. Private messages are never included.">
+        ${renderIcon('sparkles', { size: 15 })}<span>AI summary</span>
+      </button>` : ''}
       <button type="button" ${pulseActionsEngine.isPending(post.id, 'bookmark') ? 'disabled aria-busy="true"' : ''} aria-pressed="${state.bookmarked}" data-pulse-action="bookmark" data-post-id="${post.id}" class="btn-pulse-bookmark ${state.bookmarked ? 'is-active' : ''}" aria-label="${state.bookmarked ? 'Remove bookmark' : 'Bookmark'}">
         ${renderIcon('bookmark', { size: 18, variant: state.bookmarked ? 'solid' : 'outline' })}<span class="sr-only">Bookmark</span>
       </button>

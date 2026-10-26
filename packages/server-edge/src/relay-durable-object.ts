@@ -146,11 +146,16 @@ export async function verifyRelaySessionToken(
   if (!token || typeof token !== 'string' || !token.startsWith('aeth_ws_')) {
     return { valid: false, error: 'Malformed token format' };
   }
-  const parts = token.split('_');
-  if (parts.length !== 4 || parts[0] !== 'aeth' || parts[1] !== 'ws') {
+  if (token.length > 4096) {
+    return { valid: false, error: 'Token exceeds maximum length' };
+  }
+  // base64url payloads may contain underscores; the signature is the final segment.
+  const signatureSeparator = token.lastIndexOf('_');
+  if (signatureSeparator <= 'aeth_ws_'.length) {
     return { valid: false, error: 'Invalid token structure' };
   }
-  const [, , payloadB64, sigHex] = parts;
+  const payloadB64 = token.slice('aeth_ws_'.length, signatureSeparator);
+  const sigHex = token.slice(signatureSeparator + 1);
   const enc = new TextEncoder();
 
   let isSigValid = false;
@@ -194,7 +199,7 @@ export async function verifyRelaySessionToken(
     return { valid: false, error: 'Session token has expired' };
   }
 
-  if (payload.aud !== expectedAudience && payload.aud !== 'aetheris-relay') {
+  if (payload.aud !== expectedAudience) {
     return { valid: false, error: `Wrong audience: expected ${expectedAudience}, got ${payload.aud}` };
   }
 

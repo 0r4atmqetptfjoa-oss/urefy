@@ -5,6 +5,7 @@ import {
   DurableObjectStorage,
   createWebSocketUpgradeResponse,
   createRelaySessionToken,
+  verifyRelaySessionToken,
 } from '../src/relay-durable-object.js';
 import worker from '../src/worker.js';
 import { generateKeyPair, ZKRLN, Field } from '@aetheris/core-crypto';
@@ -1273,5 +1274,64 @@ describe('Cloudflare Durable Objects — RelayDurableObject & WebSocket Hibernat
       const errorMsg = msgs.find((m) => m.type === 'ERROR' && m.message.includes('privileged role required'));
       expect(errorMsg).toBeUndefined();
     });
+  });
+});
+
+describe('Relay session token encoding', () => {
+  const secret = 'unit-test-relay-secret';
+
+  it('accepts base64url payloads containing underscore characters', async () => {
+    let jti = '';
+    for (let i = 0; i < 10_000; i += 1) {
+      const candidate = `u${String.fromCodePoint(0x20 + (i % 0xd000))}#${i}`;
+      const encoded = Buffer.from(
+        JSON.stringify({
+          sub: 'valid-fingerprint',
+          role: 'MEMBER',
+          aud: 'aetheris-relay',
+          exp: Date.now() + 60_000,
+          iat: Date.now(),
+          jti: candidate,
+        })
+      ).toString('base64url');
+      if (encoded.includes('_')) {
+        jti = candidate;
+        break;
+      }
+    }
+
+    expect(jti).not.toBe('');
+    const token = await createRelaySessionToken(
+      {
+        sub: 'valid-fingerprint',
+        role: 'MEMBER',
+        aud: 'aetheris-relay',
+        exp: Date.now() + 60_000,
+        iat: Date.now(),
+        jti,
+      },
+      secret
+    );
+
+    const result = await verifyRelaySessionToken(token, secret);
+    expect(result.valid).toBe(true);
+    expect(result.payload?.jti).toBe(jti);
+  });
+
+  it('rejects a relay token presented to a different audience', async () => {
+    const token = await createRelaySessionToken(
+      {
+        sub: 'valid-fingerprint',
+        role: 'MEMBER',
+        aud: 'aetheris-relay',
+        exp: Date.now() + 60_000,
+        iat: Date.now(),
+      },
+      secret
+    );
+
+    const result = await verifyRelaySessionToken(token, secret, 'another-service');
+    expect(result.valid).toBe(false);
+    expect(result.error).toContain('Wrong audience');
   });
 });

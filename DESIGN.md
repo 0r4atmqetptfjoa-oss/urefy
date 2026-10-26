@@ -44,6 +44,7 @@ Review Home, Explore, Communities, Post detail, Messages, Profile, Vault, and Se
 
 ## Changelog
 
+- 2026-10-21: Removed the remaining remote Google Fonts request from `index.html`; typography is now fully local/system as specified here, and the boot accent uses the amber token instead of a hardcoded sky value. Relay authentication fails closed without a configured secret.
 - 2026-10-02: Added live recent-post and channel previews to the admin overview, with direct post editing and one-click routes to moderation and channel creation. Direction: technical and utilitarian admin tooling within UREfy's warm signal; visual verification remains pending.
 - 2026-09-29: Replaced the Field Journal direction after real desktop screenshots showed cramped post reading, wasted space in discovery, and scattered messaging. This specification guides the full UI rework and its visual review.
 

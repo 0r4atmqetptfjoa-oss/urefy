@@ -1,0 +1,13 @@
+{
+  "name": "@urefy/azure-ai-api",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node index.mjs"
+  },
+  "dependencies": {
+    "@azure/identity": "4.13.0",
+    "@azure/storage-blob": "12.34.0",
+    "pg": "8.23.1"
+  }
+}

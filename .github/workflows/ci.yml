@@ -54,6 +54,9 @@ jobs:
       - name: Production Security Audit (Strict Fail-Closed)
         run: npm run audit:production
 
+      - name: UX system audit
+        run: npm run audit:ux
+
       - name: Install Chromium for browser regression tests
         run: npx playwright install --with-deps chromium
 

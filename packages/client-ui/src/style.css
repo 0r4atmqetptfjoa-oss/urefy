@@ -38,7 +38,7 @@
   --font-size-base: 16px;
   --font-family-display: 'Segoe UI Variable Display', 'Segoe UI Variable', 'Segoe UI', Arial, sans-serif;
   --font-family-sans: 'Segoe UI Variable', 'Segoe UI', Arial, sans-serif;
-  --font-family-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-family-mono: 'Cascadia Code', 'Cascadia Mono', 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
 /* ─── BASE RESET & ERGONOMIC SMOOTHING (CORE WEB VITALS: FONT SMOOTHING & NO FLICKER) ─── */

@@ -1,4 +1,5 @@
 import { readAdminOverview } from './_admin-overview.js';
+import { verifyAccessJwt } from './_access.js';
 import { getEdgeTrafficSnapshot, resetRateLimits } from './_middleware.js';
 import {
   Env,
@@ -16,6 +17,7 @@ import {
   EdgeChannel,
   EdgePost,
   EdgeBannedIP,
+  isProductionEnv,
 } from './_db.js';
 
 export type SovereignAdminRole =
@@ -518,9 +520,16 @@ export async function verifyAdminAuthorization(
   req: Request,
   env?: Env
 ): Promise<{ authorized: boolean; reason?: string; status?: number }> {
+  // A valid Cloudflare Access assertion is sufficient on its own. The edge has
+  // already completed the email one-time-password flow and enforced the allow
+  // policy before the request reached this function.
+  if (await verifyAccessJwt(req, env)) {
+    return { authorized: true, reason: 'cloudflare-access' };
+  }
+
   const isNonLocal = isNonLocalEnvironment(req, env);
   const hasEnvPin = typeof env?.ADMIN_PIN === 'string' && env.ADMIN_PIN.trim().length > 0;
-  if (isNonLocal && !hasEnvPin) {
+  if ((isNonLocal || isProductionEnv(env)) && !hasEnvPin) {
     return {
       authorized: false,
       reason: 'ADMIN_PIN not configured in environment variables.',
@@ -750,6 +759,33 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
           headers: {
             'Content-Type': 'application/json',
             'WWW-Authenticate': 'Bearer realm="UREfy Sovereign Admin"',
+          },
+        }
+      );
+    }
+
+    if (
+      url.searchParams.get('action') === 'whoami' ||
+      url.searchParams.get('action') === 'check_session'
+    ) {
+      const configuredPin =
+        typeof context.env?.ADMIN_PIN === 'string' && context.env.ADMIN_PIN.trim().length > 0
+          ? context.env.ADMIN_PIN.trim()
+          : DEFAULT_ADMIN_PIN;
+      const sessionToken = await createAdminSessionToken(configuredPin);
+      return new Response(
+        JSON.stringify({
+          success: true,
+          authorized: true,
+          reason: auth.reason || 'session-active',
+          token: sessionToken,
+          expiresIn: 1800,
+        }),
+        {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-store, private',
           },
         }
       );
@@ -1041,10 +1077,11 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
       );
     }
 
+    const hasValidAccess = await verifyAccessJwt(req, context.env);
     const isNonLocal = isNonLocalEnvironment(req, context.env);
     const hasEnvPin =
       typeof context.env?.ADMIN_PIN === 'string' && context.env.ADMIN_PIN.trim().length > 0;
-    if (isNonLocal && !hasEnvPin) {
+    if (!hasValidAccess && (isNonLocal || isProductionEnv(context.env)) && !hasEnvPin) {
       return new Response(
         JSON.stringify({
           success: false,

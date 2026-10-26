@@ -6,9 +6,9 @@
  */
 
 export const TYPOGRAPHY = {
-  fontSans: "'Plus Jakarta Sans', 'Inter Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-  fontMono: "'JetBrains Mono Variable', 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, monospace",
-  fontDisplay: "'Plus Jakarta Sans', 'Inter Display', system-ui, sans-serif",
+  fontSans: "'Segoe UI Variable', 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif",
+  fontMono: "'Cascadia Code', 'Cascadia Mono', 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Consolas, monospace",
+  fontDisplay: "'Segoe UI Variable Display', 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif",
   h1: 'text-2xl sm:text-3xl font-extrabold tracking-tight leading-tight',
   h2: 'text-xl sm:text-2xl font-bold tracking-tight leading-snug',
   h3: 'text-base sm:text-lg font-bold tracking-tight leading-snug',

@@ -65,3 +65,6 @@ __pycache__/
 outputs/
 **/outputs/
 *.xml
+
+# OpenChamber local artifacts
+.openchamber/

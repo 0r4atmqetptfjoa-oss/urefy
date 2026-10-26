@@ -4,19 +4,20 @@
 
 :root {
   /* 1. Fontul principal pentru citire lungă, postări și bule de chat */
-  --font-sans: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont,
-    'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+  --font-sans: 'Segoe UI Variable', 'Segoe UI', -apple-system, BlinkMacSystemFont,
+    Roboto, Oxygen, Ubuntu, sans-serif;
 
   /* 2. Fontul de afișare pentru titluri, canale și branding */
-  --font-display: 'Space Grotesk', 'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-display: 'Segoe UI Variable Display', 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
 
   /* 3. Fontul tehnic pentru blocuri de cod, chei PQC și fingerprint-uri */
-  --font-mono: 'JetBrains Mono', 'Fira Code', 'SFMono-Regular', Consolas, monospace;
+  --font-mono: 'Cascadia Code', 'Cascadia Mono', 'JetBrains Mono', 'Fira Code',
+    'SFMono-Regular', Consolas, monospace;
 
   /* Scală Tipografică Fluidă (se adaptează automat între 320px și 2560px) */
   --text-xs: clamp(0.71rem, 0.68rem + 0.12vw, 0.76rem);
   --text-sm: clamp(0.81rem, 0.78rem + 0.15vw, 0.875rem);
-  --text-base: clamp(0.94rem, 0.90rem + 0.2vw, 1.02rem);
+  --text-base: clamp(1rem, 0.94rem + 0.2vw, 1.02rem);
   --text-lg: clamp(1.08rem, 1.02rem + 0.3vw, 1.22rem);
   --text-xl: clamp(1.26rem, 1.16rem + 0.45vw, 1.48rem);
   --text-2xl: clamp(1.52rem, 1.35rem + 0.75vw, 1.95rem);
@@ -44,7 +45,7 @@ body {
   color: #f1f5f9;
 }
 
-/* --- TITLURI & HEADER-E (Space Grotesk) --- */
+/* --- TITLURI & HEADER-E (system display) --- */
 h1, h2, h3, h4,
 .post-title,
 .nx-brand-title,
@@ -71,7 +72,7 @@ h1, h2, h3, h4,
   hyphens: auto;
 }
 
-/* --- COD SURSĂ, CHEI CRIPTOGRAFICE & TIMPI (JetBrains Mono) --- */
+/* --- COD SURSĂ, CHEI CRIPTOGRAFICE & TIMPI (monospace) --- */
 code, pre, kbd,
 .sh-pre,
 .nx-conv-peer-id,
@@ -102,16 +103,16 @@ code, pre, kbd,
 
 /* Moduri de personalizare a fontului pe <body data-font-mode="..."> */
 body[data-font-mode='jakarta'] {
-  --font-sans: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+  --font-sans: 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
 }
 
 body[data-font-mode='inter'] {
-  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   letter-spacing: -0.014em;
 }
 
 body[data-font-mode='mono-hacker'] {
-  --font-sans: 'JetBrains Mono', monospace;
+  --font-sans: 'Cascadia Code', 'Cascadia Mono', 'JetBrains Mono', monospace;
   letter-spacing: -0.02em;
 }
 

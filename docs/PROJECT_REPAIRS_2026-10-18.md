@@ -4,6 +4,8 @@
 
 Acest document reflectă starea tehnică a platformei UREfy la data de **18 octombrie 2026**, incluzând cele mai recente remedieri de runtime UI, securizare criptografică împotriva atacurilor de timing, unificarea sistemului de modale și sincronizarea migrărilor Cloudflare D1 și cache-ului KV.
 
+> **Notă ulterioară (2026-10-21):** decizia de a permite `fonts.googleapis.com` și `fonts.gstatic.com` în CSP a fost revizuită. Fonturile au fost eliminate din `index.html`, iar `_headers` și meta-CSP au rămas strict pe fonturi locale. Valorile de bundle și numărul de teste din acest raport sunt istorice; starea curentă este în [`PROJECT_STATUS_2026-10-21.md`](./PROJECT_STATUS_2026-10-21.md).
+
 ---
 
 ## 1. Optimizare Runtime UI și Eliminarea Blocajelor de Scroll

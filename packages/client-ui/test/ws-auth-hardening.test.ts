@@ -52,7 +52,7 @@ describe('Standalone WebSocket Authentication Hardening (Finding 2)', () => {
     };
   });
 
-  // ¦¦¦ 1. PRODUCTION ENFORCEMENT: CANONICAL DURABLE OBJECT TERMINATION ¦¦¦¦¦¦¦¦
+  // ï¿½ï¿½ï¿½ 1. PRODUCTION ENFORCEMENT: CANONICAL DURABLE OBJECT TERMINATION ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
   describe('1. Production Mode: Mandatory RelayDurableObject Termination', () => {
     it('MUST reject connection and return HTTP 503 in production when RELAY_DO is absent', async () => {
       const req = new Request('https://urefy.com/api/ws', {
@@ -99,7 +99,7 @@ describe('Standalone WebSocket Authentication Hardening (Finding 2)', () => {
     });
   });
 
-  // ¦¦¦ 2. STANDALONE FALLBACK: UNVERIFIED ROLE & FINGERPRINT PROTECTION ¦¦¦¦¦¦¦
+  // ï¿½ï¿½ï¿½ 2. STANDALONE FALLBACK: UNVERIFIED ROLE & FINGERPRINT PROTECTION ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
   describe('2. Standalone Mode: Client-Supplied Role & Fingerprint Authentication', () => {
     it('MUST reject client-supplied ADMIN role from unverified message', async () => {
       const serverWs = new MockWebSocket();
@@ -353,5 +353,47 @@ describe('Standalone WebSocket Authentication Hardening (Finding 2)', () => {
       // Privilege escalation rejected: role defaulted to ANONYMOUS, NOT ADMIN!
       expect(authSuccess.role).toBe('ANONYMOUS');
     });
+  });
+});
+
+describe('Relay session token parsing', () => {
+  const secret = 'unit-test-relay-secret';
+  const future = () => Date.now() + 3_600_000;
+
+  it('accepts base64url payloads that contain underscore characters', () => {
+    let sub = '';
+    for (let i = 0; i < 10_000; i += 1) {
+      const candidate = `u${String.fromCodePoint(0x20 + (i % 0xd000))}#${i}`;
+      const encoded = Buffer.from(
+        JSON.stringify({ sub: candidate, role: 'MEMBER', exp: future() })
+      ).toString('base64url');
+      if (encoded.includes('_')) {
+        sub = candidate;
+        break;
+      }
+    }
+
+    expect(sub).not.toBe('');
+    const token = createRelaySessionToken({ sub, role: 'MEMBER', exp: future() }, secret);
+    expect(token.split('_').length).toBeGreaterThan(4);
+
+    const result = verifyRelaySessionToken(token, secret);
+    expect(result.valid).toBe(true);
+    expect(result.payload?.sub).toBe(sub);
+  });
+
+  it('fails closed in production when no relay secret is configured', () => {
+    const token = createRelaySessionToken({ sub: 'prod-user-fp', role: 'MEMBER', exp: future() }, secret);
+    const result = verifyRelaySessionToken(token, undefined, 'aetheris-relay', { ENVIRONMENT: 'production' });
+
+    expect(result.valid).toBe(false);
+    expect(result.error).toMatch(/not configured/i);
+  });
+
+  it('still verifies development tokens with the per-isolate secret', () => {
+    const token = createRelaySessionToken({ sub: 'dev-user-fp', role: 'MEMBER', exp: future() });
+    const result = verifyRelaySessionToken(token);
+    expect(result.valid).toBe(true);
+    expect(result.payload?.sub).toBe('dev-user-fp');
   });
 });

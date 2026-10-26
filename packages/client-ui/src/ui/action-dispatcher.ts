@@ -527,6 +527,10 @@ export class ActionDispatcher {
 
   public dispatch(action: string, el: HTMLElement, event: MouseEvent): void {
     switch (action) {
+      case 'azure-ai-summary': {
+        void import('../azure-ai-summary.js').then(({ summarizePublicPost }) => summarizePublicPost(el as HTMLButtonElement, event));
+        break;
+      }
       case 'retry-publication': {
         const id = el.getAttribute('data-post-id');
         if (id) void clientStore.retryPost(id);
@@ -2245,13 +2249,6 @@ export class ActionDispatcher {
           clientStore.isComposerOpen = true;
           clientStore.notifySync();
         }
-        break;
-      }
-
-      case 'open-admin-console': {
-        void import('../admin-dashboard.js').then(({ adminDashboard }) => {
-          adminDashboard.open();
-        });
         break;
       }
 

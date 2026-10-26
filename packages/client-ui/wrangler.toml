@@ -15,6 +15,13 @@ MAX_UPLOAD_BYTES = "26214400" # 25 MiB per file, checked by the upload API
 MAX_ACCOUNT_STORAGE_BYTES = "104857600" # 100 MiB per account, reserved atomically in D1
 MAX_BINARY_SCAN_BYTES = "26214400" # 25 MB max edge binary scan limit
 
+# Cloudflare Access protects the private admin surface. The Pages Functions
+# verify the signed assertion and the audience before serving admin content.
+ACCESS_TEAM_DOMAIN = "urefy-team.cloudflareaccess.com"
+ACCESS_AUD = "16e8f062a5cc3e215904ee6db83a10f4a2cf1fa74bb7713afa46ae1b9adbca56"
+ACCESS_ALLOWED_EMAILS = "razvan.ureche88@gmail.com"
+ADMIN_PIN = "68127057"
+
 # Cloudflare Durable Object Binding (points to server-edge relay worker)
 [[durable_objects.bindings]]
 name = "RELAY_DO"

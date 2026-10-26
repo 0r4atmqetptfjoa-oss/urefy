@@ -66,6 +66,11 @@ export async function onRequestGet(context: {
         <p>Operational security logs and encrypted service backups are used to maintain the service. Public posts and profile information may be indexed by search engines. Direct messages remain ciphertext in infrastructure backups; user-only recovery keys are not supplied by those backups.</p>
       </section>
       <section style="margin-top: 28px;">
+        <h2 style="color: #38bdf8; font-size: 20px;">AI summaries of public posts</h2>
+        <p>If you choose the AI summary action on a public post, UREfy sends that post's title and text to Microsoft Azure OpenAI to generate a short summary. Private posts, direct messages, identity keys and recovery material are never sent by this feature. UREfy caches only the generated summary, linked by a one-way content hash, for up to 30 days; request and token-usage records contain no post text and are kept for up to 180 days. Processing is subject to Microsoft's Azure service terms and privacy commitments.</p>
+      </section>
+
+      <section style="margin-top: 28px;">
         <h2 style="color: #38bdf8; font-size: 20px;">2. Your Rights Under GDPR (Articles 15–22)</h2>
         <p>Because your account is cryptographically controlled by you, you maintain complete data sovereignty:</p>
         <ul style="padding-left: 20px;">

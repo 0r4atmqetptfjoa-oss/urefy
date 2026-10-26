@@ -38,12 +38,42 @@ export class SovereignAdminDashboard {
   public userSearchFilter = '';
   public isMobileNavOpen = false;
   private pollTimer: any = null;
+  private isCheckingSession = false;
 
   constructor() {
     if (typeof window !== 'undefined') {
       (window as any).adminDashboard = this;
       this.bindGlobalDelegation();
     }
+  }
+
+  public async checkExistingSession(): Promise<boolean> {
+    if (this.isAuthenticated || this.isCheckingSession) return this.isAuthenticated;
+    this.isCheckingSession = true;
+    try {
+      const res = await fetch('/api/admin?action=whoami', {
+        headers: {
+          'X-Admin-Fingerprint':
+            clientStore?.keypair?.fingerprint || 'sovereign-root-guardian',
+        },
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.authorized && json.token) {
+          this.sessionToken = json.token;
+          this.isAuthenticated = true;
+          this.isLoading = false;
+          await this.refreshData();
+          this.startLivePolling();
+          return true;
+        }
+      }
+    } catch (_) {
+      // Unauthenticated or network error; fall back to PIN login form
+    } finally {
+      this.isCheckingSession = false;
+    }
+    return false;
   }
 
   /**
@@ -654,6 +684,9 @@ export class SovereignAdminDashboard {
 
   public renderStandaloneOrModal(): void {
     if (typeof document === 'undefined') return;
+    if (!this.isAuthenticated && !this.isCheckingSession) {
+      void this.checkExistingSession();
+    }
     const standaloneRoot = document.getElementById('admin-standalone-root');
     if (standaloneRoot) {
       standaloneRoot.innerHTML = this.renderConsoleInnerHTML(true);

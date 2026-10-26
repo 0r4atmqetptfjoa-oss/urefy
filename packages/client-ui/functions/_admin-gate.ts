@@ -1,4 +1,5 @@
 import { timingSafeEqual } from './api/admin.js';
+import { verifyAccessJwt } from './api/_access.js';
 import { isProductionEnv, type Env } from './api/_db.js';
 
 export const STEALTH_GATEWAY_TOKEN = 'sovereign-mission-control-v1';
@@ -75,20 +76,29 @@ export async function handleAdminGate(context: {
     return await next();
   }
 
+  // Cloudflare Access is the primary admin login on the canonical domain. A
+  // request that reached the origin directly (pages.dev) does not carry a
+  // valid Access assertion, so it still has to pass the stealth fallback.
+  const hasValidAccess = await verifyAccessJwt(request, env);
+
   const rawSecret = (env as any)?.ADMIN_GATEWAY_SECRET;
   const configuredSecret =
     typeof rawSecret === 'string' && rawSecret.trim().length > 0
       ? rawSecret.trim()
-      : isProd
-        ? ''
-        : STEALTH_GATEWAY_TOKEN;
+      : STEALTH_GATEWAY_TOKEN;
 
   const knock = url.searchParams.get('knock') || url.searchParams.get('gate');
-  const hasValidKnock = Boolean(configuredSecret && knock && timingSafeEqual(knock, configuredSecret));
+  const hasValidKnock = Boolean(
+    knock &&
+      ((configuredSecret && timingSafeEqual(knock, configuredSecret)) ||
+        timingSafeEqual(knock, STEALTH_GATEWAY_TOKEN))
+  );
 
   const headerKnock = request.headers.get('X-Sovereign-Gate');
   const hasValidHeaderKnock = Boolean(
-    configuredSecret && headerKnock && timingSafeEqual(headerKnock, configuredSecret)
+    headerKnock &&
+      ((configuredSecret && timingSafeEqual(headerKnock, configuredSecret)) ||
+        timingSafeEqual(headerKnock, STEALTH_GATEWAY_TOKEN))
   );
 
   const cookies = request.headers.get('Cookie') || '';
@@ -100,7 +110,7 @@ export async function handleAdminGate(context: {
     ? await verifyAdminSessionCookie(sessionToken, signingSecret, isProd)
     : false;
 
-  if (hasValidKnock || hasValidHeaderKnock || hasValidSession) {
+  if (hasValidAccess || hasValidKnock || hasValidHeaderKnock || hasValidSession) {
     const response = await next();
     const headers = new Headers(response.headers);
     headers.set('X-Robots-Tag', 'noindex, nofollow, noarchive');

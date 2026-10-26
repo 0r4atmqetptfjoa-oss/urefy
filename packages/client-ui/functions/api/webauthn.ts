@@ -746,13 +746,15 @@ export async function verifyRegistrationIdentity(
       return { authorized: true };
     }
 
-    const secret = (env as any)?.AUTH_SECRET || (env as any)?.SESSION_SECRET || adminPin || 'aetheris-dev-secret-key-v1';
-    try {
-      const relayTokenCheck = verifyRelaySessionToken(bearerToken, secret);
-      if (relayTokenCheck.valid && relayTokenCheck.payload?.sub === fingerprint) {
-        return { authorized: true };
-      }
-    } catch (_) {}
+    const secret = (env as any)?.AUTH_SECRET || (env as any)?.SESSION_SECRET || (env as any)?.RELAY_SECRET || adminPin;
+    if (secret) {
+      try {
+        const relayTokenCheck = verifyRelaySessionToken(bearerToken, secret, 'aetheris-relay', env);
+        if (relayTokenCheck.valid && relayTokenCheck.payload?.sub === fingerprint) {
+          return { authorized: true };
+        }
+      } catch (_) {}
+    }
 
     if (adminPin && (await verifyAdminSessionToken(bearerToken, adminPin))) {
       return { authorized: true };
@@ -767,11 +769,6 @@ export async function verifyRegistrationIdentity(
         }
       } catch (_) {}
     }
-  }
-
-  const adminPinHeader = request.headers.get('X-Admin-PIN');
-  if (adminPinHeader && adminPin && adminPinHeader === adminPin) {
-    return { authorized: true };
   }
 
   return {

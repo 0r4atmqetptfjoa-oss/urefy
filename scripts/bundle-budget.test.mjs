@@ -30,11 +30,12 @@ test('fails closed when the manifest or a referenced asset is incomplete', () =>
 
 test('resolves hashed bootstrap chunks and counts all required roots once', () => {
   const manifest = {
-    'index.html': { file: 'main.js', imports: ['shared'], dynamicImports: ['_app-hash.js', 'brand', 'mobile', '_layout-hash.js'] },
+    'index.html': { file: 'main.js', imports: ['shared'], dynamicImports: ['_app-hash.js', 'brand', 'mobile', '_layout-hash.js', 'optional-entry'] },
     '_app-hash.js': { file: 'app.js', name: 'app', imports: ['shared'], dynamicImports: ['optional'] },
     brand: { file: 'brand.js', name: 'brand' },
     mobile: { file: 'mobile.js', name: 'mobile-performance' },
     '_layout-hash.js': { file: 'layout.js', name: 'workspace-layout', imports: ['shared'] },
+    'optional-entry': { file: 'not-startup.js', name: 'optional-entry' },
     shared: { file: 'shared.js' },
     optional: { file: 'optional.js' },
   };

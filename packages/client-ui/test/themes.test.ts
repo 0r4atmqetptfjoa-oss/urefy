@@ -19,7 +19,7 @@ describe('Obsidian Theme Engine, Display Customizer & Typography System', () => 
   describe('1. Default Theme Initialization', () => {
     it('should initialize with default mineral-basalt theme and standard typography', () => {
       expect(themeEngine.currentThemeId).toBe('mineral-basalt');
-      expect(themeEngine.fontSize).toBe(14);
+      expect(themeEngine.fontSize).toBe(15);
       expect(themeEngine.fontFamily).toBe('sans');
       expect(themeEngine.isModalOpen).toBe(false);
       expect(themeEngine.customAccentColor).toBeNull();
@@ -367,7 +367,7 @@ describe('Obsidian Theme Engine, Display Customizer & Typography System', () => 
     it('should instantiate independent ThemeEngine instances cleanly', () => {
       const customEngine = new ThemeEngine();
       expect(customEngine.currentThemeId).toBe('mineral-basalt');
-      expect(customEngine.fontSize).toBe(14);
+      expect(customEngine.fontSize).toBe(15);
       expect(customEngine.fontFamily).toBe('sans');
 
       customEngine.setTheme('solar-amber');
@@ -382,7 +382,7 @@ describe('Obsidian Theme Engine, Display Customizer & Typography System', () => 
 
       customEngine.resetToDefaults();
       expect(customEngine.currentThemeId).toBe('mineral-basalt');
-      expect(customEngine.fontSize).toBe(14);
+      expect(customEngine.fontSize).toBe(15);
       expect(customEngine.fontFamily).toBe('sans');
       expect(customEngine.customAccentColor).toBeNull();
     });

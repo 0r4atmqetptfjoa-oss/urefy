@@ -358,7 +358,7 @@ export class LegalModal {
           <div class="space-y-3">
             <div class="p-3.5 rounded-xl bg-emerald-950/30 border border-emerald-500/20 space-y-1">
               <span class="text-[10px] font-mono uppercase text-emerald-400 font-bold">GDPR Compliance Statement (EU Regulation 2016/679)</span>
-              <p class="text-slate-300">UREfy enforces Privacy by Design and by Default (Art. 25 GDPR). We do not collect personal data.</p>
+              <p class="text-slate-300">UREfy minimizes data collection. Public posts, hosting metadata and operational records are processed as described in the privacy policy.</p>
             </div>
             <h4 class="font-bold text-sm text-white">1. Zero-Data Principle & No Tracking</h4>
             <p>The platform does not solicit or collect real names, email addresses, passwords, or phone numbers. There are zero third-party trackers, Google Analytics, or commercial profiling cookies.</p>
@@ -366,7 +366,10 @@ export class LegalModal {
             <h4 class="font-bold text-sm text-white">2. Hybrid Post-Quantum Encryption (E2EE)</h4>
             <p>Direct communications are end-to-end encrypted with ML-KEM-768 and AES-256-GCM. No node operator, cloud provider, or external entity can decrypt or inspect your private messages.</p>
 
-            <h4 class="font-bold text-sm text-white">3. Right to Erasure & Data Portability</h4>
+            <h4 class="font-bold text-sm text-white">3. Optional AI summaries</h4>
+            <p>When you choose an AI summary on a public post, its title and text are sent to Microsoft Azure OpenAI. Private posts, direct messages and recovery keys are not sent. UREfy keeps only a generated-summary cache for up to 30 days and content-free request usage records for up to 180 days. See the <a href="/privacy" class="underline">full privacy policy</a>.</p>
+
+            <h4 class="font-bold text-sm text-white">4. Right to Erasure & Data Portability</h4>
             <p>You retain full custody over your data: clearing your local IndexedDB storage completely purges all data from your browser. You can export a complete cryptographic archive at any time from the Export & Backup section.</p>
           </div>
         `;

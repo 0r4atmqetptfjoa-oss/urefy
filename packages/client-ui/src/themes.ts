@@ -187,7 +187,7 @@ const STORAGE_KEY = 'aetheris_theme_preferences_v2';
 
 export class ThemeEngine {
   public currentThemeId: string = 'mineral-basalt';
-  public fontSize: number = 14;
+  public fontSize: number = 15;
   public fontFamily: FontFamilyType = 'sans';
   public customAccentColor: string | null = null;
   public isModalOpen: boolean = false;
@@ -285,7 +285,7 @@ export class ThemeEngine {
 
   public resetToDefaults(): void {
     this.currentThemeId = 'mineral-basalt';
-    this.fontSize = 14;
+    this.fontSize = 15;
     this.fontFamily = 'sans';
     this.customAccentColor = null;
     this.savePreferences();
@@ -446,8 +446,8 @@ export class ThemeEngine {
 
     const familyStack =
       this.fontFamily === 'mono'
-        ? "'JetBrains Mono', ui-monospace, SFMono-Regular, monospace"
-        : "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+        ? "'Cascadia Code', 'Cascadia Mono', 'JetBrains Mono', ui-monospace, SFMono-Regular, Consolas, monospace"
+        : "'Segoe UI Variable', 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif";
     this.injectDynamicThemeStylesheet(theme, familyStack, effectiveAccent);
   }
 

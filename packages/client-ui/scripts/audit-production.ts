@@ -1,6 +1,6 @@
 /**
  * @file scripts/audit-production.ts
- * @description Comprehensive 18-Gate Production Readiness & Security Audit for Aetheris.
+ * @description Comprehensive 23-Gate Production Readiness & Security Audit for Aetheris.
  * Scans the entire production source tree with zero file exclusions:
  * 1. Zero inline and property event handlers
  * 2. Zero native browser dialogs (alert, confirm, prompt)
@@ -118,7 +118,13 @@ let cspPass = false;
 let cspDetails = '';
 if (fs.existsSync(headersPath)) {
   const headers = fs.readFileSync(headersPath, 'utf8');
-  const hasNoGoogleFonts = !headers.includes('fonts.googleapis.com') && !headers.includes('fonts.gstatic.com');
+  const indexHtmlPath = path.join(rootDir, 'index.html');
+  const indexHtml = fs.existsSync(indexHtmlPath) ? fs.readFileSync(indexHtmlPath, 'utf8') : '';
+  const hasNoGoogleFonts =
+    !headers.includes('fonts.googleapis.com') &&
+    !headers.includes('fonts.gstatic.com') &&
+    !indexHtml.includes('fonts.googleapis.com') &&
+    !indexHtml.includes('fonts.gstatic.com');
   const hasSelfDefault = headers.includes("default-src 'self'");
   const hasFrameAncestorsNone = headers.includes("frame-ancestors 'none'");
   const cspLine = headers.split('\n').find((l) => l.includes('Content-Security-Policy:')) || '';
@@ -128,7 +134,7 @@ if (fs.existsSync(headersPath)) {
 
   if (hasNoGoogleFonts && hasSelfDefault && hasFrameAncestorsNone && hasNoUnsafeInlineScript && hasNoWildcards) {
     cspPass = true;
-    cspDetails = 'Strict CSP active: 0 external fonts, no unsafe-inline in scripts, zero wildcards, frame-ancestors denied';
+    cspDetails = 'Strict CSP active: 0 external fonts in headers or HTML, no unsafe-inline in scripts, zero wildcards, frame-ancestors denied';
   } else {
     cspDetails = `Google fonts: ${!hasNoGoogleFonts}, unsafe-inline in script: ${!hasNoUnsafeInlineScript}, wildcard: ${!hasNoWildcards}`;
   }
@@ -712,13 +718,14 @@ if (fs.existsSync(webauthnApiFile)) {
   const hasMandatorySignatureCheck = waContent.includes('!body.signature');
   const hasSubtleVerify = waContent.includes('crypto.subtle.verify');
   const hasD1Credentials = waContent.includes('webauthn_credentials');
+  const hasNoAdminPinHeader = !waContent.includes('X-Admin-PIN');
 
-  if (hasNoFakeKeyFallback && hasMandatorySignatureCheck && hasSubtleVerify && hasD1Credentials) {
+  if (hasNoFakeKeyFallback && hasMandatorySignatureCheck && hasSubtleVerify && hasD1Credentials && hasNoAdminPinHeader) {
     webauthnPass = true;
-    webauthnDetails = 'FIDO2 L3 verified: mandatory signature check, D1 persistence, and zero fake key fallback';
+    webauthnDetails = 'FIDO2 L3 verified: mandatory signature check, D1 persistence, zero fake key fallback, and no admin-PIN header bypass';
   } else {
     webauthnPass = false;
-    webauthnDetails = `No fake key: ${hasNoFakeKeyFallback}, mandatory sig: ${hasMandatorySignatureCheck}, subtle verify: ${hasSubtleVerify}, D1 creds: ${hasD1Credentials}`;
+    webauthnDetails = `No fake key: ${hasNoFakeKeyFallback}, mandatory sig: ${hasMandatorySignatureCheck}, subtle verify: ${hasSubtleVerify}, D1 creds: ${hasD1Credentials}, no admin PIN bypass: ${hasNoAdminPinHeader}`;
   }
 } else {
   webauthnPass = false;
@@ -1034,6 +1041,26 @@ if (fs.existsSync(pushApiPath)) {
   }
 }
 
+// 8. Check relay auth: no shared development HMAC fallback and robust token parsing
+const wsApiPath = path.join(functionsDir, 'api/ws.ts');
+if (fs.existsSync(wsApiPath)) {
+  const wsContent = fs.readFileSync(wsApiPath, 'utf8');
+  if (wsContent.includes('aetheris-dev-secret-key-v1')) {
+    behavioralViolations.push('ws API ships a public default relay HMAC secret');
+  }
+  if (!wsContent.includes("lastIndexOf('_')")) {
+    behavioralViolations.push('ws API splits relay tokens on every underscore instead of the final signature separator');
+  }
+}
+
+const webauthnAuthPath = path.join(functionsDir, 'api/webauthn.ts');
+if (fs.existsSync(webauthnAuthPath)) {
+  const waAuthContent = fs.readFileSync(webauthnAuthPath, 'utf8');
+  if (waAuthContent.includes('aetheris-dev-secret-key-v1')) {
+    behavioralViolations.push('webauthn API ships a public default relay HMAC secret');
+  }
+}
+
 if (behavioralViolations.length === 0) {
   behavioralPass = true;
 } else {
@@ -1045,7 +1072,7 @@ gates.push({
   name: 'Production Behavioral Hardening & Zero-Fabrication Invariants',
   status: behavioralPass ? 'PASS' : 'FAIL',
   details: behavioralPass
-    ? 'Verified: 0 mockBalance, 0 self-attested federation keys, exact CORS on sensitive routes, 0 URL admin creds, 0 synthetic analytics, push fail-closed, clean observatory'
+    ? 'Verified: 0 mockBalance, 0 self-attested federation keys, exact CORS on sensitive routes, 0 URL admin creds, 0 synthetic analytics, push fail-closed, clean observatory, relay auth fail-closed'
     : `Violations found: ${behavioralViolations.join('; ')}`,
 });
 

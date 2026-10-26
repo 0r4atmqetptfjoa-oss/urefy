@@ -91,18 +91,18 @@ checks.push({
 });
 
 // 5. Empty States Implementation
-const primitivesFile = path.join(clientSrc, 'ui/primitives.ts');
+const primitivesFile = path.join(clientSrc, 'empty-states.ts');
 let emptyStatesPass = false;
 if (fs.existsSync(primitivesFile)) {
   const content = fs.readFileSync(primitivesFile, 'utf8');
-  if (content.includes('renderEmptyState') && content.includes('renderErrorState') && content.includes('renderSkeleton')) {
+  if (content.includes('renderPulseEmptyState') && content.includes('renderPulseFeedSkeleton') && content.includes('renderVaultFilesEmptyState')) {
     emptyStatesPass = true;
   }
 }
 checks.push({
   name: 'Empty States, Error States & Loading Skeletons in Design System',
   status: emptyStatesPass ? 'PASS' : 'FAIL',
-  details: emptyStatesPass ? 'Normalized empty state, error state, and skeleton primitives present' : 'Missing empty state primitives in ui/primitives.ts',
+  details: emptyStatesPass ? 'Normalized empty state, error state, and skeleton primitives present' : 'Missing empty state primitives in empty-states.ts',
 });
 
 // Print UX Audit Results

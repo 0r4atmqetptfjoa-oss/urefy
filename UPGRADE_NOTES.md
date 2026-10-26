@@ -50,11 +50,11 @@ Migrarile `0007_direct_messages.sql` si `0008_governance.sql` sunt validate loca
 
 ## Performanta
 
-- Pornire obligatorie: 549,04 KiB JavaScript gzip in 18 chunkuri si 34,38 KiB CSS gzip.
-- Extragerea walletului/ethers la cerere a redus incarcarea initiala de la aproximativ 651 la 549 KiB gzip.
-- `npm run audit:bundle` impune plafonul de 600 KiB gzip pentru toate modulele obligatorii de bootstrap si dependentele lor statice, nu doar pentru entrypoint.
-- Modulele dinamice obligatorii sunt incluse; numai functiile optionale sunt excluse. Cheile cu hash ale manifestului sunt rezolvate prin referintele sale reale. Obiectivul de 300 KiB pentru intregul startup nu este inca atins.
-- Grupurile vechi `manualChunks` au fost inlocuite cu API-ul `codeSplitting`, fara includerea recursiva fortata a modulelor optionale.
+- Pornire obligatorie: 588,56 KiB JavaScript gzip in 26 chunkuri si 76,80 KiB CSS gzip (masurat la 2026-10-21).
+- `npm run audit:bundle` impune plafonul de 600 KiB gzip pentru modulele obligatorii de bootstrap (`app`, `brand`, `mobile-performance`, `workspace-layout`) si dependentele lor statice, nu doar pentru entrypoint sau pentru functiile optionale.
+- `studio-runtime-fixes` este incarcat dupa primul paint, prin `requestIdleCallback`, nu in fereastra critica de pornire.
+- Fonturile sunt exclusiv locale/system; nu se mai face nicio cerere catre Google Fonts, iar CSP-ul din `_headers` si din HTML este aliniat.
+- Plafonul de 300 KiB pentru intregul startup nu este inca atins; chunkul `app` ramane principala tinta de descompunere pe fluxuri.
 
 ## Verificare
 

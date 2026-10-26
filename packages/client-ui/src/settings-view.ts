@@ -1013,7 +1013,7 @@ export class SettingsView {
               <span class="text-xl">💻</span>
               <div>
                 <div class="text-xs font-bold font-mono">Monospace (Terminal)</div>
-                <div class="text-[10px] text-slate-400 font-mono">JetBrains Mono / Terminal</div>
+                <div class="text-[10px] text-slate-400 font-mono">Cascadia / System Mono</div>
               </div>
             </button>
           </div>

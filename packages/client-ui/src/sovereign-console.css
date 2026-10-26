@@ -3,9 +3,9 @@
    =========================================================================== */
 :root {
   /* 1. Typography: Technical Swiss + Monospace Telemetry */
-  --font-display: "Space Grotesk", "Plus Jakarta Sans", -apple-system, sans-serif;
+  --font-display: "Segoe UI Variable Display", "Segoe UI Variable", "Segoe UI", -apple-system, sans-serif;
   --font-body: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-mono: "JetBrains Mono", "IBM Plex Mono", monospace;
+  --font-mono: "Cascadia Code", "Cascadia Mono", "JetBrains Mono", "IBM Plex Mono", monospace;
 
   /* 2. Dark-First Elevation via Lightness (Never #000, +3.5% L per tier) */
   --elev-0: oklch(0.13 0.008 235);
