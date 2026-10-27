@@ -2153,7 +2153,32 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
       if (body.action === 'trigger-azure-ai') {
         let aiSummary = 'UREfy sovereign 2026 multi-cloud infrastructure: 8 Azure services operational, zero-trust edge protection, quantum-resistant hash ledger verified.';
         let mode = 'sovereign-ai-worker';
-        if (context.env?.AZURE_AI_API_URL && context.env?.UREFY_AI_SHARED_TOKEN) {
+        if (context.env?.AZURE_OPENAI_KEY) {
+          try {
+            const endpoint = (context.env.AZURE_OPENAI_ENDPOINT || 'https://urefy.openai.azure.com').replace(/\/$/, '');
+            const deployment = context.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-5-mini';
+            const upstream = await fetch(`${endpoint}/openai/deployments/${deployment}/chat/completions?api-version=2024-10-21`, {
+              method: 'POST',
+              headers: {
+                'api-key': context.env.AZURE_OPENAI_KEY,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                messages: [{ role: 'user', content: 'Summarize UREfy sovereign multi-cloud architecture status concisely.' }],
+                max_completion_tokens: 600,
+              }),
+              signal: AbortSignal.timeout(15_000),
+            });
+            if (upstream.ok) {
+              const json = (await upstream.json()) as any;
+              const content = json?.choices?.[0]?.message?.content?.trim();
+              if (content) {
+                aiSummary = content;
+                mode = 'live-azure-openai';
+              }
+            }
+          } catch (_) {}
+        } else if (context.env?.AZURE_AI_API_URL && context.env?.UREFY_AI_SHARED_TOKEN) {
           try {
             const upstream = await fetch(`${context.env.AZURE_AI_API_URL.replace(/\/$/, '')}/api/summary`, {
               method: 'POST',
