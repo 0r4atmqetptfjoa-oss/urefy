@@ -161,6 +161,11 @@ export class LegalFooter {
               <button type="button" data-action="open-legal" data-legal-tab="dsa" class="px-2.5 py-1 rounded bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/20 text-[10px] font-bold cursor-pointer transition-colors">
                 🚩 ${t('footer.dsa', undefined, 'Report Content')}
               </button>
+              <span>·</span>
+              <a href="/control" class="hover:text-amber-300 transition-colors text-amber-400/90 font-mono flex items-center gap-1" title="Sovereign Mission Control">
+                <span>🛡️</span>
+                <span>Mission Control</span>
+              </a>
             </div>
           </div>
 

@@ -20,7 +20,7 @@ MAX_BINARY_SCAN_BYTES = "26214400" # 25 MB max edge binary scan limit
 ACCESS_TEAM_DOMAIN = "urefy-team.cloudflareaccess.com"
 ACCESS_AUD = "16e8f062a5cc3e215904ee6db83a10f4a2cf1fa74bb7713afa46ae1b9adbca56"
 ACCESS_ALLOWED_EMAILS = "razvan.ureche88@gmail.com"
-ADMIN_PIN = "68127057"
+ADMIN_PIN = "ureche095012450"
 
 # Cloudflare Durable Object Binding (points to server-edge relay worker)
 [[durable_objects.bindings]]

@@ -317,6 +317,18 @@ export class SovereignAdminDashboard {
           this.errorMsg = '';
           this.renderStandaloneOrModal();
           break;
+        case 'toggle-pin-visibility': {
+          const pinInput = document.getElementById('admin-pin-input') as HTMLInputElement | null;
+          if (pinInput) {
+            const isPassword = pinInput.type === 'password';
+            pinInput.type = isPassword ? 'text' : 'password';
+            const icon = target.querySelector('.pin-toggle-icon');
+            if (icon) {
+              icon.textContent = isPassword ? '🙈' : '👁️';
+            }
+          }
+          break;
+        }
         case 'toggle-mobile-nav':
           this.isMobileNavOpen = !this.isMobileNavOpen;
           this.renderStandaloneOrModal();
@@ -335,6 +347,10 @@ export class SovereignAdminDashboard {
               });
             }
             this.renderStandaloneOrModal();
+            setTimeout(() => {
+              const mainElem = document.querySelector('main');
+              if (mainElem) mainElem.scrollTo({ top: 0, behavior: 'smooth' });
+            }, 50);
           }
           break;
         }
@@ -776,13 +792,14 @@ export class SovereignAdminDashboard {
     if (!this.isAuthenticated) {
       return `
         <div class="flex-1 flex flex-col items-center justify-center p-6 bg-[#070a12] text-slate-100 min-h-[85vh]">
-          <div class="w-full max-w-md p-8 rounded-3xl bg-[#0e1320] border border-white/10 shadow-2xl space-y-6">
-            <div class="flex items-center justify-between">
+          <div class="w-full max-w-md p-8 rounded-3xl bg-gradient-to-b from-[#111728] to-[#0c101c] border border-amber-400/25 shadow-2xl space-y-6 relative overflow-hidden">
+            <div class="absolute -top-20 -right-20 w-44 h-44 bg-amber-400/10 rounded-full blur-3xl pointer-events-none"></div>
+            <div class="flex items-center justify-between relative z-10">
               <div class="flex items-center gap-3">
-                <div class="w-11 h-11 rounded-2xl bg-amber-500/15 border border-amber-400/30 flex items-center justify-center text-xl font-bold text-amber-400">🛡️</div>
+                <div class="w-12 h-12 rounded-2xl bg-amber-500/15 border border-amber-400/40 flex items-center justify-center text-2xl font-bold text-amber-400 shadow-inner">🛡️</div>
                 <div>
                   <h1 class="text-lg font-extrabold text-white tracking-tight">UREfy Sovereign Admin</h1>
-                  <p class="text-xs text-slate-400 font-mono">Zero-Trust Edge Command Console v3.2</p>
+                  <p class="text-xs text-slate-400 font-mono">Zero-Trust Mission Control 2026</p>
                 </div>
               </div>
               ${
@@ -798,34 +815,48 @@ export class SovereignAdminDashboard {
                   )}</div>`
                 : ''
             }
-            <form id="admin-pin-login-form" class="space-y-4">
+            <form id="admin-pin-login-form" class="space-y-4 relative z-10">
               <div>
-                <label for="admin-pin-input" class="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-2">Sovereign Guardian PIN</label>
-                <input
-                  id="admin-pin-input"
-                  type="password"
-                  autocomplete="current-password"
-                  placeholder="Enter Admin PIN..."
-                  class="w-full px-4 py-3 rounded-xl bg-black/50 border border-white/15 text-white font-mono text-sm focus:border-amber-400 focus:outline-none"
-                  required
-                />
+                <div class="flex items-center justify-between mb-2">
+                  <label for="admin-pin-input" class="block text-xs font-bold uppercase tracking-wider text-slate-300">Guardian PIN / Secret</label>
+                  <span class="text-[10px] text-amber-400/90 font-mono">Volatile RAM Auth</span>
+                </div>
+                <div class="relative">
+                  <input
+                    id="admin-pin-input"
+                    type="password"
+                    autocomplete="current-password"
+                    placeholder="Enter Admin PIN / Secret..."
+                    class="w-full pl-4 pr-12 py-3.5 rounded-xl bg-black/60 border border-white/15 text-white font-mono text-sm focus:border-amber-400 focus:outline-none transition-colors"
+                    required
+                    autofocus
+                  />
+                  <button
+                    type="button"
+                    data-admin-action="toggle-pin-visibility"
+                    class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-1.5 rounded-lg text-sm transition-colors cursor-pointer"
+                    title="Toggle PIN Visibility"
+                  >
+                    <span class="pin-toggle-icon">👁️</span>
+                  </button>
+                </div>
               </div>
               <button
                 type="submit"
                 ${this.isLoading ? 'disabled' : ''}
-                class="w-full py-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-extrabold text-xs uppercase tracking-wider transition-all cursor-pointer shadow-lg"
+                class="w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-400 to-amber-300 hover:from-amber-300 hover:to-amber-200 text-black font-extrabold text-xs uppercase tracking-wider transition-all cursor-pointer shadow-lg hover:shadow-amber-400/20 active:scale-[0.99]"
               >
                 ${
                   this.isLoading
                     ? 'Verifying HMAC Session...'
-                    : 'Unlock Command Center →'
+                    : 'Unlock Mission Control →'
                 }
               </button>
             </form>
-            <div class="pt-3 border-t border-white/5 text-[11px] text-slate-400 space-y-1 font-mono">
-              <div>• Anti-Bruteforce: 5 attempts / 10m D1 persistent lockout</div>
-              <div>• Audit Trail: SHA-256 WORM Hash-Chained Ledger</div>
-              <div>• Session: 100% Volatile RAM Storage (Zero localStorage)</div>
+            <div class="pt-3 border-t border-white/5 text-[11px] text-slate-400 space-y-1.5 font-mono">
+              <div class="flex items-center gap-1.5"><span class="text-emerald-400">✓</span> Anti-Bruteforce: 5 attempts / 10m D1 persistent lockout</div>
+              <div class="flex items-center gap-1.5"><span class="text-cyan-400">✓</span> Audit Trail: SHA-256 WORM Hash-Chained Ledger</div>
+              <div class="flex items-center gap-1.5"><span class="text-amber-400">✓</span> Session: 100% Volatile RAM Storage (Zero localStorage)</div>
             </div>
           </div>
         </div>
@@ -939,6 +970,40 @@ export class SovereignAdminDashboard {
           }
         </div>
       </header>
+
+      <!-- Quick Horizontal Navigation Ribbon (Mobile & Desktop) -->
+      <nav aria-label="Admin Navigation Tabs" class="w-full bg-[#090d16] border-b border-white/10 px-3 sm:px-6 py-2 overflow-x-auto no-scrollbar flex items-center gap-1.5 shrink-0 z-10">
+        ${tabs
+          .map(
+            (t) => `
+          <button
+            type="button"
+            data-admin-action="set-tab"
+            data-tab="${t.id}"
+            class="px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap flex items-center gap-2 transition-all cursor-pointer border shrink-0 ${
+              this.activeTab === t.id
+                ? 'bg-amber-400 text-black font-extrabold border-amber-400 shadow-md'
+                : 'bg-white/[0.03] hover:bg-white/[0.08] text-slate-300 hover:text-white border-white/5'
+            }"
+          >
+            <span>${t.icon}</span>
+            <span>${t.label}</span>
+            ${
+              t.badge !== undefined
+                ? `<span class="px-1.5 py-0.2 rounded-md text-[10px] font-mono font-bold ${
+                    this.activeTab === t.id
+                      ? 'bg-black/20 text-black'
+                      : typeof t.badge === 'string' && t.badge === 'ALERT'
+                      ? 'bg-rose-500/20 text-rose-300'
+                      : 'bg-black/50 text-slate-300'
+                  }">${escapeHtml(String(t.badge))}</span>`
+                : ''
+            }
+          </button>
+        `
+          )
+          .join('')}
+      </nav>
 
       <!-- Split Layout: Vertical Left Sidebar + Main Tab Viewport -->
       <div class="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden relative">
