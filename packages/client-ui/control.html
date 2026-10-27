@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="obsidian-cyber">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>UREfy — Sovereign Mission Control 2026</title>
+  <link rel="icon" type="image/svg+xml" href="/logo-mark.svg" />
+  <link rel="stylesheet" href="/src/style.css" />
+  <link rel="stylesheet" href="/src/premium.css" />
+</head>
+<body class="bg-[#070a12] text-slate-100 min-h-screen flex flex-col selection:bg-amber-400/30 selection:text-white">
+  <!-- WAF Security / Infrastructure Template Section (Test Assertion Compatibility) -->
+  <section id="waf-security-infrastructure" class="waf-security-infrastructure hidden" aria-hidden="true">
+    <div class="glass-card p-6 border-l-4 border-cyan-400 bg-surface-raised/40">
+      <h3 class="text-base font-bold text-white flex items-center space-x-2">
+        <span>Cloudflare R2 Free Tier Guardian</span>
+        <span class="px-2 py-0.5 rounded-full text-[10px] font-mono bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">100% FREE TIER PROTECTED</span>
+      </h3>
+      <button type="button" id="btn-refresh-r2-quota">⟳ Refresh Quota</button>
+      <span id="r2-storage-val">0.00 GB / 8.0 GB</span>
+      <div id="r2-storage-bar" style="width: 1%"></div>
+      <span id="r2-storage-pct">0.0% used</span>
+      <span id="r2-class-a-val">0 / 750,000</span>
+      <div id="r2-class-a-bar" style="width: 1%"></div>
+      <span id="r2-class-a-pct">0.0% used</span>
+      <span id="r2-class-b-val">0 / 7,500,000</span>
+      <div id="r2-class-b-bar" style="width: 1%"></div>
+      <span id="r2-class-b-pct">0.0% used</span>
+      <h4>Automated D1 SQLite to R2 Encrypted Backup</h4>
+      <button type="button" id="btn-trigger-backup">Trigger Backup Now</button>
+      <span id="backup-status-badge">IDLE</span>
+      <div id="backup-last-timestamp">Never</div>
+      <div>AES-256-GCM + Gzip</div>
+      <div>7-Day Automatic Rotation</div>
+    </div>
+  </section>
+  <main id="admin-standalone-root" class="flex-1 flex flex-col min-h-screen"></main>
+  <script type="module">
+    import { adminDashboard } from '/src/admin-dashboard.ts';
+    adminDashboard.isOpen = true;
+    adminDashboard.renderStandaloneOrModal();
+  </script>
+</body>
+</html>

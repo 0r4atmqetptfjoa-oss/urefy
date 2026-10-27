@@ -63,6 +63,13 @@ if (fs.existsSync(adminHtmlPath)) {
   fs.copyFileSync(adminHtmlPath, path.join(adminDirPath, 'index.html'));
 }
 
+const controlHtmlPath = path.join(distDir, 'control.html');
+if (fs.existsSync(controlHtmlPath)) {
+  const controlDirPath = path.join(distDir, 'control');
+  if (!fs.existsSync(controlDirPath)) fs.mkdirSync(controlDirPath, { recursive: true });
+  fs.copyFileSync(controlHtmlPath, path.join(controlDirPath, 'index.html'));
+}
+
 fs.writeFileSync(
   routesJson,
   JSON.stringify(

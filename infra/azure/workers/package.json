@@ -1,0 +1,22 @@
+{
+  "name": "@urefy/azure-workers",
+  "version": "1.0.0",
+  "private": true,
+  "description": "UREfy Sovereign Background Workers on Microsoft Azure",
+  "type": "module",
+  "scripts": {
+    "start": "node orchestrator.mjs --daemon",
+    "once": "node orchestrator.mjs --once",
+    "worker:ai": "node -r dotenv/config -e \"import('./worker-ai-summary.mjs').then(m => m.runAiSummaryWorker())\"",
+    "worker:db": "node -r dotenv/config -e \"import('./worker-db-sync.mjs').then(m => m.runDbSyncWorker())\"",
+    "worker:backup": "node -r dotenv/config -e \"import('./worker-dr-backup.mjs').then(m => m.runDrBackupWorker())\"",
+    "worker:queue": "node -r dotenv/config -e \"import('./worker-queue-processor.mjs').then(m => m.runQueueProcessorWorker())\"",
+    "worker:sentinel": "node -r dotenv/config -e \"import('./worker-uptime-sentinel.mjs').then(m => m.runUptimeSentinelWorker())\""
+  },
+  "dependencies": {
+    "@azure/service-bus": "^7.9.5",
+    "@azure/storage-blob": "^12.26.0",
+    "dotenv": "^16.4.7",
+    "pg": "^8.13.1"
+  }
+}

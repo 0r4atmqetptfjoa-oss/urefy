@@ -39,6 +39,7 @@ export default defineConfig(({ command }) => ({
       input: {
         main: resolve(import.meta.dirname, 'index.html'),
         admin: resolve(import.meta.dirname, 'admin.html'),
+        control: resolve(import.meta.dirname, 'control.html'),
       },
       output: {
         entryFileNames: 'assets-v5/[name]-[hash].js',

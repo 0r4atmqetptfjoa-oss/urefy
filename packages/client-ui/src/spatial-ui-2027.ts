@@ -36,6 +36,17 @@ export function initSpatialUi2027(options: {
       if (activeTag === 'input' || activeTag === 'textarea') return;
       e.preventDefault();
       options.onOpenChat();
+      return;
+    }
+
+    // 3. Scurtătura globală Ctrl+Shift+A / Cmd+Shift+A pentru deschiderea consolei Sovereign Mission Control
+    if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'a') {
+      const activeTag = (document.activeElement?.tagName || '').toLowerCase();
+      if (activeTag === 'input' || activeTag === 'textarea') return;
+      e.preventDefault();
+      import('./admin-dashboard.js').then((m) => {
+        m.adminDashboard.open();
+      });
     }
   });
 

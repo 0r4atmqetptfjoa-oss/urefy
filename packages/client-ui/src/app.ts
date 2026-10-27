@@ -232,6 +232,11 @@ if (typeof window !== 'undefined') {
   (window as any).sovereignDialog = sovereignDialog;
   (window as any).__aetheris_open_settings = (tab?: any) => { sovereignRouter.navigateTo('settings', { subtab: tab }); };
   (window as any).__aetheris_close_settings = () => { settingsView?.close(); };
+  (window as any).__urefy_open_admin = () => {
+    import('./admin-dashboard.js').then((m) => {
+      m.adminDashboard.open();
+    });
+  };
   // webTorrentSwarm is loaded on-demand
   // window.spatialAudioMesh initialized on demand
   // window.soundPacks initialized on demand
