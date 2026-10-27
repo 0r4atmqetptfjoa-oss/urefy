@@ -2,12 +2,19 @@ import { headHandler } from './_head.js';
 
 const robots = `User-agent: *
 Allow: /
-Disallow: /api/admin
-Disallow: /api/cron-backup
+Disallow: /api/
+Disallow: /control
+Disallow: /messages
+Disallow: /admin
+Disallow: /vault
+Disallow: /settings
 
 # Permisiuni explicite pentru Google Search & Google AI Overviews
 User-agent: Googlebot
 Allow: /
+Disallow: /api/
+Disallow: /control
+Disallow: /messages
 
 User-agent: Google-Extended
 Allow: /
@@ -27,6 +34,9 @@ Allow: /
 
 User-agent: bingbot
 Allow: /
+Disallow: /api/
+Disallow: /control
+Disallow: /messages
 
 Sitemap: https://urefy.com/sitemap.xml
 `;
