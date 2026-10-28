@@ -334,6 +334,13 @@ export class SovereignRouter {
       clientStore.notify();
       return;
     }
+    if (pathname === '/security' && !rawHash) {
+      void import('./legal-modal.js').then(m => {
+        m.legalModal.open('security');
+      });
+      return;
+    }
+    
     if (pathname === '/communities' && !rawHash) {
       this.currentRoute = 'communities';
       clientStore.activeChannelId = 'communities';
@@ -364,6 +371,21 @@ export class SovereignRouter {
     }
 
     const [mainRoute, subParam] = rawHash.toLowerCase().split('/');
+
+    if (mainRoute === 'security' || mainRoute === 'whitepaper') {
+      void import('./legal-modal.js').then(m => {
+        m.legalModal.open('security');
+      });
+      return;
+    }
+    if (mainRoute === 'legal') {
+      const validTabs = ['about', 'security', 'terms', 'privacy', 'rules', 'dsa', 'contact'];
+      const tab = validTabs.includes(subParam) ? subParam : 'about';
+      void import('./legal-modal.js').then(m => {
+        m.legalModal.open(tab as any);
+      });
+      return;
+    }
 
     const validRoutes: SovereignRoute[] = ['feed', 'explore', 'communities', 'messages', 'vault', 'profile', 'settings', 'more', 'governance'];
 

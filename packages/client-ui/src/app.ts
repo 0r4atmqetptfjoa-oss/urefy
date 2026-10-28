@@ -2016,6 +2016,16 @@ function renderMobileDrawer(): string {
                 <span class="text-cyan-400 text-[9px] font-mono">DSA 2022/2065</span>
               </div>
 
+              <button type="button" data-action="open-legal" data-legal-tab="security" class="w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-semibold text-emerald-400 hover:text-emerald-300 hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
+                <span class="text-base">🔐</span>
+                <span class="flex-1">Security &amp; Crypto Whitepaper</span>
+              </button>
+
+              <a href="https://github.com/0r4atmqetptfjoa-oss/urefy" target="_blank" rel="noopener noreferrer" class="w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
+                <span class="text-base">🐙</span>
+                <span class="flex-1">GitHub (MIT Open Source)</span>
+              </a>
+
               <button type="button" data-action="open-legal" data-legal-tab="about" class="w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-surface-raised transition-all flex items-center space-x-3 cursor-pointer">
                 <span class="text-base">ℹ️</span>
                 <span class="flex-1">About Us & Architecture</span>

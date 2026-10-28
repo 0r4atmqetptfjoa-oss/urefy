@@ -82,6 +82,24 @@ export class LegalFooter {
               </h4>
               <ul class="space-y-1.5 text-[11px]">
                 <li>
+                  <button type="button" data-action="open-legal" data-legal-tab="security" class="hover:text-emerald-300 transition-colors text-left cursor-pointer flex items-center space-x-1 font-semibold text-emerald-400">
+                    <span>🔐</span>
+                    <span>Security &amp; Crypto Whitepaper</span>
+                  </button>
+                </li>
+                <li>
+                  <a href="https://github.com/0r4atmqetptfjoa-oss/urefy" target="_blank" rel="noopener noreferrer" class="hover:text-cyan-300 transition-colors text-left flex items-center space-x-1">
+                    <span>🐙</span>
+                    <span>GitHub: urefy (MIT Open Source)</span>
+                  </a>
+                </li>
+                <li>
+                  <a href="https://github.com/0r4atmqetptfjoa-oss/urefy/blob/main/docs/SELF_HOSTING.md" target="_blank" rel="noopener noreferrer" class="hover:text-cyan-300 transition-colors text-left flex items-center space-x-1">
+                    <span>🚀</span>
+                    <span>Self-Hosting Guide (0€ Edge)</span>
+                  </a>
+                </li>
+                <li>
                   <button type="button" data-action="open-legal" data-legal-tab="about" class="hover:text-cyan-300 transition-colors text-left cursor-pointer flex items-center space-x-1">
                     <span>ℹ️</span>
                     <span>${t('footer.about', undefined, 'About UREfy Architecture')}</span>
@@ -144,6 +162,14 @@ export class LegalFooter {
                     <div class="text-slate-400">Hybrid Post-Quantum Cryptography</div>
                   </div>
                 </div>
+
+                <div class="p-2 rounded-lg bg-black/40 border border-emerald-500/20 flex items-center space-x-2">
+                  <span class="text-base">✅</span>
+                  <div>
+                    <div class="font-bold text-emerald-400">23 Security Gates</div>
+                    <div class="text-slate-400">100% Passed · Continuous CI/CD</div>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -151,8 +177,10 @@ export class LegalFooter {
 
           <!-- Bottom Notice & Contact -->
           <div class="pt-6 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-4 text-[11px] text-slate-500">
-            <div>
-              © 2026 UREfy · Sovereign open-source protocol (AS-IS). Engineered in full compliance with European digital transparency and data protection standards.
+            <div class="flex flex-wrap items-center gap-2">
+              <span>© 2026 UREfy · Sovereign open-source protocol (AS-IS).</span>
+              <a href="https://github.com/0r4atmqetptfjoa-oss/urefy" target="_blank" rel="noopener noreferrer" class="px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/10 text-cyan-300 font-mono transition-colors">GitHub (MIT)</a>
+              <button type="button" data-action="open-legal" data-legal-tab="security" class="px-1.5 py-0.5 rounded bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 font-mono cursor-pointer transition-colors">Security Whitepaper</button>
             </div>
             <div class="flex items-center space-x-3 shrink-0">
               <span class="text-slate-400">EU Point of Contact:</span>
@@ -181,6 +209,10 @@ export class LegalFooter {
     return `
       <div id="sidebar-legal-snippet" class="p-3 text-[10px] text-slate-500 font-sans border-t border-white/5 space-y-2 bg-surface-base/50 select-none">
         <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-slate-400">
+          <button type="button" data-action="open-legal" data-legal-tab="security" class="hover:text-emerald-400 font-medium transition-colors cursor-pointer text-emerald-400/90">Security</button>
+          <span>•</span>
+          <a href="https://github.com/0r4atmqetptfjoa-oss/urefy" target="_blank" rel="noopener noreferrer" class="hover:text-cyan-300 transition-colors">GitHub</a>
+          <span>•</span>
           <button type="button" data-action="open-legal" data-legal-tab="about" class="hover:text-cyan-300 transition-colors cursor-pointer">${t('footer.about', undefined, 'About')}</button>
           <span>•</span>
           <button type="button" data-action="open-legal" data-legal-tab="rules" class="hover:text-cyan-300 transition-colors cursor-pointer">${t('footer.rules', undefined, 'Rules')}</button>
@@ -231,8 +263,33 @@ export class LegalFooter {
           ` : ''}
         </div>
 
-        <!-- CENTER: LEGAL NAVIGATION LINKS (ABOUT, TERMS, PRIVACY, RULES, REPORT, CONTACT) -->
+        <!-- CENTER: LEGAL NAVIGATION LINKS (SECURITY, ABOUT, TERMS, PRIVACY, RULES, REPORT, CONTACT) -->
         <nav class="flex items-center justify-center space-x-1 sm:space-x-2 text-[11px] sm:text-xs font-sans mx-1 sm:mx-2 overflow-x-auto no-scrollbar scroll-smooth" style="-webkit-overflow-scrolling: touch;" aria-label="EU Legal and Regulatory Footer Navigation">
+          <button
+            type="button"
+            data-action="open-legal" data-legal-tab="security"
+            class="px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-xl text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 transition-all cursor-pointer flex items-center space-x-1 whitespace-nowrap font-medium"
+            title="Security &amp; Cryptography Whitepaper and Zeroization Proofs"
+          >
+            <span>🔐</span>
+            <span class="hidden sm:inline">Security</span>
+          </button>
+
+          <span class="text-slate-700 hidden sm:inline">•</span>
+
+          <a
+            href="https://github.com/0r4atmqetptfjoa-oss/urefy"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="hidden md:inline-flex px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition-all items-center space-x-1 whitespace-nowrap font-medium"
+            title="UREfy Open-Source GitHub Repository (MIT)"
+          >
+            <span>🐙</span>
+            <span>GitHub</span>
+          </a>
+
+          <span class="text-slate-700 hidden md:inline">•</span>
+
           <button
             type="button"
             data-action="open-legal" data-legal-tab="about"
@@ -331,6 +388,10 @@ export class LegalFooter {
   public renderStatusBarLegalSnippet(): string {
     return `
       <div class="flex items-center space-x-2 text-[10px] font-mono text-slate-400">
+        <button type="button" data-action="open-legal" data-legal-tab="security" class="hover:text-emerald-400 transition-colors cursor-pointer text-emerald-400 font-semibold">🔐 Security</button>
+        <span>•</span>
+        <a href="https://github.com/0r4atmqetptfjoa-oss/urefy" target="_blank" rel="noopener noreferrer" class="hover:text-cyan-300 transition-colors">🐙 GitHub</a>
+        <span>•</span>
         <button type="button" data-action="open-legal" data-legal-tab="about" class="hover:text-cyan-300 transition-colors cursor-pointer">ℹ️ ${t('footer.about', undefined, 'About')}</button>
         <span>•</span>
         <button type="button" data-action="open-legal" data-legal-tab="terms" class="hover:text-cyan-300 transition-colors cursor-pointer">📜 ${t('footer.terms', undefined, 'Terms')}</button>

@@ -1,0 +1,9 @@
+# UREfy Security Disclosure Policy (RFC 9116)
+Contact: mailto:contact@urefy.com
+Expires: 2027-10-28T00:00:00.000Z
+Preferred-Languages: en, ro
+Canonical: https://urefy.com/.well-known/security.txt
+Policy: https://urefy.com/security.html
+Source-Code: https://github.com/0r4atmqetptfjoa-oss/urefy
+Hiring: https://github.com/0r4atmqetptfjoa-oss/urefy
+Acknowledgments: https://urefy.com/security.html

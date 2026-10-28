@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Security &amp; Cryptography Whitepaper — UREfy Sovereign Protocol</title>
+  <meta name="description" content="Technical specifications, cryptographic proofs, threat model, and comparative privacy analysis of UREfy vs. Signal vs. Matrix.">
+  <link rel="canonical" href="https://urefy.com/security">
+  <meta property="og:title" content="Security & Cryptography Whitepaper — UREfy">
+  <meta property="og:description" content="Complete cryptographic specifications, 23-gate production security audit, and open-source verification on GitHub.">
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://urefy.com/security">
+  <meta name="robots" content="index, follow">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "TechArticle",
+    "headline": "UREfy Cryptographic Architecture & Security Whitepaper",
+    "description": "Technical specifications, cryptographic proofs, threat model, and comparative privacy analysis of UREfy vs. Signal vs. Matrix.",
+    "author": {
+      "@type": "Organization",
+      "name": "UREfy Open Source Project",
+      "url": "https://github.com/0r4atmqetptfjoa-oss/urefy"
+    },
+    "publisher": {
+      "@type": "Organization",
+      "name": "UREfy",
+      "url": "https://urefy.com"
+    },
+    "datePublished": "2026-10-28",
+    "inLanguage": "en"
+  }
+  </script>
+  <style>
+    :root {
+      --bg: #08090d;
+      --surface: #0e131f;
+      --border: rgba(255, 255, 255, 0.1);
+      --accent: #38bdf8;
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 32px 20px 80px;
+    }
+    header {
+      padding-bottom: 24px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 32px;
+    }
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 9999px;
+      font-size: 11px;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--accent);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      margin-bottom: 12px;
+    }
+    h1 { font-size: 32px; margin: 0 0 12px; color: #fff; line-height: 1.25; }
+    h2 { font-size: 22px; margin: 36px 0 16px; color: #fff; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+    h3 { font-size: 17px; margin: 24px 0 8px; color: #e2e8f0; }
+    p, li { color: #cbd5e1; font-size: 14px; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+      font-size: 13px;
+    }
+    th, td {
+      padding: 12px 14px;
+      text-align: left;
+      border: 1px solid var(--border);
+    }
+    th {
+      background: var(--surface);
+      color: #fff;
+      font-weight: 600;
+    }
+    tr:nth-child(even) {
+      background: rgba(255, 255, 255, 0.02);
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px;
+      margin: 20px 0;
+    }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12px;
+      background: rgba(0, 0, 0, 0.4);
+      padding: 2px 6px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      color: #38bdf8;
+    }
+    pre {
+      background: #050608;
+      border: 1px solid var(--border);
+      padding: 16px;
+      border-radius: 12px;
+      overflow-x: auto;
+      font-size: 12px;
+      color: #e2e8f0;
+    }
+    a { color: var(--accent); text-decoration: none; font-weight: 500; }
+    a:hover { text-decoration: underline; }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: #0284c7;
+      color: #fff;
+      padding: 10px 18px;
+      border-radius: 10px;
+      font-weight: bold;
+      font-size: 13px;
+      margin-top: 12px;
+    }
+    .btn:hover { background: #0369a1; text-decoration: none; }
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--border);
+      color: #fff;
+    }
+    .btn-secondary:hover { background: rgba(255, 255, 255, 0.15); }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <span class="badge">Open Source Protocol · MIT Licensed</span>
+      <h1>UREfy Security &amp; Cryptography Whitepaper</h1>
+      <p>Technical architecture, mathematical proofs, threat model, and comparative privacy analysis of UREfy vs. Signal vs. Matrix.</p>
+      <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+        <a href="https://github.com/0r4atmqetptfjoa-oss/urefy" target="_blank" rel="noopener noreferrer" class="btn">
+          <span>GitHub: 0r4atmqetptfjoa-oss/urefy</span>
+        </a>
+        <a href="/#feed" class="btn btn-secondary">
+          <span>Launch UREfy Web App</span>
+        </a>
+      </div>
+    </header>
+
+    <section>
+      <h2>1. Sovereign Privacy Matrix: UREfy vs. Signal vs. Matrix</h2>
+      <p>An objective technical comparison of cryptographic primitives, operational trust assumptions, and identity architectures:</p>
+      
+      <table>
+        <thead>
+          <tr>
+            <th>Security Dimension</th>
+            <th>UREfy</th>
+            <th>Signal</th>
+            <th>Matrix (Synapse / Element)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Source Code &amp; License</strong></td>
+            <td><strong>100% Open Source</strong> (MIT License on GitHub)</td>
+            <td>Open Source (GPLv3)</td>
+            <td>Open Source (Apache 2.0)</td>
+          </tr>
+          <tr>
+            <td><strong>Identity Architecture</strong></td>
+            <td><strong>Cryptographic Keypair (Ed25519)</strong>. No phone number, no email, no KYC.</td>
+            <td><strong>Phone Number Required</strong> (Tied to SIM/Telecom identity).</td>
+            <td>Matrix ID (User @ server). Email often required.</td>
+          </tr>
+          <tr>
+            <td><strong>End-to-End Encryption</strong></td>
+            <td><strong>Mandatory WebCrypto AES-GCM-256 + ECDH P-256</strong>. Ciphertext-only storage.</td>
+            <td>Signal Protocol (Double Ratchet + Curve25519).</td>
+            <td>Olm / Megolm. Optional per-room.</td>
+          </tr>
+          <tr>
+            <td><strong>Server Trust Required</strong></td>
+            <td><strong>Zero-Trust</strong>: Servers never possess decryption keys.</td>
+            <td><strong>Moderate</strong>: Centralized servers control registration directory.</td>
+            <td><strong>High</strong> for homeserver operator; metadata visible across servers.</td>
+          </tr>
+          <tr>
+            <td><strong>Self-Hosting Overhead</strong></td>
+            <td><strong>Serverless 1-Click</strong>: 0€/month on Cloudflare Pages / D1 or Docker.</td>
+            <td><strong>Unsupported</strong> (Centralized by Signal Foundation).</td>
+            <td><strong>Heavy</strong>: Requires dedicated Linux VPS, Synapse daemon, PostgreSQL.</td>
+          </tr>
+          <tr>
+            <td><strong>Platform Access</strong></td>
+            <td><strong>Instant Browser / PWA</strong> (Hardware WebCrypto in RAM).</td>
+            <td>Native Desktop / Mobile App only (No standalone web).</td>
+            <td>Web, Desktop, and Mobile clients.</td>
+          </tr>
+          <tr>
+            <td><strong>Anonymous Governance</strong></td>
+            <td><strong>Chaumian Blind Signatures</strong> (Untraceable merit voting).</td>
+            <td>None.</td>
+            <td>Basic polling extensions.</td>
+          </tr>
+          <tr>
+            <td><strong>Continuous Security Gates</strong></td>
+            <td><strong>23-Gate Automated Production Audit</strong> on every build.</td>
+            <td>Periodic point-in-time security audits.</td>
+            <td>Periodic point-in-time security audits.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>2. Cryptographic Architecture &amp; Mathematical Guarantees</h2>
+      
+      <div class="card">
+        <h3>Client-Side Key Custody &amp; Zeroization</h3>
+        <p>Private keys are generated locally via the W3C <code>crypto.subtle</code> standard as non-extractable handles. On logout or session termination, memory buffers are explicitly wiped with <code>0x00</code> (cryptographic memory zeroization).</p>
+      </div>
+
+      <div class="card">
+        <h3>Zero-Trust Serverless Storage</h3>
+        <p>All direct messages, private Knowledge Vault documents, and media attachments are encrypted on the user's device using <strong>AES-256-GCM</strong> with 96-bit CSPRNG nonces before transmission. Cloudflare D1 and AWS S3 store only ciphertext bytes. Server operators cannot decrypt user data.</p>
+      </div>
+
+      <div class="card">
+        <h3>Zero-Knowledge Rate-Limiting (ZK-RLN)</h3>
+        <p>Spam and DoS attacks are defended without harvesting personal data through <strong>Rate Limiting Nullifiers</strong>. Honest users remain cryptographically private; spammers attempting to exceed epoch thresholds reveal their nullifiers through polynomial intersection.</p>
+      </div>
+    </section>
+
+    <section>
+      <h2>3. The 23 Continuous Production Security Gates</h2>
+      <p>Every commit and deployment must pass all 23 automated production security gates (<code>npm run audit:production</code>):</p>
+      <ul>
+        <li><strong>Gate 1:</strong> Zero inline event handlers (100% action delegation).</li>
+        <li><strong>Gate 2:</strong> Zero native dialogs (alert, confirm, prompt eliminated).</li>
+        <li><strong>Gate 3:</strong> Strict Content Security Policy (Zero unsafe-inline scripts, frame-ancestors denied).</li>
+        <li><strong>Gate 4:</strong> Volatile in-memory admin sessions (HMAC-SHA256, zero hardcoded tokens).</li>
+        <li><strong>Gate 5:</strong> AES-GCM-256 non-extractable device vault (Zero plaintext seeds).</li>
+        <li><strong>Gate 10:</strong> Verified volatile memory zeroization on logout.</li>
+        <li><strong>Gate 15:</strong> Mandatory E2EE edge validation on all message payloads.</li>
+        <li><strong>Gate 16:</strong> FIDO2 WebAuthn L3 hardware signature verification.</li>
+        <li><strong>Gate 18:</strong> Distributed anti-DoS replay defense (10k bounded LRU nonces).</li>
+        <li><strong>Gate 21:</strong> 100% CSPRNG entropy enforcement (Zero Math.random in cryptography).</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>4. Independent Verification &amp; Self-Hosting</h2>
+      <p>The entire source code is publicly accessible and auditable on GitHub:</p>
+      <pre><code># Clone and audit locally
+git clone https://github.com/0r4atmqetptfjoa-oss/urefy.git
+cd urefy
+npm install
+npm test
+npm run audit:production</code></pre>
+      <p>For deployment instructions, see our <a href="https://github.com/0r4atmqetptfjoa-oss/urefy/blob/main/docs/SELF_HOSTING.md" target="_blank" rel="noopener noreferrer">Self-Hosting Guide</a>.</p>
+    </section>
+
+    <footer style="margin-top: 60px; padding-top: 24px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-muted);">
+      © 2026 UREfy · Open Source Sovereign Protocol · Security Disclosure: <a href="mailto:contact@urefy.com">contact@urefy.com</a>
+    </footer>
+  </div>
+</body>
+</html>

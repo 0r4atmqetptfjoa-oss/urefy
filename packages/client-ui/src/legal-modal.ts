@@ -8,7 +8,7 @@ import { clientStore } from './client-state.js';
 import { t } from './i18n.js';
 import { renderIcon } from './ui/icons.js';
 
-export type LegalTab = 'about' | 'terms' | 'privacy' | 'rules' | 'dsa' | 'contact';
+export type LegalTab = 'about' | 'security' | 'terms' | 'privacy' | 'rules' | 'dsa' | 'contact';
 
 export class LegalModal {
   private _isOpen: boolean = false;
@@ -240,6 +240,17 @@ export class LegalModal {
               <span>${t('footer.about', undefined, 'About')}</span>
             </button>
             <button
+              type="button" data-action="set-legal-tab" data-tab="security"
+              class="px-2.5 sm:px-3 py-1.5 sm:py-2 text-[11px] sm:text-xs font-semibold whitespace-nowrap transition-all border-b-2 cursor-pointer flex items-center gap-1.5 ${
+                this._activeTab === 'security'
+                  ? 'border-emerald-400 text-emerald-400 bg-emerald-400/10'
+                  : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-white/5'
+              }"
+            >
+              ${renderIcon('shield', { size: 14 })}
+              <span>Security Whitepaper</span>
+            </button>
+            <button
               type="button" data-action="set-legal-tab" data-tab="terms"
               class="px-2.5 sm:px-3 py-1.5 sm:py-2 text-[11px] sm:text-xs font-semibold whitespace-nowrap transition-all border-b-2 cursor-pointer flex items-center gap-1.5 ${
                 this._activeTab === 'terms'
@@ -337,6 +348,105 @@ export class LegalModal {
 
               <h5 class="font-bold text-xs text-white">3. European Engineering & Digital Sovereignty</h5>
               <p>The platform strictly complies with European directives regarding data sovereignty, fundamental privacy rights, and responsible freedom of expression.</p>
+            </div>
+          </div>
+        `;
+      case 'security':
+        return `
+          <div class="space-y-4">
+            <!-- Header Badge Card -->
+            <div class="p-4 rounded-xl bg-gradient-to-r from-emerald-950/50 via-slate-900 to-cyan-950/40 border border-emerald-500/30 space-y-2">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-mono uppercase tracking-widest bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold">
+                  Verified Open-Source & Cryptographic Architecture
+                </span>
+                <a href="https://github.com/0r4atmqetptfjoa-oss/urefy" target="_blank" rel="noopener noreferrer" class="text-[11px] font-mono text-cyan-400 hover:underline flex items-center gap-1">
+                  <span>GitHub: 0r4atmqetptfjoa-oss/urefy</span> <span>↗</span>
+                </a>
+              </div>
+              <h4 class="font-extrabold text-sm text-white">Sovereign Privacy Matrix: UREfy vs. Signal vs. Matrix</h4>
+              <p class="text-slate-300 text-[11px] leading-relaxed">
+                UREfy is engineered from first principles around <strong>browser WebCrypto AES-GCM-256</strong>, <strong>Ed25519 asymmetric identity</strong>, and <strong>zero-trust serverless edge databases</strong>. No phone number or email is ever required.
+              </p>
+            </div>
+
+            <!-- Comparison Table -->
+            <div class="overflow-x-auto rounded-xl border border-white/10 bg-black/30">
+              <table class="w-full text-left text-[11px] border-collapse">
+                <thead>
+                  <tr class="border-b border-white/10 bg-white/[0.04] text-white font-mono">
+                    <th class="p-2.5">Dimension</th>
+                    <th class="p-2.5 text-emerald-400">UREfy</th>
+                    <th class="p-2.5 text-slate-300">Signal</th>
+                    <th class="p-2.5 text-slate-300">Matrix (Synapse)</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-white/5 text-slate-300">
+                  <tr>
+                    <td class="p-2.5 font-bold text-white">Source Code</td>
+                    <td class="p-2.5 text-emerald-300 font-mono">100% Open Source (MIT)</td>
+                    <td class="p-2.5">Open Source (GPLv3)</td>
+                    <td class="p-2.5">Open Source (Apache 2.0)</td>
+                  </tr>
+                  <tr>
+                    <td class="p-2.5 font-bold text-white">Identity Model</td>
+                    <td class="p-2.5 text-emerald-300 font-mono">Pure Keypair (0 Phone / 0 KYC)</td>
+                    <td class="p-2.5 text-rose-300">Phone Number Mandatory</td>
+                    <td class="p-2.5">Matrix ID (User @ server)</td>
+                  </tr>
+                  <tr>
+                    <td class="p-2.5 font-bold text-white">E2E Encryption</td>
+                    <td class="p-2.5 text-emerald-300 font-mono">Mandatory WebCrypto AES-GCM</td>
+                    <td class="p-2.5">Signal Double Ratchet</td>
+                    <td class="p-2.5">Olm / Megolm (Optional)</td>
+                  </tr>
+                  <tr>
+                    <td class="p-2.5 font-bold text-white">Server Trust</td>
+                    <td class="p-2.5 text-emerald-300 font-mono">Zero-Trust (Ciphertext only)</td>
+                    <td class="p-2.5">Moderate (Centralized)</td>
+                    <td class="p-2.5">High for Homeserver Operator</td>
+                  </tr>
+                  <tr>
+                    <td class="p-2.5 font-bold text-white">Self-Hosting</td>
+                    <td class="p-2.5 text-emerald-300 font-mono">0€ Serverless (3 min deploy)</td>
+                    <td class="p-2.5 text-rose-300">Unsupported / Centralized</td>
+                    <td class="p-2.5">Heavy Linux VPS + PostgreSQL</td>
+                  </tr>
+                  <tr>
+                    <td class="p-2.5 font-bold text-white">Client Access</td>
+                    <td class="p-2.5 text-emerald-300 font-mono">1-Click Browser &amp; PWA</td>
+                    <td class="p-2.5">Native Apps Only</td>
+                    <td class="p-2.5">Web / Desktop / Mobile</td>
+                  </tr>
+                  <tr>
+                    <td class="p-2.5 font-bold text-white">Continuous Audit</td>
+                    <td class="p-2.5 text-emerald-300 font-mono">23-Gate Automated CI/CD</td>
+                    <td class="p-2.5">Periodic Point-in-Time</td>
+                    <td class="p-2.5">Periodic Point-in-Time</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Mathematical Guarantees -->
+            <div class="space-y-2">
+              <h5 class="font-bold text-xs text-white flex items-center gap-2">
+                <span>🔐</span> <span>Client-Side Cryptography &amp; Zeroization</span>
+              </h5>
+              <p class="text-slate-300">
+                Private keys are generated locally via the W3C <code>crypto.subtle</code> standard and stored in non-extractable CryptoKey structures or AES-GCM-256 encrypted IndexedDB device vaults. On logout, memory buffers are wiped using <code>0x00</code> byte-level zeroization.
+              </p>
+            </div>
+
+            <!-- Self-Hosting Link Card -->
+            <div class="p-3.5 rounded-xl bg-surface-raised border border-white/10 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div class="font-bold text-white text-xs">Want to run your own sovereign node?</div>
+                <div class="text-[11px] text-slate-400">Deploy on Cloudflare Pages (Free Tier) or Docker in under 3 minutes.</div>
+              </div>
+              <a href="https://github.com/0r4atmqetptfjoa-oss/urefy/blob/main/docs/SELF_HOSTING.md" target="_blank" rel="noopener noreferrer" class="px-3 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 font-mono text-[11px] font-bold transition-colors">
+                View Self-Hosting Guide ↗
+              </a>
             </div>
           </div>
         `;
