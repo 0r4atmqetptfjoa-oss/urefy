@@ -466,7 +466,7 @@ export class PostDetailView {
     const replyCount = post.replyCount || (comments ? comments.length : 0);
 
     return `
-      <div id="post-focus-view" class="flex-1 flex flex-col h-full overflow-y-auto bg-canvas journal-thread-view">
+      <div id="post-focus-view" class="flex-1 flex flex-col min-h-0 h-full overflow-y-auto bg-canvas journal-thread-view">
         <div class="journal-thread-page w-full mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-5 space-y-6">
           
           <!-- STAGE HEADER BAR -->

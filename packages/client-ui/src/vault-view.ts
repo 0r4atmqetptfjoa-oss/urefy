@@ -787,7 +787,7 @@ export function renderVaultWorkspace(): string {
   }
 
   return `
-    <div class="workspace-vault flex-1 flex flex-col overflow-hidden bg-canvas">
+    <div class="workspace-vault flex-1 flex flex-col min-h-0 h-full overflow-hidden bg-canvas">
       
       <!-- STICKY TOP VAULT NAVIGATION BAR -->
       <div class="workspace-vault__header sticky top-0 z-10 border-b border-white/5 bg-surface-base/90 backdrop-blur-xl px-4 md:px-6 flex items-center justify-between shrink-0 min-h-[56px] py-2 shadow-sm gap-3">
@@ -860,7 +860,7 @@ export function renderVaultWorkspace(): string {
       </div>
 
       <!-- VAULT CONTENT SCROLL AREA (CONTENT FIRST) -->
-      <div id="main-feed-scroll" class="workspace-vault__content flex-1 p-3 sm:p-4 md:p-6 overflow-y-auto space-y-4 max-w-5xl mx-auto w-full pb-20 md:pb-6">
+      <div id="vault-content-scroll" data-scroll-container="vault" class="workspace-vault__content flex-1 min-h-0 p-3 sm:p-4 md:p-6 overflow-y-auto space-y-4 max-w-5xl mx-auto w-full pb-20 md:pb-6">
         ${renderUploadProgressCard()}
         ${
           activeVaultCategory === 'private'

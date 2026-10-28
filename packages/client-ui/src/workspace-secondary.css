@@ -109,7 +109,12 @@
 .workspace-settings--dedicated .workspace-settings__nav { background: transparent !important; border: 0 !important; }
 .workspace-settings--dedicated .workspace-settings__content { border: 1px solid color-mix(in srgb, var(--text-primary) 12%, transparent) !important; border-radius: 16px !important; }
 
-.workspace-vault { color: var(--text-primary); font-family: "Segoe UI Variable", "Segoe UI", Arial, sans-serif; }
+.workspace-vault {
+  color: var(--text-primary);
+  font-family: "Segoe UI Variable", "Segoe UI", Arial, sans-serif;
+  min-height: 0;
+  height: 100%;
+}
 .workspace-vault__header {
   min-height: 72px !important;
   padding: 12px clamp(16px, 3vw, 36px) !important;
@@ -138,7 +143,12 @@
 }
 .workspace-vault__tab:hover { color: var(--text-primary) !important; background: var(--bg-surface-raised) !important; }
 .workspace-vault__tab[aria-selected="true"] { color: var(--text-primary) !important; background: color-mix(in srgb, var(--color-accent) 12%, var(--bg-surface-base)) !important; border-color: var(--color-accent-border) !important; }
-.workspace-vault__content { max-width: 1360px !important; padding: clamp(18px, 3vw, 38px) !important; gap: 18px !important; }
+.workspace-vault__content {
+  min-height: 0;
+  max-width: 1360px !important;
+  padding: clamp(18px, 3vw, 38px) !important;
+  gap: 18px !important;
+}
 .workspace-vault__release,
 .workspace-vault__collection,
 .workspace-vault__collection-heading {

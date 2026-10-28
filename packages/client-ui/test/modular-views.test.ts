@@ -84,7 +84,7 @@ describe('Modular Views Architecture', () => {
       clientStore.activeChannelId = 'vault-releases';
       const html = renderVaultWorkspace();
 
-      expect(html).toContain('id="main-feed-scroll"');
+      expect(html).toContain('id="vault-content-scroll"');
       expect(html).toContain('id="btn-open-composer"');
       expect(html).toContain('KNOWLEDGE VAULT');
       expect(html).toContain('ACTIVE SEEDERS');
