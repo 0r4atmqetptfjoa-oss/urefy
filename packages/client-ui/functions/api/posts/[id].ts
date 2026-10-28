@@ -323,7 +323,7 @@ export async function onRequestGet(context: {
           _facetStatus: facetStatus,
           _facetIsPubliclyLinked: isPubliclyLinked,
         };
-        await kv.put(cacheKey, JSON.stringify(canonicalToCache), { expirationTtl: 60 });
+        await kv.put(cacheKey, JSON.stringify(canonicalToCache), { expirationTtl: 3600 });
       } catch (_) {}
     }
 
@@ -452,7 +452,7 @@ export async function onRequestGet(context: {
           'Content-Type': 'application/json',
           'Cache-Control': isPrivate
             ? 'private, no-cache, no-store, must-revalidate'
-            : 'public, max-age=15, stale-while-revalidate=30',
+            : 'public, max-age=60, s-maxage=3600, stale-while-revalidate=120',
           'Vary': 'Accept, Authorization, X-User-Fingerprint, X-Facet-Id',
           'ETag': `W/"post-${sanitizedPost.id}-${sanitizedPost.createdAt}-${sanitizedPost.replyCount}"`,
           ...CORS_HEADERS,

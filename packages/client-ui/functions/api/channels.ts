@@ -61,7 +61,7 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
             status: 200,
             headers: {
               'Content-Type': 'application/json',
-              'Cache-Control': 'public, max-age=15, stale-while-revalidate=30',
+              'Cache-Control': 'public, max-age=60, s-maxage=1800, stale-while-revalidate=120',
               'X-Edge-Storage': 'Cloudflare-KV',
             },
           });
@@ -130,7 +130,7 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
     // Store in KV cache
     if (kv) {
       try {
-        await kv.put(cacheKey, JSON.stringify(payload), { expirationTtl: 60 });
+        await kv.put(cacheKey, JSON.stringify(payload), { expirationTtl: 1800 });
       } catch (_) {}
     }
 
@@ -245,7 +245,6 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
     // Cache in KV
     if (kv) {
       try {
-        await kv.put(`channel:${newChannel.id}`, JSON.stringify(newChannel), { expirationTtl: 86400 });
       } catch (_) {}
     }
 
@@ -338,7 +337,6 @@ export async function onRequestDelete(context: { request: Request; env?: Env }):
     // 2. Delete from KV
     if (kv) {
       try {
-        await kv.delete(`channel:${channelId}`);
       } catch (_) {}
     }
 

@@ -729,7 +729,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     kv &&
     typeof kv.get === 'function' &&
     typeof kv.put === 'function' &&
-    (isMutatingMethod || rl.remaining < 10)
+    rl.remaining < 5
   ) {
     try {
       const currentMinute = Math.floor(now / 60000);

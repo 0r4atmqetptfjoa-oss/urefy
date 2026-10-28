@@ -134,7 +134,7 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
             headers: {
               'Content-Type': 'application/json',
               'X-Edge-Cache': 'HIT',
-              'Cache-Control': 'public, max-age=15, stale-while-revalidate=30',
+              'Cache-Control': 'public, max-age=30, s-maxage=300, stale-while-revalidate=60',
               'Vary': 'Accept, Authorization, X-User-Fingerprint, X-Facet-Id',
             },
           });
@@ -396,10 +396,10 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
       userFingerprint || callerFacetId || posts.some(p => p.audience && p.audience !== 'public')
     );
 
-    // Store in KV cache with short TTL (strictly public unauthenticated only)
+    // Store in KV cache with 5-minute TTL (strictly public unauthenticated only)
     if (kv && !isPrivateOrAuthed) {
       try {
-        await kv.put(cacheKey, JSON.stringify(payload), { expirationTtl: 30 });
+        await kv.put(cacheKey, JSON.stringify(payload), { expirationTtl: 300 });
       } catch (_) {}
     }
 
@@ -412,7 +412,7 @@ export async function onRequestGet(context: { request: Request; env?: Env }): Pr
         'Content-Type': 'application/json',
         'Cache-Control': isPrivateOrAuthed
           ? 'private, no-cache, no-store, must-revalidate'
-          : 'public, max-age=5, stale-while-revalidate=15',
+          : 'public, max-age=30, s-maxage=300, stale-while-revalidate=60',
         'Vary': 'Accept, Authorization, X-User-Fingerprint, X-Facet-Id',
         'ETag': etag,
         'X-Edge-Storage': db ? 'Cloudflare-D1' : 'Edge-Isolate-Memory',

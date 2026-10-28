@@ -197,7 +197,7 @@ export async function onRequestGet(context: {
   const modifiedResponse = injectPostSeo(baseResponse, post, url);
 
   const headers = new Headers(modifiedResponse.headers);
-  headers.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
+  headers.set('Cache-Control', 'public, max-age=60, s-maxage=3600, stale-while-revalidate=300');
   headers.set('X-Robots-Tag', hasPublicPostContent(post) ? PUBLIC_ROBOTS : 'noindex, follow');
 
   return new Response(modifiedResponse.body, {

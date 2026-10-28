@@ -298,13 +298,6 @@ export async function onRequestPost(context: { request: Request; env?: Env }): P
       return createD1UnavailableResponse();
     }
 
-    // Cache latest message in KV if available
-    if (kv) {
-      try {
-        await kv.put(`latest_msg:${newMsg.channelId}`, JSON.stringify(newMsg), { expirationTtl: 300 });
-      } catch (_) {}
-    }
-
     // In-memory isolate store sync
     const existingIndex = globalMessagesStore.findIndex(
       (m) =>
